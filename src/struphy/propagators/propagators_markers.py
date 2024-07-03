@@ -14,6 +14,7 @@ from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibriu
 from struphy.pic.particles import Particles6D, Particles5D, Particles3D
 from struphy.pic.base import Particles
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.io.setup import descend_options_dict
 
 
 class PushEta(Propagator):
@@ -31,17 +32,25 @@ class PushEta(Propagator):
 
     Available algorithms:
 
+    * ``rk4`` (4th order, default)
     * ``forward_euler`` (1st order)
     * ``heun2`` (2nd order)
     * ``rk2`` (2nd order)
     * ``heun3`` (3rd order)
-    * ``rk4`` (4th order, default)
     """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
 
     def __init__(self,
                  particles: Particles,
                  *,
-                 algo: str = 'rk4',
+                 algo: str = options(default=True)['algo'],
                  bc_type: list = ['reflect', 'periodic', 'periodic']):
 
         super().__init__(particles)
@@ -86,12 +95,6 @@ class PushEta(Propagator):
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
-        return dct
-
 
 class PushVxB(Propagator):
     r"""For each marker :math:`p`, solves
@@ -109,10 +112,18 @@ class PushVxB(Propagator):
     Available algorithms: ``analytic``, ``implicit``.
     """
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['analytic', 'implicit']
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
     def __init__(self,
                  particles: Particles6D,
                  *,
-                 algo: str = 'analytic',
+                 algo: str = options(default=True)['algo'],
                  scale_fac: float = 1.,
                  b_eq: BlockVector | PolarVector,
                  b_tilde: BlockVector | PolarVector):
@@ -150,12 +161,6 @@ class PushVxB(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['analytic', 'implicit']
-        return dct
 
 
 class StepPushpxBHybrid(Propagator):
@@ -434,27 +439,42 @@ class PushGuidingCenterBxEstar(Propagator):
 
     Available algorithms:
 
+    * ``discrete_gradient`` (2nd order, implicit, default)
+    * ``discrete_gradient_faster`` (1st order, implicit)
+    * ``discrete_gradient_Itoh_Newton`` (2nd order, implicit)
     * ``forward_euler`` (1st order, explicit)
     * ``heun2`` (2nd order, explicit)
     * ``rk2`` (2nd order, explicit)
     * ``heun3`` (3rd order, explicit)
     * ``rk4`` (4th order, explicit)
-    * ``discrete_gradient`` (2nd order, implicit, default)
-    * ``discrete_gradient_faster`` (1st order, implicit)
-    * ``discrete_gradient_Itoh_Newton`` (2nd order, implicit)
     """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = {'method': ['discrete_gradient',
+                                  'discrete_gradient_faster',
+                                  'discrete_gradient_Itoh_Newton',
+                                  'rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3'],
+                       'maxiter': 20,
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
 
     def __init__(self,
                  particles: Particles5D,
                  *,
                  magn_bckgr: MHDequilibrium,
                  epsilon: float = 1.,
-                 algo: dict = {
-                     'method': 'discrete_gradient',
-                     'maxiter': 20,
-                     'tol': 1e-07,
-                     'mpi_sort': 'each',
-                     'verbose': False}):
+                 algo: dict = options(default=True)['algo']):
 
         super().__init__(particles)
 
@@ -600,23 +620,6 @@ class PushGuidingCenterBxEstar(Propagator):
 
             self.particles[0].update_weights()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',
-                                  'discrete_gradient',
-                                  'discrete_gradient_faster',
-                                  'discrete_gradient_Itoh_Newton'],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
-
 
 class PushGuidingCenterParallel(Propagator):
     r"""For each marker :math:`p`, solves
@@ -651,27 +654,43 @@ class PushGuidingCenterParallel(Propagator):
 
     Available algorithms:
 
+    * ``discrete_gradient`` (2nd order, implicit)
+    * ``discrete_gradient_faster`` (2nd order, implicit, default)
+    * ``discrete_gradient_Itoh_Newton`` (2nd order, implicit)
     * ``forward_euler`` (1st order, explicit)
     * ``heun2`` (2nd order, explicit)
     * ``rk2`` (2nd order, explicit)
     * ``heun3`` (3rd order, explicit)
     * ``rk4`` (4th order, explicit)
-    * ``discrete_gradient`` (2nd order, implicit)
-    * ``discrete_gradient_faster`` (2nd order, implicit, default)
-    * ``discrete_gradient_Itoh_Newton`` (2nd order, implicit)
     """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = {'method': ['discrete_gradient_faster',
+                                  'discrete_gradient',
+                                  'discrete_gradient_Itoh_Newton',
+                                  'rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3',
+                                  ],
+                       'maxiter': 20,
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
 
     def __init__(self,
                  particles: Particles5D,
                  *,
                  magn_bckgr: MHDequilibrium,
                  epsilon: float = 1.,
-                 algo: dict = {
-                     'method': 'discrete_gradient_faster',
-                     'maxiter': 20,
-                     'tol': 1e-07,
-                     'mpi_sort': 'each',
-                     'verbose': False}):
+                 algo: dict = options(default=True)['algo']):
 
         super().__init__(particles)
 
@@ -815,23 +834,6 @@ class PushGuidingCenterParallel(Propagator):
                     epsilon=self._epsilon, abs_B0=self._abs_b)
 
             self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',
-                                  'discrete_gradient',
-                                  'discrete_gradient_faster',
-                                  'discrete_gradient_Itoh_Newton'],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
 
 
 class StepVinEfield(Propagator):
@@ -1888,19 +1890,28 @@ class PushDeterministicDiffusion(Propagator):
     where :math:`D>0` is a positive diffusion coefficient. 
     Available algorithms:
 
+    * ``rk4`` (4th order, default)
     * ``forward_euler`` (1st order)
     * ``heun2`` (2nd order)
     * ``rk2`` (2nd order)
     * ``heun3`` (3rd order)
-    * ``rk4`` (4th order)
     """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        dct['diffusion_coefficient'] = 1.
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
 
     def __init__(self,
                  particles: Particles3D,
                  *,
-                 algo: str = 'rk4',
+                 algo: str = options(default=True)['algo'],
                  bc_type: list = ['periodic', 'periodic', 'periodic'],
-                 diffusion_coefficient: float = 1.):
+                 diffusion_coefficient: float = options()['diffusion_coefficient']):
 
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
@@ -1965,13 +1976,6 @@ class PushDeterministicDiffusion(Propagator):
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
-        dct['diffusion_coefficient'] = 1.
-        return dct
-
 
 class PushRandomDiffusion(Propagator):
     r"""For each marker :math:`p`, solves
@@ -1993,11 +1997,20 @@ class PushRandomDiffusion(Propagator):
     * ``forward_euler`` (1st order)
     """
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['forward_euler']
+        dct['diffusion_coefficient'] = 1.
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
     def __init__(self,
                  particles: Particles3D,
-                 algo: str = 'forward_euler',
+                 algo: str = options(default=True)['algo'],
                  bc_type: list = ['periodic', 'periodic', 'periodic'],
-                 diffusion_coefficient: float = 1.):
+                 diffusion_coefficient: float = options()['diffusion_coefficient']):
 
         super().__init__(particles)
 
@@ -2040,10 +2053,3 @@ class PushRandomDiffusion(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['forward_euler']
-        dct['diffusion_coefficient'] = 1.
-        return dct

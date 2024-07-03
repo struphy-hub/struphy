@@ -370,16 +370,28 @@ class ShearAlfven(Propagator):
     the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
     '''
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
+
     def __init__(self,
                  u: BlockVector,
                  b: BlockVector,
                  *,
-                 u_space: str = 'Hdiv',
-                 solver: dict = {'type': ('pcg', 'MassMatrixPreconditioner'),
-                                 'tol': 1e-8,
-                                 'maxiter': 3000,
-                                 'info': False,
-                                 'verbose': False}):
+                 u_space: str = options(default=True)['u_space'],
+                 solver: dict = options(default=True)['solver']):
 
         super().__init__(u, b)
 
@@ -449,19 +461,6 @@ class ShearAlfven(Propagator):
             print('Maxdiff up for ShearAlfven:', max_du)
             print('Maxdiff b2 for ShearAlfven:', max_db)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
 
 class ShearAlfvenB1(Propagator):
@@ -745,18 +744,30 @@ class Magnetosonic(Propagator):
         \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,.
     '''
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
+
     def __init__(self,
                  n: StencilVector,
                  u: BlockVector,
                  p: StencilVector,
                  *,
-                 u_space: str = 'Hdiv',
+                 u_space: str = options(default=True)['u_space'],
                  b: BlockVector,
-                 solver: dict = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
-                                 'tol': 1e-8,
-                                 'maxiter': 3000,
-                                 'info': False,
-                                 'verbose': False}):
+                 solver: dict = options(default=True)['solver']):
 
         super().__init__(n, u, p)
 
@@ -860,18 +871,6 @@ class Magnetosonic(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False}
-        return dct
 
 
 class SonicIon(Propagator):
@@ -2405,23 +2404,38 @@ class ImplicitDiffusion(Propagator):
         Parameters for the iterative solver (see ``__init__`` for details).
     """
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['model'] = {'sigma_1': 1.,
+                        'sigma_2': 0.,
+                        'sigma_3': 1.,
+                        'stab_mat': ['M0', 'M0ad'],
+                        'diffusion_mat': ['M1', 'M1perp']}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': False}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
+
     def __init__(self,
                  phi: StencilVector,
                  *,
-                 sigma_1: float = 1.,
-                 sigma_2: float = 0.,
-                 sigma_3: float = 1.,
+                 sigma_1: float = options()['model']['sigma_1'],
+                 sigma_2: float = options()['model']['sigma_2'],
+                 sigma_3: float = options()['model']['sigma_3'],
                  divide_by_dt: bool = False,
-                 stab_mat: str = 'M0',
-                 diffusion_mat: str = 'M1',
+                 stab_mat: str = options(default=True)['model']['stab_mat'],
+                 diffusion_mat: str = options(default=True)['model']['diffusion_mat'],
                  rho: StencilVector | tuple | list = None,
                  x0: StencilVector = None,
-                 solver: dict = {'type': ('pcg', 'MassMatrixPreconditioner'),
-                                 'tol': 1e-8,
-                                 'maxiter': 3000,
-                                 'info': False,
-                                 'verbose': False,
-                                 'recycle': False}):
+                 solver: dict = options(default=True)['solver']):
 
         assert phi.space == self.derham.Vh['0']
 
@@ -2589,24 +2603,6 @@ class ImplicitDiffusion(Propagator):
 
         self.feec_vars_update(out)
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['model'] = {'sigma_1': 0.,
-                        'sigma_2': 0.,
-                        'sigma_3': 1.,
-                        'stab_mat': ['M0', 'M0ad'],
-                        'diffusion_mat': ['M1', 'M1perp']}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': False,
-                         'recycle': True}
-        return dct
-
 
 class VariationalMomentumAdvection(Propagator):
     r''':ref:`FEEC <gempic>` discretization of the following equations: 
@@ -2638,18 +2634,29 @@ class VariationalMomentumAdvection(Propagator):
         \hat{\mathbf{u}}_h^{n+1/2} = (\mathbf{u}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \,, \qquad \hat{\mathbf A}^1_{\mu,h} = \nabla P_\mu((\mathbf u^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v)] \in V_h^1\,, \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
     '''
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['lin_solver'] = {'tol': 1e-12,
+                             'maxiter': 500,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'info': False,
+                             'verbose': False}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                                'maxiter': 100,
+                                'type': ['Newton', 'Picard']}
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
+
     def __init__(self,
                  u: BlockVector,
                  *,
                  mass_ops: WeightedMassOperator,
-                 lin_solver: dict = {'tol': 1e-12,
-                                     'maxiter': 500,
-                                     'type': ('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                     'info': False,
-                                     'verbose': False},
-                 nonlin_solver: dict = {'tol': 1e-8,
-                                        'maxiter': 100,
-                                        'type': 'Newton'}):
+                 lin_solver: dict = options(default=True)['lin_solver'],
+                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
         super().__init__(u)
 
@@ -2802,20 +2809,6 @@ class VariationalMomentumAdvection(Propagator):
 
         self.feec_vars_update(un1)
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'info': False,
-                             'verbose': False}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton', 'Picard']}
-        return dct
-
     def _initialize_mass(self):
         """Initialization of the mass matrix solver"""
         # weighted mass matrix to go from m to u
@@ -2904,24 +2897,37 @@ class VariationalDensityEvolve(Propagator):
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{\rho}_h^{k} = (\rho^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} .
     '''
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['lin_solver'] = {'tol': 1e-12,
+                             'maxiter': 500,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'info': False,
+                             'verbose': False,
+                             'recycle': True}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                                'maxiter': 100,
+                                'type': ['Newton', 'Picard'], }
+        dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
+        
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
+
     def __init__(self,
                  rho: StencilVector,
                  u: BlockVector,
                  *,
                  model: str = 'barotropic',
-                 gamma: float = 5/3,
+                 gamma: float = options()['physics']['gamma'],
                  s: StencilVector = None,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = False,
-                 lin_solver: dict = {'tol': 1e-12,
-                                     'maxiter': 500,
-                                     'type': ('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                     'info': False,
-                                     'verbose': False,
-                                     'recycle': True},
-                 nonlin_solver: dict = {'tol': 1e-8,
-                                        'maxiter': 100,
-                                        'type': 'Newton'}):
+                 implicit_transport: bool = options()['physics']['implicit_transport'],
+                 lin_solver: dict = options(default=True)['lin_solver'],
+                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
         super().__init__(rho, u)
 
@@ -3181,22 +3187,6 @@ class VariationalDensityEvolve(Propagator):
                 f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(rhon1, un1)
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'info': False,
-                             'verbose': False,
-                             'recycle': True}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton', 'Picard'], }
-        dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
-        return dct
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
@@ -3819,23 +3809,38 @@ class VariationalEntropyEvolve(Propagator):
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
     '''
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['lin_solver'] = {'tol': 1e-12,
+                             'maxiter': 500,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'info': False,
+                             'verbose': False,
+                             'implicit_transport': False}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                                'maxiter': 100,
+                                'type': ['Newton', 'Picard'],
+                                'implicit_transport': False}
+        dct['physics'] = {'gamma': 5/3}
+        
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
+
     def __init__(self,
                  s: StencilVector,
                  u: BlockVector,
                  *,
                  model: str = 'full',
-                 gamma: float = 5/3,
+                 gamma: float = options()['physics']['gamma'],
                  rho: StencilVector,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = False,
-                 lin_solver: dict = {'tol': 1e-12,
-                                     'maxiter': 500,
-                                     'type': ('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                     'info': False,
-                                     'verbose': False},
-                 nonlin_solver: dict = {'tol': 1e-8,
-                                        'maxiter': 100,
-                                        'type': 'Newton'}):
+                 implicit_transport: bool = options()['lin_solver']['implicit_transport'],
+                 lin_solver: dict = options(default=True)['lin_solver'],
+                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
         super().__init__(s, u)
 
@@ -4087,23 +4092,6 @@ class VariationalEntropyEvolve(Propagator):
                     f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(sn1, un1)
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'info': False,
-                             'verbose': False,
-                             'implicit_transport': False}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton', 'Picard'],
-                                'implicit_transport': False}
-        dct['physics'] = {'gamma': 5/3}
-        return dct
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
@@ -5987,11 +5975,20 @@ class TimeDependentSource(Propagator):
     * :math:`h(\omega t) = \sin(\omega t)` 
     '''
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['omega'] = 1.
+        dct['hfun'] = ['cos', 'sin']
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
     def __init__(self,
                  c: StencilVector,
                  *,
-                 omega: float = 1.,
-                 hfun: str = 'cos'):
+                 omega: float = options()['omega'],
+                 hfun: str = options(default=True)['hfun']):
 
         super().__init__(c)
 
@@ -6018,13 +6015,6 @@ class TimeDependentSource(Propagator):
 
         # write new coeffs into self.feec_vars
         max_dc = self.feec_vars_update(cn1)
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['omega'] = 1.
-        dct['hfun'] = ['cos', 'sin']
-        return dct
 
 
 class AdiabaticPhi(Propagator):

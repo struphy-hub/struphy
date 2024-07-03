@@ -409,8 +409,16 @@ def pre_processing(model_name: str,
     return params
 
 
-def descend_options_dict(d, out, d_default=None, d_opts=None, keys=None, depth=0, pop_again=False):
-    '''Prepare parameter sub-dicts from model options dict.
+def descend_options_dict(d: dict, 
+                         out: list | dict,
+                         *, 
+                         d_default: dict = None, 
+                         d_opts: dict = None, 
+                         keys: list = None, 
+                         depth: int = 0,
+                         pop_again: bool = False):
+    '''Create all possible parameter dicts from a model options dict, 
+    by looping through options.
 
     If d_default=None, will return the default parameter dict of a model
     (takes first list entries of options dict).
