@@ -3,6 +3,7 @@
 
 from numpy import array, polynomial, random
 
+from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.polar.basic import PolarVector
@@ -1444,91 +1445,65 @@ class PushDriftKineticParallelZeroEfield(Propagator):
 
 
 class PushDriftKineticBxEstar(Propagator):
-    r"""Particle pushing step for guiding center :math:`E\times B`-drift:
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &=  \frac{1}{B_\parallel^*} \mathbf E^* \times \mathbf b_0 \,,
-                \\
-                \dot v_\parallel &= 0 \,.
-            \end{aligned}
-        \right.
+        \dot{\mathbf X}_p =  \frac{1}{B_\parallel^*} \mathbf E^* \times \mathbf b_0 \,(\mathbf X_p) \,,
 
-    where 
+    where :math:`v_{\parallel,p}` is constant and
 
     .. math::
 
         \mathbf{E}^* &=  - \nabla \phi - \frac{\varepsilon}{Z}\,\mu \, \nabla |B_0|\,,
         \\[2mm]
-        B^*_\parallel &= |B_0| + \frac{\varepsilon}{Z} v_\parallel (\nabla \times \mathbf{b}_0) \cdot  \mathbf{b}_0 \,. 
+        B^*_\parallel &= |B_0| + \frac{\varepsilon}{Z} v_\parallel (\nabla \times \mathbf{b}_0) \cdot  \mathbf{b}_0 \,,
 
-    Marker update:
+    in logical space given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &=  \frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf E}^{*1}(\boldsymbol \eta_p, \mu_p) \times  \hat{\mathbf b}^1_0(\boldsymbol \eta_p) \,,
-            \\
-            \dot v_{\parallel,\,p} &= 0 \,.
-        \end{aligned}
+        \dot{\boldsymbol \eta}_p =  \frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf E}^{*1}(\boldsymbol \eta_p, \mu_p) \times  \hat{\mathbf b}^1_0(\boldsymbol \eta_p) \,.
 
-    for each marker :math:`p` in markers array. Available algorithms:
+    Available algorithms:
 
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (1st order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
-
-    phi0 : StencilVector
-        Electrostatic potential.
-
-    magn_bckgr: BraginskiiEquilibrium
-        Electrostatic background.
-
-    epsilon : float
-        Normalization parameter :math:`1/(\hat \Omega_i \hat t)`.
-
-    **algo_params : dict
-        Algorithmic parameters.
+    * ``rk4`` (4th order, explicit, default)
+    * ``forward_euler`` (1st order, explicit)
+    * ``heun2`` (2nd order, explicit)
+    * ``rk2`` (2nd order, explicit)
+    * ``heun3`` (3rd order, explicit)
     """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = {'method': ['rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3',],
+                       'maxiter': 20,
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
 
     def __init__(self,
                  particles,
                  *,
-                 phi0=None,
-                 magn_bckgr: BraginskiiEquilibrium = None,
-                 epsilon=1.,
-                 Z=1,
-                 **algo_params):
+                 phi: StencilVector,
+                 magn_bckgr: MHDequilibrium | BraginskiiEquilibrium = None,
+                 epsilon: float = 1.,
+                 Z: int = 1,
+                 algo: dict = options(default=True)['algo']):
 
         super().__init__(particles)
 
-        # types
-        # assert isinstance(magn_bckgr, BraginskiiEquilibrium)
-
-        # parameters
-        algo_params_default = {
-            'method': 'rk4',
-            'maxiter': 20,
-            'tol': 1e-07,
-            'mpi_sort': 'each',
-            'verbose': False}
-
-        algo_params = set_defaults(algo_params, algo_params_default)
-
-        self._mpi_sort = algo_params['mpi_sort']
-        self._verbose = algo_params['verbose']
+        self._mpi_sort = algo['mpi_sort']
+        self._verbose = algo['verbose']
 
         # magnetic field
         absB0 = self.derham.P['0'](magn_bckgr.absB0)
@@ -1544,56 +1519,56 @@ class PushDriftKineticBxEstar(Propagator):
         curl_unit_b1 = self.derham.curl.dot(unit_b1)
 
         # expose phi for use in __call__
-        self._phi0 = phi0
+        self._phi = phi
         self._e1 = self.derham.Vh['1'].zeros()
 
         _eval_ker_names = []
 
-        if algo_params['method'] == 'forward_euler':
+        if algo['method'] == 'forward_euler':
             _method = 'explicit'
             a = []
             b = [1.]
             c = [0.]
-        elif algo_params['method'] == 'heun2':
+        elif algo['method'] == 'heun2':
             _method = 'explicit'
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif algo_params['method'] == 'rk2':
+        elif algo['method'] == 'rk2':
             _method = 'explicit'
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif algo_params['method'] == 'heun3':
+        elif algo['method'] == 'heun3':
             _method = 'explicit'
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif algo_params['method'] == 'rk4':
+        elif algo['method'] == 'rk4':
             _method = 'explicit'
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
-        elif algo_params['method'] == 'discrete_gradient':
+        elif algo['method'] == 'discrete_gradient':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstarwithPhi_' + algo_params['method']
+            _kernel_name = 'push_gc_bxEstarwithPhi_' + algo['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval_gradI']
-        elif algo_params['method'] == 'discrete_gradient_faster':
+                                algo['method'] + '_eval_gradI']
+        elif algo['method'] == 'discrete_gradient_faster':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval_gradI']
-        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
+                                algo['method'] + '_eval_gradI']
+        elif algo['method'] == 'discrete_gradient_Itoh_Newton':
             _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
+            _kernel_name = 'push_gc_bxEstar_' + algo['method']
             _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval1',
+                                algo['method'] + '_eval1',
                                 'gc_bxEstar_' +
-                                algo_params['method'] + '_eval2']
+                                algo['method'] + '_eval2']
         else:
             raise NotImplementedError(
-                f'Chosen method {algo_params["method"]} is not implemented.')
+                f'Chosen method {algo["method"]} is not implemented.')
 
         if _method == 'explicit':
             butcher = ButcherTableau(a, b, c)
@@ -1616,8 +1591,8 @@ class PushDriftKineticBxEstar(Propagator):
                                   _kernel_name,
                                   init_kernel=True,
                                   eval_kernels_names=_eval_ker_names,
-                                  maxiter=algo_params['maxiter'],
-                                  tol=algo_params['tol'])
+                                  maxiter=algo['maxiter'],
+                                  tol=algo['tol'])
 
             self._pusher_inputs = (gradB1[0]._data, gradB1[1]._data, gradB1[2]._data,
                                    absB0._data,
@@ -1625,15 +1600,15 @@ class PushDriftKineticBxEstar(Propagator):
                                    unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                                    epsilon,
                                    Z,
-                                   algo_params['maxiter'], algo_params['tol'])
+                                   algo['maxiter'], algo['tol'])
 
     def __call__(self, dt):
         """
         TODO
         """
 
-        # efield=self._grad_phi0
-        e1 = self._e1 = self.derham.grad.dot(-self._phi0, out=self._e1)
+        # efield=self._grad_phi
+        e1 = self.derham.grad.dot(-self._phi, out=self._e1)
         e1.update_ghost_regions()
 
         self._pusher(self.particles[0], dt,
@@ -1641,8 +1616,51 @@ class PushDriftKineticBxEstar(Propagator):
                      *self._pusher_inputs,
                      mpi_sort=self._mpi_sort, verbose=self._verbose)
 
-    @classmethod
-    def options(cls):
+
+class PushDriftKineticParallel(Propagator):
+    r"""For each marker :math:`p`, solves
+
+    .. math::
+
+        \left\{ 
+            \begin{aligned} 
+                \dot{\mathbf X}_p &= v_{\parallel,p} \frac{\mathbf B^*}{B^*_\parallel}(\mathbf X_p, v_{\parallel,p}) \,,
+                \\[2mm]
+                \dot v_{\parallel,p} &=  \frac{Z}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* (\mathbf X_p, v_{\parallel,p}) \,,
+            \end{aligned}
+        \right.
+
+    where 
+
+    .. math::
+
+        \mathbf{E}^* &=  - \nabla \phi - \frac{\varepsilon}{Z} \,\mu \, \nabla |B_0|\,,
+        \\[2mm]
+        \mathbf B^* &=  \mathbf B_0 + \frac{\varepsilon}{Z} v_\parallel \nabla \times \mathbf b_0\,,
+        \\[2mm]
+        B^*_\parallel &= |B_0| + \frac{\varepsilon}{Z} v_\parallel (\nabla \times \mathbf{b}_0) \cdot  \mathbf{b}_0 \,,
+
+    in logical space given by :math:`\mathbf X = F(\boldsymbol \eta)`:
+
+    .. math::
+
+        \begin{aligned}
+            \dot{\boldsymbol \eta}_p &= \frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
+            \\[2mm]
+            \dot v_{\parallel,\,p} &= \frac{Z}{\varepsilon}\frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf E}^{*1} (\boldsymbol \eta_p, v_{\parallel,\,p})\cdot \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \,.
+        \end{aligned}
+
+    Available algorithms:
+
+    * ``rk4`` (4th order, explicit, default)
+    * ``forward_euler`` (1st order, explicit)
+    * ``heun2`` (2nd order, explicit)
+    * ``rk2`` (2nd order, explicit)
+    * ``heun3`` (3rd order, explicit)
+    """
+
+    @staticmethod
+    def options(default=False):
         dct = {}
         dct['algo'] = {'method': ['rk4',
                                   'forward_euler',
@@ -1653,91 +1671,26 @@ class PushDriftKineticBxEstar(Propagator):
                        'tol': 1e-7,
                        'mpi_sort': 'each',
                        'verbose': False}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
         return dct
-
-
-class PushDriftKineticParallel(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*`-acceleration,
-
-    .. math::
-
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &= v_\parallel \frac{\mathbf B^*}{B^*_\parallel} \,,
-                \\
-                \dot v_\parallel &=  \frac{Z}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* \,,
-            \end{aligned}
-        \right.
-
-    where 
-
-    .. math::
-
-        \mathbf{E}^* &=  - \nabla \phi - \frac{\varepsilon}{Z} \,\mu \, \nabla |B_0|\,,
-        \\
-        \mathbf B^* &=  \mathbf B_0 + \frac{\varepsilon}{Z} v_\parallel \nabla \times \mathbf b_0\,,
-        \\[2mm]
-        B^*_\parallel &= |B_0| + \frac{\varepsilon}{Z} v_\parallel (\nabla \times \mathbf{b}_0) \cdot  \mathbf{b}_0 \,. 
-
-
-    Marker update:
-
-    .. math::
-
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
-            \\
-            \dot v_{\parallel,\,p} &= \frac{Z}{\varepsilon}\frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf E}^{*1} (\boldsymbol \eta_p, v_{\parallel,\,p})\cdot \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \,.
-        \end{aligned}
-
-    for each marker :math:`p` in markers array. Available algorithms:
-
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (2nd order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles5D
-        Particles object.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
-    """
 
     def __init__(self,
                  particles: Particles5D,
                  *,
-                 phi0=None,
-                 magn_bckgr=None,
-                 epsilon=1.,
-                 Z=1,
-                 **algo_params):
+                 phi: StencilVector,
+                 magn_bckgr: MHDequilibrium | BraginskiiEquilibrium = None,
+                 epsilon: float = 1.,
+                 Z: int = 1,
+                 algo: dict = options(default=True)['algo']):
 
         super().__init__(particles)
 
-        # types
-        # assert isinstance(magn_bckgr, BraginskiiEquilibrium)
-
-        # parameters
-        algo_params_default = {
-            'method': 'rk4',
-            'maxiter': 20,
-            'tol': 1e-07,
-            'mpi_sort': 'each',
-            'verbose': False}
-
-        algo_params = set_defaults(algo_params, algo_params_default)
-
         # expose phi for use in __call__
-        self._mpi_sort = algo_params['mpi_sort']
-        self._verbose = algo_params['verbose']
-        self._phi0 = phi0
+        self._mpi_sort = algo['mpi_sort']
+        self._verbose = algo['verbose']
+        self._phi = phi
         self._e1 = self.derham.Vh['1'].zeros()
 
         # magnetic field
@@ -1759,53 +1712,53 @@ class PushDriftKineticParallel(Propagator):
 
         _eval_ker_names = []
 
-        if algo_params['method'] == 'forward_euler':
+        if algo['method'] == 'forward_euler':
             _method = 'explicit'
             a = []
             b = [1.]
             c = [0.]
-        elif algo_params['method'] == 'heun2':
+        elif algo['method'] == 'heun2':
             _method = 'explicit'
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif algo_params['method'] == 'rk2':
+        elif algo['method'] == 'rk2':
             _method = 'explicit'
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif algo_params['method'] == 'heun3':
+        elif algo['method'] == 'heun3':
             _method = 'explicit'
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif algo_params['method'] == 'rk4':
+        elif algo['method'] == 'rk4':
             _method = 'explicit'
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
-        elif algo_params['method'] == 'discrete_gradient':
+        elif algo['method'] == 'discrete_gradient':
             _method = 'implicit'
-            _kernel_name = 'push_gc_BstarWithPhi_' + algo_params['method']
+            _kernel_name = 'push_gc_BstarWithPhi_' + algo['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval_gradI']
+                                algo['method'] + '_eval_gradI']
 
-        elif algo_params['method'] == 'discrete_gradient_faster':
+        elif algo['method'] == 'discrete_gradient_faster':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval_gradI']
+                                algo['method'] + '_eval_gradI']
 
-        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
+        elif algo['method'] == 'discrete_gradient_Itoh_Newton':
             _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
+            _kernel_name = 'push_gc_Bstar_' + algo['method']
             _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval1',
+                                algo['method'] + '_eval1',
                                 'gc_Bstar_' +
-                                algo_params['method'] + '_eval2']
+                                algo['method'] + '_eval2']
         else:
             raise NotImplementedError(
-                f'Chosen method {algo_params["method"]} is not implemented.')
+                f'Chosen method {algo["method"]} is not implemented.')
 
         if _method == 'explicit':
             butcher = ButcherTableau(a, b, c)
@@ -1829,8 +1782,8 @@ class PushDriftKineticParallel(Propagator):
                                   _kernel_name,
                                   init_kernel=True,
                                   eval_kernels_names=_eval_ker_names,
-                                  maxiter=algo_params['maxiter'],
-                                  tol=algo_params['tol'])
+                                  maxiter=algo['maxiter'],
+                                  tol=algo['tol'])
 
             self._pusher_inputs = (b2_eq[0]._data, b2_eq[1]._data, b2_eq[2]._data,
                                    curl_unit_b1[0]._data, curl_unit_b1[1]._data, curl_unit_b1[2]._data,
@@ -1839,14 +1792,14 @@ class PushDriftKineticParallel(Propagator):
                                    absB0._data,
                                    epsilon,
                                    Z,
-                                   algo_params['maxiter'], algo_params['tol'])
+                                   algo['maxiter'], algo['tol'])
 
     def __call__(self, dt):
         """
         TODO
         """
-        # efield=self._grad_phi0
-        e1 = self.derham.grad.dot(-self._phi0, out=self._e1)
+        # efield=self._grad_phi
+        e1 = self.derham.grad.dot(-self._phi, out=self._e1)
         e1.update_ghost_regions()
 
         self._pusher(self.particles[0], dt,
@@ -1856,21 +1809,6 @@ class PushDriftKineticParallel(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
 
 
 class PushDeterministicDiffusion(Propagator):

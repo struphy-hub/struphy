@@ -12,7 +12,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
     .. math::
 
-        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U = \hat v = \hat u_\textnormal{h} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,,\qquad \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,,\qquad \hat n_\textnormal{h} = \hat n\,,
+        \hat U = \hat v = \hat v_\textnormal{A} \,, \qquad \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,.
 
     :ref:`Equations <gempic>`:
 
@@ -21,23 +21,23 @@ class LinearMHDVlasovCC(StruphyModel):
         \begin{align}
         \textnormal{MHD}\,\, &\left\{\,\,
         \begin{aligned}
-        &\frac{\partial \tilde{n}}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
-        \\
-        n_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p 
-        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}}\kappa\left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{u}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}}) \color{black}\,,
-        \\
+        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        \\[2mm]
+        \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p 
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{u}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}}) \color{black}\,,
+        \\[2mm]
         &\frac{\partial \tilde p}{\partial t} + (\gamma-1)\nabla\cdot(p_0 \tilde{\mathbf{U}}) 
         + p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
-        \\
+        \\[2mm]
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)\,,\qquad \nabla\cdot\tilde{\mathbf{B}}=0\,,
         \end{aligned}
         \right.
         \\[2mm]
         \textnormal{EPs}\,\, &\left\{\,\,
         \begin{aligned}
-        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t}+\mathbf{v}\cdot\nabla f_\textnormal{h} + \frac{1}{\epsilon} \left[\color{blue} (\mathbf{B}_0+\tilde{\mathbf{B}})\times\tilde{\mathbf{U}} \color{black} + \mathbf{v}\times(\mathbf{B}_0+\tilde{\mathbf{B}})\right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
-        \\
-        &\quad\,\,n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3v\,,\qquad n_\textnormal{h}\mathbf{u}_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}\,\textnormal{d}^3v\,,
+        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t}+\mathbf{v}\cdot\nabla f_\textnormal{h} + \frac{1}{\varepsilon} \left[\color{blue} (\mathbf{B}_0+\tilde{\mathbf{B}})\times\tilde{\mathbf{U}} \color{black} + \mathbf{v}\times(\mathbf{B}_0+\tilde{\mathbf{B}})\right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
+        \\[2mm]
+        &\quad\,\,n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,,\qquad n_\textnormal{h}\mathbf{u}_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}\,\textnormal{d}^3 \mathbf v\,,
         \end{aligned}
         \right.
         \end{align}
@@ -46,7 +46,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
     .. math::
 
-        \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{ch}}}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
+        \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c,hot}} \hat t}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
 
     :ref:`propagators` (called in sequence):
 
@@ -64,8 +64,8 @@ class LinearMHDVlasovCC(StruphyModel):
     def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['b2'] = 'Hdiv'
-        dct['fluid']['mhd'] = {'n3': 'L2', 'u2': 'Hdiv', 'p3': 'L2'}
+        dct['em_fields']['b_field'] = 'Hdiv'
+        dct['fluid']['mhd'] = {'rho': 'L2', 'u': 'Hdiv', 'p': 'L2'}
         dct['kinetic']['energetic_ions'] = 'Particles6D'
         return dct
 
@@ -79,12 +79,12 @@ class LinearMHDVlasovCC(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.CurrentCoupling6DDensity: ['mhd_u2'],
-                propagators_fields.ShearAlfven: ['mhd_u2', 'b2'],
-                propagators_coupling.CurrentCoupling6DCurrent: ['energetic_ions', 'mhd_u2'],
+        return {propagators_fields.CurrentCoupling6DDensity: ['mhd_u'],
+                propagators_fields.ShearAlfven: ['mhd_u', 'b_field'],
+                propagators_coupling.CurrentCoupling6DCurrent: ['energetic_ions', 'mhd_u'],
                 propagators_markers.PushEta: ['energetic_ions'],
                 propagators_markers.PushVxB: ['energetic_ions'],
-                propagators_fields.Magnetosonic: ['mhd_n3', 'mhd_u2', 'mhd_p3']}
+                propagators_fields.Magnetosonic: ['mhd_rho', 'mhd_u', 'mhd_p']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -92,23 +92,6 @@ class LinearMHDVlasovCC(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=propagators_fields.ShearAlfven.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'magnetosonic'],
-                       option=propagators_fields.Magnetosonic.options()['solver'], dct=dct)
-        cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_eta'],
-                       option=propagators_markers.PushEta.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'energetic_ions'], key=['algos', 'push_vxb'],
-                       option=propagators_markers.PushVxB.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'density'],
-                       option=propagators_fields.CurrentCoupling6DDensity.options()['solver'], dct=dct)
-        cls.add_option(species=['kinetic', 'energetic_ions'], key=['solvers', 'current'],
-                       option=propagators_coupling.CurrentCoupling6DCurrent.options()['solver'], dct=dct)
-        return dct
 
     def __init__(self, params, comm):
 
@@ -123,25 +106,23 @@ class LinearMHDVlasovCC(StruphyModel):
         u_space = 'Hdiv'
 
         # extract necessary parameters
-        params_shear_alfven = params['fluid']['mhd']['options']['solvers']['shear_alfven']
-        params_magnetosonic = params['fluid']['mhd']['options']['solvers']['magnetosonic']
-        algo_eta = params['kinetic']['energetic_ions']['options']['algos']['push_eta']
-        algo_vxb = params['kinetic']['energetic_ions']['options']['algos']['push_vxb']
-        params_density = params['kinetic']['energetic_ions']['options']['solvers']['density']
-        params_current = params['kinetic']['energetic_ions']['options']['solvers']['current']
+        params_shear_alfven = params['fluid']['mhd']['options']['ShearAlfven']['solver']
+        params_magnetosonic = params['fluid']['mhd']['options']['Magnetosonic']['solver']
+        algo_eta = params['kinetic']['energetic_ions']['options']['PushEta']['algo']
+        algo_vxb = params['kinetic']['energetic_ions']['options']['PushVxB']['algo']
+        params_density = params['fluid']['mhd']['options']['CurrentCoupling6DDensity']['solver']
+        params_current = params['kinetic']['energetic_ions']['options']['CurrentCoupling6DCurrent']['solver']
 
         # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        kappa = 1. / self.equation_params['energetic_ions']['epsilon']
+        epsilon = self.equation_params['energetic_ions']['epsilon']
 
-        if abs(kappa - 1) < 1e-6:
-            kappa = 1.
+        if abs(epsilon - 1) < 1e-6:
+            epsilon = 1.
 
-        self._coupling_params = {}
-        self._coupling_params['Ab'] = Ab
-        self._coupling_params['Ah'] = Ah
-        self._coupling_params['kappa'] = kappa
+        self._Ab = Ab
+        self._Ah = Ah
 
         # add control variate to mass_ops object
         if self.pointer['energetic_ions'].control_variate:
@@ -163,29 +144,33 @@ class LinearMHDVlasovCC(StruphyModel):
         self._kwargs[propagators_fields.CurrentCoupling6DDensity] = {'particles': self.pointer['energetic_ions'],
                                                                      'u_space': u_space,
                                                                      'b_eq': self._b_eq,
-                                                                     'b_tilde': self.pointer['b2'],
-                                                                     **params_density,
-                                                                     **self._coupling_params}
+                                                                     'b_tilde': self.pointer['b_field'],
+                                                                     'Ab': Ab,
+                                                                     'Ah': Ah,
+                                                                     'epsilon': epsilon,
+                                                                     'solver': params_density}
 
         self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
                                                         'solver': params_shear_alfven}
 
         self._kwargs[propagators_coupling.CurrentCoupling6DCurrent] = {'u_space': u_space,
                                                                        'b_eq': self._b_eq,
-                                                                       'b_tilde': self.pointer['b2'],
-                                                                       **params_current,
-                                                                       **self._coupling_params}
+                                                                       'b_tilde': self.pointer['b_field'],
+                                                                       'Ab': Ab,
+                                                                       'Ah': Ah,
+                                                                       'epsilon': epsilon,
+                                                                       'solver': params_current}
 
         self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
                                                      'bc_type': e_ions_params['markers']['bc']['type']}
 
         self._kwargs[propagators_markers.PushVxB] = {'algo': algo_vxb,
-                                                     'scale_fac': self._coupling_params['kappa'],
+                                                     'scale_fac': 1./epsilon,
                                                      'b_eq': self._b_eq,
-                                                     'b_tilde': self.pointer['b2']}
+                                                     'b_tilde': self.pointer['b_field']}
 
         self._kwargs[propagators_fields.Magnetosonic] = {'u_space': u_space,
-                                                         'b': self.pointer['b2'],
+                                                         'b': self.pointer['b_field'],
                                                          'solver': params_magnetosonic}
 
         # Initialize propagators used in splitting substeps
@@ -213,12 +198,12 @@ class LinearMHDVlasovCC(StruphyModel):
     def update_scalar_quantities(self):
 
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer['mhd_u2'], out=self._tmp_u)
-        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_b1)
+        self._mass_ops.M2n.dot(self.pointer['mhd_u'], out=self._tmp_u)
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-        en_U = self.pointer['mhd_u2'].dot(self._tmp_u)/2
-        en_B = self.pointer['b2'].dot(self._tmp_b1)/2
-        en_p = self.pointer['mhd_p3'].dot(self._ones)/(5/3 - 1)
+        en_U = self.pointer['mhd_u'].dot(self._tmp_u)/2
+        en_B = self.pointer['b_field'].dot(self._tmp_b1)/2
+        en_p = self.pointer['mhd_p'].dot(self._ones)/(5/3 - 1)
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_B', en_B)
@@ -228,7 +213,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
 
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer['b2']
+        self._tmp_b1 += self.pointer['b_field']
 
         self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 
@@ -237,7 +222,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self.update_scalar('en_B_tot', en_Btot)
 
         # particles
-        self._tmp[0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self.pointer['energetic_ions'].markers_wo_holes[:, 6].dot(
+        self._tmp[0] = self._Ah/self._Ab*self.pointer['energetic_ions'].markers_wo_holes[:, 6].dot(
             self.pointer['energetic_ions'].markers_wo_holes[:, 3]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 4]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 5]**2)/(2*self.pointer['energetic_ions'].n_mks)
@@ -842,96 +827,100 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
 
 class ColdPlasmaVlasov(StruphyModel):
-    r'''Cold plasma hybrid model
+    r'''Cold plasma hybrid model.
 
-    Normalization:
-
-    .. math::
-
-        &c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,, \quad \alpha = \frac{\hat \Omega_\textnormal{pc}}{\hat \Omega_\textnormal{cc}}\,, \quad \varepsilon_\textnormal{c} = \frac{\hat{\omega}}{\hat \Omega_\textnormal{cc}}\,, \quad \varepsilon_\textnormal{h} = \frac{\hat{\omega}}{\hat \Omega_\textnormal{ch}}\,,
-
-        &\hat j_\textnormal{c} = q_\textnormal{c} c \hat n_\textnormal{c}\,, \quad \hat j_\textnormal{h} = q_\textnormal{h} c \hat n_\textnormal{c}\,, \quad \hat f = \frac{\hat n_\textnormal{c}}{c^3} \,, \quad \nu = \frac{q_\textnormal{h}}{q_\textnormal{c}}\,,
-
-    where :math:`c` is the vacuum speed of light, :math:`\hat \Omega_\textnormal{cc}` the cold electron cyclotron frequency,
-    :math:`\hat \Omega_\textnormal{pc}` the cold electron plasma frequency,  :math:`\hat \Omega_\textnormal{ch}` the hot electron cyclotron frequency,
-    and :math:`\hat \Omega_\textnormal{ph}` the hot electron plasma frequency.
-    Implemented equations:
+    :ref:`normalization`:
 
     .. math::
 
-        &\partial_t f + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon_\textnormal{h}}\left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
+        \hat v = c\,,\qquad \hat E = c \hat B \,,\qquad \hat f = \frac{\hat n}{c^3} \,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon_\textnormal{h}}\Big[ \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \Big]
             \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-
+        \\[2mm]
+        \frac{1}{n_0} &\frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,,
+        \\[2mm]
         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
-
-        &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+        \\[2mm]
+        -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
         \frac{\alpha^2}{\varepsilon_\textnormal{c}} \left( \mathbf j_\textnormal{c} + \nu  \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right) \,,
 
-        &\frac{1}{n_0} \frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,.
+    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
 
-    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background.
+    .. math::
 
-    At initial time the Poisson equation is solved once to weakly satisfy the Gauss law
+        \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}\,, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}\,, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,, \qquad \nu = \frac{Z_\textnormal{h}}{Z_\textnormal{c}}\,.
+
+    At initial time the Poisson equation is solved once to weakly satisfy the Gauss law:
 
     .. math::
 
         \begin{align}
-            \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{c}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}
+            \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{c}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}\,.
         \end{align}
-
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
 
     Note
     ----------
     If hot and cold particles are of the same species (:math:`Z_\textnormal{c} = Z_\textnormal{h} \,, A_\textnormal{c} = A_\textnormal{h}`) then :math:`\varepsilon_\textnormal{c} = \varepsilon_\textnormal{h}` and :math:`\nu = 1`.
+
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    2. :class:`~struphy.propagators.propagators_fields.OhmCold`
+    3. :class:`~struphy.propagators.propagators_fields.JxBCold`
+    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    5. :class:`~struphy.propagators.propagators_markers.PushEta` 
+    6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['e1'] = 'Hcurl'
-        dct['em_fields']['b2'] = 'Hdiv'
-        dct['fluid']['coldelectrons'] = {'j1': 'Hcurl'}
-        dct['kinetic']['hotelectrons'] = 'Particles6D'
+        dct['em_fields']['e_field'] = 'Hcurl'
+        dct['em_fields']['b_field'] = 'Hdiv'
+        dct['fluid']['cold_electrons'] = {'j': 'Hcurl'}
+        dct['kinetic']['hot_electrons'] = 'Particles6D'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
-        return 'coldelectrons'
+    @staticmethod
+    def bulk_species():
+        return 'cold_electrons'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'light'
 
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.Maxwell: ['e_field', 'b_field'],
+                propagators_fields.OhmCold: ['cold_electrons_j', 'e_field'],
+                propagators_fields.JxBCold: ['cold_electrons_j'],
+                propagators_markers.PushEta: ['hot_electrons'],
+                propagators_markers.PushVxB: ['hot_electrons'],
+                propagators_coupling.VlasovAmpere: ['e_field', 'hot_electrons']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import Maxwell, OhmCold, JxBCold, ImplicitDiffusion
-        from struphy.propagators.propagators_markers import PushEta, PushVxB
-        from struphy.propagators.propagators_coupling import VlasovAmpere
-
-        dct = {}
-        cls.add_option(species=['em_fields'], key=['solvers', 'maxwell'],
-                       option=Maxwell.options()['solver'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['solvers', 'poisson'],
-                       option=ImplicitDiffusion.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'coldelectrons'], key=['solvers', 'ohmcold'],
-                       option=OhmCold.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'coldelectrons'], key=['solvers', 'jxbcold'],
-                       option=JxBCold.options()['solver'], dct=dct)
-        cls.add_option(species=['kinetic', 'hotelectrons'], key=['algos', 'push_eta'],
-                       option=PushEta.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'hotelectrons'], key=['algos', 'push_vxb'],
-                       option=PushVxB.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'hotelectrons'], key=['solver'],
-                       option=VlasovAmpere.options()['solver'], dct=dct)
+        dct = super().options()
+        cls.add_option(species=['em_fields'],
+                       option=propagators_fields.ImplicitDiffusion,
+                       dct=dct)
         return dct
 
     def __init__(self, params, comm):
@@ -944,16 +933,16 @@ class ColdPlasmaVlasov(StruphyModel):
         self._rank = comm.Get_rank()
 
         # prelim
-        electron_params = params['kinetic']['hotelectrons']
+        hot_params = params['kinetic']['hot_electrons']
 
         # model parameters
         self._alpha = np.abs(
-            self.equation_params['coldelectrons']['alpha'])
-        self._epsilon_cold = self.equation_params['coldelectrons']['epsilon']
-        self._epsilon_hot = self.equation_params['hotelectrons']['epsilon']
+            self.equation_params['cold_electrons']['alpha'])
+        self._epsilon_cold = self.equation_params['cold_electrons']['epsilon']
+        self._epsilon_hot = self.equation_params['hot_electrons']['epsilon']
 
-        self._nu = electron_params['phys_params']['Z'] / \
-            params['fluid']['coldelectrons']['phys_params']['Z']
+        self._nu = hot_params['phys_params']['Z'] / \
+            params['fluid']['cold_electrons']['phys_params']['Z']
 
         # Initialize background magnetic field from MHD equilibrium
         self._b_background = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -961,45 +950,38 @@ class ColdPlasmaVlasov(StruphyModel):
                                                  self.mhd_equil.b2_3])
 
         # propagator parameters
-        params_maxwell = params['em_fields']['options']['solvers']['maxwell']
-        self._poisson_params = params['em_fields']['options']['solvers']['poisson']
-        params_ohmcold = params['fluid']['coldelectrons']['options']['solvers']['ohmcold']
-        params_jxbcold = params['fluid']['coldelectrons']['options']['solvers']['jxbcold']
-        algo_eta = params['kinetic']['hotelectrons']['options']['algos']['push_eta']
-        algo_vxb = params['kinetic']['hotelectrons']['options']['algos']['push_vxb']
-        params_coupling = params['kinetic']['hotelectrons']['options']['solver']
+        params_maxwell = params['em_fields']['options']['Maxwell']['solver']
+        params_ohmcold = params['fluid']['cold_electrons']['options']['OhmCold']['solver']
+        params_jxbcold = params['fluid']['cold_electrons']['options']['JxBCold']['solver']
+        algo_eta = params['kinetic']['hot_electrons']['options']['PushEta']['algo']
+        algo_vxb = params['kinetic']['hot_electrons']['options']['PushVxB']['algo']
+        params_coupling = params['em_fields']['options']['VlasovAmpere']['solver']
+        self._poisson_params = params['em_fields']['options']['ImplicitDiffusion']['solver']
 
-        self.add_propagator(self.prop_fields.Maxwell(
-            self.pointer['e1'],
-            self.pointer['b2'],
-            solver=params_maxwell))
-        self.add_propagator(self.prop_fields.OhmCold(
-            self.pointer['coldelectrons_j1'],
-            self.pointer['e1'],
-            **params_ohmcold,
-            alpha=self._alpha,
-            epsilon=self._epsilon_cold))
-        self.add_propagator(self.prop_fields.JxBCold(
-            self.pointer['coldelectrons_j1'],
-            **params_jxbcold,
-            alpha=self._alpha,
-            epsilon=self._epsilon_cold))
-        self.add_propagator(self.prop_markers.PushEta(
-            self.pointer['hotelectrons'],
-            algo=algo_eta,
-            bc_type=electron_params['markers']['bc']['type']))
-        self.add_propagator(self.prop_markers.PushVxB(
-            self.pointer['hotelectrons'],
-            algo=algo_vxb,
-            scale_fac=1/self._epsilon_cold,
-            b_eq=self._b_background,
-            b_tilde=self.pointer['b2']))
-        self.add_propagator(self.prop_coupling.VlasovAmpere(
-            self.pointer['e1'],
-            self.pointer['hotelectrons'],
-            c1=self._nu * self._alpha**2/self._epsilon_cold,
-            c2=1/self._epsilon_hot,
-            **params_coupling))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Maxwell] = {'solver': params_maxwell}
+
+        self._kwargs[propagators_fields.OhmCold] = {'alpha': self._alpha,
+                                                    'epsilon': self._epsilon_cold,
+                                                    'solver': params_ohmcold}
+
+        self._kwargs[propagators_fields.JxBCold] = {'epsilon': self._epsilon_cold,
+                                                    'solver': params_jxbcold}
+
+        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
+                                                     'bc_type': hot_params['markers']['bc']['type']}
+
+        self._kwargs[propagators_markers.PushVxB] = {'algo': algo_vxb,
+                                                     'scale_fac': 1./self._epsilon_cold,
+                                                     'b_eq': self._b_background,
+                                                     'b_tilde': self.pointer['b_field']}
+
+        self._kwargs[propagators_coupling.VlasovAmpere] = {'c1': self._nu * self._alpha**2/self._epsilon_cold,
+                                                           'c2': 1./self._epsilon_hot,
+                                                           'solver': params_coupling}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_E')
@@ -1013,8 +995,8 @@ class ColdPlasmaVlasov(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._tmp1 = self.pointer['e1'].space.zeros()
-        self._tmp2 = self.pointer['b2'].space.zeros()
+        self._tmp1 = self.pointer['e_field'].space.zeros()
+        self._tmp2 = self.pointer['b_field'].space.zeros()
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
@@ -1028,7 +1010,7 @@ class ColdPlasmaVlasov(StruphyModel):
         # Accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
-        charge_accum.accumulate(self.pointer['hotelectrons'])
+        charge_accum.accumulate(self.pointer['hot_electrons'])
 
         # Locally subtract mean charge for solvability with periodic bc
         if np.all(charge_accum.vectors[0].space.periods):
@@ -1037,7 +1019,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
         # Instantiate Poisson solver
         _phi = StencilVector(self.derham.Vh['0'])
-        poisson_solver = self.prop_fields.ImplicitDiffusion(
+        poisson_solver = propagators_fields.ImplicitDiffusion(
             _phi,
             sigma_1=0,
             rho=self._nu * self._alpha**2 /
@@ -1048,26 +1030,26 @@ class ColdPlasmaVlasov(StruphyModel):
 
         # Solve with dt=1. and compute electric field
         poisson_solver(1.)
-        self.derham.grad.dot(-_phi, out=self.pointer['e1'])
+        self.derham.grad.dot(-_phi, out=self.pointer['e_field'])
 
     def update_scalar_quantities(self):
 
-        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
-        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
-        en_E = .5 * self.pointer['e1'].dot(self._tmp1)
-        en_B = .5 * self.pointer['b2'].dot(self._tmp2)
+        self._mass_ops.M1.dot(self.pointer['e_field'], out=self._tmp1)
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp2)
+        en_E = .5 * self.pointer['e_field'].dot(self._tmp1)
+        en_B = .5 * self.pointer['b_field'].dot(self._tmp2)
         self._mass_ops.M1ninv.dot(
-            self.pointer['coldelectrons_j1'], out=self._tmp1)
+            self.pointer['cold_electrons_j'], out=self._tmp1)
         en_J = .5 * self._alpha**2 * \
-            self.pointer['coldelectrons_j1'].dot(self._tmp1)
+            self.pointer['cold_electrons_j'].dot(self._tmp1)
         self.update_scalar('en_E', en_E)
         self.update_scalar('en_B', en_B)
         self.update_scalar('en_J', en_J)
 
         # nu alpha^2 eps_h / eps_c / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = self._nu * self._alpha**2 * self._epsilon_hot / self._epsilon_cold / \
-            (2 * self.pointer['hotelectrons'].n_mks) * np.dot(self.pointer['hotelectrons'].markers_wo_holes[:, 3]**2 + self.pointer['hotelectrons'].markers_wo_holes[:, 4]
-                                                              ** 2 + self.pointer['hotelectrons'].markers_wo_holes[:, 5]**2, self.pointer['hotelectrons'].markers_wo_holes[:, 6])
+            (2 * self.pointer['hot_electrons'].n_mks) * np.dot(self.pointer['hot_electrons'].markers_wo_holes[:, 3]**2 + self.pointer['hot_electrons'].markers_wo_holes[:, 4]
+                                                               ** 2 + self.pointer['hot_electrons'].markers_wo_holes[:, 5]**2, self.pointer['hot_electrons'].markers_wo_holes[:, 6])
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)
         self.update_scalar('en_f', self._tmp[0])

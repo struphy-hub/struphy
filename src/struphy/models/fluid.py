@@ -11,7 +11,7 @@ class LinearMHD(StruphyModel):
 
     .. math::
 
-        \hat U = \hat v_\textnormal{A} \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,.
+        \hat U = \hat v_\textnormal{A} \,.
 
     :ref:`Equations <gempic>`:
 
@@ -341,68 +341,69 @@ class LinearExtendedMHD(StruphyModel):
 
 
 class ColdPlasma(StruphyModel):
-    r'''Cold plasma model
+    r'''Cold plasma model.
 
-    Normalization:
-
-    .. math::
-
-        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,, \qquad \alpha = \frac{\hat \Omega_\textnormal{pc}}{\hat \Omega_\textnormal{cc}}\,, \qquad \varepsilon_\textnormal{c} = \frac{\hat{\omega}}{\hat \Omega_\textnormal{cc}}\,, \qquad \hat j_\textnormal{c} = q_\textnormal{c} c \hat n_\textnormal{c}\,,
-
-    where :math:`c` is the vacuum speed of light, :math:`\hat \Omega_\textnormal{cc}` the electron cyclotron frequency,
-    and :math:`\hat \Omega_\textnormal{pc}` the plasma frequency.
-    Implemented equations:
+    :ref:`normalization`:
 
     .. math::
 
+        \hat v = c\,,\qquad \hat E = c \hat B \,. 
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        \frac{1}{n_0} &\frac{\partial \mathbf j}{\partial t} = \frac{1}{\varepsilon} \mathbf E + \frac{1}{\varepsilon n_0} \mathbf j \times \mathbf B_0\,,
+        \\[2mm]
         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
+        \\[2mm]
+        -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
+        \frac{\alpha^2}{\varepsilon} \mathbf j \,,
 
-        &-\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-        \frac{\alpha^2}{\varepsilon_\textnormal{c}} \mathbf j_\textnormal{c} \,,
+    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
+    
+    .. math::
+    
+        \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}\,.
 
-        &\frac{1}{n_0} \frac{\partial \mathbf j_\textnormal{c}}{\partial t} = \frac{1}{\varepsilon_\textnormal{c}} \mathbf E + \frac{1}{\varepsilon_\textnormal{c} n_0} \mathbf j_\textnormal{c} \times \mathbf B_0\,.
+    :ref:`propagators` (called in sequence):
 
-    where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background.
+    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    2. :class:`~struphy.propagators.propagators_fields.OhmCold`
+    3. :class:`~struphy.propagators.propagators_fields.JxBCold`
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['e1'] = 'Hcurl'
-        dct['em_fields']['b2'] = 'Hdiv'
-        dct['fluid']['electrons'] = {'j1': 'Hcurl'}
+        dct['em_fields']['e_field'] = 'Hcurl'
+        dct['em_fields']['b_field'] = 'Hdiv'
+        dct['fluid']['electrons'] = {'j': 'Hcurl'}
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'electrons'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'light'
 
-    @classmethod
-    def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import Maxwell, OhmCold, JxBCold
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.Maxwell: ['e_field', 'b_field'],
+                propagators_fields.OhmCold: ['electrons_j', 'e_field'],
+                propagators_fields.JxBCold: ['electrons_j']}
 
-        dct = {}
-        cls.add_option(species=['em_fields'], key=['solver', 'maxwell'],
-                       option=Maxwell.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'electrons'], key=['solvers', 'ohmcold'],
-                       option=OhmCold.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'electrons'], key=['solvers', 'jxbcold'],
-                       option=JxBCold.options()['solver'], dct=dct)
-        return dct
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm):
 
@@ -413,52 +414,48 @@ class ColdPlasma(StruphyModel):
         self._epsilon = self.equation_params['electrons']['epsilon']
 
         # solver parameters
-        params_maxwell = params['em_fields']['options']['solver']['maxwell']
-        params_ohmcold = params['fluid']['electrons']['options']['solvers']['ohmcold']
-        params_jxbcold = params['fluid']['electrons']['options']['solvers']['jxbcold']
+        params_maxwell = params['em_fields']['options']['Maxwell']['solver']
+        params_ohmcold = params['fluid']['electrons']['options']['OhmCold']['solver']
+        params_jxbcold = params['fluid']['electrons']['options']['JxBCold']['solver']
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.Maxwell(
-            self.pointer['e1'],
-            self.pointer['b2'],
-            solver=params_maxwell))
-        self.add_propagator(self.prop_fields.OhmCold(
-            self.pointer['electrons_j1'],
-            self.pointer['e1'],
-            **params_ohmcold,
-            alpha=self._alpha,
-            epsilon=self._epsilon))
-        self.add_propagator(self.prop_fields.JxBCold(
-            self.pointer['electrons_j1'],
-            **params_jxbcold,
-            alpha=self._alpha,
-            epsilon=self._epsilon))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Maxwell] = {'solver': params_maxwell}
+        
+        self._kwargs[propagators_fields.OhmCold] = {'alpha': self._alpha,
+                                                    'epsilon': self._epsilon,
+                                                    'solver': params_ohmcold}
+        
+        self._kwargs[propagators_fields.JxBCold] = {'epsilon': self._epsilon,
+                                                    'solver': params_jxbcold}
+        
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar('en_E')
-        self.add_scalar('en_B')
-        self.add_scalar('en_J')
-        self.add_scalar('en_tot')
+        self.add_scalar('electric energy')
+        self.add_scalar('magnetic energy')
+        self.add_scalar('kinetic energy')
+        self.add_scalar('total energy')
 
         # temporaries
-        self._tmp1 = self.pointer['e1'].space.zeros()
-        self._tmp2 = self.pointer['b2'].space.zeros()
+        self._tmp1 = self.pointer['e_field'].space.zeros()
+        self._tmp2 = self.pointer['b_field'].space.zeros()
 
     def update_scalar_quantities(self):
 
-        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
-        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
-        en_E = .5 * self.pointer['e1'].dot(self._tmp1)
-        en_B = .5 * self.pointer['b2'].dot(self._tmp2)
+        self._mass_ops.M1.dot(self.pointer['e_field'], out=self._tmp1)
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp2)
+        en_E = .5 * self.pointer['e_field'].dot(self._tmp1)
+        en_B = .5 * self.pointer['b_field'].dot(self._tmp2)
 
-        self._mass_ops.M1ninv.dot(self.pointer['electrons_j1'], out=self._tmp1)
+        self._mass_ops.M1ninv.dot(self.pointer['electrons_j'], out=self._tmp1)
         en_J = .5 * self._alpha**2 * \
-            self.pointer['electrons_j1'].dot(self._tmp1)
+            self.pointer['electrons_j'].dot(self._tmp1)
 
-        self.update_scalar('en_E', en_E)
-        self.update_scalar('en_B', en_B)
-        self.update_scalar('en_J', en_J)
-        self.update_scalar('en_tot', en_E + en_B + en_J)
+        self.update_scalar('electric energy', en_E)
+        self.update_scalar('magnetic energy', en_B)
+        self.update_scalar('kinetic energy', en_J)
+        self.update_scalar('total energy', en_E + en_B + en_J)
 
 
 class VariationalMHD(StruphyModel):
