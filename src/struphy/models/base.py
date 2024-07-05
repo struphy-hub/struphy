@@ -341,7 +341,10 @@ class StruphyModel(metaclass=ABCMeta):
             elif var in cls.species()['kinetic']:
                 species = ['kinetic', var]
             else:
-                var_stem = var.split('_')[0]
+                spl = var.split('_')
+                var_stem = spl[0]
+                for el in spl[1:-1]:
+                    var_stem += '_' + el
                 species = ['fluid', var_stem]
               
             cls.add_option(species=species,

@@ -54,19 +54,33 @@ fluid :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         options:
-            solvers:
-                shear_alfven:
-                    type: [pcg, MassMatrixPreconditioner]
-                    tol: 1.0e-08
-                    maxiter: 3000
-                    info: false
-                    verbose: false
-                magnetosonic:
+            CurrentCoupling6DDensity:
+                u_space: Hdiv
+                solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
+                    recycle: true
+            ShearAlfven:
+                u_space: Hdiv
+                solver:
+                    type: [pcg, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                    recycle: true
+            Magnetosonic:
+                u_space: Hdiv
+                solver:
+                    type: [pbicgstab, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                    recycle: true
 
 kinetic :
     energetic_ions :
@@ -99,17 +113,14 @@ kinetic :
             vxb : analytic # possible choices: analytic, implicit
             eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
         options:
-            algos: {push_eta: rk4, push_vxb: analytic}
-            solvers:
-                density:
-                    type: [pbicgstab, MassMatrixPreconditioner]
-                    tol: 1.0e-08
-                    maxiter: 3000
-                    info: false
-                    verbose: false
-                current:
+            CurrentCoupling6DCurrent:
+                u_space: Hdiv
+                solver:
                     type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
                     maxiter: 3000
                     info: false
                     verbose: false
+                    recycle: true
+            PushEta: {algo: rk4}
+            PushVxB: {algo: analytic}

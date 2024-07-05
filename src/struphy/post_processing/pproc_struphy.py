@@ -89,7 +89,7 @@ def main(path, step=1, celldivide=1):
 
             aux = name.split('_')
             # is em field
-            if len(aux) == 1:
+            if len(aux) == 1 or 'field' in name:
                 subfolder = 'em_fields'
                 new_name = name
                 try:
@@ -98,16 +98,19 @@ def main(path, step=1, celldivide=1):
                     pass
 
             # is fluid species
-            elif len(aux) == 2:
+            else:
                 subfolder = aux[0]
-                new_name = aux[1]
+                for au in aux[1:-1]:
+                    subfolder += '_' + au
+                new_name = aux[-1]
                 try:
                     os.mkdir(os.path.join(path_fields, subfolder))
                 except:
                     pass
-            else:
-                raise ValueError(
-                    f'Naming {name} of feec unknown is not permitted (can only have one underscore).')
+
+            print(f'{name = }')
+            print(f'{subfolder = }')
+            print(f'{new_name = }')
 
             with open(os.path.join(path_fields, subfolder, new_name + '_log.bin'), 'wb') as handle:
                 pickle.dump(val, handle,

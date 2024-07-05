@@ -1,6 +1,7 @@
 import numpy as np
 from struphy.models.base import StruphyModel
 from struphy.kinetic_background.base import KineticBackground
+from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
 
 
 class VlasovAmpereOneSpecies(StruphyModel):
@@ -12,17 +13,15 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         \hat v = c\,,\qquad \hat E = \frac{(A m_\textnormal{H})\hat v^2}{(Z e) \hat x} \,, \qquad  \hat \phi = \hat E \hat x \,.
 
-    Implemented equations: find :math:`(\mathbf E, f) \in H(\textnormal{curl}) \times C^\infty` such that
+    :ref:`Equations <gempic>`:
 
     .. math::
 
-        \begin{align}
-            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x = 
-            \kappa^2 \int_\Omega \int_{\mathbb{R}^3} \mathbf F \cdot \mathbf{v} f \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \mathbf F \in H(\textnormal{curl})\,,
-            \\[2mm]
-            &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \mathbf{E}
+        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \mathbf{E}
             \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-        \end{align}
+        \\[2mm]
+        -&\frac{\partial \mathbf{E}}{\partial t} = 
+        \kappa^2 \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
 
     with the normalization parameter
 
@@ -73,50 +72,53 @@ class VlasovAmpereOneSpecies(StruphyModel):
         \end{align}
 
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_markers.PushEta`
+    2. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['e1'] = 'Hcurl'
-        dct['kinetic']['species1'] = 'Particles6D'
+        dct['em_fields']['e_field'] = 'Hcurl'
+        dct['kinetic']['ions'] = 'Particles6D'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
-        return 'species1'
+    @staticmethod
+    def bulk_species():
+        return 'ions'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'light'
 
+    @staticmethod
+    def propagators_dct():
+        return {propagators_markers.PushEta: ['ions'],
+                propagators_coupling.VlasovAmpere: ['e_field', 'ions']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import ImplicitDiffusion
-        from struphy.propagators.propagators_markers import PushEta
-        from struphy.propagators.propagators_coupling import VlasovAmpere
-
-        dct = {}
-        cls.add_option(species='em_fields', key=['solvers', 'poisson'],
-                       option=ImplicitDiffusion.options()['solver'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key=['algos', 'push_eta'],
-                       option=PushEta.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='coupling_solver',
-                       option=VlasovAmpere.options()['solver'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='verification',
+        dct = super().options()
+        cls.add_option(species=['em_fields'],
+                       option=propagators_fields.ImplicitDiffusion,
+                       dct=dct)
+        cls.add_option(species=['kinetic', 'ions'], key='verification',
                        option={'use': False, 'kappa': 1.}, dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='Z0',
+        cls.add_option(species=['kinetic', 'ions'], key='Z0',
                        option=-1., dct=dct)
-
         return dct
 
     def __init__(self, params, comm=None):
@@ -132,47 +134,46 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self._rank = self.comm.Get_rank()
 
         # get species paramaters
-        spec_params = params['kinetic']['species1']
+        ions_params = params['kinetic']['ions']
 
         # Get coupling strength
-        if spec_params['options']['verification']['use']:
-            self.kappa = spec_params['options']['verification']['kappa']
+        if ions_params['options']['verification']['use']:
+            self.kappa = ions_params['options']['verification']['kappa']
             print(
                 f'\n!!! Verification run: equation parameters set to {self.kappa = }.')
         else:
-            self.kappa = self.equation_params['species1']['kappa']
+            self.kappa = self.equation_params['ions']['kappa']
 
         # Check if it is control-variate method
         self._control_variate = (
-            spec_params['markers']['type'] == 'control_variate')
+            ions_params['markers']['type'] == 'control_variate')
 
         # set background density factor
-        Z0 = spec_params['options']['Z0']
-        Z = spec_params['phys_params']['Z']
+        Z0 = ions_params['options']['Z0']
+        Z = ions_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
 
         # multiply background to get quasi neutrality
-        self.pointer['species1']._f0 = - Z0/Z * self.pointer['species1'].f0
+        self.pointer['ions']._f0 = - Z0/Z * self.pointer['ions'].f0
 
         # check mean velocity
         # TODO: assert f0.params[] == 0.
 
         # propagator parameters
-        self._poisson_params = params['em_fields']['options']['solvers']['poisson']
-        algo_eta = params['kinetic']['species1']['options']['algos']['push_eta']
-        params_coupling = params['kinetic']['species1']['options']['coupling_solver']
+        self._poisson_params = params['em_fields']['options']['ImplicitDiffusion']['solver']
+        algo_eta = params['kinetic']['ions']['options']['PushEta']['algo']
+        params_coupling = params['em_fields']['options']['VlasovAmpere']['solver']
 
-        self.add_propagator(self.prop_markers.PushEta(
-            self.pointer['species1'],
-            algo=algo_eta,
-            bc_type=spec_params['markers']['bc']['type']))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
+                                                     'bc_type': ions_params['markers']['bc']['type']}
 
-        self.add_propagator(self.prop_coupling.VlasovAmpere(
-            self.pointer['e1'],
-            self.pointer['species1'],
-            c1=self.kappa**2,
-            **params_coupling))
+        self._kwargs[propagators_coupling.VlasovAmpere] = {'c1': self.kappa**2,
+                                                           'solver': params_coupling}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during the simulation
         self.add_scalar('en_E')
@@ -203,24 +204,24 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # use control variate method
         if self._control_variate:
-            self.pointer['species1'].update_weights()
+            self.pointer['ions'].update_weights()
 
         # sanity check
-        # self.pointer['species1'].show_distribution_function(
+        # self.pointer['ions'].show_distribution_function(
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
         charge_accum.accumulate(
-            self.pointer['species1'], self.pointer['species1'].vdim)
+            self.pointer['ions'], self.pointer['ions'].vdim)
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
 
         # Instantiate Poisson solver
         _phi = self.derham.Vh['0'].zeros()
-        poisson_solver = self.prop_fields.ImplicitDiffusion(
+        poisson_solver = propagators_fields.ImplicitDiffusion(
             _phi,
             sigma_1=0.,
             sigma_2=0.,
@@ -233,23 +234,23 @@ class VlasovAmpereOneSpecies(StruphyModel):
             print('\nSolving initial Poisson problem...')
         poisson_solver(1.)
 
-        self.derham.grad.dot(-_phi, out=self.pointer['e1'])
+        self.derham.grad.dot(-_phi, out=self.pointer['e_field'])
         if self._rank == 0:
             print('Done.')
 
     def update_scalar_quantities(self):
 
         # e*M1*e/2
-        self.mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
-        en_E = self.pointer['e1'].dot(self._tmp1) / 2.
+        self.mass_ops.M1.dot(self.pointer['e_field'], out=self._tmp1)
+        en_E = self.pointer['e_field'].dot(self._tmp1) / 2.
         self.update_scalar('en_E', en_E)
 
         # kappa^2 / 2 / N * sum_p w_p v_p^2
-        self._tmp[0] = self.kappa**2 / (2 * self.pointer['species1'].n_mks) * \
-            np.dot(self.pointer['species1'].markers_wo_holes[:, 3]**2 +
-                   self.pointer['species1'].markers_wo_holes[:, 4]**2 +
-                   self.pointer['species1'].markers_wo_holes[:, 5]**2,
-                   self.pointer['species1'].markers_wo_holes[:, 6])
+        self._tmp[0] = self.kappa**2 / (2 * self.pointer['ions'].n_mks) * \
+            np.dot(self.pointer['ions'].markers_wo_holes[:, 3]**2 +
+                   self.pointer['ions'].markers_wo_holes[:, 4]**2 +
+                   self.pointer['ions'].markers_wo_holes[:, 5]**2,
+                   self.pointer['ions'].markers_wo_holes[:, 6])
         if self.comm is not None:
             self.comm.Allreduce(
                 self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -270,19 +271,17 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             \hat v  = c \,, \qquad \hat E = \hat B \hat v\,,\qquad  \hat \phi = \hat E \hat x \,.
         \end{align}
 
-    Implemented equations: find :math:`(\mathbf E, \mathbf B, f) \in H(\textnormal{curl}) \times H(\textnormal{div}) \times C^\infty` such that
+    :ref:`Equations <gempic>`:
 
     .. math::
 
-        \begin{align}
-            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \times \mathbf{F} \cdot \mathbf B\,\textrm d \mathbf x = 
-            \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf F \cdot \mathbf{v} f \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \mathbf F \in H(\textnormal{curl})\,,
-            \\[2mm]
-            &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
-            \\[2mm]
-            &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon}\Big[ \mathbf{E} + \mathbf{v} \times \mathbf{B} \Big]
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
-        \end{align}
+        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B} \right)
+        \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
+        \\[2mm]
+        -&\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf B = 
+        \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3}  \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
+        \\[2mm]
+        &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
 
     with the normalization parameters
 
@@ -340,55 +339,58 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     where :math:`\tilde{\mathbf B} = \mathbf B - \mathbf B_0` denotes the magnetic perturbation.
 
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    :ref:`propagators` (called in sequence):
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+    2. :class:`~struphy.propagators.propagators_markers.PushEta`
+    3. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    4. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['e1'] = 'Hcurl'
-        dct['em_fields']['b2'] = 'Hdiv'
-        dct['kinetic']['species1'] = 'Particles6D'
+        dct['em_fields']['e_field'] = 'Hcurl'
+        dct['em_fields']['b_field'] = 'Hdiv'
+        dct['kinetic']['ions'] = 'Particles6D'
         return dct
 
-    @classmethod
-    def bulk_species(cls):
-        return 'species1'
+    @staticmethod
+    def bulk_species():
+        return 'ions'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'light'
 
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.Maxwell: ['e_field', 'b_field'],
+                propagators_markers.PushEta: ['ions'],
+                propagators_markers.PushVxB: ['ions'],
+                propagators_coupling.VlasovAmpere: ['e_field', 'ions']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import Maxwell, ImplicitDiffusion
-        from struphy.propagators.propagators_markers import PushEta, PushVxB
-        from struphy.propagators.propagators_coupling import VlasovAmpere
-
-        dct = {}
-        cls.add_option(species='em_fields', key=['solvers', 'maxwell'],
-                       option=Maxwell.options()['solver'], dct=dct)
-        cls.add_option(species='em_fields', key=['solvers', 'poisson'],
-                       option=ImplicitDiffusion.options()['solver'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key=['algos', 'push_eta'],
-                       option=PushEta.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key=['algos', 'push_vxb'],
-                       option=PushVxB.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='coupling_solver',
-                       option=VlasovAmpere.options()['solver'], dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='verification',
-                       option=False, dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='Z0',
+        dct = super().options()
+        cls.add_option(species=['em_fields'],
+                       option=propagators_fields.ImplicitDiffusion,
+                       dct=dct)
+        cls.add_option(species=['kinetic', 'ions'], key='verification',
+                       option={'use': False, 'alpha': 1., 'epsilon': -1.}, dct=dct)
+        cls.add_option(species=['kinetic', 'ions'], key='Z0',
                        option=-1., dct=dct)
-
         return dct
 
     def __init__(self, params, comm=None):
@@ -404,26 +406,26 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self._rank = self.comm.Get_rank()
 
         # get species paramaters
-        spec_params = params['kinetic']['species1']
+        ions_params = params['kinetic']['ions']
 
         # equation parameters
-        if spec_params['options']['verification']:
-            self._alpha = 1.
-            self._epsilon = -1.
+        if ions_params['options']['verification']:
+            self._alpha = ions_params['options']['verification']['alpha']
+            self._epsilon = ions_params['options']['verification']['epsilon']
             print(
                 f'\n!!! Verification run: equation parameters set to {self._alpha = } and {self._epsilon = }.')
         else:
-            self._alpha = self.equation_params['species1']['alpha']
-            self._epsilon = self.equation_params['species1']['epsilon']
+            self._alpha = self.equation_params['ions']['alpha']
+            self._epsilon = self.equation_params['ions']['epsilon']
 
         # set background density and mean velocity factors
-        Z0 = spec_params['options']['Z0']
-        Z = spec_params['phys_params']['Z']
+        Z0 = ions_params['options']['Z0']
+        Z = ions_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
 
-        self.pointer['species1'].f0.moment_factors['n'] = - Z0/Z
-        self.pointer['species1'].f0.moment_factors['u'] = [
+        self.pointer['ions'].f0.moment_factors['n'] = - Z0/Z
+        self.pointer['ions'].f0.moment_factors['u'] = [
             self._epsilon/self._alpha**2]*3
 
         # Initialize background magnetic field from MHD equilibrium
@@ -432,36 +434,29 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                                        self.mhd_equil.b2_3])
 
         # propagator parameters
-        params_maxwell = params['em_fields']['options']['solvers']['maxwell']
-        self._poisson_params = params['em_fields']['options']['solvers']['poisson']
-        algo_eta = params['kinetic']['species1']['options']['algos']['push_eta']
-        algo_vxb = params['kinetic']['species1']['options']['algos']['push_vxb']
-        params_coupling = params['kinetic']['species1']['options']['coupling_solver']
+        params_maxwell = params['em_fields']['options']['Maxwell']['solver']
+        algo_eta = params['kinetic']['ions']['options']['PushEta']['algo']
+        algo_vxb = params['kinetic']['ions']['options']['PushVxB']['algo']
+        params_coupling = params['em_fields']['options']['VlasovAmpere']['solver']
+        self._poisson_params = params['em_fields']['options']['ImplicitDiffusion']['solver']
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.Maxwell(
-            self.pointer['e1'],
-            self.pointer['b2'],
-            solver=params_maxwell))
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Maxwell] = {'solver': params_maxwell}
 
-        self.add_propagator(self.prop_markers.PushEta(
-            self.pointer['species1'],
-            algo=algo_eta,
-            bc_type=spec_params['markers']['bc']['type']))
+        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
+                                                     'bc_type': ions_params['markers']['bc']['type']}
 
-        self.add_propagator(self.prop_markers.PushVxB(
-            self.pointer['species1'],
-            algo=algo_vxb,
-            scale_fac=1/self._epsilon,
-            b_eq=b_backgr,
-            b_tilde=self.pointer['b2']))
+        self._kwargs[propagators_markers.PushVxB] = {'algo': algo_vxb,
+                                                     'scale_fac': 1./self._epsilon,
+                                                     'b_eq': b_backgr,
+                                                     'b_tilde': self.pointer['b_field']}
 
-        self.add_propagator(self.prop_coupling.VlasovAmpere(
-            self.pointer['e1'],
-            self.pointer['species1'],
-            c1=self._alpha**2/self._epsilon,
-            c2=1/self._epsilon,
-            **params_coupling))
+        self._kwargs[propagators_coupling.VlasovAmpere] = {'c1': self._alpha**2/self._epsilon,
+                                                           'c2': 1./self._epsilon,
+                                                           'solver': params_coupling}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during the simulation
         self.add_scalar('en_E')
@@ -490,17 +485,17 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             print('\nINITIAL POISSON SOLVE:')
 
         # use control variate method
-        self.pointer['species1'].update_weights()
+        self.pointer['ions'].update_weights()
 
         # sanity check
-        # self.pointer['species1'].show_distribution_function(
+        # self.pointer['ions'].show_distribution_function(
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
         charge_accum.accumulate(
-            self.pointer['species1'], self.pointer['species1'].vdim)
+            self.pointer['ions'], self.pointer['ions'].vdim)
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
@@ -520,26 +515,26 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             print('\nSolving initial Poisson problem...')
         poisson_solver(1.)
 
-        self.derham.grad.dot(-_phi, out=self.pointer['e1'])
+        self.derham.grad.dot(-_phi, out=self.pointer['e_field'])
         if self._rank == 0:
             print('Done.')
 
     def update_scalar_quantities(self):
 
         # e*M1*e and b*M2*b
-        self._mass_ops.M1.dot(self.pointer['e1'], out=self._tmp1)
-        self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp2)
-        en_E = self.pointer['e1'].dot(self._tmp1) / 2.
-        en_B = self.pointer['b2'].dot(self._tmp2) / 2.
+        self._mass_ops.M1.dot(self.pointer['e_field'], out=self._tmp1)
+        self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp2)
+        en_E = self.pointer['e_field'].dot(self._tmp1) / 2.
+        en_B = self.pointer['b_field'].dot(self._tmp2) / 2.
         self.update_scalar('en_E', en_E)
         self.update_scalar('en_B', en_B)
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2
-        self._tmp[0] = self._alpha**2 / (2 * self.pointer['species1'].n_mks) * \
-            np.dot(self.pointer['species1'].markers_wo_holes[:, 3]**2 +
-                   self.pointer['species1'].markers_wo_holes[:, 4] ** 2 +
-                   self.pointer['species1'].markers_wo_holes[:, 5]**2,
-                   self.pointer['species1'].markers_wo_holes[:, 6])
+        self._tmp[0] = self._alpha**2 / (2 * self.pointer['ions'].n_mks) * \
+            np.dot(self.pointer['ions'].markers_wo_holes[:, 3]**2 +
+                   self.pointer['ions'].markers_wo_holes[:, 4] ** 2 +
+                   self.pointer['ions'].markers_wo_holes[:, 5]**2,
+                   self.pointer['ions'].markers_wo_holes[:, 6])
         if self.comm is not None:
             self.comm.Allreduce(
                 self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -1689,13 +1684,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
        \hat v = \hat v_\textrm{i} = \sqrt{\frac{k_B \hat T_\textrm{i}}{m_\textrm{i}}}\,,\qquad  \hat E = \hat v_\textrm{i}\hat B\,,\qquad \hat \phi = \hat E \hat x \,.
 
-    Implemented equations:
+    :ref:`Equations <gempic>`:
 
     .. math::
 
         &\frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\varepsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
         \\[2mm]
-        &\int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi\,\textrm d \mathbf x + \frac{1}{\varepsilon} \int n_0 \psi \left(1 + \frac{1}{Z \varepsilon} \frac{1}{T_{0}} \phi \right) \,\textrm d \mathbf x  = \frac 1 \varepsilon \int \int \psi \, f B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
+        - &\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left(1 + \frac{1}{Z \varepsilon} \frac{1}{T_{0}} \phi \right) = \frac 1 \varepsilon \int f B^*_\parallel \,\textnormal d v_\parallel \textnormal d \mu \,.
 
     where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and 
 
@@ -1706,7 +1701,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     .. math::
 
-        \varepsilon := \frac{\hat v_\textrm{i}}{\hat \Omega_\textrm{i} \hat x}\,,\qquad \hat \Omega_\textrm{i} = \frac{Ze \hat B}{m_\textrm{i}} \,.
+        \varepsilon := \frac{1}{\hat \Omega_\textrm{c} \hat t}\,,\qquad \hat \Omega_\textrm{c} = \frac{q_\textrm{i} \hat B}{m_\textrm{i}} \,.
 
     Notes
     -----
@@ -1718,57 +1713,49 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         \int \frac{n_0}{|B_0|^2} \nabla_\perp \psi \cdot \nabla_\perp \phi\,\textrm d \mathbf x + \frac{1}{Z\varepsilon^2} \int  \frac{n_0}{T_{0}} \psi \phi \,\textrm d \mathbf x  = \frac 1 \varepsilon \int \int \psi \, (f - f_0) B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
 
-    * The polarization density can be turned off by choosing ``AdiabaticPhi`` as the potential solver; in case it is enabled via the parameter file, the potential is determined from
 
-    .. math::
+    :ref:`propagators` (called in sequence):
 
-        \frac{1}{Z\varepsilon} \int  \frac{n_0}{T_{0}} \psi \phi \,\textrm d \mathbf x  = \int \int \psi \, (f - f_0) B^*_\parallel \,\textrm d \mathbf x\,\textnormal d v_\parallel \textnormal d \mu \qquad \forall \ \psi \in H^1\,.
+    1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
+    2. :class:`~struphy.propagators.propagators_markers.PushDriftKineticBxEstar`
+    3. :class:`~struphy.propagators.propagators_markers.PushDriftKineticParallel`
 
-
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['phi'] = 'H1'
         dct['kinetic']['ions'] = 'Particles5D'
-
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'ions'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'thermal'
 
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.ImplicitDiffusion: ['phi'],
+                propagators_markers.PushDriftKineticBxEstar: ['ions'],
+                propagators_markers.PushDriftKineticParallel: ['ions']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
     @classmethod
     def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import ImplicitDiffusion, AdiabaticPhi
-        from struphy.propagators.propagators_markers import PushDriftKineticBxEstar, PushDriftKineticParallel
-
-        dct = {}
-
-        cls.add_option(species=['kinetic', 'ions'], key='push_bxEstarWithPhi',
-                       option=PushDriftKineticBxEstar.options()['algo'], dct=dct)
-        cls.add_option(species=['kinetic', 'ions'], key='push_BstarWithPhi',
-                       option=PushDriftKineticParallel.options()['algo'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['phi'],
-                       option=['ImplicitDiffusion'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['ImplicitDiffusion', 'solver'],
-                       option=ImplicitDiffusion.options()['solver'], dct=dct)
-        cls.add_option(species=['em_fields'], key=['AdiabaticPhi', 'solver'],
-                       option=AdiabaticPhi.options()['solver'], dct=dct)
+        dct = super().options()
         cls.add_option(species=['kinetic', 'ions'], key='verification',
                        option={'use': False, 'epsilon': 1.}, dct=dct)
         return dct
@@ -1782,13 +1769,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
         # prelim
-        ions_params = self.kinetic['ions']['params']
-        phi_method = params['em_fields']['options']['phi']
-        solver_params = params['em_fields']['options'][phi_method]['solver']
-        spec_params = params['kinetic']['ions']
+        solver_params = params['em_fields']['options']['ImplicitDiffusion']['solver']
+        ions_params = params['kinetic']['ions']
 
-        Z = spec_params['phys_params']['Z']
-        assert Z > 0  # must be ions
+        Z = ions_params['phys_params']['Z']
+        assert Z > 0  # must be positive ions
 
         # magnetic background
         if 'braginskii_equilibrium' in params:
@@ -1803,13 +1788,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         rho = (charge_accum, self.pointer['ions'])
 
+        # get neutralizing background density
         if 'full_f' in ions_params['markers']['type']:
-            print(f'{phi_method = }')
-            try:
-                assert phi_method == 'ImplicitDiffusion'
-            except:
-                exit(
-                    f'full_f requires phi_method to be "ImplicitDiffusion", but it is "{phi_method}". Exiting ...')
             l2_proj = L2Projector('H1', self.mass_ops)
             f0e = Z * self.pointer['ions'].f0
             assert isinstance(f0e, KineticBackground)
@@ -1818,53 +1798,38 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             rho += [rho_eh]
 
         # Get coupling strength
-        if spec_params['options']['verification']['use']:
-            self.epsilon = spec_params['options']['verification']['epsilon']
+        if ions_params['options']['verification']['use']:
+            self.epsilon = ions_params['options']['verification']['epsilon']
             print(
                 f'\n!!! Verification run: equation parameters set to {self.epsilon = }.')
         else:
             self.epsilon = self.equation_params['ions']['epsilon']
 
-        # Initialize propagators/integrators used in splitting substeps
-        if phi_method == 'ImplicitDiffusion':
-            self.add_propagator(self.prop_fields.ImplicitDiffusion(
-                self.pointer['phi'],
-                sigma_1=1. / self.epsilon**2 / Z,  # set to zero for Landau damping test
-                sigma_2=0.,
-                sigma_3=1. / self.epsilon,
-                stab_mat='M0ad',
-                diffusion_mat='M1gyro',
-                rho=rho,
-                solver=solver_params
-            ))
-        elif phi_method == 'AdiabaticPhi':
-            self.add_propagator(self.prop_fields.AdiabaticPhi(
-                self.pointer['phi'],
-                A_mat='M0ad',
-                rho=rho,
-                **solver_params
-            ))
-        else:
-            raise ValueError(f'{phi_method = } not allowed.')
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.ImplicitDiffusion] = {'sigma_1': 1. / self.epsilon**2 / Z,  # set to zero for Landau damping test
+                                                              'sigma_2': 0.,
+                                                              'sigma_3': 1. / self.epsilon,
+                                                              'stab_mat': 'M0ad',
+                                                              'diffusion_mat': 'M1gyro',
+                                                              'rho': rho,
+                                                              'solver': solver_params}
 
-        self.add_propagator(self.prop_markers.PushDriftKineticBxEstar(
-            self.pointer['ions'],
-            phi0=self.pointer['phi'],
-            magn_bckgr=magn_bckgr,
-            epsilon=self.equation_params['ions']['epsilon'],
-            Z=Z,
-            **ions_params['options']['push_bxEstarWithPhi']))
+        self._kwargs[propagators_markers.PushDriftKineticBxEstar] = {'phi': self.pointer['phi'],
+                                                                     'magn_bckgr': magn_bckgr,
+                                                                     'epsilon': self.epsilon,
+                                                                     'Z': Z,
+                                                                     'algo': ions_params['options']['PushDriftKineticBxEstar']['algo']}
 
-        self.add_propagator(self.prop_markers.PushDriftKineticParallel(
-            self.pointer['ions'],
-            phi0=self.pointer['phi'],
-            magn_bckgr=magn_bckgr,
-            epsilon=self.epsilon,
-            Z=Z,
-            **ions_params['options']['push_BstarWithPhi']))
+        self._kwargs[propagators_markers.PushDriftKineticParallel] = {'phi': self.pointer['phi'],
+                                                                      'magn_bckgr': magn_bckgr,
+                                                                      'epsilon': self.epsilon,
+                                                                      'Z': Z,
+                                                                      'algo': ions_params['options']['PushDriftKineticParallel']['algo']}
 
-        self._phi_method = phi_method
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
+        # scalar quantities
         self.add_scalar('en_phi')
         self.add_scalar('en_particles')
         self.add_scalar('en_tot')
@@ -1880,20 +1845,17 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def update_scalar_quantities(self):
 
         # energy from polarization
-        if self._phi_method == 'ImplicitDiffusion':
-            e1 = self.derham.grad.dot(-self.pointer['phi'], out=self._e_field)
-            M1_e1 = self.mass_ops.M1gyro.dot(e1, out=self._tmp1)
-            en_phi1 = e1.dot(M1_e1) / 2.
-        else:
-            en_phi1 = 0.
+        e1 = self.derham.grad.dot(-self.pointer['phi'], out=self._e_field)
+        M1_e1 = self.mass_ops.M1gyro.dot(e1, out=self._tmp1)
+        en_phi1 = e1.dot(M1_e1) / 2.
 
         # energy from adiabatic electrons
         self.mass_ops.M0ad.dot(self.pointer['phi'], out=self._tmp2)
-        en_phi0 = self.pointer['phi'].dot(
+        en_phi = self.pointer['phi'].dot(
             self._tmp2) / (2. * self.epsilon**2)
 
         # for Landau damping test
-        # en_phi0 = 0.
+        # en_phi = 0.
 
         # mu_p * |B0(eta_p)|
         self.pointer['ions'].save_magnetic_background_energy()
@@ -1906,6 +1868,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             self.comm.Allreduce(
                 self._mpi_in_place, self._tmp3, op=self._mpi_sum)
 
-        self.update_scalar('en_phi', en_phi0 + en_phi1)
+        self.update_scalar('en_phi', en_phi + en_phi1)
         self.update_scalar('en_particles', self._tmp3[0])
-        self.update_scalar('en_tot', en_phi0 + en_phi1 + self._tmp3[0])
+        self.update_scalar('en_tot', en_phi + en_phi1 + self._tmp3[0])
