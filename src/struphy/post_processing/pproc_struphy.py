@@ -1,4 +1,8 @@
-def main(path, step=1, celldivide=1):
+def main(path: str,
+         *,
+         step: int = 1,
+         celldivide: int = 1,
+         physical: bool = False):
     """
     Post-processing of finished Struphy runs.
 
@@ -7,11 +11,14 @@ def main(path, step=1, celldivide=1):
     path : str
         Absolute path of simulation output folder to post-process.
 
-    step : int, optional
+    step : int
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
 
-    celldivide : int, optional
-        Grid refinement in evaluation of FEM fields. E.g. celldivide=2 evaluates two points per grid cell. 
+    celldivide : int
+        Grid refinement in evaluation of FEM fields. E.g. celldivide=2 evaluates two points per grid cell.
+
+    physical : bool
+        Wether to do post-processing into push-forwarded physical (xyz) components of fields.
     """
 
     import os
@@ -70,10 +77,17 @@ def main(path, step=1, celldivide=1):
     # field post-processing
     if exist_fields:
 
-        fields, space_ids, _ = pproc.create_femfields(path, step)
+        fields, space_ids, _ = pproc.create_femfields(path, step=step)
 
-        point_data_log, point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
-            path, fields, space_ids, [celldivide, celldivide, celldivide])
+        point_data, grids_log, grids_phy = pproc.eval_femfields(
+            path, fields, space_ids,
+            celldivide=[celldivide, celldivide, celldivide])
+        
+        if physical:
+            point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
+            path, fields, space_ids,
+            celldivide=[celldivide, celldivide, celldivide],
+            physical=True)
 
         # directory for field data
         path_fields = os.path.join(path_pproc, 'fields_data')
@@ -85,7 +99,7 @@ def main(path, step=1, celldivide=1):
             os.mkdir(path_fields)
 
         # save data dicts for each field
-        for name, val in point_data_log.items():
+        for name, val in point_data.items():
 
             aux = name.split('_')
             # is em field
@@ -116,9 +130,10 @@ def main(path, step=1, celldivide=1):
                 pickle.dump(val, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(os.path.join(path_fields, subfolder, new_name + '_phy.bin'), 'wb') as handle:
-                pickle.dump(point_data_phy[name], handle,
-                            protocol=pickle.HIGHEST_PROTOCOL)
+            if physical:
+                with open(os.path.join(path_fields, subfolder, new_name + '_phy.bin'), 'wb') as handle:
+                    pickle.dump(point_data_phy[name], handle,
+                                protocol=pickle.HIGHEST_PROTOCOL)
 
         # save grids
         with open(os.path.join(path_fields, 'grids_log.bin'), 'wb') as handle:
@@ -130,7 +145,9 @@ def main(path, step=1, celldivide=1):
                         protocol=pickle.HIGHEST_PROTOCOL)
 
         # create vtk files
-        pproc.create_vtk(path_fields, grids_phy, point_data_phy)
+        pproc.create_vtk(path_fields, grids_phy, point_data)
+        if physical:
+            pproc.create_vtk(path_fields, grids_phy, point_data_phy, physical=True)
 
     # kinetic post-processing
     if exist_kinetic is not None:
@@ -209,8 +226,13 @@ if __name__ == '__main__':
                         help='divide each grid cell by N for field evaluation (default=1)',
                         default=1)
 
+    parser.add_argument('--physical',
+                        help='do post-processing into push-forwarded physical (xyz) components',
+                        action='store_true',)
+
     args = parser.parse_args()
 
     main(args.dir,
-         args.step,
-         args.celldivide)
+         step=args.step,
+         celldivide=args.celldivide,
+         physical=args.physical)

@@ -26,11 +26,6 @@ def test_fluid(map_and_equil, fast, model=None, Tend=None):
                         f'Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.')
                     continue
                 
-                if 'Variational' in key or 'Visco' in key:
-                    print(
-                        f'Model {key} is currently excluded from tests.')
-                    continue
-
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:
                         print(

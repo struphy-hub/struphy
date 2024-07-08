@@ -727,10 +727,12 @@ class StruphyModel(metaclass=ABCMeta):
                     assert typ in ['full_f', 'delta_f', 'control_variate'], \
                         f'Type {typ} for distribution function is not known!'
 
-                    if obj.f0.coords == 'constants_of_motion':
+                    if obj.coords == 'vpara_mu':
 
                         obj.save_constants_of_motion(
-                            epsilon=self.equation_params[species]['epsilon'], initial=True)
+                            epsilon=self.equation_params[species]['epsilon'], 
+                            f_coords=obj.f0.coords,
+                            initial=True)
 
                     obj.initialize_weights()
 

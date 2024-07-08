@@ -2615,11 +2615,11 @@ class VariationalMomentumAdvection(Propagator):
                              'maxiter': 500,
                              'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                       ('cg', None)],
-                             'info': False,
                              'verbose': False}
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
-                                'type': ['Newton', 'Picard']}
+                                'type': ['Newton', 'Picard'],
+                                'info': False}
         if default:
             dct = descend_options_dict(dct, [])
         
@@ -2645,7 +2645,7 @@ class VariationalMomentumAdvection(Propagator):
         else:
             rank = 0
 
-        self._info = self._lin_solver['info'] and (rank == 0)
+        self._info = self._nonlin_solver['info'] and (rank == 0)
 
         self.WMM = mass_ops
 
@@ -2878,12 +2878,12 @@ class VariationalDensityEvolve(Propagator):
                              'maxiter': 500,
                              'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                       ('cg', None)],
-                             'info': False,
                              'verbose': False,
                              'recycle': True}
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
-                                'type': ['Newton', 'Picard'], }
+                                'type': ['Newton', 'Picard'],
+                                'info': False, }
         dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
         
         if default:
@@ -2922,8 +2922,8 @@ class VariationalDensityEvolve(Propagator):
             rank = self.derham.comm.Get_rank()
         else:
             rank = 0
-
-        self._info = self._lin_solver['info'] and (rank == 0)
+        print(self._nonlin_solver)
+        self._info = self._nonlin_solver['info'] and (rank == 0)
 
         self.WMM = mass_ops
 
@@ -3790,14 +3790,12 @@ class VariationalEntropyEvolve(Propagator):
                              'maxiter': 500,
                              'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                       ('cg', None)],
-                             'info': False,
-                             'verbose': False,
-                             'implicit_transport': False}
+                             'verbose': False}
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'implicit_transport': False}
-        dct['physics'] = {'gamma': 5/3}
+                                'info' : False}
+        dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
         
         if default:
             dct = descend_options_dict(dct, [])
@@ -3812,7 +3810,7 @@ class VariationalEntropyEvolve(Propagator):
                  gamma: float = options()['physics']['gamma'],
                  rho: StencilVector,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options()['lin_solver']['implicit_transport'],
+                 implicit_transport: bool = options()['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -3836,7 +3834,7 @@ class VariationalEntropyEvolve(Propagator):
         else:
             rank = 0
 
-        self._info = self._lin_solver['info'] and (rank == 0)
+        self._info = self._nonlin_solver['info'] and (rank == 0)
 
         self.WMM = mass_ops
 
@@ -4495,7 +4493,16 @@ class VariationalEntropyEvolve(Propagator):
 
 
 class VariationalMagFieldEvolve(Propagator):
-    r'''Crank-Nicolson step for the evolution of the magnetic field terms in fluids models,
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\mathbf u \in (H^1)^3` and :math:`s \in L^2` such that
+
+    .. math::
+
+        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\mathbf B \times \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
+        \\[4mm]
+        &\partial_t \mathbf B + \nabla \cdot ( \mathbf B \times \mathbf u ) = 0 \,.
+
+    On the logical domain:
 
     .. math::
 
@@ -4521,57 +4528,58 @@ class VariationalMagFieldEvolve(Propagator):
         &\tilde{\boldsymbol b}^{n+1} = \boldsymbol b^n ~ \text{else},
         \end{align}
 
-    and the weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
+    where weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
 
     .. math::
 
         \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
-
-    Parameters
-    ----------
-    b : psydac.linalg.stencil.Vector
-        FE coefficients of a discrete field, magnetic field of the solution.
-
-    u : psydac.linalg.stencil.BlockVector
-        FE coefficients of a discrete vector field,velocity of the solution.
-
-    **params : dict
-        Parameters for the iterative solver, the linear solver and the model.
-
     '''
 
-    def __init__(self, b, u, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['lin_solver'] = {'tol': 1e-12,
+                         'maxiter': 500,
+                         'non_linear_maxiter': 100,
+                         'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                  ('cg', None)],
+                         'verbose': False}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                         'maxiter': 100,
+                         'type': ['Newton', 'Picard'],
+                         'info': False}
+        dct['physics'] = {'implicit_transport': False}
+        
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
+
+    def __init__(self,
+                 b: BlockVector,
+                 u: BlockVector, 
+                 *,
+                 mass_ops: WeightedMassOperator,
+                 implicit_transport: bool = options()['physics']['implicit_transport'],
+                 lin_solver: dict = options(default=True)['lin_solver'],
+                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
         super().__init__(b, u)
 
-        # parameters
-        params_default = {'linear_tol': 1e-12,
-                          'non_linear_tol': 1e-8,
-                          'linear_maxiter': 500,
-                          'non_linear_maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
-                          'non_linear_solver': 'Newton',
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'mass_ops': None,
-                          'implicit_transport': False}
-
-        assert 'mass_ops' in params
-
-        params = set_defaults(params, params_default)
-
-        self._params = params
+        self._mass_ops = mass_ops
+        self._implicit_transport = implicit_transport
+        self._lin_solver = lin_solver
+        self._nonlin_solver = nonlin_solver
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
         else:
             rank = 0
 
-        self._info = self._lin_solver['info'] and (rank == 0)
+        self._info = self._nonlin_solver['info'] and (rank == 0)
 
-        self.WMM = params['mass_ops']
+        self.WMM = mass_ops
 
         # Femfields for the projector
         self.bf = self.derham.create_field("bf", "Hdiv")
@@ -4791,21 +4799,6 @@ class VariationalMagFieldEvolve(Propagator):
                     f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(bn1, un1)
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'linear_tol': 1e-12,
-                         'non_linear_tol': 1e-8,
-                         'linear_maxiter': 500,
-                         'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                                ('cg', None)],
-                         'non_linear_solver': ['Newton', 'Picard'],
-                         'info': False,
-                         'verbose': False,
-                         'implicit_transport': False}
-        return dct
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -5027,15 +5020,26 @@ class VariationalMagFieldEvolve(Propagator):
 
 
 class VariationalViscosity(Propagator):
-    r'''Crank-Nicolson step for the viscous term in Navier-Stokes or VRMHD equation,
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\rho \in L^2` and  :math:`\mathbf u \in (H^1)^3` such that
+
+    .. math::
+
+        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x + \int_\Omega (\mu + \mu_a(\mathbf x)) \nabla \mathbf u : \nabla \mathbf v \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3 \,,
+        \\[4mm]
+        &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q \,\textrm d \mathbf x - \mu \int_\Omega |\nabla \mathbf u|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,.
+
+    With :math:`\mu_a(\mathbf x) = \mu_a |\nabla \mathbf u(\mathbf x)|`
+
+    On the logical domain:
 
     .. math::
 
         \begin{align}
         &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
-        - \mu \int_{\hat{\Omega}} \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
+        + \mu \int_{\hat{\Omega}} \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
-        &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \mathcal U(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta - \mu \int_{\hat{\Omega}} \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{u}}) \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ .
+        &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \hat{e}(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta -  \int_{\hat{\Omega}} (\mu + \mu_a(\boldsymbol \eta)) \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{u}}) \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ .
         \end{align}
 
     It is discretized as
@@ -5044,67 +5048,71 @@ class VariationalViscosity(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - \mu \sum_\nu (\mathbb G \mathcal{X}^v_\nu)^T \mathbb M_0 \mathbb G \mathcal{X}^v_\nu \frac{ \mathbf u^{n+1}+\mathbf u^n}{2} = 0 ~ ,
+        +  \sum_\nu (\mathbb G \mathcal{X}^v_\nu)^T (\mu \mathbb M_0 + \mu_a \mathbb M_0[|\nabla u|] \mathbb G \mathcal{X}^v_\nu \mathbf u^{n+1} = 0 ~ ,
         \\[2mm]
-        &\frac{P^{3}(\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n}))- P^{3}(\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n+1}))}{\Delta t} - \mu P^3(\sum_\nu |DF \mathcal{X}^v_\nu \frac{ \mathbf u^{n+1}+\mathbf u^n}{2}|^2) = 0 ~ ,
+        &\frac{P^{3}(\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n}))- P^{3}(\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n+1}))}{\Delta t} - \mu P^3(\sum_\nu DF \mathcal{X}^v_\nu \frac{ \mathbf u^{n+1}+\mathbf u^n}{2} \cdot DF \mathcal{X}^v_\nu \mathbf u^{n+1}) = 0 ~ ,
         \end{align}
 
-    where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence.
-
-    Parameters
-    ----------
-    s : psydac.linalg.stencil.Vector
-        FE coefficients of a discrete field, entropy of the solution.
-
-    u : psydac.linalg.stencil.BlockVector
-        FE coefficients of a discrete vector field, velocity of the solution.
-
-    **params : dict
-        Parameters for the iterative solver, the linear solver and the model.
+    where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence and the weights in :math:`\mathbb M_0[|\nabla u|]` are given by
+    
+    .. math::
+        P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
     '''
 
-    def __init__(self, s, u, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['lin_solver'] = {'tol': 1e-12,
+                             'maxiter': 500,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'verbose': False,}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                                'maxiter': 100,
+                                'type': ['Newton'],
+                                'info': False}
+        dct['physics'] = {'gamma': 1.66666666667,
+                          'mu': 0., 'mua': 0.}
+        
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
 
+    def __init__(self, 
+                 s: StencilVector, 
+                 u: BlockVector,
+                 *,
+                 model: str = 'barotropic',
+                 gamma: float = options()['physics']['gamma'],
+                 mu: float = options()['physics']['mu'],
+                 mua: float = options()['physics']['mua'],
+                 mass_ops: WeightedMassOperator,
+                 lin_solver: dict = options(default=True)['lin_solver'],
+                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
+    
         super().__init__(s, u)
 
-        # parameters
-        params_default = {'linear_tol': 1e-12,
-                          'non_linear_tol': 1e-8,
-                          'linear_maxiter': 500,
-                          'non_linear_maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
-                          'non_linear_solver': 'Newton',
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'model': None,
-                          'rho': None,
-                          'gamma': 5/3,
-                          'mu': None,
-                          'mua': None,
-                          'mass_ops': None,
-                          'implicit_transport': False}
 
-        assert 'mu' in params
-        assert 'mua' in params
-        assert 'rho' in params
-        assert 'mass_ops' in params
-        assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
-        assert params['model'] in ['full']
+        assert model == 'full'
 
-        params = set_defaults(params, params_default)
-
-        self._params = params
+        self._model = model
+        self._gamma = gamma
+        self._mass_ops = mass_ops
+        self._lin_solver = lin_solver
+        self._nonlin_solver = nonlin_solver
+        self._mua = mua
+        self._mu = mu
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
         else:
             rank = 0
 
-        self._info = self._lin_solver['info'] and (rank == 0)
+        self._info = self._nonlin_solver['info'] and (rank == 0)
 
-        self._Mrho = params['mass_ops']
+        self._Mrho = mass_ops
 
         # Femfields for the projector
         self.rhof = self.derham.create_field("rhof", "L2")
@@ -5323,23 +5331,6 @@ class VariationalViscosity(Propagator):
 
         self.feec_vars_update(sn1, un1)
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'linear_tol': 1e-12,
-                         'non_linear_tol': 1e-8,
-                         'linear_maxiter': 500,
-                         'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                                ('cg', None)],
-                         'non_linear_solver': ['Newton'],
-                         'info': False,
-                         'verbose': False,
-                         'implicit_transport': False}
-        dct['physics'] = {'gamma': 1.66666666667,
-                          'mu': 0., 'mua': 0.}
-        return dct
-
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
@@ -5542,7 +5533,16 @@ class VariationalViscosity(Propagator):
 
 
 class VariationalResistivity(Propagator):
-    r'''Crank-Nicolson step for the resistive term in VRMHD equation,
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`s \in L^2` and  :math:`\mathbf B \in H(\textrm{div})` such that
+
+    .. math::
+
+        &\partial_t \mathbf B - \eta \Delta \mathbf B = 0 \,,
+        \\[4mm]
+        &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q\,\textrm d \mathbf x - \eta \int_\Omega |\nabla \times \mathbf B|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,.
+
+    On the logical domain:
 
     .. math::
 
@@ -5558,61 +5558,62 @@ class VariationalResistivity(Propagator):
 
         \begin{align}
         &\frac{\mathbf B^{n+1}-\mathbf B^n}{\Delta t} 
-        + \eta\, \mathbb C \mathbb M_1^{-1} \mathbb C^T \mathbb M_2  \frac{ \mathbf B^{n+1}+\mathbf B^n}{2} = 0 ~ ,
+        + \eta\, \mathbb C \mathbb M_1^{-1} \mathbb C^T \mathbb M_2  \mathbf B^{n+1} = 0 ~ ,
         \\[2mm]
-        &\frac{P^{3}(\rho e(s^{n+1})- P^{3}(\rho e(s^{n}))}{\Delta t} - \eta P^3(|DF^{-T} \tilde{\mathbb C} \frac{ \mathbf B^{n+1}+\mathbf B^n}{2}|^2) = 0 ~ ,
+        &\frac{P^{3}(\rho e(s^{n+1})- P^{3}(\rho e(s^{n}))}{\Delta t} - \eta P^3(DF^{-T} \tilde{\mathbb C} \frac{ \mathbf B^{n+1}+\mathbf B^n}{2} \cdot DF^{-T} \tilde{\mathbb C} \mathbf B^{n+1}) = 0 ~ ,
         \end{align}
 
     where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence.
 
-    Parameters
-    ----------
-    s : psydac.linalg.stencil.Vector
-        FE coefficients of a discrete field, entropy of the solution.
-
-    B : psydac.linalg.stencil.BlockVector
-        FE coefficients of a discrete vector field, magnetic field of the solution.
-
-    **params : dict
-        Parameters for the iterative solver, the linear solver and the model.
-
     '''
 
-    def __init__(self, s, b, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['lin_solver'] = {'tol': 1e-12,
+                             'maxiter': 500,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'verbose': False}
+        dct['nonlin_solver'] = {'tol': 1e-8,
+                                'maxiter': 100,
+                                'type': ['Newton'],
+                                'info': False}
+        dct['physics'] = {'eta': 0.,
+                          'gamma': 5/3}
+        
+        if default:
+            dct = descend_options_dict(dct, [])
+        
+        return dct
+    
+
+    def __init__(self, 
+                 s: StencilVector, 
+                 b: BlockVector, 
+                 *,
+                 model: str = 'full',
+                 gamma: float = options()['physics']['gamma'],
+                 eta: float = options()['physics']['eta'],
+                 lin_solver: dict = options(default=True)['lin_solver'],
+                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
         super().__init__(s, b)
 
-        # parameters
-        params_default = {'linear_tol': 1e-12,
-                          'non_linear_tol': 1e-8,
-                          'linear_maxiter': 500,
-                          'non_linear_maxiter': 100,
-                          'type_linear_solver': ('pcg', 'MassMatrixDiagonalPreconditioner'),
-                          'non_linear_solver': 'Newton',
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'model': None,
-                          'rho': None,
-                          'gamma': 5/3,
-                          'eta': None,
-                          'implicit_transport': False}
+        assert model in ['full']
 
-        assert 'eta' in params
-        assert 'rho' in params
-        assert 'model' in params, 'model must be provided for VariationalDensityEvolve'
-        assert params['model'] in ['full']
-
-        params = set_defaults(params, params_default)
-
-        self._params = params
+        self._model = model
+        self._gamma = gamma
+        self._eta   = eta
+        self._lin_solver = lin_solver
+        self._nonlin_solver = nonlin_solver
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
         else:
             rank = 0
 
-        self._info = self._lin_solver['info'] and (rank == 0)
+        self._info = self._nonlin_solver['info'] and (rank == 0)
 
         # Femfields for the projector
         self.rhof = self.derham.create_field("rhof", "L2")
@@ -5758,25 +5759,6 @@ class VariationalResistivity(Propagator):
                 f'!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(sn1, bn1)
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'linear_tol': 1e-12,
-                         'non_linear_tol': 1e-8,
-                         'linear_maxiter': 500,
-                         'non_linear_maxiter': 100,
-                         'type_linear_solver': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                                ('cg', None)],
-                         'non_linear_solver': ['Newton'],
-                         'info': False,
-                         'verbose': False,
-                         'implicit_transport': False}
-        dct['physics'] = {'eta': 0.,
-                          'gamma': 5/3,
-                          'mu': 0.,
-                          'mua': 0.}
-        return dct
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""

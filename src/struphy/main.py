@@ -1,9 +1,11 @@
 def main(model_name: str, 
          parameters: dict | str, 
          path_out: str, 
-         restart: bool=False, 
-         runtime: int=300, 
-         save_step: int=1):
+         *,
+         restart: bool = False, 
+         runtime: int = 300, 
+         save_step: int = 1,
+         supress_out: bool = False):
     """
     Run a Struphy model.
 
@@ -26,6 +28,9 @@ def main(model_name: str,
 
     save_step : int, optional
         When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
+    
+    supress_out : bool
+        Whether to supress screen output during time integration.
     """
 
     from struphy.models.base import StruphyModel
@@ -216,7 +221,7 @@ def main(model_name: str,
             data.save_data(keys=save_keys_all)
 
             # print current time and scalar quantities to screen
-            if rank == 0:
+            if rank == 0 and not supress_out:
                 step = str(time_state['index'][0]).zfill(len(total_steps))
 
                 message = 'time step: ' + step + '/' + str(total_steps)
@@ -285,12 +290,17 @@ if __name__ == '__main__':
                         help='maximum wall-clock time of program in minutes (default=300)',
                         default=300)
 
-    # runtime
+    # save step
     parser.add_argument('-s', '--save-step',
                         type=int,
                         metavar='N',
                         help='how often to skip data saving (default=1, which means data is saved every time step)',
                         default=1)
+    
+    # supress screen output
+    parser.add_argument('--supress-out',
+                        help='supress screen output during time integration',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -298,6 +308,7 @@ if __name__ == '__main__':
     main(args.model,
          args.input,
          args.output,
-         args.restart,
-         args.runtime,
-         args.save_step)
+         restart = args.restart,
+         runtime = args.runtime,
+         save_step = args.save_step,
+         supress_out = args.supress_out)

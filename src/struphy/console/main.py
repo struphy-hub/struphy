@@ -383,6 +383,10 @@ def struphy():
                               help='divide each grid cell by N for field evaluation (default=1)',
                               default=1)
 
+    parser_pproc.add_argument('--physical',
+                              help='in addition to logical components, evaluates push-forwarded physical (xyz) components',
+                              action='store_true')
+
     # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',
                                         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
