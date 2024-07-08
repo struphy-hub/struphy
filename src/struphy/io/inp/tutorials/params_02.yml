@@ -54,8 +54,8 @@ fluid :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         options:
+            u_space: Hdiv
             CurrentCoupling6DDensity:
-                u_space: Hdiv
                 solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
@@ -64,7 +64,6 @@ fluid :
                     verbose: false
                     recycle: true
             ShearAlfven:
-                u_space: Hdiv
                 solver:
                     type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
@@ -73,7 +72,6 @@ fluid :
                     verbose: false
                     recycle: true
             Magnetosonic:
-                u_space: Hdiv
                 solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08

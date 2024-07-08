@@ -55,8 +55,8 @@ fluid :
                 amp : 0.1 # noise amplitude
                 seed : 1234    # seed for random number generator
         options:
+            u_space: Hdiv
             ShearAlfven:
-                u_space: Hdiv
                 solver:
                     type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
@@ -65,7 +65,6 @@ fluid :
                     verbose: false
                     recycle: true
             Magnetosonic:
-                u_space: Hdiv
                 solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08
