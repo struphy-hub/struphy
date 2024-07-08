@@ -67,8 +67,8 @@ fluid :
                 pfuns : {velocity: [null, ['sin'], null]} # profile function in eta1-direction ('sin' or 'exp')
                 pfun_params : {velocity: [null, null, null]} # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
         options:
+            u_space: Hdiv
             ShearAlfven:
-                u_space: Hdiv
                 solver:
                     type: [pcg, MassMatrixPreconditioner]
                     tol: 1.0e-08
@@ -77,7 +77,6 @@ fluid :
                     verbose: false
                     recycle: true
             Magnetosonic:
-                u_space: Hdiv
                 solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
                     tol: 1.0e-08

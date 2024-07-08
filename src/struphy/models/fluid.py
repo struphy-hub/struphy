@@ -64,6 +64,14 @@ class LinearMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(species=['fluid', 'mhd'], key='u_space',
+                       option='Hdiv', dct=dct)
+        return dct
+
     def __init__(self, params=None, comm=None):
 
         # initialize base class
@@ -72,6 +80,7 @@ class LinearMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
+        u_space = params['fluid']['mhd']['options']['u_space']
         alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
         sonic_solver = params['fluid']['mhd']['options']['Magnetosonic']['solver']
 
@@ -88,9 +97,11 @@ class LinearMHD(StruphyModel):
             self._ones[:] = 1.
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfven] = {'solver': alfven_solver}
+        self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
+                                                        'solver': alfven_solver}
 
         self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b_field'],
+                                                         'u_space': u_space,
                                                          'solver': sonic_solver}
 
         # Initialize propagators used in splitting substeps

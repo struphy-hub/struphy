@@ -6,6 +6,7 @@ import operator
 import inspect
 
 from struphy.propagators.base import Propagator
+from psydac.linalg.stencil import StencilVector
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -458,7 +459,10 @@ class StruphyModel(metaclass=ABCMeta):
                 print(f'-> for variables {variables}')
                 print(f'-> with the following parameters:')
                 for k, v in kwargs_i.items():
-                    print(f'{k}: {v}')
+                    if isinstance(v, StencilVector):
+                        print(f'{k}: {repr(v)}')
+                    else:
+                        print(f'{k}: {v}')
 
             prop_instance = prop(*[self.pointer[var]
                                  for var in variables], **kwargs_i)

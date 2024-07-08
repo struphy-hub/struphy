@@ -4,6 +4,7 @@
 import numpy as np
 
 from psydac.linalg.solvers import inverse
+from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.propagators.base import Propagator
@@ -14,6 +15,7 @@ from struphy.pic.particles import Particles6D, Particles5D, Particles3D
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
+from struphy.pic.particles import Particles6D, Particles5D, Particles3D
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 
@@ -920,114 +922,98 @@ class EfieldWeightsAnalytic(Propagator):
 
 
 class PressureCoupling6D(Propagator):
-    r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
+    r"""
+    :ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\tilde{\mathbf{U}}  \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and :math:`f` such that
+
+    .. math::
+
+        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} \cdot \mathbf V \,\textrm d \mathbf x 
+        \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
+        \\[2mm]
+        &\frac{\partial f_\textnormal{h}}{\partial t} - \left(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf{v} \right) \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
+        \\[2mm]
+        &\tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}_\perp \mathbf{v}_\perp^\top \,\textnormal{d}^3 \mathbf v\,.
+
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
         \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n)^{-1} V^\top (\bar {\mathcal X})^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X} V (\mathbb M^n)^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} ,
+        \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,.
+    """
 
-    based on the :ref:`Schur complement <schur_solver>`.
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['use_perp_model'] = [True, False]
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
 
-    Parameters
-    ---------- 
-        u : psydac.linalg.block.BlockVector
-            FE coefficients of a discrete 1-form.
+        if default:
+            dct = descend_options_dict(dct, [])
 
-        u_space : dict
-                  params['fields']['mhd_u_space']
+        return dct
 
-        coupling : dict
-                   params['coupling']['scheme']
-
-        particles : struphy.pic.particles.Particles6D
-
-        domain : struphy.geometry.base.Domain
-                 Infos regarding mapping.
-
-        mass_ops : struphy.feec.mass.WeightedMassOperators
-                   Weighted mass matrices from struphy.feec.mass.
-
-        mhd_ops : struphy.feec.basis_projection_ops.MHDOperators
-                  Linear MHD operators from struphy.feec.basis_projection_ops.
-
-        coupling_solver: dict
-                         Solver parameters for this splitting step.
-    '''
-
-    def __init__(self, particles, u, **params):
+    def __init__(self, 
+                 particles: Particles5D,
+                 u: BlockVector | PolarVector,
+                 *,
+                 use_perp_model: bool = options(default=True)['use_perp_model'],
+                 u_space: str,
+                 solver: dict = options(default=True)['solver'],
+                 coupling_params: dict):
 
         super().__init__(particles, u)
-
-        # parameters
-        params_default = {'u_space': 'Hdiv',
-                          'use_perp_model': True,
-                          'f0': Maxwellian3D(),
-                          'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'nuh': 5.,
-                          'Ab': 1,
-                          'Ah': 1,
-                          'Zh': 1,
-                          'kappa': 1.}
-
-        params = set_defaults(params, params_default)
 
         self._G = self.derham.grad
         self._GT = self.derham.grad.transpose()
 
-        self._info = params['info']
-        self._type = params['type'][0]
-        self._tol = params['tol']
-        self._maxiter = params['maxiter']
-        self._verbose = params['verbose']
-
+        self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
 
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
 
-        if params['u_space'] == 'Hcurl':
+        if u_space == 'Hcurl':
             id_Mn = 'M1n'
             id_X = 'X1'
-        elif params['u_space'] == 'Hdiv':
+        elif u_space == 'Hdiv':
             id_Mn = 'M2n'
             id_X = 'X2'
-        elif params['u_space'] == 'H1vec':
+        elif u_space == 'H1vec':
             id_Mn = 'Mvn'
             id_X = 'Xv'
 
-        if params['u_space'] == 'H1vec':
+        if u_space == 'H1vec':
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.space_to_form[params['u_space']])
+                self.derham.space_to_form[u_space])
 
         # Preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
         accum_ker = 'pc_lin_mhd_6d'
         pusher_ker = 'push_pc_GXu'
-        if not params['use_perp_model']:
+
+        if not use_perp_model:
             accum_ker += '_full'
             pusher_ker += '_full'
 
-        self._info = params['info']
-
-        # ============= TODO ========
-        self._coupling_mat = 1.
-        self._coupling_vec = 1.
-        self._scale_push = 1.
-        # ===========================
+        self._coupling_mat = coupling_params['Ah'] / coupling_params['Ab']
+        self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
+        self._scale_push = 1
 
         self._ACC = Accumulator(self.derham, self.domain, 'Hcurl',
                                 accum_ker, add_vector=True,
@@ -1041,11 +1027,11 @@ class PressureCoupling6D(Propagator):
 
         # Instantiate schur solver with dummy BC
         self._schur_solver = SchurSolver(self._A, self._XT @ self._X,
-                                         self._type,
+                                         solver['type'][0],
                                          pc=pc,
-                                         tol=self._tol,
-                                         maxiter=self._maxiter,
-                                         verbose=self._verbose)
+                                         tol=solver['tol'],
+                                         maxiter=solver['maxiter'],
+                                         verbose=solver['verbose'])
 
         self.u_temp = u.space.zeros()
         self.u_temp2 = u.space.zeros()
@@ -1066,8 +1052,7 @@ class PressureCoupling6D(Propagator):
             self.particles[0], self._coupling_mat, self._coupling_vec)
 
         MAT = [[self._ACC.operators[0].matrix, self._ACC.operators[1].matrix, self._ACC.operators[2].matrix],
-               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix,
-                   self._ACC.operators[4].matrix],
+               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix, self._ACC.operators[4].matrix],
                [self._ACC.operators[2].matrix, self._ACC.operators[4].matrix, self._ACC.operators[5].matrix]]
         VEC = [self._ACC.vectors[0], self._ACC.vectors[1], self._ACC.vectors[2]]
 
@@ -1113,19 +1098,6 @@ class PressureCoupling6D(Propagator):
             print('Iterations for StepPressurecoupling:', info['niter'])
             print('Maxdiff u1 for StepPressurecoupling:', max_du)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
     class GT_MAT_G(LinOpWithTransp):
         r'''
@@ -1234,7 +1206,6 @@ class CurrentCoupling6DCurrent(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['u_space'] = ['Hdiv', 'Hcurl', 'H1vec']
         dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
                                   ('cg', None)],
                          'tol': 1.e-8,
@@ -1251,7 +1222,7 @@ class CurrentCoupling6DCurrent(Propagator):
                  particles: Particles6D, 
                  u: BlockVector,
                  *,
-                 u_space: str = options(default=True)['u_space'],
+                 u_space: str,
                  b_eq: BlockVector | PolarVector,
                  b_tilde: BlockVector | PolarVector,
                  Ab: int = 1,
@@ -1427,21 +1398,20 @@ class CurrentCoupling6DCurrent(Propagator):
 
 
 class CurrentCoupling5DCurlb(Propagator):
-    r'''Crank-Nicolson scheme for the CC-Curlb step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
-
-    Equation: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
         \left\{ 
             \begin{aligned} 
-                \int n_{0} &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V}\, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \frac{f^\text{vol}}{B^*_\parallel} v_\parallel^2 (\nabla \times \mathbf b_0)  \times \mathbf B \cdot \tilde{\mathbf V}\, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \ \tilde{\mathbf V} \,,
+                \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V\, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \frac{f^\text{vol}}{B^*_\parallel} v_\parallel^2 (\nabla \times \mathbf b_0)  \times \mathbf B \cdot \mathbf V \, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
                 \\
-                &\frac{\partial v_\parallel}{\partial t} = - \frac{1}{B^*_\parallel} v_\parallel (\nabla \times \mathbf b_0) \cdot (\mathbf B \times \tilde{\mathbf U}) \,.
+                &\frac{\partial f}{\partial t} = - \frac{1}{B^*_\parallel} v_\parallel (\nabla \times \mathbf b_0) \cdot (\mathbf B \times \tilde{\mathbf U}) \nabla_{v_\parallel}f \,.
             \end{aligned}
         \right.
 
-    FE coefficients and marker update (:math:`\alpha = 2`):
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
@@ -1458,72 +1428,68 @@ class CurrentCoupling5DCurlb(Propagator):
             (\mathbb{M}^{2,n})^{-1} (\mathbf u^{n+1} + \mathbf u^n)
             \\
             \frac{A_\textnormal{h}}{A_b} W (V_\parallel^{n+1} + V_\parallel^n)
-        \end{bmatrix} \,,
-
-    where 
-    :math:`\mathbb{M}^{\alpha,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`n_{0}`, the MHD equilibirum density. 
-    Moreover, :math:`\bar{B}^\times_f, \, \bar{b}_0^{\nabla \times}, \, \mathbb L^2` and notations with over-bar are the block matrices which are diagonally stacked collocation vectors.
+        \end{bmatrix} \,.
 
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
-
-    Parameters
-    ---------- 
-    particles : Particles5D
-        Particles object.
-
-    u : BlockVector
-        FE coefficients of MHD velocity.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, particles, u, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(self, 
+                 particles: Particles5D,
+                 u: BlockVector,
+                 *,
+                 b: BlockVector,
+                 b_eq: BlockVector,
+                 unit_b1: BlockVector,
+                 absB0: StencilVector,
+                 gradB1: BlockVector,
+                 curl_unit_b2: BlockVector,
+                 u_space: str,
+                 solver: dict = options(default=True)['solver'],
+                 coupling_params: dict,
+                 epsilon: float = 1.):
 
         super().__init__(particles, u)
 
-        # parameters
-        params_default = {'u_space': 'Hdiv',
-                          'b': None,
-                          'b_eq': None,
-                          'absB0': None,
-                          'unit_b1': None,
-                          'curl_unit_b2': None,
-                          'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'Ab': 1,
-                          'Ah': 1,
-                          'epsilon': 1.}
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
 
-        params = set_defaults(params, params_default)
-
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-
-        if params['u_space'] == 'H1vec':
+        if u_space == 'H1vec':
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.space_to_form[params['u_space']])
+                self.derham.space_to_form[u_space])
 
-        self._epsilon = params['epsilon']
-        self._b = params['b']
-        self._b_eq = params['b_eq']
-        self._unit_b1 = params['unit_b1']
-        self._curl_norm_b = params['curl_unit_b2']
-        self._absB0 = params['absB0']
+        self._epsilon = epsilon
+        self._b = b
+        self._b_eq = b_eq
+        self._unit_b1 = unit_b1
+        self._absB0 = absB0
+        self._gradB1 = gradB1
+        self._curl_norm_b = curl_unit_b2
 
-        self._info = params['info']
+        self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['Ah'] / params['Ab']
-        self._coupling_vec = params['Ah'] / params['Ab']
+        self._coupling_mat = coupling_params['Ah'] / coupling_params['Ab']
+        self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.space_to_form[params['u_space']]
+        u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops['0'].transpose()
         self._EuT = self.derham.extraction_ops[u_id].transpose()
         self._E2T = self.derham.extraction_ops['2'].transpose()
@@ -1538,17 +1504,17 @@ class CurrentCoupling5DCurlb(Propagator):
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(_A)
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(self.derham, self.domain, params['u_space'],
+        self._ACC = Accumulator(self.derham, self.domain, u_space,
                                 'cc_lin_mhd_5d_J1', add_vector=True, symmetry='symm')
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_gc_cc_J1_' + params['u_space'])
+                              'push_gc_cc_J1_' + u_space)
 
         # if self.particles[0].control_variate:
 
@@ -1624,11 +1590,11 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # call SchurSolver class
         self._schur_solver = SchurSolver(_A, _BC,
-                                         params['type'][0],
+                                         solver['type'][0],
                                          pc=pc,
-                                         tol=params['tol'],
-                                         maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
+                                         tol=solver['tol'],
+                                         maxiter=solver['maxiter'],
+                                         verbose=solver['verbose'])
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -1772,36 +1738,22 @@ class CurrentCoupling5DCurlb(Propagator):
             print('Maxdiff up for CurrentCoupling5DCurlb:', max_du)
             print()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
-
 
 class CurrentCoupling5DGradB(Propagator):
-    r'''Explicit scheme for the CC-GradB step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`.
-
-    Equation:
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
         \left\{ 
             \begin{aligned} 
-                \int n_{0} &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V}\, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \mu \frac{f^\text{vol}}{B^*_\parallel} (\mathbf b_0 \times \nabla B_\parallel) \times \mathbf B \cdot \tilde{\mathbf V} \,\textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \ \tilde{\mathbf V} \,,
+                \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \mu \frac{f^\text{vol}}{B^*_\parallel} (\mathbf b_0 \times \nabla B_\parallel) \times \mathbf B \cdot \mathbf V \,\textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
                 \\
-                &\frac{\partial \boldsymbol \eta}{\partial t} = \frac{1}{B^*_\parallel} \mathbf b_0 \times (\tilde{\mathbf U} \times \mathbf B) \,.
+                &\frac{\partial f}{\partial t} = \frac{1}{B^*_\parallel} \left[ \mathbf b_0 \times (\tilde{\mathbf U} \times \mathbf B) \right] \cdot \nabla f\,.
             \end{aligned}
         \right.
 
-    FE coefficients and marker update (:math:`\alpha = 2`):
+    :ref:`time_discret`: Explicit ('rk4', 'forward_euler', 'heun2', 'rk2', 'heun3').
 
     .. math::
 
@@ -1818,79 +1770,76 @@ class CurrentCoupling5DGradB(Propagator):
             \mathbb M^{2,n} \mathbf u
             \\
             \frac{A_\textnormal{h}}{A_b} \bar M \bar W \overline{\nabla B}_\parallel 
-        \end{bmatrix} \,,
-
-    where 
-    :math:`\mathbb M^\rho_\alpha` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_0`, the MHD equilibirum density. 
-    :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
+        \end{bmatrix} \,.
 
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
-
-    Parameters
-    ---------- 
-    particles : Particles5D
-        Particles object.
-
-    u : BlockVector
-        FE coefficients of MHD velocity.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, particles, u, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+
+    def __init__(self, 
+                 particles: Particles5D,
+                 u: BlockVector,
+                 *,
+                 b: BlockVector,
+                 b_eq: BlockVector,
+                 unit_b1: BlockVector,
+                 unit_b2: BlockVector,
+                 absB0: StencilVector,
+                 gradB1: BlockVector,
+                 curl_unit_b2: BlockVector,
+                 u_space: str,
+                 solver: dict = options(default=True)['solver'],
+                 algo: dict = options(default=True)['algo'],
+                 coupling_params: dict,
+                 epsilon: float = 1.):
 
         from struphy.pic.pushing.pusher import ButcherTableau
         from psydac.linalg.solvers import inverse
 
         super().__init__(particles, u)
 
-        # parameters
-        params_default = {'u_space': 'Hdiv',
-                          'b': None,
-                          'b_eq': None,
-                          'unit_b1': None,
-                          'unit_b2': None,
-                          'absB0': None,
-                          'gradB1': None,
-                          'curl_unit_b2': None,
-                          'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'Ab': 1,
-                          'Ah': 1,
-                          'epsilon': 1.,
-                          'method': 'rk4'}
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
 
-        params = set_defaults(params, params_default)
-
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-
-        if params['u_space'] == 'H1vec':
+        if u_space == 'H1vec':
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.space_to_form[params['u_space']])
+                self.derham.space_to_form[u_space])
 
-        self._epsilon = params['epsilon']
-        self._b = params['b']
-        self._b_eq = params['b_eq']
-        self._unit_b1 = params['unit_b1']
-        self._unit_b2 = params['unit_b2']
-        self._absB0 = params['absB0']
-        self._gradB1 = params['gradB1']
-        self._curl_norm_b = params['curl_unit_b2']
-        self._info = params['info']
+        self._epsilon = epsilon
+        self._b = b
+        self._b_eq = b_eq
+        self._unit_b1 = unit_b1
+        self._unit_b2 = unit_b2
+        self._absB0 = absB0
+        self._gradB1 = gradB1
+        self._curl_norm_b = curl_unit_b2
+
+        self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
 
-        self._coupling_mat = params['Ah'] / params['Ab']
-        self._coupling_vec = params['Ah'] / params['Ab']
+        self._coupling_mat = coupling_params['Ah'] / coupling_params['Ab']
+        self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
         self._scale_push = 1
 
-        u_id = self.derham.space_to_form[params['u_space']]
+        u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops['0'].transpose()
         self._EuT = self.derham.extraction_ops[u_id].transpose()
         self._E1T = self.derham.extraction_ops['1'].transpose()
@@ -1906,22 +1855,22 @@ class CurrentCoupling5DGradB(Propagator):
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         # preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(_A)
 
         self._solver = inverse(_A,
-                               params['type'][0],
+                               solver['type'][0],
                                pc=pc,
-                               tol=params['tol'],
-                               maxiter=params['maxiter'],
-                               verbose=params['verbose'])
+                               tol=solver['tol'],
+                               maxiter=solver['maxiter'],
+                               verbose=solver['verbose'])
 
         # Call the accumulation and Pusher class
         self._ACC = Accumulator(
-            self.derham, self.domain,  params['u_space'], 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
+            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
 
         # if self.particles[0].control_variate:
 
@@ -2011,23 +1960,23 @@ class CurrentCoupling5DGradB(Propagator):
         #     self._vec3 = np.zeros_like(self._n0_at_quad)
 
         # choose algorithm
-        if params['method'] == 'forward_euler':
+        if algo == 'forward_euler':
             a = []
             b = [1.]
             c = [0.]
-        elif params['method'] == 'heun2':
+        elif algo == 'heun2':
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
-        elif params['method'] == 'rk2':
+        elif algo == 'rk2':
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
-        elif params['method'] == 'heun3':
+        elif algo == 'heun3':
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
-        elif params['method'] == 'rk4':
+        elif algo == 'rk4':
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
             c = [0., 1/2, 1/2, 1.]
@@ -2036,7 +1985,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         self._butcher = ButcherTableau(a, b, c)
         self._pusher = Pusher(self.derham, self.domain,
-                              'push_gc_cc_J2_stage_' + params['u_space'])
+                              'push_gc_cc_J2_stage_' + u_space)
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -2188,17 +2137,3 @@ class CurrentCoupling5DGradB(Propagator):
         if self._info and self._rank == 0:
             print('Maxdiff up for CurrentCoupling5DGradB:', max_du)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
-        return dct

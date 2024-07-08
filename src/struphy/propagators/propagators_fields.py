@@ -8,7 +8,7 @@ from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
-from struphy.pic.particles import Particles6D
+from struphy.pic.particles import Particles6D, Particles5D
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
@@ -358,7 +358,6 @@ class ShearAlfven(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
         dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
                                   ('cg', None)],
                          'tol': 1.e-8,
@@ -375,7 +374,7 @@ class ShearAlfven(Propagator):
                  u: BlockVector,
                  b: BlockVector,
                  *,
-                 u_space: str = options(default=True)['u_space'],
+                 u_space: str,
                  solver: dict = options(default=True)['solver']):
 
         super().__init__(u, b)
@@ -732,7 +731,6 @@ class Magnetosonic(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['u_space'] = ['Hdiv', 'H1vec', 'Hcurl']
         dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
                                   ('bicgstab', None)],
                          'tol': 1.e-8,
@@ -750,7 +748,7 @@ class Magnetosonic(Propagator):
                  u: BlockVector,
                  p: StencilVector,
                  *,
-                 u_space: str = options(default=True)['u_space'],
+                 u_space: str,
                  b: BlockVector,
                  solver: dict = options(default=True)['solver']):
 
@@ -1329,7 +1327,6 @@ class CurrentCoupling6DDensity(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['u_space'] = ['Hdiv', 'Hcurl', 'H1vec']
         dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
                                   ('bicgstab', None)],
                          'tol': 1.e-8,
@@ -1346,7 +1343,7 @@ class CurrentCoupling6DDensity(Propagator):
                  u: BlockVector,
                  *,
                  particles: Particles6D,
-                 u_space: str = options(default=True)['u_space'],
+                 u_space: str,
                  b_eq: BlockVector | PolarVector,
                  b_tilde: BlockVector | PolarVector,
                  Ab: int = 1,
@@ -1505,21 +1502,20 @@ class CurrentCoupling6DDensity(Propagator):
 
 
 class ShearAlfvenCurrentCoupling5D(Propagator):
-    r'''Crank-Nicolson scheme for the shear Alfvén step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
-
-    Equation:
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
         \left\{ 
             \begin{aligned} 
-                \int n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} = \int \left(\tilde{\mathbf B} - \frac{A_\textnormal{h}}{A_b} \iint f^\text{vol} \mu \mathbf{b}_0\textnormal{d} \mu \textnormal{d} v_\parallel \right) \cdot \nabla \times (\mathbf B_0 \times \tilde{\mathbf V}) \, \textnormal{d} \mathbf{x} \quad \forall \ \tilde{\mathbf V} \,,
+                \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \int \left(\tilde{\mathbf B} - \frac{A_\textnormal{h}}{A_b} \iint f^\text{vol} \mu \mathbf{b}_0\textnormal{d} \mu \textnormal{d} v_\parallel \right) \cdot \nabla \times (\mathbf B_0 \times \mathbf V) \, \textnormal{d} \mathbf{x} \quad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,, \,,
                 \\
                 &\frac{\partial \tilde{\mathbf B}}{\partial t} = - \nabla \times (\mathbf B_0 \times \tilde{\mathbf U}) \,.
             \end{aligned}
         \right.
 
-    FE coefficients update:
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
@@ -1539,59 +1535,50 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
     :math:`\mathbb M^{\alpha,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density. 
     :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
     Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M`.
-    The solution of the above system is based on the :class:`struphy.linear_algebra.schur_solver.SchurSolver`.
-
-    Parameters
-    ---------- 
-    u : BlockVector
-        FE coefficients of MHD velocity.
-
-    b : BlockVector
-        FE coefficients of magnetic field as 2-form.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, u, b, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
 
-        from struphy.pic.particles import Particles5D
+    def __init__(self, 
+                 u: BlockVector,
+                 b: BlockVector,
+                 *,
+                 particles: Particles5D,
+                 absB0: StencilVector,
+                 unit_b1: BlockVector,
+                 u_space: str,
+                 solver: dict = options(default=True)['solver'],
+                 coupling_params: dict):
 
         super().__init__(u, b)
 
-        # parameters
-        params_default = {'particles': Particles5D,
-                          'u_space': 'Hdiv',
-                          'unit_b1': None,
-                          'absB0': None,
-                          'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'Ab': 1,
-                          'Ah': 1}
+        self._particles = particles
+        self._unit_b1 = unit_b1
+        self._absB0 = absB0
 
-        params = set_defaults(params, params_default)
-
-        self._particles = params['particles']
-        self._type = params['type'][0]
-        self._tol = params['tol']
-        self._maxiter = params['maxiter']
-        self._info = params['info']
-        self._verbose = params['verbose']
+        self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
-        self._scale_vec = params['Ah'] / params['Ab']
 
-        self._unit_b1 = params['unit_b1']
-        self._absB0 = params['absB0']
+        self._scale_vec = coupling_params['Ah'] / coupling_params['Ab']
 
         self._E1T = self.derham.extraction_ops['1'].transpose()
         self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         self._ACC = Accumulator(self.derham, self.domain,
-                                'Hdiv', 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
+                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
 
         # if self._particles.control_variate:
 
@@ -1619,8 +1606,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         #     self._M0_at_quad = unit_b1_at_quad / absB0_at_quad * vth_perp**2 * n0_at_quad * self._scale_vec
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_M = 'M' + self.derham.space_to_form[params['u_space']] + 'n'
-        id_T = 'T' + self.derham.space_to_form[params['u_space']]
+        id_M = 'M' + self.derham.space_to_form[u_space] + 'n'
+        id_T = 'T' + self.derham.space_to_form[u_space]
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
@@ -1630,21 +1617,21 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._B2 = -1/2 * _T.T @ self.derham.curl.T
 
         # Preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
         self._schur_solver = SchurSolver(_A, _BC,
-                                         params['type'][0],
+                                         solver['type'][0],
                                          pc=pc,
-                                         tol=params['tol'],
-                                         maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
+                                         tol=solver['tol'],
+                                         maxiter=solver['maxiter'],
+                                         verbose=solver['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -1700,42 +1687,29 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             print('Maxdiff b2 for ShearAlfven:', max_db)
             print()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
-
 
 class MagnetosonicCurrentCoupling5D(Propagator):
-    r'''Crank-Nicolson scheme for Magnetosonic step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
-
-    Equation:
+    r'''
+    :ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
 
     .. math::
 
         \left\{
             \begin{aligned}
-                &\frac{\partial \tilde n}{\partial t} = - \nabla \cdot (n_0 \tilde{\mathbf U}) \,,
+                &\frac{\partial \tilde{\rho}}{\partial t} = - \nabla \cdot (\rho_0 \tilde{\mathbf U}) \,,
                 \\
-                \int n_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} = \int (\nabla \times \mathbf B_0) \times \tilde{\mathbf B} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf x + \frac{A_\textnormal{h}}{A_b}\iint f^\text{vol} \mu \mathbf b_0 \cdot \nabla \times (\tilde{\mathbf B} \times \tilde{\mathbf V}) \, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu + \int \tilde p \nabla \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf x \qquad \forall \ \tilde{\mathbf V}\,,
+                \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \int (\nabla \times \mathbf B_0) \times \tilde{\mathbf B} \cdot \mathbf V \, \textnormal{d} \mathbf x + \frac{A_\textnormal{h}}{A_b}\iint f^\text{vol} \mu \mathbf b_0 \cdot \nabla \times (\tilde{\mathbf B} \times \mathbf V) \, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu + \int \tilde p \nabla \cdot \mathbf V \, \textnormal{d} \mathbf x \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
                 \\
                 &\frac{\partial \tilde p}{\partial t} = - \nabla \cdot (p_0 \tilde{\mathbf U}) - (\gamma - 1) p_0 \nabla \cdot \tilde{\mathbf U} \,.
             \end{aligned} 
         \right.
 
-    FE coefficients update:
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
-        \boldsymbol{n}^{n+1} - \boldsymbol{n}^n = - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,,
+        \boldsymbol{\rho}^{n+1} - \boldsymbol{\rho}^n = - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,,
 
     .. math::
 
@@ -1755,7 +1729,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
     where 
     :math:`\mathcal U^\alpha`, :math:`\mathcal S^\alpha`, :math:`\mathcal K^\alpha` and :math:`\mathcal Q^\alpha` are :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators` and
-    :math:`\mathbb M^{\alpha,n}` and :math:`\mathbb M^{\alpha,J}` are :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`n_0` the MHD equilibrium density. 
+    :math:`\mathbb M^{\alpha,n}` and :math:`\mathbb M^{\alpha,J}` are :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_0` the MHD equilibrium density. 
     :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
     Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M` and
     the time-varying projection operator :math:`\mathcal{T}^B` is defined as
@@ -1763,71 +1737,59 @@ class MagnetosonicCurrentCoupling5D(Propagator):
     .. math::
 
         \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}^2_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
-
-    The solution of the above system is based on the :class:`struphy.linear_algebra.schur_solver.SchurSolver`.
-
-    Parameters
-    ---------- 
-    n : StencilVector
-        FE coefficients of a discrete 3-form.
-
-    u : BlockVector
-        FE coefficients of MHD velocity.
-
-    p : StencilVector
-        FE coefficients of a discrete 3-form.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, n, u, p, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
 
-        from struphy.pic.particles import Particles5D
+    def __init__(self,
+                 n: StencilVector,
+                 u: BlockVector,
+                 p: StencilVector,
+                 *,
+                 particles: Particles5D,
+                 b: BlockVector,
+                 absB0: StencilVector,
+                 unit_b1: BlockVector,
+                 u_space: str,
+                 solver: dict = options(default=True)['solver'],
+                 coupling_params: dict):
 
         super().__init__(n, u, p)
 
-        # parameters
-        params_default = {'b': self.derham.Vh['2'].zeros(),
-                          'particles': Particles5D,
-                          'u_space': 'Hdiv',
-                          'unit_b1': None,
-                          'absB0': None,
-                          'type': ('pbicgstab', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'Ab': 1,
-                          'Ah': 1}
+        self._particles = particles
+        self._b = b
+        self._unit_b1 = unit_b1
+        self._absB0 = absB0
 
-        params = set_defaults(params, params_default)
+        self._info = solver['info']
+        self._rank = self.derham.comm.Get_rank()
 
-        assert isinstance(params['particles'], Particles5D)
-        self._particles = params['particles']
+        self._scale_vec = coupling_params['Ah'] / coupling_params['Ab']
 
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-        self._u_id = self.derham.space_to_form[params['u_space']]
+        self._E1T = self.derham.extraction_ops['1'].transpose()
+        self._unit_b1 = self._E1T.dot(self._unit_b1)
+
+        self._u_id = self.derham.space_to_form[u_space]
         if self._u_id == 'v':
             self._space_key_int = 0
         else:
             self._space_key_int = int(self._u_id)
 
-        self._b = params['b']
-        self._bc = self.derham.dirichlet_bc
-        self._info = params['info']
-        self._rank = self.derham.comm.Get_rank()
-        self._scale_vec = params['Ah'] / params['Ab']
-
-        self._unit_b1 = params['unit_b1']
-        self._absB0 = params['absB0']
-
-        self._E1T = self.derham.extraction_ops['1'].transpose()
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-
         self._ACC = Accumulator(self.derham, self.domain,
-                                'Hdiv', 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
+                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
 
         # if self._particles.control_variate:
 
@@ -1890,21 +1852,21 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._TC = self._TB.T @ self.derham.curl.T
 
         # preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
         self._schur_solver = SchurSolver(_A, _BC,
-                                         params['type'][0],
+                                         solver['type'][0],
                                          pc=pc,
-                                         tol=params['tol'],
-                                         maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
+                                         tol=solver['tol'],
+                                         maxiter=solver['maxiter'],
+                                         verbose=solver['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -1976,18 +1938,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
     def _initialize_projection_operator_TB(self):
         """Initialize BasisProjectionOperator TB with the time-varying weight.
@@ -2056,13 +2006,12 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
 
 class CurrentCoupling5DDensity(Propagator):
-    r'''Crank-Nicolson scheme for the CC-Density step in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
-
-    Equation:
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
-        \int n_0 \frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} = \frac{A_\textnormal{h}}{A_b} \frac{1}{\epsilon} \iiint f^\text{vol} \left(1 - \frac{B_\parallel}{B^*_\parallel}\right) \tilde{\mathbf U} \times \mathbf B_f \cdot \tilde{\mathbf V} \, \textnormal{d} \mathbf{x} \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \ \tilde{\mathbf V} \,,
+        \int \rho_0 \frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \frac{A_\textnormal{h}}{A_b} \frac{1}{\epsilon} \iiint f^\text{vol} \left(1 - \frac{B_\parallel}{B^*_\parallel}\right) \tilde{\mathbf U} \times \mathbf B_f \cdot \mathbf V \, \textnormal{d} \mathbf{x} \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
 
     FE coefficients update:
 
@@ -2071,69 +2020,62 @@ class CurrentCoupling5DDensity(Propagator):
         \mathbf u^{n+1} - \mathbf u^n = -\frac{A_\textnormal{h}}{A_b} \frac{1}{\epsilon} \mathbb{L}²{\mathbb{B}}^\times_f \mathbb{N}(1/g) \mathbb{W} \mathbb{N}\left(1- \frac{\hat B^0_\parallel}{\hat B^{*0} _\parallel}\right) (\mathbb{L}²)^\top \frac{\Delta t}{2} \cdot (\mathbf u^{n+1} + \mathbf u^n) \,.
 
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
-
-    Parameters
-    ---------- 
-    u : BlockVector
-        FE coefficients of MHD velocity.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, u, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
 
-        from struphy.pic.particles import Particles5D
+    def __init__(self, 
+                 u: BlockVector,
+                 *,
+                 particles: Particles5D,
+                 b: BlockVector,
+                 b_eq: BlockVector,
+                 unit_b1: BlockVector,
+                 curl_unit_b2: BlockVector,
+                 u_space: str,
+                 solver: dict = options(default=True)['solver'],
+                 coupling_params: dict,
+                 epsilon: float = 1.):
 
         super().__init__(u)
 
-        # parameters
-        params_default = {'particles': None,
-                          'u_space': 'Hdiv',
-                          'b_eq': None,
-                          'b_tilde': None,
-                          'unit_b1': None,
-                          'curl_unit_b2': None,
-                          'type': 'pbicgstab',
-                          'pc': 'MassMatrixPreconditioner',
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'Ab': 1,
-                          'Ah': 1,
-                          'epsilon': 1.}
-
-        params = set_defaults(params, params_default)
-
         # assert parameters and expose some quantities to self
-        assert isinstance(params['particles'], (Particles5D))
+        assert isinstance(particles, (Particles5D))
 
-        assert params['u_space'] in {'Hcurl', 'Hdiv', 'H1vec'}
-        if params['u_space'] == 'H1vec':
+        assert u_space in {'Hcurl', 'Hdiv', 'H1vec'}
+
+        if u_space == 'H1vec':
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.space_to_form[params['u_space']])
+                self.derham.space_to_form[u_space])
 
-        self._particles = params['particles']
-        self._b_eq = params['b_eq']
-        self._b_tilde = params['b_tilde']
-        self._unit_b1 = params['unit_b1']
-        self._curl_norm_b = params['curl_unit_b2']
-        self._epsilon = params['epsilon']
+        self._epsilon = epsilon
+        self._particles = particles
+        self._b = b
+        self._b_eq = b_eq
+        self._unit_b1 = unit_b1
+        self._curl_norm_b = curl_unit_b2
 
-        self._type = params['type'][0]
-        self._tol = params['tol']
-        self._maxiter = params['maxiter']
-        self._info = params['info']
-        self._verbose = params['verbose']
+        self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
 
-        self._scale_mat = params['Ah'] / params['Ab'] / self._epsilon
+        self._scale_mat = coupling_params['Ah'] / coupling_params['Ab'] / self._epsilon
         self._accumulator = Accumulator(
-            self.derham, self.domain, params['u_space'], 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
+            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
 
         # if self._particles.control_variate:
 
@@ -2188,7 +2130,7 @@ class CurrentCoupling5DDensity(Propagator):
         #     self._mat31 = np.zeros_like(self._n0_at_quad)
         #     self._mat32 = np.zeros_like(self._n0_at_quad)
 
-        u_id = self.derham.space_to_form[params['u_space']]
+        u_id = self.derham.space_to_form[u_space]
         self._M = getattr(self.mass_ops, 'M' + u_id + 'n')
 
         self._E0T = self.derham.extraction_ops['0'].transpose()
@@ -2200,30 +2142,26 @@ class CurrentCoupling5DDensity(Propagator):
         self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         # preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             self._pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             self._pc = pc_class(self._M)
 
         # linear solver
         self._solver = inverse(self._M,
-                               params['type'][0],
+                               solver['type'][0],
                                pc=self._pc,
                                x0=self.feec_vars[0],
-                               tol=self._tol,
-                               maxiter=self._maxiter,
-                               verbose=self._verbose)
+                               tol=solver['tol'],
+                               maxiter=solver['maxiter'],
+                               verbose=solver['verbose'])
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
         self._b_full2 = self._E2T.codomain.zeros()
         self._rhs_v = u.space.zeros()
         self._u_new = u.space.zeros()
-
-    @property
-    def variables(self):
-        return [self._u]
 
     def __call__(self, dt):
         # pointer to old coefficients
@@ -2232,8 +2170,8 @@ class CurrentCoupling5DDensity(Propagator):
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b_eq.copy(out=self._b_full1)
 
-        if self._b_tilde is not None:
-            b_full += self._b_tilde
+        if self._b is not None:
+            b_full += self._b
 
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
         Eb_full.update_ghost_regions()
@@ -2303,18 +2241,6 @@ class CurrentCoupling5DDensity(Propagator):
             print('Iterations for CurrentCoupling5DDensity:', info['niter'])
             print('Maxdiff up for CurrentCoupling5DDensity:', max_du)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
 
 class ImplicitDiffusion(Propagator):
