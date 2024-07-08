@@ -15,9 +15,9 @@ class KineticBackground(metaclass=ABCMeta):
 
     .. math::
 
-        n &= \int f \,\mathrn d \mathbf v
+        n &= \int f \,\mathrm{d} \mathbf v
 
-        \mathbf u &= \frac 1n \int \mathbf v f \,\mathrn d \mathbf v\,.
+        \mathbf u &= \frac 1n \int \mathbf v f \,\mathrm{d} \mathbf v\,.
     """
 
     @property
@@ -479,11 +479,23 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
     r""" Base class for a canonical Maxwellian distribution function.
     It is defined by three constants of motion in the axissymmetric toroidal system:
 
-    - Shifted canonical toroidal momentum :math:`\psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B)`,
+    - Shifted canonical toroidal momentum
 
-    - Energy :math:`\epsilon = \frac{1}{2}m_sv_\parallel² + \mu B`,
+    .. math::
 
-    - Magnetic moment :math: `\mu = \frac{m_s v_\perp²}{2B}`,
+        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
+
+    - Energy
+
+    .. math::
+
+        \epsilon = \frac{1}{2}m_sv_\parallel² + \mu B,
+
+    - Magnetic moment
+
+    .. math:: 
+
+        \mu = \frac{m_s v_\perp²}{2B},
 
     where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
 

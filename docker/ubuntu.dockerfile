@@ -4,8 +4,8 @@
 #
 # docker info
 # docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu -f docker/ubuntu.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11 -f docker/ubuntu.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
 
 FROM ubuntu:latest
 
@@ -26,10 +26,14 @@ RUN apt update -y && apt clean \
     && apt install -y libomp-dev libomp5 \
     && apt install -y git \
     && apt install -y pandoc \
-    && apt install -y sqlite3 
+    && apt install -y sqlite3 \
+    && bash -c "echo 'alias python3=python3.11' >> ~/.bashrc" \
+    && bash -c "source ~/.bashrc" 
 
 # create new working dir
-WORKDIR /your_working_dir/
+WORKDIR /struphy_install/
+
+COPY dist/struphy*.whl .
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1

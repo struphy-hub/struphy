@@ -253,7 +253,7 @@ class LinearMHDVlasovPC(StruphyModel):
         \begin{aligned}
         &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
         \\
-        n_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla\cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} \color{black} 
+        n_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla\cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp}
         =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
         \,, \qquad
         \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,, 
@@ -268,8 +268,8 @@ class LinearMHDVlasovPC(StruphyModel):
         \\[2mm]
         \textnormal{EPs}\,\, &\left\{\,\,
         \begin{aligned}
-        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} \color{blue} + \tilde{\mathbf{U}}_\perp \color{black})\cdot \nabla f_\textnormal{h}
-        + \left[\frac{1}{\epsilon}\, \mathbf{v}\times(\mathbf{B}_0 + \tilde{\mathbf{B}}) \color{blue}- \nabla \tilde{\mathbf{U}}_\perp\cdot \mathbf{v} \color{black} \right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}}
+        &\quad\,\,\frac{\partial f_\textnormal{h}}{\partial t} + (\mathbf{v} + \tilde{\mathbf{U}}_\perp)\cdot \nabla f_\textnormal{h}
+        + \left[\frac{1}{\epsilon}\, \mathbf{v}\times(\mathbf{B}_0 + \tilde{\mathbf{B}}) - \nabla \tilde{\mathbf{U}}_\perp\cdot \mathbf{v} \right]\cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}}
         = 0\,,
         \\
         &\quad\,\,\tilde{\mathbb{P}}_{\textnormal{h},\perp} = \int \mathbf{v}_\perp\mathbf{v}^\top_\perp f_h d\mathbf{v} \,,
@@ -496,7 +496,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         \int n_{0} &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \tilde{\mathbf V}\, \textnormal{d}\mathbf{x} - \int \tilde p\, \nabla \cdot \tilde{\mathbf{V}} \,\textrm d \mathbf x
          = \int \tilde{\mathbf{B}} \cdot \nabla \times(\mathbf{B}_0 \times \tilde{\mathbf V})\, \textnormal{d}\mathbf{x} + \int (\nabla \times \mathbf B_0) \times \tilde{\mathbf{B}} \cdot \tilde{\mathbf V} \, \textnormal{d}\mathbf{x}
         \\
-        &\qquad \qquad \color{blue}+ \frac{A_\textnormal{h}}{A_\textnormal{b}} \int \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} \times \mathbf{B} \cdot \tilde{\mathbf V} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} \times \mathbf{B} \cdot \tilde{\mathbf V} -\mathbf{M}_\textnormal{gc} \cdot \nabla \times (\mathbf{B} \times \tilde{\mathbf V}) \right] \textnormal{d} \mathbf{x} \color{black} \,, \quad \forall \ \tilde{\mathbf V} \in H(\text{div})\,,
+        &\qquad \qquad + \frac{A_\textnormal{h}}{A_\textnormal{b}} \int \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} \times \mathbf{B} \cdot \tilde{\mathbf V} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} \times \mathbf{B} \cdot \tilde{\mathbf V} -\mathbf{M}_\textnormal{gc} \cdot \nabla \times (\mathbf{B} \times \tilde{\mathbf V}) \right] \textnormal{d} \mathbf{x} \,, \quad \forall \ \tilde{\mathbf V} \in H(\text{div})\,,
         \\
         &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
@@ -528,7 +528,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         \begin{align}
         \mathbf{B}^* &= \mathbf{B} + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf{b}_0 \cdot \mathbf{B}^*\,,
         \\[2mm]
-        \mathbf{E}^* &=  \color{blue}- \tilde{\mathbf{U}} \times \mathbf{B} \color{black} - \epsilon \mu \nabla B_\parallel \,,
+        \mathbf{E}^* &= - \tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla B_\parallel \,,
         \end{align}
 
     and with the normalization parameter 
