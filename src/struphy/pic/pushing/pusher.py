@@ -4,6 +4,7 @@
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing import pusher_kernels_gc
 from struphy.pic.pushing import eval_kernels_gc
+from struphy.pic.pushing.pusher_kernels import PusherArguments
 
 import numpy as np
 from mpi4py.MPI import SUM, IN_PLACE
@@ -54,11 +55,14 @@ class Pusher:
         self._mpi_in_place = IN_PLACE
 
         # get FEM information
-        self._args_fem = (np.array(derham.p),
+        args_fem = (np.array(derham.p),
                           derham.Vh_fem['0'].knots[0],
                           derham.Vh_fem['0'].knots[1],
                           derham.Vh_fem['0'].knots[2],
                           np.array(derham.Vh['0'].starts))
+
+        # mandatory pusher arguments
+        self._pusher_args = PusherArguments(*args_fem, *self.domain.args_map)
 
         # select pusher kernel
         assert kernel_name[:5] == 'push_'
@@ -135,8 +139,10 @@ class Pusher:
 
         # prepare the iteration:
         if self.init_kernel is not None:
-            self.init_kernel(particles.markers, dt, *self.args_fem,
-                             *self.domain.args_map, *args_opt)
+            self.init_kernel(particles.markers, 
+                             dt, 
+                             self.pusher_args,
+                             *args_opt)
             particles.mpi_sort_markers()
 
         # start stages (e.g. n_stages=4 for RK4)
@@ -152,13 +158,18 @@ class Pusher:
 
                 # do evaluations if eval_kernels is not empty
                 for eval_ker in self.eval_kernels:
-                    eval_ker(particles.markers, dt,
-                             *self.args_fem, *self.domain.args_map, *args_opt)
+                    eval_ker(particles.markers, 
+                             dt,
+                             self.pusher_args,
+                             *args_opt)
                     particles.mpi_sort_markers()
 
                 # push markers
-                self.kernel(particles.markers, dt, stage,
-                            *self.args_fem, *self.domain.args_map, *args_opt)
+                self.kernel(particles.markers, 
+                            dt, 
+                            stage,
+                            self.pusher_args,
+                            *args_opt)
 
                 # sort markers according to domain decomposition
                 if mpi_sort == 'each':
@@ -252,10 +263,10 @@ class Pusher:
         return self._eval_kernels
 
     @property
-    def args_fem(self):
-        """ FEM and MPI related arguments taken by all pushers.
+    def pusher_args(self):
+        """ Mandatory arguments taken by all pushers.
         """
-        return self._args_fem
+        return self._pusher_args
 
 
 class ButcherTableau:
