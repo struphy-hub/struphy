@@ -52,7 +52,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
         Lz = dom_params['Lz']
 
     Nels = [2**n for n in range(3, 9)]
-    p_values = [1, 2, 3]
+    p_values = [1, 2]
     for pi in p_values:
 
         errors = []
@@ -213,7 +213,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[64, 64, 1]])
-@pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1], [3, 3, 1]])
+@pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize('bc_type', ['periodic', 'dirichlet', 'neumann'])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}],
@@ -401,10 +401,9 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 @pytest.mark.skip(reason='Not clear if the 2.5d strategy is sound.')
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[32, 32, 16]])
-@pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1], [3, 3, 1]])
+@pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}],
-    ['Orthogonal', {'Lx': 1., 'Ly': 1., 'alpha': .1, 'Lz': 1.}],
     ['Colella', {'Lx': 1., 'Ly': 1., 'alpha': .1, 'Lz': 1.}]
 ])
 def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):

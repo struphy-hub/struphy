@@ -415,6 +415,10 @@ def struphy():
     parser_test.add_argument('-f', '--fast',
                              help='test model(s) just in slab geometry (Cuboid)',
                              action='store_true')
+    
+    parser_test.add_argument('--with-desc',
+                             help='include DESC equilibrium in tests (mem consuming)',
+                             action='store_true')
 
     parser_test.add_argument('-v', '--verbose',
                              help='print timings to screen',

@@ -212,7 +212,8 @@ def test_desc_equil(do_plot=False):
                     plt.axis('equal')
                     plt.colorbar(map4, location='right')
 
-    plt.show()
+    if do_plot:
+        plt.show()
 
 
 if __name__ == '__main__':
