@@ -10,10 +10,11 @@ class A:
     def __init__(self, n: int):
         print('hello.')
         self._n = n
-     
-    @property   
+        self.x = 3
+       
     def n(self):
         return self._n
     
     def return_n(self):
         return self._n
+    
