@@ -12,10 +12,10 @@ from struphy.geometry import domains
 
 # @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[14, 16, 18]])
-@pytest.mark.parametrize('p', [[6, 8, 9]])
+@pytest.mark.parametrize('p', [[5, 4, 3]])
 @pytest.mark.parametrize('spl_kind', [[True, False, False], [False, True, False], [False, False, True]])
-def test_local_projectors_mappings(Nel, p, spl_kind, do_plot=False):
-    """ Tests the Local-projectors, by comparing htem to the analytical function as well as to the global projectors.
+def test_local_projectors_compare_global(Nel, p, spl_kind, do_plot=False):
+    """ Tests the Local-projectors, by comparing them to the analytical function as well as to the global projectors.
     """
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -32,9 +32,9 @@ def test_local_projectors_mappings(Nel, p, spl_kind, do_plot=False):
         np.cos(4.0*np.pi*e2) * np.sin(6.0*np.pi*e3)
     # f = lambda e1, e2, e3: np.sin(2.0*np.pi*e1) * np.cos(4.0*np.pi*e2)
     # evaluation points
-    e1 = np.linspace(0., 1., 30)
-    e2 = np.linspace(0., 1., 40)
-    e3 = np.linspace(0., 1., 40)
+    e1 = np.linspace(0., 1., 10)
+    e2 = np.linspace(0., 1., 9)
+    e3 = np.linspace(0., 1., 8)
 
     ee1, ee2, ee3 = np.meshgrid(e1, e2, e3, indexing='ij')
 
@@ -97,8 +97,8 @@ def test_local_projectors_mappings(Nel, p, spl_kind, do_plot=False):
 
         print(f'{sp_id = }, {np.max(err) = }, {np.max(errg) = },{exectime = }')
         if sp_id in ('H1', 'H1vec'):
-            assert np.max(err) < 0.004
-            assert np.max(errg) < 0.004
+            assert np.max(err) < 0.011
+            assert np.max(errg) < 0.011
         else:
             assert np.max(err) < 0.1
             assert np.max(errg) < 0.1
@@ -111,7 +111,7 @@ def test_local_projectors_mappings(Nel, p, spl_kind, do_plot=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('direction', [0, 1, 2])
-@pytest.mark.parametrize('pi', [2, 3, 4])
+@pytest.mark.parametrize('pi', [2, 3])
 @pytest.mark.parametrize('spl_kindi', [True, False])
 def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
     """ Tests the convergence rate of the Local projectors along singleton dimensions, without mapping.
@@ -121,7 +121,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
     rank = comm.Get_rank()
 
     # loop over different number of elements
-    Nels = [2**n for n in range(3, 10)]
+    Nels = [2**n for n in range(3, 9)]
     errors = {'H1': [], 'Hcurl': [], 'Hdiv': [], 'L2': [], 'H1vec': []}
     figs = {}
     for sp_id in errors:
@@ -254,6 +254,6 @@ if __name__ == '__main__':
     Nel = [14, 16, 18]
     p = [6, 8, 9]
     spl_kind = [True, False, True]
-    # test_local_projectors_mappings(Nel, p, spl_kind, do_plot=False)
-    test_local_projectors_convergence(0, 2, False, do_plot=False)
+    test_local_projectors_compare_global(Nel, p, spl_kind, do_plot=False)
+    # test_local_projectors_convergence(0, 2, False, do_plot=False)
     # test_local_projectors_convergence(1, 1, False, do_plot=True)

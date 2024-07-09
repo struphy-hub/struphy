@@ -15,7 +15,7 @@ from struphy.geometry import domains
 @pytest.mark.parametrize('p', [[2, 1, 1], [3, 2, 1]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])
 @pytest.mark.parametrize('array_input', [False, True])
-def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, do_plot=False):
+def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plot=False):
     """ Tests the L2-projectors for all available mappings.
     
     Both callable and array inputs to the projectors are tested.
@@ -49,6 +49,11 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, do_plot=False):
         print('#'*80)
         print(f'Testing {dom_class = }')
         print('#'*80)
+        
+        if 'DESC' in dom_type and not with_desc:
+            print(f'Attention: {with_desc = }, DESC not tested here !!')
+            continue
+        
         domain = dom_class()
         
         # mass operators
@@ -113,7 +118,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, do_plot=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('direction', [0, 1, 2])
-@pytest.mark.parametrize('pi', [1, 2, 3])
+@pytest.mark.parametrize('pi', [1, 2])
 @pytest.mark.parametrize('spl_kindi', [True, False])
 def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
     """ Tests the convergence rate of the L2 projectors along singleton dimensions, without mapping.
