@@ -76,7 +76,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
 @pytest.mark.parametrize('Nel', [[18, 24, 12]])
 @pytest.mark.parametrize('p', [[1, 2, 1]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])
-def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
+def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
     '''Test field background initialization of "MHD" with multiple fields in params.'''
 
     from mpi4py import MPI
@@ -119,6 +119,9 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, show_plot=False):
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and 'MHDequilibrium' not in key:
             print(f'{key = }')
+            if 'DESCequilibrium' in key and not with_desc:
+                print(f'Attention: {with_desc = }, DESC not tested here !!')
+                continue
             mhd_equil = val()
             print(f'{mhd_equil.params = }')
             if 'AdhocTorus' in key:

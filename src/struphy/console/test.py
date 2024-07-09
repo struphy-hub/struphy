@@ -6,7 +6,7 @@ import struphy
 import pyccel
 
 
-def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None, Tend=None):
+def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monitor=False, n=None, Tend=None):
     """
     Run Struphy unit and/or code tests.
 
@@ -18,6 +18,9 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None,
     fast : bool
         Whether to test models just in slab geometry.
 
+    with_desc : bool
+        Whether to include DESC equilibrium in unit tests (mem consuming).
+
     verbose : bool
         Whether to print timings to screen.
 
@@ -26,7 +29,7 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None,
 
     n : int
         Number of specific tutorial simulation to run. If None, all tutorial simulations are run.
-        
+
     Tend : float
         If group is a model name, simulation end time in units of the model (default=0.015 with dt=0.005). Data is only saved at Tend if set.
     """
@@ -45,77 +48,64 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None,
         if os.path.isfile(pymon_file):
             os.remove(pymon_file)
 
-        subprocess.run(['mpirun',
-                        '-n',
-                        str(mpi),
-                        'pytest',
-                        '--no-monitor'*(not monitor),
-                        '-k',
-                        'not _models and not _tutorial and not pproc',
-                        '--with-mpi',
-                        '--restrict-scope-to',
-                        'module',
-                        '--db',
-                        '_pymon/.pymon_unit',
-                        '--description',
-                        f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
-                        '--tag',
-                        f'struphy={importlib.metadata.version("struphy")}',
-                        '--tag',
-                        f'pyccel={pyccel.__version__}',],
-                       check=True, cwd=libpath)
+        cmd = ['mpirun',
+               '-n',
+               str(mpi),
+               'pytest',
+               '--no-monitor'*(not monitor),
+               '-k',
+               'not _models and not _tutorial and not pproc',
+               '--with-mpi',
+               '--restrict-scope-to',
+               'module',
+               '--db',
+               '_pymon/.pymon_unit',
+               '--description',
+               f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
+               '--tag',
+               f'struphy={importlib.metadata.version("struphy")}',
+               '--tag',
+               f'pyccel={pyccel.__version__}',]
+
+        if with_desc:
+            subprocess.run(cmd + ['--with-desc'],
+                           check=True, cwd=libpath)
+        else:
+            subprocess.run(cmd,
+                           check=True, cwd=libpath)
 
     elif 'models' in group:
         pymon_file = os.path.join(pymon_abs, '.pymon_models')
         if os.path.isfile(pymon_file):
             os.remove(pymon_file)
 
-        if not fast:
-            subprocess.run(['mpirun',
-                            '-n',
-                            str(mpi),
-                            'pytest',
-                            '--no-monitor'*(not monitor),
-                            '-k',
-                            '_models',
-                            '-s',
-                            '--with-mpi',
-                            '--restrict-scope-to',
-                            'module',
-                            '--db',
-                            '_pymon/.pymon_models',
-                            '--description',
-                            f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
-                            '--tag',
-                            f'struphy={importlib.metadata.version("struphy")}',
-                            '--tag',
-                            f'pyccel={pyccel.__version__}',
-                            '--tag',
-                            f'model_opt_fast={fast}'],
+        cmd = ['mpirun',
+               '-n',
+               str(mpi),
+               'pytest',
+               '--no-monitor'*(not monitor),
+               '-k',
+               '_models',
+               '-s',
+               '--with-mpi',
+               '--restrict-scope-to',
+               'module',
+               '--db',
+               '_pymon/.pymon_models',
+               '--description',
+               f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
+               '--tag',
+               f'struphy={importlib.metadata.version("struphy")}',
+               '--tag',
+               f'pyccel={pyccel.__version__}',
+               '--tag',
+               f'model_opt_fast={fast}']
+
+        if fast:
+            subprocess.run(cmd + ['--fast'],
                            check=True, cwd=libpath)
         else:
-            subprocess.run(['mpirun',
-                            '-n',
-                            str(mpi),
-                            'pytest',
-                            '--no-monitor'*(not monitor),
-                            '-k',
-                            '_models',
-                            '-s',
-                            '--with-mpi',
-                            '--restrict-scope-to',
-                            'module',
-                            '--db',
-                            '_pymon/.pymon_models',
-                            '--description',
-                            f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
-                            '--tag',
-                            f'struphy={importlib.metadata.version("struphy")}',
-                            '--tag',
-                            f'pyccel={pyccel.__version__}',
-                            '--tag',
-                            f'model_opt_fast={fast}',
-                            '--fast'],
+            subprocess.run(cmd,
                            check=True, cwd=libpath)
 
         subprocess.run(['pytest',
@@ -137,26 +127,32 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None,
         else:
             test_only = str(n).zfill(2)
 
-        subprocess.run(['mpirun',
-                        '-n',
-                        str(mpi),
-                        'pytest',
-                        '-k',
-                        test_only,
-                        '-s',
-                        '--with-mpi',
-                        '--restrict-scope-to',
-                        'function',
-                        '--db',
-                        '_pymon/.pymon_tutorials',
-                        '--description',
-                        f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
-                        '--tag',
-                        f'struphy={importlib.metadata.version("struphy")}',
-                        '--tag',
-                        f'pyccel={pyccel.__version__}',
-                        'tutorials/',
-                        '--no-monitor'*(not monitor),],
+        cmd = ['mpirun',
+               '-n',
+               str(mpi),
+               'pytest',
+               '-k',
+               test_only,
+               '-s',
+               '--with-mpi',
+               '--restrict-scope-to',
+               'function',
+               '--db',
+               '_pymon/.pymon_tutorials',
+               '--description',
+               f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
+               '--tag',
+               f'struphy={importlib.metadata.version("struphy")}',
+               '--tag',
+               f'pyccel={pyccel.__version__}',
+               'tutorials/',
+               '--no-monitor'*(not monitor),]
+
+        if fast:
+            subprocess.run(cmd + ['--fast'],
+                           check=True, cwd=libpath)
+        else:
+            subprocess.run(cmd,
                         check=True, cwd=libpath)
 
         # retcode = pytest.main(['-k',
@@ -195,8 +191,10 @@ def struphy_test(group, mpi=2, fast=False, verbose=False, monitor=False, n=None,
                     print(
                         f'Fast is enabled, mappings other than Cuboid are skipped ...')
                 else:
-                    obj(('HollowTorus', 'AdhocTorus'), fast, model=group, Tend=Tend)
-                    obj(('Tokamak', 'EQDSKequilibrium'), fast, model=group, Tend=Tend)
+                    obj(('HollowTorus', 'AdhocTorus'),
+                        fast, model=group, Tend=Tend)
+                    obj(('Tokamak', 'EQDSKequilibrium'),
+                        fast, model=group, Tend=Tend)
             except AttributeError:
                 pass
 
