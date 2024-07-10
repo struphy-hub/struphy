@@ -570,7 +570,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
         if isinstance(vth, np.ndarray):
             assert e.shape == vth.shape, f'{e.shape = } but {vth.shape = }'
 
-        return 1./((2.*np.pi)**(1/2) * vth**3) * np.exp(-e/vth**2)
+        return 2. * np.sqrt(e/np.pi) / vth**3 * np.exp(-e/vth**2)
 
     def __call__(self, *args):
         """ Evaluates the canonical Maxwellian distribution function.

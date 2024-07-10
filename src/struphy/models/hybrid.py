@@ -572,6 +572,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
         return 'alfvén'
 
     @staticmethod
+    def diagnostics_dct():
+        dct = {}
+
+        dct['accumulated_magnetization']= 'Hdiv'
+        return dct
+
+    @staticmethod
     def propagators_dct():
         return {propagators_markers.PushDriftKineticbxGradB: ['energetic_ions'],
                 propagators_markers.PushDriftKineticParallelZeroEfield: ['energetic_ions'],
@@ -586,6 +593,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
     __kinetic_species__ = species()['kinetic']
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
+    __diagnostics__ = diagnostics_dct()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     # add special options
@@ -719,7 +727,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                                          'absB0': self._absB0,
                                                                          'u_space': u_space,
                                                                          'solver': params_alfven_solver,
-                                                                         'coupling_params': self._coupling_params}
+                                                                         'coupling_params': self._coupling_params,
+                                                                         'accumulated_magnetization': self.pointer['accumulated_magnetization']}
         
         self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
                                                                           'b': self.pointer['b_field'],

@@ -1561,7 +1561,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                  unit_b1: BlockVector,
                  u_space: str,
                  solver: dict = options(default=True)['solver'],
-                 coupling_params: dict):
+                 coupling_params: dict,
+                 accumulated_magnetization: BlockVector):
 
         super().__init__(u, b)
 
@@ -1576,6 +1577,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._E1T = self.derham.extraction_ops['1'].transpose()
         self._unit_b1 = self._E1T.dot(self._unit_b1)
+
+        self._accumulated_magnetization = accumulated_magnetization
 
         self._ACC = Accumulator(self.derham, self.domain,
                                 u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
@@ -1662,6 +1665,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC.accumulate(self._particles,
                              self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                              self._scale_vec, 0.)
+        
+        self._accumulated_magnetization = self._ACC.vectors[0]
 
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)

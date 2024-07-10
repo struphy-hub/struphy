@@ -187,6 +187,14 @@ class StruphyModel(metaclass=ABCMeta):
         pass
 
     @staticmethod
+    @abstractmethod
+    def diagnostics_dct():
+        '''Diagnostics dictionary.
+        Model specific variables (FemField) which is going to be saved during the simulation.
+        '''
+        pass
+
+    @staticmethod
     # @abstractmethod # remove comment
     def propagators_dct(cls):
         '''Dictionary holding the propagators of the model in the sequence they should be called.
@@ -256,6 +264,11 @@ class StruphyModel(metaclass=ABCMeta):
     def kinetic(self):
         '''Dictionary of kinetic species.'''
         return self._kinetic
+
+    @property
+    def diagnostics(self):
+        '''Dictionary of diagnostics.'''
+        return self._diagnostics
 
     @property
     def domain(self):
@@ -958,6 +971,53 @@ class StruphyModel(metaclass=ABCMeta):
                 else:
                     data.add_data({key_dat: val1})
 
+        # save diagnostics data in group 'feec/'
+        for key, val in self.diagnostics.items():
+
+            if 'params' in key:
+                continue
+            else:
+
+                obj = val['obj']
+                assert isinstance(obj, Derham.Field)
+
+                # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                obj.extract_coeffs(update_ghost_regions=False)
+
+                # save numpy array to be updated each time step.
+                if val['save_data']:
+
+                    key_field = 'feec/' + key
+
+                    if isinstance(obj.vector_stencil, StencilVector):
+                        data.add_data(
+                            {key_field: obj.vector_stencil._data})
+
+                    else:
+                        for n in range(3):
+                            key_component = key_field + '/' + str(n + 1)
+                            data.add_data(
+                                {key_component: obj.vector_stencil[n]._data})
+
+                    # save field meta data
+                    data.file[key_field].attrs['space_id'] = obj.space_id
+                    data.file[key_field].attrs['starts'] = obj.starts
+                    data.file[key_field].attrs['ends'] = obj.ends
+                    data.file[key_field].attrs['pads'] = obj.pads
+
+                # save numpy array to be updated only at the end of the simulation for restart.
+                key_field_restart = 'restart/' + key
+
+                if isinstance(obj.vector_stencil, StencilVector):
+                    data.add_data(
+                        {key_field_restart: obj.vector_stencil._data})
+                else:
+                    for n in range(3):
+                        key_component_restart = key_field_restart + \
+                            '/' + str(n + 1)
+                        data.add_data(
+                            {key_component_restart: obj.vector_stencil[n]._data})
+
         # keys to be saved at each time step and only at end (restart)
         save_keys_all = []
         save_keys_end = []
@@ -1415,6 +1475,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         self._em_fields = {}
         self._fluid = {}
         self._kinetic = {}
+        self._diagnostics = {}
 
         if self.comm.Get_rank() == 0:
             print('\nMODEL SPECIES:')
@@ -1473,6 +1534,23 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             self._kinetic[var_name] = {}
             self._kinetic[var_name]['space'] = space
             self._kinetic[var_name]['params'] = self.params['kinetic'][var_name]
+
+        for var_name, space in self.diagnostics_dct().items():
+            assert space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}
+
+            if self.comm.Get_rank() == 0:
+                print('diagnostics:'.ljust(25), f'"{var_name}" ({space})')
+
+            self._diagnostics[var_name] = {}
+            self._diagnostics[var_name]['space'] = space
+            self._diagnostics['params'] = self.params['diagnostics'][var_name]
+
+            # which components to save
+            if 'save_data' in self.params['diagnostics'][var_name]:
+                self._diagnostics[var_name]['save_data'] = self.params['diagnostics'][var_name]['save_data']
+
+            else:
+                self._diagnostics[var_name]['save_data'] = True
 
     def _allocate_variables(self):
         """
@@ -1613,6 +1691,21 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
+
+        # allocate memory for FE coeffs of diagnostics
+        if 'diagnostics' in self.params:
+
+            for key, val in self.diagnostics.items():
+
+                if 'params' in key:
+                    continue
+                else:
+                    val['obj'] = self.derham.create_field(key,
+                                                          val['space'],
+                                                          bckgr_params=None,
+                                                          pert_params=None)
+
+                    self._pointer[key] = val['obj'].vector
 
     def _print_plasma_params(self, verbose=True):
         """

@@ -521,7 +521,7 @@ class GyroMaxwellian2D(Maxwellian):
                                       'vth_para': 1.,
                                       'vth_perp': 1.},
                  pert_params: dict = None,
-                 volume_form: bool = False,
+                 volume_form: bool = True,
                  mhd_equil: MHDequilibrium = None,
                  braginskii_equil: BraginskiiEquilibrium = None):
 
@@ -974,7 +974,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
                  maxw_params: dict = {'n': 1.,
                                       'vth': 1., },
                  pert_params: dict = None,
-                 volume_form: bool = False,
+                 volume_form: bool = True,
                  mhd_equil: MHDequilibrium = None,
                  braginskii_equil: BraginskiiEquilibrium = None):
 
@@ -1037,7 +1037,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         """
         return self._braginskii_equil
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
+    def velocity_jacobian_det(self, eta1, eta2, eta3, *v, mu):
         r"""Jacobian determinant of the velocity coordinate transformation from CanonicalMaxwellian('constants_of_motion') to Particles5D('vpara_mu').
 
         .. math::
@@ -1077,15 +1077,13 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         assert eta3.ndim == 1
         assert len(v) == 2
 
-        # J = |1/v_parallel|
-        jacobian_det = np.abs(1/v[0])
-
         # call equilibrium
         etas = (np.vstack((eta1, eta2, eta3)).T).copy()
         absB0 = self.mhd_equil.absB0(etas)
 
-        # J = v_perp/B
-        jacobian_det = 2.*np.pi/absB0
+        # J
+        energy = 0.5 * v[0]**2 + mu * absB0
+        jacobian_det = np.sqrt(energy) * 2. * np.sqrt(2.) / absB0
 
         return jacobian_det
 
