@@ -578,6 +578,16 @@ class LinearMHDDriftkineticCC(StruphyModel):
         dct['accumulated_magnetization']= 'Hdiv'
         return dct
 
+    # @staticmethod
+    # def propagators_dct():
+    #     return {propagators_markers.PushDriftKineticbxGradB: ['energetic_ions'],
+    #             propagators_markers.PushDriftKineticParallelZeroEfield: ['energetic_ions'],
+    #             propagators_coupling.CurrentCoupling5DGradB: ['energetic_ions', 'mhd_velocity'],
+    #             propagators_coupling.CurrentCoupling5DCurlb: ['energetic_ions', 'mhd_velocity'],
+    #             propagators_fields.CurrentCoupling5DDensity: ['mhd_velocity'],
+    #             propagators_fields.ShearAlfvenCurrentCoupling5D: ['mhd_velocity', 'b_field'],
+    #             propagators_fields.MagnetosonicCurrentCoupling5D: ['mhd_density', 'mhd_velocity', 'mhd_pressure']}
+
     @staticmethod
     def propagators_dct():
         return {propagators_markers.PushDriftKineticbxGradB: ['energetic_ions'],
@@ -585,8 +595,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 propagators_coupling.CurrentCoupling5DGradB: ['energetic_ions', 'mhd_velocity'],
                 propagators_coupling.CurrentCoupling5DCurlb: ['energetic_ions', 'mhd_velocity'],
                 propagators_fields.CurrentCoupling5DDensity: ['mhd_velocity'],
-                propagators_fields.ShearAlfvenCurrentCoupling5D: ['mhd_velocity', 'b_field'],
-                propagators_fields.MagnetosonicCurrentCoupling5D: ['mhd_density', 'mhd_velocity', 'mhd_pressure']}
+                propagators_fields.ShearAlfvenCurrentCoupling5D: ['mhd_velocity', 'b_field']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -730,13 +739,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                                          'coupling_params': self._coupling_params,
                                                                          'accumulated_magnetization': self.pointer['accumulated_magnetization']}
         
-        self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
-                                                                          'b': self.pointer['b_field'],
-                                                                          'unit_b1': self._unit_b1,
-                                                                          'absB0': self._absB0,
-                                                                          'u_space': u_space,
-                                                                          'solver': params_sonic_solver,
-                                                                          'coupling_params': self._coupling_params}
+        # self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
+        #                                                                   'b': self.pointer['b_field'],
+        #                                                                   'unit_b1': self._unit_b1,
+        #                                                                   'absB0': self._absB0,
+        #                                                                   'u_space': u_space,
+        #                                                                   'solver': params_sonic_solver,
+        #                                                                   'coupling_params': self._coupling_params}
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 

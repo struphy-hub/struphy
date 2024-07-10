@@ -896,7 +896,7 @@ class Particles(metaclass=ABCMeta):
 
         if self.pforms[1] == 'vol':
 
-            if f_init.coords == 'constants_of_motion':
+            if self.f_init.coords == 'constants_of_motion':
                 f_init /= self.f_init.velocity_jacobian_det(
                     *self.phasespace_coords.T, mu=self.markers_wo_holes[:,9])
                 
@@ -927,8 +927,14 @@ class Particles(metaclass=ABCMeta):
             f0 /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-            f0 /= self.f0.velocity_jacobian_det(
-                *self.phasespace_coords.T)
+
+            if self.f0.coords == 'constants_of_motion':
+                f0 /= self.f0.velocity_jacobian_det(
+                    *self.phasespace_coords.T, mu=self.markers_wo_holes[:,9])
+                
+            else:
+                f0 /= self.f0.velocity_jacobian_det(
+                    *self.phasespace_coords.T)
 
         self.weights = self.weights0 - f0/self.sampling_density
 
