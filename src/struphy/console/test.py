@@ -114,13 +114,48 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
                         '-s',
                         '--no-monitor',],
                        check=True, cwd=libpath)
+        
+    elif group in {'fluid', 'kinetic', 'hybrid', 'toy'}:
+        pymon_file = os.path.join(pymon_abs, '.pymon_' + group)
+        if os.path.isfile(pymon_file):
+            os.remove(pymon_file)
+
+        cmd = ['mpirun',
+               '-n',
+               str(mpi),
+               'pytest',
+               '--no-monitor'*(not monitor),
+               '-k',
+               group + '_models',
+               '-s',
+               '--with-mpi',
+               '--restrict-scope-to',
+               'module',
+               '--db',
+               '_pymon/.pymon_' + group,
+               '--description',
+               f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
+               '--tag',
+               f'struphy={importlib.metadata.version("struphy")}',
+               '--tag',
+               f'pyccel={pyccel.__version__}',
+               '--tag',
+               f'model_opt_fast={fast}']
+
+        if fast:
+            subprocess.run(cmd + ['--fast'],
+                           check=True, cwd=libpath)
+        else:
+            subprocess.run(cmd,
+                           check=True, cwd=libpath)
+
+        from struphy.models.tests.test_xxpproc import test_pproc_codes
+        test_pproc_codes(group=group)
 
     elif 'tutorials' in group:
         pymon_file = os.path.join(pymon_abs, '.pymon_tutorials')
         if os.path.isfile(pymon_file):
             os.remove(pymon_file)
-
-        import pytest
 
         if n is None:
             test_only = ''
