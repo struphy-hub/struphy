@@ -368,6 +368,7 @@ class ShearAlfven(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
+
         return dct
 
     def __init__(self,
@@ -725,6 +726,7 @@ class Magnetosonic(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
+
         return dct
 
     def __init__(self,
@@ -1171,6 +1173,7 @@ class CurrentCoupling6DDensity(Propagator):
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,.
+
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point).
     """
 
@@ -2179,6 +2182,7 @@ class ImplicitDiffusion(Propagator):
                          'recycle': False}
         if default:
             dct = descend_options_dict(dct, [])
+
         return dct
 
     def __init__(self,
@@ -4840,6 +4844,7 @@ class VariationalViscosity(Propagator):
         \end{align}
 
     where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence and the weights in :math:`\mathbb M_0[|\nabla u|]` are given by
+
     .. math::
         P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
@@ -4876,7 +4881,7 @@ class VariationalViscosity(Propagator):
                  mass_ops: WeightedMassOperator,
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
-    
+
         super().__init__(s, u)
 
         assert model == 'full'

@@ -275,7 +275,6 @@ class StruphyModel(metaclass=ABCMeta):
         '''WeighteMassOperators object, see :ref:`mass_ops`.'''
         return self._mass_ops
 
-    # remove
     @property
     def prop_fields(self):
         '''Module :mod:`struphy.propagators.propagators_fields`.'''

@@ -86,6 +86,7 @@ class VlasovAmpere(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
+
         return dct
 
     def __init__(self, 
