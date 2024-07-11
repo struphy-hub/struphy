@@ -1,4 +1,4 @@
-def test_pproc_codes(model=None):
+def test_pproc_codes(model: str = None, group: str = None):
     '''Tests the post processing of runs in test_codes.py'''
 
     import os
@@ -36,7 +36,18 @@ def test_pproc_codes(model=None):
             if name not in {'StruphyModel', 'Propagator'}:
                 list_toy += [name]
 
-    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
+    if group is None:
+        list_models = list_fluid + list_kinetic + list_hybrid + list_toy
+    elif group == 'fluid':
+        list_models = list_fluid
+    elif group == 'kinetic':
+        list_models = list_kinetic
+    elif group == 'hybrid':
+        list_models = list_hybrid
+    elif group == 'toy':
+        list_models = list_toy
+    else:
+        raise ValueError(f'{group = } is not a valid group specification.')
 
     if comm.Get_rank() == 0:
         if model is None:

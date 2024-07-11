@@ -86,7 +86,6 @@ class VlasovAmpere(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
         return dct
 
     def __init__(self, 
@@ -208,15 +207,26 @@ class EfieldWeights(Propagator):
     
     .. math::
 
-        \frac{\text{d}}{\text{d} t} w_p = \frac{f_{0,p}}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \\
-        \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} = - \frac{\alpha^2 \kappa}{N} \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)
+        \begin{align}
+            & \frac{\partial \mathbf{E}}{\partial t} = - \alpha^2 \kappa \int \mathbf{v} f_1 \, \text{d} \mathbf{v} \,,
+            \\[2mm]
+            & \frac{\partial f_1}{\partial t} = \frac{\kappa}{v_{\text{th}}^2} \, \mathbf{E} \cdot \mathbf{v} f_0 \,,
+        \end{align}
+
+    which after discretization and in curvilinear coordinates reads
+
+    .. math::
+
+        \frac{\text{d}}{\text{d} t} w_p = \frac{f_{0,p}}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \,,
+        \\[2mm]
+        \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} = - \frac{\alpha^2 \kappa}{N} \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
     
-    using the Crank-Nicolson method
+    This is solved using the Crank-Nicolson method
 
     .. math::
 
         \begin{bmatrix}
-            \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right) \\
+            \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right)
             \mathbf{W}^{n+1} - \mathbf{W}^n
         \end{bmatrix}
         =
@@ -228,14 +238,15 @@ class EfieldWeights(Propagator):
         \begin{bmatrix}
             \mathbf{e}^{n+1} + \mathbf{e}^n \\
             \mathbf{V}^{n+1} + \mathbf{V}^n
-        \end{bmatrix}
+        \end{bmatrix} \,,
 
     where
 
     .. math::
 
-        \mathbb{E} = \frac{\alpha^2 \kappa}{N} \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \\
-        \mathbb{W} = \frac{f_{0,p}}{s_{0,p}} \frac{\kappa}{v_\text{th}^2} \left( DF^{-1} \mathbf{v}_p \right) \cdot \left(\mathbb{\Lambda}^1\right)^T \\
+        \mathbb{E} = \frac{\alpha^2 \kappa}{N} \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)  \,,
+        \\[2mm]
+        \mathbb{W} = \frac{f_{0,p}}{s_{0,p}} \frac{\kappa}{v_\text{th}^2} \left( DF^{-1} \mathbf{v}_p \right) \cdot \left(\mathbb{\Lambda}^1\right)^T  \,,
 
     based on the :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
 
@@ -243,39 +254,45 @@ class EfieldWeights(Propagator):
 
     .. math::
 
-        BC = \mathbb{E} \mathbb{W} \, , \qquad Byn = \mathbb{E} \mathbf{W} \,.
+        BC = \mathbb{E} \mathbb{W} \, , \qquad By_n = \mathbb{E} \mathbf{W} \,.
 
     """
 
-    def __init__(self, e, particles, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
 
-        from struphy.kinetic_background.maxwellians import Maxwellian3D
+        return dct
+
+    def __init__(self,
+                 e: BlockVector,
+                 particles: Particles6D,
+                 *,
+                 alpha: float = 1.,
+                 kappa: float = 1.,
+                 f0: Maxwellian = Maxwellian3D(),
+                 solver = options(default=True)['solver']):
+
         super().__init__(e, particles)
 
-        # parameters
-        params_default = {
-            'alpha': 1.,
-            'kappa': 1.,
-            'f0': Maxwellian3D(),
-            'type': ('pcg', 'MassMatrixPreconditioner'),
-            'tol': 1e-8,
-            'maxiter': 3000,
-            'info': False,
-            'verbose': False,
-            'recycle': True
-        }
+        assert isinstance(f0, Maxwellian3D)
 
-        params = set_defaults(params, params_default)
-
-        assert isinstance(params['f0'], Maxwellian3D)
-
-        self._alpha = params['alpha']
-        self._kappa = params['kappa']
-        self._f0 = params['f0']
+        self._alpha = alpha
+        self._kappa = kappa
+        self._f0 = f0
         assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3']
         self._vth = self._f0.maxw_params['vth1']
 
-        self._info = params['info']
+        self._info = solver['info']
 
         # Initialize Accumulator object
         self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'linear_vlasov_ampere',
@@ -293,10 +310,10 @@ class EfieldWeights(Propagator):
         # ================================
 
         # Preconditioner
-        if params['type'][1] == None:
+        if solver['type'][1] == None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(self.mass_ops.M1)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -307,11 +324,11 @@ class EfieldWeights(Propagator):
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(
             _A, _BC,
-            params['type'][0],
+            solver['type'][0],
             pc=pc,
-            tol=params['tol'],
-            maxiter=params['maxiter'],
-            verbose=params['verbose']
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose']
         )
 
         # Instantiate particle pusher
@@ -375,18 +392,6 @@ class EfieldWeights(Propagator):
                                      - self.particles[0].markers[~self.particles[0].holes, 6]))
             print('Maxdiff weights for StepEfieldWeights:', max_diff)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
 
 class EfieldWeightsImplicit(Propagator):

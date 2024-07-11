@@ -89,17 +89,17 @@ def struphy():
     # check batch scripts in current batch path:
     batch_files = recursive_get_files(
         b_path, contains=('.sh'), out=[], prefix=[])
-    
-    # load models info (obtained during "struphy compile")
+
     try:
-        with open(os.path.join(libpath, 'models', 'models_list'), "rb") as fp:  
+        with open(os.path.join(libpath, 'models', 'models_list'), "rb") as fp:
             list_models = pickle.load(fp)
-        with open(os.path.join(libpath, 'models', 'models_message'), "rb") as fp:  
-            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(fp)
+        with open(os.path.join(libpath, 'models', 'models_message'), "rb") as fp:
+            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+                fp)
     except:
         list_models = []
         model_message = ''
-        
+
     # 0. basic options
     parser.add_argument('-v', '--version', action='version',
                         version=version_message)
@@ -178,6 +178,10 @@ def struphy():
                                 help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
                                 action='store_true')
     
+    parser_compile.add_argument('--collect',
+                                help='collect Struphy models and save in .bin',
+                                action='store_true')
+
     parser_compile.add_argument('--collect',
                                 help='collect Struphy models and save in .bin',
                                 action='store_true')
@@ -397,11 +401,17 @@ def struphy():
     parser_test.add_argument('group',
                              type=str,
                              choices=list_models +
-                             ['models'] + ['unit'] +
-                             ['tutorials'] + ['timings'],
+                             ['models'] + 
+                             ['unit'] +
+                             ['tutorials'] + 
+                             ['timings'] + 
+                             ['fluid'] + 
+                             ['kinetic'] + 
+                             ['hybrid'] + 
+                             ['toy'],
                              metavar='GROUP',
                              help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
-                                \nb) "models" for quick testing of all models \
+                                \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                 \nc) "unit" for performing unit tests \
                                 \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
                                 \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
@@ -415,7 +425,7 @@ def struphy():
     parser_test.add_argument('-f', '--fast',
                              help='test model(s) just in slab geometry (Cuboid)',
                              action='store_true')
-    
+
     parser_test.add_argument('--with-desc',
                              help='include DESC equilibrium in tests (mem consuming)',
                              action='store_true')

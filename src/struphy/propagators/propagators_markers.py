@@ -827,51 +827,41 @@ class PushGuidingCenterParallel(Propagator):
             self.particles[0].update_weights()
 
 
-class StepVinEfield(Propagator):
+class PushVinEfield(Propagator):
     r'''Push the velocities according to
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, \mathbf{E}(\mathbf{x}_p) \,,
+
+    and in logical coordinates given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+
+    .. math::
+
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DF^{-T} \mathbf{E}(\boldsymbol \eta_p})  \,,
 
     which is solved analytically.
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, particles, **params):
+    @staticmethod
+    def options():
+        pass
+
+    def __init__(self,
+                 particles: Particles6D,
+                 *,
+                 e_field: BlockVector | PolarVector,
+                 kappa: float = 1.):
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {
-            'e_field': BlockVector(self.derham.Vh_fem['1'].vector_space),
-            'method': 'analytical',
-            'kappa': 1e2
-        }
+        self.kappa = kappa
 
-        params = set_defaults(params, params_default)
-        self.kappa = params['kappa']
-        method = params['method']
+        assert isinstance(e_field, (BlockVector, PolarVector))
+        self._e_field = e_field
 
-        assert isinstance(params['e_field'], (BlockVector, PolarVector))
-        self._e_field = params['e_field']
-
-        if method == 'analytical':
-            self._pusher = Pusher(self.derham, self.domain,
-                                  'push_v_with_efield')
-        elif method == 'discrete_gradient':
-            raise NotImplementedError('Not yet implemented.')
-            # self._pusher = Pusher(self.derham, self.domain,
-            #                     'push_v_in_static_efield_dg')
-        else:
-            raise ValueError(f'Method {method} not known.')
+        self._pusher = Pusher(self.derham, self.domain,
+                                'push_v_with_efield')
 
     def __call__(self, dt):
         """
@@ -880,10 +870,6 @@ class StepVinEfield(Propagator):
         self._pusher(self.particles[0], dt,
                      self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
                      self.kappa)
-
-    @classmethod
-    def options(cls):
-        pass
 
 
 class StepStaticEfield(Propagator):

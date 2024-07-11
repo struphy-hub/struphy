@@ -155,83 +155,78 @@ class LinearMHD(StruphyModel):
         self.update_scalar('en_B_tot', en_Btot)
 
 
-class LinearExtendedMHD(StruphyModel):
-    r'''Linear extended MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). For homogenous background conditions.
+class LinearExtendedMHDuniform(StruphyModel):
+    r'''Linear extended MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). 
+    For uniform background conditions only.
 
     :ref:`normalization`:
 
     .. math::
 
-        \frac{\hat B}{\sqrt{A_\textnormal{b} m_\textnormal{H} \hat n \mu_0}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}  \,.
+        \hat U = \hat v_\textnormal{A} \,.
 
-    Implemented equations:
+    :ref:`Equations <gempic>`:
 
     .. math::
 
-        &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
-
-        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla (\tilde p_i + \tilde p_e)
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        \\[2mm]
+        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
         =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 \,,
-
-        &\frac{\partial \tilde p_e}{\partial t} + \frac{5}{3}\,p_{e,0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
-
-        &\frac{\partial \tilde p_i}{\partial t} + \frac{5}{3}\,p_{i,0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
-
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 - \kappa \frac{\nabla\times \tilde{\mathbf{B}}}{n_0}\times \mathbf{B}_0 \right)
+        \\[2mm]
+        &\frac{\partial \tilde p}{\partial t} + \frac{5}{3}\,p_{0}\nabla\cdot \tilde{\mathbf{U}}=0\,,
+        \\[2mm]
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 - \frac{1}{\varepsilon} \frac{\nabla\times \tilde{\mathbf{B}}}{\rho_0}\times \mathbf{B}_0 \right)
         = 0\,.
 
     where
 
     .. math::
 
-        \kappa = \frac{\hat \Omega_{\textnormal{ch}}}{\hat \omega}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{ch}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
+        \varepsilon = \frac{1}{\hat \Omega_{\textnormal{c}} \hat t}\,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c}} = \frac{Ze \hat B}{A m_\textnormal{H}}\,.
 
+    :ref:`propagators` (called in sequence):
 
-    Parameters
-    ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    1. :class:`~struphy.propagators.propagators_fields.ShearAlfvenB1`
+    2. :class:`~struphy.propagators.propagators_fields.Hall`
+    3. :class:`~struphy.propagators.propagators_fields.MagnetosonicUniform`
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    :ref:`Model info <add_model>`:
     '''
 
-    @classmethod
-    def species(cls):
+    @staticmethod
+    def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['em_fields']['b1'] = 'Hcurl'
-        dct['fluid']['mhd'] = {'n3': 'L2',
-                               'u2': 'Hdiv', 'pi3': 'L2', 'pe3': 'L2'}
+        dct['em_fields']['b_field'] = 'Hcurl'
+        dct['fluid']['mhd'] = {'rho': 'L2', 
+                               'u': 'Hdiv', 
+                               'p': 'L2',
+                               }
         return dct
 
-    @classmethod
-    def bulk_species(cls):
+    @staticmethod
+    def bulk_species():
         return 'mhd'
 
-    @classmethod
-    def velocity_scale(cls):
+    @staticmethod
+    def velocity_scale():
         return 'alfvén'
+    
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.ShearAlfvenB1: ['mhd_u', 'b_field'],
+                propagators_fields.Hall: ['b_field'],
+                propagators_fields.MagnetosonicUniform: ['mhd_rho', 'mhd_u', 'mhd_p']}
 
-    @classmethod
-    def options(cls):
-        # import propagator options
-        from struphy.propagators.propagators_fields import ShearAlfvenB1, Hall, SonicIon, SonicElectron
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-        dct = {}
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'shear_alfven'],
-                       option=ShearAlfvenB1.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'M1_inv'],
-                       option=ShearAlfvenB1.options()['M1_inv'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'hall'],
-                       option=Hall.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'sonic_ion'],
-                       option=SonicIon.options()['solver'], dct=dct)
-        cls.add_option(species=['fluid', 'mhd'], key=['solvers', 'sonic_electron'],
-                       option=SonicElectron.options()['solver'], dct=dct)
-        return dct
-
-    def __init__(self, params, comm):
+    def __init__(self, params=None, comm=None):
 
         # initialize base class
         super().__init__(params, comm)
@@ -239,19 +234,17 @@ class LinearExtendedMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        alfven_solver = params['fluid']['mhd']['options']['solvers']['shear_alfven']
-        M1_inv = params['fluid']['mhd']['options']['solvers']['M1_inv']
-        Hall_solver = params['fluid']['mhd']['options']['solvers']['hall']
-        SonicIon_solver = params['fluid']['mhd']['options']['solvers']['sonic_ion']
-        SonicElectron_solver = params['fluid']['mhd']['options']['solvers']['sonic_electron']
+        alfven_solver = params['fluid']['mhd']['options']['ShearAlfvenB1']['solver']
+        M1_inv = params['fluid']['mhd']['options']['ShearAlfvenB1']['solver_M1']
+        hall_solver = params['em_fields']['options']['Hall']['solver']
+        sonic_solver = params['fluid']['mhd']['options']['MagnetosonicUniform']['solver']
 
         # project background magnetic field (1-form) and pressure (3-form)
         self._b_eq = self.derham.P['1']([self.mhd_equil.b1_1,
                                          self.mhd_equil.b1_2,
                                          self.mhd_equil.b1_3])
-        self._p_i_eq = self.derham.P['3'](self.mhd_equil.p3)
-        self._p_e_eq = self.derham.P['3'](self.mhd_equil.p3)
-        self._ones = self.pointer['mhd_pi3'].space.zeros()
+        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
+        self._ones = self.pointer['mhd_p'].space.zeros()
         # project background vector potential (1-form)
         self._a_eq = self.derham.P['1']([self.mhd_equil.a1_1,
                                          self.mhd_equil.a1_2,
@@ -263,42 +256,28 @@ class LinearExtendedMHD(StruphyModel):
             self._ones[:] = 1.
 
         # compute coupling parameters
-        kappa = 1. / self.equation_params['mhd']['epsilon']
+        epsilon = self.equation_params['mhd']['epsilon']
 
-        if abs(kappa - 1) < 1e-6:
-            kappa = 1.
+        if abs(epsilon - 1) < 1e-6:
+            epsilon = 1.
 
-        self._coupling_params = {}
-        self._coupling_params['kappa'] = kappa
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.ShearAlfvenB1] = {'solver': alfven_solver,
+                                                          'solver_M1': M1_inv}
 
-        # Initialize propagators/integrators used in splitting substeps
-        self.add_propagator(self.prop_fields.ShearAlfvenB1(
-            self.pointer['mhd_u2'],
-            self.pointer['b1'],
-            **alfven_solver,
-            **M1_inv))
-        self.add_propagator(self.prop_fields.Hall(
-            self.pointer['b1'],
-            **Hall_solver,
-            **self._coupling_params))
-        self.add_propagator(self.prop_fields.SonicIon(
-            self.pointer['mhd_n3'],
-            self.pointer['mhd_u2'],
-            self.pointer['mhd_pi3'],
-            **SonicIon_solver))
-        self.add_propagator(self.prop_fields.SonicElectron(
-            self.pointer['mhd_n3'],
-            self.pointer['mhd_u2'],
-            self.pointer['mhd_pe3'],
-            **SonicElectron_solver))
+        self._kwargs[propagators_fields.Hall] = {'solver': hall_solver,
+                                                 'epsilon': epsilon}
+        
+        self._kwargs[propagators_fields.MagnetosonicUniform] = {'solver': sonic_solver}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
-        self.add_scalar('en_p_i')
-        self.add_scalar('en_p_e')
+        self.add_scalar('en_p')
         self.add_scalar('en_B')
-        self.add_scalar('en_p_i_eq')
-        self.add_scalar('en_p_e_eq')
+        self.add_scalar('en_p_eq')
         self.add_scalar('en_B_eq')
         self.add_scalar('en_B_tot')
         self.add_scalar('en_tot')
@@ -306,43 +285,38 @@ class LinearExtendedMHD(StruphyModel):
 
         # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh['2'].zeros()
-
         self._tmp_b1 = self.derham.Vh['1'].zeros()
         self._tmp_b2 = self.derham.Vh['1'].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer['mhd_u2'], out=self._tmp_u1)
+        self._mass_ops.M2n.dot(self.pointer['mhd_u'], out=self._tmp_u1)
 
-        self._mass_ops.M1.dot(self.pointer['b1'], out=self._tmp_b1)
+        self._mass_ops.M1.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-        en_U = self.pointer['mhd_u2'].dot(self._tmp_u1)/2.0
-        en_B = self.pointer['b1'].dot(self._tmp_b1)/2.0
+        en_U = self.pointer['mhd_u'].dot(self._tmp_u1)/2.0
+        en_B = self.pointer['b_field'].dot(self._tmp_b1)/2.0
         helicity = self._a_eq.dot(self._tmp_b1)*2.0
-        en_p_i = self.pointer['mhd_pi3'].dot(self._ones)/(5.0/3.0 - 1.0)
-        en_p_e = self.pointer['mhd_pe3'].dot(self._ones)/(5.0/3.0 - 1.0)
+        en_p_i = self.pointer['mhd_p'].dot(self._ones)/(5.0/3.0 - 1.0)
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_B', en_B)
-        self.update_scalar('en_p_i', en_p_i)
-        self.update_scalar('en_p_e', en_p_e)
+        self.update_scalar('en_p', en_p_i)
         self.update_scalar('helicity', helicity)
-        self.update_scalar('en_tot', en_U + en_B + en_p_i + en_p_e)
+        self.update_scalar('en_tot', en_U + en_B + en_p_i)
 
         # background fields
         self._mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
 
         en_B0 = self._b_eq.dot(self._tmp_b1)/2.0
-        en_p0_i = self._p_i_eq.dot(self._ones)/(5.0/3.0 - 1.0)
-        en_p0_e = self._p_e_eq.dot(self._ones)/(5.0/3.0 - 1.0)
+        en_p0 = self._p_eq.dot(self._ones)/(5.0/3.0 - 1.0)
 
         self.update_scalar('en_B_eq', en_B0)
-        self.update_scalar('en_p_i_eq', en_p0_i)
-        self.update_scalar('en_p_e_eq', en_p0_e)
+        self.update_scalar('en_p_eq', en_p0)
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer['b1']
+        self._tmp_b1 += self.pointer['b_field']
 
         self._mass_ops.M1.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 

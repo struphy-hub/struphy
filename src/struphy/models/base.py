@@ -32,8 +32,6 @@ class StruphyModel(metaclass=ABCMeta):
         # TODO: comm=None does not work yet.
 
         from struphy.io.setup import setup_domain_mhd, setup_derham
-
-        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers  # remove
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.braginskii_equil import equils as braginskii_equils
@@ -52,6 +50,12 @@ class StruphyModel(metaclass=ABCMeta):
 
         self._params = params
         self._comm = comm
+
+        # get rank and size
+        if self.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.comm.Get_rank()
 
         # initialize model variable dictionaries
         self._init_variable_dicts()
@@ -125,20 +129,6 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             self._pparams = self._print_plasma_params(verbose=False)
 
-        # remove
-        # expose propagator modules
-        self._prop = Propagator
-        self._prop_fields = propagators_fields
-        self._prop_coupling = propagators_coupling
-        self._prop_markers = propagators_markers
-
-        # set propagators base class attributes (available to all propagators)
-        self.prop.derham = self.derham
-        self.prop.domain = self.domain
-        self.prop.mass_ops = self.mass_ops
-        self.prop.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
-
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
@@ -186,7 +176,6 @@ class StruphyModel(metaclass=ABCMeta):
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
-    @staticmethod
     @abstractmethod
     def diagnostics_dct():
         '''Diagnostics dictionary.
@@ -194,26 +183,11 @@ class StruphyModel(metaclass=ABCMeta):
         '''
         pass
 
-    @staticmethod
-    # @abstractmethod # remove comment
+    @abstractmethod 
     def propagators_dct(cls):
         '''Dictionary holding the propagators of the model in the sequence they should be called.
         Keys are the propagator classes and values are lists holding variable names (str) updated by the propagator.'''
         pass
-
-    # remove
-    def add_propagator(self, prop_instance):
-        '''Add a propagator to a Struphy model.
-        option : any
-            value which should be added in the dict
-
-        Parameters
-        ----------
-            prop_instance : obj
-                An instance of :class:`struphy.propagator.base.Propagator`.
-        '''
-        assert isinstance(prop_instance, self.prop)
-        self._propagators += [prop_instance]
 
     @abstractmethod
     def update_scalar_quantities(self):
@@ -302,11 +276,6 @@ class StruphyModel(metaclass=ABCMeta):
         return self._mass_ops
 
     # remove
-    @property
-    def prop(self):
-        '''Class :class:`struphy.propagators.base.Propagator`.'''
-        return self._prop
-
     @property
     def prop_fields(self):
         '''Module :mod:`struphy.propagators.propagators_fields`.'''
@@ -467,20 +436,24 @@ class StruphyModel(metaclass=ABCMeta):
 
             assert prop == prop2, f'Propagators {prop} from "self.propagators_dct()" and {prop2} from "self.kwargs" must be identical !!'
 
-            if self.comm.Get_rank() == 0:
-                print(f'\n-> Initializing propagator "{prop.__name__}"')
-                print(f'-> for variables {variables}')
-                print(f'-> with the following parameters:')
-                for k, v in kwargs_i.items():
-                    if isinstance(v, StencilVector):
-                        print(f'{k}: {repr(v)}')
-                    else:
-                        print(f'{k}: {v}')
+            if kwargs_i is None:
+                print(f'\n-> Propagator "{prop.__name__}" will not be used.')
+                continue
+            else:
+                if self.comm.Get_rank() == 0:
+                    print(f'\n-> Initializing propagator "{prop.__name__}"')
+                    print(f'-> for variables {variables}')
+                    print(f'-> with the following parameters:')
+                    for k, v in kwargs_i.items():
+                        if isinstance(v, StencilVector):
+                            print(f'{k}: {repr(v)}')
+                        else:
+                            print(f'{k}: {v}')
 
-            prop_instance = prop(*[self.pointer[var]
-                                 for var in variables], **kwargs_i)
-            assert isinstance(prop_instance, Propagator)
-            self._propagators += [prop_instance]
+                prop_instance = prop(*[self.pointer[var]
+                                    for var in variables], **kwargs_i)
+                assert isinstance(prop_instance, Propagator)
+                self._propagators += [prop_instance]
 
         if self.comm.Get_rank() == 0:
             print('\n---------------------------------------')

@@ -53,10 +53,11 @@ class Maxwell(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-        
+
         return dct
 
-    def __init__(self, e: BlockVector,
+    def __init__(self,
+                 e: BlockVector,
                  b: BlockVector,
                  *,
                  solver: dict = options(default=True)['solver']):
@@ -131,11 +132,11 @@ class OhmCold(Propagator):
     find :math:`\mathbf j \in H(\textnormal{curl})` and :math:`\mathbf E \in H(\textnormal{curl})` such that
 
     .. math::
-    
+
         \int_\Omega \frac{1}{n_0} \frac{\partial \mathbf j}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x &= \frac{1}{\varepsilon} \int_\Omega \mathbf E \cdot \mathbf F \,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
         \\[2mm]
         -\frac{\partial \mathbf E}{\partial t} &= \frac{\alpha^2}{\varepsilon} \mathbf j \,,
-    
+
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`, such that
 
     .. math::
@@ -166,10 +167,10 @@ class OhmCold(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  j: BlockVector,
                  e: BlockVector,
                  *,
@@ -243,10 +244,10 @@ class JxBCold(Propagator):
     find :math:`\mathbf j \in H(\textnormal{curl})` such that
 
     .. math::
-    
+
         \int_\Omega \frac{1}{n_0} \frac{\partial \mathbf j}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x 
         = \frac{1}{\varepsilon} \int_\Omega \frac{1}{n_0} (\mathbf j \times \mathbf B_0) \cdot \mathbf F \,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
-    
+
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point), such that
 
     .. math::
@@ -266,10 +267,10 @@ class JxBCold(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  j: BlockVector,
                  *,
                  epsilon: float = 1.,
@@ -367,7 +368,6 @@ class ShearAlfven(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
         return dct
 
     def __init__(self,
@@ -448,7 +448,17 @@ class ShearAlfven(Propagator):
 
 
 class ShearAlfvenB1(Propagator):
-    r'''Crank-Nicolson step for shear Alfvén part in Extended MHD equations,
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{curl})` such that
+
+    .. math::
+
+        &\int_\Omega \rho_0\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textnormal d \mathbf x
+        =\int_\Omega \tilde{\mathbf B } \cdot \nabla \times (\mathbf{B}_0 \times \mathbf V) \,\textnormal d \mathbf x \qquad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
+        \\[2mm]
+        &\int_\Omega \frac{\partial \tilde{\mathbf{B}}}{\partial t} \cdot \mathbf C\,\textnormal d \mathbf x - \int_\Omega \mathbf C \cdot\nabla\times   \left( \tilde{\mathbf{U}} \times \mathbf{B}_0 \right) \textrm d \mathbf x = 0 \qquad \forall \, \mathbf C \in H(\textrm{curl})\,.
+
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
@@ -457,79 +467,79 @@ class ShearAlfvenB1(Propagator):
         \begin{bmatrix} {\mathbb M^\rho_2}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_1(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     where :math:`\mathbb M^\rho_2` is a weighted mass matrix in 2-space, the weight being :math:`\rho_0`,
-    the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
-
-    Parameters
-    ---------- 
-    u : psydac.linalg.block.BlockVector
-        FE coefficients of MHD velocity as 2-form.
-
-    b : psydac.linalg.block.BlockVector
-        FE coefficients of magnetic field as 1-form.
-
-        **params : dict
-            Solver- and/or other parameters for this splitting step.
+    the MHD equilibirum density. 
     '''
 
-    def __init__(self, u, b, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                  ('cg', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        dct['solver_M1'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
+                                     ('cg', None)],
+                            'tol': 1.e-8,
+                            'maxiter': 3000,
+                            'info': False,
+                            'verbose': False,
+                            'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(self,
+                 u: BlockVector,
+                 b: BlockVector,
+                 *,
+                 solver: dict = options(default=True)['solver'],
+                 solver_M1: dict = options(default=True)['solver_M1']):
 
         super().__init__(u, b)
 
-        # parameters
-        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'type_M1': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol_M1': 1e-8,
-                          'maxiter_M1': 3000,
-                          'info_M1': False,
-                          'verbose_M1': False,
-                          'recycle_M1': True,}
-
-        params = set_defaults(params, params_default)
-
-        self._info = params['info']
+        self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
 
         # define inverse of M1
-        if params['type_M1'][1] is None:
+        if solver_M1['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type_M1'][1])
+            pc_class = getattr(preconditioner, solver_M1['type'][1])
             pc = pc_class(self.mass_ops.M1)
 
-        self._M1inv = inverse(self.mass_ops.M1,
-                              params['type_M1'][0],
-                              pc=pc,
-                              tol=params['tol_M1'],
-                              maxiter=params['maxiter_M1'],
-                              verbose=params['verbose_M1'])
+        M1_inv = inverse(self.mass_ops.M1,
+                         solver_M1['type'][0],
+                         pc=pc,
+                         tol=solver_M1['tol'],
+                         maxiter=solver_M1['maxiter'],
+                         verbose=solver_M1['verbose'])
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M2n
         self._B = 1/2 * self.mass_ops.M2B @ self.derham.curl
         # I still have to invert M1
-        self._C = 1/2 * self._M1inv @ self.derham.curl.T @ self.mass_ops.M2B
+        self._C = 1/2 * M1_inv @ self.derham.curl.T @ self.mass_ops.M2B
 
         # Preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(getattr(self.mass_ops, 'M2n'))
 
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
         self._schur_solver = SchurSolver(_A, _BC,
-                                         params['type'][0],
+                                         solver['type'][0],
                                          pc=pc,
-                                         tol=params['tol'],
-                                         maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
+                                         tol=solver['tol'],
+                                         maxiter=solver['maxiter'],
+                                         verbose=solver['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -566,28 +576,16 @@ class ShearAlfvenB1(Propagator):
             print('Maxdiff b2 for ShearAlfvenB1:', max_db)
             print()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        dct['M1_inv'] = {'type_M1': [('pcg', 'MassMatrixPreconditioner'),
-                                     ('cg', None)],
-                         'tol_M1': 1.e-8,
-                         'maxiter_M1': 3000,
-                         'info_M1': False,
-                         'verbose_M1': False,
-                         'recycle_M1': True}
-        return dct
-
 
 class Hall(Propagator):
-    r'''Crank-Nicolson step for Hall part in Extended MHD equations,
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\mathbf B \in H(\textnormal{curl})` such that
+
+    .. math:: 
+
+        \int_\Omega \frac{\partial \tilde{\mathbf{B}}}{\partial t} \cdot \mathbf C\,\textnormal d \mathbf x + \frac{1}{\varepsilon} \int_\Omega \nabla\times \mathbf C \cdot  \left( \frac{\nabla\times \tilde{\mathbf{B}}}{\rho_0}\times \mathbf{B}_0 \right) \textrm d \mathbf x = 0 \qquad \forall \, \mathbf C \in H(\textrm{curl})
+
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point):
 
     .. math::
 
@@ -597,55 +595,54 @@ class Hall(Propagator):
     where :math:`\mathbb M^{\mathcal{T},\rho}_2` is a weighted mass matrix in 2-space, the weight being :math:`\frac{\mathcal{T}}{\rho_0}`,
     the MHD equilibirum density :math:`\rho_0` as a 0-form, and rotation matrix :math:`\mathcal{T} \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,`. 
     The solution of the above system is based on the Pre-conditioned Biconjugate Gradient Stabilized algortihm (PBiConjugateGradientStab).
-
-    Parameters
-    ---------- 
-    b : psydac.linalg.block.BlockVector
-        FE coefficients of magnetic field as 1-form.
-
-        **params : dict
-            Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, b, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
+
+    def __init__(self, 
+                 b: BlockVector,
+                 *,
+                 epsilon: float = 1.,
+                 solver: dict = options(default=True)['solver']):
 
         super().__init__(b)
 
-        # parameters
-        params_default = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True,
-                          'kappa': 1.0}
-
-        params = set_defaults(params, params_default)
-
-        self._info = params['info']
+        self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
-        self._tol = params['tol']
-        self._maxiter = params['maxiter']
-        self._verbose = params['verbose']
-        self._kappa = params['kappa']
+        self._tol = solver['tol']
+        self._maxiter = solver['maxiter']
+        self._verbose = solver['verbose']
 
         # mass matrix in system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
         id_M = 'M1'
         id_M2Bn = 'M2Bn'
         self._M = getattr(self.mass_ops, id_M)
         self._M2Bn = getattr(self.mass_ops, id_M2Bn)
-        self._A = self._kappa * self.derham.curl.T @ self._M2Bn @ self.derham.curl
+        self._A = 1./epsilon * self.derham.curl.T @ self._M2Bn @ self.derham.curl
 
         # Preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Instantiate linear solver
         self._solver = inverse(self._M,
-                               params['type'][0],
+                               solver['type'][0],
                                pc=pc,
                                x0=self.feec_vars[0],
                                tol=self._tol,
@@ -680,18 +677,6 @@ class Hall(Propagator):
             print('Iterations for Hall:', info['niter'])
             print('Maxdiff b1 for Hall:', max_db)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
 
 class Magnetosonic(Propagator):
@@ -740,7 +725,6 @@ class Magnetosonic(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-        
         return dct
 
     def __init__(self,
@@ -856,8 +840,21 @@ class Magnetosonic(Propagator):
             print()
 
 
-class SonicIon(Propagator):
-    r'''Crank-Nicolson step for Ion sonic part in Extended MHD equations:
+class MagnetosonicUniform(Propagator):
+    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
+
+    .. math::
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+
+        \int \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \mathbf V \,\textrm d \mathbf x
+        = 0
+        \qquad \forall \ \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
+
+        &\frac{\partial \tilde p}{\partial t}
+        + \frac{5}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,.
+
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
@@ -894,21 +891,31 @@ class SonicIon(Propagator):
             Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, n, u, p, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
+                                  ('bicgstab', None)],
+                         'tol': 1.e-8,
+                         'maxiter': 3000,
+                         'info': False,
+                         'verbose': False,
+                         'recycle': True}
+        if default:
+            dct = descend_options_dict(dct, [])
+            
+        return dct
+
+    def __init__(self,
+                 n: StencilVector,
+                 u: BlockVector,
+                 p: StencilVector,
+                 *,
+                 solver: dict = options(default=True)['solver']):
 
         super().__init__(n, u, p)
 
-        # parameters
-        params_default = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True}
-
-        params = set_defaults(params, params_default)
-
-        self._info = params['info']
+        self._info = solver['info']
         self._bc = self.derham.dirichlet_bc
         self._rank = self.derham.comm.Get_rank()
 
@@ -925,21 +932,21 @@ class SonicIon(Propagator):
         self._QD = getattr(self.basis_ops, id_Q) @ self.derham.div
 
         # preconditioner
-        if params['type'][1] is None:
+        if solver['type'][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, params['type'][1])
+            pc_class = getattr(preconditioner, solver['type'][1])
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
         self._schur_solver = SchurSolver(_A, _BC,
-                                         params['type'][0],
+                                         solver['type'][0],
                                          pc=pc,
-                                         tol=params['tol'],
-                                         maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
+                                         tol=solver['tol'],
+                                         maxiter=solver['maxiter'],
+                                         verbose=solver['verbose'])
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -984,162 +991,6 @@ class SonicIon(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
-
-
-class SonicElectron(Propagator):
-    r'''Crank-Nicolson step for Electron sonic part in Extended MHD equations:
-
-    .. math::
-
-        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1}_i - \mathbf p^n_i \end{bmatrix} 
-        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathbb D^\top \mathbb M_3 \\ - \gamma \mathcal K^3 \mathbb D & 0 \end{bmatrix} 
-        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1}_i + \mathbf p^n_i) \end{bmatrix} ,
-
-    where :math:`\mathbb M^\rho_2`  is a weighted mass matrix in 2-space, 
-    the weight being the MHD equilibirum density :math:`\rho_0`. Furthermore, :math:`\mathcal K^3` is the basis projection operator given by :
-
-    .. math::
-
-        \mathcal{K}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
-    The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
-
-    Decoupled density update:
-
-    .. math::
-
-        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathcal Q \mathbb D  (\mathbf u^{n+1} + \mathbf u^n) \,.
-
-    Parameters
-    ---------- 
-    n : psydac.linalg.stencil.StencilVector
-        FE coefficients of a discrete 3-form.
-
-    u : psydac.linalg.block.BlockVector
-        FE coefficients of MHD velocity 2-form.
-
-    p : psydac.linalg.stencil.StencilVector
-        FE coefficients of a discrete 3-form.
-
-        **params : dict
-            Solver- and/or other parameters for this splitting step.
-    '''
-
-    def __init__(self, n, u, p, **params):
-
-        super().__init__(n, u, p)
-
-        # parameters
-        params_default = {'type': ('pbicgstab', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': True}
-
-        params = set_defaults(params, params_default)
-
-        self._info = params['info']
-        self._bc = self.derham.dirichlet_bc
-        self._rank = self.derham.comm.Get_rank()
-
-        # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = 'M2n'
-        # ONCE THE CODE SUPPORTS HAVING A DIFFERENT EQUILIBRIUM ELECTRON PRESSURE TO THE EQUILIBRIUM ION PRESSURE; WE MUST ADD A NEW PROJECTION MATRIX Ke3 THAT TAKES THE EQUILIBRIUM ELECTRON PRESSURE
-        # INSTEAD OF THE EQUILIBRIUM ION PRESSURE: AND USE HERE Ke3, NOT K3.
-        id_K, id_Q = 'K3', 'Q3'
-
-        _A = getattr(self.mass_ops, id_Mn)
-        _K = getattr(self.basis_ops, id_K)
-
-        self._B = -1/2. * self.derham.div.T @ self.mass_ops.M3
-        self._C = 5/6. * _K @ self.derham.div
-
-        self._QD = getattr(self.basis_ops, id_Q) @ self.derham.div
-
-        # preconditioner
-        if params['type'][1] is None:
-            pc = None
-        else:
-            pc_class = getattr(preconditioner, params['type'][1])
-            pc = pc_class(getattr(self.mass_ops, id_Mn))
-
-        # instantiate Schur solver (constant in this case)
-        _BC = self._B @ self._C
-
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         params['type'][0],
-                                         pc=pc,
-                                         tol=params['tol'],
-                                         maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
-
-        # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = u.space.zeros()
-        self._u_tmp2 = u.space.zeros()
-        self._p_tmp1 = p.space.zeros()
-        self._n_tmp1 = n.space.zeros()
-
-        self._byn1 = self._B.codomain.zeros()
-
-    def __call__(self, dt):
-
-        # current variables
-        nn = self.feec_vars[0]
-        un = self.feec_vars[1]
-        pn = self.feec_vars[2]
-
-        # solve for new u coeffs (no tmps created here)
-        byn1 = self._B.dot(pn, out=self._byn1)
-
-        un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
-
-        # new p, n, b coeffs (no tmps created here)
-        _u = un.copy(out=self._u_tmp2)
-        _u += un1
-        pn1 = self._C.dot(_u, out=self._p_tmp1)
-        pn1 *= -dt
-        pn1 += pn
-
-        nn1 = self._QD.dot(_u, out=self._n_tmp1)
-        nn1 *= -dt/2.0
-        nn1 += nn
-
-        # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
-                                                       un1,
-                                                       pn1)
-
-        if self._info and self._rank == 0:
-            print('Status     for Magnetosonic:', info['success'])
-            print('Iterations for Magnetosonic:', info['niter'])
-            print('Maxdiff n3 for Magnetosonic:', max_dn)
-            print('Maxdiff up for Magnetosonic:', max_du)
-            print('Maxdiff p3 for Magnetosonic:', max_dp)
-            print()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        return dct
 
 
 class FaradayExtended(Propagator):
@@ -1313,14 +1164,13 @@ class FaradayExtended(Propagator):
 class CurrentCoupling6DDensity(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations: 
     find :math:`\tilde{\mathbf{U}}  \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` such that
-    
+
     .. math::
 
         &\int_\Omega \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \int_\Omega n_\textnormal{h}\tilde{\mathbf{U}} \times(\mathbf{B}_0+\tilde{\mathbf{B}}) \cdot \mathbf V \,\textrm d \mathbf x 
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,.
-        
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point).
     """
 
@@ -1336,10 +1186,10 @@ class CurrentCoupling6DDensity(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  u: BlockVector,
                  *,
                  particles: Particles6D,
@@ -1549,10 +1399,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  u: BlockVector,
                  b: BlockVector,
                  *,
@@ -1759,7 +1609,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
     def __init__(self,
@@ -1946,7 +1796,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
 
-
     def _initialize_projection_operator_TB(self):
         """Initialize BasisProjectionOperator TB with the time-varying weight.
 
@@ -2042,10 +1891,10 @@ class CurrentCoupling5DDensity(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  u: BlockVector,
                  *,
                  particles: Particles5D,
@@ -2081,7 +1930,8 @@ class CurrentCoupling5DDensity(Propagator):
         self._info = solver['info']
         self._rank = self.derham.comm.Get_rank()
 
-        self._scale_mat = coupling_params['Ah'] / coupling_params['Ab'] / self._epsilon
+        self._scale_mat = coupling_params['Ah'] / \
+            coupling_params['Ab'] / self._epsilon
         self._accumulator = Accumulator(
             self.derham, self.domain, u_space, 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
 
@@ -2329,7 +2179,6 @@ class ImplicitDiffusion(Propagator):
                          'recycle': False}
         if default:
             dct = descend_options_dict(dct, [])
-            
         return dct
 
     def __init__(self,
@@ -2340,7 +2189,8 @@ class ImplicitDiffusion(Propagator):
                  sigma_3: float = options()['model']['sigma_3'],
                  divide_by_dt: bool = False,
                  stab_mat: str = options(default=True)['model']['stab_mat'],
-                 diffusion_mat: str = options(default=True)['model']['diffusion_mat'],
+                 diffusion_mat: str = options(default=True)[
+                     'model']['diffusion_mat'],
                  rho: StencilVector | tuple | list = None,
                  x0: StencilVector = None,
                  solver: dict = options(default=True)['solver']):
@@ -2556,7 +2406,6 @@ class VariationalMomentumAdvection(Propagator):
                                 'info': False}
         if default:
             dct = descend_options_dict(dct, [])
-        
         return dct
 
     def __init__(self,
@@ -2819,10 +2668,10 @@ class VariationalDensityEvolve(Propagator):
                                 'type': ['Newton', 'Picard'],
                                 'info': False, }
         dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
-        
+
         if default:
             dct = descend_options_dict(dct, [])
-        
+
         return dct
 
     def __init__(self,
@@ -2833,7 +2682,8 @@ class VariationalDensityEvolve(Propagator):
                  gamma: float = options()['physics']['gamma'],
                  s: StencilVector = None,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options()['physics']['implicit_transport'],
+                 implicit_transport: bool = options(
+                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -3728,12 +3578,12 @@ class VariationalEntropyEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info' : False}
+                                'info': False}
         dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
-        
+
         if default:
             dct = descend_options_dict(dct, [])
-        
+
         return dct
 
     def __init__(self,
@@ -3744,7 +3594,8 @@ class VariationalEntropyEvolve(Propagator):
                  gamma: float = options()['physics']['gamma'],
                  rho: StencilVector,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options()['physics']['implicit_transport'],
+                 implicit_transport: bool = options(
+                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -4474,28 +4325,29 @@ class VariationalMagFieldEvolve(Propagator):
     def options(default=False):
         dct = {}
         dct['lin_solver'] = {'tol': 1e-12,
-                         'maxiter': 500,
-                         'non_linear_maxiter': 100,
-                         'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                  ('cg', None)],
-                         'verbose': False}
+                             'maxiter': 500,
+                             'non_linear_maxiter': 100,
+                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
+                                      ('cg', None)],
+                             'verbose': False}
         dct['nonlin_solver'] = {'tol': 1e-8,
-                         'maxiter': 100,
-                         'type': ['Newton', 'Picard'],
-                         'info': False}
+                                'maxiter': 100,
+                                'type': ['Newton', 'Picard'],
+                                'info': False}
         dct['physics'] = {'implicit_transport': False}
-        
+
         if default:
             dct = descend_options_dict(dct, [])
-        
+
         return dct
 
     def __init__(self,
                  b: BlockVector,
-                 u: BlockVector, 
+                 u: BlockVector,
                  *,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options()['physics']['implicit_transport'],
+                 implicit_transport: bool = options(
+                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -4988,7 +4840,6 @@ class VariationalViscosity(Propagator):
         \end{align}
 
     where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence and the weights in :math:`\mathbb M_0[|\nabla u|]` are given by
-    
     .. math::
         P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
@@ -5001,21 +4852,21 @@ class VariationalViscosity(Propagator):
                              'maxiter': 500,
                              'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
                                       ('cg', None)],
-                             'verbose': False,}
+                             'verbose': False, }
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton'],
                                 'info': False}
         dct['physics'] = {'gamma': 1.66666666667,
                           'mu': 0., 'mua': 0.}
-        
+
         if default:
             dct = descend_options_dict(dct, [])
-        
+
         return dct
 
-    def __init__(self, 
-                 s: StencilVector, 
+    def __init__(self,
+                 s: StencilVector,
                  u: BlockVector,
                  *,
                  model: str = 'barotropic',
@@ -5027,7 +4878,6 @@ class VariationalViscosity(Propagator):
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
     
         super().__init__(s, u)
-
 
         assert model == 'full'
 
@@ -5515,16 +5365,15 @@ class VariationalResistivity(Propagator):
                                 'info': False}
         dct['physics'] = {'eta': 0.,
                           'gamma': 5/3}
-        
+
         if default:
             dct = descend_options_dict(dct, [])
-        
-        return dct
-    
 
-    def __init__(self, 
-                 s: StencilVector, 
-                 b: BlockVector, 
+        return dct
+
+    def __init__(self,
+                 s: StencilVector,
+                 b: BlockVector,
                  *,
                  model: str = 'full',
                  gamma: float = options()['physics']['gamma'],
@@ -5538,7 +5387,7 @@ class VariationalResistivity(Propagator):
 
         self._model = model
         self._gamma = gamma
-        self._eta   = eta
+        self._eta = eta
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
 
