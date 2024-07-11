@@ -176,6 +176,7 @@ class StruphyModel(metaclass=ABCMeta):
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
+    @staticmethod
     @abstractmethod
     def diagnostics_dct():
         '''Diagnostics dictionary.
@@ -183,6 +184,7 @@ class StruphyModel(metaclass=ABCMeta):
         '''
         pass
 
+    @staticmethod
     @abstractmethod 
     def propagators_dct(cls):
         '''Dictionary holding the propagators of the model in the sequence they should be called.
