@@ -1,5 +1,5 @@
 from pyccel.decorators import stack_array
-from numpy import shape
+from numpy import shape, zeros
 
 
 def assemble_dofs_for_weighted_basisfuns_1d(
@@ -576,7 +576,8 @@ def get_dofs_local_1_form_e1_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    shp = shape(f_eval_aux)
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
     for i in range(shp[0]):
         for j in range(shp[1]):
@@ -609,7 +610,8 @@ def get_dofs_local_1_form_e2_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    shp = shape(f_eval_aux)
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
     for i in range(shp[0]):
         for j in range(shp[1]):
@@ -642,7 +644,8 @@ def get_dofs_local_1_form_e3_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    shp = shape(f_eval_aux)
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
     for i in range(shp[0]):
         for j in range(shp[1]):
@@ -677,7 +680,8 @@ def get_dofs_local_2_form_e1_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    shp = shape(f_eval_aux)
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
     for i in range(shp[0]):
         for j in range(shp[1]):
@@ -715,7 +719,8 @@ def get_dofs_local_2_form_e2_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    shp = shape(f_eval_aux)
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
     for i in range(shp[0]):
         for j in range(shp[1]):
@@ -754,7 +759,8 @@ def get_dofs_local_2_form_e3_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    shp = shape(f_eval_aux)
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
     for i in range(shp[0]):
         for j in range(shp[1]):
@@ -796,7 +802,8 @@ def get_dofs_local_3_form(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    shp = shape(f_eval)
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval)
 
     for i in range(shp[0]):
         for j in range(shp[1]):

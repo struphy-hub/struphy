@@ -13,10 +13,9 @@ def struphy():
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import inspect
+    import pickle
     import argparse
     import yaml
-    from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.console.compile import struphy_compile
     from struphy.console.run import struphy_run
     from struphy.console.units import struphy_units
@@ -91,67 +90,15 @@ def struphy():
     batch_files = recursive_get_files(
         b_path, contains=('.sh'), out=[], prefix=[])
 
-    # collect available model, contains=('.yml', '.yaml')s
-    list_fluid = []
-    fluid_string = ''
-    for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_fluid += [name]
-                fluid_string += '"' + name + '"\n'
-
-    list_kinetic = []
-    kinetic_string = ''
-    for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_kinetic += [name]
-                kinetic_string += '"' + name + '"\n'
-
-    list_hybrid = []
-    hybrid_string = ''
-    for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_hybrid += [name]
-                hybrid_string += '"' + name + '"\n'
-
-    list_toy = []
-    toy_string = ''
-    for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_toy += [name]
-                toy_string += '"' + name + '"\n'
-
-    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
-
-    # fluid message
-    fluid_message = 'Fluid models:\n'
-    fluid_message += '-------------\n'
-    fluid_message += fluid_string
-
-    # kinetic message
-    kinetic_message = 'Kinetic models:\n'
-    kinetic_message += '---------------\n'
-    kinetic_message += kinetic_string
-
-    # hybrid message
-    hybrid_message = 'Hybrid models:\n'
-    hybrid_message += '--------------\n'
-    hybrid_message += hybrid_string
-
-    # toy message
-    toy_message = 'Toy models:\n'
-    toy_message += '-----------\n'
-    toy_message += toy_string
-
-    # model message
-    model_message = 'run one of the following models:\n'
-    model_message += '\n' + fluid_message
-    model_message += '\n' + kinetic_message
-    model_message += '\n' + hybrid_message
-    model_message += '\n' + toy_message
+    try:
+        with open(os.path.join(libpath, 'models', 'models_list'), "rb") as fp:
+            list_models = pickle.load(fp)
+        with open(os.path.join(libpath, 'models', 'models_message'), "rb") as fp:
+            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+                fp)
+    except:
+        list_models = []
+        model_message = ''
 
     # 0. basic options
     parser.add_argument('-v', '--version', action='version',
@@ -229,6 +176,10 @@ def struphy():
 
     parser_compile.add_argument('--dependencies',
                                 help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
+                                action='store_true')
+
+    parser_compile.add_argument('--collect',
+                                help='collect Struphy models and save in .bin',
                                 action='store_true')
 
     parser_compile.add_argument('-y', '--yes',
@@ -470,7 +421,7 @@ def struphy():
     parser_test.add_argument('-f', '--fast',
                              help='test model(s) just in slab geometry (Cuboid)',
                              action='store_true')
-    
+
     parser_test.add_argument('--with-desc',
                              help='include DESC equilibrium in tests (mem consuming)',
                              action='store_true')

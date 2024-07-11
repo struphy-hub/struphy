@@ -25,6 +25,7 @@ we detail the discretization of the Vlasov-Maxwell system implemented in Struphy
 
    subsections/pic
    subsections/geomFE
+   subsections/time_discret
    ../markdown/vlasov-maxwell
 
 

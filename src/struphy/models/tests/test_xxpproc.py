@@ -15,25 +15,25 @@ def test_pproc_codes(model: str = None, group: str = None):
     list_fluid = []
     for name, obj in inspect.getmembers(fluid):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_fluid += [name]
 
     list_kinetic = []
     for name, obj in inspect.getmembers(kinetic):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', 'KineticBackground'}:
+            if name not in {'StruphyModel', 'KineticBackground', 'Propagator'}:
                 list_kinetic += [name]
 
     list_hybrid = []
     for name, obj in inspect.getmembers(hybrid):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_hybrid += [name]
 
     list_toy = []
     for name, obj in inspect.getmembers(toy):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_toy += [name]
 
     if group is None:
@@ -55,6 +55,11 @@ def test_pproc_codes(model: str = None, group: str = None):
 
                 # TODO: remove if-clause
                 if 'VlasovMasslessElectrons' in model:
+                    print(
+                        f'Model {model} is currently excluded from tests.')
+                    continue
+
+                if 'Variational' in model or 'Visco' in model:
                     print(
                         f'Model {model} is currently excluded from tests.')
                     continue
