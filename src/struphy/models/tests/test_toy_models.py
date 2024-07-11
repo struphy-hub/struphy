@@ -19,7 +19,7 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
 
     if model is None:
         for key, val in inspect.getmembers(toy):
-            if inspect.isclass(val) and 'StruphyModel' not in key:
+            if inspect.isclass(val) and key not in {'StruphyModel', 'Propagator'}:
 
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:

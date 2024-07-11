@@ -626,7 +626,7 @@ For our example model {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`, 
 
 2. $\Phi^2_{t}$ in {class}`~struphy.propagators.propagators_markers.PushVxB`,
 
-3. $\Phi^3_{t}$ in {class}`~struphy.propagators.propagators_coupling.VlasovMaxwell`,
+3. $\Phi^3_{t}$ in {class}`~struphy.propagators.propagators_coupling.VlasovAmpere`,
 
 4. $\Phi^4_{t}$ in {class}`~struphy.propagators.propagators_fields.Maxwell`.
 

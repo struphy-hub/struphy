@@ -3,6 +3,10 @@ import numpy as np
 import yaml
 from functools import reduce
 import operator
+import inspect
+
+from struphy.propagators.base import Propagator
+from psydac.linalg.stencil import StencilVector
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -23,14 +27,11 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.  
     """
 
-    def __init__(self, params, comm=None):
+    def __init__(self, params=None, comm=None):
 
         # TODO: comm=None does not work yet.
 
         from struphy.io.setup import setup_domain_mhd, setup_derham
-
-        from struphy.propagators.base import Propagator
-        from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.braginskii_equil import equils as braginskii_equils
@@ -43,8 +44,18 @@ class StruphyModel(metaclass=ABCMeta):
         assert 'fluid' in self.options()
         assert 'kinetic' in self.options()
 
+        if params is None:
+            params = self.generate_default_parameter_file(
+                save=False, prompt=False)
+
         self._params = params
         self._comm = comm
+
+        # get rank and size
+        if self.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.comm.Get_rank()
 
         # initialize model variable dictionaries
         self._init_variable_dicts()
@@ -118,29 +129,23 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             self._pparams = self._print_plasma_params(verbose=False)
 
-        # options of current run
-        if comm.Get_rank() == 0:
-            self._show_chosen_options()
-
-        # expose propagator modules
-        self._prop = Propagator
-        self._prop_fields = propagators_fields
-        self._prop_coupling = propagators_coupling
-        self._prop_markers = propagators_markers
-
-        # set propagators base class attributes (available to all propagators)
-        self.prop.derham = self.derham
-        self.prop.domain = self.domain
-        self.prop.mass_ops = self.mass_ops
-        self.prop.basis_ops = BasisProjectionOperators(
+        # set propagators base class attributes (then available to all propagators)
+        Propagator.derham = self.derham
+        Propagator.domain = self.domain
+        Propagator.mass_ops = self.mass_ops
+        Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, eq_mhd=self.mhd_equil)
 
+        # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
+        self._kwargs = {}
         self._scalar_quantities = {}
 
-    @classmethod
+        return params
+
+    @staticmethod
     @abstractmethod
-    def species(cls):
+    def species():
         '''Species dictionary of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.
 
         The dynamical fields and kinetic species of the model. 
@@ -158,68 +163,25 @@ class StruphyModel(metaclass=ABCMeta):
         c) the type of particles ("Particles6D", "Particles5D", ...).'''
         pass
 
-    @classmethod
+    @staticmethod
     @abstractmethod
-    def bulk_species(cls):
+    def bulk_species():
         '''Name of the bulk species of the plasma. Must be a key of self.fluid or self.kinetic, or None.'''
         pass
 
-    @classmethod
+    @staticmethod
     @abstractmethod
-    def velocity_scale(cls):
+    def velocity_scale():
         '''String that sets the velocity scale unit of the model. 
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
-    @classmethod
-    @abstractmethod
-    def options(cls):
-        '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
+    @staticmethod
+    @abstractmethod 
+    def propagators_dct(cls):
+        '''Dictionary holding the propagators of the model in the sequence they should be called.
+        Keys are the propagator classes and values are lists holding variable names (str) updated by the propagator.'''
         pass
-
-    @classmethod
-    def add_option(cls, species, key, option, dct):
-        """ Add an option to the dictionary of parameters.
-
-        The value (what) is added in the dictionary at the point
-            dct[who]['options'][key] = what
-        If the path (or a part of it) does not exist it will be created as an empty dictionary.
-
-        Parameters
-        ----------
-        species : str or list
-            path in the dict before the 'options' key
-
-        key : str or list
-            path in the dict after the 'options' key
-
-        option : any
-            value which should be added in the dict
-
-        dct : dict
-            dictionary to which the value should be added at the corresponding position
-        """
-        def getFromDict(dataDict, mapList):
-            return reduce(operator.getitem, mapList, dataDict)
-
-        def setInDict(dataDict, mapList, value):
-            # Loop over dicitionary and creaty empty dicts where the path does not exist
-            for k in range(len(mapList)):
-                if not mapList[k] in getFromDict(dataDict, mapList[:k]).keys():
-                    getFromDict(dataDict, mapList[:k])[mapList[k]] = {}
-            getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
-
-        # make sure that the base keys are top-level keys
-        for base_key in ['em_fields', 'fluid', 'kinetic']:
-            if not base_key in dct.keys():
-                dct[base_key] = {}
-
-        if isinstance(species, str):
-            species = [species]
-        if isinstance(key, str):
-            key = [key]
-
-        setInDict(dct, species + ['options'] + key, option)
 
     @abstractmethod
     def update_scalar_quantities(self):
@@ -303,11 +265,6 @@ class StruphyModel(metaclass=ABCMeta):
         return self._mass_ops
 
     @property
-    def prop(self):
-        '''Class :class:`struphy.propagators.base.Propagator`.'''
-        return self._prop
-
-    @property
     def prop_fields(self):
         '''Module :mod:`struphy.propagators.propagators_fields`.'''
         return self._prop_fields
@@ -328,6 +285,12 @@ class StruphyModel(metaclass=ABCMeta):
         return self._propagators
 
     @property
+    def kwargs(self):
+        '''Dictionary holding the keyword arguments for each propagator specified in :attr:`~propagators_cls`.
+        Keys must be the same as in :attr:`~propagators_cls`, values are dictionaries holding the keyword arguments.'''
+        return self._kwargs
+
+    @property
     def scalar_quantities(self):
         '''A dictionary of scalar quantities to be saved during the simulation.'''
         return self._scalar_quantities
@@ -337,30 +300,81 @@ class StruphyModel(metaclass=ABCMeta):
         '''A pointer to the time variable of the dynamics ('t').'''
         return self._time_state
 
-    def add_time_state(self, time_state):
-        '''Add a pointer to the time variable of the dynamics ('t')
-        to the model and to all propagators of the model.
+    @classmethod
+    def options(cls):
+        '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
+        dct = {}
+        
+        for prop, vars in cls.propagators_dct().items():
+            var = vars[0]
+            if var in cls.species()['em_fields']:
+                species = 'em_fields'
+            elif var in cls.species()['kinetic']:
+                species = ['kinetic', var]
+            else:
+                spl = var.split('_')
+                var_stem = spl[0]
+                for el in spl[1:-1]:
+                    var_stem += '_' + el
+                species = ['fluid', var_stem]
+              
+            cls.add_option(species=species,
+                        option=prop,
+                        dct=dct)
+
+        return dct
+
+    @classmethod
+    def add_option(cls,
+                   species: str | list,
+                   option,
+                   dct: dict,
+                   *,
+                   key=None):
+        """ Add an option to the dictionary of parameters under [species][options].
+
+        Test with "struphy params MODEL".
 
         Parameters
         ----------
-        time_state : ndarray
-            Of size 1, holds the current physical time 't'.
-        '''
-        assert time_state.size == 1
-        self._time_state = time_state
-        for prop in self.propagators:
-            prop.add_time_state(time_state)
+        species : str or list
+            path in the dict before the 'options' key
 
-    def add_propagator(self, prop_instance):
-        '''Add a propagator to a Struphy model.
+        option : any
+            value which should be added in the dict
 
-        Parameters
-        ----------
-            prop_instance : obj
-                An instance of :class:`struphy.propagator.base.Propagator`.
-        '''
-        assert isinstance(prop_instance, self.prop)
-        self._propagators += [prop_instance]
+        dct : dict
+            dictionary to which the value should be added at the corresponding position
+
+        key : str or list
+            path in the dict after the 'options' key
+        """
+        def getFromDict(dataDict, mapList):
+            return reduce(operator.getitem, mapList, dataDict)
+
+        def setInDict(dataDict, mapList, value):
+            # Loop over dicitionary and creaty empty dicts where the path does not exist
+            for k in range(len(mapList)):
+                if not mapList[k] in getFromDict(dataDict, mapList[:k]).keys():
+                    getFromDict(dataDict, mapList[:k])[mapList[k]] = {}
+            getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
+
+        # make sure that the base keys are top-level keys
+        for base_key in ['em_fields', 'fluid', 'kinetic']:
+            if not base_key in dct.keys():
+                dct[base_key] = {}
+
+        if isinstance(species, str):
+            species = [species]
+        if isinstance(key, str):
+            key = [key]
+
+        if inspect.isclass(option):
+            setInDict(dct, species + ['options'] +
+                      [option.__name__], option.options())
+        else:
+            assert key is not None, 'Must provide key if option is not a class.'
+            setInDict(dct, species + ['options'] + key, option)
 
     def add_scalar(self, name):
         '''Add a scalar that should be saved during the simulation.
@@ -387,6 +401,52 @@ class StruphyModel(metaclass=ABCMeta):
         assert isinstance(name, str)
         assert isinstance(value, float)
         self._scalar_quantities[name][0] = value
+
+    def add_time_state(self, time_state):
+        '''Add a pointer to the time variable of the dynamics ('t')
+        to the model and to all propagators of the model.
+
+        Parameters
+        ----------
+        time_state : ndarray
+            Of size 1, holds the current physical time 't'.
+        '''
+        assert time_state.size == 1
+        self._time_state = time_state
+        for prop in self.propagators:
+            prop.add_time_state(time_state)
+
+    def init_propagators(self):
+        '''Initialize the propagator objects specified in :attr:`~propagators_cls`.'''
+        if self.comm.Get_rank() == 0:
+            print('\nPROPAGATORS:')
+        for (prop, variables), (prop2, kwargs_i) in zip(self.propagators_dct().items(), self.kwargs.items()):
+
+            assert prop == prop2, f'Propagators {prop} from "self.propagators_dct()" and {prop2} from "self.kwargs" must be identical !!'
+
+            if kwargs_i is None:
+                print(f'\n-> Propagator "{prop.__name__}" will not be used.')
+                continue
+            else:
+                if self.comm.Get_rank() == 0:
+                    print(f'\n-> Initializing propagator "{prop.__name__}"')
+                    print(f'-> for variables {variables}')
+                    print(f'-> with the following parameters:')
+                    for k, v in kwargs_i.items():
+                        if isinstance(v, StencilVector):
+                            print(f'{k}: {repr(v)}')
+                        else:
+                            print(f'{k}: {v}')
+
+                prop_instance = prop(*[self.pointer[var]
+                                    for var in variables], **kwargs_i)
+                assert isinstance(prop_instance, Propagator)
+                self._propagators += [prop_instance]
+
+        if self.comm.Get_rank() == 0:
+            print('\n---------------------------------------')
+            print('Initialization of propagators complete.')
+            print('---------------------------------------')
 
     def integrate(self, dt, split_algo='LieTrotter'):
         """
@@ -1119,7 +1179,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pass
 
     @classmethod
-    def generate_default_parameter_file(cls, file=None, save=True, prompt=True):
+    def generate_default_parameter_file(cls,
+                                        file: str = None,
+                                        save: bool = True,
+                                        prompt: bool = True):
         '''Generate a parameter file with default options for each species,
         and save it to the current input path.
 
@@ -1812,35 +1875,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print('------------------------------------')
 
         return pparams
-
-    def _show_chosen_options(self):
-        '''Display the model options of the current run on screen.'''
-
-        print('\nCHOSEN MODEL OPTIONS:')
-
-        if len(self.species()['em_fields']) > 0:
-            print('em_fields:')
-            if 'options' in self.params['em_fields']:
-                for opt_k, opt_v in self.params['em_fields']['options'].items():
-                    print((opt_k + ' :').ljust(25), opt_v)
-            else:
-                print('None.')
-
-        for spec_name in self.species()['fluid']:
-            print(spec_name, ':')
-            if 'options' in self.params['fluid'][spec_name]:
-                for opt_k, opt_v in self.params['fluid'][spec_name]['options'].items():
-                    print((opt_k + ' :').ljust(25), opt_v)
-            else:
-                print('None.')
-
-        for spec_name in self.species()['kinetic']:
-            print(spec_name, ':')
-            if 'options' in self.params['kinetic'][spec_name]:
-                for opt_k, opt_v in self.params['kinetic'][spec_name]['options'].items():
-                    print((opt_k + ' :').ljust(25), opt_v)
-            else:
-                print('None.')
 
 
 class MyDumper(yaml.SafeDumper):

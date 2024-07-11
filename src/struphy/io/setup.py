@@ -1,12 +1,12 @@
 import numpy as np
 
 
-def derive_units(Z_bulk: int = None, 
-                 A_bulk: int = None, 
-                 x: float = 1., 
-                 B: float = 1., 
-                 n: float = 1., 
-                 kBT: float = None, 
+def derive_units(Z_bulk: int = None,
+                 A_bulk: int = None,
+                 x: float = 1.,
+                 B: float = 1.,
+                 n: float = 1.,
+                 kBT: float = None,
                  velocity_scale: str = 'alfvén'):
     """ Computes units used in Struphy model's :ref:`normalization`.
 
@@ -94,13 +94,12 @@ def derive_units(Z_bulk: int = None,
     elif velocity_scale == 'cyclotron':
         assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
         assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-        units['v'] = Z_bulk * e * units['B'] / \
-            (A_bulk * mH) / (2*np.pi) * units['x']
+        units['v'] = Z_bulk * e * units['B'] / (A_bulk * mH) * units['x']
 
     elif velocity_scale == 'thermal':
         assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
         units['v'] = np.sqrt(kBT*1000*e/(mH*A_bulk))
-        
+
     # time (s)
     units['t'] = units['x'] / units['v']
     if A_bulk is None:
@@ -111,7 +110,7 @@ def derive_units(Z_bulk: int = None,
 
     # mass density (kg/m^3)
     units['rho'] = A_bulk * mH * units['n']
-    
+
     # current density (A/m^2)
     units['j'] = e * units['n'] * units['v']
 
@@ -179,7 +178,7 @@ def setup_domain_mhd(params, units=None):
         domain = dom_class(**params['geometry'][dom_type])
 
         mhd = None
-        
+
     return domain, mhd
 
 
@@ -253,13 +252,13 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     return derham
 
 
-def pre_processing(model_name: str, 
-                   parameters: dict | str, 
-                   path_out: str, 
-                   restart: bool, 
-                   max_sim_time: int, 
+def pre_processing(model_name: str,
+                   parameters: dict | str,
+                   path_out: str,
+                   restart: bool,
+                   max_sim_time: int,
                    save_step: int,
-                   mpi_rank: int, 
+                   mpi_rank: int,
                    mpi_size: int):
     """
     Prepares simulation parameters, output folder and prints some information of the run to the screen. 
@@ -283,7 +282,7 @@ def pre_processing(model_name: str,
 
     save_step : int
         When to save data output: every time step (save_step=1), every second time step (save_step=2).
-        
+
     mpi_rank : int
         The rank of the calling process.
 
@@ -410,8 +409,16 @@ def pre_processing(model_name: str,
     return params
 
 
-def descend_options_dict(d, out, d_default=None, d_opts=None, keys=None, depth=0, pop_again=False):
-    '''Prepare parameter sub-dicts from model options dict.
+def descend_options_dict(d: dict, 
+                         out: list | dict,
+                         *, 
+                         d_default: dict = None, 
+                         d_opts: dict = None, 
+                         keys: list = None, 
+                         depth: int = 0,
+                         pop_again: bool = False):
+    '''Create all possible parameter dicts from a model options dict, 
+    by looping through options.
 
     If d_default=None, will return the default parameter dict of a model
     (takes first list entries of options dict).

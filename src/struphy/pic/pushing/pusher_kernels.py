@@ -3088,7 +3088,7 @@ def push_deterministic_diffusion_stage(markers: 'float[:,:]', dt: float, stage: 
         pi_du_value[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, pi_grad_u3, starts)
 
-    #    evaluate Metric tensor, result in gm
+        # evaluate Metric tensor, result in gm
         evaluation_kernels.g_inv(etas[0], etas[1], etas[2],
                               kind_map, params_map,
                               t1_map, t2_map, t3_map, p_map,

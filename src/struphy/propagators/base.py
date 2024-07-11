@@ -64,9 +64,9 @@ class Propagator(metaclass=ABCMeta):
         """
         pass
 
-    @classmethod
+    @staticmethod
     @abstractmethod
-    def options(cls):
+    def options():
         '''Dictionary of available propagator options, as appearing under species/options in the parameter file.'''
         pass
 
@@ -135,12 +135,15 @@ class Propagator(metaclass=ABCMeta):
         self._time_state = time_state
 
     def feec_vars_update(self, *variables_new):
-        """ Writes new entries into the FEEC variables in ``Propagator.feec_vars``.
+        r"""Return :math:`\textrm{max}_i |x_i(t + \Delta t) - x_i(t)|` for each unknown in list, 
+        update :method:`~struphy.propagators.base.Propagator.feec_vars`
+        and update ghost regions.
 
         Parameters
         ----------
-        variables_new : list
-            Same sequence as in ``Propagator.feec_vars`` but with the updated variables, 
+        variables_new : list[StencilVector | BlockVector]
+            Same sequence as in :method:`~struphy.propagators.base.Propagator.feec_vars`
+            but with the updated variables, 
             i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
 
         Returns

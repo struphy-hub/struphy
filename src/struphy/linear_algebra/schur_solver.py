@@ -25,7 +25,7 @@ class SchurSolver:
         } \\right)
 
     using the Schur complement :math:`S = A - \Delta t^2 BC`, where Id is the identity matrix
-    and :math:`(x^n, y^n)^T` is given. The solution is given by
+    and :math:`(x^n, y^n)` is given. The solution is given by
 
     .. math::
 
@@ -46,7 +46,11 @@ class SchurSolver:
         Must correspond to the chosen solver.
     '''
 
-    def __init__(self, A, BC, solver_name, **solver_params):
+    def __init__(self, 
+                 A: LinearOperator, 
+                 BC: LinearOperator,
+                 solver_name: str,
+                 **solver_params):
 
         assert isinstance(A, LinearOperator)
         assert isinstance(BC, LinearOperator)
