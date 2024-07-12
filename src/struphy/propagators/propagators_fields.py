@@ -1434,7 +1434,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._accumulated_magnetization = accumulated_magnetization
 
         self._ACC = Accumulator(self.derham, self.domain,
-                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
+                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm',
+                                use_filter=True)
 
         # if self._particles.control_variate:
 
@@ -1520,14 +1521,14 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                              self._scale_vec, 0.)
 
 
-        #self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
+        self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
 
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
         b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
         byn += b2acc
 
-        b2acc.copy(out=self._accumulated_magnetization)
+        #b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 

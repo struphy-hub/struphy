@@ -55,13 +55,15 @@ class Accumulator:
         and :ref:`accum_kernels_gc` for details.
     """
 
-    def __init__(self, derham, domain, space_id, kernel_name, add_vector=False, symmetry=None):
+    def __init__(self, derham, domain, space_id, kernel_name, add_vector=False, symmetry=None, use_filter=False):
 
         self._derham = derham
         self._domain = domain
 
         self._space_id = space_id
         self._symmetry = symmetry
+
+        self._use_filter = use_filter
 
         self._form = derham.space_to_form[space_id]
 
@@ -139,7 +141,9 @@ class Accumulator:
                           np.array(derham.Vh['0'].starts))
         
         # fixed FEM arguments for the filter kernel
-        self._args_filter = (np.array(derham.p),
+        self._args_filter = (np.array(derham.Nel),
+                             np.array(derham.spl_kind),
+                             np.array(derham.p),
                              np.array(derham.Vh['0'].starts),
                              np.array(derham.Vh['0'].ends))
 
@@ -222,7 +226,7 @@ class Accumulator:
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
-    def accumulate(self, particles, use_filter=False, *args_add, **args_control):
+    def accumulate(self, particles, *args_add, **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
 
@@ -255,11 +259,20 @@ class Accumulator:
                     *self._args_data, *args_add)
         
         # apply filter
-        if use_filter:
-            filters.apply_three_points_filter(*vec._data,
-                                              *self._args_filter,
-                                              alpha=0.5,
-                                              repeat=1)
+        if self._use_filter:
+
+            for vec in self._vectors:
+                count = 0
+                while count in range(5):
+                    filters.apply_three_points_filter(vec[0]._data,
+                                                      vec[1]._data,
+                                                      vec[2]._data,
+                                                      *self._args_filter,
+                                                      alpha=0.5)
+                    
+                    count += 1
+
+                    vec.update_ghost_regions()
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
