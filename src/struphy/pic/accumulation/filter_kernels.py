@@ -75,6 +75,8 @@ def apply_three_points_filter(vec1: 'float[:,:,:]',
         for j in range(ir[1]):
             for k in range(ir[2]):
 
+                tmp[:] = 0.
+
                 for il in range(3):
                     for jl in range(3):
                         for kl in range(3):
@@ -91,9 +93,9 @@ def apply_three_points_filter(vec1: 'float[:,:,:]',
                             # if j == ir[1]-1 and jl == 2: fi[1] += i_top[1]
                             # if k == ir[2]-1 and kl == 2: fi[2] += i_top[2]
 
-                            tmp[0] = mask[il,jl,kl] * vec_copy1[fi[0], fi[1], fi[2]]
-                            tmp[1] = mask[il,jl,kl] * vec_copy2[fi[0], fi[1], fi[2]]
-                            tmp[2] = mask[il,jl,kl] * vec_copy3[fi[0], fi[1], fi[2]]
+                            tmp[0] += mask[il,jl,kl] * vec_copy1[fi[0], fi[1], fi[2]]
+                            tmp[1] += mask[il,jl,kl] * vec_copy2[fi[0], fi[1], fi[2]]
+                            tmp[2] += mask[il,jl,kl] * vec_copy3[fi[0], fi[1], fi[2]]
                 
                 vec1[pn[0]+i, pn[1]+j, pn[2]+k] = tmp[0]
                 vec2[pn[0]+i, pn[1]+j, pn[2]+k] = tmp[1]
