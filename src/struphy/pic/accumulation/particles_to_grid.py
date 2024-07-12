@@ -9,6 +9,7 @@ from psydac.linalg.block import BlockVector
 from struphy.feec.mass import WeightedMassOperator
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
+import struphy.pic.accumulation.filter_kernels as filters
 
 
 class Accumulator:
@@ -136,6 +137,11 @@ class Accumulator:
                           derham.Vh_fem['0'].knots[1],
                           derham.Vh_fem['0'].knots[2],
                           np.array(derham.Vh['0'].starts))
+        
+        # fixed FEM arguments for the filter kernel
+        self._args_filter = (np.array(derham.p),
+                             np.array(derham.Vh['0'].starts),
+                             np.array(derham.Vh['0'].ends))
 
         # load the appropriate accumulation kernel (pyccelized, fast)
         self._kernel_name = kernel_name
@@ -216,7 +222,7 @@ class Accumulator:
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
 
-    def accumulate(self, particles, *args_add, **args_control):
+    def accumulate(self, particles, use_filter=False, *args_add, **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
 
@@ -247,6 +253,13 @@ class Accumulator:
         self.kernel(particles.markers, particles.n_mks,
                     *self._args_fem, *self._domain.args_map,
                     *self._args_data, *args_add)
+        
+        # apply filter
+        if use_filter:
+            filters.apply_three_points_filter(*vec._data,
+                                              *self._args_filter,
+                                              alpha=0.5,
+                                              repeat=1)
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
