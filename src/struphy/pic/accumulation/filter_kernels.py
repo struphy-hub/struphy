@@ -5,7 +5,7 @@ from pyccel.decorators import stack_array
 
 from numpy import zeros, empty, shape, ones
 
-@stack_array('vec_copy1','vec_copy2', 'vec_copy3', 'mask1d', 'mask', 'top', 'i_bottom', 'i_top', 'fi', 'ir')
+@stack_array('vec_copy1','vec_copy2', 'vec_copy3', 'mask1d', 'mask', 'tmp', 'top', 'i_bottom', 'i_top', 'fi', 'ir')
 def apply_three_points_filter(vec1: 'float[:,:,:]',
                               vec2: 'float[:,:,:]',
                               vec3: 'float[:,:,:]',
@@ -68,7 +68,7 @@ def apply_three_points_filter(vec1: 'float[:,:,:]',
 
     # index range
     for i in range(3):
-        ir[i] = ends[i] + 1 + starts[i]
+        ir[i] = ends[i] + 1 - starts[i]
 
     # filtering
     for i in range(ir[0]):
@@ -85,13 +85,13 @@ def apply_three_points_filter(vec1: 'float[:,:,:]',
                             fi[1] = pn[1] + j + jl -1
                             fi[2] = pn[2] + k + kl -1
 
-                            # if i == 0 and il == 0: fi[0] += i_bottom[0]
-                            # if j == 0 and jl == 0: fi[1] += i_bottom[1]
-                            # if k == 0 and kl == 0: fi[2] += i_bottom[2]
+                            if i == 0 and il == 0: fi[0] += i_bottom[0]
+                            if j == 0 and jl == 0: fi[1] += i_bottom[1]
+                            if k == 0 and kl == 0: fi[2] += i_bottom[2]
 
-                            # if i == ir[0]-1 and il == 2: fi[0] += i_top[0]
-                            # if j == ir[1]-1 and jl == 2: fi[1] += i_top[1]
-                            # if k == ir[2]-1 and kl == 2: fi[2] += i_top[2]
+                            if i == ir[0]-1 and il == 2: fi[0] += i_top[0]
+                            if j == ir[1]-1 and jl == 2: fi[1] += i_top[1]
+                            if k == ir[2]-1 and kl == 2: fi[2] += i_top[2]
 
                             tmp[0] += mask[il,jl,kl] * vec_copy1[fi[0], fi[1], fi[2]]
                             tmp[1] += mask[il,jl,kl] * vec_copy2[fi[0], fi[1], fi[2]]

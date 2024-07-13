@@ -263,7 +263,7 @@ class Accumulator:
 
             for vec in self._vectors:
                 count = 0
-                while count in range(5):
+                while count in range(3):
                     filters.apply_three_points_filter(vec[0]._data,
                                                       vec[1]._data,
                                                       vec[2]._data,
@@ -271,7 +271,6 @@ class Accumulator:
                                                       alpha=0.5)
                     
                     count += 1
-
                     vec.update_ghost_regions()
 
         # add analytical contribution (control variate) to vector
