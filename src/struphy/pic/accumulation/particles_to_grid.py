@@ -262,6 +262,10 @@ class Accumulator:
         if self._use_filter:
 
             for vec in self._vectors:
+                vec.exchange_assembly_data()
+                vec.update_ghost_regions()
+                vec_finished = True
+    
                 count = 0
                 while count in range(3):
                     filters.apply_three_points_filter(vec[0]._data,
