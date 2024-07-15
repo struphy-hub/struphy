@@ -582,7 +582,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
     # def propagators_dct():
     #     return {propagators_markers.PushDriftKineticbxGradB: ['energetic_ions'],
     #             propagators_markers.PushDriftKineticParallelZeroEfield: ['energetic_ions'],
-    #             propagators_coupling.CurrentCoupling5DGradB: ['energetic_ions', 'mhd_velocity'],
+    #             propagators_coupling.CurrentC oupling5DGradB: ['energetic_ions', 'mhd_velocity'],
     #             propagators_coupling.CurrentCoupling5DCurlb: ['energetic_ions', 'mhd_velocity'],
     #             propagators_fields.CurrentCoupling5DDensity: ['mhd_velocity'],
     #             propagators_fields.ShearAlfvenCurrentCoupling5D: ['mhd_velocity', 'b_field'],

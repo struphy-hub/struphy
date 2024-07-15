@@ -177,7 +177,6 @@ class StruphyModel(metaclass=ABCMeta):
         pass
 
     @staticmethod
-    @abstractmethod
     def diagnostics_dct():
         '''Diagnostics dictionary.
         Model specific variables (FemField) which is going to be saved during the simulation.
@@ -1509,22 +1508,23 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             self._kinetic[var_name]['space'] = space
             self._kinetic[var_name]['params'] = self.params['kinetic'][var_name]
 
-        for var_name, space in self.diagnostics_dct().items():
-            assert space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}
+        if self.diagnostics_dct() is not None:
+            for var_name, space in self.diagnostics_dct().items():
+                assert space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}
 
-            if self.comm.Get_rank() == 0:
-                print('diagnostics:'.ljust(25), f'"{var_name}" ({space})')
+                if self.comm.Get_rank() == 0:
+                    print('diagnostics:'.ljust(25), f'"{var_name}" ({space})')
 
-            self._diagnostics[var_name] = {}
-            self._diagnostics[var_name]['space'] = space
-            self._diagnostics['params'] = self.params['diagnostics'][var_name]
+                self._diagnostics[var_name] = {}
+                self._diagnostics[var_name]['space'] = space
+                self._diagnostics['params'] = self.params['diagnostics'][var_name]
 
-            # which components to save
-            if 'save_data' in self.params['diagnostics'][var_name]:
-                self._diagnostics[var_name]['save_data'] = self.params['diagnostics'][var_name]['save_data']
+                # which components to save
+                if 'save_data' in self.params['diagnostics'][var_name]:
+                    self._diagnostics[var_name]['save_data'] = self.params['diagnostics'][var_name]['save_data']
 
-            else:
-                self._diagnostics[var_name]['save_data'] = True
+                else:
+                    self._diagnostics[var_name]['save_data'] = True
 
     def _allocate_variables(self):
         """
