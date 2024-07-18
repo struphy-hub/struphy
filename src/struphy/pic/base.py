@@ -1061,7 +1061,7 @@ class Particles(metaclass=ABCMeta):
                     self.markers[outside_inds, axis] % 1.
 
             elif bc == 'reflect':
-                reflect(self.markers, *self.domain.args_map, outside_inds, axis)
+                reflect(self.markers, self.domain.args_domain, outside_inds, axis)
 
             else:
                 raise NotImplementedError('Given bc_type is not implemented!')

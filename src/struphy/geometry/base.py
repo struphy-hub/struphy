@@ -7,6 +7,7 @@ from abc import ABCMeta, abstractmethod
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.linear_algebra import linalg_kron
 import struphy.bsplines.bsplines as bsp
+from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
@@ -126,6 +127,13 @@ class Domain(metaclass=ABCMeta):
                                       'push': dict_pullpush,
                                       'tran': dict_tran}
 
+        self._args_domain = DomainArguments(self.kind_map,
+                                            self.params_numpy,
+                                            np.array(self.p),
+                                            self.T[0], self.T[1], self.T[2],
+                                            self.indN[0], self.indN[1], self.indN[2],
+                                            self.cx, self.cy, self.cz)
+
     @property
     @abstractmethod
     def kind_map(self):
@@ -206,15 +214,9 @@ class Domain(metaclass=ABCMeta):
         return self._indN
 
     @property
-    def args_map(self):
-        '''Tuple of all parameters needed for evaluation of metric coefficients.'''
-
-        _args_map = (self.kind_map, self.params_numpy,
-                     np.array(self.p), self.T[0], self.T[1], self.T[2],
-                     self.indN[0], self.indN[1], self.indN[2],
-                     self.cx, self.cy, self.cz)
-
-        return _args_map
+    def args_domain(self):
+        '''Object for all parameters needed for evaluation of metric coefficients.'''
+        return self._args_domain
 
     @property
     def dict_transformations(self):
@@ -494,7 +496,7 @@ class Domain(metaclass=ABCMeta):
         out : ndarray | float
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
         """
-        
+
         return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
 
     # ================================
@@ -584,7 +586,7 @@ class Domain(metaclass=ABCMeta):
             out = np.empty((markers.shape[0], 3, 3), dtype=float)
 
             n_inside = evaluation_kernels.kernel_evaluate_pic(
-                markers, which, *self.args_map, out, remove_outside)
+                markers, which, self.args_domain, out, remove_outside)
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(1, 2, 0))
@@ -617,7 +619,7 @@ class Domain(metaclass=ABCMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3), dtype=float)
 
             evaluation_kernels.kernel_evaluate(
-                E1, E2, E3, which, *self.args_map, out, is_sparse_meshgrid)
+                E1, E2, E3, which, self.args_domain, out, is_sparse_meshgrid)
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(3, 4, 0, 1, 2))
@@ -729,7 +731,7 @@ class Domain(metaclass=ABCMeta):
             out = np.empty((markers.shape[0], 3), dtype=float)
 
             n_inside = transform_kernels.kernel_pullpush_pic(
-                A, markers, self._transformation_ids[which], kind_int, *self.args_map, out, remove_outside)
+                A, markers, self._transformation_ids[which], kind_int, self.args_domain, out, remove_outside)
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(1, 0))
@@ -768,7 +770,7 @@ class Domain(metaclass=ABCMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3), dtype=float)
 
             transform_kernels.kernel_pullpush(
-                A, E1, E2, E3, self._transformation_ids[which], kind_int, *self.args_map, is_sparse_meshgrid, out)
+                A, E1, E2, E3, self._transformation_ids[which], kind_int, self.args_domain, is_sparse_meshgrid, out)
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(3, 0, 1, 2))
@@ -919,9 +921,9 @@ class Domain(metaclass=ABCMeta):
                 E1, E2, E3 = arg_x, arg_y, arg_z
 
                 # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
-                if (arg_x.shape[1] == 1 and arg_x.shape[2] == 1 and 
-                    arg_y.shape[0] == 1 and arg_y.shape[2] == 1 and 
-                    arg_z.shape[0] == 1 and arg_z.shape[1] == 1):
+                if (arg_x.shape[1] == 1 and arg_x.shape[2] == 1 and
+                    arg_y.shape[0] == 1 and arg_y.shape[2] == 1 and
+                        arg_z.shape[0] == 1 and arg_z.shape[1] == 1):
                     is_sparse_meshgrid = True
                 # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
 
@@ -1157,7 +1159,8 @@ class Domain(metaclass=ABCMeta):
         import matplotlib.pyplot as plt
 
         is_not_cube = self.kind_map < 10 or self.kind_map > 19
-        torus_mappings = ('Tokamak', 'GVECunit', 'DESCunit', 'IGAPolarTorus', 'HollowTorus')
+        torus_mappings = ('Tokamak', 'GVECunit', 'DESCunit',
+                          'IGAPolarTorus', 'HollowTorus')
 
         # plot domain without MPI decomposition and high resolution
         if grid_info is None:
@@ -1252,26 +1255,26 @@ class Domain(metaclass=ABCMeta):
             ax2.set_ylabel(ylab)
             ax2.set_title('top view')
             ax2.axis('equal')
-            
+
             # coordinates
             # e3 = [0., .25, .5, .75]
             # x, y, z = self(e1, e2, e3)
             # R = np.sqrt(x**2 + y**2)
-            
+
             # fig = plt.figure(figsize=(13, 13))
             # for n in range(4):
             #     plt.subplot(2, 2, n + 1)
             #     plt.contourf(R[:, :, n], z[:, :, n], x[:, :, n])
             #     plt.title(f'x at {e3[n] = }')
             #     plt.colorbar()
-                
+
             # fig = plt.figure(figsize=(13, 13))
             # for n in range(4):
             #     plt.subplot(2, 2, n + 1)
             #     plt.contourf(R[:, :, n], z[:, :, n], y[:, :, n])
             #     plt.title(f'y at {e3[n] = }')
             #     plt.colorbar()
-                
+
             # fig = plt.figure(figsize=(13, 13))
             # for n in range(4):
             #     plt.subplot(2, 2, n + 1)

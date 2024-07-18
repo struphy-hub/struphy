@@ -6,13 +6,18 @@ from numpy import sin, cos, tan, pi, sqrt, arctan2, arcsin, arctan
 import struphy.bsplines.bsplines_kernels as bsplines_kernels 
 import struphy.bsplines.evaluation_kernels_2d as evaluation_kernels_2d
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not remove; needed to identify dependencies
+
+from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
 
 @stack_array('b1', 'b2', 'b3', 'tmp1', 'tmp2', 'tmp3')
 def spline_3d(eta1: float, eta2: float, eta3: float,
-              t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
-              ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
-              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+              p: 'int[:]',
+              ind1: 'int[:, :]',
+              ind2: 'int[:, :]',
+              ind3: 'int[:, :]',
+              args: 'DomainArguments',
               f_out: 'float[:]'):
     """
     Point-wise evaluation of a 3d spline map :math:`F = (F_n)_{(n=x,y,z)}` with
@@ -22,69 +27,47 @@ def spline_3d(eta1: float, eta2: float, eta3: float,
         F_n = \sum_{ijk} c^n_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,,
 
     where :math:`c^n_{ijk}` are the control points of component :math:`n`.
-
-    Note
-    ----
-        No example plot yet.
-
-    Parameters
-    ----------
-        eta1, eta2, eta3 : float
-            Logical coordinate in [0, 1].
-
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate B-splines.
-
-        p : array[int]
-            Degrees of univariate B-splines.
-
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z).
-
-        f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).
     """
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(t2, int(p[1]), eta2)
-    span3 = bsplines_kernels.find_span(t3, int(p[2]), eta3)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span3 = bsplines_kernels.find_span(args.t3, int(p[2]), eta3)
 
     # p + 1 non-zero mapping splines
     b1 = zeros(int(p[0]) + 1, dtype=float)
     b2 = zeros(int(p[1]) + 1, dtype=float)
     b3 = zeros(int(p[2]) + 1, dtype=float)
 
-    bsplines_kernels.b_splines_slim(t1, int(p[0]), eta1, span1, b1)
-    bsplines_kernels.b_splines_slim(t2, int(p[1]), eta2, span2, b2)
-    bsplines_kernels.b_splines_slim(t3, int(p[2]), eta3, span3, b3)
+    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t3, int(p[2]), eta3, span3, b3)
 
     # Evaluate spline mapping
     tmp1 = ind1[span1 - int(p[0]), :]
     tmp2 = ind2[span2 - int(p[1]), :]
     tmp3 = ind3[span3 - int(p[2]), :]
     
-    f_out[0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, cx)
-    f_out[1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, cy)
-    f_out[2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, cz)
+    f_out[0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cx)
+    f_out[1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cy)
+    f_out[2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cz)
 
 @stack_array('b1', 'b2', 'b3', 'der1', 'der2', 'der3', 'tmp1', 'tmp2', 'tmp3')
 def spline_3d_df(eta1: float, eta2: float, eta3: float,
-                 t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
-                 ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
-                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                 p: 'int[:]',
+                 ind1: 'int[:, :]',
+                 ind2: 'int[:, :]',
+                 ind3: 'int[:, :]',
+                 args: 'DomainArguments',
                  df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.spline_3d`.
     """
 
     # mapping spans
-    span1 = bsplines_kernels.find_span(t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(t2, int(p[1]), eta2)
-    span3 = bsplines_kernels.find_span(t3, int(p[2]), eta3)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span3 = bsplines_kernels.find_span(args.t3, int(p[2]), eta3)
 
     # non-zero splines of mapping, and derivatives
     b1 = zeros(int(p[0]) + 1, dtype=float)
@@ -95,30 +78,31 @@ def spline_3d_df(eta1: float, eta2: float, eta3: float,
     der2 = zeros(int(p[1]) + 1, dtype=float)
     der3 = zeros(int(p[2]) + 1, dtype=float)
 
-    bsplines_kernels.b_der_splines_slim(t1, int(p[0]), eta1, span1, b1, der1)
-    bsplines_kernels.b_der_splines_slim(t2, int(p[1]), eta2, span2, b2, der2)
-    bsplines_kernels.b_der_splines_slim(t3, int(p[2]), eta3, span3, b3, der3)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t3, int(p[2]), eta3, span3, b3, der3)
 
     # Evaluation of Jacobian
     tmp1 = ind1[span1 - int(p[0]), :]
     tmp2 = ind2[span2 - int(p[1]), :]
     tmp3 = ind3[span3 - int(p[2]), :]
     
-    df_out[0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, cx)
-    df_out[0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, cx)
-    df_out[0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, cx)
-    df_out[1, 0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, cy)
-    df_out[1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, cy)
-    df_out[1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, cy)
-    df_out[2, 0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, cz)
-    df_out[2, 1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, cz)
-    df_out[2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, cz)
+    df_out[0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cx)
+    df_out[0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cx)
+    df_out[0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cx)
+    df_out[1, 0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cy)
+    df_out[1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cy)
+    df_out[1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cy)
+    df_out[2, 0] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cz)
+    df_out[2, 1] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cz)
+    df_out[2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cz)
 
 @stack_array('b1', 'b2', 'tmp1', 'tmp2')
 def spline_2d_straight(eta1: float, eta2: float, eta3: float,
-                       t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
-                       ind1: 'int[:,:]', ind2: 'int[:,:]',
-                       cx: 'float[:,:]', cy: 'float[:,:]',
+                       p: 'int[:]',
+                       ind1: 'int[:, :]',
+                       ind2: 'int[:, :]',
+                       args: 'DomainArguments',
                        lz: float,
                        f_out: 'float[:]'):
     """
@@ -131,45 +115,21 @@ def spline_2d_straight(eta1: float, eta2: float, eta3: float,
         F_z &= L_z*\eta_3\,.
 
     where :math:`c^{x(y)}_{ij}` are the control points in the :math:`\eta_1-\eta_2`-plane, independent of :math:`\eta_3`.
-
-    Note
-    ----
-        No example plot yet.
-
-    Parameters
-    ----------
-        eta1, eta2, eta3 : float
-            Logical coordinate in [0, 1].
-
-        t1, t2 : array[float]          
-            Knot vectors of univariate B-splines.
-
-        p : array[int]
-            Degrees of univariate B-splines.
-
-        ind1, ind2 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-        cx, cy : array[float]     
-            Control points of (F_x, F_y).
-
-        lz : float
-            Length in third direction.
-
-        f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).
     """
 
+    cx = args.cx[:, :, 0]
+    cy = args.cy[:, :, 0]
+    
     # mapping spans
-    span1 = bsplines_kernels.find_span(t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # p + 1 non-zero mapping splines
     b1 = zeros(int(p[0]) + 1, dtype=float)
     b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_splines_slim(t1, int(p[0]), eta1, span1, b1)
-    bsplines_kernels.b_splines_slim(t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
 
     # Evaluate mapping
     tmp1 = ind1[span1 - int(p[0]), :]
@@ -188,18 +148,22 @@ def spline_2d_straight(eta1: float, eta2: float, eta3: float,
 
 @stack_array('b1', 'b2', 'der1', 'der2', 'tmp1', 'tmp2')
 def spline_2d_straight_df(eta1: float, eta2: float,
-                          t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
-                          ind1: 'int[:,:]', ind2: 'int[:,:]',
-                          cx: 'float[:,:]', cy: 'float[:,:]',
+                          p: 'int[:]',
+                          ind1: 'int[:, :]',
+                          ind2: 'int[:, :]',
+                          args: 'DomainArguments',
                           lz: float,
                           df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.spline_2d_straight`.
     """
 
+    cx = args.cx[:, :, 0]
+    cy = args.cy[:, :, 0]
+
     # mapping spans
-    span1 = bsplines_kernels.find_span(t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
     b1 = zeros(int(p[0]) + 1, dtype=float)
@@ -208,8 +172,8 @@ def spline_2d_straight_df(eta1: float, eta2: float,
     der1 = zeros(int(p[0]) + 1, dtype=float)
     der2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_der_splines_slim(t1, int(p[0]), eta1, span1, b1, der1)
-    bsplines_kernels.b_der_splines_slim(t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
 
     # Evaluation of Jacobian
     tmp1 = ind1[span1 - int(p[0]), :]
@@ -234,9 +198,10 @@ def spline_2d_straight_df(eta1: float, eta2: float,
 
 @stack_array('b1', 'b2', 'tmp1', 'tmp2')
 def spline_2d_torus(eta1: float, eta2: float, eta3: float,
-                    t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
-                    ind1: 'int[:,:]', ind2: 'int[:,:]',
-                    cx: 'float[:,:]', cy: 'float[:,:]',
+                    p: 'int[:]',
+                    ind1: 'int[:, :]',
+                    ind2: 'int[:, :]',
+                    args: 'DomainArguments',
                     tor_period: float,
                     f_out: 'float[:]'):
     """
@@ -253,45 +218,21 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
         F_z &= S_z(\eta_1, \eta_2)\,.
 
     where :math:`c^{R(z)}_{ij}` are the control points in the :math:`\eta_1-\eta_2`-plane, independent of :math:`\eta_3`.
-
-    Note
-    ----
-        No example plot yet.
-
-    Parameters
-    ----------
-        eta1, eta2, eta3 : float
-            Logical coordinate in [0, 1].
-
-        t1, t2 : array[float]          
-            Knot vectors of univariate B-splines.
-
-        p : array[int]
-            Degrees of univariate B-splines.
-
-        ind1, ind2 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-        cx, cy : array[float]     
-            Control points of (S_R, S_z).
-
-        tor_period : int
-            Toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-
-        f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).
     """
 
+    cx = args.cx[:, :, 0]
+    cy = args.cy[:, :, 0]
+
     # mapping spans
-    span1 = bsplines_kernels.find_span(t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # p + 1 non-zero mapping splines
     b1 = zeros(int(p[0]) + 1, dtype=float)
     b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_splines_slim(t1, int(p[0]), eta1, span1, b1)
-    bsplines_kernels.b_splines_slim(t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
 
     # Evaluate mapping
     tmp1 = ind1[span1 - int(p[0]), :]
@@ -311,18 +252,22 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
         
 @stack_array('b1', 'b2', 'der1', 'der2', 'tmp1', 'tmp2')
 def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
-                       t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
-                       ind1: 'int[:,:]', ind2: 'int[:,:]',
-                       cx: 'float[:,:]', cy: 'float[:,:]',
+                       p: 'int[:]',
+                       ind1: 'int[:, :]',
+                       ind2: 'int[:, :]',
+                       args: 'DomainArguments',
                        tor_period: float,
                        df_out: 'float[:,:]'):
     """
     Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.spline_2d_torus`.
     """
 
+    cx = args.cx[:, :, 0]
+    cy = args.cy[:, :, 0]
+
     # mapping spans
-    span1 = bsplines_kernels.find_span(t1, int(p[0]), eta1)
-    span2 = bsplines_kernels.find_span(t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
     b1 = zeros(int(p[0]) + 1, dtype=float)
@@ -331,8 +276,8 @@ def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
     der1 = zeros(int(p[0]) + 1, dtype=float)
     der2 = zeros(int(p[1]) + 1, dtype=float)
 
-    bsplines_kernels.b_der_splines_slim(t1, int(p[0]), eta1, span1, b1, der1)
-    bsplines_kernels.b_der_splines_slim(t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
 
     tmp1 = ind1[span1 - int(p[0]), :]
     tmp2 = ind2[span2 - int(p[1]), :]

@@ -24,9 +24,14 @@ from numpy import empty, zeros
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+
 #################################
 ### Single process evaluation ###
 #################################
+
+
 def evaluation_kernel_3d(p1: int, p2: int, p3: int, basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', ind1: 'int[:]', ind2: 'int[:]', ind3: 'int[:]', coeff: 'float[:,:,:]') -> float:
     """
     Summing non-zero contributions of a spline function (serial, needs global arrays).
@@ -404,7 +409,19 @@ def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2:
 ##############################
 ### Distributed evaluation ###
 ##############################
-def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]') -> float:
+
+
+def eval_spline_mpi_kernel(p1: 'int',
+                           p2: 'int',
+                           p3: 'int',
+                           basis1: 'float[:]',
+                           basis2: 'float[:]',
+                           basis3: 'float[:]',
+                           span1: 'int',
+                           span2: 'int',
+                           span3: 'int',
+                           _data: 'float[:,:,:]',
+                           starts: 'int[:]') -> float:
     """
     Summing non-zero contributions of a spline function with distributed memory (domain decomposition).
 
@@ -767,7 +784,7 @@ def eval_spline_mpi_tensor_product_fixed(span1s: 'int[:]', span2s: 'int[:]', spa
             for k in range(nk):
                 span3 = span3s[k]
                 b3[:] = b3s[k, :]
-                
+
                 values[i, j, k] = eval_spline_mpi_kernel(pn[0] - kind[0],
                                                          pn[1] - kind[1],
                                                          pn[2] - kind[2],
@@ -877,3 +894,202 @@ def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', 
 
                 values[i, j, k] = eval_spline_mpi(
                     eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k], _data, kind, pn, tn1, tn2, tn3, starts)
+
+
+###########################################
+### Distributed Derham field evaluation ###
+###########################################
+
+def get_spans(eta1: float,
+              eta2: float,
+              eta3: float,
+              args_derham: 'DerhamArguments'):
+    '''Compute the knot span index, 
+    the N-spline values (in bn) and the D-spline values (in bd) 
+    at (eta1, eta2, eta3).'''
+
+    # find spans
+    span1 = bsplines_kernels.find_span(
+        args_derham.tn1, args_derham.pn[0], eta1)
+    span2 = bsplines_kernels.find_span(
+        args_derham.tn2, args_derham.pn[1], eta2)
+    span3 = bsplines_kernels.find_span(
+        args_derham.tn3, args_derham.pn[2], eta3)
+
+    # get spline values at eta
+    bsplines_kernels.b_d_splines_slim(
+        args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1)
+    bsplines_kernels.b_d_splines_slim(
+        args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2)
+    bsplines_kernels.b_d_splines_slim(
+        args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3)
+
+    return span1, span2, span3
+
+
+def eval_0form_spline_mpi(span1: int,
+                          span2: int,
+                          span3: int,
+                          args_derham: 'DerhamArguments',
+                          form_coeffs: 'float[:,:,:]') -> float:
+    '''Single-point evaluation of Derham 0-form spline defined by form_coeffs,
+    given N-spline values (in bn) and knot span indices span.'''
+
+    out = eval_spline_mpi_kernel(args_derham.pn[0],
+                                 args_derham.pn[1],
+                                 args_derham.pn[2],
+                                 args_derham.bn1,
+                                 args_derham.bn2,
+                                 args_derham.bn3,
+                                 span1, span2, span3,
+                                 form_coeffs,
+                                 args_derham.starts)
+    return out
+
+
+def eval_1form_spline_mpi(span1: int,
+                          span2: int,
+                          span3: int,
+                          args_derham: 'DerhamArguments',
+                          form_coeffs_1: 'float[:,:,:]',
+                          form_coeffs_2: 'float[:,:,:]',
+                          form_coeffs_3: 'float[:,:,:]',
+                          out: 'float[:]'):
+    '''Single-point evaluation of Derham 1-form spline defined by form_coeffs,
+    given N-spline values (in bn), D-spline values (in bd)
+    and knot span indices span.'''
+
+    out[0] = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
+                                    args_derham.pn[1],
+                                    args_derham.pn[2],
+                                    args_derham.bd1,
+                                    args_derham.bn2,
+                                    args_derham.bn3,
+                                    span1, span2, span3,
+                                    form_coeffs_1,
+                                    args_derham.starts)
+
+    out[1] = eval_spline_mpi_kernel(args_derham.pn[0],
+                                    args_derham.pn[1] - 1,
+                                    args_derham.pn[2],
+                                    args_derham.bn1,
+                                    args_derham.bd2,
+                                    args_derham.bn3,
+                                    span1, span2, span3,
+                                    form_coeffs_2,
+                                    args_derham.starts)
+
+    out[2] = eval_spline_mpi_kernel(args_derham.pn[0],
+                                    args_derham.pn[1],
+                                    args_derham.pn[2] - 1,
+                                    args_derham.bn1,
+                                    args_derham.bn2,
+                                    args_derham.bd3,
+                                    span1, span2, span3,
+                                    form_coeffs_3,
+                                    args_derham.starts)
+
+
+def eval_2form_spline_mpi(span1: int,
+                          span2: int,
+                          span3: int,
+                          args_derham: 'DerhamArguments',
+                          form_coeffs_1: 'float[:,:,:]',
+                          form_coeffs_2: 'float[:,:,:]',
+                          form_coeffs_3: 'float[:,:,:]',
+                          out: 'float[:]'):
+    '''Single-point evaluation of Derham 2-form spline defined by form_coeffs,
+    given N-spline values (in bn), D-spline values (in bd)
+    and knot span indices span.'''
+
+    out[0] = eval_spline_mpi_kernel(args_derham.pn[0],
+                                    args_derham.pn[1] - 1,
+                                    args_derham.pn[2] - 1,
+                                    args_derham.bn1,
+                                    args_derham.bd2,
+                                    args_derham.bd3,
+                                    span1, span2, span3,
+                                    form_coeffs_1,
+                                    args_derham.starts)
+
+    out[1] = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
+                                    args_derham.pn[1],
+                                    args_derham.pn[2] - 1,
+                                    args_derham.bd1,
+                                    args_derham.bn2,
+                                    args_derham.bd3,
+                                    span1, span2, span3,
+                                    form_coeffs_2,
+                                    args_derham.starts)
+
+    out[2] = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
+                                    args_derham.pn[1] - 1,
+                                    args_derham.pn[2],
+                                    args_derham.bd1,
+                                    args_derham.bd2,
+                                    args_derham.bn3,
+                                    span1, span2, span3,
+                                    form_coeffs_3,
+                                    args_derham.starts)
+
+
+def eval_3form_spline_mpi(span1: int,
+                          span2: int,
+                          span3: int,
+                          args_derham: 'DerhamArguments',
+                          form_coeffs: 'float[:,:,:]') -> float:
+    '''Single-point evaluation of Derham 0-form spline defined by form_coeffs,
+    given D-spline values (in bd) and knot span indices span.'''
+
+    out = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
+                                 args_derham.pn[1] - 1,
+                                 args_derham.pn[2] - 1,
+                                 args_derham.bd1,
+                                 args_derham.bd2,
+                                 args_derham.bd3,
+                                 span1, span2, span3,
+                                 form_coeffs,
+                                 args_derham.starts)
+    return out
+
+
+def eval_vectorfield_spline_mpi(span1: int,
+                                span2: int,
+                                span3: int,
+                                args_derham: 'DerhamArguments',
+                                form_coeffs_1: 'float[:,:,:]',
+                                form_coeffs_2: 'float[:,:,:]',
+                                form_coeffs_3: 'float[:,:,:]',
+                                out: 'float[:]'):
+    '''Single-point evaluation of vector-field spline (H^1)^3 defined by form_coeffs,
+    given N-spline values (in bn) and knot span indices span.'''
+
+    out[0] = eval_spline_mpi_kernel(args_derham.pn[0],
+                                    args_derham.pn[1],
+                                    args_derham.pn[2],
+                                    args_derham.bn1,
+                                    args_derham.bn2,
+                                    args_derham.bn3,
+                                    span1, span2, span3,
+                                    form_coeffs_1,
+                                    args_derham.starts)
+
+    out[1] = eval_spline_mpi_kernel(args_derham.pn[0],
+                                    args_derham.pn[1],
+                                    args_derham.pn[2],
+                                    args_derham.bn1,
+                                    args_derham.bn2,
+                                    args_derham.bn3,
+                                    span1, span2, span3,
+                                    form_coeffs_2,
+                                    args_derham.starts)
+
+    out[2] = eval_spline_mpi_kernel(args_derham.pn[0],
+                                    args_derham.pn[1],
+                                    args_derham.pn[2],
+                                    args_derham.bn1,
+                                    args_derham.bn2,
+                                    args_derham.bn3,
+                                    span1, span2, span3,
+                                    form_coeffs_3,
+                                    args_derham.starts)
