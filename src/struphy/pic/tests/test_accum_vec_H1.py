@@ -28,6 +28,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000):
 
     from struphy.pic.particles import Particles6D
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+    from struphy.pic.accumulation import accum_kernels
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -72,8 +73,13 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000):
     assert np.isclose(np.max(_w0), _sqrtg)
 
     # instance of the accumulator
-    acc = AccumulatorVector(derham, domain, 'H1', 'charge_density_0form')
-    acc.accumulate(particles, particles.vdim)
+    acc = AccumulatorVector(particles,
+                            'H1', 
+                            accum_kernels.charge_density_0form,
+                            derham, 
+                            domain.args_domain)
+    
+    acc(particles.vdim)
 
     # sum all MC integrals
     _sum = np.empty(1, dtype=float)

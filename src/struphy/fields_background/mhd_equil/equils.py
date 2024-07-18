@@ -2829,7 +2829,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             z = z.flatten()
 
         nodes = np.stack((r, t, z)).T
-        grid_3d = Grid(nodes, jitable=False)
+        grid_3d = Grid(nodes, spacing=np.ones_like(nodes), jitable=False)
 
         # compute output corresponding to the generated desc grid
         node_values = self.eq.compute(

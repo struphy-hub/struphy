@@ -6,9 +6,12 @@ import numpy as np
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector
 
+from struphy.feec.psydac_derham import Derham 
 from struphy.feec.mass import WeightedMassOperator
+from struphy.pic.base import Particles
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 class Accumulator:
@@ -29,17 +32,20 @@ class Accumulator:
 
     Parameters
     ----------
-    derham : Derham
-        Discrete Derham complex.
-
-    domain : Domain
-        Mapping info for evaluating metric coefficients.
-
+    particles : Particles
+        Particles object holding the markers to accumulate.
+    
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    kernel_name : str
-        Name of accumulation kernel.
+    kernel : pyccelized function
+        The accumulation kernel.
+        
+    derham : Derham
+        Discrete FE spaces object.
+
+    args_domain : DomainArguments
+        Mapping infos. 
 
     add_vector : bool
         True if, additionally to a matrix, a vector in the same space is to be accumulated. Default=False.
@@ -54,12 +60,22 @@ class Accumulator:
         and :ref:`accum_kernels_gc` for details.
     """
 
-    def __init__(self, derham, domain, space_id, kernel_name, add_vector=False, symmetry=None):
+    def __init__(self, 
+                 particles: Particles,
+                 space_id: str,
+                 kernel,
+                 derham: Derham, 
+                 args_domain: DomainArguments,
+                 *,
+                 add_vector: bool = False, 
+                 symmetry: str = None):
 
-        self._derham = derham
-        self._domain = domain
-
+        self._particles = particles
         self._space_id = space_id
+        self._kernel = kernel
+        self._derham = derham
+        self._args_domain = args_domain
+        
         self._symmetry = symmetry
 
         self._form = derham.space_to_form[space_id]
@@ -130,108 +146,24 @@ class Accumulator:
                     for bl in vec.blocks:
                         self._args_data += (bl._data,)
 
-        # fixed FEM arguments for the accumulator kernel
-        self._args_fem = (np.array(derham.p),
-                          derham.Vh_fem['0'].knots[0],
-                          derham.Vh_fem['0'].knots[1],
-                          derham.Vh_fem['0'].knots[2],
-                          np.array(derham.Vh['0'].starts))
-
-        # load the appropriate accumulation kernel (pyccelized, fast)
-        self._kernel_name = kernel_name
-        self._kernel = None
-
-        objs = [accums, accums_gc]
-        for obj in objs:
-            try:
-                self._kernel = getattr(obj, self.kernel_name)
-            except AttributeError:
-                pass
-        assert self.kernel is not None
-
-    @property
-    def derham(self):
-        """ Discrete Derham complex on the logical unit cube.
-        """
-        return self._derham
-
-    @property
-    def domain(self):
-        """ Mapping info for evaluating metric coefficients.
-        """
-        return self._domain
-
-    @property
-    def space_id(self):
-        """ Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
-        """
-        return self._space_id
-
-    @property
-    def form(self):
-        """ p-form ("0", "1", "2", "3" or "v") to be accumulated into.
-        """
-        return self._form
-
-    @property
-    def symmetry(self):
-        """ Symmetry of the accumulation matrix (diagonal, symmetric, asymmetric, etc.).
-        """
-        return self._symmetry
-
-    @property
-    def operators(self):
-        """ List of WeightedMassOperators of the accumulator. Matrices can be accessed e.g. with operators[0].matrix.
-        """
-        return self._operators
-
-    @property
-    def vectors(self):
-        """ List of Stencil-/Block-/PolarVectors of the accumulator.
-        """
-        out = []
-        for vec in self._vectors:
-            out += [self._derham.boundary_ops[self.form].dot(
-                self._derham.extraction_ops[self.form].dot(vec))]
-
-        return out
-
-    @property
-    def kernel_name(self):
-        """ String that identifies the accumulation kernel.
-        """
-        return self._kernel_name
-
-    @property
-    def kernel(self):
-        """ The kernel loaded from the module struphy.pic.accum_kernels.
-        """
-        return self._kernel
-
-    def init_control_variate(self, mass_ops):
-        '''Set up the use of noise reduction by control variate.'''
-        
-        from struphy.feec.projectors import L2Projector
-        
-        # L2 projector for dofs
-        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
-
-    def accumulate(self, particles, *args_add, **args_control):
+    def __call__(self,
+                 *optional_args, 
+                 **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
 
         Parameters
         ----------
-        particles : struphy.pic.particles.Particles
+        particles : Particles
             Particles object holding the markers information in format particles.markers.shape == (n_markers, :).
 
-        *args_add
+        optional_args : any
             Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
             which are prepared automatically (spline bases info, mapping info, data arrays).
             Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
             Entries must be pyccel-conform types.
 
-        **args_control
+        args_control : any
             Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
         """
 
@@ -244,9 +176,12 @@ class Accumulator:
             dat[:] = 0.
 
         # accumulate into matrix (and vector) with markers
-        self.kernel(particles.markers, particles.n_mks,
-                    *self._args_fem, *self._domain.args_map,
-                    *self._args_data, *args_add)
+        self.kernel(self.particles.markers, 
+                    self.particles.n_mks,
+                    self.derham.args_derham, 
+                    self.args_domain,
+                    *self._args_data, 
+                    *optional_args)
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
@@ -298,6 +233,73 @@ class Accumulator:
                     self._operators[i].matrix[2, 1]._data[:] = \
                         self._operators[i].matrix[1, 2].T._data
 
+    @property
+    def particles(self):
+        """ Particle object.
+        """
+        return self._particles
+    
+    @property
+    def kernel(self):
+        """ The accumulation kernel.
+        """
+        return self._kernel
+
+    @property
+    def derham(self):
+        """ Discrete Derham complex on the logical unit cube.
+        """
+        return self._derham
+
+    @property
+    def args_domain(self):
+        """ Mapping info for evaluating metric coefficients.
+        """
+        return self._args_domain
+
+    @property
+    def space_id(self):
+        """ Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
+        """
+        return self._space_id
+
+    @property
+    def form(self):
+        """ p-form ("0", "1", "2", "3" or "v") to be accumulated into.
+        """
+        return self._form
+
+    @property
+    def symmetry(self):
+        """ Symmetry of the accumulation matrix (diagonal, symmetric, asymmetric, etc.).
+        """
+        return self._symmetry
+
+    @property
+    def operators(self):
+        """ List of WeightedMassOperators of the accumulator. Matrices can be accessed e.g. with operators[0].matrix.
+        """
+        return self._operators
+
+    @property
+    def vectors(self):
+        """ List of Stencil-/Block-/PolarVectors of the accumulator.
+        """
+        out = []
+        for vec in self._vectors:
+            out += [self._derham.boundary_ops[self.form].dot(
+                self._derham.extraction_ops[self.form].dot(vec))]
+
+        return out
+
+    def init_control_variate(self, mass_ops):
+        '''Set up the use of noise reduction by control variate.'''
+        
+        from struphy.feec.projectors import L2Projector
+        
+        # L2 projector for dofs
+        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
+
 
 class AccumulatorVector:
     r"""
@@ -314,30 +316,34 @@ class AccumulatorVector:
 
     Parameters
     ----------
-    derham : Derham
-        Discrete Derham complex.
-
-    domain : Domain
-        Mapping info for evaluating metric coefficients.
-
+    particles : Particles
+        Particles object holding the markers to accumulate.
+    
     space_id : str
         Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into.
 
-    kernel_name : str
-        Name of accumulation kernel.
+    kernel : pyccelized function
+        The accumulation kernel.
+        
+    derham : Derham
+        Discrete FE spaces object.
 
-    Note
-    ----
-    Struphy accumulation kernels called by ``Accumulator`` objects should be added to ``struphy/pic/accumulation/accum_kernels.py``. 
-    Please follow the docstring in `struphy.pic.accumulation.accum_kernels.a_docstring`.
+    args_domain : DomainArguments
+        Mapping infos. 
     """
 
-    def __init__(self, derham, domain, space_id, kernel_name):
+    def __init__(self, 
+                 particles: Particles,
+                 space_id: str,
+                 kernel,
+                 derham: Derham, 
+                 args_domain: DomainArguments):
 
-        self._derham = derham
-        self._domain = domain
-
+        self._particles = particles
         self._space_id = space_id
+        self._kernel = kernel
+        self._derham = derham
+        self._args_domain = args_domain
 
         self._form = derham.space_to_form[space_id]
 
@@ -361,24 +367,64 @@ class AccumulatorVector:
                 for bl in vec.blocks:
                     self._args_data += (bl._data,)
 
-        # fixed FEM arguments for the accumulator kernel
-        self._args_fem = (np.array(derham.p),
-                          derham.Vh_fem['0'].knots[0],
-                          derham.Vh_fem['0'].knots[1],
-                          derham.Vh_fem['0'].knots[2],
-                          np.array(derham.Vh['0'].starts))
+    def __call__(self, 
+                 *optional_args, 
+                 **args_control):
+        """
+        Performs the accumulation into the vector by calling the chosen accumulation kernel 
+        and additional analytical contributions (control variate, optional).
 
-        # load the appropriate accumulation kernel (pyccelized, fast)
-        self._kernel_name = kernel_name
-        self._kernel = None
+        Parameters
+        ----------
+        optional_args : any
+            Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
+            which are prepared automatically (spline bases info, mapping info, data arrays).
+            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
+            Entries must be pyccel-conform types.
 
-        objs = [accums, accums_gc]
-        for obj in objs:
-            try:
-                self._kernel = getattr(obj, self.kernel_name)
-            except AttributeError:
-                pass
-        assert self.kernel is not None
+        args_control : any
+            Keyword arguments for an analytical control variate correction in the accumulation step. 
+            Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. 
+            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+        """
+
+        # flags for break
+        vec_finished = False
+
+        # reset data
+        for dat in self._args_data:
+            dat[:] = 0.
+
+        # accumulate into matrix (and vector) with markers
+        self.kernel(self.particles.markers, 
+                    self.particles.n_mks,
+                    self.derham._args_derham,
+                    self.args_domain,
+                    *self._args_data, 
+                    *optional_args)
+
+        # add analytical contribution (control variate) to vector
+        if 'control_vec' in args_control and len(self._vectors) > 0:
+            self._get_L2dofs(args_control['control_vec'], dofs=self._vectors[0], clear=False)
+            vec_finished = True
+
+        # finish vector: accumulate ghost regions and update ghost regions
+        if not vec_finished:
+            for vec in self._vectors:
+                vec.exchange_assembly_data()
+                vec.update_ghost_regions()
+
+    @property
+    def particles(self):
+        """ Particle object.
+        """
+        return self._particles
+    
+    @property
+    def kernel(self):
+        """ The accumulation kernel.
+        """
+        return self._kernel
 
     @property
     def derham(self):
@@ -387,10 +433,10 @@ class AccumulatorVector:
         return self._derham
 
     @property
-    def domain(self):
-        """ Mapping info for evaluating metric coefficients.
+    def args_domain(self):
+        """ Mapping arguments.
         """
-        return self._domain
+        return self._args_domain
 
     @property
     def space_id(self):
@@ -414,18 +460,6 @@ class AccumulatorVector:
                 self._derham.extraction_ops[self.form].dot(vec))]
 
         return out
-
-    @property
-    def kernel_name(self):
-        """ String that identifies the accumulation kernel.
-        """
-        return self._kernel_name
-
-    @property
-    def kernel(self):
-        """ The accumulation kernel.
-        """
-        return self._kernel
     
     def init_control_variate(self, mass_ops):
         '''Set up the use of noise reduction by control variate.'''
@@ -434,55 +468,6 @@ class AccumulatorVector:
         
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
-
-    def accumulate(self, particles, *args_add, **args_control):
-        """
-        Performs the accumulation into the vector by calling the chosen accumulation kernel 
-        and additional analytical contributions (control variate, optional).
-
-        Parameters
-        ----------
-        particles : Particles
-            Particles object holding the markers information.
-
-        *args_add
-            Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
-            which are prepared automatically (spline bases info, mapping info, data arrays).
-            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
-            Entries must be pyccel-conform types.
-
-        **args_control
-            Keyword arguments for an analytical control variate correction in the accumulation step. 
-            Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. 
-            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
-        """
-
-        # flags for break
-        vec_finished = False
-
-        # reset data
-        for dat in self._args_data:
-            dat[:] = 0.
-
-        # accumulate into matrix (and vector) with markers
-        self.kernel(particles.markers, particles.n_mks,
-                    *self._args_fem, *self._domain.args_map,
-                    *self._args_data, *args_add)
-
-        # add analytical contribution (control variate) to matrix
-        if 'control_mat' in args_control:
-            self._operators[0].assemble(weights=args_control['control_mat'])
-
-        # add analytical contribution (control variate) to vector
-        if 'control_vec' in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(args_control['control_vec'], dofs=self._vectors[0], clear=False)
-            vec_finished = True
-
-        # finish vector: accumulate ghost regions and update ghost regions
-        if not vec_finished:
-            for vec in self._vectors:
-                vec.exchange_assembly_data()
-                vec.update_ghost_regions()
 
     def show_accumulated_spline_field(self, mass_ops, eta_direction=0):
         r'''1D plot of the spline field corresponding to the accumulated vector.

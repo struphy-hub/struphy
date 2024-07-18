@@ -2,6 +2,7 @@ import numpy as np
 from struphy.models.base import StruphyModel
 
 from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 
 
 class LinearMHDVlasovCC(StruphyModel):
@@ -1005,9 +1006,12 @@ class ColdPlasmaVlasov(StruphyModel):
         super().initialize_from_params()
 
         # Accumulate charge density
-        charge_accum = AccumulatorVector(
-            self.derham, self.domain, "H1", "vlasov_maxwell_poisson")
-        charge_accum.accumulate(self.pointer['hot_electrons'])
+        charge_accum = AccumulatorVector(self.pointer['hot_electrons'],
+                                         "H1",
+                                         accum_kernels.vlasov_maxwell_poisson,
+                                         self.derham, 
+                                         self.domain.args_domain)
+        charge_accum()
 
         # Locally subtract mean charge for solvability with periodic bc
         if np.all(charge_accum.vectors[0].space.periods):

@@ -10,7 +10,9 @@ from psydac.linalg.block import BlockVector
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
+from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.particles import Particles6D, Particles5D, Particles3D
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
@@ -27,15 +29,15 @@ from struphy.feec.mass import WeightedMassOperator
 class VlasovAmpere(Propagator):
     r''':ref:`FEEC <gempic>` discretization of the following equations: 
     find :math:`\mathbf E \in H(\textnormal{curl})` and :math:`f` such that
-    
+
     .. math::
-    
+
         -& \int_\Omega \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F\,\textrm d \mathbf x  =
         c_1 \int_\Omega \int_{\mathbb{R}^3} f \mathbf{v} \cdot \mathbf F \, \text{d}^3 \mathbf{v} \,\textrm d \mathbf x \qquad \forall \, \mathbf F \in H(\textnormal{curl}) \,,
         \\[2mm]
         &\frac{\partial f}{\partial t} + c_2\, \mathbf{E} 
             \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,.
-    
+
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`, such that
 
     .. math::
@@ -89,13 +91,13 @@ class VlasovAmpere(Propagator):
 
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  e: BlockVector,
                  particles: Particles6D,
                  *,
                  c1: float = 1.,
                  c2: float = 1.,
-                 solver = options(default=True)['solver']):
+                 solver=options(default=True)['solver']):
 
         super().__init__(e, particles)
 
@@ -104,8 +106,13 @@ class VlasovAmpere(Propagator):
         self._info = solver['info']
 
         # Initialize Accumulator object
-        self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'vlasov_maxwell',
-                                  add_vector=True, symmetry='symm')
+        self._accum = Accumulator(particles,
+                                  'Hcurl',
+                                  accum_kernels.vlasov_maxwell,
+                                  self.derham,
+                                  self.domain.args_domain,
+                                  add_vector=True,
+                                  symmetry='symm')
 
         # Create buffers to store temporarily _e and its sum with old e
         self._e_tmp = e.space.zeros()
@@ -139,15 +146,17 @@ class VlasovAmpere(Propagator):
                                          verbose=solver['verbose'])
 
         # Instantiate particle pusher
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_v_with_efield')
+        self._pusher = Pusher(particles,
+                              pusher_kernels.push_v_with_efield,
+                              self.derham.args_derham,
+                              self.domain.args_domain)
 
     def __call__(self, dt):
         # current e-field
         en = self.feec_vars[0]
 
         # accumulate
-        self._accum.accumulate(self.particles[0])
+        self._accum()
 
         # Update Schur solver
         self._schur_solver.BC = - self._c1 * self._c2 / \
@@ -168,12 +177,11 @@ class VlasovAmpere(Propagator):
         _e *= 0.5
 
         # Update velocities
-        self._pusher(self.particles[0], dt,
+        self._pusher(dt,
                      _e.blocks[0]._data,
                      _e.blocks[1]._data,
                      _e.blocks[2]._data,
-                     self._c2,
-                     mpi_sort='last')
+                     self._c2)
 
         # Store new velocity magnitudes
         self._new_v_sq[~self.particles[0].holes] = np.sqrt(self.particles[0].markers[~self.particles[0].holes, 3]**2 +
@@ -205,7 +213,7 @@ class VlasovAmpere(Propagator):
 
 class EfieldWeights(Propagator):
     r"""Solves the following substep
-    
+
     .. math::
 
         \begin{align}
@@ -221,7 +229,7 @@ class EfieldWeights(Propagator):
         \frac{\text{d}}{\text{d} t} w_p = \frac{f_{0,p}}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \,,
         \\[2mm]
         \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} = - \frac{\alpha^2 \kappa}{N} \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
-    
+
     This is solved using the Crank-Nicolson method
 
     .. math::
@@ -281,7 +289,7 @@ class EfieldWeights(Propagator):
                  alpha: float = 1.,
                  kappa: float = 1.,
                  f0: Maxwellian = Maxwellian3D(),
-                 solver = options(default=True)['solver']):
+                 solver=options(default=True)['solver']):
 
         super().__init__(e, particles)
 
@@ -296,8 +304,13 @@ class EfieldWeights(Propagator):
         self._info = solver['info']
 
         # Initialize Accumulator object
-        self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'linear_vlasov_ampere',
-                                  add_vector=True, symmetry='symm')
+        self._accum = Accumulator(particles,
+                                  'Hcurl',
+                                  accum_kernels.linear_vlasov_ampere,
+                                  self.derham,
+                                  self.domain.args_domain,
+                                  add_vector=True,
+                                  symmetry='symm')
 
         # Create buffers to store temporarily _e and its sum with old e
         self._e_tmp = e.space.zeros()
@@ -333,10 +346,11 @@ class EfieldWeights(Propagator):
         )
 
         # Instantiate particle pusher
-        self._pusher = Pusher(
-            self.derham, self.domain,
-            'push_weights_with_efield_lin_va'
-        )
+        self._pusher = Pusher(particles,
+                              pusher_kernels.push_weights_with_efield_lin_va,
+                              self.derham.args_derham,
+                              self.domain.args_domain
+                              )
 
     def __call__(self, dt):
 
@@ -350,11 +364,12 @@ class EfieldWeights(Propagator):
             self.particles[0].markers[:, 5],
         )
 
-        self._accum.accumulate(self.particles[0], f0_values)
+        self._accum(f0_values)
 
         # Update Schur solver
         self._schur_solver.BC = self._accum.operators[0].matrix
-        self._schur_solver.BC *= (-1) * self._alpha**2 * self._kappa**2 / (4 * self._vth**2)
+        self._schur_solver.BC *= (-1) * self._alpha**2 * \
+            self._kappa**2 / (4 * self._vth**2)
 
         # new e-field (no tmps created here)
         self._e_tmp, info = self._schur_solver(
@@ -374,7 +389,7 @@ class EfieldWeights(Propagator):
 
         # Update weights
         self._pusher(
-            self.particles[0], dt,
+            dt,
             self._e_sum.blocks[0]._data,
             self._e_sum.blocks[1]._data,
             self._e_sum.blocks[2]._data,
@@ -967,11 +982,12 @@ class PressureCoupling6D(Propagator):
 
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  particles: Particles5D,
                  u: BlockVector | PolarVector,
                  *,
-                 use_perp_model: bool = options(default=True)['use_perp_model'],
+                 use_perp_model: bool = options(default=True)[
+                     'use_perp_model'],
                  u_space: str,
                  solver: dict = options(default=True)['solver'],
                  coupling_params: dict):
@@ -1010,21 +1026,29 @@ class PressureCoupling6D(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
-        accum_ker = 'pc_lin_mhd_6d'
-        pusher_ker = 'push_pc_GXu'
-
-        if not use_perp_model:
-            accum_ker += '_full'
-            pusher_ker += '_full'
+        if use_perp_model:
+            accum_ker = accum_kernels.pc_lin_mhd_6d
+            pusher_ker = pusher_kernels.push_pc_GXu
+        else:
+            accum_ker = accum_kernels.pc_lin_mhd_6d_full
+            pusher_ker = pusher_kernels.push_pc_GXu_full
 
         self._coupling_mat = coupling_params['Ah'] / coupling_params['Ab']
         self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
         self._scale_push = 1
 
-        self._ACC = Accumulator(self.derham, self.domain, 'Hcurl',
-                                accum_ker, add_vector=True,
+        self._ACC = Accumulator(particles,
+                                'Hcurl',
+                                accum_ker,
+                                self.derham,
+                                self.domain.args_domain,
+                                add_vector=True,
                                 symmetry='pressure')
-        self._pusher = Pusher(self.derham, self.domain, pusher_ker)
+
+        self._pusher = Pusher(particles,
+                              pusher_ker,
+                              self.derham.args_derham,
+                              self.domain.args_domain)
 
         # Define operators
         self._A = getattr(self.mass_ops, id_Mn)
@@ -1054,11 +1078,11 @@ class PressureCoupling6D(Propagator):
         un.update_ghost_regions()
 
         # acuumulate MAT and VEC
-        self._ACC.accumulate(
-            self.particles[0], self._coupling_mat, self._coupling_vec)
+        self._ACC(self._coupling_mat, self._coupling_vec)
 
         MAT = [[self._ACC.operators[0].matrix, self._ACC.operators[1].matrix, self._ACC.operators[2].matrix],
-               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix, self._ACC.operators[4].matrix],
+               [self._ACC.operators[1].matrix, self._ACC.operators[3].matrix,
+                   self._ACC.operators[4].matrix],
                [self._ACC.operators[2].matrix, self._ACC.operators[4].matrix, self._ACC.operators[5].matrix]]
         VEC = [self._ACC.vectors[0], self._ACC.vectors[1], self._ACC.vectors[2]]
 
@@ -1091,7 +1115,7 @@ class PressureCoupling6D(Propagator):
         GXu_3.update_ghost_regions()
 
         # push particles
-        self._pusher(self.particles[0], dt,
+        self._pusher(dt,
                      GXu_1[0]._data, GXu_1[1]._data, GXu_1[2]._data,
                      GXu_2[0]._data, GXu_2[1]._data, GXu_2[2]._data,
                      GXu_3[0]._data, GXu_3[1]._data, GXu_3[2]._data)
@@ -1196,7 +1220,7 @@ class CurrentCoupling6DCurrent(Propagator):
     r"""
     :ref:`FEEC <gempic>` discretization of the following equations: 
     find :math:`\tilde{\mathbf{U}}  \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and :math:`f` such that
-    
+
     .. math::
 
         \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon}  \int_\Omega n_\textnormal{h}\mathbf{u}_\textnormal{h} \times(\mathbf{B}_0+\tilde{\mathbf{B}}) \cdot \mathbf V \,\textrm d \mathbf x 
@@ -1205,7 +1229,7 @@ class CurrentCoupling6DCurrent(Propagator):
         &\frac{\partial f_\textnormal{h}}{\partial t} + \frac{1}{\varepsilon} \Big[(\mathbf{B}_0+\tilde{\mathbf{B}})\times\tilde{\mathbf{U}} \Big] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
         \\[2mm]
         &n_\textnormal{h}\mathbf{u}_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\mathbf{v}\,\textnormal{d}^3 \mathbf v\,.
-        
+
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
@@ -1221,11 +1245,11 @@ class CurrentCoupling6DCurrent(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
-    def __init__(self, 
-                 particles: Particles6D, 
+    def __init__(self,
+                 particles: Particles6D,
                  u: BlockVector,
                  *,
                  u_space: str,
@@ -1255,8 +1279,13 @@ class CurrentCoupling6DCurrent(Propagator):
         self._scale_push = 1./epsilon
 
         # load accumulator
-        self._accumulator = Accumulator(
-            self.derham, self.domain, u_space, 'cc_lin_mhd_6d_2', add_vector=True, symmetry='symm')
+        self._accumulator = Accumulator(particles,
+                                        u_space,
+                                        accum_kernels.cc_lin_mhd_6d_2,
+                                        self.derham,
+                                        self.domain.args_domain,
+                                        add_vector=True,
+                                        symmetry='symm')
 
         if self.particles[0].control_variate:
 
@@ -1292,8 +1321,20 @@ class CurrentCoupling6DCurrent(Propagator):
             self._vec3 = np.zeros_like(self._nuh0_at_quad[0])
 
         # load particle pusher
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_bxu_' + u_space)
+        if u_space == 'Hcurl':
+            kernel = pusher_kernels.push_bxu_Hcurl
+        elif u_space == 'Hdiv':
+            kernel = pusher_kernels.push_bxu_Hdiv
+        elif u_space == 'H1vec':
+            kernel = pusher_kernels.push_bxu_H1vec
+        else:
+            raise ValueError(
+                f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.')
+
+        self._pusher = Pusher(particles,
+                              kernel,
+                              self.derham.args_derham,
+                              self.domain.args_domain)
 
         # FEM spaces and basis extraction operators for u and b
         u_id = self.derham.space_to_form[u_space]
@@ -1362,14 +1403,20 @@ class CurrentCoupling6DCurrent(Propagator):
                 (self._b_quad1 *
                  self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0])
 
-            self._accumulator.accumulate(self.particles[0],
-                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
-                                         self._space_key_int, self._coupling_mat, self._coupling_vec,
-                                         control_vec=[self._vec1, self._vec2, self._vec3])
+            self._accumulator(self._b_full2[0]._data,
+                              self._b_full2[1]._data,
+                              self._b_full2[2]._data,
+                              self._space_key_int,
+                              self._coupling_mat,
+                              self._coupling_vec,
+                              control_vec=[self._vec1, self._vec2, self._vec3])
         else:
-            self._accumulator.accumulate(self.particles[0],
-                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
-                                         self._space_key_int, self._coupling_mat, self._coupling_vec)
+            self._accumulator(self._b_full2[0]._data,
+                              self._b_full2[1]._data,
+                              self._b_full2[2]._data,
+                              self._space_key_int,
+                              self._coupling_mat,
+                              self._coupling_vec)
 
         # solve linear system for updated u coefficients (in-place)
         un1, info = self._schur_solver(
@@ -1385,9 +1432,13 @@ class CurrentCoupling6DCurrent(Propagator):
         _Eu.update_ghost_regions()
 
         # push particles
-        self._pusher(self.particles[0], self._scale_push*dt,
-                     self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
-                     _Eu[0]._data, _Eu[1]._data, _Eu[2]._data)
+        self._pusher(self._scale_push*dt,
+                     self._b_full2[0]._data,
+                     self._b_full2[1]._data,
+                     self._b_full2[2]._data,
+                     _Eu[0]._data,
+                     _Eu[1]._data,
+                     _Eu[2]._data)
 
         # write new coeffs into Propagator.variables
         max_du = self.feec_vars_update(un1)
@@ -1455,7 +1506,7 @@ class CurrentCoupling5DCurlb(Propagator):
 
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  particles: Particles5D,
                  u: BlockVector,
                  *,
@@ -1517,79 +1568,28 @@ class CurrentCoupling5DCurlb(Propagator):
             pc = pc_class(_A)
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(self.derham, self.domain, u_space,
-                                'cc_lin_mhd_5d_J1', add_vector=True, symmetry='symm')
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_gc_cc_J1_' + u_space)
+        self._ACC = Accumulator(particles,
+                                u_space,
+                                accum_kernels_gc.cc_lin_mhd_5d_J1,
+                                self.derham,
+                                self.domain.args_domain,
+                                add_vector=True,
+                                symmetry='symm')
 
-        # if self.particles[0].control_variate:
+        if u_space == 'Hcurl':
+            kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
+        elif u_space == 'Hdiv':
+            kernel = pusher_kernels_gc.push_gc_cc_J1_Hdiv
+        elif u_space == 'H1vec':
+            kernel = pusher_kernels_gc.push_gc_cc_J1_H1vec
+        else:
+            raise ValueError(
+                f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.')
 
-        #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self.particles[0].f0, Maxwellian)
-        #     assert params['u_space'] == 'Hdiv'
-
-        #     self._ACC.init_control_variate(self.mass_ops)
-
-        #     # evaluate and save f0.n at quadrature points
-        #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
-
-        #     self._n0_at_quad = self.domain.push(
-        #         self.particles[0].f0.n, *quad_pts, kind='3', squeeze_out=False)
-
-        #     # evaluate unit_b1 (1form) dot epsilon * u0_parallel * curl_norm_b (2form) / |det(DF)| at quadrature points
-        #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
-
-        #     u0_parallel_at_quad = self.particles[0].f0.u(
-        #         *quad_pts_array)[0]
-
-        #     self._det_df_at_quad = self.domain.jacobian_det(
-        #         *quad_pts, squeeze_out=False)
-
-        #     self._unit_b1_at_quad = WeightedMassOperator.eval_quad(
-        #         self.derham.Vh_fem['1'], self._unit_b1)
-
-        #     self._curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
-        #         self.derham.Vh_fem['2'], self._curl_norm_b)
-
-        #     self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
-        #         p * q for p, q in zip(self._unit_b1_at_quad, self._curl_norm_b_at_quad))
-
-        #     self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
-        #     self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
-        #     self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel_at_quad
-
-        #     # calculate constant (f0.u_para² + f0.vth_para²) * f0.n for control MAT and VEC
-        #     vth0_parallel_at_quad = self.particles[0].f0.vth(
-        #         *quad_pts_array)[0]
-
-        #     self._control_const = (
-        #         u0_parallel_at_quad**2 + vth0_parallel_at_quad**2) * self._n0_at_quad
-
-        #     # memory allocation of magnetic field at quadrature points
-        #     self._b_at_quad = (np.zeros_like(self._n0_at_quad),
-        #                        np.zeros_like(self._n0_at_quad),
-        #                        np.zeros_like(self._n0_at_quad))
-
-        #     # memory allocation of parallel magnetic field at quadrature points
-        #     self._B_para_at_quad = np.zeros_like(self._n0_at_quad)
-
-        #     # memory allocation for control MAT
-        #     self._mat11 = np.zeros_like(self._n0_at_quad)
-        #     self._mat12 = np.zeros_like(self._n0_at_quad)
-        #     self._mat13 = np.zeros_like(self._n0_at_quad)
-        #     self._mat22 = np.zeros_like(self._n0_at_quad)
-        #     self._mat23 = np.zeros_like(self._n0_at_quad)
-        #     self._mat33 = np.zeros_like(self._n0_at_quad)
-
-        #     self._mat21 = np.zeros_like(self._n0_at_quad)
-        #     self._mat31 = np.zeros_like(self._n0_at_quad)
-        #     self._mat32 = np.zeros_like(self._n0_at_quad)
-
-        #     # memory allocation for control VEC
-        #     self._vec1 = np.zeros_like(self._n0_at_quad)
-        #     self._vec2 = np.zeros_like(self._n0_at_quad)
-        #     self._vec3 = np.zeros_like(self._n0_at_quad)
+        self._pusher = Pusher(particles,
+                              kernel,
+                              self.derham.args_derham,
+                              self.domain.args_domain)
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         _BC = -1/4 * self._ACC.operators[0]
@@ -1703,12 +1703,12 @@ class CurrentCoupling5DCurlb(Propagator):
         #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
         #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
 
-        self._ACC.accumulate(self.particles[0], self._epsilon,
-                                Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
-        
+        self._ACC(self._epsilon,
+                  Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                  self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                  self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                  self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
+
         # update u coefficients
         un1, info = self._schur_solver(
             un, -self._ACC.vectors[0]/2, dt, out=self._u_new)
@@ -1722,12 +1722,13 @@ class CurrentCoupling5DCurlb(Propagator):
 
         _Eu.update_ghost_regions()
 
-        self._pusher(self.particles[0], self._scale_push*dt,
+        self._pusher(self._scale_push*dt,
                      self._epsilon,
                      Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                     _Eu[0]._data, _Eu[1]._data, _Eu[2]._data, 0.)
+                     _Eu[0]._data, _Eu[1]._data, _Eu[2]._data, 
+                     0.)
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(un1)
@@ -1798,8 +1799,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         return dct
 
-
-    def __init__(self, 
+    def __init__(self,
                  particles: Particles5D,
                  u: BlockVector,
                  *,
@@ -1875,8 +1875,13 @@ class CurrentCoupling5DGradB(Propagator):
                                verbose=solver['verbose'])
 
         # Call the accumulation and Pusher class
-        self._ACC = Accumulator(
-            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
+        self._ACC = Accumulator(particles,
+                                u_space,
+                                accum_kernels_gc.cc_lin_mhd_5d_J2,
+                                self.derham,
+                                self.domain.args_domain,
+                                add_vector=True,
+                                symmetry='symm')
 
         # if self.particles[0].control_variate:
 
@@ -1970,18 +1975,22 @@ class CurrentCoupling5DGradB(Propagator):
             a = []
             b = [1.]
             c = [0.]
+
         elif algo == 'heun2':
             a = [1.]
             b = [1/2, 1/2]
             c = [0., 1.]
+
         elif algo == 'rk2':
             a = [1/2]
             b = [0., 1.]
             c = [0., 1/2]
+
         elif algo == 'heun3':
             a = [1/3, 2/3]
             b = [1/4, 0., 3/4]
             c = [0., 1/3, 2/3]
+
         elif algo == 'rk4':
             a = [1/2, 1/2, 1.]
             b = [1/6, 1/3, 1/3, 1/6]
@@ -1990,8 +1999,20 @@ class CurrentCoupling5DGradB(Propagator):
             raise NotImplementedError('Chosen algorithm is not implemented.')
 
         self._butcher = ButcherTableau(a, b, c)
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_gc_cc_J2_stage_' + u_space)
+
+        # instantiate Pusher_
+        if u_space == 'Hdiv':
+            kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+        elif u_space == 'H1vec':
+            kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+        else:
+            raise ValueError(
+                f'{u_space = } not valid, choose from "Hdiv" or "H1vec.')
+
+        self._pusher = Pusher(particles,
+                              kernel,
+                              self.derham.args_derham,
+                              self.domain.args_domain)
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -2087,21 +2108,23 @@ class CurrentCoupling5DGradB(Propagator):
             #                          Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
             #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
 
-            self._ACC.accumulate(self.particles[0], self._epsilon,
-                                    Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                    self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                    self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                    Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
-                                    self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
+            self._ACC(self._epsilon,
+                      Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                      self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                      self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
+                      self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                      Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
+                      self._space_key_int, self._coupling_mat, self._coupling_vec, 0.)
 
             # push particles
             Eu = self._EuT.dot(_u_temp, out=self._Eu_temp)
             Eu.update_ghost_regions()
 
-            self._pusher.kernel(self.particles[0].markers, dt, stage,
-                                *self._pusher.args_fem,
-                                *self.domain.args_map,
+            self._pusher.kernel(self.particles[0].markers,
+                                dt, 
+                                stage,
+                                self.derham.args_derham,
+                                self.domain.args_domain,
                                 self._epsilon,
                                 Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
                                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
@@ -2124,12 +2147,15 @@ class CurrentCoupling5DGradB(Propagator):
 
             if self._info and self._rank == 0:
                 print('Stage:', stage)
-                print('Status     for CurrentCoupling5DGradB:', self._solver._info['success'])
-                print('Iterations for CurrentCoupling5DGradB:', self._solver._info['niter'])
+                print('Status     for CurrentCoupling5DGradB:',
+                      self._solver._info['success'])
+                print('Iterations for CurrentCoupling5DGradB:',
+                      self._solver._info['niter'])
 
             # clear the buffer
             if stage == self._butcher.n_stages - 1:
-                self.particles[0].markers[~self.particles[0].holes,  11:-1] = 0.
+                self.particles[0].markers[~self.particles[0].holes,  11:-
+                                          1] = 0.
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(_u_new)

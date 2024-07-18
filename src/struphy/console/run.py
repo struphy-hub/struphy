@@ -64,6 +64,7 @@ def struphy_run(model,
 
     libpath = struphy.__path__[0]
 
+    # Struphy paths
     with open(os.path.join(libpath, 'state.yml')) as f:
         state = yaml.load(f, Loader=yaml.FullLoader)
 

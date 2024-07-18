@@ -1,9 +1,13 @@
 'Syntactic sugar for calling pusher kernels.'
 
 
+from struphy.geometry.base import Domain
+
+from struphy.pic.base import Particles
 from struphy.pic.pushing import pusher_kernels
 from struphy.pic.pushing import pusher_kernels_gc
 from struphy.pic.pushing import eval_kernels_gc
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 import numpy as np
 from mpi4py.MPI import SUM, IN_PLACE
@@ -17,14 +21,17 @@ class Pusher:
 
     Parameters
     ----------
-    derham : struphy.feec.psydac_derham.Derham
-        Discrete de Rham sequence on the logical unit cube.
+    particles : Particles
+        Particles object holding the markers to push.
+    
+    kernel : pyccelized function
+        The pusher kernel.
+        
+    args_derham : DerhamArguments
+        Discrete FE space infos.
 
-    domain : struphy.geometry.domains
-        All things mapping.
-
-    kernel_name : str
-        The name of the pusher kernel. Must start with "push_".
+    args_domain : DomainArguments
+        Mapping infos.
 
     init_kernel : bool
         Whether there is an initialization kernel used; 
@@ -41,110 +48,82 @@ class Pusher:
 
     tol : float
         Iteration terminates when residual<tol.
+        
+    mpi_sort : str
+        When to do MPI sorting:
+        * None : no sorting at all.
+        * each : sort markers after each stage.
+        * last : sort markers after last stage.
+
+    verbose : bool
+        Whether to print some info or not.
     """
 
-    def __init__(self, derham, domain, kernel_name, init_kernel=False, eval_kernels_names=None, n_stages=1, maxiter=1, tol=1.e-8):
+    def __init__(self, 
+                 particles: Particles,
+                 kernel,
+                 args_derham: DerhamArguments, 
+                 args_domain: DomainArguments,
+                 *,
+                 init_kernel: list = None, 
+                 eval_kernels: list = [], 
+                 n_stages: int = 1, 
+                 maxiter: int = 1, 
+                 tol: float = 1.e-8,
+                 mpi_sort: str = None, 
+                 verbose: bool = False):
 
-        self._derham = derham
-        self._domain = domain
+        self._particles = particles
+        self._kernel = kernel
+        self._args_derham = args_derham
+        self._args_domain = args_domain
+        
+        self._init_kernel = init_kernel
+        self._eval_kernels = eval_kernels
         self._n_stages = n_stages
         self._maxiter = maxiter
         self._tol = tol
+        self._mpi_sort = mpi_sort
+        self._verbose = verbose
+        
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
-        # get FEM information
-        self._args_fem = (np.array(derham.p),
-                          derham.Vh_fem['0'].knots[0],
-                          derham.Vh_fem['0'].knots[1],
-                          derham.Vh_fem['0'].knots[2],
-                          np.array(derham.Vh['0'].starts))
-
-        # select pusher kernel
-        assert kernel_name[:5] == 'push_'
-        self._kernel_name = kernel_name
-        self._kernel = None
-
-        objs = [pusher_kernels, pusher_kernels_gc]
-        for obj in objs:
-            try:
-                self._kernel = getattr(obj, self.kernel_name)
-            except AttributeError:
-                pass
-        assert self.kernel is not None
-
-        # select initialization kernel
-        self._init_kernel = None
-
-        if init_kernel:
-            objs = [eval_kernels_gc]
-
-            name = self.kernel_name
-            name = name.replace('push_', 'init_')
-            for obj in objs:
-                try:
-                    self._init_kernel = getattr(obj, name)
-                except AttributeError:
-                    pass
-            assert self.init_kernel is not None
-
-        # select evaluation kernels
-        self._eval_kernels_names = eval_kernels_names
-        self._eval_kernels = []
-
-        if eval_kernels_names is not None:
-            objs = [eval_kernels_gc]
-
-            for name in eval_kernels_names:
-                for obj in objs:
-                    try:
-                        self._eval_kernels += [getattr(obj, name)]
-                    except AttributeError:
-                        pass
-            assert not self.eval_kernels == []
-
-    def __call__(self, particles, dt, *args_opt, mpi_sort=None, verbose=False):
+    def __call__(self, 
+                 dt: float, 
+                 *optional_args):
         """
         Applies the chosen pusher kernel by a time step dt, 
         applies kinetic boundary conditions and performs MPI sorting.
 
         Parameters
         ----------
-        particles : struphy.pic.particles.Particles6D or struphy.pic.particles.Particles5D
-            Particles object holding the markers to push.
-
         dt : float
             Time step.
 
-        args_opt : tuple
+        optional_args : any
             Optional arguments needed for the pushing (typically spline coefficients for field evaluation).
-
-        mpi_sort : str
-            When to do MPI sorting:
-                * None : no sorting at all.
-                * each : sort markers after each stage.
-                * last : sort markers after last stage.
-
-        verbose : bool
-            Whether to print some info or not.
         """
 
         # save initial phase space coordinates
-        particles.markers[~particles.holes,
-                          particles.bufferindex:particles.bufferindex+3] = particles.markers[~particles.holes, 0:3]
+        self.particles.markers[~self.particles.holes,
+                          self.particles.bufferindex:self.particles.bufferindex+3] = self.particles.markers[~self.particles.holes, :3]
 
         # prepare the iteration:
         if self.init_kernel is not None:
-            self.init_kernel(particles.markers, dt, *self.args_fem,
-                             *self.domain.args_map, *args_opt)
-            particles.mpi_sort_markers()
+            self.init_kernel(self.particles.markers,
+                             dt,
+                             self._args_derham, 
+                             self._args_domain,
+                             *optional_args)
+            self.particles.mpi_sort_markers()
 
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
 
             # start iteration (maxiter=1 for explicit schemes)
             n_not_converged = np.empty(1, dtype=int)
-            n_not_converged[0] = particles.n_mks
+            n_not_converged[0] = self.particles.n_mks
             k = 0
 
             while n_not_converged[0] > 0:
@@ -152,56 +131,87 @@ class Pusher:
 
                 # do evaluations if eval_kernels is not empty
                 for eval_ker in self.eval_kernels:
-                    eval_ker(particles.markers, dt,
-                             *self.args_fem, *self.domain.args_map, *args_opt)
-                    particles.mpi_sort_markers()
+                    eval_ker(self.particles.markers,
+                             dt,
+                             self._args_derham, 
+                             self._args_domain,
+                             *optional_args)
+                    self.particles.mpi_sort_markers()
 
                 # push markers
-                self.kernel(particles.markers, dt, stage,
-                            *self.args_fem, *self.domain.args_map, *args_opt)
+                self.kernel(self.particles.markers,
+                            dt,
+                            stage,
+                            self._args_derham, 
+                            self._args_domain,
+                            *optional_args)
 
                 # sort markers according to domain decomposition
-                if mpi_sort == 'each':
-                    particles.mpi_sort_markers()
+                if self.mpi_sort == 'each':
+                    self.particles.mpi_sort_markers()
                 else:
-                    particles.apply_kinetic_bc()
+                    self.particles.apply_kinetic_bc()
 
                 # compute number of non coverged particles
                 not_converged_loc = np.logical_not(
-                    particles.markers[:, particles.bufferindex] == -1.)
+                    self.particles.markers[:, self.particles.bufferindex] == -1.)
                 n_not_converged[0] = np.count_nonzero(not_converged_loc)
 
-                self.derham.comm.Allreduce(
+                self.particles.derham.comm.Allreduce(
                     self._mpi_in_place, n_not_converged, op=self._mpi_sum)
 
                 if k == self.maxiter:
-                    if verbose:
+                    if self.verbose:
                         print(
-                            f'maxiter={self.maxiter} reached for kernel "{self.kernel_name}" !')
+                            f'maxiter={self.maxiter} reached for kernel "{self.kernel}" !')
                     break
 
             # print stage info
-            if self.derham.comm.Get_rank() == 0 and verbose:
-                print(self.kernel_name, ' done. (stage: ', stage + 1, ')')
+            if self.particles.derham.comm.Get_rank() == 0 and self.verbose:
+                print(self.kernel, ' done. (stage: ', stage + 1, ')')
 
         # sort markers according to domain decomposition
-        if mpi_sort == 'last':
-            particles.mpi_sort_markers(do_test=True)
+        if self.mpi_sort == 'last':
+            self.particles.mpi_sort_markers(do_test=True)
 
         # clear buffer columns
-        particles.markers[~particles.holes,  particles.bufferindex:-1] = 0.
+        self.particles.markers[~self.particles.holes,  self.particles.bufferindex:-1] = 0.
 
     @property
-    def derham(self):
-        """ Discrete derham sequence.
+    def particles(self):
+        """ Particle object.
         """
-        return self._derham
+        return self._particles
 
     @property
-    def domain(self):
-        """ Mapping from logical unit cube to physical domain.
+    def kernel(self):
+        """ The pyccelized pusher kernel.
         """
-        return self._domain
+        return self._kernel
+
+    @property
+    def init_kernel(self):
+        """ A kernel for initializing the iteration.
+        """
+        return self._init_kernel
+
+    @property
+    def eval_kernels(self):
+        """ A list of kernels for evaluation during iteration.
+        """
+        return self._eval_kernels
+    
+    @property
+    def args_derham(self):
+        """ Mandatory Derham arguments.
+        """
+        return self._args_derham
+    
+    @property
+    def args_domain(self):
+        """ Mandatory Domain arguments.
+        """
+        return self._args_domain
 
     @property
     def n_stages(self):
@@ -220,42 +230,21 @@ class Pusher:
         """ Iteration terminates when residual<tol.
         """
         return self._tol
-
+    
     @property
-    def kernel_name(self):
-        """ The name of the pyccelized pusher kernel.
+    def mpi_sort(self):
+        """ When to do MPI sorting:
+        * None : no sorting at all.
+        * each : sort markers after each stage.
+        * last : sort markers after last stage.
         """
-        return self._kernel_name
-
+        return self._mpi_sort
+    
     @property
-    def kernel(self):
-        """ The pyccelized pusher kernel.
+    def verbose(self):
+        """ Print more info.
         """
-        return self._kernel
-
-    @property
-    def init_kernel(self):
-        """ A kernel for initializing the iteration.
-        """
-        return self._init_kernel
-
-    @property
-    def eval_kernels_names(self):
-        """ A list of of names of the evaluation kernels.
-        """
-        return self._eval_kernels_names
-
-    @property
-    def eval_kernels(self):
-        """ A list of kernels for evaluation during iteration.
-        """
-        return self._eval_kernels
-
-    @property
-    def args_fem(self):
-        """ FEM and MPI related arguments taken by all pushers.
-        """
-        return self._args_fem
+        return self._verbose
 
 
 class ButcherTableau:

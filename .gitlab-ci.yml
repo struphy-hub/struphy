@@ -297,7 +297,7 @@ fortran_unit_tests:
     - pwd
     - ls -1
     - struphy compile --status
-    - struphy test unit --with-desc
+    - struphy test unit 
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 fortran_model_tests:
