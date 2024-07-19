@@ -1399,7 +1399,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                          'maxiter': 3000,
                          'info': False,
                          'verbose': False,
-                         'recycle': True}
+                         'recycle': True,
+                         'acc_filter': False,
+                         'turn_off': False}
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1435,7 +1437,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._ACC = Accumulator(self.derham, self.domain,
                                 u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm',
-                                use_filter=True)
+                                use_filter=solver['acc_filter'])
 
         # if self._particles.control_variate:
 
@@ -1610,7 +1612,9 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'maxiter': 3000,
                          'info': False,
                          'verbose': False,
-                         'recycle': True}
+                         'recycle': True,
+                         'acc_filter': False,
+                         'turn_off': False}
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1651,7 +1655,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             self._space_key_int = int(self._u_id)
 
         self._ACC = Accumulator(self.derham, self.domain,
-                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm')
+                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm', use_filter=solver['acc_filter'])
 
         # if self._particles.control_variate:
 
@@ -1892,7 +1896,9 @@ class CurrentCoupling5DDensity(Propagator):
                          'maxiter': 3000,
                          'info': False,
                          'verbose': False,
-                         'recycle': True}
+                         'recycle': True,
+                         'acc_filter': False,
+                         'turn_off': False}
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1937,7 +1943,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._scale_mat = coupling_params['Ah'] / \
             coupling_params['Ab'] / self._epsilon
         self._accumulator = Accumulator(
-            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
+            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym', use_filter=solver['acc_filter'])
 
         # if self._particles.control_variate:
 

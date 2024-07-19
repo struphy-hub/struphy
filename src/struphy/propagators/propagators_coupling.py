@@ -1448,7 +1448,9 @@ class CurrentCoupling5DCurlb(Propagator):
                          'maxiter': 3000,
                          'info': False,
                          'verbose': False,
-                         'recycle': True}
+                         'recycle': True,
+                         'acc_filter': False,
+                         'turn_off': False}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -1518,7 +1520,7 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # Call the accumulation and Pusher class
         self._ACC = Accumulator(self.derham, self.domain, u_space,
-                                'cc_lin_mhd_5d_J1', add_vector=True, symmetry='symm')
+                                'cc_lin_mhd_5d_J1', add_vector=True, symmetry='symm', use_filter=solver['acc_filter'])
         self._pusher = Pusher(self.derham, self.domain,
                               'push_gc_cc_J1_' + u_space)
 
@@ -1790,7 +1792,9 @@ class CurrentCoupling5DGradB(Propagator):
                          'maxiter': 3000,
                          'info': False,
                          'verbose': False,
-                         'recycle': True}
+                         'recycle': True,
+                         'acc_filter': False,
+                         'turn_off': False}
         dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
 
         if default:
@@ -1876,7 +1880,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         # Call the accumulation and Pusher class
         self._ACC = Accumulator(
-            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm')
+            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_J2', add_vector=True, symmetry='symm', use_filter=solver['acc_filter'])
 
         # if self.particles[0].control_variate:
 

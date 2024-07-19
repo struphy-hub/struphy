@@ -150,9 +150,11 @@ class Particles(metaclass=ABCMeta):
         # set coordinates of the background distribution
         if self.f0.coords == 'constants_of_motion':
             self._f_coords_index = self.index['com']
+            self._f_jacobian_coords_index = self.index['pos+energy']
 
         else:
             self._f_coords_index = self.index['coords']
+            self._f_jacobian_coords_index = self.index['coords']
 
     @classmethod
     @abstractmethod
@@ -364,6 +366,7 @@ class Particles(metaclass=ABCMeta):
         out['vel'] = slice(3, 3 + self.vdim)  # velocities
         out['coords'] = slice(0, 3 + self.vdim)  # phasespace_coords
         out['com'] = slice(8, 11)  # constants of motion
+        out['pos+energy'] = list(range(0, 3)) + [8] # positions + energy
         out['weights'] = 3 + self.vdim  # weights
         out['s0'] = 4 + self.vdim  # sampling_density
         out['w0'] = 5 + self.vdim  # weights0
@@ -486,6 +489,12 @@ class Particles(metaclass=ABCMeta):
         return self._f_coords_index
 
     @property
+    def f_jacobian_coords_index(self):
+        """Dict holding the column indices referring to coords of the velocity jacobian determinant of the distribution fuction.
+        """
+        return self._f_jacobian_coords_index
+
+    @property
     def f_coords(self):
         """ Coordinates of the distribution function.
         """
@@ -495,6 +504,23 @@ class Particles(metaclass=ABCMeta):
     def f_coords(self, new):
         assert isinstance(new, np.ndarray)
         self.markers[~self.holes, self.f_coords_index] = new
+
+    @property
+    def f_jacobian_coords(self):
+        """ Coordinates of the velocity jacobian determinant of the distribution fuction.
+        """
+        if isinstance(self.f_jacobian_coords_index, list):
+            return self.markers[np.ix_(~self.holes, self.f_jacobian_coords_index)]
+        else:
+            return self.markers[~self.holes, self.f_jacobian_coords_index]
+
+    @f_jacobian_coords.setter
+    def f_jacobian_coords(self, new):
+        assert isinstance(new, np.ndarray)
+        if isinstance(self.f_jacobian_coords_index, list):
+            self.markers[np.ix_(~self.holes, self.f_jacobian_coords_index)] = new
+        else:
+            self.markers[~self.holes, self.f_jacobian_coords_index] = new
 
     def create_marker_array(self):
         """ Create marker array :attr:`~struphy.pic.base.Particles.markers`.
@@ -895,14 +921,7 @@ class Particles(metaclass=ABCMeta):
             f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-
-            if self.f_init.coords == 'constants_of_motion':
-                f_init /= self.f_init.velocity_jacobian_det(
-                    *self.phasespace_coords.T, mu=self.markers_wo_holes[:,9])
-                
-            else:
-                f_init /= self.f_init.velocity_jacobian_det(
-                    *self.phasespace_coords.T)
+            f_init /= self.f_init.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
         # compute w0 and save at vdim + 5
         self.weights0 = f_init / self.sampling_density
@@ -927,14 +946,7 @@ class Particles(metaclass=ABCMeta):
             f0 /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-
-            if self.f0.coords == 'constants_of_motion':
-                f0 /= self.f0.velocity_jacobian_det(
-                    *self.phasespace_coords.T, mu=self.markers_wo_holes[:,9])
-                
-            else:
-                f0 /= self.f0.velocity_jacobian_det(
-                    *self.phasespace_coords.T)
+            f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
         self.weights = self.weights0 - f0/self.sampling_density
 
