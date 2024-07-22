@@ -1652,12 +1652,13 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     # Test constant value at v_para = v_perp = 0.01
     res = maxwellian(energy, mu, psic).squeeze()
+    res_ana = maxw_params['n']*2*np.sqrt(energy/np.pi)/maxw_params['vth']**3 * \
+        np.exp(-energy/maxw_params['vth']**2)
     assert np.allclose(
         res,
-        maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']
-                          ** 3) * np.exp(-energy/maxw_params['vth']**2),
+        res_ana,
         atol=10e-10
-    ), f"{res=},\n {2. / (2 * np.pi)**(3/2)* np.exp(-1e-04)}"
+    ), f"{res=},\n {res_ana}"
 
     # test canonical Maxwellian profile in v_para
     v_para = np.linspace(-5, 5, 64)
@@ -1686,7 +1687,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     res = maxwellian(*com_meshgrids).squeeze()
 
-    res_ana = maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']**3) * \
+    res_ana = maxw_params['n']*2*np.sqrt(com_meshgrids[0]/np.pi)/maxw_params['vth']**3 * \
         np.exp(-com_meshgrids[0]/maxw_params['vth']**2)
 
     if show_plot:
@@ -1731,7 +1732,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     res = maxwellian(*com_meshgrids).squeeze()
 
-    res_ana = maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']**3) * \
+    res_ana = maxw_params['n']*2*np.sqrt(com_meshgrids[0]/np.pi)/maxw_params['vth']**3 * \
         np.exp(-com_meshgrids[0]/maxw_params['vth']**2)
 
     if show_plot:
@@ -1798,8 +1799,8 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     ana_res = n0*c[3]*np.exp(-c[2]/c[1] *
                              np.tanh((rc - c[0])/c[2]))
-    ana_res *= 1/((2.*np.pi)**(1/2) *
-                  maxw_params['vth']**3) * np.exp(-energy/maxw_params['vth']**2)
+    ana_res *= 2*np.sqrt(energy/np.pi)/maxw_params['vth']**3 * \
+        np.exp(-energy/maxw_params['vth']**2)
 
     if show_plot:
         plt.plot(e1, ana_res, label='analytical')
