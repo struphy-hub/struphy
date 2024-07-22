@@ -13,7 +13,25 @@ def apply_three_points_filter(vec1: 'float[:,:,:]',
                               pn: 'int[:]', starts: 'int[:]', ends: 'int[:]',
                               alpha: 'float'):
     """
-    Applying three point filter to the vector.
+    Applying three point filter to the spline coefficients of the accumulated vector(._data of the StencilVector).
+
+    .. math::
+
+        v^\prime_{i,j,k} = \sum^2_{il=0} \sum^2_{jl=0} \sum^2_{kl=0} S(ij) * S(jl) * S(kl) * vec_{i-1+il,j-1+jl,k-1+kl} \,,
+
+    where the 1d mask :math:`S` is defined as
+
+    .. math::
+
+        S(i={0,1,2}) = \left\{
+        \begin{aligned}
+        0.5 * (1 - \alpha) \quad & if i=0
+        \\
+        \alpha & if i=1
+        \\
+        0.5 * (1 - \alpha) \quad & if i=2
+        \end{aligned}
+        \right. \,.
     """
 
     # allocate memory
