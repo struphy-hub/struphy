@@ -688,7 +688,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                                                 'algo': params_parallel_algo,
                                                                                 'epsilon': epsilon}
 
-        if not params_cc_gradB_solver['turn_off']:
+        if params_cc_gradB_solver['turn_off']:
+            self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None
+        else:
             self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = {'b': self.pointer['b_field'],
                                                                         'b_eq': self._b_eq,
                                                                         'unit_b1': self._unit_b1,
@@ -702,7 +704,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                                         'coupling_params': self._coupling_params,
                                                                         'epsilon': epsilon}
 
-        if not params_cc_curlb_solver['turn_off']:
+        if params_cc_curlb_solver['turn_off']:
+            self._kwargs[propagators_coupling.CurrentCoupling5DCurlb] = None
+        else:
             self._kwargs[propagators_coupling.CurrentCoupling5DCurlb] = {'b': self.pointer['b_field'],
                                                                         'b_eq': self._b_eq,
                                                                         'unit_b1': self._unit_b1,
@@ -714,7 +718,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                                         'coupling_params': self._coupling_params,
                                                                         'epsilon': epsilon}
 
-        if not params_density_solver['turn_off']:
+        if params_density_solver['turn_off']:
+            self._kwargs[propagators_fields.CurrentCoupling5DDensity] = None
+        else:
             self._kwargs[propagators_fields.CurrentCoupling5DDensity] = {'particles': self.pointer['energetic_ions'],
                                                                         'b': self.pointer['b_field'],
                                                                         'b_eq': self._b_eq,
@@ -725,7 +731,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                                         'coupling_params': self._coupling_params,
                                                                         'epsilon': epsilon}
 
-        if not params_alfven_solver['turn_off']:
+        if params_alfven_solver['turn_off']:
+            self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D] = None
+        else:
             self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
                                                                             'unit_b1': self._unit_b1,
                                                                             'absB0': self._absB0,
@@ -734,7 +742,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
                                                                             'coupling_params': self._coupling_params,
                                                                             'accumulated_magnetization': self.pointer['accumulated_magnetization']}
 
-        if not params_sonic_solver['turn_off']:
+        if params_sonic_solver['turn_off']:
+            self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = None
+        else:
             self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
                                                                             'b': self.pointer['b_field'],
                                                                             'unit_b1': self._unit_b1,

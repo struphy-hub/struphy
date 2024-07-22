@@ -1430,6 +1430,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         else:
             parameters.pop('kinetic')
 
+        # diagnostics
+        if cls.diagnostics_dct() is not None:
+            parameters['diagnostics'] = {}
+            for name, space in cls.diagnostics_dct().items():
+                parameters['diagnostics'][name]= {'save_data': True}
+
         cls.write_parameters_to_file(
             parameters=parameters, file=file, save=save, prompt=prompt)
 

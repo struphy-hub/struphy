@@ -55,7 +55,7 @@ class Accumulator:
         and :ref:`accum_kernels_gc` for details.
     """
 
-    def __init__(self, derham, domain, space_id, kernel_name, add_vector=False, symmetry=None, use_filter=False):
+    def __init__(self, derham, domain, space_id, kernel_name, add_vector=False, symmetry=None, filter=None):
 
         self._derham = derham
         self._domain = domain
@@ -63,7 +63,7 @@ class Accumulator:
         self._space_id = space_id
         self._symmetry = symmetry
 
-        self._use_filter = use_filter
+        self._filter = filter
 
         self._form = derham.space_to_form[space_id]
 
@@ -217,6 +217,12 @@ class Accumulator:
         """ The kernel loaded from the module struphy.pic.accum_kernels.
         """
         return self._kernel
+    
+    @property
+    def filter(self):
+        """ A list of the params for the accumulation filter [use_filter, repeat, alpha]
+        """
+        return self._filter
 
     def init_control_variate(self, mass_ops):
         '''Set up the use of noise reduction by control variate.'''
@@ -259,7 +265,10 @@ class Accumulator:
                     *self._args_data, *args_add)
         
         # apply filter
-        if self._use_filter:
+        if self.filter[0]:
+
+            repeat = self.filter[1]
+            alpha = self.filter[2]
 
             for vec in self._vectors:
                 vec.exchange_assembly_data()
@@ -267,12 +276,12 @@ class Accumulator:
                 vec_finished = True
     
                 count = 0
-                while count in range(3):
+                while count in range(repeat):
                     filters.apply_three_points_filter(vec[0]._data,
                                                       vec[1]._data,
                                                       vec[2]._data,
                                                       *self._args_filter,
-                                                      alpha=0.5)
+                                                      alpha=alpha)
                     
                     count += 1
                     vec.update_ghost_regions()
