@@ -7,6 +7,7 @@ from numpy import zeros
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles6D, Particles5D
 from struphy.polar.basic import PolarVector
@@ -610,10 +611,10 @@ class Hall(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
-    def __init__(self, 
+    def __init__(self,
                  b: BlockVector,
                  *,
                  epsilon: float = 1.,
@@ -905,7 +906,7 @@ class MagnetosonicUniform(Propagator):
                          'recycle': True}
         if default:
             dct = descend_options_dict(dct, [])
-            
+
         return dct
 
     def __init__(self,
@@ -1253,8 +1254,13 @@ class CurrentCoupling6DDensity(Propagator):
 
         self._coupling_const = Ah / Ab / epsilon
         # load accumulator
-        self._accumulator = Accumulator(
-            self.derham, self.domain, u_space, 'cc_lin_mhd_6d_1', add_vector=False, symmetry='asym')
+        self._accumulator = Accumulator(particles,
+                                        u_space,
+                                        accum_kernels.cc_lin_mhd_6d_1,
+                                        self.derham,
+                                        self.domain.args_domain,
+                                        add_vector=False,
+                                        symmetry='asym')
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.extraction_ops['2'].transpose()
@@ -1321,17 +1327,21 @@ class CurrentCoupling6DDensity(Propagator):
             self._mat31[:, :, :] = -self._mat13
             self._mat32[:, :, :] = -self._mat23
 
-            self._accumulator.accumulate(self._particles,
-                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
-                                         self._space_key_int, self._coupling_const,
-                                         control_mat=[[None, self._mat12, self._mat13],
-                                                      [self._mat21, None,
-                                                          self._mat23],
-                                                      [self._mat31, self._mat32, None]])
+            self._accumulator(self._b_full2[0]._data,
+                              self._b_full2[1]._data,
+                              self._b_full2[2]._data,
+                              self._space_key_int,
+                              self._coupling_const,
+                              control_mat=[[None, self._mat12, self._mat13],
+                                           [self._mat21, None,
+                                            self._mat23],
+                                           [self._mat31, self._mat32, None]])
         else:
-            self._accumulator.accumulate(self._particles,
-                                         self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
-                                         self._space_key_int, self._coupling_const)
+            self._accumulator(self._b_full2[0]._data,
+                              self._b_full2[1]._data,
+                              self._b_full2[2]._data,
+                              self._space_key_int,
+                              self._coupling_const)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt/2 * self._accumulator.operators[0]
@@ -1435,8 +1445,13 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._accumulated_magnetization = accumulated_magnetization
 
-        self._ACC = Accumulator(self.derham, self.domain,
-                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm',
+        self._ACC = Accumulator(particles,
+                                u_space,
+                                accum_kernels_gc.cc_lin_mhd_5d_M,
+                                self.derham,
+                                self.domain.args_domain,
+                                add_vector=True,
+                                symmetry='symm',
                                 filter=solver['acc_filter'])
 
         # if self._particles.control_variate:
@@ -1518,9 +1533,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
         #                          self._scale_vec, 0.)
 
-        self._ACC.accumulate(self._particles,
-                             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                             self._scale_vec, 0.)
+        self._ACC(self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                  self._scale_vec, 0.)
 
 
         self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
@@ -1654,8 +1668,14 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         else:
             self._space_key_int = int(self._u_id)
 
-        self._ACC = Accumulator(self.derham, self.domain,
-                                u_space, 'cc_lin_mhd_5d_M', add_vector=True, symmetry='symm', filter=solver['acc_filter'])
+        self._ACC = Accumulator(particles,
+                                u_space,
+                                accum_kernels_gc.cc_lin_mhd_5d_M,
+                                self.derham,
+                                self.domain.args_domain,
+                                add_vector=True,
+                                symmetry='symm',
+                                filter=solver['acc_filter'])
 
         # if self._particles.control_variate:
 
@@ -1762,9 +1782,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
         #                          self._scale_vec, 0.)
 
-        self._ACC.accumulate(self._particles,
-                             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                             self._scale_vec, 0.)
+        self._ACC(self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                  self._scale_vec, 0.)
 
         # update time-dependent operator
         self._b.update_ghost_regions()
@@ -1941,8 +1960,14 @@ class CurrentCoupling5DDensity(Propagator):
 
         self._scale_mat = coupling_params['Ah'] / \
             coupling_params['Ab'] / self._epsilon
-        self._accumulator = Accumulator(
-            self.derham, self.domain, u_space, 'cc_lin_mhd_5d_D', add_vector=False, symmetry='asym')
+
+        self._accumulator = Accumulator(particles,
+                                        u_space,
+                                        accum_kernels_gc.cc_lin_mhd_5d_D,
+                                        self.derham,
+                                        self.domain.args_domain,
+                                        add_vector=False,
+                                        symmetry='asym')
 
         # if self._particles.control_variate:
 
@@ -2083,11 +2108,11 @@ class CurrentCoupling5DDensity(Propagator):
         #                                  self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
         #                                  self._space_key_int, self._scale_mat, 0.)
 
-        self._accumulator.accumulate(self._particles, self._epsilon,
-                                     Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                                     self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                     self._space_key_int, self._scale_mat, 0.)
+        self._accumulator(self._epsilon,
+                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                          self._space_key_int, self._scale_mat, 0.)
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt/2 * self._accumulator.operators[0]
@@ -2352,7 +2377,7 @@ class ImplicitDiffusion(Propagator):
         self._rhs2 *= 0.
         for rho in self._rho:
             if isinstance(rho, tuple):
-                rho[0].accumulate(rho[1])
+                rho[0]()  # accumulate
                 self._rhs2 += sig_3 * rho[0].vectors[0]
             else:
                 self._rhs2 += sig_3 * rho
@@ -5927,7 +5952,7 @@ class AdiabaticPhi(Propagator):
 
         self._rhs *= 0.
         if isinstance(self._rho, tuple):
-            self._rho[0].accumulate(self._rho[1])
+            self._rho[0]() # accumulate
             self._rhs += self._rho[0].vectors[0]
         else:
             self._rhs += self._rho

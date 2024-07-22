@@ -322,12 +322,6 @@ class Particles5D(Particles):
         initial : bool
             If True, magnetic moment is also calculated and saved.
         """
-        # fixed FEM arguments for the accumulator kernel
-        args_fem = (np.array(self.derham.p),
-                    self.derham.Vh_fem['0'].knots[0],
-                    self.derham.Vh_fem['0'].knots[1],
-                    self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
 
         if abs_B0 is None:
             abs_B0 = self.derham.P['0'](self.mhd_equil.absB0)
@@ -337,11 +331,11 @@ class Particles5D(Particles):
 
         if initial:
             utilities_kernels.eval_magnetic_moment_5d(self.markers,
-                                                      *args_fem,
+                                                      self.derham.args_derham,
                                                       abs_B0._data)
 
         utilities_kernels.eval_energy_5d(self.markers,
-                                         *args_fem,
+                                         self.derham.args_derham,
                                          abs_B0._data)
 
         if f_coords == 'constants_of_motion':
@@ -355,8 +349,10 @@ class Particles5D(Particles):
             self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
 
             utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
-                                                                *args_fem,
-                                                                epsilon, B0, R0,
+                                                                self.derham.args_derham,
+                                                                epsilon, 
+                                                                B0, 
+                                                                R0,
                                                                 abs_B0._data)
 
     def save_magnetic_energy(self, b2):
@@ -370,22 +366,20 @@ class Particles5D(Particles):
             Finite element coefficients of the time-dependent magnetic field.
         """
 
-        # fixed FEM arguments for the accumulator kernel
-        args_fem = (np.array(self.derham.p),
-                    self.derham.Vh_fem['0'].knots[0],
-                    self.derham.Vh_fem['0'].knots[1],
-                    self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
-
         E2T = self.derham.extraction_ops['2'].transpose()
         b2t = E2T.dot(b2, out=self._tmp2)
         b2t.update_ghost_regions()
 
         utilities_kernels.eval_magnetic_energy(self.markers,
-                                               *args_fem, *self.domain.args_map,
+                                               self.derham.args_derham,
+                                               self.domain.args_domain,
                                                self.absB0_h._data,
-                                               self._unit_b1_h[0]._data, self.unit_b1_h[1]._data, self.unit_b1_h[2]._data,
-                                               b2t[0]._data, b2t[1]._data, b2t[2]._data)
+                                               self.unit_b1_h[0]._data, 
+                                               self.unit_b1_h[1]._data, 
+                                               self.unit_b1_h[2]._data,
+                                               b2t[0]._data, 
+                                               b2t[1]._data, 
+                                               b2t[2]._data)
 
     def save_magnetic_background_energy(self):
         r"""
@@ -393,20 +387,14 @@ class Particles5D(Particles):
         The result is stored at markers[:, 8].
         """
 
-        # fixed FEM arguments for the accumulator kernel
-        args_fem = (np.array(self.derham.p),
-                    self.derham.Vh_fem['0'].knots[0],
-                    self.derham.Vh_fem['0'].knots[1],
-                    self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
-
         E0T = self.derham.extraction_ops['0'].transpose()
 
         abs_B0 = E0T.dot(self.absB0_h)
         abs_B0.update_ghost_regions()
 
         utilities_kernels.eval_magnetic_background_energy(self.markers,
-                                                          *args_fem, *self.domain.args_map,
+                                                          self.derham.args_derham, 
+                                                          self.domain.args_domain,
                                                           abs_B0._data)
 
 

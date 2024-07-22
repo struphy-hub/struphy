@@ -42,6 +42,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
     from struphy.pic.particles import Particles6D
     from struphy.pic.accumulation.particles_to_grid import Accumulator
+    from struphy.pic.accumulation import accum_kernels
 
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
@@ -163,11 +164,16 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     # =========================
     # ======== New Part =======
     # =========================
-    ACC = Accumulator(derham, domain, 'Hcurl', 'pc_lin_mhd_6d_full',
-                      add_vector=True, symmetry='pressure')
+    ACC = Accumulator(particles,
+                      'Hcurl', 
+                      accum_kernels.pc_lin_mhd_6d_full,
+                      derham, 
+                      domain.args_domain, 
+                      add_vector=True, 
+                      symmetry='pressure')
 
     start_time = time()
-    ACC.accumulate(particles, 1., 1.)
+    ACC(1., 1.)
 
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)

@@ -49,10 +49,17 @@ from numpy import shape, empty, sqrt, zeros
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not remove; needed to identify dependencies
+
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 @stack_array('dfmat1', 'dfmat2')
-def pull(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:]'):
+def pull(a: 'float[:]', 
+         eta1: float, eta2: float, eta3: float, 
+         kind_fun: int, 
+         args_domain: 'DomainArguments', 
+         out: 'float[:]'):
     """
     Pull-back of a Cartesian scalar/vector field to a differential p-form.
 
@@ -67,23 +74,8 @@ def pull(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
     kind_fun : int
         Which pull-back to be performed.
 
-    kind_map : int                 
-        Kind of mapping.
-
-    params_map : float[:]
-        Parameters for the mapping in a 1d array.
-
-    tn1, tn2, tn3 : float[:]      
-        Knot vectors of univariate splines.
-
-    pn : int[:]
-        Degrees of univariate splines [pn1, pn2, pn3].
-
-    ind_n1, ind_n2, ind_n3 : int[:,:]            
-        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-    cx, cy, cz : float[:,:,:]    
-        Control points of (f_1, f_2, f_3) in case of an IGA mapping.
+    args_domain : DomainArguments
+        Domain info. 
 
     out : float[:]
         Output values.
@@ -94,7 +86,7 @@ def pull(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
     
     # evaluate Jacobian matrix and its determinant
     if kind_fun > 0:
-        evaluation_kernels.df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, dfmat1)
+        evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfmat1)
         detdf = linalg_kernels.det(dfmat1)
     
     # 0-form
@@ -125,7 +117,11 @@ def pull(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
         
 
 @stack_array('dfmat1', 'dfmat2', 'dfmat3')        
-def push(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:]'):
+def push(a: 'float[:]', 
+         eta1: float, eta2: float, eta3: float, 
+         kind_fun: int, 
+         args_domain: 'DomainArguments',
+         out: 'float[:]'):
     """
     Pushforward of a differential p-forms to a Cartesian scalar/vector field.
 
@@ -139,24 +135,9 @@ def push(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
 
     kind_fun : int
         Which pushforward to be performed.
-
-    kind_map : int                 
-        Kind of mapping.
-
-    params_map : float[:]
-        Parameters for the mapping in a 1d array.
-
-    tn1, tn2, tn3 : float[:]        
-        Knot vectors of univariate splines.
-
-    pn : int[:]
-        Degrees of univariate splines [pn1, pn2, pn3].
-
-    ind_n1, ind_n2, ind_n3 : int[:,:]              
-        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-    cx, cy, cz : float[:,:,:]  
-        Control points of (f_1, f_2, f_3) in case of an IGA mapping.
+        
+    args_domain : DomainArguments
+        Domain info. 
 
     out : float[:]
         Output values.
@@ -168,7 +149,7 @@ def push(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
     
     # evaluate Jacobian matrix and its determinant
     if kind_fun > 0:
-        evaluation_kernels.df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, dfmat1)
+        evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfmat1)
         detdf = linalg_kernels.det(dfmat1)
     
     # 0-form
@@ -196,7 +177,11 @@ def push(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
 
 
 @stack_array('dfmat1', 'dfmat2', 'dfmat3', 'vec1', 'vec2') 
-def tran(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:]'):
+def tran(a: 'float[:]', 
+         eta1: float, eta2: float, eta3: float, 
+         kind_fun: int,
+         args_domain: 'DomainArguments',
+         out: 'float[:]'):
     """
     Transformations between differential p-forms and/or vector fields.
 
@@ -210,24 +195,9 @@ def tran(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
 
     kind_fun : int
         Which transformation to be performed.
-
-    kind_map : int                 
-        Kind of mapping.
-
-    params_map : float[:]
-        Parameters for the mapping in a 1d array.
-
-    tn1, tn2, tn3 : float[:]        
-        Knot vectors of univariate splines.
-
-    pn : int[:]
-        Degrees of univariate splines [pn1, pn2, pn3].
-
-    ind_n1, ind_n2, ind_n3 : int[:,:]               
-        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-    cx, cy, cz : float[:,:,:]  
-        Control points of (f_1, f_2, f_3) in case of an IGA mapping.
+        
+    args_domain : DomainArguments
+        Domain info. 
 
     out : float[:]
         Output values.
@@ -241,7 +211,7 @@ def tran(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
     vec2 = empty(3, dtype=float)
     
     # evaluate Jacobian matrix and its determinant
-    evaluation_kernels.df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, dfmat1)
+    evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfmat1)
     detdf = linalg_kernels.det(dfmat1)
     
     # 0-form to 3-form
@@ -312,7 +282,13 @@ def tran(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, ki
 
 
 @stack_array('tmp1', 'tmp2') 
-def kernel_pullpush(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_transform : int, kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', is_sparse_meshgrid: bool, out: 'float[:,:,:,:]'):
+def kernel_pullpush(a: 'float[:,:,:,:]', 
+                    eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', 
+                    kind_transform : int, 
+                    kind_fun: int, 
+                    args_domain: 'DomainArguments',
+                    is_sparse_meshgrid: bool, 
+                    out: 'float[:,:,:,:]'):
     """
     Pull-backs, pushforwards and transformations on a given 3d grid of evaluation points.
 
@@ -329,24 +305,9 @@ def kernel_pullpush(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
     
     kind_fun : int
         Which detailed transformation to be performed.
-
-    kind_map : int                 
-        Kind of mapping.
-
-    params_map : float[:]
-        Parameters for the mapping in a 1d array.
-
-    tn1, tn2, tn3 : float[:]   
-        Knot vectors of univariate splines.
-
-    pn : int[:]
-        Degrees of univariate splines [pn1, pn2, pn3].
-
-    ind_n1, ind_n2, ind_n3 : int[:,:]               
-        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-    cx, cy, cz : float[:,:,:]
-        Control points of (f_1, f_2, f_3) in case of an IGA mapping.
+        
+    args_domain : DomainArguments
+        Domain info. 
 
     is_sparse_meshgrid : bool
         Whether the evaluation points were obtained from a sparse meshgrid.
@@ -379,17 +340,23 @@ def kernel_pullpush(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
                 tmp2[:] = out[i1, i2, i3, :]
                 
                 if kind_transform == 0:
-                    pull(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+                    pull(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
                 elif kind_transform == 1:
-                    push(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+                    push(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
                 else:
-                    tran(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+                    tran(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
                     
                 out[i1, i2, i3, :] = tmp2
 
 
 @stack_array('tmp1', 'tmp2')
-def kernel_pullpush_pic(a: 'float[:,:]', markers: 'float[:,:]', kind_transform : int, kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', out: 'float[:,:]', remove_outside : bool) -> int:
+def kernel_pullpush_pic(a: 'float[:,:]', 
+                        markers: 'float[:,:]', 
+                        kind_transform : int, 
+                        kind_fun: int,
+                        args_domain: 'DomainArguments',
+                        out: 'float[:,:]', 
+                        remove_outside : bool) -> int:
     """
     Pull-backs, pushforwards and transformations for given markers.
 
@@ -401,29 +368,14 @@ def kernel_pullpush_pic(a: 'float[:,:]', markers: 'float[:,:]', kind_transform :
     markers : float[:,:]
         Evaluation points in marker format (eta1 = markers[:, 0], eta2 = markers[:, 1], eta3 = markers[:, 2]).
 
-     kind_transform : int
+    kind_transform : int
         Which general transformation to be performed (pull, push or tran).
     
     kind_fun : int
         Which detailed transformation to be performed.
-
-    kind_map : int                 
-        Kind of mapping.
-
-    params_map : float[:]
-        Parameters for the mapping in a 1d array.
-
-    tn1, tn2, tn3 : float[:]    
-        Knot vectors of univariate splines.
-
-    pn : int[:]
-        Degrees of univariate splines [pn1, pn2, pn3].
-
-    ind_n1, ind_n2, ind_n3 : int[:,:]              
-        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-    cx, cy, cz : float[:,:,:]    
-        Control points of (f_1, f_2, f_3) in case of a IGA mapping.
+        
+    args_domain : DomainArguments
+        Domain info. 
 
     out : float[:,:]
         Output values.
@@ -472,11 +424,11 @@ def kernel_pullpush_pic(a: 'float[:,:]', markers: 'float[:,:]', kind_transform :
             tmp2[:] = out[counter_o, :]
             
             if kind_transform == 0:
-                pull(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+                pull(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
             elif kind_transform == 1:
-                push(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+                push(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
             else:
-                tran(tmp1, e1, e2, e3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, tmp2)
+                tran(tmp1, e1, e2, e3, kind_fun, args_domain, tmp2)
             
             out[counter_o, :] = tmp2
             

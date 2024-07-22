@@ -51,7 +51,7 @@ def test_desc_equil(do_plot=False):
         ze = ze.flatten()
 
         nodes = np.stack((r, t, ze)).T
-        grid_3d = Grid(nodes, jitable=False)
+        grid_3d = Grid(nodes, spacing=np.ones_like(nodes), jitable=False)
 
         for var in vars:
             node_values = desc_eq.compute(
