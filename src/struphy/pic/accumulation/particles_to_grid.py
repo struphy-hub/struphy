@@ -54,6 +54,9 @@ class Accumulator:
     symmetry : str
         In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm, pressure or None (=full matrix, default)
 
+    filter : list
+        A list with three components for the accumulation filter.
+        [use_filter(boolian), repeat(int), alpha(float)]
     Note
     ----
         Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py`` 
@@ -70,7 +73,7 @@ class Accumulator:
                  *,
                  add_vector: bool = False, 
                  symmetry: str = None,
-                 filter: list = None):
+                 filter: list = [False, None, None]):
 
         self._particles = particles
         self._space_id = space_id
@@ -188,10 +191,10 @@ class Accumulator:
                     *optional_args)
 
         # apply filter
-        if self.filter[0]:
+        if self._filter[0]:
 
-            repeat = self.filter[1]
-            alpha = self.filter[2]
+            repeat = self._filter[1]
+            alpha = self._filter[2]
 
             for vec in self._vectors:
                 vec.exchange_assembly_data()
