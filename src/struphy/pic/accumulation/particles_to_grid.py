@@ -54,7 +54,7 @@ class Accumulator:
     symmetry : str
         In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm, pressure or None (=full matrix, default)
 
-    filter : list
+    filter_params : list
         A list with three components for the accumulation filter.
         [use_filter(boolian), repeat(int), alpha(float)]
     Note
@@ -73,7 +73,7 @@ class Accumulator:
                  *,
                  add_vector: bool = False, 
                  symmetry: str = None,
-                 filter: list = [False, None, None]):
+                 filter_params: list = [False, None, None]):
 
         self._particles = particles
         self._space_id = space_id
@@ -83,7 +83,7 @@ class Accumulator:
         
         self._symmetry = symmetry
 
-        self._filter = filter
+        self._filter_params = filter_params
 
         self._form = derham.space_to_form[space_id]
 
@@ -191,10 +191,10 @@ class Accumulator:
                     *optional_args)
 
         # apply filter
-        if self._filter[0]:
+        if self.filter_params[0]:
 
-            repeat = self._filter[1]
-            alpha = self._filter[2]
+            repeat = self.filter_params[1]
+            alpha = self.filter_params[2]
 
             for vec in self._vectors:
                 vec.exchange_assembly_data()
@@ -203,15 +203,14 @@ class Accumulator:
     
                 count = 0
                 while count in range(repeat):
-                    filters.apply_three_points_filter(vec[0]._data,
-                                                      vec[1]._data,
-                                                      vec[2]._data,
-                                                      np.array(self.derham.Nel),
-                                                      np.array(self.derham.spl_kind),
-                                                      np.array(self.derham.p),
-                                                      np.array(self.derham.Vh['0'].starts),
-                                                      np.array(self.derham.Vh['0'].ends),
-                                                      alpha=alpha)
+                    for i in range(3):
+                        filters.apply_three_points_filter(vec[i]._data,
+                                                          np.array(self.derham.Nel),
+                                                          np.array(self.derham.spl_kind),
+                                                          np.array(self.derham.p),
+                                                          np.array(self.derham.Vh[self.form][i].starts),
+                                                          np.array(self.derham.Vh[self.form][i].ends),
+                                                          alpha=alpha)
                     
                     count += 1
                     vec.update_ghost_regions()
@@ -324,6 +323,12 @@ class Accumulator:
                 self._derham.extraction_ops[self.form].dot(vec))]
 
         return out
+    
+    @property
+    def filter_params(self):
+        """A list with three components for the accumulation filter parameters: [use_filter(boolian), repeat(int), alpha(float)]
+        """
+        return self._filter_params
 
     def init_control_variate(self, mass_ops):
         '''Set up the use of noise reduction by control variate.'''

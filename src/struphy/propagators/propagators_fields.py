@@ -1452,7 +1452,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',
-                                filter=solver['acc_filter'])
+                                filter_params=solver['acc_filter'])
 
         # if self._particles.control_variate:
 
@@ -1675,7 +1675,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',
-                                filter=solver['acc_filter'])
+                                filter_params=solver['acc_filter'])
 
         # if self._particles.control_variate:
 

@@ -1577,7 +1577,7 @@ class CurrentCoupling5DCurlb(Propagator):
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',
-                                filter=solver['acc_filter'])
+                                filter_params=solver['acc_filter'])
 
         if u_space == 'Hcurl':
             kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
@@ -1887,7 +1887,7 @@ class CurrentCoupling5DGradB(Propagator):
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',
-                                filter=solver['acc_filter'])
+                                filter_params=solver['acc_filter'])
 
         # if self.particles[0].control_variate:
 
