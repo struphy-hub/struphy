@@ -373,7 +373,6 @@ class VlasovPoissonSimple(StruphyModel):
         self._charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "charge_density_0form")
         
-        
         # self._e_field = self.derham.Vh['1'].zeros()
 
         self.derham.grad.dot(-self.pointer['phi'], out=self.pointer['e1'])
@@ -381,8 +380,8 @@ class VlasovPoissonSimple(StruphyModel):
         e_field = self.pointer['e1']
         phi = self.pointer['phi']
 
-#         np.all(e_field.toarray() == flat_data)
-# print(f'{x0.toarray()[:4]  = }')
+        # np.all(e_field.toarray() == flat_data)
+        # print(f'{x0.toarray()[:4]  = }')
         
         self.add_propagator(self.prop_markers.PushVinEfield(
             self.pointer['species1'],
@@ -394,13 +393,15 @@ class VlasovPoissonSimple(StruphyModel):
             algo=algo_eta,
             bc_type=spec_params['markers']['bc']['type']))
         
+        print("self._charge_accum.vectors[0] = " , self._charge_accum.vectors[0].toarray())
+        
         self.add_propagator(self.prop_fields.ImplicitDiffusion(
             self.pointer['phi'],
             sigma_1=0.,
             sigma_2=0.,
             sigma_3=self._kappa**2,
-            # rho=(self._charge_accum, self.pointer['species1']),
-            rho=self._kappa**2 * self._charge_accum.vectors[0],
+            rho=(self._charge_accum, self.pointer['species1']),
+            # # rho=self._kappa**2 * self._charge_accum.vectors[0],
             e_field = self.pointer['e1'],
             **self._poisson_params))
     
@@ -435,29 +436,31 @@ class VlasovPoissonSimple(StruphyModel):
                 self._mpi_in_place, self._tmp, op=self._mpi_sum)
         self.update_scalar('en_f', self._tmp[0])
     
-    def initialize_from_params(self):
-        super().initialize_from_params()
+    # def initialize_from_params(self):
+    #     super().initialize_from_params()
 
-        # Instantiate Poisson solver
-        poisson_solver = self.prop_fields.ImplicitDiffusion(
-            self.pointer['phi'],
-            sigma_1=0.,
-            sigma_2=0.,
-            sigma_3=self._kappa**2,
-            # rho=(self._charge_accum, self.pointer['species1']),
-            rho=self._kappa**2 * self._charge_accum.vectors[0],
-            e_field = self.pointer['e1'],
-            **self._poisson_params)
+    #     # Instantiate Poisson solver
+    #     poisson_solver = self.prop_fields.ImplicitDiffusion(
+    #         self.pointer['phi'],
+    #         sigma_1=0.,
+    #         sigma_2=0.,
+    #         sigma_3=self._kappa**2,
+    #         # rho=(self._charge_accum, self.pointer['species1']),
+    #         rho=self._kappa**2 * self._charge_accum.vectors[0],
+    #         e_field = self.pointer['e1'],
+    #         **self._poisson_params)
         
-        self._charge_accum.accumulate(self.pointer['species1'], self.pointer['species1'].vdim)
-        # Solve with dt=1. and compute electric field
-        if self._rank == 0:
-            print('\nSolving initial Poisson problem...')
-        poisson_solver(1.)
-        if self._rank == 0:
-            print('Done.')
-        print(f"{self.pointer['species1'].markers[:10] = }")
-        print("self._charge_accum.vectors[0] = ", self._charge_accum.vectors[0].toarray())
+    #     self._charge_accum.accumulate(self.pointer['species1'], self.pointer['species1'].vdim)
+    #     # Solve with dt=1. and compute electric field
+    #     if self._rank == 0:
+    #         print('\nSolving initial Poisson problem...')
+    #     poisson_solver(1.)
+    #     if self._rank == 0:
+    #         print('Done.')
+    #     print(f"{self.pointer['species1'].markers[:10] = }")
+    #     print("self._charge_accum.vectors[0] = ", self._charge_accum.vectors[0].toarray())
+    #     print("self.pointer['phi'].toarray() = ", self.pointer['phi'].toarray())
+
         # exit()
 
 class VlasovMaxwellOneSpecies(StruphyModel):
@@ -2001,6 +2004,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # Poisson right-hand side
         charge_accum = AccumulatorVector(
             self.derham, self.domain, "H1", "gc_density_0form")
+        
+        print("charge_accum.vectors[0].toarray() = " , charge_accum.vectors[0].toarray())
 
         rho = (charge_accum, self.pointer['ions'])
 

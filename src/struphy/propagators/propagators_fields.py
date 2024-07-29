@@ -2555,6 +2555,9 @@ class ImplicitDiffusion(Propagator):
 
     def __call__(self, dt):
 
+        # print("self._rho[0][0] =" , self._rho[0][0].vectors[0].toarray())
+        print("self.feec_vars[0] =" , self.feec_vars[0].toarray())
+
         # set parameters
         if self._divide_by_dt:
             sig_1 = self._sigma_1 / dt
@@ -2567,20 +2570,24 @@ class ImplicitDiffusion(Propagator):
 
         # compute rhs
         phin = self.feec_vars[0]
+        
         rhs = self._stab_mat.dot(phin, out=self._rhs)
         rhs *= sig_2
 
         self._rhs2 *= 0.
+
         for rho in self._rho:
+            print(f"{rho = }")
+            print("isinstance(rho, tuple) = ", isinstance(rho, tuple))
             if isinstance(rho, tuple):
-                rho[0].accumulate(rho[1])
+                rho[0].accumulate(rho[1], rho[1].vdim)
                 self._rhs2 += sig_3  * rho[0].vectors[0]
             else:
                 self._rhs2 += sig_3 * rho
 
         rhs += self._rhs2
 
-        print("rho =" , rho.toarray())
+        print("rho =" , self._rho[0][0].vectors[0].toarray())
 
         # compute lhs
         self._solver.linop = sig_1 * self._stab_mat + self._diffusion_op  
