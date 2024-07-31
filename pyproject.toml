@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     'numpy',
     'scipy',
-    'mpi4py',
+    'mpi4py<4.0.0',
     'h5py',
     'matplotlib',
     'PyYAML',
