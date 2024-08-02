@@ -48,7 +48,7 @@ class WeightedMassOperators:
         self._matrix_free = matrix_free
 
         if 'eq_mhd' in weights:
-            self._selected_weight = 'eq_mhd' # default is to use mhd_equil for weights
+            self._selected_weight = 'eq_mhd'  # default is to use mhd_equil for weights
         elif len(weights) > 0:
             self._selected_weight = list(weights.keys())[0]
         else:
@@ -73,12 +73,12 @@ class WeightedMassOperators:
     def weights(self):
         '''Dictionary of objects that provide access to callables that can serve as weight functions.'''
         return self._weights
-    
+
     @property
     def selected_weight(self):
         '''String identifying one key of "weigths". This key is used when selecting weight functions.'''
         return self._selected_weight
-    
+
     @selected_weight.setter
     def selected_weight(self, new):
         assert new in self.weights
@@ -115,8 +115,13 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M0'):
-            fun = [[lambda e1, e2, e3: self.sqrt_g(e1, e2, e3)]]
-            self._M0 = self.assemble_weighted_mass(fun, 'H1', 'H1', name='M0')
+            self._M0 = self.return_weighted_mass([self.sqrt_g],
+                                                 [],
+                                                 'H1',
+                                                 'H1',
+                                                 name='M0')
+            # fun = [[lambda e1, e2, e3: self.sqrt_g(e1, e2, e3)]]
+            # self._M0 = self.assemble_weighted_mass(fun, 'H1', 'H1', name='M0')
 
         return self._M0
 
@@ -130,16 +135,29 @@ class WeightedMassOperators:
             \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
         """
 
-        if not hasattr(self, '_M1'):
-            fun = []
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
+        # out = self.return_weighted_mass([self.Ginv, self.sqrt_g],
+        #                                 ['*'],
+        #                                 'Hcurl',
+        #                                 'Hcurl',
+        #                                 name='M1')
 
-            self._M1 = self.assemble_weighted_mass(
-                fun, 'Hcurl', 'Hcurl', name='M1')
+        if not hasattr(self, '_M1'):
+            
+            self._M1 = self.return_weighted_mass([self.Ginv, self.sqrt_g],
+                                                 ['*'],
+                                                 'Hcurl',
+                                                 'Hcurl', 
+                                                 name='M1')
+            
+            # fun = []
+            # for m in range(3):
+            #     fun += [[]]
+            #     for n in range(3):
+            #         fun[-1] += [lambda e1, e2, e3, m=m,
+            #                     n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
+
+            # self._M1 = self.assemble_weighted_mass(
+            #     fun, 'Hcurl', 'Hcurl', name='M1')
 
         return self._M1
 
@@ -329,8 +347,8 @@ class WeightedMassOperators:
         if not hasattr(self, '_M1J'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, 
-                self.weights[self.selected_weight].j2_2, 
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
                 self.weights[self.selected_weight].j2_3)
 
             fun = []
@@ -366,8 +384,8 @@ class WeightedMassOperators:
         if not hasattr(self, '_M2J'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, 
-                self.weights[self.selected_weight].j2_2, 
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
                 self.weights[self.selected_weight].j2_3)
 
             fun = []
@@ -403,8 +421,8 @@ class WeightedMassOperators:
         if not hasattr(self, '_MvJ'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, 
-                self.weights[self.selected_weight].j2_2, 
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
                 self.weights[self.selected_weight].j2_3)
 
             fun = []
@@ -595,12 +613,12 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M0ad'):
             fun = [[lambda e1, e2, e3: self.weights[self.selected_weight].n0(
-                e1, e2, e3)  * self.sqrt_g(e1, e2, e3)]]
+                e1, e2, e3) * self.sqrt_g(e1, e2, e3)]]
             self._M0ad = self.assemble_weighted_mass(
                 fun, 'H1', 'H1', name='M0ad')
 
         return self._M0ad
-    
+
     @property
     def M1gyro(self):
         r"""
@@ -631,53 +649,94 @@ class WeightedMassOperators:
     # Wrapper around WeightedMassOperator #
     #######################################
     def return_weighted_mass(self,
-                            callable_funcs: list,
-                            operations: list, 
-                            V_id: str, 
-                            W_id: str, 
-                            name=None):
-    
+                             callable_funcs: list,
+                             operations: list,
+                             V_id: str,
+                             W_id: str,
+                             name=None):
+
         assert isinstance(callable_funcs, list)
         assert isinstance(operations, list)
         assert len(operations) == len(callable_funcs) - 1
-        
-        f1s = callable_funcs
-        f2s = callable_funcs
+
+        f1s = callable_funcs.copy()
+        f2s = callable_funcs.copy()
         f2s.pop(0)
         f2s += [None]
         operations += [None]
-        
-        fun = f1s[0]
-        for f1, f2, op in zip(f1s, f2s, operations):
-            assert isinstance(f1, callable)
-            assert isinstance(f2, callable)
-            if op is None:
-                break
-            elif op == '*':
-                fun = lambda e1, e2, e3: f1(e1, e2, e3) * f2(e1, e2, e3)
-            elif op == '/':
-                fun = lambda e1, e2, e3: f1(e1, e2, e3) / f2(e1, e2, e3)
-            elif op == '+':
-                fun = lambda e1, e2, e3: f1(e1, e2, e3) + f2(e1, e2, e3)
-            elif op == '-':
-                fun = lambda e1, e2, e3: f1(e1, e2, e3) - f2(e1, e2, e3)
-                
-        
-        
-    
-        fun = []
-        for m in range(3):
-            fun += [[]]
-            for n in range(3):
-                fun[-1] += [lambda e1, e2, e3, m=m,
-                            n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
 
-        return self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1')
+        rank_fun = self._get_range_rank(f1s[0])
+
+        if rank_fun == 0:
+            fun = [[lambda e1, e2, e3: f1s[0](e1, e2, e3)]]
+        elif rank_fun == 1:
+            exit()
+        elif rank_fun == 2:
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: f1s[0](e1, e2, e3)[:, :, :, m, n]]
+        else:
+            raise ValueError(f'{rank_fun = } currently not supported.')
+
+        for f2, op in zip(f2s, operations):
+
+            # checks
+            if f2 is None:
+                break
+            else:
+                assert callable(f2)
+                rank_f2 = self._get_range_rank(f2)
+            
+            if op == '*':
+                if rank_fun == 2:
+                    for m in range(3):
+                        for n in range(3):
+                            fun[m, n] = lambda e1, e2, e3, m=m, n=n: self._operate(fun[m, n], f2, op)
+                    
+            elif op == '/':
+                def fun(e1, e2, e3): return f1(e1, e2, e3) / f2(e1, e2, e3)
+            elif op == '+':
+                def fun(e1, e2, e3): return f1(e1, e2, e3) + f2(e1, e2, e3)
+            elif op == '-':
+                def fun(e1, e2, e3): return f1(e1, e2, e3) - f2(e1, e2, e3)
+
+        
+
+        return self.assemble_weighted_mass(fun, V_id, W_id, name=name)
+
+    def _get_range_rank(self, func):
+        '''Determine the rank of the range of the callable func.
+        func must be defined on the unit cube.'''
+        assert callable(func)
+        dummy_eta = (0., 0., 0.)
+        val = func(*dummy_eta)
+        assert isinstance(val, np.ndarray)
+        return len(val.shape) - 3
     
-    def assemble_weighted_mass(self, 
-                               fun: list, 
-                               V_id: str, 
-                               W_id: str, 
+    def _operate(self, f1, f2, op, e1, e2, e3):
+        assert callable(f1)
+        assert callable(f2)
+        assert op in ('*', '/', '+', '-')
+        
+        if op == '*':
+            out = f1(e1, e2, e3) * f2(e1, e2, e3)
+        elif op == '/':
+            out = f1(e1, e2, e3) / f2(e1, e2, e3)
+        elif op == '+':
+            out = f1(e1, e2, e3) + f2(e1, e2, e3)
+        elif op == '-':
+            out = f1(e1, e2, e3) - f2(e1, e2, e3)
+        elif op == '@':
+            out = f1(e1, e2, e3) - f2(e1, e2, e3)
+            
+        return out
+
+    def assemble_weighted_mass(self,
+                               fun: list,
+                               V_id: str,
+                               W_id: str,
                                name=None):
         r""" Weighted mass matrix :math:`V^\alpha_h \to V^\beta_h` with given (matrix-valued) weight function :math:`W(\boldsymbol \eta)`:
 
@@ -787,7 +846,7 @@ class WeightedMassOperator(LinOpWithTransp):
     weights_info : NoneType | str | list
         Information about the weights/block structure of the operator. 
         Three cases are possible:
-        
+
         1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
         2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
         3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
@@ -799,13 +858,13 @@ class WeightedMassOperator(LinOpWithTransp):
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
     """
 
-    def __init__(self, V, W, 
-                 V_extraction_op=None, 
-                 W_extraction_op=None, 
-                 V_boundary_op=None, 
-                 W_boundary_op=None, 
-                 weights_info=None, 
-                 transposed=False, 
+    def __init__(self, V, W,
+                 V_extraction_op=None,
+                 W_extraction_op=None,
+                 V_boundary_op=None,
+                 W_boundary_op=None,
+                 weights_info=None,
+                 transposed=False,
                  matrix_free=False):
 
         # only for M1 Mac users
@@ -1215,7 +1274,7 @@ class WeightedMassOperator(LinOpWithTransp):
     def assemble(self, weights=None, clear=True, verbose=True, name=None):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
-        
+
         .. math::
 
             \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,.
