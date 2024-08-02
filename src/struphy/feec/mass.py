@@ -329,7 +329,9 @@ class WeightedMassOperators:
         if not hasattr(self, '_M1J'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+                self.weights[self.selected_weight].j2_1, 
+                self.weights[self.selected_weight].j2_2, 
+                self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -364,7 +366,9 @@ class WeightedMassOperators:
         if not hasattr(self, '_M2J'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+                self.weights[self.selected_weight].j2_1, 
+                self.weights[self.selected_weight].j2_2, 
+                self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -399,7 +403,9 @@ class WeightedMassOperators:
         if not hasattr(self, '_MvJ'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+                self.weights[self.selected_weight].j2_1, 
+                self.weights[self.selected_weight].j2_2, 
+                self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -624,7 +630,55 @@ class WeightedMassOperators:
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################
-    def assemble_weighted_mass(self, fun: list, V_id: str, W_id: str, name=None):
+    def return_weighted_mass(self,
+                            callable_funcs: list,
+                            operations: list, 
+                            V_id: str, 
+                            W_id: str, 
+                            name=None):
+    
+        assert isinstance(callable_funcs, list)
+        assert isinstance(operations, list)
+        assert len(operations) == len(callable_funcs) - 1
+        
+        f1s = callable_funcs
+        f2s = callable_funcs
+        f2s.pop(0)
+        f2s += [None]
+        operations += [None]
+        
+        fun = f1s[0]
+        for f1, f2, op in zip(f1s, f2s, operations):
+            assert isinstance(f1, callable)
+            assert isinstance(f2, callable)
+            if op is None:
+                break
+            elif op == '*':
+                fun = lambda e1, e2, e3: f1(e1, e2, e3) * f2(e1, e2, e3)
+            elif op == '/':
+                fun = lambda e1, e2, e3: f1(e1, e2, e3) / f2(e1, e2, e3)
+            elif op == '+':
+                fun = lambda e1, e2, e3: f1(e1, e2, e3) + f2(e1, e2, e3)
+            elif op == '-':
+                fun = lambda e1, e2, e3: f1(e1, e2, e3) - f2(e1, e2, e3)
+                
+        
+        
+    
+        fun = []
+        for m in range(3):
+            fun += [[]]
+            for n in range(3):
+                fun[-1] += [lambda e1, e2, e3, m=m,
+                            n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
+
+        return self.assemble_weighted_mass(fun, 'Hcurl', 'Hcurl', name='M1')
+    
+    def assemble_weighted_mass(self, 
+                               fun: list, 
+                               V_id: str, 
+                               W_id: str, 
+                               name=None):
         r""" Weighted mass matrix :math:`V^\alpha_h \to V^\beta_h` with given (matrix-valued) weight function :math:`W(\boldsymbol \eta)`:
 
         .. math::
