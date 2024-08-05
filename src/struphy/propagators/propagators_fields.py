@@ -4893,6 +4893,7 @@ class VariationalViscosity(Propagator):
                  *,
                  model: str = 'barotropic',
                  gamma: float = options()['physics']['gamma'],
+                 rho: StencilVector,
                  mu: float = options()['physics']['mu'],
                  mua: float = options()['physics']['mua'],
                  mass_ops: WeightedMassOperator,
@@ -4910,6 +4911,7 @@ class VariationalViscosity(Propagator):
         self._nonlin_solver = nonlin_solver
         self._mua = mua
         self._mu = mu
+        self._rho = rho
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -5399,6 +5401,7 @@ class VariationalResistivity(Propagator):
                  *,
                  model: str = 'full',
                  gamma: float = options()['physics']['gamma'],
+                 rho: StencilVector,
                  eta: float = options()['physics']['eta'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
@@ -5412,6 +5415,7 @@ class VariationalResistivity(Propagator):
         self._eta = eta
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
+        self._rho = rho
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
