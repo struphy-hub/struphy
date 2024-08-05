@@ -661,3 +661,48 @@ class ITPA_density:
                                   np.tanh((eta1 - self._c[0])/self._c[2]))
 
         return val
+    
+class Erf_z:
+    r'''Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
+
+    .. math::
+
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,. 
+
+    Can only be used in logical space.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid/<species>``::
+
+        perturbations :
+            type : Shear_y
+            Shear_y :
+                comps :
+                    rho3 : null                   # choices: null, 'physical', '0', '3'
+                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
+                    s3 : H1                       # choices: null, 'physical', '0', '3'
+                amp : 0.001 # amplitudes of each mode
+                delta : 0.03333 # characteristic size of the shear layer
+    '''
+
+    def __init__(self, amp=1e-4, delta=1/15):
+        '''
+        Parameters
+        ----------
+        amps : float
+            Amplitude of the velocity on each side.
+
+        delta : float
+            Characteristic size of the shear layer
+        '''
+
+        self._amp = amp
+        self._delta = delta
+
+    def __call__(self, e1, e2, e3):
+
+        from scipy.special import erf
+        val = self._amp*erf((e3 - 0.5)/self._delta)
+
+        return val
