@@ -334,6 +334,10 @@ class Particles5D(Particles):
                                                       self.derham.args_derham,
                                                       abs_B0._data)
 
+        utilities_kernels.eval_energy_5d(self.markers,
+                                         self.derham.args_derham,
+                                         abs_B0._data)
+
         if f_coords == 'constants_of_motion':
 
             # eval psi at etas
@@ -350,10 +354,6 @@ class Particles5D(Particles):
                                                                 B0, 
                                                                 R0,
                                                                 abs_B0._data)
-
-        utilities_kernels.eval_energy_5d(self.markers,
-                                         self.derham.args_derham,
-                                         abs_B0._data)
 
     def save_magnetic_energy(self, b2):
         r"""

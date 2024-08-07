@@ -1410,6 +1410,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                          'info': False,
                          'verbose': False,
                          'recycle': True}
+        dct['filter'] = {'use_filter': False,
+                         'repeat': 3,
+                         'alpha': 0.5}
+        dct['turn_off'] = False
+        
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1424,7 +1429,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                  unit_b1: BlockVector,
                  u_space: str,
                  solver: dict = options(default=True)['solver'],
-                 coupling_params: dict):
+                 filter: dict = options(default=True)['filter'],
+                 coupling_params: dict,
+                 accumulated_magnetization: BlockVector):
 
         super().__init__(u, b)
 
@@ -1440,13 +1447,16 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._E1T = self.derham.extraction_ops['1'].transpose()
         self._unit_b1 = self._E1T.dot(self._unit_b1)
 
+        self._accumulated_magnetization = accumulated_magnetization
+
         self._ACC = Accumulator(particles,
                                 u_space,
                                 accum_kernels_gc.cc_lin_mhd_5d_M,
                                 self.derham,
                                 self.domain.args_domain,
                                 add_vector=True,
-                                symmetry='symm')
+                                symmetry='symm',
+                                filter_params=filter)
 
         # if self._particles.control_variate:
 
@@ -1530,10 +1540,15 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC(self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                   self._scale_vec, 0.)
 
+
+        self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
+
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
         b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
         byn += b2acc
+
+        #b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 
@@ -1616,6 +1631,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'info': False,
                          'verbose': False,
                          'recycle': True}
+        dct['filter'] = {'use_filter': False,
+                         'repeat': 3,
+                         'alpha': 0.5}
+        dct['turn_off'] = False
+        
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1632,6 +1652,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                  unit_b1: BlockVector,
                  u_space: str,
                  solver: dict = options(default=True)['solver'],
+                 filter: dict = options(default=True)['filter'],
                  coupling_params: dict):
 
         super().__init__(n, u, p)
@@ -1661,7 +1682,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                                 self.derham,
                                 self.domain.args_domain,
                                 add_vector=True,
-                                symmetry='symm')
+                                symmetry='symm',
+                                filter_params=filter)
 
         # if self._particles.control_variate:
 
@@ -1902,6 +1924,8 @@ class CurrentCoupling5DDensity(Propagator):
                          'info': False,
                          'verbose': False,
                          'recycle': True}
+        dct['turn_off'] = False
+        
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -2426,7 +2450,6 @@ class VariationalMomentumAdvection(Propagator):
                                 'info': False}
         if default:
             dct = descend_options_dict(dct, [])
-
         return dct
 
     def __init__(self,

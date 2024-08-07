@@ -11,6 +11,7 @@ from struphy.feec.mass import WeightedMassOperator
 from struphy.pic.base import Particles
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
+import struphy.pic.accumulation.filter_kernels as filters
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
@@ -53,6 +54,9 @@ class Accumulator:
     symmetry : str
         In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm, pressure or None (=full matrix, default)
 
+    filter_params : dict
+        The three components for the accumulation filter: use_filter(boolian), repeat(int) and alpha(float).
+        
     Note
     ----
         Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py`` 
@@ -68,7 +72,8 @@ class Accumulator:
                  args_domain: DomainArguments,
                  *,
                  add_vector: bool = False, 
-                 symmetry: str = None):
+                 symmetry: str = None,
+                 filter_params: dict = {'use_filter': False, 'repeat': None, 'alpha': None}):
 
         self._particles = particles
         self._space_id = space_id
@@ -77,6 +82,8 @@ class Accumulator:
         self._args_domain = args_domain
         
         self._symmetry = symmetry
+
+        self._filter_params = filter_params
 
         self._form = derham.space_to_form[space_id]
 
@@ -182,6 +189,29 @@ class Accumulator:
                     self.args_domain,
                     *self._args_data, 
                     *optional_args)
+
+        # apply filter
+        if self.filter_params['use_filter']:
+
+            repeat = self.filter_params['repeat']
+            alpha = self.filter_params['alpha']
+
+            for vec in self._vectors:
+                vec.exchange_assembly_data()
+                vec.update_ghost_regions()
+                vec_finished = True
+    
+                for count in range(repeat):
+                    for i in range(3):
+                        filters.apply_three_point_filter(vec[i]._data,
+                                                          np.array(self.derham.Nel),
+                                                          np.array(self.derham.spl_kind),
+                                                          np.array(self.derham.p),
+                                                          np.array(self.derham.Vh[self.form][i].starts),
+                                                          np.array(self.derham.Vh[self.form][i].ends),
+                                                          alpha=alpha)
+
+                    vec.update_ghost_regions()
 
         # add analytical contribution (control variate) to vector
         if 'control_vec' in args_control and len(self._vectors) > 0:
@@ -291,6 +321,12 @@ class Accumulator:
                 self._derham.extraction_ops[self.form].dot(vec))]
 
         return out
+    
+    @property
+    def filter_params(self):
+        """Dict of three components for the accumulation filter parameters: use_filter(boolian), repeat(int) and alpha(float).
+        """
+        return self._filter_params
 
     def init_control_variate(self, mass_ops):
         '''Set up the use of noise reduction by control variate.'''
