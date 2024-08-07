@@ -739,8 +739,9 @@ class ViscoresistiveMHD(StruphyModel):
 
         self._gamma = params['fluid']['mhd']['options']['VariationalDensityEvolve']['physics']['gamma']
         self._mu = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu']
-        self._mua = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mua']
+        self._mu_a = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu_a']
         self._eta = params['fluid']['mhd']['options']['VariationalResistivity']['physics']['eta']
+        self._eta_a = params['fluid']['mhd']['options']['VariationalResistivity']['physics']['eta_a']
         model = 'full'
 
         # set keyword arguments for propagators
@@ -770,7 +771,7 @@ class ViscoresistiveMHD(StruphyModel):
                                                                  'rho': self.pointer['mhd_rho3'],
                                                                  'gamma': self._gamma,
                                                                  'mu': self._mu,
-                                                                 'mua': self._mua,
+                                                                 'mu_a': self._mu_a,
                                                                  'mass_ops': self.WMM,
                                                                  'lin_solver': lin_solver_viscosity,
                                                                  'nonlin_solver': nonlin_solver_viscosity}
@@ -779,6 +780,7 @@ class ViscoresistiveMHD(StruphyModel):
                                                                    'rho': self.pointer['mhd_rho3'],
                                                                    'gamma': self._gamma,
                                                                    'eta': self._eta,
+                                                                   'eta_a': self._eta_a,
                                                                    'lin_solver': lin_solver_resistivity,
                                                                    'nonlin_solver': nonlin_solver_resistivity}
 
@@ -951,7 +953,7 @@ class ViscousFluid(StruphyModel):
 
         self._gamma = params['fluid']['fluid']['options']['VariationalDensityEvolve']['physics']['gamma']
         self._mu = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mu']
-        self._mua = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mua']
+        self._mu_a = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mu_a']
         model = 'full'
 
 
@@ -977,7 +979,7 @@ class ViscousFluid(StruphyModel):
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
                                                                  'gamma': self._gamma,
                                                                  'mu': self._mu,
-                                                                 'mua': self._mua,
+                                                                 'mu_a': self._mu_a,
                                                                  'mass_ops': self.WMM,
                                                                  'lin_solver': lin_solver_viscosity,
                                                                  'nonlin_solver': nonlin_solver_viscosity}
