@@ -1500,6 +1500,10 @@ class CurrentCoupling5DCurlb(Propagator):
                          'info': False,
                          'verbose': False,
                          'recycle': True}
+        dct['filter'] = {'use_filter': False,
+                         'repeat': 3,
+                         'alpha': 0.5}
+        dct['turn_off'] = False
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -1518,6 +1522,7 @@ class CurrentCoupling5DCurlb(Propagator):
                  curl_unit_b2: BlockVector,
                  u_space: str,
                  solver: dict = options(default=True)['solver'],
+                 filter: dict = options(default=True)['filter'],
                  coupling_params: dict,
                  epsilon: float = 1.):
 
@@ -1574,7 +1579,8 @@ class CurrentCoupling5DCurlb(Propagator):
                                 self.derham,
                                 self.domain.args_domain,
                                 add_vector=True,
-                                symmetry='symm')
+                                symmetry='symm',
+                                filter_params=filter)
 
         if u_space == 'Hcurl':
             kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
@@ -1793,6 +1799,10 @@ class CurrentCoupling5DGradB(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        dct['filter'] = {'use_filter': False,
+                         'repeat': 3,
+                         'alpha': 0.5}
+        dct['turn_off'] = False
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -1813,6 +1823,7 @@ class CurrentCoupling5DGradB(Propagator):
                  u_space: str,
                  solver: dict = options(default=True)['solver'],
                  algo: dict = options(default=True)['algo'],
+                 filter: dict = options(default=True)['filter'],
                  coupling_params: dict,
                  epsilon: float = 1.):
 
@@ -1881,7 +1892,8 @@ class CurrentCoupling5DGradB(Propagator):
                                 self.derham,
                                 self.domain.args_domain,
                                 add_vector=True,
-                                symmetry='symm')
+                                symmetry='symm',
+                                filter_params=filter)
 
         # if self.particles[0].control_variate:
 

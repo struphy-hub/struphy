@@ -19,3 +19,14 @@
     :undoc-members:
     :exclude-members: variables
     :show-inheritance:
+
+.. _filters:
+
+Filters
+-------
+
+.. automodule:: struphy.pic.accumulation.filter_kernels
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+    :show-inheritance:
