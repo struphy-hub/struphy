@@ -2331,6 +2331,94 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
+def push_velocities_with_efield_delta_f_va(markers: 'float[:,:]',
+                                           dt: float,
+                                           stage: int,
+                                           args_derham: 'DerhamArguments',
+                                           args_domain: 'DomainArguments',
+                                           e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+                                           f0_values: 'float[:]', kappa: 'float', substep: 'int'):
+    r"""
+    updates the velocities in the Vlasov Ampere system according to Heun's method;
+    c.f. struphy.propagators.propagators_coupling.EfieldVelocities
+
+    Parameters
+    ----------
+    e1_1, e1_2, e1_3 : array[float]
+        3d array of FE coeffs of E-field as 1-form.
+
+    f0_values : array[float]
+        Value of f0 for each particle.
+
+    kappa : float
+        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
+
+    substep : int
+        indicates which part of the Heun's method is currently being computed
+    """
+
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+
+    e_vec = empty(3, dtype=float)
+    df_inv_t_e = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, df_inv_t, df_inv_t_e, span1, span2, span3, f0, e_vec, factor)
+    #$ omp for
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        f0 = f0_values[ip]
+
+        # Compute Jacobian matrix and its transpose inverse
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm
+        )
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+
+        # E-field (1-form)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            e1_1, e1_2, e1_3,
+            e_vec
+        )
+
+        linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
+
+        if substep == 0:
+            # v_p^{n+1/2} = kappa * DL^{-T} E_1 * (1 + f_{0,p} / (w_p * s_{0,p}) )
+            factor = kappa * (1 + f0 / (markers[ip, 6] * markers[ip, 7]))
+
+            markers[ip, 9:12] = factor * df_inv_t_e[:]
+
+            markers[ip, 12:15] = markers[ip, 3:6] + dt * markers[ip, 9:12]
+
+        elif substep == 1:
+            # v_p^{n+1/2} = kappa * DL^{-T} E_1 * (1 + f_{0,p} / (w_p * s_{0,p}) )
+            factor = kappa * (1 + f0 / (markers[ip, 6] * markers[ip, 7]))
+
+            markers[ip, 3:6] += (markers[ip, 9:12] + factor * df_inv_t_e[:]) * dt / 2.
+
+    #$ omp end parallel
+
+@stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
 def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]',
                                         dt: float,
                                         stage: int,

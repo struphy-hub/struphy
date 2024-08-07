@@ -207,11 +207,11 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['ions'],
-                                         'H1', 
+                                         'H1',
                                          accum_kernels.charge_density_0form,
-                                         self.derham, 
+                                         self.derham,
                                          self.domain.args_domain)
-        
+
         charge_accum(self.pointer['ions'].vdim)
 
         # another sanity check: compute FE coeffs of density
@@ -484,12 +484,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(self.pointer['ions'], 
-                                         "H1", 
+        charge_accum = AccumulatorVector(self.pointer['ions'],
+                                         "H1",
                                          accum_kernels.charge_density_0form,
-                                         self.derham, 
+                                         self.derham,
                                          self.domain.args_domain)
-        
+
         charge_accum(self.pointer['ions'].vdim)
 
         # another sanity check: compute FE coeffs of density
@@ -553,10 +553,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     .. math::
 
         \begin{align}
-            & \frac{\partial \mathbf{E}}{\partial t} = - \alpha^2 \kappa \mathbf{v} f_1 \,,
+            & \frac{\partial \mathbf{E}_1}{\partial t} = - \alpha^2 \kappa \int \mathbf{v} f_1 \, \text{d} \mathbf{v} \,,
             \\[2mm]
-            & \frac{\partial f_1}{\partial t} + \mathbf{v} \cdot \, \nabla f_1 + \mathbf{E}_0 \cdot \frac{\partial f_1}{\partial \mathbf{v}}
-            = \frac{\kappa}{v_{\text{th}}^2} \, \mathbf{E} \cdot \mathbf{v} f_0 \,,
+            & \frac{\partial f_1}{\partial t} + \mathbf{v} \cdot \, \nabla_\mathbf{x} f_1 + \mathbf{E}_0 \cdot \nabla_\mathbf{v} f_1
+            = \frac{\kappa}{v_{\text{th}}^2} \, \mathbf{E}_1 \cdot \mathbf{v} f_0 \,,
         \end{align}
 
     with the normalization parameter
@@ -585,7 +585,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             \begin{align}
             \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\textrm d \mathbf x &= \kappa^2 \left(\frac{Z_0}{Z}\int_\Omega \psi\, n_0\,\textrm d \mathbf x + \int_\Omega \int_{\mathbb{R}^3} \psi\, f(t=0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \right) \qquad \forall \ \psi \in H^1\,,
             \\[2mm]
-            \mathbf{E}(t=0) &= -\nabla \phi(t=0) \,,
+            \mathbf{E}_1(t=0) &= - \nabla \phi(t=0) \,,
             \end{align}
 
     where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density 
@@ -750,11 +750,11 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['species1'],
-                                         "H1", 
+                                         "H1",
                                          accum_kernels.charge_density_0form,
-                                         self.derham, 
+                                         self.derham,
                                          self.domain.args_domain)
-        
+
         charge_accum(self.pointer['species1'].vdim)
 
         # Instantiate Poisson solver
@@ -798,6 +798,259 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                 self.pointer['species1'].markers_wo_holes[:, 6]**2,  # w_p^2
                 self.pointer['species1'].markers_wo_holes[:, 7] / \
                 f0_values  # s_{0,p} / f_{0,p}
+        )
+
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._tmp, op=self._mpi_sum
+        )
+
+        self.update_scalar('en_w', self._tmp[0])
+
+        # en_tot = en_w + en_e + en_b
+        self.update_scalar('en_tot', self._tmp[0] + en_E)
+
+
+class DeltaFVlasovAmpereOneSpecies(StruphyModel):
+    r"""Vlasov-Ampère equations for one species using a :math:`\delta f` technique.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat v = c\,,\qquad \hat E = \frac{(A m_\textnormal{H})\hat v^2}{(Z e) \hat x} \,, \qquad  \hat \phi = \hat E \hat x \,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        \begin{align}
+            & \frac{\partial \mathbf{E}}{\partial t} = - \alpha^2 \kappa \int \mathbf{v} f_1 \, \text{d} \mathbf{v} \,,
+            \\[2mm]
+            & \frac{\partial f_1}{\partial t} + \mathbf{v} \cdot \, \nabla_\mathbf{x} f_1 + \kappa \nabla__\mathbf{v} \cdot 
+            \left[ \mathbf{E}_1 \left( 1 + \frac{f_0}{f_1} \right) f_1 \right] = 0 \,,
+        \end{align}
+
+    with the normalization parameter
+
+    .. math::
+
+        \kappa = \hat \Omega_\textnormal{p}\hat t\,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,
+
+    where :math:`Z=-1` and :math:`A=1/1836` for electrons. The background distribution function :math:`f_0` is a uniform and isotropic Maxwellian
+
+    .. math::
+
+        f_0 = \frac{n_0}{\left( \sqrt{2 \pi} v_{\text{th}} \right)^3} \exp \left( - \frac{|\mathbf{v}|^2}{2 v_{\text{th}}^2} \right) \,,
+
+    and the background electric field is therefore vanishing :math:`\mathbf{E}_0 = 0`.
+
+    At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
+
+    .. math::
+
+            \begin{align}
+            \int_\Omega \nabla \psi^\top \cdot \nabla \phi \,\textrm d \mathbf x &= \kappa^2 \left(\frac{Z_0}{Z}\int_\Omega \psi\, n_0\,\textrm d \mathbf x + \int_\Omega \int_{\mathbb{R}^3} \psi\, f(t=0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \right) \qquad \forall \ \psi \in H^1\,,
+            \\[2mm]
+            \mathbf{E}_1(t=0) &= - \nabla \phi(t=0) \,,
+            \end{align}
+
+    where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density 
+    of the neutralizing background, respectively, such that
+
+    .. math::
+
+        \frac{Z_0}{Z} n_0 = - \int_{\mathbb{R}^3} f_0 \, \text{d}^3 \mathbf{v} < 0 \,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_markers.PushEta`
+    2. :class:`~struphy.propagators.propagators_coupling.EfieldVelocities`
+
+    :ref:`Model info <add_model>`:
+    """
+
+    @staticmethod
+    def species():
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+
+        dct['em_fields']['e_field'] = 'Hcurl'
+        dct['kinetic']['species1'] = 'Particles6D'
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return 'species1'
+
+    @staticmethod
+    def velocity_scale():
+        return 'light'
+
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_markers.PushEta: ['species1'],
+            propagators_coupling.EfieldVelocities: ['e_field', 'species1']
+        }
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(species=['em_fields'],
+                       key=['solvers', 'poisson'],
+                       option=propagators_fields.ImplicitDiffusion,
+                       dct=dct)
+        cls.add_option(species=['kinetic', 'species1'],
+                       key='verification',
+                       option={'use': True, 'kappa': 1., 'alpha': 1.},
+                       dct=dct)
+        return dct
+
+    def __init__(self, params, comm):
+
+        super().__init__(params, comm)
+
+        from mpi4py.MPI import SUM, IN_PLACE
+
+        # prelim
+        self._electron_params = params['kinetic']['species1']
+
+        # Assert Maxwellian background
+        assert self._electron_params['background']['type'] == 'Maxwellian3D', \
+            "The background distribution function must be a uniform Maxwellian!"
+
+        # Assert uniformity of the Maxwellian background
+        self._f0 = self.pointer['species1'].f0
+        assert self._f0.maxw_params['u1'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
+        assert self._f0.maxw_params['u2'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
+        assert self._f0.maxw_params['u3'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
+        assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3'], \
+            "The background Maxwellian must be isotropic in velocity space!"
+        self.vth = self._f0.maxw_params['vth1']
+
+        # get species paramaters
+        spec_params = params['kinetic']['species1']
+
+        # Get coupling strength
+        if spec_params['options']['verification']['use']:
+            self.kappa = spec_params['options']['verification']['kappa']
+            self.alpha = spec_params['options']['verification']['alpha']
+            if self._rank == 0:
+                print(
+                    f"\n!!! Verification run: equation parameters set to {self.kappa = }, {self.alpha = }.\n")
+        else:
+            self.kappa = self.equation_params['species1']['kappa']
+            self.alpha = self.equation_params['species1']['alpha']
+
+        # ====================================================================================
+        # Create pointers to background electric potential and field
+        self._phi_background = self.derham.Vh['0'].zeros()
+        self._e_background = self.derham.grad.dot(self._phi_background)
+        assert np.all(self._e_background[0]._data < 1e-14) and np.all(self._e_background[1]._data < 1e-14) and np.all(self._e_background[2]._data < 1e-14), \
+            "Background electric field must be zero! Background Maxwellian must be constant in space!"
+        # ====================================================================================
+
+        # propagator parameters
+        self._poisson_params = params['em_fields']['options']['ImplicitDiffusion']['solver']
+        algo_eta = params['kinetic']['species1']['options']['PushEta']['algo']
+        params_coupling = params['em_fields']['options']['EfieldVelocities']['solver']
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._kwargs[propagators_markers.PushEta] = {
+            'algo': algo_eta,
+            'bc_type': self._electron_params['markers']['bc']['type']
+        }
+
+        self._kwargs[propagators_coupling.EfieldVelocities] = {
+            'alpha': self.alpha,
+            'kappa': self.kappa,
+            'f0': self._f0,
+            'solver': params_coupling
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # Scalar variables to be saved during the simulation
+        self.add_scalar('en_e')
+        self.add_scalar('en_w')
+        self.add_scalar('en_tot')
+
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+
+        # temporaries
+        self._en_e_tmp = self.pointer['e_field'].space.zeros()
+        self._tmp = np.empty(1, dtype=float)
+
+    def initialize_from_params(self):
+        '''Solve initial Poisson equation.
+
+        :meta private:
+        '''
+        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+
+        # Initialize fields and particles
+        super().initialize_from_params()
+
+        # Accumulate charge density
+        charge_accum = AccumulatorVector(self.pointer['species1'],
+                                         "H1",
+                                         accum_kernels.charge_density_0form,
+                                         self.derham,
+                                         self.domain.args_domain)
+
+        charge_accum(self.pointer['species1'].vdim)
+
+        # Instantiate Poisson solver
+        _phi = self.derham.Vh['0'].zeros()
+        poisson_solver = propagators_fields.ImplicitDiffusion(
+            _phi,
+            sigma_1=0.,
+            sigma_2=0.,
+            sigma_3=1.,
+            rho=self.kappa * charge_accum.vectors[0],
+            solver=self._poisson_params)
+
+        # Solve with dt=1. and compute electric field
+        if self._rank == 0:
+            print('\nSolving initial Poisson problem...')
+        poisson_solver(1.)
+        self.derham.grad.dot(-_phi, out=self.pointer['e_field'])
+        if self._rank == 0:
+            print('Done.')
+
+    def update_scalar_quantities(self):
+        # 0.5 * e^T * M_1 * e
+        self._mass_ops.M1.dot(self.pointer['e_field'], out=self._en_e_tmp)
+        en_E = self.pointer['e_field'].dot(self._en_e_tmp) / 2.
+        self.update_scalar('en_e', en_E)
+
+        # evaluate f0
+        f0_values = self._f0(
+            *self.pointer['species1'].markers_wo_holes[:, :6].T,
+        )
+
+        # alpha^2 * v_th^2 / N * sum_p w_p * ln(1 + w_p * s_{0,p} / f_{0,p})
+        self._tmp[0] = \
+            self.alpha**2 * self.vth**2 / self.pointer['species1'].n_mks * \
+            np.dot(
+                self.pointer['species1'].markers_wo_holes[:, 6],
+                np.log(
+                    # 1 + w_p * s_{0,p} / f_{0,p}
+                    1 + np.divide(
+                        # w_p * s_{0,p}
+                        np.multiply(self.pointer['species1'].markers_wo_holes[:, 6],
+                                    self.pointer['species1'].markers_wo_holes[:, 7]),
+                        f0_values)
+                )
         )
 
         self.derham.comm.Allreduce(

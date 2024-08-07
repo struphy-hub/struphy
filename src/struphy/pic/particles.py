@@ -12,7 +12,7 @@ class Particles6D(Particles):
     The numpy marker array is as follows:
 
     ===== ============== ======================= ======= ====== ====== ==========
-    index  | 0 | 1 | 2 | | 3 | 4 | 5           |  6       7       8    >=9
+    index | 0 | 1 | 2 |  | 3 | 4 | 5           |  6       7       8    >=9
     ===== ============== ======================= ======= ====== ====== ==========
     value position (eta)    velocities           weight   s0     w0    additional
     ===== ============== ======================= ======= ====== ====== ==========
@@ -348,12 +348,14 @@ class Particles5D(Particles):
             r = self.markers[~self.holes, 0]*(1 - a1) + a1
             self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
 
-            utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
-                                                                self.derham.args_derham,
-                                                                epsilon, 
-                                                                B0, 
-                                                                R0,
-                                                                abs_B0._data)
+            utilities_kernels.eval_canonical_toroidal_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                epsilon,
+                B0,
+                R0,
+                abs_B0._data
+            )
 
     def save_magnetic_energy(self, b2):
         r"""
@@ -374,11 +376,11 @@ class Particles5D(Particles):
                                                self.derham.args_derham,
                                                self.domain.args_domain,
                                                self.absB0_h._data,
-                                               self.unit_b1_h[0]._data, 
-                                               self.unit_b1_h[1]._data, 
+                                               self.unit_b1_h[0]._data,
+                                               self.unit_b1_h[1]._data,
                                                self.unit_b1_h[2]._data,
-                                               b2t[0]._data, 
-                                               b2t[1]._data, 
+                                               b2t[0]._data,
+                                               b2t[1]._data,
                                                b2t[2]._data)
 
     def save_magnetic_background_energy(self):
@@ -392,10 +394,12 @@ class Particles5D(Particles):
         abs_B0 = E0T.dot(self.absB0_h)
         abs_B0.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_background_energy(self.markers,
-                                                          self.derham.args_derham, 
-                                                          self.domain.args_domain,
-                                                          abs_B0._data)
+        utilities_kernels.eval_magnetic_background_energy(
+            self.markers,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            abs_B0._data
+        )
 
 
 class Particles3D(Particles):
@@ -418,7 +422,6 @@ class Particles3D(Particles):
     **params : dict
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
-
 
     @classmethod
     def default_bckgr_params(cls):
