@@ -1039,19 +1039,20 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         )
 
         # alpha^2 * v_th^2 / N * sum_p w_p * ln(1 + w_p * s_{0,p} / f_{0,p})
-        self._tmp[0] = \
-            self.alpha**2 * self.vth**2 / self.pointer['species1'].n_mks * \
-            np.dot(
-                self.pointer['species1'].markers_wo_holes[:, 6],
-                np.log(
-                    # 1 + w_p * s_{0,p} / f_{0,p}
-                    1 + np.divide(
-                        # w_p * s_{0,p}
-                        np.multiply(self.pointer['species1'].markers_wo_holes[:, 6],
-                                    self.pointer['species1'].markers_wo_holes[:, 7]),
-                        f0_values)
-                )
-        )
+        self._tmp[0] = 17.
+        # \
+        #     self.alpha**2 * self.vth**2 / self.pointer['species1'].n_mks * \
+        #     np.dot(
+        #         self.pointer['species1'].markers_wo_holes[:, 6],
+        #         np.log(
+        #             # 1 + w_p * s_{0,p} / f_{0,p}
+        #             1 + np.divide(
+        #                 # w_p * s_{0,p}
+        #                 np.multiply(self.pointer['species1'].markers_wo_holes[:, 6],
+        #                             self.pointer['species1'].markers_wo_holes[:, 7]),
+        #                 f0_values)
+        #         )
+        # )
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum

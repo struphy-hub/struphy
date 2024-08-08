@@ -464,8 +464,12 @@ class EfieldVelocities(Propagator):
         self._kappa = kappa
         self._f0 = f0
         assert self._f0.maxw_params['vth1'] == self._f0.maxw_params['vth2'] == self._f0.maxw_params['vth3']
+        self._n0 = self._f0.maxw_params['n']
+        self._vth = self._f0.maxw_params['vth1']
 
         self._info = solver['info']
+
+        self._tol = float(1e-5)
 
         # Initialize Accumulator object
         self._accum = AccumulatorVector(
@@ -527,8 +531,9 @@ class EfieldVelocities(Propagator):
             self.feec_vars[0].blocks[0]._data,
             self.feec_vars[0].blocks[1]._data,
             self.feec_vars[0].blocks[2]._data,
+            self._n0, self._vth,
             f0_values, self._kappa,
-            int(0)
+            self._tol, int(0)
         )
 
         self._accum(int(0))
@@ -563,8 +568,9 @@ class EfieldVelocities(Propagator):
             self._e_tilde.blocks[0]._data,
             self._e_tilde.blocks[1]._data,
             self._e_tilde.blocks[2]._data,
+            self._n0, self._vth,
             f0_values, self._kappa,
-            int(1)
+            self._tol, int(1)
         )
 
         self._accum(int(1))

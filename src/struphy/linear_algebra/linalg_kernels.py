@@ -9,14 +9,14 @@ def matrix_vector(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The input array (matrix) of shape (3,3).
+    a : array[float]
+        The input array (matrix) of shape (3,3).
 
-        b : array[float]
-            The input array (vector) of shape (3,).
+    b : array[float]
+        The input array (vector) of shape (3,).
 
-        c : array[float]
-            The output array (vector) of shape (3,) which is the result of the matrix-vector product a.dot(b).
+    c : array[float]
+        The output array (vector) of shape (3,) which is the result of the matrix-vector product a.dot(b).
     """
 
     c[:] = 0.
@@ -33,14 +33,14 @@ def matrix_matrix(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The first input array (matrix) of shape (3,3).
+    a : array[float]
+        The first input array (matrix) of shape (3,3).
 
-        b : array[float]
-            The second input array (matrix) of shape (3,3).
+    b : array[float]
+        The second input array (matrix) of shape (3,3).
 
-        c : array[float]
-            The output array (matrix) of shape (3,3) which is the result of the matrix-matrix product a.dot(b).
+    c : array[float]
+        The output array (matrix) of shape (3,3) which is the result of the matrix-matrix product a.dot(b).
     """
 
     c[:, :] = 0.
@@ -58,11 +58,11 @@ def transpose(a: 'float[:,:]', b: 'float[:,:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The input array (matrix) of shape (3,3).
+    a : array[float]
+        The input array (matrix) of shape (3,3).
 
-        b : array[float]
-            The output array (matrix) of shape (3,3).
+    b : array[float]
+        The output array (matrix) of shape (3,3).
     """
 
     for i in range(3):
@@ -77,16 +77,16 @@ def scalar_dot(a: 'float[:]', b: 'float[:]') -> float:
 
     Parameters
     ----------
-        a : array[float]
-            The first input array (vector) of shape (3,).
+    a : array[float]
+        The first input array (vector) of shape (3,).
 
-        b : array[float]
-            The second input array (vector) of shape (3,).
+    b : array[float]
+        The second input array (vector) of shape (3,).
 
     Returns
     -------
-        value : float
-            The scalar poduct of the two input vectors a and b.
+    value : float
+        The scalar poduct of the two input vectors a and b.
     """
 
     value = a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
@@ -101,13 +101,13 @@ def det(a: 'float[:,:]') -> float:
 
     Parameters
     ----------
-        a : array[float]
-            The input array (matrix) of shape (3,3) of which the determinant shall be computed.
+    a : array[float]
+        The input array (matrix) of shape (3,3) of which the determinant shall be computed.
 
     Returns
     -------
-        det_a : float
-            The determinant of the 3x3 matrix a.
+    det_a : float
+        The determinant of the 3x3 matrix a.
     """
 
     plus = a[0, 0]*a[1, 1]*a[2, 2] + a[0, 1] * \
@@ -127,14 +127,14 @@ def cross(a: 'float[:]', b: 'float[:]', c: 'float[:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The first input array (vector) of shape (3,).
+    a : array[float]
+        The first input array (vector) of shape (3,).
 
-        b : array[float]
-            The second input array (vector) of shape (3,).
+    b : array[float]
+        The second input array (vector) of shape (3,).
 
-        c : array[float]
-            The output array (vector) of shape (3,) which is the vector product a x b.
+    c : array[float]
+        The output array (vector) of shape (3,) which is the vector product a x b.
     """
 
     c[0] = a[1]*b[2] - a[2]*b[1]
@@ -149,14 +149,14 @@ def outer(a: 'float[:]', b: 'float[:]', c: 'float[:,:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The first input array (vector) of shape (3,).
+    a : array[float]
+        The first input array (vector) of shape (3,).
 
-        b : array[float]
-            The second input array (vector) of shape (3,).
+    b : array[float]
+        The second input array (vector) of shape (3,).
 
-        c : array[float]
-            The output array (matrix) of shape (3, 3) which is the outer product c_ij = a_i*b_j.
+    c : array[float]
+        The output array (matrix) of shape (3, 3) which is the outer product c_ij = a_i*b_j.
     """
 
     c[:, :] = 0.
@@ -173,11 +173,11 @@ def matrix_inv(a: 'float[:,:]', b: 'float[:,:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The input array (matrix) of shape (3,3).
+    a : array[float]
+        The input array (matrix) of shape (3,3).
 
-        b : array[float]
-            The output array (matrix) of shape (3,3).
+    b : array[float]
+        The output array (matrix) of shape (3,3).
     """
 
     det_a = det(a)
@@ -202,14 +202,14 @@ def matrix_inv_with_det(a: 'float[:,:]', det_a: float, b: 'float[:,:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The input array (matrix) of shape (3,3).
+    a : array[float]
+        The input array (matrix) of shape (3,3).
 
-        det_a : float
-            The determinant of the input array (matrix) a.
+    det_a : float
+        The determinant of the input array (matrix) a.
 
-        b : array[float]
-            The output array (matrix) of shape (3,3).
+    b : array[float]
+        The output array (matrix) of shape (3,3).
     """
 
     b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) / det_a
@@ -232,14 +232,14 @@ def matrix_vector4(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The input array (matrix) of shape (4,4).
+    a : array[float]
+        The input array (matrix) of shape (4,4).
 
-        b : array[float]
-            The input array (vector) of shape (4,).
+    b : array[float]
+        The input array (vector) of shape (4,).
 
-        c : array[float]
-            The output array (vector) of shape (4,) which is the result of the matrix-vector product a.dot(b).
+    c : array[float]
+        The output array (vector) of shape (4,) which is the result of the matrix-vector product a.dot(b).
     """
 
     c[:] = 0.
@@ -256,14 +256,14 @@ def matrix_matrix4(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
 
     Parameters
     ----------
-        a : array[float]
-            The first input array (matrix) of shape (4,4).
+    a : array[float]
+        The first input array (matrix) of shape (4,4).
 
-        b : array[float]
-            The second input array (matrix) of shape (4,4).
+    b : array[float]
+        The second input array (matrix) of shape (4,4).
 
-        c : array[float]
-            The output array (matrix) of shape (4,4) which is the result of the matrix-matrix product a.dot(b).
+    c : array[float]
+        The output array (matrix) of shape (4,4) which is the result of the matrix-matrix product a.dot(b).
     """
 
     c[:, :] = 0.
@@ -281,13 +281,13 @@ def det4(a: 'float[:,:]') -> float:
 
     Parameters
     ----------
-        a : array[float]
-            The input array (matrix) of shape (4,4) of which the determinant shall be computed.
+    a : array[float]
+        The input array (matrix) of shape (4,4) of which the determinant shall be computed.
 
     Returns
     -------
-        det_a : float
-            The determinant of the 3x3 matrix a.
+    det_a : float
+        The determinant of the 3x3 matrix a.
     """
 
     tmp1 = zeros((3, 3), dtype=float)
