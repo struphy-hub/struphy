@@ -14,7 +14,7 @@ class Particles6D(Particles):
     ===== ============== ======================= ======= ====== ====== ==========
     index  | 0 | 1 | 2 | | 3 | 4 | 5           |  6       7       8    >=9
     ===== ============== ======================= ======= ====== ====== ==========
-    value position (eta)    velocities           weight   s0     w0    additional
+    value position (eta)    velocities           weight   s0     w0    buffer
     ===== ============== ======================= ======= ====== ====== ==========
 
     Parameters
@@ -43,7 +43,7 @@ class Particles6D(Particles):
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 16
+        return 23
 
     @property
     def vdim(self):
@@ -131,10 +131,10 @@ class Particles5D(Particles):
 
     The numpy marker array is as follows:
 
-    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================ ===========
+    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
     index  | 0 | 1 | 2 |     3        4       5      6      7      8          9             10            >=11
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
-    value position (eta) v_parallel v_perp  weight   s0     w0   energy magn. moment toro. can. moment additional
+    value position (eta) v_parallel v_perp  weight   s0     w0   energy magn. moment toro. can. moment buffer
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========   
 
     Parameters
@@ -180,9 +180,9 @@ class Particles5D(Particles):
 
     @property
     def n_cols(self):
-        """Number of the columns at each markers.
+        """Number of columns in markers array, i.e. the attributes of each marker.
         """
-        return 25
+        return 31
 
     @property
     def vdim(self):
@@ -407,7 +407,7 @@ class Particles3D(Particles):
     ===== ============== ====== ====== ====== ======  
     index  | 0 | 1 | 2 |   3       4     5      >=6       
     ===== ============== ====== ====== ====== ======  
-    value position (eta) weight   s0     w0   other    
+    value position (eta) weight   s0     w0   buffer    
     ===== ============== ====== ====== ====== ======   
 
     Parameters
@@ -437,7 +437,7 @@ class Particles3D(Particles):
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 16
+        return 17
 
     @property
     def vdim(self):

@@ -10,192 +10,37 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.pic.pushing.pusher_args_kernels import MarkerArguments, DerhamArguments, DomainArguments
 from struphy.bsplines.evaluation_kernels_3d import get_spans, eval_0form_spline_mpi, eval_1form_spline_mpi, eval_2form_spline_mpi, eval_3form_spline_mpi, eval_vectorfield_spline_mpi
 
-from numpy import zeros, empty, shape, sqrt
+from numpy import zeros, empty, shape, sqrt, mod
 
 
-@stack_array('dfm', 'df_t', 'g', 'g_inv', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2')
-def push_gc_bxEstar_explicit_multistage(markers: 'float[:,:]',
-                                        dt: float,
+@stack_array('dfm', 'unit_b1', 'e_star', 'e_field', 'Exb', 'k')
+def push_gc_bxEstar_explicit_multistage(dt: float,
                                         stage: int,
+                                        args_markers: 'MarkerArguments',
                                         args_derham: 'DerhamArguments',
                                         args_domain: 'DomainArguments',
                                         epsilon: float,
-                                        b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                        norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                        norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                        curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                        grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                                        unit_b1_1: 'float[:,:,:]', unit_b1_2: 'float[:,:,:]', unit_b1_3: 'float[:,:,:]',
+                                        grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                        B_dot_b_coeffs: 'float[:,:,:]', 
+                                        curl_unit_b_dot_b0: 'float[:,:,:]',
+                                        e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                        evaluate_e_field: bool,
                                         a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit pushing step for the :math:`\mathbf b_ \times \nabla B_\parallel` guiding center drift,
-
-    Marker update:
+    r'''Single stage of an s-stage explicit Runge-Kutta scheme for solving
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \epsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_0 (\boldsymbol \eta_p) \,,
-            \\
-            \dot v_{\parallel,\,p} &= 0 \,.
-        \end{aligned}
-
-    for each marker :math:`p` in markers array.
-    '''
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # containers for fields
-    bb = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    temp1 = empty(3, dtype=float)
-    temp2 = empty(3, dtype=float)
-
-    # intermediate k-vector
-    k = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # get number of stages
-    n_stages = shape(b)[0]
-
-    if stage == n_stages - 1:
-        last = 1.
-    else:
-        last = 0.
-
-    #$ omp parallel private(ip, v, mu, k, det_df, dfm, df_t, g, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, grad_abs_b, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
-    #$ omp for
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
-
-        # evaluate inverse of G
-        linalg_kernels.transpose(dfm, df_t)
-        linalg_kernels.matrix_matrix(df_t, dfm, g)
-        linalg_kernels.matrix_inv(g, g_inv)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        # grad_abs_b; 1form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              grad_abs_b1,
-                              grad_abs_b2,
-                              grad_abs_b3,
-                              grad_abs_b)
-
-        # norm_b1; 1form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              norm_b11,
-                              norm_b12,
-                              norm_b13,
-                              norm_b1)
-
-        # norm_b2; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              norm_b21,
-                              norm_b22,
-                              norm_b23,
-                              norm_b2)
-
-        # b; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b1,
-                              b2,
-                              b3,
-                              bb)
-
-        # curl_norm_b; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              curl_norm_b1,
-                              curl_norm_b2,
-                              curl_norm_b3,
-                              curl_norm_b)
-
-        # eval Bstar and transform to H1vec
-        b_star[:] = bb + epsilon*v*curl_norm_b
-        b_star /= det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # calculate norm_b X grad_abs_b and transform to H1vec
-        linalg_kernels.matrix_vector(g_inv, grad_abs_b, temp1)
-        linalg_kernels.cross(norm_b2, temp1, temp2)
-        linalg_kernels.matrix_vector(g_inv, temp2, temp1)
-
-        # calculate k
-        k[:] = epsilon*mu/abs_b_star_para*temp1
-
-        # accumulation for last stage
-        markers[ip, 15:18] += dt*b[stage]*k
-
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 11:14] + \
-            dt*a[stage]*k + last*markers[ip, 15:18]
-
-    #$ omp end parallel
-
-
-@stack_array('dfm', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'b_star')
-def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]',
-                                      dt: float,
-                                      stage: int,
-                                      args_derham: 'DerhamArguments',
-                                      args_domain: 'DomainArguments',
-                                      epsilon: float,
-                                      b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                      norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                      norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                      curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                      grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                      a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit pushing step for the :math:`\mathbf B^*` guiding center drift,
-
-    Marker update:
-
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = \frac{\hat{\mathbf E}^{*1} \times \hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\boldsymbol \eta_p(t)) \,,
+        
+    where
+    
     .. math::
-
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
-            \\
-            \dot v_{\parallel,\,p} &= - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p \hat \nabla \hat{B}^0_\parallel(\boldsymbol \eta_p) \,.
-        \end{aligned}
+    
+        \hat{\mathbf E}^{*1} = - \hat \nabla \hat \phi -\varepsilon \mu_p \hat \nabla  \hat B\,,\qquad \hat B^*_\parallel = \hat B + \varepsilon v_{\parallel,p} \widehat{\left[(\nabla \times \mathbf b_0) \cdot \mathbf b_0\right]}\,,
 
     for each marker :math:`p` in markers array.
     '''
@@ -204,160 +49,20 @@ def push_gc_Bstar_explicit_multistage(markers: 'float[:,:]',
     dfm = empty((3, 3), dtype=float)
 
     # containers for fields
-    bb = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-
-    # intermediate k-vector
-    k = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    # get number of stages
-    n_stages = shape(b)[0]
-
-    if stage == n_stages - 1:
-        last = 1.
-    else:
-        last = 0.
-
-    #$ omp parallel private(ip, e, v, mu, k, k_v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, grad_abs_b, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
-    #$ omp for
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        if stage == 0.:
-            # save initial parallel velocity
-            markers[ip, 14] = markers[ip, 3]
-
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        # grad_abs_b; 1form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              grad_abs_b1,
-                              grad_abs_b2,
-                              grad_abs_b3,
-                              grad_abs_b)
-
-        # norm_b1; 1form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              norm_b11,
-                              norm_b12,
-                              norm_b13,
-                              norm_b1)
-
-        # b; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b1,
-                              b2,
-                              b3,
-                              bb)
-
-        # curl_norm_b; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              curl_norm_b1,
-                              curl_norm_b2,
-                              curl_norm_b3,
-                              curl_norm_b)
-
-        # calculate Bstar and transform to H1vec
-        b_star[:] = bb + epsilon*v*curl_norm_b
-        b_star /= det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # calculate k for X
-        k[:] = b_star/abs_b_star_para*v
-
-        # calculate k_v for v
-        temp = linalg_kernels.scalar_dot(b_star, grad_abs_b)
-        k_v = -1*mu/abs_b_star_para*temp
-
-        # accumulation for last stage
-        markers[ip, 15:18] += dt*b[stage]*k
-        markers[ip, 18] += dt*b[stage]*k_v
-
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 11:14] + \
-            dt*a[stage]*k + last*markers[ip, 15:18]
-        markers[ip, 3] = markers[ip, 14] + dt * \
-            a[stage]*k_v + last*markers[ip, 18]
-
-    #$ omp end parallel
-
-
-@stack_array('dfm', 'df_t', 'g', 'g_inv', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2')
-def push_gc_bxEstarWithPhi_explicit_multistage(markers: 'float[:,:]',
-                                               dt: float,
-                                               stage: int,
-                                               args_derham: 'DerhamArguments',
-                                               args_domain: 'DomainArguments',
-                                               efield_1: 'float[:,:,:]', efield_2: 'float[:,:,:]', efield_3: 'float[:,:,:]',
-                                               gradB1_1: 'float[:,:,:]', gradB1_2: 'float[:,:,:]', gradB1_3: 'float[:,:,:]',
-                                               absB0: 'float[:,:,:]',
-                                               curl_unit_b1_1: 'float[:,:,:]', curl_unit_b1_2: 'float[:,:,:]', curl_unit_b1_3: 'float[:,:,:]',
-                                               unit_b1_1: 'float[:,:,:]', unit_b1_2: 'float[:,:,:]', unit_b1_3: 'float[:,:,:]',
-                                               epsilon: float,
-                                               Z: int,
-                                               a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit pushing step for the :math:`\mathbf b_ \times E^*`  drift kinetic electrostatic adiabatic,
-
-    Marker update:
-
-    .. math::
-
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &=  \frac{1}{ B^{*3}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf E}^{*1} (\boldsymbol \eta_p, v_{\parallel,\,p})  \times  \hat{\mathbf b}^1_0(\boldsymbol \eta_p) \,,
-            \\
-            \dot v_{\parallel,\,p} &= 0 \,.
-        \end{aligned}
-
-    for each marker :math:`p` in markers array.
-    '''
-    # metric coefficients
-    df_mat = empty((3, 3), dtype=float)
-
-    # containers for fields
-    efield = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    e_star = empty(3, dtype=float)
     unit_b1 = empty(3, dtype=float)
-    curl_unit_b1 = empty(3, dtype=float)
+    e_star = empty(3, dtype=float)
+    e_field = zeros(3, dtype=float)
+    Exb = empty(3, dtype=float)
 
     # intermediate k-vector
     k = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -367,63 +72,28 @@ def push_gc_bxEstarWithPhi_explicit_multistage(markers: 'float[:,:]',
     else:
         last = 0.
 
-    #$ omp parallel private(ip, v, mu, k, det_df, dfm, df_t, g, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, grad_abs_b, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
-    #$ omp for
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
-        if markers[ip, 9] == -1.:
-            continue
-
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
+        evaluation_kernels.df(eta1, eta2, eta3,
                               args_domain,
-                              df_mat)
-
-        det_df = linalg_kernels.det(df_mat)
+                              dfm)
+        
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        # electric field: 1-form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              efield_1,
-                              efield_2,
-                              efield_3,
-                              efield)
-
-        # grad absB0; 1-form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              gradB1_1,
-                              gradB1_2,
-                              gradB1_3,
-                              grad_abs_b)
-
-        # absB0; 0-form
-        absB0_at_eta = eval_0form_spline_mpi(span1, span2, span3,
-                                             args_derham,
-                                             absB0)
-
-        # curl_unit_b1; 2-form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              curl_unit_b1_1,
-                              curl_unit_b1_2,
-                              curl_unit_b1_3,
-                              curl_unit_b1)
-
-        # unit b1; 1-form
         eval_1form_spline_mpi(span1, span2, span3,
                               args_derham,
                               unit_b1_1,
@@ -431,246 +101,657 @@ def push_gc_bxEstarWithPhi_explicit_multistage(markers: 'float[:,:]',
                               unit_b1_3,
                               unit_b1)
 
-        # E*
-        e_star[:] = efield - epsilon / Z * mu * grad_abs_b
+        # compute E*
+        eval_1form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              e_star)
+        
+        e_star *= -epsilon * mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                args_derham,
+                                e_field_1,
+                                e_field_2,
+                                e_field_3,
+                                e_field)
+            e_star += e_field
 
-        # curvature times det_df
-        curvature_det_df = linalg_kernels.scalar_dot(curl_unit_b1, unit_b1)
+        # compute B*_parallel
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                      args_derham,
+                                      B_dot_b_coeffs)
 
-        # B^*_parallel times det_df
-        b_star_para = absB0_at_eta * det_df + epsilon/Z * v * curvature_det_df
+        b_star_parallel = eval_0form_spline_mpi(span1, span2, span3,
+                                                args_derham,
+                                                curl_unit_b_dot_b0)
 
-        # calculate E* x b0
-        linalg_kernels.cross(e_star, unit_b1, k)
+        b_star_parallel *= epsilon * v
+        b_star_parallel += B_dot_b
+        b_star_parallel *= det_df 
 
-        # calculate k
-        k /= b_star_para
+         # calculate k
+        linalg_kernels.cross(e_star, unit_b1, Exb)
+
+        k[:] = Exb/b_star_parallel
 
         # accumulation for last stage
-        markers[ip, 15:18] += dt*b[stage]*k
+        markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 11:14] + \
-            dt*a[stage]*k + last*markers[ip, 15:18]
-
-    #$ omp end parallel
+        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+            dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
-@stack_array('dfm', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'b_star')
-def push_gc_BstarWithPhi_explicit_multistage(markers: 'float[:,:]',
-                                             dt: float,
-                                             stage: int,
-                                             args_derham: 'DerhamArguments',
-                                             args_domain: 'DomainArguments',
-                                             efield_1: 'float[:,:,:]', efield_2: 'float[:,:,:]', efield_3: 'float[:,:,:]',
-                                             beq_1: 'float[:,:,:]', beq_2: 'float[:,:,:]', beq_3: 'float[:,:,:]',
-                                             curl_b1: 'float[:,:,:]', curl_b2: 'float[:,:,:]', curl_b3: 'float[:,:,:]',
-                                             grad_absB0_1: 'float[:,:,:]', grad_absB0_2: 'float[:,:,:]', grad_absB0_3: 'float[:,:,:]',
-                                             unit_b11: 'float[:,:,:]', unit_b12: 'float[:,:,:]', unit_b13: 'float[:,:,:]',
-                                             absB0: 'float[:,:,:]',
-                                             epsilon: float,
-                                             Z: int,
-                                             a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit pushing step for the :math:`\mathbf B^*` drift kinetic electrostatic adiabatic,
-
-    Marker update:
+@stack_array('eta_k', 'eta_n', 'eta_mid', 'eta_diff', 'grad_H', 'grad_I', 'unit_b1', 'e_field', 'Exb', 'k')
+def push_gc_bxEstar_discrete_gradient_1st_order(dt: float,
+                                                stage: int,
+                                                args_markers: 'MarkerArguments',
+                                                args_derham: 'DerhamArguments',
+                                                args_domain: 'DomainArguments',
+                                                epsilon: float,
+                                                grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                                e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                                evaluate_e_field: bool):
+    r'''For each marker :math:`p` in markers array, make one step of Picard iteration (index :math:`k`) for
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \frac{1}{B^{*3}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
-            \\
-            \dot v_{\parallel,\,p} &= \frac{1}{B^{*3}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \hat{\mathbf E}^{*1} (\boldsymbol \eta_p, v_{\parallel,\,p})  \,.
-        \end{aligned}
+        \frac{\boldsymbol \eta_p^{n+1, k+1} - \boldsymbol \eta_p^{n}}{\Delta t} = 
+        \frac{\hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\mathbf Z_p^{n}) \times \frac{\partial \overline H}{\partial \boldsymbol \eta} 
+        (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n} )  \,,
+        
+    where the Hamiltonian reads
+    
+    .. math::
+    
+        H(\mathbf Z) = H(\boldsymbol \eta, v_{\parallel}) = \varepsilon\frac{v_{\parallel}^2}{2} 
+        + \varepsilon\mu_p |\hat{\mathbf B}| (\boldsymbol \eta) + \hat \phi(\boldsymbol \eta)\,,
 
-    for each marker :math:`p` in markers array.
+    and where
+    
+    .. math::
+    
+        \frac{\partial \overline H}{\partial \boldsymbol \eta}
+        (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})
+        = \frac{\partial H}{\partial \boldsymbol \eta} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)
+        + (\boldsymbol \eta_p^{n+1, k} - \boldsymbol \eta_p^{n}) \,
+        \frac{H(\mathbf Z_p^{n+1, k}) - H(\mathbf Z_p^{n}) - (\boldsymbol \eta_p^{n+1, k} - \boldsymbol \eta_p^{n}) \cdot
+        \frac{\partial H}{\partial \boldsymbol \eta} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)}{||\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}||}\,,
+
+    is the Gonzalez discrete gradient.
+    '''
+
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
+    
+    grad_H = empty(3, dtype=float)
+    grad_I = empty(3, dtype=float)
+    
+    unit_b1 = empty(3, dtype=float)
+    e_field = zeros(3, dtype=float)
+    Exb = empty(3, dtype=float)
+
+    # intermediate k-vector
+    k = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    residual_idx = args_markers.residual_idx
+    first_free_idx = args_markers.first_free_idx
+
+    for ip in range(n_markers):
+
+        # check if marker is converged or a hole
+        if markers[ip, buffer_idx] == -1.:
+            continue
+
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta_mid[:] = (eta_k + eta_n)/2.
+        eta_mid[:] = mod(eta_mid, 1.)
+        eta_diff[:] = eta_k - eta_n
+        
+        mu = markers[ip, mu_idx]
+        
+        # Hamiltonian at n (from init_kernel)
+        H_n = markers[ip, first_free_idx]
+        
+        # Poisson matrix at n (from init_kernel)
+        b_star_parallel = markers[ip, first_free_idx + 1]
+        unit_b1[:] = markers[ip, first_free_idx + 2:first_free_idx + 5]
+        
+        # Hamiltonian at (n+1, k) (from eval_kernel)
+        H_k = markers[ip, first_free_idx + 5]
+        
+        # mid-point spline evaluation
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], 
+                                        args_derham)
+
+        # compute grad_H at n + 1/2
+        eval_1form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              grad_H)
+
+        grad_H *= epsilon*mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            
+            e_field *= -1.
+            grad_H += e_field
+        
+        # compute grad_I
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) 
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff)
+        
+        if dZ_squared == 0.:
+            grad_I[:] = grad_H
+        else:
+            grad_I[:] = grad_H + eta_diff*(H_k - H_n - dZ_dot_grad_H) / dZ_squared
+
+         # calculate k
+        linalg_kernels.cross(unit_b1, grad_I, Exb)
+
+        k[:] = Exb/b_star_parallel
+
+        # accumulation for last stage
+        markers[ip, 0:3] = eta_n + dt*k
+        
+        # residual
+        markers[ip, residual_idx] = sqrt((markers[ip, 0] - eta_k[0])**2 
+                                       + (markers[ip, 1] - eta_k[1])**2
+                                       + (markers[ip, 2] - eta_k[2])**2)
+
+
+@stack_array('dfm', 'eta_k', 'eta_n', 'eta_mid', 'eta_diff', 'grad_H', 'grad_I', 'unit_b1', 'e_field', 'Exb', 'k')
+def push_gc_bxEstar_discrete_gradient_2nd_order(dt: float,
+                                                stage: int,
+                                                args_markers: 'MarkerArguments',
+                                                args_derham: 'DerhamArguments',
+                                                args_domain: 'DomainArguments',
+                                                epsilon: float,
+                                                unit_b1_1: 'float[:,:,:]', unit_b1_2: 'float[:,:,:]', unit_b1_3: 'float[:,:,:]',
+                                                grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                                B_dot_b_coeffs: 'float[:,:,:]', 
+                                                curl_unit_b_dot_b0: 'float[:,:,:]',
+                                                e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                                evaluate_e_field: bool):
+    r'''For each marker :math:`p` in markers array, make one step of Picard iteration (index :math:`k`) for
+
+    .. math::
+
+        \frac{\boldsymbol \eta_p^{n+1, k+1} - \boldsymbol \eta_p^{n}}{\Delta t} = 
+        \frac{\hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} \left( \frac{\mathbf Z_p^{n+1, k}
+        + \mathbf Z_p^{n}}{2} \right) \times \frac{\partial \overline H}{\partial \boldsymbol \eta} 
+        (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n} )  \,,
+        
+    where the Hamiltonian reads
+    
+    .. math::
+    
+        H(\mathbf Z) = H(\boldsymbol \eta, v_{\parallel}) = \varepsilon\frac{v_{\parallel}^2}{2} 
+        + \varepsilon\mu_p |\hat{\mathbf B}| (\boldsymbol \eta) + \hat \phi(\boldsymbol \eta)\,,
+
+    and where
+    
+    .. math::
+    
+        \frac{\partial \overline H}{\partial \boldsymbol \eta}
+        (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})
+        = \frac{\partial H}{\partial \boldsymbol \eta} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)
+        + (\boldsymbol \eta_p^{n+1, k} - \boldsymbol \eta_p^{n}) \,
+        \frac{H(\mathbf Z_p^{n+1, k}) - H(\mathbf Z_p^{n}) - (\boldsymbol \eta_p^{n+1, k} - \boldsymbol \eta_p^{n}) \cdot
+        \frac{\partial H}{\partial \boldsymbol \eta} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)}{||\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}||}\,,
+
+    is the Gonzalez discrete gradient.
+    
+    Notes
+    -----
+    This kernel performs evaluations at mid-points. 
+    Other evaluations are performed in ``init_kernels`` and ``eval_kernels``,
+    respectively.
     '''
 
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
 
-    # containers for fields
-    bb = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    efield = empty(3, dtype=float)
-    e_star = empty(3, dtype=float)
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
+    
+    grad_H = empty(3, dtype=float)
+    grad_I = empty(3, dtype=float)
+    
     unit_b1 = empty(3, dtype=float)
+    e_field = zeros(3, dtype=float)
+    Exb = empty(3, dtype=float)
 
     # intermediate k-vector
     k = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    residual_idx = args_markers.residual_idx
+    first_free_idx = args_markers.first_free_idx
 
-    # get number of stages
-    n_stages = shape(b)[0]
-
-    if stage == n_stages - 1:
-        last = 1.
-    else:
-        last = 0.
-
-    #$ omp parallel private(ip, v, mu, k, k_v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, grad_abs_b, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
-    #$ omp for
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is converged or a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
-        if markers[ip, 11] == -1.:
-            continue
-
-        if stage == 0.:
-            # save initial parallel velocity
-            markers[ip, 14] = markers[ip, 3]
-
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta_mid[:] = (eta_k + eta_n)/2.
+        eta_mid[:] = mod(eta_mid, 1.)
+        eta_diff[:] = eta_k - eta_n
+        
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
+        
+        # Hamiltonian at n (from init_kernel) 
+        H_n = markers[ip, first_free_idx]
+        
+        # Hamiltonian at (n+1, k) (from eval_kernel)
+        H_k = markers[ip, first_free_idx + 1]
 
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
+        # mid-point evaluate Jacobian, result in dfm
+        evaluation_kernels.df(eta_mid[0], eta_mid[1], eta_mid[2],
                               args_domain,
                               dfm)
-
-        # metric coeffs
+        
         det_df = linalg_kernels.det(dfm)
 
-        # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
+        # mid-point spline evaluation
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], 
+                                        args_derham)
 
-        # grad_abs_b; 1form
         eval_1form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              grad_absB0_1,
-                              grad_absB0_2,
-                              grad_absB0_3,
-                              grad_abs_b)
-
-        # b; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              beq_1,
-                              beq_2,
-                              beq_3,
-                              bb)
-
-        # norm_b1; 1form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              unit_b11,
-                              unit_b12,
-                              unit_b13,
+                              unit_b1_1,
+                              unit_b1_2,
+                              unit_b1_3,
                               unit_b1)
 
-        # curl_norm_b; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              curl_b1,
-                              curl_b2,
-                              curl_b3,
-                              curl_b)
-
-        # absB0; 0-form
-        absB0_at_eta = eval_0form_spline_mpi(span1, span2, span3,
-                                             args_derham,
-                                             absB0)
-
-        # electric field: 1-form components
+        # compute grad_H at n + 1/2
         eval_1form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              efield_1,
-                              efield_2,
-                              efield_3,
-                              efield)
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              grad_H)
 
-        # calculate Bstar
-        b_star[:] = bb + epsilon/Z*v*curl_b
+        grad_H *= epsilon*mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            
+            e_field *= -1.
+            grad_H += e_field
+        
+        # compute grad_I
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) 
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff)
+        
+        if dZ_squared == 0.:
+            grad_I[:] = grad_H
+        else:
+            grad_I[:] = grad_H + eta_diff*(H_k - H_n - dZ_dot_grad_H) / dZ_squared
 
-        # E*
-        e_star[:] = efield - epsilon / Z * mu * grad_abs_b
+        # compute B*_parallel
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        B_dot_b_coeffs)
 
-        # curvature times det_df
-        curvature_det_df = linalg_kernels.scalar_dot(curl_b, unit_b1)
+        b_star_parallel = eval_0form_spline_mpi(span1, span2, span3,
+                                                args_derham,
+                                                curl_unit_b_dot_b0)
 
-        # B^*_parallel times det_df
-        b_star_para = absB0_at_eta * det_df + epsilon/Z * v * curvature_det_df
+        b_star_parallel *= epsilon * v
+        b_star_parallel += B_dot_b
+        b_star_parallel *= det_df 
 
-        # calculate k for X
-        k[:] = b_star*v/b_star_para
+        # calculate k
+        linalg_kernels.cross(unit_b1, grad_I, Exb)
 
-        # calculate k_v for v
-        temp = linalg_kernels.scalar_dot(e_star, b_star)
-        k_v = Z/epsilon * temp / b_star_para
+        k[:] = Exb/b_star_parallel
 
         # accumulation for last stage
-        markers[ip, 15:18] += dt*b[stage]*k
-        markers[ip, 18] += dt*b[stage]*k_v
+        markers[ip, 0:3] = eta_n + dt*k
+        
+        # residual
+        markers[ip, residual_idx] = sqrt((markers[ip, 0] - eta_k[0])**2 
+                                       + (markers[ip, 1] - eta_k[1])**2
+                                       + (markers[ip, 2] - eta_k[2])**2)
+        
 
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 11:14] + \
-            dt*a[stage]*k + last*markers[ip, 15:18]
-        markers[ip, 3] = markers[ip, 14] + dt * \
-            a[stage]*k_v + last*markers[ip, 18]
-
-    #$ omp end parallel
-
-
-@stack_array('dfm', 'df_t', 'g', 'g_inv', 'k', 'bb', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'b_star', 'temp1', 'temp2', 'temp3')
-def push_gc_all_explicit_multistage(markers: 'float[:,:]',
-                                    dt: float,
-                                    stage: int,
-                                    args_derham: 'DerhamArguments',
-                                    args_domain: 'DomainArguments',
-                                    epsilon: float,
-                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                    grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                    a: 'float[:]', b: 'float[:]', c: 'float[:]'):
-    r'''Single stage of a s-stage explicit pushing step for the guiding center drift,
-
-    Marker update:
+@stack_array('eta_k', 'eta_n', 'eta_k_shifted', 'eta_diff', 'grad_H_12', 'grad_H', 'unit_b1', 'e_field', 'grad_I', 'Ddg', 'bcross_mat', 'func', 'Dfunc', 'Dfunc_inv', 'k')
+def push_gc_bxEstar_discrete_gradient_1st_order_newton(dt: float,
+                                                       stage: int,
+                                                       args_markers: 'MarkerArguments',
+                                                       args_derham: 'DerhamArguments',
+                                                       args_domain: 'DomainArguments',
+                                                       epsilon: float,
+                                                       grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                                       B_dot_b_coeffs: 'float[:,:,:]', 
+                                                       e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                                       phi_coeffs: 'float[:,:,:]',
+                                                       evaluate_e_field: bool):
+    r'''For each marker :math:`p` in markers array, make one step of Newton iteration for
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \epsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_0 (\boldsymbol \eta_p) + \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p}\,,
-            \\
-            \dot v_{\parallel,\,p} &=  - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p \hat \nabla \hat{B}^0_\parallel(\boldsymbol \eta_p) \,,
-        \end{aligned}
+        \frac{\boldsymbol \eta_p^{n+1} - \boldsymbol \eta_p^{n}}{\Delta t} = 
+        \frac{\hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\mathbf Z_p^{n}) \times \frac{\partial \overline H}{\partial \boldsymbol \eta} 
+        (\boldsymbol \eta_p^{n+1}, \boldsymbol \eta_p^{n} )  \,,
+        
+    where the Hamiltonian reads
+    
+    .. math::
+    
+        H(\mathbf Z) = H(\boldsymbol \eta, v_{\parallel}) = \varepsilon\frac{v_{\parallel}^2}{2} 
+        + \varepsilon\mu_p |\hat{\mathbf B}| (\boldsymbol \eta) + \hat \phi(\boldsymbol \eta)\,,
+
+    and where
+    
+    .. math::
+    
+        \frac{\partial \overline H}{\partial \boldsymbol \eta}
+        (\boldsymbol \eta_p^{n+1}, \boldsymbol \eta_p^{n})
+        = \begin{pmatrix}
+        \frac{H(\eta_{p,1}^{n+1}) - H}{\eta_{p,1}^{n+1} - \eta_{p,1}^n}
+        \\[1mm]
+        \frac{H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1}) - H(\eta_{p,1}^{n+1})}{\eta_{p,2}^{n+1} - \eta_{p,2}^n}
+        \\[1mm]
+        \frac{H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1}, \eta_{p,3}^{n+1}) - H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1})}{\eta_{p,3}^{n+1} - \eta_{p,3}^n}
+        \end{pmatrix}\,,
+
+    is the Itoh-Abe discrete gradient. The Newton algorithm searches the roots of
+    
+    .. math::
+    
+        \mathbf F(\boldsymbol \eta_p^{n+1}) = \boldsymbol \eta_p^{n+1} - \boldsymbol \eta_p^{n} 
+        - \Delta t \frac{\hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\mathbf Z_p^{n}) \times \frac{\partial \overline H}{\partial \boldsymbol \eta} 
+        (\boldsymbol \eta_p^{n+1}, \boldsymbol \eta_p^{n}) = 0\,,
+        
+    via (iteration index :math:`k`)
+    
+    .. math::
+    
+        \boldsymbol \eta_p^{n+1, k+1} = \boldsymbol \eta_p^{n+1, k} 
+        - D\mathbf F^{-1}(\boldsymbol \eta_p^{n+1, k}) \mathbf F( \boldsymbol \eta_p^{n+1, k})\,,
+        
+    where the Jacobian is given by
+    
+    .. math::
+    
+        D\mathbf F(\boldsymbol \eta_p^{n+1, k}) = \mathbb I_{3\times 3} 
+        - \Delta t \frac{\hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\mathbf Z_p^{n}) \times
+        D\frac{\partial \overline H}{\partial \boldsymbol \eta} 
+        (\boldsymbol \eta_p^{n+1}, \boldsymbol \eta_p^{n})\,.
+        
+    Notes
+    -----
+    This kernel performs evaluations at :math:`\boldsymbol \eta_p^{n+1, k}`. 
+    Other evaluations are performed in ``init_kernels`` and ``eval_kernels``,
+    respectively.
+    '''
+
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta_k_shifted = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
+    
+    grad_H_12 = empty(2, dtype=float)
+    grad_H = empty(3, dtype=float)
+    
+    unit_b1 = empty(3, dtype=float)
+    e_field = zeros(3, dtype=float)
+    grad_I = zeros(3, dtype=float)
+    Ddg = zeros((3, 3), dtype=float)
+    bcross_mat = zeros((3, 3), dtype=float)
+    func = zeros(3, dtype=float)
+    Dfunc = zeros((3, 3), dtype=float)
+    Dfunc_inv = zeros((3, 3), dtype=float)
+
+    # intermediate k-vector
+    k = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    residual_idx = args_markers.residual_idx
+    first_free_idx = args_markers.first_free_idx
+
+    for ip in range(n_markers):
+
+        # check if marker is converged or a hole
+        if markers[ip, buffer_idx] == -1.:
+            continue
+
+        eta_k[:] = markers[ip, 0:3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        eta_k_shifted[:] = eta_k + markers[ip, shift_idx:shift_idx + 3]
+        eta_diff[:] = eta_k_shifted - eta_n
+
+        v = markers[ip, 3]
+        mu = markers[ip, mu_idx]
+        
+        # Hamiltonian at n
+        H_n = markers[ip, first_free_idx]
+        
+        # Poisson matrix at n 
+        b_star_parallel = markers[ip, first_free_idx + 1]
+        unit_b1[:] = markers[ip, first_free_idx + 2:first_free_idx + 5]
+        
+        # Hamiltonian at eta_1^(n+1, k)
+        H_k1 = markers[ip, first_free_idx + 5]
+        
+        # Hamiltonian at eta_1^(n+1, k), eta_2^(n+1, k)
+        H_k12 = markers[ip, first_free_idx + 6]
+        
+        # 1st comp of gradient of Hamiltonian at eta_1^(n+1, k)
+        grad_H_1 = markers[ip, first_free_idx + 7]
+        
+        # 1st and 2nd comps of gradient of Hamiltonian at eta_1^(n+1, k), eta_2^(n+1, k)
+        grad_H_12[:] = markers[ip, first_free_idx + 8:first_free_idx + 10]
+        
+        # evaluate H at (n+1, k)
+        span1, span2, span3 = get_spans(eta_k[0], eta_k[1], eta_k[2], args_derham)
+
+        if evaluate_e_field:
+            phi = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        phi_coeffs)
+        else:
+            phi = 0.
+        
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        B_dot_b_coeffs)
+
+        H_k = epsilon*v**2/2. + epsilon*mu*B_dot_b + phi
+
+        # compute grad_H at (n+1, k)
+        eval_1form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              grad_H)
+
+        grad_H *= epsilon*mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            
+            e_field *= -1.
+            grad_H += e_field
+
+        # compute the Itoh discrete gradient
+        if eta_diff[0] == 0.:
+            grad_I[0] = grad_H[0]
+        else:
+            grad_I[0] = (H_k1 - H_n)/(eta_diff[0])
+            
+        if eta_diff[1] == 0.:
+            grad_I[1] = grad_H[1]
+        else:
+            grad_I[1] = (H_k12 - H_k1)/(eta_diff[1])
+        
+        if eta_diff[2] == 0.:
+            grad_I[2] = grad_H[2]
+        else:
+            grad_I[2] = (H_k - H_k12)/(eta_diff[2])
+            
+        # compute matrix for cross product  
+        bcross_mat[0, 1] = -unit_b1[2]
+        bcross_mat[0, 2] = unit_b1[1]
+        bcross_mat[1, 0] = unit_b1[2]
+        bcross_mat[1, 2] = -unit_b1[0]
+        bcross_mat[2, 0] = -unit_b1[1]
+        bcross_mat[2, 1] = unit_b1[0]
+        bcross_mat /= b_star_parallel
+        
+        # compute F 
+        linalg_kernels.matrix_vector(bcross_mat, grad_I, func)
+        func *= -dt
+        func += eta_diff
+         
+        # compute the Jacobian of the discrete gradient
+        if eta_diff[0] == 0.:
+            Ddg[0, 0] = 0.
+        else:
+            Ddg[0, 0] = (grad_H_1*eta_diff[0] - (H_k1 - H_n)) / eta_diff[0]**2
+            
+        if eta_diff[1] == 0.:
+            Ddg[1, 1] = 0.
+            Ddg[1, 0] = 0.
+        else:
+            Ddg[1, 1] = (grad_H_12[1]*eta_diff[1] - (H_k12 - H_k1)) / eta_diff[1]**2
+            Ddg[1, 0] = (grad_H_12[0] - grad_H_1) / eta_diff[1]
+        
+        if eta_diff[2] == 0.:
+            Ddg[2, 2] = 0.
+            Ddg[2, 0] = 0.
+            Ddg[2, 1] = 0.
+        else:
+            Ddg[2, 2] = (grad_H[2]*eta_diff[2] - (H_k - H_k12)) / eta_diff[2]**2
+            Ddg[2, 0] = (grad_H[0] - grad_H_12[0]) / eta_diff[2]
+            Ddg[2, 1] = (grad_H[1] - grad_H_12[1]) / eta_diff[2]
+        
+        # compute Jacobian matrix DF
+        linalg_kernels.matrix_matrix(bcross_mat, Ddg, Dfunc)
+        Dfunc *= -dt
+        Dfunc[0, 0] += 1.
+        Dfunc[1, 1] += 1.
+        Dfunc[2, 2] += 1.
+
+        # comute inverse and update
+        linalg_kernels.matrix_inv(Dfunc, Dfunc_inv)
+        linalg_kernels.matrix_vector(Dfunc_inv, func, k)
+
+        markers[ip, 0:3] -= k
+        
+        # residual
+        markers[ip, residual_idx] = sqrt(k[0]**2 + k[1]**2 + k[2]**2)
+
+
+@stack_array('dfm', 'e_star', 'b2', 'b_star', 'k')
+def push_gc_Bstar_explicit_multistage(dt: float,
+                                      stage: int,
+                                      args_markers: 'MarkerArguments',
+                                      args_derham: 'DerhamArguments',
+                                      args_domain: 'DomainArguments',
+                                      epsilon: float,
+                                      grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                      b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+                                      curl_unit_b2_1: 'float[:,:,:]', curl_unit_b2_2: 'float[:,:,:]', curl_unit_b2_3: 'float[:,:,:]',
+                                      B_dot_b_coeffs: 'float[:,:,:]',
+                                      curl_unit_b_dot_b0: 'float[:,:,:]',
+                                      e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                      evaluate_e_field: bool,
+                                      a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of an s-stage explicit Runge-Kutta scheme for solving
+
+    .. math::
+
+        \left\{ 
+            \begin{aligned} 
+                \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} &= v_{\parallel,p}(t) \frac{\hat{\mathbf B}^{*2}}{\sqrt g \,\hat B^{*}_\parallel}(\boldsymbol \eta_p(t)) \,,
+                \\
+                \frac{\textnormal d v_{\parallel,p}(t)}{\textnormal d t} &= \frac{1}{\varepsilon} \frac{\hat{\mathbf B}^{*2}}{\sqrt g\, \hat B^{*}_\parallel} \cdot \hat{\mathbf E}^{*1} (\boldsymbol \eta_p(t)) \,,
+            \end{aligned}
+        \right.
+        
+    where
+    
+    .. math::
+
+        \hat{\mathbf E}^{*1} = - \hat \nabla \hat \phi - \varepsilon \mu_p \hat \nabla \hat B\,,\qquad \hat{\mathbf B}^{*2} = \hat{\mathbf B}^2 + \varepsilon v_\parallel \hat \nabla \times \hat{\mathbf b}^1_0\,,\qquad  \hat B^*_\parallel = \hat B + \varepsilon v_{\parallel,p} \widehat{\left[(\nabla \times \mathbf b_0) \cdot \mathbf b_0\right]}\,,
 
     for each marker :math:`p` in markers array.
     '''
 
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
 
     # containers for fields
-    bb = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
+    e_star = empty(3, dtype=float)
+    e_field = zeros(3, dtype=float)
+    b2 = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
-    temp1 = empty(3, dtype=float)
-    temp2 = empty(3, dtype=float)
-    temp3 = empty(3, dtype=float)
 
     # intermediate k-vector
     k = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -682,1187 +763,750 @@ def push_gc_all_explicit_multistage(markers: 'float[:,:]',
 
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
-        if markers[ip, 11] == -1.:
-            continue
-
-        if stage == 0.:
-            # save initial parallel velocity
-            markers[ip, 14] = markers[ip, 3]
+        # if stage == 0.:
+        #     # save initial parallel velocity
+        #     markers[ip, 14] = markers[ip, 3]
 
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         v = markers[ip, 3]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta1, eta2, eta3,
                               args_domain,
                               dfm)
 
-        # evaluate inverse of G
-        linalg_kernels.transpose(dfm, df_t)
-        linalg_kernels.matrix_matrix(df_t, dfm, g)
-        linalg_kernels.matrix_inv(g, g_inv)
-
-        # metric coeffs
         det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        # grad_abs_b; 1form
+        # compute E* 
         eval_1form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              grad_abs_b1,
-                              grad_abs_b2,
-                              grad_abs_b3,
-                              grad_abs_b)
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              e_star)
 
-        # norm_b1; 1form
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              norm_b11,
-                              norm_b12,
-                              norm_b13,
-                              norm_b1)
-
-        # norm_b2; 2form
+        e_star *= -epsilon * mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            e_star += e_field
+        
+        # compute B*
         eval_2form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              norm_b21,
-                              norm_b22,
-                              norm_b23,
-                              norm_b2)
-
-        # b; 2form
+                              b2_1,
+                              b2_2,
+                              b2_3,
+                              b2)
+        
         eval_2form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              b1,
-                              b2,
-                              b3,
-                              bb)
+                              curl_unit_b2_1,
+                              curl_unit_b2_2,
+                              curl_unit_b2_3,
+                              b_star)
 
-        # curl_norm_b; 2form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              curl_norm_b1,
-                              curl_norm_b2,
-                              curl_norm_b3,
-                              curl_norm_b)
+        b_star *= epsilon * v
+        b_star += b2
 
-        # transform to H1vec
-        b_star[:] = bb + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
+        # compute B*_parallel
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                      args_derham,
+                                      B_dot_b_coeffs)
 
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
+        b_star_parallel = eval_0form_spline_mpi(span1, span2, span3,
+                                                args_derham,
+                                                curl_unit_b_dot_b0)
 
-        # calculate norm_b X grad_abs_b
-        linalg_kernels.matrix_vector(g_inv, grad_abs_b, temp1)
+        b_star_parallel *= epsilon * v
+        b_star_parallel += B_dot_b
+        b_star_parallel *= det_df 
 
-        linalg_kernels.cross(norm_b2, temp1, temp2)
-
-        linalg_kernels.matrix_vector(g_inv, temp2, temp3)
-
-        # calculate k
-        k[:] = (epsilon*mu*temp3 + b_star*v)/abs_b_star_para
+        # calculate k for eta
+        k[:] = b_star/b_star_parallel * v
 
         # calculate k_v for v
-        temp = linalg_kernels.scalar_dot(b_star, grad_abs_b)
-
-        k_v = -1*mu/abs_b_star_para*temp
+        k_v = linalg_kernels.scalar_dot(b_star, e_star)
+        k_v /= b_star_parallel * epsilon
 
         # accumulation for last stage
-        markers[ip, 15:18] += dt*b[stage]*k
-        markers[ip, 18] += dt*b[stage]*k_v
+        markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
+        markers[ip, first_free_idx + 3] += dt*b[stage]*k_v
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 11:14] + \
-            dt*a[stage]*k + last*markers[ip, 15:18]
-        markers[ip, 3] = markers[ip, 14] + dt * \
-            a[stage]*k_v + last*markers[ip, 18]
+        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+            dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
+        markers[ip, 3] = markers[ip, buffer_idx + 3] + dt * \
+            a[stage]*k_v + last*markers[ip, first_free_idx + 3]
 
 
-@stack_array('e', 'e_diff', 'grad_I', 'S', 'temp', 'tmp2')
-def push_gc_bxEstar_discrete_gradient(markers: 'float[:,:]',
-                                      dt: float,
-                                      stage: int,
-                                      args_derham: 'DerhamArguments',
-                                      args_domain: 'DomainArguments',
-                                      epsilon: float,
-                                      abs_b: 'float[:,:,:]',
-                                      b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                      norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                      norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                      curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                      grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                      maxiter: int, tol: float):
-    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order(Gonzalez, mid-point)
+@stack_array('eta_k', 'eta_n', 'eta_mid', 'eta_diff', 'grad_H', 'grad_I', 'e_field', 'b_star', 'k')
+def push_gc_Bstar_discrete_gradient_1st_order(dt: float,
+                                              stage: int,
+                                              args_markers: 'MarkerArguments',
+                                              args_derham: 'DerhamArguments',
+                                              args_domain: 'DomainArguments',
+                                              epsilon: float,
+                                              grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                              e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                              evaluate_e_field: bool):
+    r'''For each marker :math:`p` in markers array, make one step of Picard iteration (index :math:`k`) for
 
     .. math::
 
-        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
-
-    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and
-
+        \left\{ 
+            \begin{aligned} 
+                \frac{\boldsymbol \eta_p^{n+1, k+1} - \boldsymbol \eta_p^{n}}{\Delta t} &= 
+                \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*2}}{\sqrt g \,\hat B^{*}_\parallel} (\mathbf Z_p^{n}) 
+                \frac{\partial \overline H}{\partial v_{\parallel}} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+                \\
+                \frac{v_{\parallel,p}^{n+1,k+1} - v_{\parallel,p}^{n}}{\Delta t} &= 
+                - \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*2}}{\sqrt g\, \hat B^{*}_\parallel} (\mathbf Z_p^{n}) \cdot
+                \frac{\partial \overline H}{\partial \boldsymbol \eta} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+            \end{aligned}
+        \right.
+        
+    where the Hamiltonian reads
+    
     .. math::
+    
+        H(\mathbf Z) = H(\boldsymbol \eta, v_{\parallel}) = \varepsilon\frac{v_{\parallel}^2}{2} 
+        + \varepsilon\mu_p |\hat{\mathbf B}| (\boldsymbol \eta) +  \hat \phi(\boldsymbol \eta)\,,
 
-        \mathbb S(\mathbf X_n, \mathbf X_{n+1}) &= \epsilon \frac{1}{ B^*_\parallel (\mathbf X_{n+1/2})}  G^{-1}(\mathbf X_{n+1/2}) \hat{\mathbf b}^2_0(\mathbf X_{n+1/2}) \times G^{-1}(\mathbf X_{n+1/2})\,, 
+    and where
+    
+    .. math::
+    
+        \frac{\partial \overline H}{\partial \mathbf Z}
+        (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})
+        = \frac{\partial H}{\partial \mathbf Z} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)
+        + (\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}) \,
+        \frac{H(\mathbf Z_p^{n+1, k}) - H(\mathbf Z_p^{n}) - (\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}) \cdot
+        \frac{\partial H}{\partial \mathbf Z} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)}{||\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}||}\,,
 
-        \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H(\mathbf X_{n+1/2}) + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H(\mathbf X_{n+1}) - H(\mathbf X_{n}) - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H(\mathbf X_{n+1/2})}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
-
-        H({\mathbf X}_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n})\,.
-
-    where :math:`\mathbf X_{n+1/2} = \frac{\mathbf X_n + \mathbf X_{n+1}}{2}` and
-    the velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
+    is the Gonzalez discrete gradient.
     '''
 
-    # containers for fields
-    temp = empty(3, dtype=float)
-    tmp2 = empty(3, dtype=float)
-    S = zeros((3, 3), dtype=float)
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
+    
+    grad_H = empty(3, dtype=float)
     grad_I = empty(3, dtype=float)
+    
+    e_field = zeros(3, dtype=float)
+    b_star = empty(3, dtype=float)
 
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
+    # intermediate k-vector
+    k = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    residual_idx = args_markers.residual_idx
+    first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is converged or a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
-        if markers[ip, 11] == -1.:
-            continue
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta_mid[:] = (eta_k + eta_n)/2.
+        eta_mid[:] = mod(eta_mid, 1.)
+        eta_diff[:] = eta_k - eta_n
+        
+        v_k = markers[ip, 3]
+        v_n = markers[ip, buffer_idx + 3]
+        v_mid = (v_k + v_n)/2.
+        v_diff = v_k - v_n
+        
+        mu = markers[ip, mu_idx]
+        
+        # Hamiltonian at n (from init_kernel)
+        H_n = markers[ip, first_free_idx]
+        
+        # Poisson matrix at n (from init_kernel)
+        b_star_parallel = epsilon * markers[ip, first_free_idx + 1]
+        b_star[:] = markers[ip, first_free_idx + 2:first_free_idx + 5]
 
-        e[:] = markers[ip, 0:3]
+        # Hamiltonian at (n+1, k) (from eval_kernel)
+        H_k = markers[ip, first_free_idx + 5]
 
-        e_diff[:] = e[:] - markers[ip, 11:14]
-        mu = markers[ip, 9]
+        # mid-point spline evaluation
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], 
+                                        args_derham)
 
-        if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-
-            continue
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e[0], e[1], e[2], args_derham)
-
-        # abs_b; 0form
-        abs_b0 = eval_0form_spline_mpi(span1, span2, span3,
-                                       args_derham,
-                                       abs_b)
-
-        # assemble S
-        S[0, 1] = markers[ip, 15]
-        S[0, 2] = markers[ip, 16]
-        S[1, 0] = -markers[ip, 15]
-        S[1, 2] = markers[ip, 17]
-        S[2, 0] = -markers[ip, 16]
-        S[2, 1] = -markers[ip, 17]
-
-        # calculate grad_I
-        tmp2[:] = markers[ip, 18:21]
-        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp2)
-        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
-
-        grad_I[:] = markers[ip, 18:21] + e_diff[:] * \
-            (abs_b0*mu - markers[ip, 21] - temp_scalar)/temp_scalar2
-
-        linalg_kernels.matrix_vector(S, grad_I, temp)
-
-        markers[ip, 0:3] = markers[ip, 11:14] + dt*temp[:]
-
-        markers[ip, 18:21] = markers[ip, 0:3]
-
-        e_diff[:] = markers[ip, 0:3] - e[:]
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1])**2 +
-                    (e_diff[2]/e[2])**2)
-
-        if diff < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-
-            continue
-
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
-
-
-@stack_array('e', 'e_diff', 'grad_I', 'S', 'temp', 'tmp2')
-def push_gc_bxEstarwithPhi_discrete_gradient(markers: 'float[:,:]',
-                                             dt: float,
-                                             stage: int,
-                                             args_derham: 'DerhamArguments',
-                                             args_domain: 'DomainArguments',
-                                             efield_1: 'float[:,:,:]', efield_2: 'float[:,:,:]', efield_3: 'float[:,:,:]',
-                                             grad_absB0_1: 'float[:,:,:]', grad_absB0_2: 'float[:,:,:]', grad_absB0_3: 'float[:,:,:]',
-                                             absB0: 'float[:,:,:]',
-                                             curl_b_dot_b0: 'float[:,:,:]',
-                                             unit_b1_1: 'float[:,:,:]', unit_b1_2: 'float[:,:,:]', unit_b1_3: 'float[:,:,:]',
-                                             epsilon: float,
-                                             Z: int,
-                                             maxiter: int, tol: float):
-    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order(Gonzalez, mid-point)
-
-    .. math::
-
-        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
-
-    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and
-
-    .. math::
-
-        \mathbb S(\mathbf X_n, \mathbf X_{n+1}) &= \epsilon \frac{1}{ B^*_\parallel (\mathbf X_{n+1/2})}  G^{-1}(\mathbf X_{n+1/2}) \hat{\mathbf b}^2_0(\mathbf X_{n+1/2}) \times G^{-1}(\mathbf X_{n+1/2})\,, 
-
-        \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H(\mathbf X_{n+1/2}) + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H(\mathbf X_{n+1}) - H(\mathbf X_{n}) - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H(\mathbf X_{n+1/2})}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
-
-        H({\mathbf X}_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n})\,.
-
-    where :math:`\mathbf X_{n+1/2} = \frac{\mathbf X_n + \mathbf X_{n+1}}{2}` and
-    the velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
-    '''
-
-    # containers for fields
-    temp = empty(3, dtype=float)
-    tmp2 = empty(3, dtype=float)
-    tmp3 = empty(3, dtype=float)
-    S = zeros((3, 3), dtype=float)
-    grad_I = empty(3, dtype=float)
-    efield = empty(3, dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 9] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-
-        e_diff[:] = e[:] - markers[ip, 9:12]
-        mu = markers[ip, 4]
-
-        if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
-
-            continue
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e[0], e[1], e[2], args_derham)
-
-        # abs_b; 0form
-        abs_b0 = eval_0form_spline_mpi(span1, span2, span3,
-                                       args_derham,
-                                       absB0)
-
-        # electric field: 1-form
+        # compute grad_H at n + 1/2
         eval_1form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              efield_1,
-                              efield_2,
-                              efield_3,
-                              efield)
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              grad_H)
 
-        # assemble S
-        S[0, 1] = markers[ip, 13]
-        S[0, 2] = markers[ip, 14]
-        S[1, 0] = -markers[ip, 13]
-        S[1, 2] = markers[ip, 15]
-        S[2, 0] = -markers[ip, 14]
-        S[2, 1] = -markers[ip, 15]
-
-        # calculate grad_I
-        tmp2[:] = markers[ip, 16:19]
-        # temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp2)
-        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
-
-        tmp3 = abs_b0*mu + epsilon / Z * efield
-
-        grad_I[:] = (tmp3 - markers[ip, 19])/temp_scalar2
-
-        linalg_kernels.matrix_vector(S, grad_I, temp)
-
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
-
-        markers[ip, 16:19] = markers[ip, 0:3]
-
-        e_diff[:] = markers[ip, 0:3] - e[:]
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1])**2 +
-                    (e_diff[2]/e[2])**2)
-
-        if diff < tol:
-            markers[ip, 9] = -1.
-            markers[ip, 10] = stage
-
-            continue
-
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
-
-
-@stack_array('e', 'e_diff', 'grad_I', 'tmp')
-def push_gc_Bstar_discrete_gradient(markers: 'float[:,:]',
-                                    dt: float,
-                                    stage: int,
-                                    args_derham: 'DerhamArguments',
-                                    args_domain: 'DomainArguments',
-                                    epsilon: float,
-                                    abs_b: 'float[:,:,:]',
-                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                    grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                    maxiter: int, tol: float):
-    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order(Gonzalez, mid-point)
-
-    .. math::
-
-        {\mathbf Z}^k_{n+1} = {\mathbf Z}_n + \Delta t \, \mathbb S({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1})
-
-    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and :math:`\mathbf Z_n = (\mathbf X_n, v_{\parallel, n})`.
-
-    .. math::
-
-        \mathbb S(\mathbf Z_n, \mathbf Z_{n+1}) &= \frac{1}{B^*_\parallel (\mathbf Z_{n+1/2})} \frac{1}{\sqrt{g(\mathbf X_{n+1/2})}} \hat{\mathbf B}^{*2} (\mathbf Z_{n+1/2}) \,, 
-
-        \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}_{n+1}) &= \nabla H(\mathbf Z_{n+1/2}) + ({\mathbf Z}_{n+1} + {\mathbf Z}_{n}) \frac{H(\mathbf Z_{n+1})- H(\mathbf Z_{n}) - ({\mathbf Z}_{n+1} - {\mathbf Z}_n)\cdot \nabla H(\mathbf Z_{n+1/2})}{||{\mathbf Z}_{n+1} - {\mathbf Z}_n||^2}\,,
-
-        H(\mathbf Z_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n}) + \frac{1}{2} v^2_{\parallel,n} \,.
-
-    where :math:`\mathbf Z_{n+1/2} = \frac{\mathbf Z_n + \mathbf Z_{n+1}}{2}`
-    and magentic moment :math:`\mu` are constant in this step.
-    '''
-
-    # containers for fields
-    grad_I = empty(3, dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
-    tmp = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 11:14]
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        v = markers[ip, 3]
-        v_old = markers[ip, 14]
-        v_mid = (markers[ip, 3] + markers[ip, 14])/2.
-        mu = markers[ip, 9]
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e[0], e[1], e[2], args_derham)
-
-        # abs_b; 0form
-        abs_b0 = eval_0form_spline_mpi(span1, span2, span3,
-                                       args_derham,
-                                       abs_b)
-
-        # calculate grad_I
-        tmp[:] = markers[ip, 19:22]
-        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp)
-        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
-            e_diff[2]**2 + (v - v_old)**2
-
-        if temp_scalar2 == 0.:
-            grad_I[:] = 0.
-            grad_Iv = v_mid
-
+        grad_H *= epsilon*mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            
+            e_field *= -1.
+            grad_H += e_field
+        
+        # compute grad_I
+        grad_H_v = epsilon * v_mid
+        
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) + v_diff*grad_H_v
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff) + v_diff*v_diff
+        
+        if dZ_squared == 0.:
+            grad_I[:] = grad_H
+            grad_I_v = grad_H_v
         else:
-            grad_I[:] = markers[ip, 19:22] + e_diff * \
-                (abs_b0*mu - markers[ip, 18] - temp_scalar)/temp_scalar2
-            grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
-                                           markers[ip, 18] - temp_scalar)/temp_scalar2
+            grad_I[:] = grad_H + eta_diff*(H_k - H_n - dZ_dot_grad_H) / dZ_squared
+            grad_I_v = grad_H_v + v_diff*(H_k - H_n - dZ_dot_grad_H) / dZ_squared
 
-        tmp[:] = markers[ip, 15:18]
-        temp_scalar3 = linalg_kernels.scalar_dot(tmp, grad_I)
+        # calculate k for eta
+        k[:] = b_star/b_star_parallel * grad_I_v
 
-        markers[ip, 0:3] = markers[ip, 11:14] + dt*markers[ip, 15:18]*grad_Iv
-        markers[ip, 3] = markers[ip, 14] - dt*temp_scalar3
+        # calculate k_v for v
+        k_v = linalg_kernels.scalar_dot(b_star, grad_I)
+        k_v /= -b_star_parallel
 
-        markers[ip, 19:23] = markers[ip, 0:4]
+        # compute values at (n+1, k+1)
+        markers[ip, 0:3] = eta_n + dt*k
+        markers[ip, 3] = v_n + dt*k_v
+        
+        # residual
+        markers[ip, residual_idx] = sqrt((markers[ip, 0] - eta_k[0])**2 
+                                       + (markers[ip, 1] - eta_k[1])**2
+                                       + (markers[ip, 2] - eta_k[2])**2
+                                       + ((markers[ip, 3] - v_k)/v_k)**2)
+        
 
-        e_diff[:] = e[:] - markers[ip, 0:3]
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1]) **
-                    2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
-
-        if diff < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-            continue
-
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
-
-
-@stack_array('e', 'e_diff', 'grad_I', 'S', 'temp', 'tmp2')
-def push_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]',
-                                             dt: float,
-                                             stage: int,
-                                             args_derham: 'DerhamArguments',
-                                             args_domain: 'DomainArguments',
-                                             epsilon: float,
-                                             abs_b: 'float[:,:,:]',
-                                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                             curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                             grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                             maxiter: int, tol: float):
-    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order faster scheme(fixed :math:`\mathbb S`, Gonzalez, mid-point)
+@stack_array('dfm', 'eta_k', 'eta_n', 'eta_mid', 'eta_diff', 'grad_H', 'grad_I', 'e_field', 'b2', 'b_star', 'k')
+def push_gc_Bstar_discrete_gradient_2nd_order(dt: float,
+                                              stage: int,
+                                              args_markers: 'MarkerArguments',
+                                              args_derham: 'DerhamArguments',
+                                              args_domain: 'DomainArguments',
+                                              epsilon: float,
+                                              grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                              b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+                                              curl_unit_b2_1: 'float[:,:,:]', curl_unit_b2_2: 'float[:,:,:]', curl_unit_b2_3: 'float[:,:,:]',
+                                              B_dot_b_coeffs: 'float[:,:,:]',
+                                              curl_unit_b_dot_b0: 'float[:,:,:]',
+                                              e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                              evaluate_e_field: bool):
+    r'''For each marker :math:`p` in markers array, make one step of Picard iteration (index :math:`k`) for
 
     .. math::
 
-        {\mathbf X}^k_{n+1} = {\mathbf X}_n + \Delta t \, \mathbb S({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}^{k-1}_{n+1})
-
-    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and
-
+        \left\{ 
+            \begin{aligned} 
+                \frac{\boldsymbol \eta_p^{n+1, k+1} - \boldsymbol \eta_p^{n}}{\Delta t} &= 
+                \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*2}}{\sqrt g \,\hat B^{*}_\parallel} 
+                \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right) 
+                \frac{\partial \overline H}{\partial v_{\parallel}} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+                \\
+                \frac{v_{\parallel,p}^{n+1,k+1} - v_{\parallel,p}^{n}}{\Delta t} &= 
+                - \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*2}}{\sqrt g\, \hat B^{*}_\parallel} 
+                \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right) \cdot
+                \frac{\partial \overline H}{\partial \boldsymbol \eta} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+            \end{aligned}
+        \right.
+        
+    where the Hamiltonian reads
+    
     .. math::
+    
+        H(\mathbf Z) = H(\boldsymbol \eta, v_{\parallel}) =\varepsilon\frac{v_{\parallel}^2}{2} 
+        + \varepsilon\mu_p |\hat{\mathbf B}| (\boldsymbol \eta) + \hat \phi(\boldsymbol \eta)\,,
 
-        \mathbb S(\mathbf X_n, \mathbf X_{n+1}) &\approx \mathbb S(\mathbf X_n) = \epsilon \frac{1}{ B^*_\parallel (\mathbf X_n)}  G^{-1}(\mathbf X_n) \hat{\mathbf b}^2_0(\mathbf X_n) \times G^{-1}(\mathbf X_n)\,, 
+    and where
+    
+    .. math::
+    
+        \frac{\partial \overline H}{\partial \mathbf Z}
+        (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})
+        = \frac{\partial H}{\partial \mathbf Z} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)
+        + (\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}) \,
+        \frac{H(\mathbf Z_p^{n+1, k}) - H(\mathbf Z_p^{n}) - (\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}) \cdot
+        \frac{\partial H}{\partial \mathbf Z} \left( \frac{\mathbf Z_p^{n+1, k} + \mathbf Z_p^{n}}{2} \right)}{||\mathbf Z_p^{n+1, k} - \mathbf Z_p^{n}||}\,,
 
-        \bar{\nabla} I ({\mathbf X}_n, {\mathbf X}_{n+1}) &= \nabla H(\mathbf X_{n+1/2}) + ({\mathbf X}_{n+1} + {\mathbf X}_{n}) \frac{H(\mathbf X_{n+1}) - H(\mathbf X_{n}) - ({\mathbf X}_{n+1} - {\mathbf X}_n)\cdot \nabla H(\mathbf X_{n+1/2})}{||{\mathbf X}_{n+1} - {\mathbf X}_n||^2}\,,
-
-        H({\mathbf X}_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n})\,.
-
-    where :math:`\mathbf X_{n+1/2} = \frac{\mathbf X_n + \mathbf X_{n+1}}{2}` and the velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
+    is the Gonzalez discrete gradient.
+    
+    Notes
+    -----
+    This kernel performs evaluations at mid-points. 
+    Other evaluations are performed in ``init_kernels`` and ``eval_kernels``,
+    respectively.
     '''
 
-    # containers for fields
-    temp = empty(3, dtype=float)
-    tmp2 = empty(3, dtype=float)
-    S = zeros((3, 3), dtype=float)
+    # allocate metric coeffs
+    dfm = empty((3, 3), dtype=float)
+
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
+    
+    grad_H = empty(3, dtype=float)
     grad_I = empty(3, dtype=float)
+    
+    e_field = zeros(3, dtype=float)
+    b2 = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
 
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
+    # intermediate k-vector
+    k = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    residual_idx = args_markers.residual_idx
+    first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        
+        # check if marker is converged or a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 11:14]
-        mu = markers[ip, 9]
-
-        if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-
-            continue
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e[0], e[1], e[2], args_derham)
-
-        # abs_b; 0form
-        abs_b0 = eval_0form_spline_mpi(span1, span2, span3,
-                                       args_derham,
-                                       abs_b)
-
-        # assemble S
-        S[0, 1] = markers[ip, 15]
-        S[0, 2] = markers[ip, 16]
-        S[1, 0] = -markers[ip, 15]
-        S[1, 2] = markers[ip, 17]
-        S[2, 0] = -markers[ip, 16]
-        S[2, 1] = -markers[ip, 17]
-
-        # calculate grad_I
-        tmp2[:] = markers[ip, 18:21]
-        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp2)
-        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
-
-        grad_I[:] = markers[ip, 18:21] + e_diff[:] * \
-            (abs_b0*mu - markers[ip, 21] - temp_scalar)/temp_scalar2
-
-        linalg_kernels.matrix_vector(S, grad_I, temp)
-
-        markers[ip, 0:3] = markers[ip, 11:14] + dt*temp[:]
-
-        markers[ip, 18:21] = markers[ip, 0:3]
-
-        e_diff[:] = markers[ip, 0:3] - e[:]
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1])
-                    ** 2 + (e_diff[2]/e[2])**2)
-
-        if diff < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-
-            continue
-
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
-
-
-@stack_array('e', 'e_diff', 'grad_I', 'tmp')
-def push_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]',
-                                           dt: float,
-                                           stage: int,
-                                           args_derham: 'DerhamArguments',
-                                           args_domain: 'DomainArguments',
-                                           epsilon: float,
-                                           abs_b: 'float[:,:,:]',
-                                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                           grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                           maxiter: int, tol: float):
-    r'''Single step of the fixed-point iteration (:math:`k`-index) for the discrete gradient method with 2nd order faster scheme(fixed :math:`\mathbb S`, Gonzalez, mid-point)
-
-    .. math::
-
-        {\mathbf Z}^k_{n+1} = {\mathbf Z}_n + \Delta t \, \mathbb S({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1}) \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}^{k-1}_{n+1})
-
-    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and :math:`\mathbf Z_n = (\mathbf X_n, v_{\parallel, n})`.
-
-    .. math::
-
-        \mathbb S(\mathbf Z_n, \mathbf Z_{n+1}) &\approx \mathbb S(\mathbf Z_n) = \frac{1}{B^*_\parallel (\mathbf Z_n)} \frac{1}{\sqrt{g(\mathbf X_n)}} \hat{\mathbf B}^{*2} (\mathbf Z_n) \,, 
-
-        \bar{\nabla} I ({\mathbf Z}_n, {\mathbf Z}_{n+1}) &= \nabla H(\mathbf Z_{n+1/2}) + ({\mathbf Z}_{n+1} + {\mathbf Z}_{n}) \frac{H(\mathbf Z_{n+1})- H(\mathbf Z_{n}) - ({\mathbf Z}_{n+1} - {\mathbf Z}_n)\cdot \nabla H(\mathbf Z_{n+1/2})}{||{\mathbf Z}_{n+1} - {\mathbf Z}_n||^2}\,,
-
-        H(\mathbf Z_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n}) + \frac{1}{2} v^2_{\parallel,n} \,.
-
-    where :math:`\mathbf Z_{n+1/2} = \frac{\mathbf Z_n + \mathbf Z_{n+1}}{2}`
-    and magentic moment :math:`\mu` are constant in this step.
-    '''
-
-    # containers for fields
-    grad_I = empty(3, dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
-    tmp = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 11:14]
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        v = markers[ip, 3]
-        v_old = markers[ip, 14]
-        v_mid = (markers[ip, 3] + markers[ip, 14])/2.
-        mu = markers[ip, 9]
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e[0], e[1], e[2], args_derham)
-
-        # abs_b; 0form
-        abs_b0 = eval_0form_spline_mpi(span1, span2, span3,
-                                       args_derham,
-                                       abs_b)
-
-        # calculate grad_I
-        tmp[:] = markers[ip, 19:22]
-        temp_scalar = linalg_kernels.scalar_dot(e_diff, tmp)
-        temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + \
-            e_diff[2]**2 + (v - v_old)**2
-
-        if temp_scalar2 == 0.:
-            grad_I[:] = 0.
-            grad_Iv = v_mid
-
-        else:
-            grad_I[:] = markers[ip, 19:22] + e_diff * \
-                (abs_b0*mu - markers[ip, 18] - temp_scalar)/temp_scalar2
-            grad_Iv = v_mid + (v - v_old)*(abs_b0*mu -
-                                           markers[ip, 18] - temp_scalar)/temp_scalar2
-
-        tmp[:] = markers[ip, 15:18]
-        temp_scalar3 = linalg_kernels.scalar_dot(tmp, grad_I)
-
-        markers[ip, 0:3] = markers[ip, 11:14] + dt*markers[ip, 15:18]*grad_Iv
-        markers[ip, 3] = markers[ip, 14] - dt*temp_scalar3
-
-        markers[ip, 19:23] = markers[ip, 0:4]
-
-        e_diff[:] = e[:] - markers[ip, 0:3]
-
-        # TODO: replace with better idea
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        diff = sqrt((e_diff[0]/e[0])**2 + (e_diff[1]/e[1]) **
-                    2 + (e_diff[2]/e[2])**2 + (v - markers[ip, 3])**2)
-
-        if diff < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-            continue
-
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
-
-
-@stack_array('e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv')
-def push_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]',
-                                                  dt: float,
-                                                  stage: int,
-                                                  args_derham: 'DerhamArguments',
-                                                  args_domain: 'DomainArguments',
-                                                  epsilon: float,
-                                                  abs_b: 'float[:,:,:]',
-                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                  grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                  maxiter: int, tol: float):
-    r'''Single step of the Newton-Raphson iteration (:math:`k`-index) for the discrete gradient method with 1st order faster scheme(fixed :math:`\mathbb S`, Itoh-Abe).
-    Looking for a root (:math:`F=0`) of the function defined as
-
-    .. math::
-
-        F(\mathbf X_{n+1}) = \mathbf X_{n+1} - \mathbf X_n - \Delta t \mathbb S(\mathbf X_n) \bar \nabla I(\mathbf X_n, \mathbf X_{n+1})
-
-    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t`.
-
-    From the initial guess
-
-    .. math::
-
-        \mathbf X^0_{n+1} = \mathbf X_n + \Delta t \mathbb S(\mathbf X_n) \nabla H(\mathbf X_n) \,,
-
-    iteratively solve the following equation
-
-    .. math::
-
-        \mathbf X^{k+1}_{n+1} = \mathbf X^k_n - J_F^{-1}(\mathbf X^k_{n+1}) F(\mathbf X^k_{n+1}) \,,
-
-    where the Jacobian of F is given as
-
-    .. math::
-
-        (J_F)_{i,j} = (J_F)_{i,j} = \frac{\partial F_i}{\partial \mathbf X_{n+1,j}}  = 
-        \begin{pmatrix}
-            1 & 0 & 0 \\
-            0 & 1 & 0 \\
-            0 & 0 & 1
-        \end{pmatrix}
-        - \Delta t \mathbb S(\mathbf X_n) \frac{\partial \bar \nabla I_i}{\partial \mathbf X_{n+1,j}} \,.
-
-    .. math::
-
-        \mathbb S(\mathbf X_n, \mathbf X_{n+1}) &\approx \mathbb S(\mathbf X_n) = \epsilon \frac{1}{ B^*_\parallel (\mathbf X_n)}  G^{-1}(\mathbf X_n) \hat{\mathbf b}^2_0(\mathbf X_n) \times G^{-1}(\mathbf X_n)\,, 
-        \\
-        \bar \nabla I (\mathbf X_n, \mathbf X_{n+1}) &= 
-        \begin{pmatrix}
-            (H(X_{1,n+1},X_{2,n},X_{3,n})     - H(X_{1,n},X_{2,n},X_{3,n})    ) / (X_{1,n+1} - X_{1,n}) \\
-            (H(X_{1,n+1},X_{2,n+1},X_{3,n})   - H(X_{1,n+1},X_{2,n},X_{3,n})  ) / (X_{2,n+1} - X_{2,n}) \\
-            (H(X_{1,n+1},X_{2,n+1},X_{3,n+1}) - H(X_{1,n+1},X_{2,n+1},X_{3,n})) / (X_{3,n+1} - X_{3,n})
-        \end{pmatrix} \,,
-        \\
-        H(\mathbf X_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n})\,.
-
-    where the velocity :math:`v_\parallel` and magentic moment :math:`\mu` are constant in this step.
-    '''
-
-    # containers for fields
-    identity = zeros((3, 3), dtype=float)
-    temp = empty(3, dtype=float)
-    F = empty(3, dtype=float)
-    S = zeros((3, 3), dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    grad_I = empty(3, dtype=float)
-    Jacobian_grad_I = zeros((3, 3), dtype=float)
-    Jacobian = zeros((3, 3), dtype=float)
-    Jacobian_inv = zeros((3, 3), dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-    e_old = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        e_old[:] = markers[ip, 11:14]
-        mu = markers[ip, 9]
-
-        e_diff[:] = e[:] - e_old[:]
-
-        if abs(e_diff[0]/e[0]) < tol and abs(e_diff[1]/e[1]) < tol and abs(e_diff[2]/e[2]) < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-
-            continue
-
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
-
-        # assemble S
-        S[0, 1] = markers[ip, 15]
-        S[0, 2] = markers[ip, 16]
-        S[1, 0] = -markers[ip, 15]
-        S[1, 2] = markers[ip, 17]
-        S[2, 0] = -markers[ip, 16]
-        S[2, 1] = -markers[ip, 17]
-
-        # identity matrix
-        identity[0, 0] = 1.
-        identity[1, 1] = 1.
-        identity[2, 2] = 1.
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e[0], e[1], e[2], args_derham)
-
-        # abs_b; 0form
-        abs_b0 = eval_0form_spline_mpi(span1, span2, span3,
-                                       args_derham,
-                                       abs_b)
-
-        # grad_abs_b; 1form
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta_mid[:] = (eta_k + eta_n)/2.
+        eta_mid[:] = mod(eta_mid, 1.)
+        eta_diff[:] = eta_k - eta_n
+        
+        v_k = markers[ip, 3]
+        v_n = markers[ip, buffer_idx + 3]
+        v_mid = (v_k + v_n)/2.
+        v_diff = v_k - v_n
+        
+        mu = markers[ip, mu_idx]
+        
+        # Hamiltonian at n (from init_kernel)
+        H_n = markers[ip, first_free_idx]
+
+        # Hamiltonian at (n+1, k) (from eval_kernel)
+        H_k = markers[ip, first_free_idx + 1]
+
+        # mid-point evaluate Jacobian, result in dfm
+        evaluation_kernels.df(eta_mid[0], eta_mid[1], eta_mid[2],
+                              args_domain,
+                              dfm)
+
+        det_df = linalg_kernels.det(dfm)
+
+        # mid-point spline evaluation
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], 
+                                        args_derham)
+
+        # compute grad_H at n + 1/2
         eval_1form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              grad_abs_b1,
-                              grad_abs_b2,
-                              grad_abs_b3,
-                              grad_abs_b)
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              grad_H)
 
-        # assemble gradI
-        grad_I[0] = mu*(markers[ip, 22] - markers[ip, 21])/(e_diff[0])
-        grad_I[1] = mu*(markers[ip, 18] - markers[ip, 22])/(e_diff[1])
-        grad_I[2] = mu*(abs_b0 - markers[ip, 18])/(e_diff[2])
+        grad_H *= epsilon*mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            
+            e_field *= -1.
+            grad_H += e_field
+        
+        # compute grad_I
+        grad_H_v = epsilon * v_mid
+        
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) + v_diff*grad_H_v
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff) + v_diff*v_diff
+        
+        if dZ_squared == 0.:
+            grad_I[:] = grad_H
+            grad_I_v = grad_H_v
+        else:
+            grad_I[:] = grad_H + eta_diff*(H_k - H_n - dZ_dot_grad_H) / dZ_squared
+            grad_I_v = grad_H_v + v_diff*(H_k - H_n - dZ_dot_grad_H) / dZ_squared
+        
+        # compute B*
+        eval_2form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              b2_1,
+                              b2_2,
+                              b2_3,
+                              b2)
+        
+        eval_2form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              curl_unit_b2_1,
+                              curl_unit_b2_2,
+                              curl_unit_b2_3,
+                              b_star)
 
-        # calculate F = eta - eta_old + dt*S*grad_I
-        linalg_kernels.matrix_vector(S, grad_I, F)
-        F *= -dt
-        F += e_diff[:]
+        b_star *= epsilon * v_mid
+        b_star += b2
 
-        # assemble Jacobian_grad_I
-        Jacobian_grad_I[0, 0] = mu*(markers[ip, 23]*(e_diff[0]) -
-                                    markers[ip, 22] + markers[ip, 21])/(e_diff[0])**2
-        Jacobian_grad_I[1, 0] = mu * \
-            (markers[ip, 19] - markers[ip, 23])/(e_diff[1])
-        Jacobian_grad_I[2, 0] = mu * \
-            (grad_abs_b[0] - markers[ip, 19])/(e_diff[2])
-        Jacobian_grad_I[0, 1] = 0.
-        Jacobian_grad_I[1, 1] = mu*(markers[ip, 20]*(e_diff[1]) -
-                                    markers[ip, 18] + markers[ip, 22])/(e_diff[1])**2
-        Jacobian_grad_I[2, 1] = mu * \
-            (grad_abs_b[1] - markers[ip, 20])/(e_diff[2])
-        Jacobian_grad_I[0, 2] = 0.
-        Jacobian_grad_I[1, 2] = 0.
-        Jacobian_grad_I[2, 2] = mu*(grad_abs_b[2]*(e_diff[2]) -
-                                    abs_b0 + markers[ip, 18])/(e_diff[2])**2
+        # compute B*_parallel
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        B_dot_b_coeffs)
 
-        # assemble Jacobian and its inverse
-        linalg_kernels.matrix_matrix(S, Jacobian_grad_I, Jacobian)
-        Jacobian *= dt
-        Jacobian += identity
+        b_star_parallel = eval_0form_spline_mpi(span1, span2, span3,
+                                                args_derham,
+                                                curl_unit_b_dot_b0)
 
-        linalg_kernels.matrix_inv(Jacobian, Jacobian_inv)
+        b_star_parallel *= epsilon * v_mid
+        b_star_parallel += B_dot_b
+        b_star_parallel *= epsilon * det_df 
 
-        # calculate eta_new
-        linalg_kernels.matrix_vector(Jacobian_inv, F, temp)
-        markers[ip, 18:21] = e[:] - temp
+        # calculate k for eta
+        k[:] = b_star/b_star_parallel * grad_I_v
 
-        diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1])**2 + (temp[2]/e[2])**2)
+        # calculate k_v for v
+        k_v = linalg_kernels.scalar_dot(b_star, grad_I)
+        k_v /= -b_star_parallel
 
-        if diff < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-            markers[ip, 0:3] = markers[ip, 18:21]
+        # compute values at (n+1, k+1)
+        markers[ip, 0:3] = eta_n + dt*k
+        markers[ip, 3] = v_n + dt*k_v
+        
+        # residual
+        markers[ip, residual_idx] = sqrt((markers[ip, 0] - eta_k[0])**2 
+                                       + (markers[ip, 1] - eta_k[1])**2
+                                       + (markers[ip, 2] - eta_k[2])**2
+                                       + ((markers[ip, 3] - v_k)/v_k)**2)
+        
 
-            continue
-
-        if stage == maxiter-1:
-            markers[ip, 0:3] = markers[ip, 18:21]
-
-            continue
-
-        markers[ip, 0] = markers[ip, 18]
-        markers[ip, 1] = e_old[1]
-        markers[ip, 2] = e_old[2]
-
-
-@stack_array('e', 'e_diff', 'e_old', 'F', 'S', 'temp', 'identity', 'grad_abs_b', 'grad_I', 'Jacobian_grad_I', 'Jacobian', 'Jacobian_inv', 'Jacobian_temp34', 'Jacobian_temp33', 'tmp')
-def push_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]',
-                                                dt: float,
-                                                stage: int,
-                                                args_derham: 'DerhamArguments',
-                                                args_domain: 'DomainArguments',
-                                                epsilon: float,
-                                                abs_b: 'float[:,:,:]',
-                                                b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                maxiter: int, tol: float):
-    r'''Single step of the Newton-Raphson iteration (:math:`k`-index) for the discrete gradient method with 1st order faster scheme(fixed :math:`\mathbb S`, Itoh-Abe).
-    Looking for a root (:math:`F=0`) of the function defined as
-
-    .. math::
-
-        F(\mathbf Z_{n+1}) = \mathbf Z_{n+1} - \mathbf Z_n - \Delta t \mathbb S(\mathbf Z_n) \bar \nabla I(\mathbf Z_n, \mathbf Z_{n+1})
-
-    where :math:`\mathbf X_n` denotes the gyro-center particle position at time :math:`t = n \Delta t` and :math:`\mathbf Z_n = (\mathbf X_n, v_{\parallel, n})`.
-
-    From the initial guess
-
-    .. math::
-
-        \mathbf Z^0_{n+1} = \mathbf Z_n + \Delta t \mathbb S(\mathbf Z_n) \nabla H(\mathbf Z_n) \,,
-
-    iteratively solve the following equation
-
-    .. math::
-
-        \mathbf Z^{k+1}_{n+1} = \mathbf Z^k_n - J_F^{-1}(\mathbf Z^k_{n+1}) F(\mathbf Z^k_{n+1}) \,,
-
-    where the Jacobian of F is given as
+@stack_array('eta_k', 'eta_n', 'eta_k_shifted', 'eta_diff', 'grad_H_12', 'grad_H', 'b_star', 'e_field', 'grad_I', 'J_vec', 'Ddg', 'DdgT', 'func', 'B', 'C', 'A_inv', 'k')
+def push_gc_Bstar_discrete_gradient_1st_order_newton(dt: float,
+                                                     stage: int,
+                                                     args_markers: 'MarkerArguments',
+                                                     args_derham: 'DerhamArguments',
+                                                     args_domain: 'DomainArguments',
+                                                     epsilon: float,
+                                                     grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
+                                                     B_dot_b_coeffs: 'float[:,:,:]', 
+                                                     e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                                     phi_coeffs: 'float[:,:,:]',
+                                                     evaluate_e_field: bool):
+    r'''For each marker :math:`p` in markers array, make one step of Newton iteration for
 
     .. math::
 
-        (J_F)_{i,j} = (J_F)_{i,j} = \frac{\partial F_i}{\partial \mathbf Z_{n+1,j}}  = 
-        \begin{pmatrix}
-            1 & 0 & 0 & 0 \\
-            0 & 1 & 0 & 0 \\
-            0 & 0 & 1 & 0 \\
-            0 & 0 & 0 & 1
-        \end{pmatrix}
-        - \Delta t \mathbb S(\mathbf Z_n) \frac{\partial \bar \nabla I_i}{\partial \mathbf Z_{n+1,j}} \,.
-
+        \left\{ 
+            \begin{aligned} 
+                \frac{\boldsymbol \eta_p^{n+1, k+1} - \boldsymbol \eta_p^{n}}{\Delta t} &= 
+                \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*2}}{\sqrt g \,\hat B^{*}_\parallel} (\mathbf Z_p^{n}) 
+                \frac{\partial \overline H}{\partial v_{\parallel}} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+                \\
+                \frac{v_{\parallel,p}^{n+1,k+1} - v_{\parallel,p}^{n}}{\Delta t} &= 
+                - \frac 1 \varepsilon\frac{\hat{\mathbf B}^{*2}}{\sqrt g\, \hat B^{*}_\parallel} (\mathbf Z_p^{n}) \cdot
+                \frac{\partial \overline H}{\partial \boldsymbol \eta} (\mathbf Z_p^{n+1, k}, \mathbf Z_p^{n})\,,
+            \end{aligned}
+        \right.
+        
+    where the Hamiltonian reads
+    
     .. math::
+    
+        H(\mathbf Z) = H(\boldsymbol \eta, v_{\parallel}) = \varepsilon\frac{v_{\parallel}^2}{2} 
+        + \varepsilon\mu_p |\hat{\mathbf B}| (\boldsymbol \eta) + \hat \phi(\boldsymbol \eta)\,,
 
-        \mathbb S(\mathbf Z_n, \mathbf Z_{n+1}) &\approx \mathbb S(\mathbf Z_n) = \frac{1}{B^*_\parallel (\mathbf Z_n)} \frac{1}{\sqrt{g(\mathbf X_n)}} \hat{\mathbf B}^{*2} (\mathbf Z_n) \,, 
-        \\
-        \bar \nabla I (\mathbf Z_n, \mathbf Z_{n+1}) &= 
-        \begin{pmatrix}
-            (H(X_{1,n+1},X_{2,n},X_{3,n}, v_{\parallel, n})     - H(X_{1,n},X_{2,n},X_{3,n}, v_{\parallel, n})    ) / (X_{1,n+1} - X_{1,n}) \\
-            (H(X_{1,n+1},X_{2,n+1},X_{3,n}, v_{\parallel, n})   - H(X_{1,n+1},X_{2,n},X_{3,n}, v_{\parallel, n})  ) / (X_{2,n+1} - X_{2,n}) \\
-            (H(X_{1,n+1},X_{2,n+1},X_{3,n+1}, v_{\parallel, n}) - H(X_{1,n+1},X_{2,n+1},X_{3,n}, v_{\parallel, n})) / (X_{3,n+1} - X_{3,n}) \\
-            (H(X_{1,n+1},X_{2,n+1},X_{3,n+1}, v_{\parallel, n+1}) - H(X_{1,n+1},X_{2,n+1},X_{3,n+1}, v_{\parallel, n})) / (v_{\parallel,n+1} - v_{\parallel,n}) \\
-        \end{pmatrix} \,,
-        \\
-        H(\mathbf Z_{n}) &= \mu \hat B^0_\parallel({\mathbf X}_{n}) + \frac{1}{2} v^2_{\parallel,n} \,.
+    and where
+    
+    .. math::
+    
+        \frac{\partial \overline H}{\partial \mathbf Z}
+        (\mathbf Z_p^{n+1}, \mathbf Z_p^{n})
+        = \begin{pmatrix}
+        \frac{H(\eta_{p,1}^{n+1}) - H}{\eta_{p,1}^{n+1} - \eta_{p,1}^n}
+        \\[1mm]
+        \frac{H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1}) - H(\eta_{p,1}^{n+1})}{\eta_{p,2}^{n+1} - \eta_{p,2}^n}
+        \\[1mm]
+        \frac{H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1}, \eta_{p,3}^{n+1}) - H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1})}{\eta_{p,3}^{n+1} - \eta_{p,3}^n}
+        \\[1mm]
+        \frac{H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1}, \eta_{p,3}^{n+1}, v_{\parallel, p}^{n+1}) - H(\eta_{p,1}^{n+1}, \eta_{p,2}^{n+1}, \eta_{p,3}^{n+1})}{v_{\parallel, p}^{n+1} - v_{\parallel,p}^n}
+        \end{pmatrix}\,,
 
-    where magentic moment :math:`\mu` are constant in this step.
+    is the Itoh-Abe discrete gradient. The Newton algorithm searches the roots of
+    
+    .. math::
+    
+        \mathbf F(\mathbf Z_p^{n+1}) = \mathbf Z_p^{n+1} - \mathbf Z_p^{n} 
+        - \Delta t \mathbb J (\mathbf Z_p^{n}) \frac{\partial \overline H}{\partial \mathbf Z} 
+        (\mathbf Z_p^{n+1}, \mathbf Z_p^{n}) = 0\,,
+        
+    via (iteration index :math:`k`)
+    
+    .. math::
+    
+        \mathbf Z^{n+1, k+1} = \mathbf Z_p^{n+1, k} 
+        - D\mathbf F^{-1}(\mathbf Z_p^{n+1, k}) \mathbf F( \mathbf Z_p^{n+1, k})\,,
+        
+    where the Jacobian is given by
+    
+    .. math::
+    
+        D\mathbf F(\boldsymbol \eta_p^{n+1, k}) = \mathbb I_{3\times 3} 
+        - \Delta t \mathbb J (\mathbf Z_p^{n}) 
+        D\frac{\partial \overline H}{\partial \mathbf Z} 
+        (\mathbf Z_p^{n+1}, \mathbf Z_p^{n})\,.
+        
+    Notes
+    -----
+    This kernel performs evaluations at :math:`\mathbf Z_p^{n+1, k}`. 
+    Other evaluations are performed in ``init_kernels`` and ``eval_kernels``,
+    respectively.
     '''
 
-    # containers for fields
-    identity = zeros((4, 4), dtype=float)
-    temp = empty(4, dtype=float)
-    F = empty(4, dtype=float)
-    S = zeros((4, 4), dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    grad_I = empty(4, dtype=float)
-    Jacobian_grad_I = zeros((4, 4), dtype=float)
-    Jacobian = zeros((4, 4), dtype=float)
-    Jacobian_inv = zeros((4, 4), dtype=float)
-    Jacobian_temp34 = zeros((3, 4), dtype=float)
-    Jacobian_temp33 = zeros((3, 3), dtype=float)
-    tmp = zeros((3, 3), dtype=float)
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta_k_shifted = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
+    
+    grad_H_12 = empty(2, dtype=float)
+    grad_H = empty(3, dtype=float)
+    
+    b_star = empty(3, dtype=float)
+    e_field = zeros(3, dtype=float)
+    grad_I = zeros(3, dtype=float)
+    J_vec = empty(3, dtype=float)
+    Ddg = zeros((3, 3), dtype=float)
+    DdgT = zeros((3, 3), dtype=float)
+    func = zeros(3, dtype=float)
+    B = empty(3, dtype=float)
+    C = empty(3, dtype=float)
+    A_inv = zeros((3, 3), dtype=float)
 
-    # marker position e
-    e = empty(3, dtype=float)
-    e_old = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
+    # intermediate k-vector
+    k = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    residual_idx = args_markers.residual_idx
+    first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is converged or a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
-        if markers[ip, 11] == -1.:
-            continue
+        eta_k[:] = markers[ip, 0:3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        eta_k_shifted[:] = eta_k + markers[ip, shift_idx:shift_idx + 3]
+        eta_diff[:] = eta_k_shifted - eta_n
 
-        e[:] = markers[ip, 0:3]
-        e_old[:] = markers[ip, 11:14]
-        v = markers[ip, 3]
-        v_old = markers[ip, 14]
-        v_mid = (v + v_old)/2.
-        mu = markers[ip, 9]
+        v_k = markers[ip, 3]
+        v_n = markers[ip, buffer_idx + 3]
+        v_diff = v_k - v_n
+        
+        mu = markers[ip, mu_idx]
+        
+        # Hamiltonian at n
+        H_n = markers[ip, first_free_idx]
+        
+        # Poisson matrix at n 
+        b_star_parallel = epsilon * markers[ip, first_free_idx + 1]
+        b_star[:] = markers[ip, first_free_idx + 2:first_free_idx + 5]
+        
+        # Hamiltonian at eta_1^(n+1, k)
+        H_k1 = markers[ip, first_free_idx + 5]
+        
+        # Hamiltonian at eta_1^(n+1, k), eta_2^(n+1, k)
+        H_k12 = markers[ip, first_free_idx + 6]
+        
+        # 1st comp of gradient of Hamiltonian at eta_1^(n+1, k)
+        grad_H_1 = markers[ip, first_free_idx + 7]
+        
+        # 1st and 2nd comps of gradient of Hamiltonian at eta_1^(n+1, k), eta_2^(n+1, k)
+        grad_H_12[:] = markers[ip, first_free_idx + 8:first_free_idx + 10]
+        
+        # evaluate H at (n+1, k)
+        span1, span2, span3 = get_spans(eta_k[0], eta_k[1], eta_k[2], args_derham)
 
-        e_diff[:] = e[:] - e_old[:]
+        if evaluate_e_field:
+            phi = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        phi_coeffs)
+        else:
+            phi = 0.
+        
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        B_dot_b_coeffs)
 
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.
+        H_k = epsilon*v_k**2/2. + epsilon*mu*B_dot_b + phi
+        H_k123 = epsilon*v_n**2/2. + epsilon*mu*B_dot_b + phi
 
-        # assemble S
-        S[0:3, 3] = markers[ip, 15:18]
-        S[3, 0:3] = -markers[ip, 15:18]
-
-        # identity matrix
-        identity[0, 0] = 1.
-        identity[1, 1] = 1.
-        identity[2, 2] = 1.
-        identity[3, 3] = 1.
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e[0], e[1], e[2], args_derham)
-
-        # abs_b; 0form
-        abs_b0 = eval_0form_spline_mpi(span1, span2, span3,
-                                       args_derham,
-                                       abs_b)
-
-        # grad_abs_b; 1form
+        # compute grad_H at (n+1, k)
         eval_1form_spline_mpi(span1, span2, span3,
                               args_derham,
-                              grad_abs_b1,
-                              grad_abs_b2,
-                              grad_abs_b3,
-                              grad_abs_b)
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              grad_H)
 
-        # assemble gradI and Jacobian_grad_I
-        if e_diff[0] == 0.:
-            grad_I[0] == 0.
+        grad_H *= epsilon*mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            
+            e_field *= -1.
+            grad_H += e_field
+
+        # compute the Itoh discrete gradient
+        grad_H_v = epsilon * v_k
+        
+        if eta_diff[0] == 0.:
+            grad_I[0] = grad_H[0]
         else:
-            grad_I[0] = mu*(markers[ip, 22] - markers[ip, 21])/(e_diff[0])
-            Jacobian_grad_I[0, 0] = mu * \
-                (markers[ip, 23]*(e_diff[0]) -
-                 markers[ip, 22] + markers[ip, 21])/(e_diff[0])**2
-
-        if e_diff[1] == 0.:
-            grad_I[1] == 0.
+            grad_I[0] = (H_k1 - H_n)/(eta_diff[0])
+            
+        if eta_diff[1] == 0.:
+            grad_I[1] = grad_H[1]
         else:
-            grad_I[1] = mu*(markers[ip, 18] - markers[ip, 22])/(e_diff[1])
-            Jacobian_grad_I[1, 0] = mu * \
-                (markers[ip, 19] - markers[ip, 23])/(e_diff[1])
-            Jacobian_grad_I[1, 1] = mu * \
-                (markers[ip, 20]*(e_diff[1]) -
-                 markers[ip, 18] + markers[ip, 22])/(e_diff[1])**2
-
-        if e_diff[2] == 0.:
-            grad_I[2] == 0.
+            grad_I[1] = (H_k12 - H_k1)/(eta_diff[1])
+        
+        if eta_diff[2] == 0.:
+            grad_I[2] = grad_H[2]
         else:
-            grad_I[2] = mu*(abs_b0 - markers[ip, 18])/(e_diff[2])
-            Jacobian_grad_I[2, 0] = mu * \
-                (grad_abs_b[0] - markers[ip, 19])/(e_diff[2])
-            Jacobian_grad_I[2, 1] = mu * \
-                (grad_abs_b[1] - markers[ip, 20])/(e_diff[2])
-            Jacobian_grad_I[2, 2] = mu * \
-                (grad_abs_b[2]*(e_diff[2]) - abs_b0 +
-                 markers[ip, 18])/(e_diff[2])**2
+            grad_I[2] = (H_k123 - H_k12)/(eta_diff[2])
+            
+        if v_diff == 0.:
+            grad_I_v = grad_H_v
+        else:
+            grad_I_v = (H_k - H_k123)/(v_diff)
+        
+        # compute F; the Poisson matrix is [[0, Jvec], [-Jvec^T, 0]]
+        J_vec[:] = b_star/b_star_parallel
+        func[:] = J_vec * grad_I_v
+        func *= -dt
+        func += eta_diff
+        
+        func_v = linalg_kernels.scalar_dot(J_vec, grad_I)
+        func_v *= -1.
+        func_v *= -dt
+        func_v += v_diff
+        
+        # compute the Jacobian of the discrete gradient; it has the form [[Ddg, 0], [0, Ddg_v]]
+        if eta_diff[0] == 0.:
+            Ddg[0, 0] = 0.
+        else:
+            Ddg[0, 0] = (grad_H_1*eta_diff[0] - (H_k1 - H_n)) / eta_diff[0]**2
+            
+        if eta_diff[1] == 0.:
+            Ddg[1, 1] = 0.
+            Ddg[1, 0] = 0.
+        else:
+            Ddg[1, 1] = (grad_H_12[1]*eta_diff[1] - (H_k12 - H_k1)) / eta_diff[1]**2
+            Ddg[1, 0] = (grad_H_12[0] - grad_H_1) / eta_diff[1]
+        
+        if eta_diff[2] == 0.:
+            Ddg[2, 2] = 0.
+            Ddg[2, 0] = 0.
+            Ddg[2, 1] = 0.
+        else:
+            Ddg[2, 2] = (grad_H[2]*eta_diff[2] - (H_k123 - H_k12)) / eta_diff[2]**2
+            Ddg[2, 0] = (grad_H[0] - grad_H_12[0]) / eta_diff[2]
+            Ddg[2, 1] = (grad_H[1] - grad_H_12[1]) / eta_diff[2]
+            
+        if v_diff == 0.:
+            Ddg_v = 0.
+        else:
+            Ddg_v = (grad_H_v*v_diff - (H_k - H_k123)) / v_diff**2
+        
+        # the matrix DF is [[I_3x3, -dt*J_vec*Ddg_v], [dt*(Ddg^T*J_vec)^T, 1]]
+        # we compute its inverse with the Schur complement of [[I_3x3, B], [C, 1]]
+        # block matrix B
+        B[:] = J_vec
+        B *= Ddg_v
+        B *= -dt
+        # block matrix C
+        linalg_kernels.transpose(Ddg, DdgT)
+        linalg_kernels.matrix_vector(DdgT, J_vec, C)
+        C *= dt
+        # Schur complement M/A
+        schur_comp = 1. - linalg_kernels.scalar_dot(C, B)
+        # inverse blocks
+        linalg_kernels.outer(B, C, A_inv)
+        A_inv /= schur_comp
+        A_inv[0, 0] += 1. 
+        A_inv[1, 1] += 1. 
+        A_inv[2, 2] += 1. 
+        
+        B /= -schur_comp 
+        C /= -schur_comp
 
-        grad_I[3] = v_mid
-        Jacobian_grad_I[3, 3] = 0.5
+        # update
+        linalg_kernels.matrix_vector(A_inv, func, k)
+        k += B*func_v
+        k_v = linalg_kernels.scalar_dot(C, func)
+        k_v += func_v/schur_comp
 
-        # calculate F = eta - eta_old + dt*S*grad_I
-        linalg_kernels.matrix_vector4(S, grad_I, F)
-        F *= -dt
-        F[0:3] += e_diff[:]
-        F[3] += v - v_old
-
-        # assemble Jacobian and its inverse
-        linalg_kernels.matrix_matrix4(S, Jacobian_grad_I, Jacobian)
-        Jacobian *= -dt
-        Jacobian += identity
-
-        # Inverse of the Jacobian
-        det_J = linalg_kernels.det4(Jacobian)
-
-        tmp[:] = Jacobian[1:, 1:]
-        Jacobian_inv[0, 0] = linalg_kernels.det(tmp)/det_J
-        Jacobian_temp33[:] = Jacobian[(0, 2, 3), 1:]
-        Jacobian_inv[0, 1] = -linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp33[:] = Jacobian[(0, 1, 3), 1:]
-        Jacobian_inv[0, 2] = linalg_kernels.det(Jacobian_temp33)/det_J
-        tmp[:] = Jacobian[:3, 1:]
-        Jacobian_inv[0, 3] = -linalg_kernels.det(tmp)/det_J
-
-        Jacobian_temp33[:] = Jacobian[1:, (0, 2, 3)]
-        Jacobian_inv[1, 0] = -linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp34[:] = Jacobian[(0, 2, 3), :]
-        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 2, 3)]
-        Jacobian_inv[1, 1] = linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp34[:] = Jacobian[(0, 1, 3), :]
-        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 2, 3)]
-        Jacobian_inv[1, 2] = -linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp33[:] = Jacobian[:3, (0, 2, 3)]
-        Jacobian_inv[1, 3] = linalg_kernels.det(Jacobian_temp33)/det_J
-
-        Jacobian_temp33[:] = Jacobian[1:, (0, 1, 3)]
-        Jacobian_inv[2, 0] = linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp34[:] = Jacobian[(0, 2, 3), :]
-        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 1, 3)]
-        Jacobian_inv[2, 1] = -linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp34[:] = Jacobian[(0, 1, 3), :]
-        Jacobian_temp33[:] = Jacobian_temp34[:, (0, 1, 3)]
-        Jacobian_inv[2, 2] = linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp33[:] = Jacobian[:3, (0, 1, 3)]
-        Jacobian_inv[2, 3] = -linalg_kernels.det(Jacobian_temp33)/det_J
-
-        tmp[:] = Jacobian[1:, :3]
-        Jacobian_inv[3, 0] = -linalg_kernels.det(tmp)/det_J
-        Jacobian_temp33[:] = Jacobian[(0, 2, 3), :3]
-        Jacobian_inv[3, 1] = linalg_kernels.det(Jacobian_temp33)/det_J
-        Jacobian_temp33[:] = Jacobian[(0, 1, 3), :3]
-        Jacobian_inv[3, 2] = -linalg_kernels.det(Jacobian_temp33)/det_J
-        tmp[:] = Jacobian[:3, :3]
-        Jacobian_inv[3, 3] = linalg_kernels.det(tmp)/det_J
-
-        # calculate eta_new
-        linalg_kernels.matrix_vector4(Jacobian_inv, F, temp)
-        markers[ip, 18:21] = e[:] - temp[0:3]
-        markers[ip, 3] = v - temp[3]
-
-        diff = sqrt((temp[0]/e[0])**2 + (temp[1]/e[1])**2 +
-                    (temp[2]/e[2])**2 + (temp[3])**2)
-
-        if diff < tol:
-            markers[ip, 11] = -1.
-            markers[ip, 12] = stage
-            markers[ip, 0:3] = markers[ip, 18:21]
-
-            continue
-
-        if stage == maxiter-1:
-            markers[ip, 0:3] = markers[ip, 18:21]
-
-            continue
-
-        markers[ip, 0] = markers[ip, 18]
-        markers[ip, 1] = e_old[1]
-        markers[ip, 2] = e_old[2]
+        markers[ip, 0:3] -= k
+        markers[ip, 3] -= k_v
+        
+        # residual
+        markers[ip, residual_idx] = sqrt(k[0]**2 + k[1]**2 + k[2]**2 + (k_v/v_k)**2)
 
 
 @stack_array('dfm', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
-def push_gc_cc_J1_H1vec(markers: 'float[:,:]',
-                        dt: float,
+def push_gc_cc_J1_H1vec(dt: float,
                         stage: int,
+                        args_markers: 'MarkerArguments',
                         args_derham: 'DerhamArguments',
                         args_domain: 'DomainArguments',
                         epsilon: float,
@@ -1892,8 +1536,9 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]',
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
 
@@ -1965,9 +1610,9 @@ def push_gc_cc_J1_H1vec(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'df_t', 'g', 'g_inv', 'e', 'u', 'u0', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
-def push_gc_cc_J1_Hcurl(markers: 'float[:,:]',
-                        dt: float,
+def push_gc_cc_J1_Hcurl(dt: float,
                         stage: int,
+                        args_markers: 'MarkerArguments',
                         args_derham: 'DerhamArguments',
                         args_domain: 'DomainArguments',
                         epsilon: float,
@@ -2001,8 +1646,9 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]',
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
 
@@ -2082,9 +1728,9 @@ def push_gc_cc_J1_Hcurl(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
-def push_gc_cc_J1_Hdiv(markers: 'float[:,:]',
-                       dt: float,
+def push_gc_cc_J1_Hdiv(dt: float,
                        stage: int,
+                       args_markers: 'MarkerArguments',
                        args_derham: 'DerhamArguments',
                        args_domain: 'DomainArguments',
                        epsilon: float,
@@ -2115,8 +1761,9 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]',
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private(ip, boundary_cut, eta, v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, u, e, curl_norm_b, norm_b1, b_star, tmp, abs_b_star_para)
     #$ omp for
@@ -2198,9 +1845,9 @@ def push_gc_cc_J1_Hdiv(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'df_t', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
-def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]',
-                              dt: float,
+def push_gc_cc_J2_stage_H1vec(dt: float,
                               stage: int,
+                              args_markers: 'MarkerArguments',
                               args_derham: 'DerhamArguments',
                               args_domain: 'DomainArguments',
                               epsilon: float,
@@ -2240,8 +1887,11 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]',
     norm_b2 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -2253,11 +1903,8 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]',
 
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
+        # check if marker is a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
         eta1 = markers[ip, 0]
@@ -2348,17 +1995,18 @@ def push_gc_cc_J2_stage_H1vec(markers: 'float[:,:]',
 
         e /= abs_b_star_para
 
-        # markers[ip, :3] -= e/abs_b_star_para*dt
-
-        markers[ip, 15:18] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 11:14] - \
-            dt*a[stage]*e + last*markers[ip, 15:18]
+        # accumulation for last stage
+        markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e
+        
+        # update positions for intermediate stages or last stage
+        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] - \
+            dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
 @stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
-def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]',
-                             dt: float,
+def push_gc_cc_J2_stage_Hdiv(dt: float,
                              stage: int,
+                             args_markers: 'MarkerArguments',
                              args_derham: 'DerhamArguments',
                              args_domain: 'DomainArguments',
                              epsilon: float,
@@ -2398,8 +2046,12 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]',
     norm_b2 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -2413,11 +2065,8 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]',
     #$ omp for
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
+        # check if marker is a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
         eta1 = markers[ip, 0]
@@ -2512,10 +2161,11 @@ def push_gc_cc_J2_stage_Hdiv(markers: 'float[:,:]',
         e /= abs_b_star_para
         e /= det_df
 
-        # markers[ip, :3] -= e/abs_b_star_para*dt
-
-        markers[ip, 15:18] -= dt*b[stage]*e
-        markers[ip, 0:3] = markers[ip, 11:14] - \
-            dt*a[stage]*e + last*markers[ip, 15:18]
+        # accumulation for last stage
+        markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e
+        
+        # update positions for intermediate stages or last stage
+        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] - \
+            dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
     #$ omp end parallel

@@ -1,3 +1,41 @@
+class MarkerArguments:
+    '''Holds the mandatory arguments pertaining to :class:`~struphy.pic.base.Particles` 
+    passed to particle pusher kernels.
+    
+    Paramaters
+    ----------
+    markers : array[float]
+        Markers array.
+        
+    vdim : int
+        Dimension of velocity space.
+        
+    buffer_idx : int
+        Buffer index of markers array.
+    '''
+        
+    def __init__(self,
+                 markers: 'float[:, :]',
+                 vdim: int,
+                 buffer_idx: int
+                 ):
+
+        self.markers = markers
+        self.vdim = vdim
+        self.buffer_idx = buffer_idx
+        self.n_markers = markers.shape[0]
+        
+        # useful indices
+        self.shift_idx = buffer_idx + 3 + vdim # starting idx for eta-shifts due to boundary conditions
+        self.residual_idx = self.shift_idx + 3 # residual in iterative solvers
+        self.first_free_idx = self.residual_idx + 1 # index after which auxiliary saving is possible
+        
+        # only used for Particles5D
+        self.energy_idx = 8 # particle energy
+        self.mu_idx = 9 # particle magnetic moment
+        self.toroidalmom_idx = 10 # particle toroidal momentum
+
+
 class DerhamArguments:
     '''Holds the mandatory arguments pertaining to :class:`~struphy.feec.psydac_derham.Derham` passed to particle pusher kernels.
     
@@ -83,7 +121,3 @@ class DomainArguments:
         self.cx = cx
         self.cy = cy
         self.cz = cz
-
-
-    
-    

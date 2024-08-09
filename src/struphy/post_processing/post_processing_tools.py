@@ -7,7 +7,7 @@ import yaml
 
 from struphy.feec.psydac_derham import Derham
 from struphy.kinetic_background import maxwellians
-from struphy.io.setup import setup_domain_mhd
+from struphy.io.setup import setup_domain_and_equil
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
@@ -183,7 +183,7 @@ def eval_femfields(path: str,
     with open(os.path.join(path, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
-    domain = setup_domain_mhd(params)[0]
+    domain = setup_domain_and_equil(params)[0]
 
     # create logical and physical grids
     assert isinstance(celldivide, list)
@@ -353,7 +353,7 @@ def post_process_markers(path_in, path_out, species, step=1):
     with open(os.path.join(path_in, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
-    domain = setup_domain_mhd(params)[0]
+    domain = setup_domain_and_equil(params)[0]
 
     # open hdf5 files and get names and number of saved markers of kinetic species
     files = [h5py.File(os.path.join(

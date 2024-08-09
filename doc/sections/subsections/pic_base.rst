@@ -21,11 +21,18 @@ Base modules
 Pusher modules
 --------------
 
-.. automodule:: struphy.pic.pushing.pusher
+.. autoclass:: struphy.pic.pushing.pusher.Pusher
     :members:
     :undoc-members:
     :exclude-members: variables
     :show-inheritance:
+
+.. autoclass:: struphy.pic.pushing.pusher.ButcherTableau
+    :members:
+    :undoc-members:
+    :exclude-members: available_methods
+    :show-inheritance:
+    :special-members: __available_methods__
 
 .. _accumulator:
 
