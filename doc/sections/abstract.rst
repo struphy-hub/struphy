@@ -22,7 +22,8 @@ Each model can be run on different :ref:`avail_mappings` and can load a variety 
 
 *Usability* is guaranteed by Struphy's intuitive console interface (see for example :ref:`quickstart`).
 Moreover, an extensive, maintained documentation is provided. In addition, you can learn Struphy
-through a series of Jupyter notebook :ref:`tutorials`.
+through a series of Jupyter notebook :ref:`tutorials`. Several Struphy modules 
+can be easily used in other Python programs via the :ref:`Struphy API <api>`. 
 
 Struphy is an object-oriented code. The concept of `inheritance <https://www.w3schools.com/python/python_inheritance.asp>`_ 
 is heavily used in its basic design; it enables the streamlined addition of new models/features to Struphy.

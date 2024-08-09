@@ -240,7 +240,7 @@ def setup_derham(params_grid, comm, domain=None, mpi_dims_mask=None):
     derham = Derham(Nel,
                     p,
                     spl_kind,
-                    dirichlet_bc,
+                    dirichlet_bc=dirichlet_bc,
                     nquads=nq_el,
                     nq_pr=nq_pr,
                     comm=comm,
