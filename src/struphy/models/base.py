@@ -31,10 +31,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # TODO: comm=None does not work yet.
 
-        from struphy.io.setup import setup_domain_mhd, setup_derham
+        from struphy.io.setup import setup_domain_and_equil, setup_derham
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
-        from struphy.fields_background.braginskii_equil import equils as braginskii_equils
+        from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()
@@ -64,19 +64,12 @@ class StruphyModel(metaclass=ABCMeta):
         self._units, self._equation_params = self.model_units(
             self.params, verbose=True, comm=self._comm)
 
-        # create domain, MHD equilibrium
-        self._domain, self._mhd_equil = setup_domain_mhd(
+        # create domain, equilibrium
+        self._domain, self._mhd_equil = setup_domain_and_equil(
             params, units=self.units)
-
-        # Braginskii equilibrium
-        if 'braginskii_equilibrium' in params:
-            br_eq_type = params['braginskii_equilibrium']['type']
-            br_eq_class = getattr(braginskii_equils, br_eq_type)
-            self._braginskii_equil = br_eq_class(
-                **params['braginskii_equilibrium'][br_eq_type])
-            self.braginskii_equil.domain = self.domain
-        else:
-            self._braginskii_equil = None
+        
+        # TODO: remove
+        self._braginskii_equil = self.mhd_equil
 
         if comm.Get_rank() == 0:
             print('\nTIME:')
@@ -91,18 +84,14 @@ class StruphyModel(metaclass=ABCMeta):
             for key, val in self.domain.params_map.items():
                 if key not in {'cx', 'cy', 'cz'}:
                     print((key + ':').ljust(25), val)
-
+            
+            print('\nEQUILIBRIUM:')
             if 'mhd_equilibrium' in params:
-                print('\nMHD EQUILIBRIUM:')
                 print('type:'.ljust(25), self.mhd_equil.__class__.__name__)
                 for key, val in self.mhd_equil.params.items():
                     print((key + ':').ljust(25), val)
-
-            if 'braginskii_equilibrium' in params:
-                print('\nBRAGINSKII EQUILIBRIUM:')
-                print('type:'.ljust(25), self.braginskii_equil.__class__.__name__)
-                for key, val in self.braginskii_equil.params.items():
-                    print((key + ':').ljust(25), val)
+            else:
+                print('None.')
 
         # create discrete derham sequence
         dims_mask = params['grid']['dims_mask']
@@ -111,6 +100,9 @@ class StruphyModel(metaclass=ABCMeta):
 
         self._derham = setup_derham(
             params['grid'], comm=comm, domain=self.domain, mpi_dims_mask=dims_mask)
+
+        # create projected MHD equilibrium
+        self._projected_mhd_equil = ProjectedMHDequilibrium(self.mhd_equil, self.derham)
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
@@ -135,6 +127,7 @@ class StruphyModel(metaclass=ABCMeta):
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, eq_mhd=self.mhd_equil)
+        Propagator.projected_mhd_equil = self.projected_mhd_equil
 
         # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
@@ -264,6 +257,11 @@ class StruphyModel(metaclass=ABCMeta):
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
         return self._derham
+    
+    @property
+    def projected_mhd_equil(self):
+        '''MHD equilibrium projected on 3d Derham sequence with commuting projectors.'''
+        return self._projected_mhd_equil
 
     @property
     def units(self):

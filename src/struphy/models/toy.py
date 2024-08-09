@@ -258,23 +258,11 @@ class GuidingCenter(StruphyModel):
         ions_params = self.kinetic['ions']['params']
         epsilon = self.equation_params['ions']['epsilon']
 
-        # polar spline extraction operators
-        self._E0T = self.derham.extraction_ops['0'].transpose()
-        self._EvT = self.derham.extraction_ops['v'].transpose()
-
-        # magnetic background
-        if self.mhd_equil is not None:
-            magn_bckgr = self.mhd_equil
-        else:
-            magn_bckgr = self.braginskii_equil
-
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'magn_bckgr': magn_bckgr,
-                                                                      'epsilon': epsilon,
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'epsilon': epsilon,
                                                                       'algo': ions_params['options']['PushGuidingCenterBxEstar']['algo']}
 
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'magn_bckgr': magn_bckgr,
-                                                                       'epsilon': epsilon,
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'epsilon': epsilon,
                                                                        'algo': ions_params['options']['PushGuidingCenterParallel']['algo']}
 
         # Initialize propagators used in splitting substeps

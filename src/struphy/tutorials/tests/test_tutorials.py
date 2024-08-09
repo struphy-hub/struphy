@@ -62,7 +62,6 @@ def test_tutorial_04(fast):
         if rank == 0:
             pproc_struphy.main(os.path.join(o_path, 'tutorial_04c'))
 
-@pytest.mark.mpi(min_size=2)
 def test_tutorial_05():
     main('Vlasov', 
          os.path.join(i_path, 'tutorials', 'params_05a.yml'), 
@@ -73,7 +72,7 @@ def test_tutorial_05():
     if rank == 0:
         pproc_struphy.main(os.path.join(o_path, 'tutorial_05a'))
     
-    main('GuidingCenter', 
+    main('Vlasov', 
          os.path.join(i_path, 'tutorials', 'params_05b.yml'), 
          os.path.join(o_path, 'tutorial_05b'),
          supress_out=True)
@@ -81,6 +80,42 @@ def test_tutorial_05():
     comm.Barrier()
     if rank == 0:
         pproc_struphy.main(os.path.join(o_path, 'tutorial_05b'))
+    
+    main('GuidingCenter', 
+         os.path.join(i_path, 'tutorials', 'params_05c.yml'), 
+         os.path.join(o_path, 'tutorial_05c'),
+         supress_out=True)
+
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_05c'))
+        
+    main('GuidingCenter', 
+         os.path.join(i_path, 'tutorials', 'params_05d.yml'), 
+         os.path.join(o_path, 'tutorial_05d'),
+         supress_out=True)
+
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_05d'))
+        
+    main('GuidingCenter', 
+         os.path.join(i_path, 'tutorials', 'params_05e.yml'), 
+         os.path.join(o_path, 'tutorial_05e'),
+         supress_out=True)
+
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_05e'))
+        
+    main('GuidingCenter', 
+         os.path.join(i_path, 'tutorials', 'params_05f.yml'), 
+         os.path.join(o_path, 'tutorial_05f'),
+         supress_out=True)
+
+    comm.Barrier()
+    if rank == 0:
+        pproc_struphy.main(os.path.join(o_path, 'tutorial_05f'))
         
 def test_tutorial_12():
     main('Vlasov', 

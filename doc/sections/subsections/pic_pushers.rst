@@ -16,6 +16,9 @@ Pusher kernels guiding-center
     :exclude-members: variables
     :show-inheritance:
 
+Evaluation kernels guiding-center
+---------------------------------
+
 .. automodule:: struphy.pic.pushing.eval_kernels_gc
     :members:
     :undoc-members:

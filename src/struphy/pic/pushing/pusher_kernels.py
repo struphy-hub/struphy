@@ -11,16 +11,16 @@ import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.pic.pushing.pusher_args_kernels import MarkerArguments, DerhamArguments, DomainArguments
 from struphy.bsplines.evaluation_kernels_3d import get_spans, eval_0form_spline_mpi, eval_1form_spline_mpi, eval_2form_spline_mpi, eval_3form_spline_mpi, eval_vectorfield_spline_mpi
 
 from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
 
 
 @stack_array('dfm', 'dfinv', 'dfinvt', 'e_form', 'e_cart')
-def push_v_with_efield(markers: 'float[:,:]',
-                       dt: float,
+def push_v_with_efield(dt: float,
                        stage: int,
+                       args_markers: 'MarkerArguments',
                        args_derham: 'DerhamArguments',
                        args_domain: 'DomainArguments',
                        e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
@@ -52,8 +52,9 @@ def push_v_with_efield(markers: 'float[:,:]',
     e_form = empty(3, dtype=float)
     e_cart = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
     #$ omp for
@@ -98,9 +99,9 @@ def push_v_with_efield(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'b_form', 'b_cart', 'b_norm', 'v', 'vperp', 'vxb_norm', 'b_normxvperp')
-def push_vxb_analytic(markers: 'float[:,:]',
-                      dt: float,
+def push_vxb_analytic(dt: float,
                       stage: int,
+                      args_markers: 'MarkerArguments',
                       args_derham: 'DerhamArguments',
                       args_domain: 'DomainArguments',
                       b2_1: 'float[:,:,:]',
@@ -136,15 +137,17 @@ def push_vxb_analytic(markers: 'float[:,:]',
     vxb_norm = empty(3, dtype=float)
     b_normxvperp = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
 
     #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -201,9 +204,9 @@ def push_vxb_analytic(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'b_form', 'b_cart', 'b_prod', 'v', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
-def push_vxb_implicit(markers: 'float[:,:]',
-                      dt: float,
+def push_vxb_implicit(dt: float,
                       stage: int,
+                      args_markers: 'MarkerArguments',
                       args_derham: 'DerhamArguments',
                       args_domain: 'DomainArguments',
                       b2_1: 'float[:,:,:]',
@@ -250,15 +253,17 @@ def push_vxb_implicit(markers: 'float[:,:]',
     vec = empty(3, dtype=float)
     res = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
 
     #$ omp parallel firstprivate(b_prod) private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -314,9 +319,9 @@ def push_vxb_implicit(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'rot_temp', 'b_form', 'b_cart', 'b_norm', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pxb_analytic(markers: 'float[:,:]',
-                      dt: float,
+def push_pxb_analytic(dt: float,
                       stage: int,
+                      args_markers: 'MarkerArguments',
                       args_derham: 'DerhamArguments',
                       args_domain: 'DomainArguments',
                       b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
@@ -357,8 +362,9 @@ def push_pxb_analytic(markers: 'float[:,:]',
     vxb_norm = empty(3, dtype=float)
     b_normxvperp = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
@@ -443,9 +449,9 @@ def push_pxb_analytic(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t')
-def push_hybrid_xp_lnn(markers: 'float[:,:]',
-                       dt: float,
+def push_hybrid_xp_lnn(dt: float,
                        stage: int,
+                       args_markers: 'MarkerArguments',
                        args_derham: 'DerhamArguments',
                        args_domain: 'DomainArguments',
                        p_shape: 'int[:]', p_size: 'float[:]', Nel: 'int[:]',
@@ -490,8 +496,9 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]',
     valuexyz = empty(3, dtype=float)
     dvaluexyz = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, dfinv, dfinv_t, det_df, point_left, point_right, cell_left, cell_number, i, grids_shapex, grids_shapey, grids_shapez, x_ii, y_ii, z_ii, il1, il2, il3, q1, q2, q3, temp1, temp4, temp6, valuexyz, dvaluexyz, temp8, ww)
     #$ omp for
@@ -618,9 +625,9 @@ def push_hybrid_xp_lnn(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b1', 'b2', 'b3', 'd1', 'd2', 'd3')
-def push_hybrid_xp_ap(markers: 'float[:,:]',
-                      dt: float,
+def push_hybrid_xp_ap(dt: float,
                       stage: int,
+                      args_markers: 'MarkerArguments',
                       args_derham: 'DerhamArguments',
                       args_domain: 'DomainArguments',
                       pn1: int, pn2: int, pn3: int,
@@ -679,8 +686,9 @@ def push_hybrid_xp_ap(markers: 'float[:,:]',
     # particle position and velocity
     v = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
     #$ omp for
@@ -800,9 +808,9 @@ def push_hybrid_xp_ap(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart')
-def push_bxu_Hdiv(markers: 'float[:,:]',
-                  dt: float,
+def push_bxu_Hdiv(dt: float,
                   stage: int,
+                  args_markers: 'MarkerArguments',
                   args_derham: 'DerhamArguments',
                   args_domain: 'DomainArguments',
                   b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
@@ -836,8 +844,9 @@ def push_bxu_Hdiv(markers: 'float[:,:]',
 
     e_cart = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
@@ -896,9 +905,9 @@ def push_bxu_Hdiv(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart')
-def push_bxu_Hcurl(markers: 'float[:,:]',
-                   dt: float,
+def push_bxu_Hcurl(dt: float,
                    stage: int,
+                   args_markers: 'MarkerArguments',
                    args_derham: 'DerhamArguments',
                    args_domain: 'DomainArguments',
                    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
@@ -934,8 +943,9 @@ def push_bxu_Hcurl(markers: 'float[:,:]',
 
     e_cart = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
@@ -996,9 +1006,9 @@ def push_bxu_Hcurl(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart')
-def push_bxu_H1vec(markers: 'float[:,:]',
-                   dt: float,
+def push_bxu_H1vec(dt: float,
                    stage: int,
+                   args_markers: 'MarkerArguments',
                    args_derham: 'DerhamArguments',
                    args_domain: 'DomainArguments',
                    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
@@ -1032,8 +1042,9 @@ def push_bxu_H1vec(markers: 'float[:,:]',
 
     e_cart = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
@@ -1092,9 +1103,9 @@ def push_bxu_H1vec(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'der1', 'der2', 'der3')
-def push_bxu_Hdiv_pauli(markers: 'float[:,:]',
-                        dt: float,
+def push_bxu_Hdiv_pauli(dt: float,
                         stage: int,
+                        args_markers: 'MarkerArguments',
                         args_derham: 'DerhamArguments',
                         args_domain: 'DomainArguments',
                         pn1: int, pn2: int, pn3: int,
@@ -1146,8 +1157,9 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]',
     der2 = empty(pn2 + 1, dtype=float)
     der3 = empty(pn3 + 1, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, der1, der2, der3, bd1, bd2, bd3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
     #$ omp for
@@ -1225,9 +1237,9 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]',
     #$ omp end parallel
 
 
-def push_pc_GXu_full(markers: 'float[:,:]',
-                     dt: float,
+def push_pc_GXu_full(dt: float,
                      stage: int,
+                     args_markers: 'MarkerArguments',
                      args_derham: 'DerhamArguments',
                      args_domain: 'DomainArguments',
                      GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
@@ -1263,7 +1275,9 @@ def push_pc_GXu_full(markers: 'float[:,:]',
     # particle velocity
     v = empty(3, dtype=float)
 
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1319,9 +1333,9 @@ def push_pc_GXu_full(markers: 'float[:,:]',
         markers[ip, 3:6] -= dt*e_cart/2.
 
 
-def push_pc_GXu(markers: 'float[:,:]',
-                dt: float,
+def push_pc_GXu(dt: float,
                 stage: int,
+                args_markers: 'MarkerArguments',
                 args_derham: 'DerhamArguments',
                 args_domain: 'DomainArguments',
                 GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
@@ -1358,7 +1372,9 @@ def push_pc_GXu(markers: 'float[:,:]',
     # particle velocity
     v = empty(3, dtype=float)
 
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1408,9 +1424,9 @@ def push_pc_GXu(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'dfinv', 'v', 'k')
-def push_eta_stage(markers: 'float[:,:]',
-                   dt: float,
+def push_eta_stage(dt: float,
                    stage: int,
+                   args_markers: 'MarkerArguments',
                    args_derham: 'DerhamArguments',
                    args_domain: 'DomainArguments',
                    a: 'float[:]',
@@ -1435,8 +1451,11 @@ def push_eta_stage(markers: 'float[:,:]',
     # intermediate k-vector
     k = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -1450,8 +1469,8 @@ def push_eta_stage(markers: 'float[:,:]',
     #$ omp for
     for ip in range(n_markers):
 
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
+        # check if marker is a hole
+        if markers[ip, buffer_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -1471,19 +1490,19 @@ def push_eta_stage(markers: 'float[:,:]',
         linalg_kernels.matrix_vector(dfinv, v, k)
 
         # accumulation for last stage
-        markers[ip, 12:15] += dt*b[stage]*k
+        markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + \
-            dt*a[stage]*k + last*markers[ip, 12:15]
+        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+            dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
     #$ omp end parallel
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]',
-                               dt: float,
+def push_pc_eta_rk4_Hcurl_full(dt: float,
                                stage: int,
+                               args_markers: 'MarkerArguments',
                                args_derham: 'DerhamArguments',
                                args_domain: 'DomainArguments',
                                u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
@@ -1525,8 +1544,11 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]',
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
@@ -1588,17 +1610,17 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]',
         k[:] = k_v + k_u
 
         # accum k
-        markers[ip, 12:15] += k*nk/6.
+        markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
-                            cont + dt*markers[ip, 12:15] * last)
+        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]',
-                              dt: float,
+def push_pc_eta_rk4_Hdiv_full(dt: float,
                               stage: int,
+                              args_markers: 'MarkerArguments',
                               args_derham: 'DerhamArguments',
                               args_domain: 'DomainArguments',
                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
@@ -1640,8 +1662,11 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]',
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
@@ -1701,17 +1726,17 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]',
         k[:] = k_v + k_u
 
         # accum k
-        markers[ip, 12:15] += k*nk/6.
+        markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
-                            cont + dt*markers[ip, 12:15] * last)
+        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v')
-def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]',
-                               dt: float,
+def push_pc_eta_rk4_H1vec_full(dt: float,
                                stage: int,
+                               args_markers: 'MarkerArguments',
                                args_derham: 'DerhamArguments',
                                args_domain: 'DomainArguments',
                                u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
@@ -1752,8 +1777,11 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]',
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
@@ -1812,17 +1840,17 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]',
         k[:] = k_v + u
 
         # accum k
-        markers[ip, 12:15] += k*nk/6.
+        markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
-                            cont + dt*markers[ip, 12:15] * last)
+        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]',
-                          dt: float,
+def push_pc_eta_rk4_Hcurl(dt: float,
                           stage: int,
+                          args_markers: 'MarkerArguments',
                           args_derham: 'DerhamArguments',
                           args_domain: 'DomainArguments',
                           u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
@@ -1864,8 +1892,11 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]',
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
@@ -1928,17 +1959,17 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]',
         k[:] = k_v + k_u
 
         # accum k
-        markers[ip, 12:15] += k*nk/6.
+        markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
-                            cont + dt*markers[ip, 12:15] * last)
+        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]',
-                         dt: float,
+def push_pc_eta_rk4_Hdiv(dt: float,
                          stage: int,
+                         args_markers: 'MarkerArguments',
                          args_derham: 'DerhamArguments',
                          args_domain: 'DomainArguments',
                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
@@ -1980,8 +2011,11 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]',
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
@@ -2042,17 +2076,17 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]',
         k[:] = k_v + k_u
 
         # accum k
-        markers[ip, 12:15] += k*nk/6.
+        markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
-                            cont + dt*markers[ip, 12:15] * last)
+        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v')
-def push_pc_eta_rk4_H1vec(markers: 'float[:,:]',
-                          dt: float,
+def push_pc_eta_rk4_H1vec(dt: float,
                           stage: int,
+                          args_markers: 'MarkerArguments',
                           args_derham: 'DerhamArguments',
                           args_domain: 'DomainArguments',
                           u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
@@ -2093,8 +2127,11 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]',
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
     if stage == 0 or stage == 3:
@@ -2154,17 +2191,17 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]',
         k[:] = k_v + u
 
         # accum k
-        markers[ip, 12:15] += k*nk/6.
+        markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 *
-                            cont + dt*markers[ip, 12:15] * last)
+        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
-def push_weights_with_efield_lin_va(markers: 'float[:,:]',
-                                    dt: float,
+def push_weights_with_efield_lin_va(dt: float,
                                     stage: int,
+                                    args_markers: 'MarkerArguments',
                                     args_derham: 'DerhamArguments',
                                     args_domain: 'DomainArguments',
                                     e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
@@ -2192,8 +2229,9 @@ def push_weights_with_efield_lin_va(markers: 'float[:,:]',
 
     e_vec = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
@@ -2242,9 +2280,9 @@ def push_weights_with_efield_lin_va(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
-def push_weights_with_efield_lin_vm(markers: 'float[:,:]',
-                                    dt: float,
+def push_weights_with_efield_lin_vm(dt: float,
                                     stage: int,
+                                    args_markers: 'MarkerArguments',
                                     args_derham: 'DerhamArguments',
                                     args_domain: 'DomainArguments',
                                     e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
@@ -2279,8 +2317,9 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]',
 
     e_vec = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
@@ -2331,9 +2370,9 @@ def push_weights_with_efield_lin_vm(markers: 'float[:,:]',
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
-def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]',
-                                        dt: float,
+def push_weights_with_efield_delta_f_vm(dt: float,
                                         stage: int,
+                                        args_markers: 'MarkerArguments',
                                         args_derham: 'DerhamArguments',
                                         args_domain: 'DomainArguments',
                                         e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
@@ -2371,8 +2410,9 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]',
 
     e_vec = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
@@ -2430,9 +2470,9 @@ def push_weights_with_efield_delta_f_vm(markers: 'float[:,:]',
 
 
 @stack_array('particle', 'dfm', 'df_inv', 'taus')
-def push_x_v_static_efield(markers: 'float[:,:]',
-                           dt: float,
+def push_x_v_static_efield(dt: float,
                            stage: int,
+                           args_markers: 'MarkerArguments',
                            args_derham: 'DerhamArguments',
                            args_domain: 'DomainArguments',
                            loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
@@ -2471,8 +2511,9 @@ def push_x_v_static_efield(markers: 'float[:,:]',
 
     particle = zeros(9, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
@@ -2536,9 +2577,9 @@ def push_x_v_static_efield(markers: 'float[:,:]',
 
 
 @stack_array('ginv', 'k', 'tmp', 'pi_du_value')
-def push_deterministic_diffusion_stage(markers: 'float[:,:]',
-                                       dt: float,
+def push_deterministic_diffusion_stage(dt: float,
                                        stage: int,
+                                       args_markers: 'MarkerArguments',
                                        args_derham: 'DerhamArguments',
                                        args_domain: 'DomainArguments',
                                        pi_u: 'float[:,:,:]',
@@ -2561,8 +2602,11 @@ def push_deterministic_diffusion_stage(markers: 'float[:,:]',
     k = empty(3, dtype=float)
     tmp = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    buffer_idx = args_markers.buffer_idx
+    first_free_idx = args_markers.first_free_idx
 
     # get number of stages
     n_stages = shape(b)[0]
@@ -2614,18 +2658,18 @@ def push_deterministic_diffusion_stage(markers: 'float[:,:]',
         linalg_kernels.matrix_vector(ginv, tmp, k)
 
         # accumulation for last stage
-        markers[ip, 12:15] += dt*b[stage]*k
+        markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, 9:12] + \
-            dt*a[stage]*k + last*markers[ip, 12:15]
+        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+            dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
     #$ omp end parallel
 
 
-def push_random_diffusion_stage(markers: 'float[:,:]',
-                                dt: float,
+def push_random_diffusion_stage(dt: float,
                                 stage: int,
+                                args_markers: 'MarkerArguments',
                                 args_derham: 'DerhamArguments',
                                 args_domain: 'DomainArguments',
                                 noise: 'float[:,:]', diffusion_coeff: float,
@@ -2639,8 +2683,9 @@ def push_random_diffusion_stage(markers: 'float[:,:]',
     for each marker :math:`p` in markers array, where :math:`\textnormal d \boldsymbol B_t` is a Brownian Motion and $D$ is a positive diffusion coefficient.
     '''
 
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
 
     # get number of stages. +
     # TODO: Multistage to be added later.

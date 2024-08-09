@@ -548,8 +548,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushDriftKineticbxGradB`
-    2. :class:`~struphy.propagators.propagators_markers.PushDriftKineticParallelZeroEfield`
+    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
     3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
     4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
     5. :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`
@@ -579,8 +579,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushDriftKineticbxGradB: ['energetic_ions'],
-                propagators_markers.PushDriftKineticParallelZeroEfield: ['energetic_ions'],
+        return {propagators_markers.PushGuidingCenterBxEstar: ['energetic_ions'],
+                propagators_markers.PushGuidingCenterParallel: ['energetic_ions'],
                 propagators_coupling.CurrentCoupling5DGradB: ['energetic_ions', 'mhd_velocity'],
                 propagators_coupling.CurrentCoupling5DCurlb: ['energetic_ions', 'mhd_velocity'],
                 propagators_fields.CurrentCoupling5DDensity: ['mhd_velocity'],
@@ -616,8 +616,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         params_sonic = params['fluid']['mhd']['options']['MagnetosonicCurrentCoupling5D']
         params_density = params['fluid']['mhd']['options']['CurrentCoupling5DDensity']
 
-        params_bxgradb = params['kinetic']['energetic_ions']['options']['PushDriftKineticbxGradB']
-        params_parallel = params['kinetic']['energetic_ions']['options']['PushDriftKineticParallelZeroEfield']
+        params_bxE = params['kinetic']['energetic_ions']['options']['PushGuidingCenterBxEstar']
+        params_parallel = params['kinetic']['energetic_ions']['options']['PushGuidingCenterParallel']
         params_cc_gradB = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DGradB']
         params_cc_curlb = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DCurlb']
         params_cc_gradB = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DGradB']
@@ -667,25 +667,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._ones[:] = 1.
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushDriftKineticbxGradB] = {'b': self.pointer['b_field'],
-                                                                     'b_eq': self._b_eq,
-                                                                     'unit_b1': self._unit_b1,
-                                                                     'unit_b2': self._unit_b2,
-                                                                     'absB0': self._absB0,
-                                                                     'gradB1': self._gradB1,
-                                                                     'curl_unit_b2': self._curl_unit_b2,
-                                                                     'algo': params_bxgradb['algo'],
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'b_tilde': self.pointer['b_field'],
+                                                                     'algo': params_bxE['algo'],
                                                                      'epsilon': epsilon}
 
-        self._kwargs[propagators_markers.PushDriftKineticParallelZeroEfield] = {'b': self.pointer['b_field'],
-                                                                                'b_eq': self._b_eq,
-                                                                                'unit_b1': self._unit_b1,
-                                                                                'unit_b2': self._unit_b2,
-                                                                                'absB0': self._absB0,
-                                                                                'gradB1': self._gradB1,
-                                                                                'curl_unit_b2': self._curl_unit_b2,
-                                                                                'algo': params_parallel['algo'],
-                                                                                'epsilon': epsilon}
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'b_tilde': self.pointer['b_field'],
+                                                                       'algo': params_parallel['algo'],
+                                                                       'epsilon': epsilon}
 
         if params_cc_gradB['turn_off']:
             self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None
