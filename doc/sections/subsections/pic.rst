@@ -6,97 +6,136 @@ Particle-in-cell methods (PIC)
 Basics
 ^^^^^^
 
-PIC methods are efficient for the discretization of transport (advection) equations in high-dimensional spaces. 
-They do not suffer from the curse of dimensionality and can be easily parallelized. However, a disadvantage is their slow
-convergence :math:`\sim 1/\sqrt N` with the number of particles (also called markers) and the associated noise
-that is present in simulations. Often times noise-reduction techniques such as the :ref:`control_var` have to be employed
-to reduce simulation cost.
-
-Low-density plasma can be described in terms of kinetic equations for its constituents (usually ions and electrons),
-coupled to Maxwell's equations modeling their mean-field interaction. The solution of a kinetic equation is 
-a phase space volume density :math:`f^\textrm{vol}(t, q)`, also called *distribution function*, 
-with :math:`t` denoting time and :math:`q \in \mathbb R^n` denoting phase space coordinates; 
-it thus satisfies the classical conservation law
+PIC methods are efficient for the discretization of conservation laws of the form
 
 .. math::
-    :label: eq:kin:n
+    :label: conservelaw
 
-    \partial_t f^\textrm{vol} + \nabla_q \cdot (G(t, q) \, f^\textrm{vol}) = 0 \,.
+    \partial_t f + \nabla_q \cdot (G(f) \, f) &= S(f) \qquad q \in \Omega \subset \mathbb R^n\,,
+    \\[2mm]
+    f(t=0) &= f_\textnormal{in}\,,
 
-Here, :math:`G(t,q)` denotes the vector field in the ODE describing single particle motion in phase space,
+with :math:`\Omega` open and appropriate boundary conditions on :math:`\partial\Omega`.
+Here, the solution :math:`f: \mathbb R \times \Omega \to \mathbb R^+` 
+is often called "distribution function", :math:`G(f)`
+is a (nonlinear) flux and :math:`S(f)` is a (nonlinear) source term. 
+Equation :math:numref:`conservelaw` can be re-written as 
 
 .. math::
-    :label: chars
 
-    \dot q(t) = G(t,q(t))\qquad q(0) = q_0\,.
+    \partial_t f + G(f) \cdot \nabla_q f = S(f) - f \nabla_q \cdot G(f) \,,
 
-Conventionally, :math:`q=(x,v) \in \mathbb R^n` where :math:`x` stands for the position and :math:`v` stands for
-the velocity; in this case :math:`G = (v, a)` with :math:`a` being the acceleration of the particle due to forces.
-PIC methods employ the method of characteristics to solve :math:numref:`eq:kin:n`. The distribution function 
-is approximated by a sum of :math:`N\gg 1` delta functions,
+which represents an advection equation with a source term.
+The PIC ansatz for solving such equations is 
 
 .. math::
     :label: pic:ansatz
 
-    f^\textrm{vol} \approx f^\textrm{vol}_h(t, q) = \frac 1N\sum_{k=1}^N w_k\, \delta(q - q_k(t))\,,
+    f \approx f_h(t, q) = \frac 1N \sum_{k=1}^N w_k(t)\, \delta(q - q_k(t))\,,
 
-where :math:`q_k(t)` denote the position of "markers", each of which satisifes :math:numref:`chars` 
-(with different initial condition), and :math:`w_k \in \mathbb R` stands for a marker's "weight", to be discussed below.
-
-In general, :math:`q` are not Cartesian coordinates, and :math:`\nabla_q \cdot G \neq 0` such that :math:numref:`eq:kin:n`
-cannot be directly written as a transport
-equation. In this case :math:`f^\textrm{vol}` is not constant along the solutions of :math:numref:`chars`. Indeed,
-it can be easily shown that the kinetic equation :math:numref:`eq:kin:n` is equivalent to the following two statements:
+where :math:`N \gg 1` is a large number and :math:`\delta(q)` stands for the Dirac delta-distribution.
+Moreover, :math:`q_k: \mathbb R \to \Omega` denotes the
+trajectory of marker :math:`k` in the domain :math:`\Omega` and :math:`w_k: \mathbb R \to \mathbb R` 
+stands for its (time-dependent) "weight". The equations for :math:`q_k(t)` and :math:`w_k(t)`
+are derived from the following principle:
 
 .. math::
-    :label: int
-    
-     \frac{\textnormal d}{\textnormal d t} \int_{q(t,\mathcal V_0)} f^\textrm{vol}(t, q)\,\textnormal d q = 0  \qquad \Leftrightarrow\qquad \frac{\textnormal d}{\textnormal d t} \left( f^\textrm{vol}(t, q(t,q_0)) |J(t,q_0)| \right) = 0\,,  
+    :label: pic:principle
 
-where :math:`\mathcal V_0` is an arbitrary phase space volume and
-:math:`J(t,q_0) = \textnormal{det}\, \partial q(t,q_0)/\partial q_0` is the determinant of 
-the Jacobian matrix of the flow map :math:`q_0 \mapsto q(t,q_0)` corresponding to the ODE :math:numref:`chars`.
-These equations express the continuity (or conservation) of probability in phase space, in any coordinates :math:`q`.
-Correspondingly, the second term in the kinetic equation :math:numref:`eq:kin:n` is the Lie-derivative of a volume form.
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega (f - f_h)\, \phi\,\textrm d^n q = O(N^{-1/2}) \qquad \forall \ \phi \in C^\infty(\Omega)\,.
 
-Suppose we describe the system in a set of Cartesian coordinates :math:`z\in\mathbb R^n`, related to some other,
-possibly curvilinear coordinates :math:`q\in\mathbb R^n`
-via an invertible, differentiable mapping :math:`F: \mathbb R^n \to \mathbb R^n,\, z = F(q)`. Moreover, let :math:`f(t,z)` denote the
-distribution function in Cartesian phase space and define :math:`f^0(t,q) := f(t,F(q))`. The first statement of :math:numref:`int`
-can then be written as
+The time derivative of the :math:`f_h`-integral reads
+
+.. math::
+    :label: int_fh
+
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f_h \phi\,\textrm d^n q &= \frac{\textrm{d}}{\textrm{d} t} \frac 1N \sum_{k=1}^N w_k\, \phi(q_k)
+    \\[2mm]
+    &= \frac 1N \sum_{k=1}^N \left[ \dot w_k\, \phi(q_k) + w_k\, \dot q_k \cdot \nabla_q \phi(q_k) \right]\,.
+
+Assuming that boundary terms vanish, the time derivative of the :math:`f`-integral can be written as
 
 .. math::
 
-    \frac{\textnormal d}{\textnormal d t} \int_{z(t,F(\mathcal V_0))} f(t, z)\,\textnormal d z = \frac{\textnormal d}{\textnormal d t} \int_{q(t,\mathcal V_0)} f^0(t, q) |J_F(q)|\,\textnormal d q = 0\,, 
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f \phi\,\textrm d^n q &= - \int_\Omega \nabla_q \cdot (G(f) \, f) \phi\,\textrm d^n q + \int_\Omega S(f) \phi\,\textrm d^n q
+    \\[2mm]
+    &= \int_\Omega  f\,G(f) \cdot \nabla_q \phi\,\textrm d^n q + \int_\Omega S(f) \phi\,\textrm d^n q
+    \\[2mm]
+    &= \int_\Omega  \frac fs\,G(f) \cdot \nabla_q \phi\,s\,\textrm d^n q + \int_\Omega \frac 1s S(f) \phi\,s \,\textrm d^n q
+    \\[2mm]
+    &= \mathbb E\left(\frac fs\,G(f) \cdot \nabla_q \phi \right)_s + \mathbb E\left(\frac 1s S(f) \phi \right)_s\,.
 
-where :math:`J_F = \textnormal{det}\,\partial F/\partial q` stands for the Jacobian determinant of the mapping.
-It follows that :math:`f^\textrm{vol} = f^0 |J_F|`. The equation for :math:`f^0` can be derived from :math:numref:`eq:kin:n` 
-by using the **Liouville theorem**,
+Here, :math:`s(t, q)` is a time-dependent probability distribution function (PDF) on :math:`\Omega`, 
+and :math:`\mathbb E(X)_s` denotes the expectation value of a random variable :math:`X`
+distributed according to :math:`s`. We can assume that the PDF :math:`s` satisfies the transport equation
+
+.. math::
+    :label: s_eq
+
+    \partial_t s + G(f) \cdot \nabla_q s &= 0\,,
+    \\[2mm]
+    s(t=0) &= s_{\textnormal{in}}\,.
+
+(note :math:`G(f)` and not :math:`G(s)`) which means that :math:`s` is constant along the characteristics 
+
+.. math::
+    :label: chars
+
+    \dot q_k = G(f(q_k)) \qquad q_k(0) = q_{k0}\,.
+
+More clearly,
 
 .. math::
 
-    \partial_t |J_F| + \nabla_q \cdot(G(t,q) |J_F|) = 0\,.
+    s(q_k(t)) = s_{\textnormal{in}}(q_{k0})\,.
 
-Indeed, :math:`f^0` satisfies a transport equation, since
+If the :math:`q_{k0}` are drawn from :math:`s_{\textnormal{in}}` it means that the :math:`q_k(t)`
+are distributed according to :math:`s`. Therefore, at each time :math:`t` we can estimate 
+the above expectation values from the :math:`N` samples :math:`q_k`:
 
 .. math::
-    :nowrap:
+    :label: expectvals
 
-    \begin{align}
-    &\partial_t f^\textrm{vol} + \nabla_q \cdot (G(t, q) \, f^\textrm{vol}) = 0 \\[1mm]
-    
-    \Leftrightarrow \quad &\partial_t (|J|f^0) + \nabla_q \cdot (G |J| f^0) = 0 \\[1mm]
-    
-    \Leftrightarrow \quad & |J|\partial_t f^0 + |J| G \cdot \nabla_q f^0 + f^0 \partial_t |J| + f^0 \nabla_q \cdot (G |J| ) = 0 \\[1mm]
-    
-    \Leftrightarrow \quad & \partial_t f^0 + G \cdot \nabla_q f^0 = 0 \,.
-    \end{align}
+    \mathbb E\left(\frac fs\,G(f) \cdot \nabla_q \phi \right)_s &= \frac 1N \sum_{k=1}^N \frac{f(q_k)}{s(q_k)}\,G(f(q_k)) \cdot \nabla_q \phi(q_k) + O(N^{-1/2})\,,
+    \\[2mm]
+    \mathbb E\left(\frac 1s S(f) \phi \right)_s &= \frac 1N \sum_{k=1}^N\frac{1}{s(q_k)}\,S(f(q_k)) \phi(q_k) + O(N^{-1/2})\,.
 
-The 0-form :math:`f^0` is thus constant along the characteristics :math:numref:`chars`,
+We can compare this to equation :math:numref:`int_fh` and since equation :math:numref:`pic:principle` 
+holds for any :math:`\phi`, by comparing coefficients we deduce
 
 .. math::
 
-    \frac{\textnormal d}{\textnormal d t} \left( f^0(t, q(t,q_0)) \right) = 0\,.
+    w_k\, \dot q_k &= \frac{f(q_k)}{s(q_k)}\,G(f(q_k))\,,
+    \\[2mm]
+    \dot w_k &= \frac{1}{s(q_k)}\,S(f(q_k))\,.
+
+Moreover, we can define
+
+.. math::
+    :label: def:weights
+
+    w_k := \frac{f(q_k)}{s(q_k)} = \frac{f(q_k)}{s_{\textnormal{in}}(q_{k0})}\,.
+
+Using this definition of the weights, we can say that the PIC solution :math:numref:`pic:ansatz` is obtained by solving
+
+.. math::
+    :label: pic:eqs
+
+    \dot q_k &= G(f(q_k)) \qquad &&q_k(0) = q_{k0}\,,
+    \\[2mm]
+    \dot w_k &= \frac{1}{s_{\textnormal{in}}(q_{k0})}\,S(f(q_k))  \qquad &&w_k(0) = \frac{f_\textrm{in}(q_{k0})}{s_{\textrm{in}}(q_{k0})}\,,
+
+where the :math:`q_{k0}` are drawn according to the PDF :math:`s_{\textnormal{in}}`.
+
+PIC methods are popular for solving these types of equations because
+
+a. they do not suffer from the curse of dimensionality for large :math:`n` 
+b. they and can be easily parallelized. 
+
+However, a disadvantage is their slow
+convergence :math:`\sim 1/\sqrt N` with the number of particles (also called markers) and the associated noise
+that is present in simulations. Often times noise-reduction techniques such as the :ref:`control_var` have to be employed
+to reduce simulation cost.
 
 
 .. _monte_carlo:
@@ -104,76 +143,57 @@ The 0-form :math:`f^0` is thus constant along the characteristics :math:numref:`
 Monte-Carlo integrals
 ^^^^^^^^^^^^^^^^^^^^^
 
-At the core of PIC methods is the approximation of phase space integrals 
+At the core of the PIC method is the approximation of integrals 
 
 .. math::
 
-    I = \int_{\mathbb R^n} f (t,z)\, A(t,z) \,\textnormal d z
+    I = \int_{\Omega} f(q)\, A(q) \,\textnormal d^n q\,.
 
-by Mont-Carlo integration. Here, :math:`z=(x,v) \in \mathbb R^n` are Cartesian phase space coordinates
-and :math:`A(t,z)` is a given function. In Struphy, such integrals are calculated in non-Cartesian
-coordinates :math:`q \in \mathbb R^n`, related via a diffeomorphism :math:`z = F(q)`,
+by Mont-Carlo (MC) integration. The first expecation value in equation :math:numref:`expectvals`
+is an example of this. In Struphy, such integrals are calculated in non-Cartesian
+coordinates :math:`q \in \mathbb R^n`, and we denote by 
+
+.. math::
+
+    \textnormal d^n q = |J| \textnormal d q\,,   
+
+the volume element, including the Jacobian determinant from the mapping to Cartesian (straight) space.
+Thus, we could also write the integral as
 
 .. math::
     :label: int:1
 
-    I = \int_{\mathbb R^n} f^0 (t,q)\, A^0(t,q) |J_F(q)|\,\textnormal d q\,,
+    I = \int_{\Omega} f(q)\, A(q) |J|\,\textnormal d q\,,
 
-where we use the same notation as in the previous section. We know that :math:`f^0(t,q)` satisfies a transport equation
-
-.. math::
-    :label: kin:f0
-
-    \partial_t f^0 + G \cdot \nabla_q f^0 = 0\qquad f^0(t=0) = f^0_{\textnormal{in}}\,,
-
-with :math:`f^0_{\textnormal{in}}` denoting the initial condition. 
-Let us now introduce another function :math:`s^0(t,q)`,
-which we assume also satisfies the transport equation,
+We have seen that :math:`s` satisfies the transport equation :math:numref:`s_eq`,
+and that it is normalized, thus
 
 .. math::
 
-    \partial_t s^0 + G \cdot \nabla_q s^0 = 0\qquad s^0(t=0) = s^0_{\textnormal{in}}\,,
+    \int_{\Omega} s |J|\,\textnormal d q = 1 \qquad \forall t\,, \qquad \quad s >0\,.
 
-but with potentially different initial condition :math:`s^0_{\textnormal{in}}`. 
-We moreover assume that the corresponding :math:`n`-form or volume density :math:`s^\textrm{vol} = s^0 |J_F|` is
-a probability distribution function (PDF), i.e.
+In MC integration, we view the integral :math:`I` as an expectation value:
 
 .. math::
+    :label: int:2
 
-    \int_{\mathbb R^n} s^\textrm{vol}(t,q)\,\textnormal d q = 1 \qquad \forall t\,, \qquad \quad s^\textrm{vol} >0\,.
+    I = \int_{\Omega} \frac{f(q)}{s(q)}\, A(q)\, s(q) |J|\,\textnormal d q = \mathbb E\left( \frac{f}{s} A\right)_s\,,
 
-The integral :math:numref:`int:1` can now be interpreted as the expectation value of the random
-variable :math:`A^0\,f^0/s^0` distributed according to the PDF :math:`s^\textrm{vol}`:
-
-.. math::
-
-    I = \int_{\mathbb R^n} \frac{f^0 (t,q)}{s^0 (t,q)}\, A^0(t,q) s^\textrm{vol}(t,q)\,\textnormal d q = \mathbb E \left( \frac{f^0 }{s^0 }\, A^0 \right)_{s^\textrm{vol}}\,.
-
-In order to approximate the expectation value, we draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to the PDF :math:`s^\textrm{vol}_{\textnormal{in}}`
-and evolve them along the characteristics :math:numref:`chars`. When denoting the ODE solutions by :math:`(q_{k}(t))_k`, 
-the unbiased estimator for the expectation value reads
-
-.. math::
-
-    I \approx \frac{1}{N} \sum_{k=1}^N \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) }\, A^0 (t, q_k(t)) \,.
-
-If we further exploit that both :math:`f^0` and :math:`s^0` are constant along the characteristics, we arrive at 
+with respect to the PDF :math:`s|J|`.
+Having access to :math:`N` samples :math:`q_k(t)` of :math:`s` at each time :math:`t`
+allows us to estimate this expectation via
 
 .. math::
     :label: mcint
 
-    I \approx \frac{1}{N} \sum_{k=1}^N w_{k0}\, A^0 (t, q_k(t)) \,,
+    I = \mathbb E\left( \frac{f}{s} A\right)_s \approx \frac 1N \sum_{k=1}^N \frac{f(q_k)}{s(q_k)} A(q_k) = \frac 1N \sum_{k=1}^N w_k A(q_k)\,,
 
-where we defined the time-independent **weights**
+using the definition of the weights in equation :math:numref:`def:weights`. 
+The error in this approximation is of order :math:`N^{-1/2}`.
 
-.. math::
-    :label: weights
-
-    w_{k0} := \frac{f^0(t, q_k(t)) }{s^0(t, q_k(t)) } = \frac{f^0(0, q_k(0)) }{s^0(0, q_k(0)) } = \frac{f^0_{\textnormal{in}}(q_{k0}) }{s^0_{\textnormal{in}}(q_{k0}) }\,.
-
-These weights are implemented in :meth:`struphy.pic.base.Particles.initialize_weights`.
-Equation :math:numref:`mcint` can be obtained directly from :math:numref:`int:1` by inserting
-the PIC ansatz :math:numref:`pic:ansatz`, with :math:`f^0|J_F| \approx f^\textrm{vol}_h`.
+The weights are implemented in :meth:`struphy.pic.base.Particles.initialize_weights`.
+Equation :math:numref:`mcint` can be obtained directly from :math:numref:`int:2` by inserting
+the PIC ansatz :math:numref:`pic:ansatz`, with :math:`f|J| \approx f_h`.
 
 In Struphy, Monte-Carlo integrals of the form :math:numref:`mcint` are implemented via :ref:`accums`. 
 
@@ -185,11 +205,11 @@ PIC algorithm
 
 The PIC algorithm can be summarized in the following steps:
 
-1. Draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to :math:`s^\textrm{vol}_{\textnormal{in}}`. The initial marker distribution is implemented in :meth:`struphy.pic.base.Particles.draw_markers`. In Struphy, it is always a Gaussian in velocity space (see docstring).
+1. Draw :math:`N\gg 1` markers :math:`(q_{k0})_k` according to :math:`s_{\textnormal{in}}|J|`. The initial marker distribution is implemented in :meth:`struphy.pic.base.Particles.draw_markers`. In Struphy, it is always a Gaussian in velocity space (see docstring).
 
-2. Compute the weights :math:`(w_{k0})_k` according to equation :math:numref:`weights`. The initial condition of the kinetic equation :math:numref:`kin:f0` enters only here. Note that :math:`s^0_{\textnormal{in}} = s^\textrm{vol}_{\textnormal{in}} / |J_F|`.
+2. Compute the weights :math:`(w_{k0})_k` according to equation :math:numref:`def:weights`. The initial condition of the kinetic equation enters here.
 
-3. Solve the characteristic equations :math:numref:`chars` with initial condition :math:`q_{k0}` for each marker.
+3. Solve the characteristic equations :math:numref:`pic:eqs` for each marker.
 
 4. Whenever necessary, compute integrals according to :math:numref:`mcint`.
  

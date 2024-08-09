@@ -15,13 +15,18 @@ from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
 
+from struphy.feec.psydac_derham import Derham
+from struphy.geometry.base import Domain
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+
 
 class Particles(metaclass=ABCMeta):
     """
     Base class for particle species.
 
     The marker information is stored in a 2D numpy array, 
-    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
+    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#PIC-data-structures>`_.
 
     Parameters
     ----------
@@ -51,14 +56,29 @@ class Particles(metaclass=ABCMeta):
     """
 
     def __init__(self,
-                 name,
-                 derham=None,
-                 domain=None,
-                 mhd_equil=None,
-                 braginskii_equil=None,
-                 bckgr_params=None,
-                 pert_params=None,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
                  **marker_params):
+
+        if domain is None:
+            from struphy.geometry.domains import Cuboid
+            domain = Cuboid()
+        
+        self._name = name
+        self._derham = derham
+        self._domain = domain
+        self._mhd_equil = mhd_equil
+        self._braginskii_equil = braginskii_equil
+        
+        self._mpi_comm = derham.comm
+        self._mpi_size = derham.comm.Get_size()
+        self._mpi_rank = derham.comm.Get_rank()
 
         if bckgr_params is None:
             bckgr_params = {'type': 'Maxwellian3D'}
@@ -72,20 +92,15 @@ class Particles(metaclass=ABCMeta):
             'Np': 4,
             'eps': .25,
             'bc': {'type': ['periodic', 'periodic', 'periodic']},
-            'loading': {'type': 'pseudo:random',
+            'loading': {'type': 'pseudo_random',
                         'seed': 1234,
                         'dir_particles': None,
-                        'moments': [0., 0., 0., 1., 1., 1.]},
+                        'moments': [0., 0., 0., 1., 1., 1.],
+                        'spatial': 'uniform'},
         }
 
         self._marker_params = set_defaults(
             marker_params, marker_params_default)
-
-        self._name = name
-        self._derham = derham
-        self._domain = domain
-        self._mhd_equil = mhd_equil
-        self._braginskii_equil = braginskii_equil
 
         self._domain_decomp = derham.domain_array
 
@@ -96,13 +111,6 @@ class Particles(metaclass=ABCMeta):
             self._pforms = bckgr_params['pforms']
         else:
             self._pforms = [None, None]
-
-        if derham is not None:
-            self._mpi_comm = derham.comm
-            self._mpi_size = derham.comm.Get_size()
-            self._mpi_rank = derham.comm.Get_rank()
-        else:
-            raise NotImplementedError('We need an MPI comm for the moment.')
 
         # create marker array
         self.create_marker_array()

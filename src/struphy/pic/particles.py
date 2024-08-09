@@ -4,6 +4,11 @@ from struphy.pic import utilities_kernels
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
+from struphy.feec.psydac_derham import Derham
+from struphy.geometry.base import Domain
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+
 
 class Particles6D(Particles):
     """
@@ -31,13 +36,28 @@ class Particles6D(Particles):
         return {'type': 'Maxwellian3D',
                 'Maxwellian3D': {}}
 
-    def __init__(self, name, **params):
+    def __init__(self,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
+                 **marker_params):
 
-        assert 'bckgr_params' in params
-        if params['bckgr_params'] is None:
-            params['bckgr_params'] = self.default_bckgr_params()
+        if bckgr_params is None:
+            bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name, **params)
+        super().__init__(name,
+                         derham,
+                         domain=domain,
+                         mhd_equil=mhd_equil,
+                         braginskii_equil=braginskii_equil,
+                         bckgr_params=bckgr_params,
+                         pert_params=pert_params,
+                         **marker_params)
 
     @property
     def n_cols(self):
@@ -151,13 +171,28 @@ class Particles5D(Particles):
         return {'type': 'GyroMaxwellian2D',
                 'GyroMaxwellian2D': {}}
 
-    def __init__(self, name, **params):
+    def __init__(self,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
+                 **marker_params):
 
-        assert 'bckgr_params' in params
-        if params['bckgr_params'] is None:
-            params['bckgr_params'] = self.default_bckgr_params()
+        if bckgr_params is None:
+            bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name, **params)
+        super().__init__(name,
+                         derham,
+                         domain=domain,
+                         mhd_equil=mhd_equil,
+                         braginskii_equil=braginskii_equil,
+                         bckgr_params=bckgr_params,
+                         pert_params=pert_params,
+                         **marker_params)
 
         # magnetic background
         if self.mhd_equil is not None:
@@ -350,8 +385,8 @@ class Particles5D(Particles):
 
             utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
                                                                 self.derham.args_derham,
-                                                                epsilon, 
-                                                                B0, 
+                                                                epsilon,
+                                                                B0,
                                                                 R0,
                                                                 abs_B0._data)
 
@@ -374,11 +409,11 @@ class Particles5D(Particles):
                                                self.derham.args_derham,
                                                self.domain.args_domain,
                                                self.absB0_h._data,
-                                               self.unit_b1_h[0]._data, 
-                                               self.unit_b1_h[1]._data, 
+                                               self.unit_b1_h[0]._data,
+                                               self.unit_b1_h[1]._data,
                                                self.unit_b1_h[2]._data,
-                                               b2t[0]._data, 
-                                               b2t[1]._data, 
+                                               b2t[0]._data,
+                                               b2t[1]._data,
                                                b2t[2]._data)
 
     def save_magnetic_background_energy(self):
@@ -393,7 +428,7 @@ class Particles5D(Particles):
         abs_B0.update_ghost_regions()
 
         utilities_kernels.eval_magnetic_background_energy(self.markers,
-                                                          self.derham.args_derham, 
+                                                          self.derham.args_derham,
                                                           self.domain.args_domain,
                                                           abs_B0._data)
 
@@ -410,28 +445,36 @@ class Particles3D(Particles):
     value position (eta) weight   s0     w0   buffer    
     ===== ============== ====== ====== ====== ======   
 
-    Parameters
-    ----------
-    name : str
-        Name of the particle species.
-
-    **params : dict
-        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
+    See :class:`~struphy.pic.base.Particles` for more info on parameters.
     """
-
 
     @classmethod
     def default_bckgr_params(cls):
         return {'type': 'Constant',
                 'Constant': {}}
 
-    def __init__(self, name, **params):
+    def __init__(self,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
+                 **marker_params):
 
-        assert 'bckgr_params' in params
-        if params['bckgr_params'] is None:
-            params['bckgr_params'] = self.default_bckgr_params()
+        if bckgr_params is None:
+            bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name, **params)
+        super().__init__(name,
+                         derham,
+                         domain=domain,
+                         mhd_equil=mhd_equil,
+                         braginskii_equil=braginskii_equil,
+                         bckgr_params=bckgr_params,
+                         pert_params=pert_params,
+                         **marker_params)
 
     @property
     def n_cols(self):
