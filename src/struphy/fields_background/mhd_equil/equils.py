@@ -818,6 +818,146 @@ class ScrewPinch(CartesianMHDequilibrium):
         gradBz = 0*x
 
         return gradBx, gradBy, gradBz
+    
+
+class StationaryVortex(CartesianMHDequilibrium):
+    r"""
+    Stationay vortex equilibrium
+
+    TODO.
+
+    Parameters
+    ----------
+    a : float 
+        Dimension of the slab ((0,1) x (-a,a) x (-a,a)) (default: 10.).
+    rho0 : float
+        Equilibrium density (default: 1.)
+    p0 : float
+        Equilibrium pressure (default: 0.)
+    A0 : float
+        Amplitude of the perturbation of A (default sqrt(4 pi))
+    v0 : float 
+        Amplitude of the pertubation of v (default 1.)
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+
+        
+    """
+
+    def __init__(self, **params):
+
+        params_default = {'a': 10.,
+                          'A0': 3.54490770181,
+                          'v0': 1.,
+                          'rho0': 1.,
+                          'p0': 0.}
+
+        self._params = set_defaults(params, params_default)
+
+        # cylindrical coordinate from the center squared
+        #self.r2 = lambda x, y, z: ((y-0.5)**2 + (z-0.5)**2)*4*self._params['a']**2
+        self.r2 = lambda x, y, z: y**2 + z**2
+
+    @property
+    def params(self):
+        """ Parameters dictionary.
+        """
+        return self._params
+
+    # ===============================================================
+    #           profiles for a straight tokamak equilibrium
+    # ===============================================================
+
+    def plot_profiles(self, n_pts=501):
+        """ Plots radial profiles.
+        """
+
+        import matplotlib.pyplot as plt
+
+        r = np.linspace(0., self.params['a'], n_pts)
+
+        fig, ax = plt.subplots(1, 3)
+
+        fig.set_figheight(3)
+        fig.set_figwidth(12)
+
+        ax[0].plot(r, self.q_r(r))
+        ax[0].set_xlabel('r')
+        ax[0].set_ylabel('q')
+
+        ax[0].plot(r, np.ones(r.size), 'k--')
+
+        ax[1].plot(r, self.p_r(r))
+        ax[1].set_xlabel('r')
+        ax[1].set_ylabel('p')
+
+        ax[2].plot(r, self.n_r(r))
+        ax[2].set_xlabel('r')
+        ax[2].set_ylabel('n')
+
+        plt.subplots_adjust(wspace=0.4)
+
+        plt.show()
+
+    # ===============================================================
+    #                  profiles on physical domain
+    # ===============================================================
+
+    # equilibrium magnetic field
+    def b_xyz(self, x, y, z):
+        """ Magnetic field.
+        """
+
+        r2 = self.r2(x, y, z)
+        prefactor = self._params['A0']/(2*np.pi)*np.exp((1-r2)/2)
+        bx = 0*x
+        by = - prefactor * z
+        bz = prefactor * y
+
+        return bx, by, bz
+
+    # equilibrium current 
+    # used to setup the velocity, probably bad decision and should find a better solution
+    def j_xyz(self, x, y, z):
+        """ Current density.
+        """
+        r2 = self.r2(x, y, z)
+        prefactor = self._params['v0']/(2*np.pi)*np.exp((1-r2)/2)
+        jx = 0*x
+        jy = - prefactor * z
+        jz = prefactor * y
+
+        return jx, jy, jz
+
+    # equilibrium pressure
+    def p_xyz(self, x, y, z):
+        """ Pressure.
+        """
+        r2 = self.r2(x,y,z)
+        B_term = 1/2*(self._params['A0']/(2*np.pi))**2*(1-r2)*np.exp(1-r2)
+        v_term = 1/2*(self._params['v0']/(2*np.pi))**2*np.exp(1-r2)
+
+        return B_term-v_term+self._params['p0']
+
+    # equilibrium number density
+    def n_xyz(self, x, y, z):
+        """ Number density.
+        """
+
+        return self._params['rho0']+0.*x
+
+    # gradient of equilibrium magnetic field (not set)
+    def gradB_xyz(self, x, y, z):
+        """ Gradient of magnetic field.
+        """
+
+        gradBx = 0*x
+        gradBy = 0*x
+        gradBz = 0*x
+
+        return gradBx, gradBy, gradBz
 
 
 class AdhocTorus(AxisymmMHDequilibrium):

@@ -223,7 +223,7 @@ class MHDequilibrium(metaclass=ABCMeta):
     
     def s3_diatomic(self, *etas, squeeze_out=False):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
-            Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
+            Hard coded assumption : gamma = 7/5 (diatomic perfect gaz)
         """
         return self.domain.transform(self.s0_diatomic(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
 
@@ -339,6 +339,15 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def j2_3(self, *etas, squeeze_out=False):
         return self.j2(*etas, squeeze_out=squeeze_out)[2]
+    
+    def jv_1(self, *etas, squeeze_out=False):
+        return self.jv(*etas, squeeze_out=squeeze_out)[0]
+
+    def jv_2(self, *etas, squeeze_out=False):
+        return self.jv(*etas, squeeze_out=squeeze_out)[1]
+
+    def jv_3(self, *etas, squeeze_out=False):
+        return self.jv(*etas, squeeze_out=squeeze_out)[2]
 
     def gradB1_1(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[0]
