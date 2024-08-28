@@ -756,7 +756,7 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     # ===========================================================
     maxw_params = {'n': 2.}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, volume_form = False)
 
     meshgrids = np.meshgrid(
         e1, e2, e3,
@@ -804,7 +804,7 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
                    'vth_para': vth_para,
                    'vth_perp': vth_perp}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, volume_form = False)
 
     # test Maxwellian profile in v
     v_para = np.linspace(-5, 5, 64)
@@ -870,7 +870,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'ls': {'n': [mode]},
                        'amps': {'n': [amp]}}}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -913,7 +913,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'u_para': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -967,7 +967,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'u_perp': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -1020,7 +1020,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_para': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1075,7 +1075,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_perp': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -1125,7 +1125,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'c': {'n': c}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1228,10 +1228,10 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                                           Lz=mhd_equil.params['R0']*2*np.pi)
 
             maxwellian = GyroMaxwellian2D(
-                maxw_params=maxw_params_mhd, mhd_equil=mhd_equil)
+                maxw_params=maxw_params_mhd, mhd_equil=mhd_equil, volume_form = False)
 
             maxwellian_1 = GyroMaxwellian2D(
-                maxw_params=maxw_params_1, mhd_equil=mhd_equil)
+                maxw_params=maxw_params_1, mhd_equil=mhd_equil, volume_form = False)
 
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
@@ -1410,7 +1410,8 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                         maxwellian_perturbed = GyroMaxwellian2D(
                             maxw_params=maxw_params_mhd,
                             pert_params=pert_params,
-                            mhd_equil=mhd_equil)
+                            mhd_equil=mhd_equil,
+                            volume_form = False)
 
                         # test meshgrid evaluation
                         assert maxwellian_perturbed(
@@ -1424,7 +1425,8 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                         maxwellian_zero_bckgr = GyroMaxwellian2D(
                             maxw_params=maxw_params_zero,
                             pert_params=pert_params,
-                            mhd_equil=mhd_equil)
+                            mhd_equil=mhd_equil,
+                            volume_form = False)
 
                         assert np.allclose(maxwellian_zero_bckgr.n(
                             *e_meshgrids), pert(*e_meshgrids))
@@ -1652,12 +1654,13 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     # Test constant value at v_para = v_perp = 0.01
     res = maxwellian(energy, mu, psic).squeeze()
+    res_ana = maxw_params['n']*2*np.sqrt(energy/np.pi)/maxw_params['vth']**3 * \
+        np.exp(-energy/maxw_params['vth']**2)
     assert np.allclose(
         res,
-        maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']
-                          ** 3) * np.exp(-energy/maxw_params['vth']**2),
+        res_ana,
         atol=10e-10
-    ), f"{res=},\n {2. / (2 * np.pi)**(3/2)* np.exp(-1e-04)}"
+    ), f"{res=},\n {res_ana}"
 
     # test canonical Maxwellian profile in v_para
     v_para = np.linspace(-5, 5, 64)
@@ -1686,7 +1689,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     res = maxwellian(*com_meshgrids).squeeze()
 
-    res_ana = maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']**3) * \
+    res_ana = maxw_params['n']*2*np.sqrt(com_meshgrids[0]/np.pi)/maxw_params['vth']**3 * \
         np.exp(-com_meshgrids[0]/maxw_params['vth']**2)
 
     if show_plot:
@@ -1731,7 +1734,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     res = maxwellian(*com_meshgrids).squeeze()
 
-    res_ana = maxw_params['n']/((2.*np.pi)**(1/2) * maxw_params['vth']**3) * \
+    res_ana = maxw_params['n']*2*np.sqrt(com_meshgrids[0]/np.pi)/maxw_params['vth']**3 * \
         np.exp(-com_meshgrids[0]/maxw_params['vth']**2)
 
     if show_plot:
@@ -1798,8 +1801,8 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     ana_res = n0*c[3]*np.exp(-c[2]/c[1] *
                              np.tanh((rc - c[0])/c[2]))
-    ana_res *= 1/((2.*np.pi)**(1/2) *
-                  maxw_params['vth']**3) * np.exp(-energy/maxw_params['vth']**2)
+    ana_res *= 2*np.sqrt(energy/np.pi)/maxw_params['vth']**3 * \
+        np.exp(-energy/maxw_params['vth']**2)
 
     if show_plot:
         plt.plot(e1, ana_res, label='analytical')
@@ -1818,11 +1821,10 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
 
 if __name__ == '__main__':
-    test_maxwellian_3d_mhd([8, 11, 12], False)
-    # test_maxwellian_6d_uniform(Nel=[64, 1, 1], show_plot=False)
-    # test_maxwellian_6d_perturbed(Nel=[64, 1, 1], show_plot=False)
-    # test_maxwellian_6d_mhd(Nel=[8, 11, 12], show_plot=True)
-    # test_maxwellian_5d_uniform(Nel=[64, 1, 1], show_plot=True)
-    # test_maxwellian_5d_perturbed(Nel=[64, 1, 1], show_plot=True)
-    # test_maxwellian_5d_mhd(Nel=[8, 12, 12], show_plot=False)
+    test_maxwellian_3d_uniform(Nel=[64, 1, 1], show_plot=False)
+    # test_maxwellian_3d_perturbed(Nel=[64, 1, 1], show_plot=False)
+    # test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=True)
+    # test_maxwellian_2d_uniform(Nel=[64, 1, 1], show_plot=True)
+    # test_maxwellian_2d_perturbed(Nel=[64, 1, 1], show_plot=True)
+    # test_maxwellian_2d_mhd(Nel=[8, 12, 12], with_desc=None, show_plot=False)
     # test_canonical_maxwellian_uniform(Nel=[64, 1, 1], show_plot=True)

@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
@@ -78,7 +79,10 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(particles,
                             pusher_kernels.push_vxb_analytic,
-                            derham.args_derham, 
+                            (b2_eq_psy[0]._data + b2_psy[0]._data,
+                             b2_eq_psy[1]._data + b2_psy[1]._data,
+                             b2_eq_psy[2]._data + b2_psy[2]._data),
+                            derham.args_derham,
                             domain.args_domain)
 
     # compare if markers are the same BEFORE push
@@ -89,13 +93,10 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_str.push_step5(markers_str, dt, b2_str)
 
-    pusher_psy(dt,
-               b2_eq_psy[0]._data + b2_psy[0]._data,
-               b2_eq_psy[1]._data + b2_psy[1]._data,
-               b2_eq_psy[2]._data + b2_psy[2]._data)
+    pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert np.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.mpi(min_size=2)
@@ -180,7 +181,13 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(particles,
                             pusher_kernels.push_bxu_Hdiv,
-                            derham.args_derham, 
+                            (b2_eq_psy[0]._data + b2_psy[0]._data,
+                             b2_eq_psy[1]._data + b2_psy[1]._data,
+                             b2_eq_psy[2]._data + b2_psy[2]._data,
+                             u2_psy[0]._data,
+                             u2_psy[1]._data,
+                             u2_psy[2]._data),
+                            derham.args_derham,
                             domain.args_domain)
 
     # compare if markers are the same BEFORE push
@@ -191,16 +198,10 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_str.push_step3(markers_str, dt, b2_str, u2_str, mu0_str, pow_str)
 
-    pusher_psy(dt,
-               b2_eq_psy[0]._data + b2_psy[0]._data,
-               b2_eq_psy[1]._data + b2_psy[1]._data,
-               b2_eq_psy[2]._data + b2_psy[2]._data,
-               u2_psy[0]._data,
-               u2_psy[1]._data,
-               u2_psy[2]._data)
+    pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert np.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.mpi(min_size=2)
@@ -285,7 +286,13 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(particles,
                             pusher_kernels.push_bxu_Hcurl,
-                            derham.args_derham, 
+                            (b2_eq_psy[0]._data + b2_psy[0]._data,
+                             b2_eq_psy[1]._data + b2_psy[1]._data,
+                             b2_eq_psy[2]._data + b2_psy[2]._data,
+                             u1_psy[0]._data,
+                             u1_psy[1]._data,
+                             u1_psy[2]._data),
+                            derham.args_derham,
                             domain.args_domain)
 
     # compare if markers are the same BEFORE push
@@ -296,16 +303,10 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_str.push_step3(markers_str, dt, b2_str, u1_str, mu0_str, pow_str)
 
-    pusher_psy(dt,
-               b2_eq_psy[0]._data + b2_psy[0]._data,
-               b2_eq_psy[1]._data + b2_psy[1]._data,
-               b2_eq_psy[2]._data + b2_psy[2]._data,
-               u1_psy[0]._data,
-               u1_psy[1]._data,
-               u1_psy[2]._data)
+    pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert np.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.mpi(min_size=2)
@@ -388,9 +389,15 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     mu0_str = np.zeros(markers_str.shape[1], dtype=float)
     pow_str = np.zeros(markers_str.shape[1], dtype=float)
 
-    pusher_psy = Pusher_psy(particles, 
+    pusher_psy = Pusher_psy(particles,
                             pusher_kernels.push_bxu_H1vec,
-                            derham.args_derham, 
+                            (b2_eq_psy[0]._data + b2_psy[0]._data,
+                             b2_eq_psy[1]._data + b2_psy[1]._data,
+                             b2_eq_psy[2]._data + b2_psy[2]._data,
+                             uv_psy[0]._data,
+                             uv_psy[1]._data,
+                             uv_psy[2]._data),
+                            derham.args_derham,
                             domain.args_domain)
 
     # compare if markers are the same BEFORE push
@@ -401,16 +408,10 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_str.push_step3(markers_str, dt, b2_str, uv_str, mu0_str, pow_str)
 
-    pusher_psy(dt,
-               b2_eq_psy[0]._data + b2_psy[0]._data,
-               b2_eq_psy[1]._data + b2_psy[1]._data,
-               b2_eq_psy[2]._data + b2_psy[2]._data,
-               uv_psy[0]._data,
-               uv_psy[1]._data,
-               uv_psy[2]._data)
+    pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert np.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.mpi(min_size=2)
@@ -493,8 +494,17 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     mu0_str = np.random.rand(markers_str.shape[1])
     pow_str = np.zeros(markers_str.shape[1], dtype=float)
 
-    pusher_psy = Pusher_psy(particles, 
+    pusher_psy = Pusher_psy(particles,
                             pusher_kernels.push_bxu_Hdiv_pauli,
+                            (*derham.p,
+                             b2_eq_psy[0]._data + b2_psy[0]._data,
+                             b2_eq_psy[1]._data + b2_psy[1]._data,
+                             b2_eq_psy[2]._data + b2_psy[2]._data,
+                             u2_psy[0]._data,
+                             u2_psy[1]._data,
+                             u2_psy[2]._data,
+                             b0_eq_psy._data,
+                             mu0_str),
                             derham.args_derham,
                             domain.args_domain)
 
@@ -506,19 +516,10 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_str.push_step3(markers_str, dt, b2_str, u2_str, mu0_str, pow_str)
 
-    pusher_psy(dt,
-               *derham.p,
-               b2_eq_psy[0]._data + b2_psy[0]._data,
-               b2_eq_psy[1]._data + b2_psy[1]._data,
-               b2_eq_psy[2]._data + b2_psy[2]._data,
-               u2_psy[0]._data,
-               u2_psy[1]._data,
-               u2_psy[2]._data,
-               b0_eq_psy._data,
-               mu0_str)
+    pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert np.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.mpi(min_size=2)
@@ -595,14 +596,12 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_str = Pusher_str(domain, space, space.extract_0(
         b0_eq_str), space.extract_2(b2_eq_str), basis_u=0, bc_pos=0)
 
-    a = [1/2, 1/2, 1.]
-    b = [1/6, 1/3, 1/3, 1/6]
-    c = [0., 1/2, 1/2, 1.]
-    butcher = ButcherTableau(a, b, c)
+    butcher = ButcherTableau('rk4')
 
     pusher_psy = Pusher_psy(particles,
                             pusher_kernels.push_eta_stage,
-                            derham.args_derham, 
+                            (butcher.a, butcher.b, butcher.c),
+                            derham.args_derham,
                             domain.args_domain,
                             n_stages=butcher.n_stages)
 
@@ -613,10 +612,10 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     dt = 0.1
 
     pusher_str.push_step4(markers_str, dt)
-    pusher_psy(dt, butcher.a, butcher.b, butcher.c)
+    pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert np.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 if __name__ == '__main__':
@@ -628,8 +627,7 @@ if __name__ == '__main__':
     #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     # test_push_bxu_H1vec([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
-    test_push_bxu_Hdiv_pauli([8, 9, 5], [2, 3, 1], [False, True, True], ['Colella', {
-        'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}], False)
-    # test_push_eta_rk4([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
-    #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
-
+    # test_push_bxu_Hdiv_pauli([8, 9, 5], [2, 3, 1], [False, True, True], ['Colella', {
+    #     'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}], False)
+    test_push_eta_rk4([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
+        'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)

@@ -293,7 +293,7 @@ class LinearMHDVlasovPC(StruphyModel):
     .. math::
 
         \epsilon = \frac{\hat \omega}{2 \pi \, \hat \Omega_{\textnormal{c,hot}}} \,,\qquad \textnormal{with} \qquad\hat \Omega_{\textnormal{c,hot}} = \frac{Z_\textnormal{h}e \hat B}{A_\textnormal{h} m_\textnormal{H}}\,.
-    
+
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_markers.PushEtaPC`
@@ -310,7 +310,8 @@ class LinearMHDVlasovPC(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['b_field'] = 'Hdiv'
-        dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
+        dct['fluid']['mhd'] = {'density': 'L2',
+                               'velocity': 'Hdiv', 'pressure': 'L2'}
         dct['kinetic']['energetic_ions'] = 'Particles6D'
         return dct
 
@@ -361,7 +362,8 @@ class LinearMHDVlasovPC(StruphyModel):
         params_pc_solver = params['kinetic']['energetic_ions']['options']['PressureCoupling6D']['solver']
 
         # use perp model
-        assert params['kinetic']['energetic_ions']['options']['PressureCoupling6D']['use_perp_model'] == params['kinetic']['energetic_ions']['options']['PressureCoupling6D']['use_perp_model']
+        assert params['kinetic']['energetic_ions']['options']['PressureCoupling6D']['use_perp_model'] == params[
+            'kinetic']['energetic_ions']['options']['PressureCoupling6D']['use_perp_model']
         use_perp_model = params['kinetic']['energetic_ions']['options']['PressureCoupling6D']['use_perp_model']
 
         # compute coupling parameters
@@ -440,9 +442,11 @@ class LinearMHDVlasovPC(StruphyModel):
 
         # perturbed fields
         if 'Hdiv' == 'Hdiv':
-            self._mass_ops.M2n.dot(self.pointer['mhd_velocity'], out=self._tmp_u)
+            self._mass_ops.M2n.dot(
+                self.pointer['mhd_velocity'], out=self._tmp_u)
         else:
-            self._mass_ops.Mvn.dot(self.pointer['mhd_velocity'], out=self._tmp_u)
+            self._mass_ops.Mvn.dot(
+                self.pointer['mhd_velocity'], out=self._tmp_u)
 
         self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
@@ -544,8 +548,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_markers.PushDriftKineticbxGradB`
-    2. :class:`~struphy.propagators.propagators_markers.PushDriftKineticParallelZeroEfield`
+    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
     3. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`
     4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
     5. :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`
@@ -560,7 +564,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['b_field'] = 'Hdiv'
-        dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
+        dct['fluid']['mhd'] = {'density': 'L2',
+                               'velocity': 'Hdiv', 'pressure': 'L2'}
         dct['kinetic']['energetic_ions'] = 'Particles5D'
         return dct
 
@@ -574,8 +579,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushDriftKineticbxGradB: ['energetic_ions'],
-                propagators_markers.PushDriftKineticParallelZeroEfield: ['energetic_ions'],
+        return {propagators_markers.PushGuidingCenterBxEstar: ['energetic_ions'],
+                propagators_markers.PushGuidingCenterParallel: ['energetic_ions'],
                 propagators_coupling.CurrentCoupling5DGradB: ['energetic_ions', 'mhd_velocity'],
                 propagators_coupling.CurrentCoupling5DCurlb: ['energetic_ions', 'mhd_velocity'],
                 propagators_fields.CurrentCoupling5DDensity: ['mhd_velocity'],
@@ -607,14 +612,15 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # extract necessary parameters
         u_space = params['fluid']['mhd']['options']['u_space']
-        params_alfven_solver = params['fluid']['mhd']['options']['ShearAlfvenCurrentCoupling5D']['solver']
-        params_sonic_solver = params['fluid']['mhd']['options']['MagnetosonicCurrentCoupling5D']['solver']
-        params_density_solver = params['fluid']['mhd']['options']['CurrentCoupling5DDensity']['solver']
-        params_bxgradb_algo = params['kinetic']['energetic_ions']['options']['PushDriftKineticbxGradB']['algo']
-        params_parallel_algo = params['kinetic']['energetic_ions']['options']['PushDriftKineticParallelZeroEfield']['algo']
-        params_cc_gradB_solver = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DGradB']['solver']
-        params_cc_curlb_solver = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DCurlb']['solver']
-        params_cc_gradB_algo = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DGradB']['algo']
+        params_alfven = params['fluid']['mhd']['options']['ShearAlfvenCurrentCoupling5D']
+        params_sonic = params['fluid']['mhd']['options']['MagnetosonicCurrentCoupling5D']
+        params_density = params['fluid']['mhd']['options']['CurrentCoupling5DDensity']
+
+        params_bxE = params['kinetic']['energetic_ions']['options']['PushGuidingCenterBxEstar']
+        params_parallel = params['kinetic']['energetic_ions']['options']['PushGuidingCenterParallel']
+        params_cc_gradB = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DGradB']
+        params_cc_curlb = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DCurlb']
+        params_cc_gradB = params['kinetic']['energetic_ions']['options']['CurrentCoupling5DGradB']
 
         # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
@@ -661,74 +667,83 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._ones[:] = 1.
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushDriftKineticbxGradB] = {'b': self.pointer['b_field'],
-                                                                     'b_eq': self._b_eq,
-                                                                     'unit_b1': self._unit_b1,
-                                                                     'unit_b2': self._unit_b2,
-                                                                     'absB0': self._absB0,
-                                                                     'gradB1': self._gradB1,
-                                                                     'curl_unit_b2': self._curl_unit_b2,
-                                                                     'algo': params_bxgradb_algo,
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'b_tilde': self.pointer['b_field'],
+                                                                     'algo': params_bxE['algo'],
                                                                      'epsilon': epsilon}
 
-        self._kwargs[propagators_markers.PushDriftKineticParallelZeroEfield] = {'b': self.pointer['b_field'],
-                                                                                'b_eq': self._b_eq,
-                                                                                'unit_b1': self._unit_b1,
-                                                                                'unit_b2': self._unit_b2,
-                                                                                'absB0': self._absB0,
-                                                                                'gradB1': self._gradB1,
-                                                                                'curl_unit_b2': self._curl_unit_b2,
-                                                                                'algo': params_parallel_algo,
-                                                                                'epsilon': epsilon}
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'b_tilde': self.pointer['b_field'],
+                                                                       'algo': params_parallel['algo'],
+                                                                       'epsilon': epsilon}
 
-        self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = {'b': self.pointer['b_field'],
-                                                                     'b_eq': self._b_eq,
-                                                                     'unit_b1': self._unit_b1,
-                                                                     'unit_b2': self._unit_b2,
-                                                                     'absB0': self._absB0,
-                                                                     'gradB1': self._gradB1,
-                                                                     'curl_unit_b2': self._curl_unit_b2,
-                                                                     'u_space': u_space,
-                                                                     'solver': params_cc_gradB_solver,
-                                                                     'algo': params_cc_gradB_algo,
-                                                                     'coupling_params': self._coupling_params,
-                                                                     'epsilon': epsilon}
+        if params_cc_gradB['turn_off']:
+            self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None
+        else:
+            self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = {'b': self.pointer['b_field'],
+                                                                         'b_eq': self._b_eq,
+                                                                         'unit_b1': self._unit_b1,
+                                                                         'unit_b2': self._unit_b2,
+                                                                         'absB0': self._absB0,
+                                                                         'gradB1': self._gradB1,
+                                                                         'curl_unit_b2': self._curl_unit_b2,
+                                                                         'u_space': u_space,
+                                                                         'solver': params_cc_gradB['solver'],
+                                                                         'algo': params_cc_gradB['algo'],
+                                                                         'filter': params_cc_gradB['filter'],
+                                                                         'coupling_params': self._coupling_params,
+                                                                         'epsilon': epsilon}
 
-        self._kwargs[propagators_coupling.CurrentCoupling5DCurlb] = {'b': self.pointer['b_field'],
-                                                                     'b_eq': self._b_eq,
-                                                                     'unit_b1': self._unit_b1,
-                                                                     'absB0': self._absB0,
-                                                                     'gradB1': self._gradB1,
-                                                                     'curl_unit_b2': self._curl_unit_b2,
-                                                                     'u_space': u_space,
-                                                                     'solver': params_cc_curlb_solver,
-                                                                     'coupling_params': self._coupling_params,
-                                                                     'epsilon': epsilon}
-
-        self._kwargs[propagators_fields.CurrentCoupling5DDensity] = {'particles': self.pointer['energetic_ions'],
-                                                                     'b': self.pointer['b_field'],
-                                                                     'b_eq': self._b_eq,
-                                                                     'unit_b1': self._unit_b1,
-                                                                     'curl_unit_b2': self._curl_unit_b2,
-                                                                     'u_space': u_space,
-                                                                     'solver': params_density_solver,
-                                                                     'coupling_params': self._coupling_params,
-                                                                     'epsilon': epsilon}
-        
-        self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
+        if params_cc_curlb['turn_off']:
+            self._kwargs[propagators_coupling.CurrentCoupling5DCurlb] = None
+        else:
+            self._kwargs[propagators_coupling.CurrentCoupling5DCurlb] = {'b': self.pointer['b_field'],
+                                                                         'b_eq': self._b_eq,
                                                                          'unit_b1': self._unit_b1,
                                                                          'absB0': self._absB0,
+                                                                         'gradB1': self._gradB1,
+                                                                         'curl_unit_b2': self._curl_unit_b2,
                                                                          'u_space': u_space,
-                                                                         'solver': params_alfven_solver,
-                                                                         'coupling_params': self._coupling_params}
-        
-        self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
-                                                                          'b': self.pointer['b_field'],
-                                                                          'unit_b1': self._unit_b1,
-                                                                          'absB0': self._absB0,
-                                                                          'u_space': u_space,
-                                                                          'solver': params_sonic_solver,
-                                                                          'coupling_params': self._coupling_params}
+                                                                         'solver': params_cc_curlb['solver'],
+                                                                         'filter': params_cc_curlb['filter'],
+                                                                         'coupling_params': self._coupling_params,
+                                                                         'epsilon': epsilon}
+
+        if params_density['turn_off']:
+            self._kwargs[propagators_fields.CurrentCoupling5DDensity] = None
+        else:
+            self._kwargs[propagators_fields.CurrentCoupling5DDensity] = {'particles': self.pointer['energetic_ions'],
+                                                                         'b': self.pointer['b_field'],
+                                                                         'b_eq': self._b_eq,
+                                                                         'unit_b1': self._unit_b1,
+                                                                         'curl_unit_b2': self._curl_unit_b2,
+                                                                         'u_space': u_space,
+                                                                         'solver': params_density['solver'],
+                                                                         'coupling_params': self._coupling_params,
+                                                                         'epsilon': epsilon}
+
+        if params_alfven['turn_off']:
+            self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D] = None
+        else:
+            self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
+                                                                             'unit_b1': self._unit_b1,
+                                                                             'absB0': self._absB0,
+                                                                             'u_space': u_space,
+                                                                             'solver': params_alfven['solver'],
+                                                                             'filter': params_alfven['filter'],
+                                                                             'coupling_params': self._coupling_params,
+                                                                             'accumulated_magnetization': self.pointer['accumulated_magnetization']}
+
+        if params_sonic['turn_off']:
+            self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = None
+        else:
+            self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = {'particles': self.pointer['energetic_ions'],
+                                                                              'b': self.pointer['b_field'],
+                                                                              'unit_b1': self._unit_b1,
+                                                                              'absB0': self._absB0,
+                                                                              'u_space': u_space,
+                                                                              'solver': params_sonic['solver'],
+                                                                              'filter': params_sonic['filter'],
+                                                                              'coupling_params': self._coupling_params}
+
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
@@ -793,7 +808,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar('en_fv_lost', self._en_fv_lost[0])
 
         # calculate particle magnetic energy
-        self.pointer['energetic_ions'].save_magnetic_energy(self.pointer['b_field'])
+        self.pointer['energetic_ions'].save_magnetic_energy(
+            self.pointer['b_field'])
 
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
             self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
@@ -822,6 +838,15 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if self.derham.comm.Get_rank() == 0:
             print('ratio of lost particles: ',
                   self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100, '%')
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+
+        dct['accumulated_magnetization'] = 'Hdiv'
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
 
 
 class ColdPlasmaVlasov(StruphyModel):
@@ -1009,7 +1034,7 @@ class ColdPlasmaVlasov(StruphyModel):
         charge_accum = AccumulatorVector(self.pointer['hot_electrons'],
                                          "H1",
                                          accum_kernels.vlasov_maxwell_poisson,
-                                         self.derham, 
+                                         self.derham,
                                          self.domain.args_domain)
         charge_accum()
 

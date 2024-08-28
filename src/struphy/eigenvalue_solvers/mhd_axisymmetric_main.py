@@ -234,9 +234,9 @@ if __name__ == '__main__':
         params = yaml.load(file, Loader=yaml.FullLoader)
         
     # create domain and MHD equilibrium
-    from struphy.io.setup import setup_domain_mhd
+    from struphy.io.setup import setup_domain_and_equil
     
-    domain, mhd_equil = setup_domain_mhd(params)
+    domain, mhd_equil = setup_domain_and_equil(params)
        
     # load grid parameters
     num_params = {'Nel'     : params['grid']['Nel'][:2],

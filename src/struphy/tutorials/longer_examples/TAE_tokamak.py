@@ -76,7 +76,7 @@ def diagnostics():
     import numpy as np
     import matplotlib.pyplot as plt
 
-    from struphy.io.setup import setup_domain_mhd
+    from struphy.io.setup import setup_domain_and_equil
     from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
     from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -106,7 +106,7 @@ def diagnostics():
     polar_ck = params['grid']['polar_ck']
     
     # create domain and MHD equilibrium
-    domain, mhd_equil = setup_domain_mhd(params)
+    domain, mhd_equil = setup_domain_and_equil(params)
     
     # get MHD equilibrium parameters
     mhd_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]

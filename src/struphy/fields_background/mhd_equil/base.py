@@ -22,6 +22,11 @@ class MHDequilibrium(metaclass=ABCMeta):
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         return np.sqrt(b[0]**2 + b[1]**2 + b[2]**2)
 
+    def absB3(self, *etas, squeeze_out=False):
+        """ 3-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3.
+        """
+        return self.domain.transform(self.absB0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+
     def b1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
@@ -358,6 +363,24 @@ class MHDequilibrium(metaclass=ABCMeta):
     def gradB1_3(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[2]
 
+    def gradB2_1(self, *etas, squeeze_out=False):
+        return self.gradB2(*etas, squeeze_out=squeeze_out)[0]
+
+    def gradB2_2(self, *etas, squeeze_out=False):
+        return self.gradB2(*etas, squeeze_out=squeeze_out)[1]
+
+    def gradB2_3(self, *etas, squeeze_out=False):
+        return self.gradB2(*etas, squeeze_out=squeeze_out)[2]
+    
+    def gradBv_1(self, *etas, squeeze_out=False):
+        return self.gradBv(*etas, squeeze_out=squeeze_out)[0]
+
+    def gradBv_2(self, *etas, squeeze_out=False):
+        return self.gradBv(*etas, squeeze_out=squeeze_out)[1]
+
+    def gradBv_3(self, *etas, squeeze_out=False):
+        return self.gradBv(*etas, squeeze_out=squeeze_out)[2]
+
     def curl_unit_b1_1(self, *etas, squeeze_out=False):
         return self.curl_unit_b1(*etas, squeeze_out=squeeze_out)[0]
 
@@ -375,6 +398,15 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def curl_unit_b2_3(self, *etas, squeeze_out=False):
         return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[2]
+    
+    def curl_unit_bv_1(self, *etas, squeeze_out=False):
+        return self.curl_unit_bv(*etas, squeeze_out=squeeze_out)[0]
+
+    def curl_unit_bv_2(self, *etas, squeeze_out=False):
+        return self.curl_unit_bv(*etas, squeeze_out=squeeze_out)[1]
+
+    def curl_unit_bv_3(self, *etas, squeeze_out=False):
+        return self.curl_unit_bv(*etas, squeeze_out=squeeze_out)[2]
 
     ##########
     # Plotting

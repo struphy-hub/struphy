@@ -33,4 +33,5 @@ Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
 
     subsections/domains_base
     subsections/domains_avail
+    subsections/domains_kernels
     subsections/domains_utils

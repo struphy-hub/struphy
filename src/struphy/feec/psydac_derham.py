@@ -29,13 +29,14 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 
 import numpy as np
 from mpi4py import MPI
+from mpi4py.MPI import Intracomm
 
 
 class Derham:
     """
     The discrete Derham sequence on the logical unit cube (3d).
 
-    Check out `Tutorial 09 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_09_discrete_derham.html>`_ for a hands-on introduction.
+    Check out the corresponding `Struphy API <https://struphy.pages.mpcdf.de/struphy/api/discrete_derham.html>`_ for a hands-on introduction.
 
     The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_ 
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
@@ -78,23 +79,24 @@ class Derham:
     local_projectors : bool
         Whether to build the local commuting projectors based on quasi-inter-/histopolation.
 
-    domain : struphy.geometry.domains
+    domain : struphy.geometry.base.Domain
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
     def __init__(self,
-                 Nel,
-                 p,
-                 spl_kind,
-                 dirichlet_bc=None,
-                 nquads=None,
-                 nq_pr=None,
-                 comm=None,
-                 mpi_dims_mask=None,
-                 with_projectors=True,
-                 polar_ck=-1,
-                 local_projectors=False,
-                 domain=None):
+                 Nel: list | tuple,
+                 p: list | tuple,
+                 spl_kind: list | tuple,
+                 *,
+                 dirichlet_bc: list | tuple = None,
+                 nquads: list | tuple = None,
+                 nq_pr: list | tuple = None,
+                 comm: Intracomm = None,
+                 mpi_dims_mask: list = None,
+                 with_projectors: bool = True,
+                 polar_ck: int = -1,
+                 local_projectors: bool = False,
+                 domain: Domain = None):
 
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
         assert len(Nel) == 3

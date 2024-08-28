@@ -521,7 +521,7 @@ class GyroMaxwellian2D(Maxwellian):
                                       'vth_para': 1.,
                                       'vth_perp': 1.},
                  pert_params: dict = None,
-                 volume_form: bool = False,
+                 volume_form: bool = True,
                  mhd_equil: MHDequilibrium = None,
                  braginskii_equil: BraginskiiEquilibrium = None):
 
@@ -974,7 +974,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
                  maxw_params: dict = {'n': 1.,
                                       'vth': 1., },
                  pert_params: dict = None,
-                 volume_form: bool = False,
+                 volume_form: bool = True,
                  mhd_equil: MHDequilibrium = None,
                  braginskii_equil: BraginskiiEquilibrium = None):
 
@@ -1037,55 +1037,19 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         """
         return self._braginskii_equil
 
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        r"""Jacobian determinant of the velocity coordinate transformation from CanonicalMaxwellian('constants_of_motion') to Particles5D('vpara_mu').
-
-        .. math::
-
-            \begin{aligned}
-            F &: (\epsilon, \mu) \to (v_\parallel, \mu) \,,
-            \\[3mm]
-            DF &= \begin{bmatrix} \frac{v_\parallel}{\epsilon} & \frac{v_\parallel}{\mu} \\
-                 \frac{\mu}{\epsilon} & \frac{\mu}{\mu}  \end{bmatrix} = 
-                 \begin{bmatrix} \frac{1}{v_\parallel} & 0 \\
-                 \frac{1}{B} & 1  \end{bmatrix} \,,
-            \\[3mm]
-            J_F &= \frac{1}{v_\parallel} \,,
-            \end{aligned}
-
-        where :math:`\mu = \frac{v_\perp^2}{2B}` and :math:`\epsilon = \frac{1}{2}v^2_\parallel + \mu B`.
-
-
-        Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
-
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
-
-        *v : array_like
-            Velocity evaluation points.
-
-        Returns
-        -------
-        out : array-like
-            The Jacobian determinant evaluated at given logical coordinates.
+    def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
+        r"""TODO
         """
 
         assert eta1.ndim == 1
         assert eta2.ndim == 1
         assert eta3.ndim == 1
-        assert len(v) == 2
-
-        # J = |1/v_parallel|
-        jacobian_det = np.abs(1/v[0])
 
         # call equilibrium
         etas = (np.vstack((eta1, eta2, eta3)).T).copy()
         absB0 = self.mhd_equil.absB0(etas)
 
-        # J = v_perp/B
-        jacobian_det = 2.*np.pi/absB0
+        jacobian_det = np.sqrt(energy) * 2. * np.sqrt(2.) / absB0
 
         return jacobian_det
 

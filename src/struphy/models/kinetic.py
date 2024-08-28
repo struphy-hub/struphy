@@ -207,11 +207,11 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['ions'],
-                                         'H1', 
+                                         'H1',
                                          accum_kernels.charge_density_0form,
-                                         self.derham, 
+                                         self.derham,
                                          self.domain.args_domain)
-        
+
         charge_accum(self.pointer['ions'].vdim)
 
         # another sanity check: compute FE coeffs of density
@@ -484,12 +484,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(self.pointer['ions'], 
-                                         "H1", 
+        charge_accum = AccumulatorVector(self.pointer['ions'],
+                                         "H1",
                                          accum_kernels.charge_density_0form,
-                                         self.derham, 
+                                         self.derham,
                                          self.domain.args_domain)
-        
+
         charge_accum(self.pointer['ions'].vdim)
 
         # another sanity check: compute FE coeffs of density
@@ -733,6 +733,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
+        self._first_free_idx = self.pointer['species1'].args_markers.first_free_idx
 
         # temporaries
         self._en_e_tmp = self.pointer['e_field'].space.zeros()
@@ -750,11 +751,11 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['species1'],
-                                         "H1", 
+                                         "H1",
                                          accum_kernels.charge_density_0form,
-                                         self.derham, 
+                                         self.derham,
                                          self.domain.args_domain)
-        
+
         charge_accum(self.pointer['species1'].vdim)
 
         # Instantiate Poisson solver
@@ -782,13 +783,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar('en_e', en_E)
 
         # evaluate f0
-        f0_values = self._f0(
-            self.pointer['species1'].markers_wo_holes[:, 0],
-            self.pointer['species1'].markers_wo_holes[:, 1],
-            self.pointer['species1'].markers_wo_holes[:, 2],
-            self.pointer['species1'].markers_wo_holes[:, 3],
-            self.pointer['species1'].markers_wo_holes[:, 4],
-            self.pointer['species1'].markers_wo_holes[:, 5],
+        self.pointer['species1'].markers[:, self._first_free_idx] = self._f0(
+            self.pointer['species1'].markers[:, 0],
+            self.pointer['species1'].markers[:, 1],
+            self.pointer['species1'].markers[:, 2],
+            self.pointer['species1'].markers[:, 3],
+            self.pointer['species1'].markers[:, 4],
+            self.pointer['species1'].markers[:, 5],
         )
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
@@ -797,9 +798,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             np.dot(
                 self.pointer['species1'].markers_wo_holes[:, 6]**2,  # w_p^2
                 self.pointer['species1'].markers_wo_holes[:, 7] / \
-                f0_values  # s_{0,p} / f_{0,p}
+                self.pointer['species1'].markers[~self.pointer['species1'].holes, self._first_free_idx]  # s_{0,p} / f_{0,p}
         )
-
+            
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum
         )
@@ -853,8 +854,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
-    2. :class:`~struphy.propagators.propagators_markers.PushDriftKineticBxEstar`
-    3. :class:`~struphy.propagators.propagators_markers.PushDriftKineticParallel`
+    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
+    3. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
 
     :ref:`Model info <add_model>`:
     '''
@@ -878,8 +879,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {propagators_fields.ImplicitDiffusion: ['phi'],
-                propagators_markers.PushDriftKineticBxEstar: ['ions'],
-                propagators_markers.PushDriftKineticParallel: ['ions']}
+                propagators_markers.PushGuidingCenterBxEstar: ['ions'],
+                propagators_markers.PushGuidingCenterParallel: ['ions']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -953,17 +954,15 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                                                               'rho': rho,
                                                               'solver': solver_params}
 
-        self._kwargs[propagators_markers.PushDriftKineticBxEstar] = {'phi': self.pointer['phi'],
-                                                                     'magn_bckgr': magn_bckgr,
-                                                                     'epsilon': self.epsilon,
-                                                                     'Z': Z,
-                                                                     'algo': ions_params['options']['PushDriftKineticBxEstar']['algo']}
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'phi': self.pointer['phi'],
+                                                                      'evaluate_e_field': True,
+                                                                      'epsilon': self.epsilon/Z,
+                                                                      'algo': ions_params['options']['PushGuidingCenterBxEstar']['algo']}
 
-        self._kwargs[propagators_markers.PushDriftKineticParallel] = {'phi': self.pointer['phi'],
-                                                                      'magn_bckgr': magn_bckgr,
-                                                                      'epsilon': self.epsilon,
-                                                                      'Z': Z,
-                                                                      'algo': ions_params['options']['PushDriftKineticParallel']['algo']}
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'phi': self.pointer['phi'],
+                                                                       'evaluate_e_field': True,
+                                                                       'epsilon': self.epsilon/Z,
+                                                                       'algo': ions_params['options']['PushGuidingCenterParallel']['algo']}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()

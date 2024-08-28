@@ -31,10 +31,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # TODO: comm=None does not work yet.
 
-        from struphy.io.setup import setup_domain_mhd, setup_derham
+        from struphy.io.setup import setup_domain_and_equil, setup_derham
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
-        from struphy.fields_background.braginskii_equil import equils as braginskii_equils
+        from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()
@@ -64,19 +64,12 @@ class StruphyModel(metaclass=ABCMeta):
         self._units, self._equation_params = self.model_units(
             self.params, verbose=True, comm=self._comm)
 
-        # create domain, MHD equilibrium
-        self._domain, self._mhd_equil = setup_domain_mhd(
+        # create domain, equilibrium
+        self._domain, self._mhd_equil = setup_domain_and_equil(
             params, units=self.units)
-
-        # Braginskii equilibrium
-        if 'braginskii_equilibrium' in params:
-            br_eq_type = params['braginskii_equilibrium']['type']
-            br_eq_class = getattr(braginskii_equils, br_eq_type)
-            self._braginskii_equil = br_eq_class(
-                **params['braginskii_equilibrium'][br_eq_type])
-            self.braginskii_equil.domain = self.domain
-        else:
-            self._braginskii_equil = None
+        
+        # TODO: remove
+        self._braginskii_equil = self.mhd_equil
 
         if comm.Get_rank() == 0:
             print('\nTIME:')
@@ -91,18 +84,14 @@ class StruphyModel(metaclass=ABCMeta):
             for key, val in self.domain.params_map.items():
                 if key not in {'cx', 'cy', 'cz'}:
                     print((key + ':').ljust(25), val)
-
+            
+            print('\nEQUILIBRIUM:')
             if 'mhd_equilibrium' in params:
-                print('\nMHD EQUILIBRIUM:')
                 print('type:'.ljust(25), self.mhd_equil.__class__.__name__)
                 for key, val in self.mhd_equil.params.items():
                     print((key + ':').ljust(25), val)
-
-            if 'braginskii_equilibrium' in params:
-                print('\nBRAGINSKII EQUILIBRIUM:')
-                print('type:'.ljust(25), self.braginskii_equil.__class__.__name__)
-                for key, val in self.braginskii_equil.params.items():
-                    print((key + ':').ljust(25), val)
+            else:
+                print('None.')
 
         # create discrete derham sequence
         dims_mask = params['grid']['dims_mask']
@@ -111,6 +100,9 @@ class StruphyModel(metaclass=ABCMeta):
 
         self._derham = setup_derham(
             params['grid'], comm=comm, domain=self.domain, mpi_dims_mask=dims_mask)
+
+        # create projected MHD equilibrium
+        self._projected_mhd_equil = ProjectedMHDequilibrium(self.mhd_equil, self.derham)
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
@@ -135,6 +127,7 @@ class StruphyModel(metaclass=ABCMeta):
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
             self.derham, self.domain, eq_mhd=self.mhd_equil)
+        Propagator.projected_mhd_equil = self.projected_mhd_equil
 
         # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
@@ -174,6 +167,13 @@ class StruphyModel(metaclass=ABCMeta):
     def velocity_scale():
         '''String that sets the velocity scale unit of the model. 
         Must be one of "alfvén", "cyclotron" or "light".'''
+        pass
+
+    @staticmethod
+    def diagnostics_dct():
+        '''Diagnostics dictionary.
+        Model specific variables (FemField) which is going to be saved during the simulation.
+        '''
         pass
 
     @staticmethod
@@ -234,6 +234,11 @@ class StruphyModel(metaclass=ABCMeta):
         return self._kinetic
 
     @property
+    def diagnostics(self):
+        '''Dictionary of diagnostics.'''
+        return self._diagnostics
+
+    @property
     def domain(self):
         '''Domain object, see :ref:`avail_mappings`.'''
         return self._domain
@@ -252,6 +257,11 @@ class StruphyModel(metaclass=ABCMeta):
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
         return self._derham
+    
+    @property
+    def projected_mhd_equil(self):
+        '''MHD equilibrium projected on 3d Derham sequence with commuting projectors.'''
+        return self._projected_mhd_equil
 
     @property
     def units(self):
@@ -932,6 +942,53 @@ class StruphyModel(metaclass=ABCMeta):
                 else:
                     data.add_data({key_dat: val1})
 
+        # save diagnostics data in group 'feec/'
+        for key, val in self.diagnostics.items():
+
+            if 'params' in key:
+                continue
+            else:
+
+                obj = val['obj']
+                assert isinstance(obj, Derham.Field)
+
+                # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                obj.extract_coeffs(update_ghost_regions=False)
+
+                # save numpy array to be updated each time step.
+                if val['save_data']:
+
+                    key_field = 'feec/' + key
+
+                    if isinstance(obj.vector_stencil, StencilVector):
+                        data.add_data(
+                            {key_field: obj.vector_stencil._data})
+
+                    else:
+                        for n in range(3):
+                            key_component = key_field + '/' + str(n + 1)
+                            data.add_data(
+                                {key_component: obj.vector_stencil[n]._data})
+
+                    # save field meta data
+                    data.file[key_field].attrs['space_id'] = obj.space_id
+                    data.file[key_field].attrs['starts'] = obj.starts
+                    data.file[key_field].attrs['ends'] = obj.ends
+                    data.file[key_field].attrs['pads'] = obj.pads
+
+                # save numpy array to be updated only at the end of the simulation for restart.
+                key_field_restart = 'restart/' + key
+
+                if isinstance(obj.vector_stencil, StencilVector):
+                    data.add_data(
+                        {key_field_restart: obj.vector_stencil._data})
+                else:
+                    for n in range(3):
+                        key_component_restart = key_field_restart + \
+                            '/' + str(n + 1)
+                        data.add_data(
+                            {key_component_restart: obj.vector_stencil[n]._data})
+
         # keys to be saved at each time step and only at end (restart)
         save_keys_all = []
         save_keys_end = []
@@ -1371,6 +1428,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         else:
             parameters.pop('kinetic')
 
+        # diagnostics
+        if cls.diagnostics_dct() is not None:
+            parameters['diagnostics'] = {}
+            for name, space in cls.diagnostics_dct().items():
+                parameters['diagnostics'][name]= {'save_data': True}
+
         cls.write_parameters_to_file(
             parameters=parameters, file=file, save=save, prompt=prompt)
 
@@ -1389,6 +1452,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         self._em_fields = {}
         self._fluid = {}
         self._kinetic = {}
+        self._diagnostics = {}
 
         if self.comm.Get_rank() == 0:
             print('\nMODEL SPECIES:')
@@ -1447,6 +1511,24 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             self._kinetic[var_name] = {}
             self._kinetic[var_name]['space'] = space
             self._kinetic[var_name]['params'] = self.params['kinetic'][var_name]
+
+        if self.diagnostics_dct() is not None:
+            for var_name, space in self.diagnostics_dct().items():
+                assert space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}
+
+                if self.comm.Get_rank() == 0:
+                    print('diagnostics:'.ljust(25), f'"{var_name}" ({space})')
+
+                self._diagnostics[var_name] = {}
+                self._diagnostics[var_name]['space'] = space
+                self._diagnostics['params'] = self.params['diagnostics'][var_name]
+
+                # which components to save
+                if 'save_data' in self.params['diagnostics'][var_name]:
+                    self._diagnostics[var_name]['save_data'] = self.params['diagnostics'][var_name]['save_data']
+
+                else:
+                    self._diagnostics[var_name]['save_data'] = True
 
     def _allocate_variables(self):
         """
@@ -1587,6 +1669,21 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
+
+        # allocate memory for FE coeffs of diagnostics
+        if 'diagnostics' in self.params:
+
+            for key, val in self.diagnostics.items():
+
+                if 'params' in key:
+                    continue
+                else:
+                    val['obj'] = self.derham.create_field(key,
+                                                          val['space'],
+                                                          bckgr_params=None,
+                                                          pert_params=None)
+
+                    self._pointer[key] = val['obj'].vector
 
     def _print_plasma_params(self, verbose=True):
         """

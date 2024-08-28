@@ -38,6 +38,10 @@ class Propagator(metaclass=ABCMeta):
                 ValueError(
                     f'Variable {var} must be of type "Vector" or "Particles".')
 
+        # for iterative particle push
+        self._init_kernels = []
+        self._eval_kernels = []
+
     @property
     def feec_vars(self):
         """ List of FEEC variables (not particles) to be updated by the propagator. 
@@ -51,6 +55,23 @@ class Propagator(metaclass=ABCMeta):
         Contains :class:`struphy.pic.particles.Particles`.
         """
         return self._particles
+
+    @property
+    def init_kernels(self):
+        """ List of initialization kernels for evaluation at
+        :math:`\boldsymbol eta^n`
+        in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
+        """
+        return self._init_kernels
+
+    @property
+    def eval_kernels(self):
+        r""" List of evaluation kernels for evaluation at
+        :math:`\alpha_i \eta_{i}^{n+1,k} + (1 - \alpha_i) \eta_{i}^n`
+        for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]`, 
+        in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
+        """
+        return self._eval_kernels
 
     @abstractmethod
     def __call__(self, dt):
@@ -117,12 +138,24 @@ class Propagator(metaclass=ABCMeta):
     @basis_ops.setter
     def basis_ops(self, basis_ops):
         self._basis_ops = basis_ops
-        
+
+    @property
+    def projected_mhd_equil(self):
+        """ MHD equilibrium projected on 3d Derham sequence with commuting projectors.
+        """
+        assert hasattr(
+            self, '_projected_mhd_equil'), 'Projected MHD equilibrium not set.'
+        return self._projected_mhd_equil
+
+    @projected_mhd_equil.setter
+    def projected_mhd_equil(self, projected_mhd_equil):
+        self._projected_mhd_equil = projected_mhd_equil
+
     @property
     def time_state(self):
         '''A pointer to the time variable of the dynamics ('t').'''
         return self._time_state
-    
+
     def add_time_state(self, time_state):
         '''Add a pointer to the time variable of the dynamics ('t').
 
@@ -168,3 +201,82 @@ class Propagator(metaclass=ABCMeta):
             self.feec_vars[i].update_ghost_regions()
 
         return diffs
+    
+    def add_init_kernel(self,
+                        kernel,
+                        column_nr: int,
+                        comps: tuple | int,
+                        args_init: tuple):
+        '''Add an initialization kernel to self.init_kernels.
+        
+        Parameters
+        ----------
+        kernel : pyccel func
+            The kernel function.
+            
+        column_nr : int
+            The column index at which the result is stored in marker array.
+            
+        comps : tuple | int
+            None or (0) for scalar-valued function evaluation. 
+            In vector valued case, allows to specify which components to save 
+            at column_nr:column_nr + len(comps).
+            
+        args_init : tuple
+            The arguments for the kernel function.
+        '''
+        if comps is None:
+            comps = np.array([0]) # case for scalar evaluation
+        else:
+            comps = np.array(comps, dtype=int)
+        
+        self._init_kernels += [(kernel,
+                                column_nr,
+                                comps,
+                                args_init)]
+        
+    def add_eval_kernel(self,
+                        kernel,
+                        column_nr: int,
+                        comps: tuple | int,
+                        args_eval: tuple,
+                        alpha: float | int | tuple | list = 1.):
+        '''Add an evaluation kernel to self.eval_kernels.
+        
+        Parameters
+        ----------
+        kernel : pyccel func
+            The kernel function. 
+            
+        column_nr : int
+            The column index at which the result is stored in marker array.
+            
+        comps : tuple | int
+            None for scalar-valued function evaluation. In vecotr valued case,
+            allows to specify which components to save 
+            at column_nr:column_nr + len(comps).
+            
+        args_init : tuple
+            The arguments for the kernel function.
+            
+        alpha : float | int | tuple | list
+            Evaluations in kernel are at the weighted average
+            alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i],
+            for i=0,1,2. If float or int or then alpha = [alpha]*dim,
+            where dim is the dimension of the phase space (<=6). 
+            alpha[i] must be between 0 and 1.
+        '''
+        if isinstance(alpha, int) or isinstance(alpha, float):
+            alpha = [alpha]*6
+        alpha = np.array(alpha)
+        
+        if comps is None:
+            comps = np.array([0]) # case for scalar evaluation
+        else:
+            comps = np.array(comps, dtype=int)
+        
+        self._eval_kernels += [(kernel,
+                                alpha,
+                                column_nr,
+                                comps,
+                                args_eval)]

@@ -217,6 +217,13 @@ def main(model_name: str,
                         field.extract_coeffs(
                             update_ghost_regions=False)
 
+            for key, val in model.diagnostics.items():
+                if 'params' not in key:
+                    field = val['obj']
+                    assert isinstance(field, Derham.Field)
+                    # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                    field.extract_coeffs(update_ghost_regions=False)
+
             # save data (everything but restart data)
             data.save_data(keys=save_keys_all)
 
