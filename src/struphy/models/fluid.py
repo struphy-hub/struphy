@@ -978,6 +978,7 @@ class ViscousFluid(StruphyModel):
         
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
                                                                  'gamma': self._gamma,
+                                                                 'rho': self.pointer['fluid_rho3'],
                                                                  'mu': self._mu,
                                                                  'mu_a': self._mu_a,
                                                                  'mass_ops': self.WMM,
