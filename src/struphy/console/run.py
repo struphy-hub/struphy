@@ -141,9 +141,7 @@ def struphy_run(model,
 
         else:
             print('\nLaunching main() in normal mode ...')
-            command = ['mpirun',
-                       '-n',
-                       str(mpi)] + cmd_python + cprofile*cmd_cprofile + cmd_main
+            command = ['srun'] + cmd_python + cprofile*cmd_cprofile + cmd_main
 
         # add restart flag
         if restart:
