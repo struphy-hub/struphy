@@ -141,7 +141,7 @@ def struphy_run(model,
 
         else:
             print('\nLaunching main() in normal mode ...')
-            command = ['srun',
+            command = ['mpirun',
                        '-n',
                        str(mpi)] + cmd_python + cprofile*cmd_cprofile + cmd_main
 
