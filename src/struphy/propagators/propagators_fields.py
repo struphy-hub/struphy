@@ -5511,11 +5511,12 @@ class VariationalResistivity(Propagator):
 
         cb_sq_v *= dt*self._eta_a
 
-        cb_sq_v += dt*self._eta
         self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0,0],cb_sq_v*self._sq_term_metric[0,1],cb_sq_v*self._sq_term_metric[0,2]],
                              [cb_sq_v*self._sq_term_metric[1,0],cb_sq_v*self._sq_term_metric[1,1],cb_sq_v*self._sq_term_metric[1,2]],
                              [cb_sq_v*self._sq_term_metric[2,0],cb_sq_v*self._sq_term_metric[2,1],cb_sq_v*self._sq_term_metric[2,2]]],
                              verbose = False)
+
+        cb_sq_v += dt*self._eta
 
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.

@@ -33,7 +33,7 @@ class ModesSin:
                 Lz : 1.               
     '''
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1., theta=0.):
         '''
         Parameters
         ----------
@@ -48,6 +48,9 @@ class ModesSin:
 
         amps : list
             Amplitude of each mode.
+
+        theta : list
+            Phase of each mode
 
         Lx, Ly, Lz : float
             Domain lengths.
@@ -83,6 +86,11 @@ class ModesSin:
         else:
             assert len(amps) == n_modes
 
+        if len(theta) == 1:
+            amps = [theta[0]]*n_modes
+        else:
+            assert len(theta) == n_modes
+
         self._ls = ls
         self._ms = ms
         self._ns = ns
@@ -90,14 +98,15 @@ class ModesSin:
         self._Lx = Lx
         self._Ly = Ly
         self._Lz = Lz
+        self._theta = theta
 
     def __call__(self, x, y, z):
 
         val = 0.
 
-        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
+        for amp, l, m, n, t in zip(self._amps, self._ls, self._ms, self._ns, self._theta):
             val += amp*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
-                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
+                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
 
         return val
 
