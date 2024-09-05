@@ -5614,7 +5614,7 @@ class VariationalResistivity(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(sn1, bn1)
 
