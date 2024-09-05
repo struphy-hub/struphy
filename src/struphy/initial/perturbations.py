@@ -86,6 +86,9 @@ class ModesSin:
         else:
             assert len(amps) == n_modes
 
+        if theta is None:
+            theta = [0]*n_modes
+
         if len(theta) == 1:
             amps = [theta[0]]*n_modes
         else:
