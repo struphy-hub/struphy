@@ -33,7 +33,7 @@ class ModesSin:
                 Lz : 1.               
     '''
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1., theta=0.):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1., theta=None):
         '''
         Parameters
         ----------
