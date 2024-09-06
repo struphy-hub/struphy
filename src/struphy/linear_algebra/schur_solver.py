@@ -1,7 +1,159 @@
 from psydac.linalg.basic import Vector, LinearOperator, IdentityOperator
 from psydac.linalg.block import BlockVector, BlockLinearOperator
 from psydac.linalg.solvers import inverse
+# from psydac.linalg.utilities import petsc_to_psydac
+from petsc4py import PETSc
+import numpy as np
+from mpi4py import MPI
+from math                  import sqrt
+from psydac.linalg.stencil import StencilVectorSpace, StencilVector
+from psydac.linalg.block   import BlockVectorSpace
 
+from struphy.profiling.profiling import (
+        ProfileRegion,
+    )
+
+def petsc_to_psydac(vec, Xh):
+    """ converts a petsc Vec object to a StencilVector or a BlockVector format.
+        We gather the petsc global vector in all the processes and extract the chunk owned by the Psydac Vector.
+        .. warning: This function will not work if the global vector does not fit in the process memory.
+    """
+
+    if isinstance(Xh, BlockVectorSpace):
+        u = BlockVector(Xh)
+        if isinstance(Xh.spaces[0], BlockVectorSpace):
+
+            comm       = u[0][0].space.cart.global_comm
+            dtype      = u[0][0].space.dtype
+            sendcounts = np.array(comm.allgather(len(vec.array)))
+            recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
+
+            # gather the global array in all the procs
+            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+
+            inds = 0
+            for d in range(len(Xh.spaces)):
+                starts = [np.array(V.starts) for V in Xh.spaces[d].spaces]
+                ends   = [np.array(V.ends)   for V in Xh.spaces[d].spaces]
+
+                for i in range(len(starts)):
+                    idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[d].spaces[i].pads, u.space.spaces[d].spaces[i].shifts) )
+                    shape = tuple(ends[i]-starts[i]+1)
+                    npts  = Xh.spaces[d].spaces[i].npts
+                    # compute the global indices of the coefficents owned by the process using starts and ends
+                    indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
+                    vals = recvbuf[indices+inds]
+                    u[d][i]._data[idx] = vals.reshape(shape)
+                    inds += np.product(npts)
+
+        else:
+            comm       = u[0].space.cart.global_comm
+            # dtype      = u[0].space.dtype
+            dtype      = vec.array.dtype                              # CHANGE (complex datatype!)
+            sendcounts = np.array(comm.allgather(len(vec.array)))
+            recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
+
+            # gather the global array in all the procs
+            # print(f"{dtype = }")
+            # print(f"{vec.array = }")
+            # print(f"{recvbuf = }")
+            # print(f"{sendcounts = }")
+            # print(f"{ vec.array.dtype = }")
+            comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+
+            inds = 0
+            starts = [np.array(V.starts) for V in Xh.spaces]
+            ends   = [np.array(V.ends)   for V in Xh.spaces]
+            for i in range(len(starts)):
+                idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.spaces[i].pads, u.space.spaces[i].shifts) )
+                shape = tuple(ends[i]-starts[i]+1)
+                npts  = Xh.spaces[i].npts
+                # compute the global indices of the coefficents owned by the process using starts and ends
+                indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts[i], xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
+                vals = recvbuf[indices+inds]
+                u[i]._data[idx] = vals.reshape(shape)
+                inds += np.product(npts)
+
+    elif isinstance(Xh, StencilVectorSpace):
+
+        u          = StencilVector(Xh)
+        comm       = u.space.cart.global_comm
+        dtype      = u.space.dtype
+        sendcounts = np.array(comm.allgather(len(vec.array)))
+        recvbuf    = np.empty(sum(sendcounts), dtype=dtype)
+
+        # gather the global array in all the procs
+        comm.Allgatherv(sendbuf=vec.array, recvbuf=(recvbuf, sendcounts))
+
+        # compute the global indices of the coefficents owned by the process using starts and ends
+        starts = np.array(Xh.starts)
+        ends   = np.array(Xh.ends)
+        shape  = tuple(ends-starts+1)
+        npts   = Xh.npts
+        indices = np.array([np.ravel_multi_index( [s+x for s,x in zip(starts, xx)], dims=npts,  order='C' ) for xx in np.ndindex(*shape)] )
+        idx = tuple( slice(m*p,-m*p) for m,p in zip(u.space.pads, u.space.shifts) )
+        vals = recvbuf[indices]
+        u._data[idx] = vals.reshape(shape)
+
+    else:
+        raise ValueError('Xh must be a StencilVectorSpace or a BlockVectorSpace')
+
+    u.update_ghost_regions()
+    return u
+
+
+def print_solver_info(ksp):
+    #print(f'x_petsc = {x_petsc.getArray()}')
+    if PETSc.COMM_WORLD.rank == 0:
+        #print('#' + '-'*78 + '#')
+        
+        # Get and print the number of iterations
+        iter_count = ksp.getIterationNumber()
+        print(f'Number of iterations: {iter_count}')
+
+        # Get and print the solver method used
+        solver_type = ksp.getType()
+        print(f'Solver type: {solver_type}')
+
+        # Optional: get solver options and parameters
+        ksp_options = ksp.getOptionsPrefix()
+        print(f'Solver options prefix: {ksp_options}')
+        
+        # Print the final residual norm
+        residual = ksp.getResidualNorm()
+        print(f'Residual norm: {residual}')
+
+        # Retrieve the solution norm
+        # solution_norm = x_petsc.norm()
+        # print(f'Solution norm: {solution_norm}')
+        print('#' + '-'*78 + '#')
+
+def compare_petsc_vecs(vec1, vec2, show_vecs = False):
+    # Ensure both vectors have the same size
+    assert vec1.getSize() == vec2.getSize(), "Vectors must have the same size."
+    
+    # Create a new vector to store the difference
+    diff_vec = vec1.duplicate()
+    
+    # Call the custom waxpy method: diff_vec = vec2 - vec1
+    diff_vec.waxpy(-1.0, vec1, vec2)
+
+    # Compute the norm of the difference vector
+    norm_diff = diff_vec.norm()
+    
+    # Check if the norm is below the tolerance
+    if show_vecs:
+
+        print('vec1:')
+        print(vec1.view())
+
+        print('vec2:')
+        print(vec2.view())
+
+        print('diff_vec:')
+        print(diff_vec.view())
+
+    print(f"{norm_diff = }")
 
 class SchurSolver:
     '''Solves for :math:`x^{n+1}` in the block system
@@ -50,6 +202,7 @@ class SchurSolver:
                  A: LinearOperator, 
                  BC: LinearOperator,
                  solver_name: str,
+                 petsc: bool,
                  **solver_params):
 
         assert isinstance(A, LinearOperator)
@@ -67,11 +220,92 @@ class SchurSolver:
 
         if solver_params['pc'] is None:
             solver_params.pop('pc')
+        
+        print(f"{solver_params = }")
+        self.petsc = petsc
+        
 
         self._solver = inverse(A, solver_name, **solver_params)
 
         # right-hand side vector (avoids temporary memory allocation!)
         self._rhs = A.codomain.zeros()
+
+
+        if self.petsc:
+            # -------------------------------------------------------------------#
+            # PETSc setup
+            # print('self.A.matrix.shape()',self.A.matrix.shape)
+            #A_petsc = self.A.matrix.topetsc()
+            # ---------------------------------#
+            # Converting via numpy array
+            # ---------------------------------#
+            # numpy_matrix = np.array([
+            #     [18.,         0.,           0.,          0.,          0.,          0.,         0.,          0.        ],
+            #     [ 0.,         18.,          0.,          0.,          0.,          0.,         0.,          0.        ],
+            #     [ 0.,          0.,          0.66666667,  0.33333333,  0.,          0.,         0.,          0.        ],
+            #     [ 0.,          0.,          0.33333333,  1.33333333,  0.33333333,  0.,         0.,          0.        ],
+            #     [ 0.,          0.,          0.,          0.33333333,  0.66666667,  0.,         0.,          0.        ],
+            #     [ 0.,          0.,          0.,          0.,          0.,          0.16666667, 0.08333333,  0.        ],
+            #     [ 0.,          0.,          0.,          0.,          0.,          0.08333333, 0.33333333,  0.08333333],
+            #     [ 0.,          0.,          0.,          0.,          0.,          0.,         0.08333333,  0.16666667]])        
+            
+            # numpy_matrix = self.A.matrix.toarray()
+            # # Get the dimensions of the NumPy matrix
+            # rows, cols = numpy_matrix.shape
+            # # Create a PETSc matrix with the same dimensions
+            # petsc_mat = PETSc.Mat().create(MPI.COMM_WORLD)
+            # petsc_mat.setSizes([rows, cols])
+            # petsc_mat.setFromOptions()
+            # petsc_mat.setUp()
+            # # Set the values of the PETSc matrix from the NumPy matrix
+            # for i in range(rows):
+            #     for j in range(cols):
+            #         petsc_mat.setValue(i, j, numpy_matrix[i, j])
+            # # Assemble the PETSc matrix
+            # petsc_mat.assemble()
+            # # print('full mat to PETSc:')
+            # # print(petsc_mat.view())
+            # ---------------------------------#
+
+            
+            # ---------------------------------#
+            # Convert via sparse matrix
+            # ---------------------------------#
+            sparse_matrix = self.A.matrix.tosparse()
+            # print(sparse_matrix)
+            petsc_mat_sparse = PETSc.Mat().create(comm=MPI.COMM_WORLD)
+            petsc_mat_sparse.setSizes(sparse_matrix.shape)
+            petsc_mat_sparse.setType('aij')
+            petsc_mat_sparse.setFromOptions()
+            petsc_mat_sparse.setUp()
+            # Extract data from scipy sparse matrix
+            rows = sparse_matrix.row
+            cols = sparse_matrix.col
+            data = sparse_matrix.data
+
+            # Set values to PETSc matrix
+            for i in range(len(data)):
+                # print(rows[i], cols[i], data[i])
+                # petsc_mat.setValue(rows[i], cols[i], data[i])
+                petsc_mat_sparse.setValue(rows[i], cols[i], data[i], PETSc.InsertMode.ADD_VALUES)
+            petsc_mat_sparse.assemble()
+            # print('sparse to PETSc:')
+            # print(petsc_mat_sparse.view())
+            # ---------------------------------#
+
+
+            # ---------------------------------#
+            # Setup solver
+            # ---------------------------------#
+            # Initialize ksp solver.
+            self.ksp = PETSc.KSP().create(comm=MPI.COMM_WORLD)
+            self.ksp.setOperators(petsc_mat_sparse)
+            self.ksp.setInitialGuessNonzero(True)
+            # self.ksp.setType(PETSc.KSP.Type.CG)
+            self.ksp.setTolerances(rtol=1e-7, atol=1e-7, divtol=None, max_it=3000)        
+            # self.ksp.setFromOptions()
+            self.ksp.setUp()
+            # ---------------------------------#
 
     @property
     def A(self):
@@ -128,25 +362,58 @@ class SchurSolver:
         assert isinstance(Byn, Vector)
         assert xn.space == self._A.domain
         assert Byn.space == self._A.codomain
+        # SOLVER_TYPE = 'petsc'
+        #SOLVER_TYPE = 'psydac'
+        use_both_solvers = False
 
         # left- and right-hand side operators
         schur = self._A - dt**2 * self._BC
         rhs_m = self._A + dt**2 * self._BC
-
-        # use setter to update lhs matrix
-        self._solver.linop = schur
-
+        
+        
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
         rhs = rhs_m.dot(xn, out=self._rhs)
         rhs /= 2*dt
         rhs -= Byn
         rhs *= 2*dt
 
-        # solve linear system (in-place if out is not None)
-        x = self._solver.dot(rhs, out=out)
 
-        return x, self._solver._info
 
+
+        if self.petsc or use_both_solvers:
+            print('Solving with PETSc')
+            # ---------------------------------#
+            # Solve with PETSc
+            with ProfileRegion("psydac2petsc"):
+                x_petsc = xn.topetsc()
+                rhs_petsc = rhs.topetsc()
+            with ProfileRegion("petsc_solver"):
+                self.ksp.solve(rhs_petsc, x_petsc)
+            
+            # print_solver_info(self.ksp)
+            with ProfileRegion("petsc2psydac"):
+                x_petsc2psydac = petsc_to_psydac(x_petsc, xn.space)
+
+        if (not self.petsc) or use_both_solvers:
+            # ---------------------------------#
+            # Solve with psydac
+            # solve linear system (in-place if out is not None)
+            with ProfileRegion("psydac_solver"):
+                self._solver.linop = schur
+                x = self._solver.dot(rhs, out=out)
+            # if PETSc.COMM_WORLD.rank == 0:
+            #     print(f'x_pdydac = {x.toarray()}')
+            #     print(self._solver._info)
+            # ---------------------------------#
+        
+        if use_both_solvers:
+            compare_petsc_vecs(x_petsc, x.topetsc(), show_vecs = True)
+            exit()
+        
+        if self.petsc:
+            return x_petsc2psydac, self._solver._info
+        else:
+            return x, self._solver._info
 
 class SchurSolverFull:
     '''Solves the block system
