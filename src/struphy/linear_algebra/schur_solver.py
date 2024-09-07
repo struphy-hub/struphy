@@ -142,81 +142,87 @@ class SchurSolver:
 
 
         if self.petsc:
-            # -------------------------------------------------------------------#
-            # PETSc setup
-            # print('self.A.matrix.shape()',self.A.matrix.shape)
-            #A_petsc = self.A.matrix.topetsc()
-            # ---------------------------------#
-            # Converting via numpy array
-            # ---------------------------------#
-            # numpy_matrix = np.array([
-            #     [18.,         0.,           0.,          0.,          0.,          0.,         0.,          0.        ],
-            #     [ 0.,         18.,          0.,          0.,          0.,          0.,         0.,          0.        ],
-            #     [ 0.,          0.,          0.66666667,  0.33333333,  0.,          0.,         0.,          0.        ],
-            #     [ 0.,          0.,          0.33333333,  1.33333333,  0.33333333,  0.,         0.,          0.        ],
-            #     [ 0.,          0.,          0.,          0.33333333,  0.66666667,  0.,         0.,          0.        ],
-            #     [ 0.,          0.,          0.,          0.,          0.,          0.16666667, 0.08333333,  0.        ],
-            #     [ 0.,          0.,          0.,          0.,          0.,          0.08333333, 0.33333333,  0.08333333],
-            #     [ 0.,          0.,          0.,          0.,          0.,          0.,         0.08333333,  0.16666667]])        
-            
-            # numpy_matrix = self.A.matrix.toarray()
-            # # Get the dimensions of the NumPy matrix
-            # rows, cols = numpy_matrix.shape
-            # # Create a PETSc matrix with the same dimensions
-            # petsc_mat = PETSc.Mat().create(MPI.COMM_WORLD)
-            # petsc_mat.setSizes([rows, cols])
-            # petsc_mat.setFromOptions()
-            # petsc_mat.setUp()
-            # # Set the values of the PETSc matrix from the NumPy matrix
-            # for i in range(rows):
-            #     for j in range(cols):
-            #         petsc_mat.setValue(i, j, numpy_matrix[i, j])
-            # # Assemble the PETSc matrix
-            # petsc_mat.assemble()
-            # # print('full mat to PETSc:')
-            # # print(petsc_mat.view())
-            # ---------------------------------#
+            with ProfileRegion("petsc_matrix_setup"):
+                # -------------------------------------------------------------------#
+                # PETSc setup
+                # print('self.A.matrix.shape()',self.A.matrix.shape)
+                print("Setting up petsc matrix")
+                #A_petsc = self.A.matrix.topetsc()
+                # ---------------------------------#
+                # Converting via numpy array
+                # ---------------------------------#
+                # numpy_matrix = np.array([
+                #     [18.,         0.,           0.,          0.,          0.,          0.,         0.,          0.        ],
+                #     [ 0.,         18.,          0.,          0.,          0.,          0.,         0.,          0.        ],
+                #     [ 0.,          0.,          0.66666667,  0.33333333,  0.,          0.,         0.,          0.        ],
+                #     [ 0.,          0.,          0.33333333,  1.33333333,  0.33333333,  0.,         0.,          0.        ],
+                #     [ 0.,          0.,          0.,          0.33333333,  0.66666667,  0.,         0.,          0.        ],
+                #     [ 0.,          0.,          0.,          0.,          0.,          0.16666667, 0.08333333,  0.        ],
+                #     [ 0.,          0.,          0.,          0.,          0.,          0.08333333, 0.33333333,  0.08333333],
+                #     [ 0.,          0.,          0.,          0.,          0.,          0.,         0.08333333,  0.16666667]])        
+                
+                # numpy_matrix = self.A.matrix.toarray()
+                # # Get the dimensions of the NumPy matrix
+                # rows, cols = numpy_matrix.shape
+                # # Create a PETSc matrix with the same dimensions
+                # petsc_mat = PETSc.Mat().create(MPI.COMM_WORLD)
+                # petsc_mat.setSizes([rows, cols])
+                # petsc_mat.setFromOptions()
+                # petsc_mat.setUp()
+                # # Set the values of the PETSc matrix from the NumPy matrix
+                # for i in range(rows):
+                #     for j in range(cols):
+                #         petsc_mat.setValue(i, j, numpy_matrix[i, j])
+                # # Assemble the PETSc matrix
+                # petsc_mat.assemble()
+                # # print('full mat to PETSc:')
+                # # print(petsc_mat.view())
+                # ---------------------------------#
 
-            
-            # ---------------------------------#
-            # Convert via sparse matrix
-            # ---------------------------------#
-            sparse_matrix = self.A.matrix.tosparse()
-            # print(sparse_matrix)
-            petsc_mat_sparse = PETSc.Mat().create(comm=MPI.COMM_WORLD)
-            petsc_mat_sparse.setSizes(sparse_matrix.shape)
-            petsc_mat_sparse.setType('aij')
-            petsc_mat_sparse.setFromOptions()
-            petsc_mat_sparse.setUp()
-            # Extract data from scipy sparse matrix
-            rows = sparse_matrix.row
-            cols = sparse_matrix.col
-            data = sparse_matrix.data
+                
+                # ---------------------------------#
+                # Convert via sparse matrix
+                # ---------------------------------#
+                sparse_matrix = self.A.matrix.tosparse()
+                # print(sparse_matrix)
+                
+                petsc_mat_sparse = PETSc.Mat().create(comm=MPI.COMM_WORLD)
+                petsc_mat_sparse.setSizes(sparse_matrix.shape)
+                petsc_mat_sparse.setType('aij')
+                petsc_mat_sparse.setFromOptions()
+                petsc_mat_sparse.setUp()
 
-            # Set values to PETSc matrix
-            for i in range(len(data)):
-                # print(rows[i], cols[i], data[i])
-                # petsc_mat.setValue(rows[i], cols[i], data[i])
-                petsc_mat_sparse.setValue(rows[i], cols[i], data[i], PETSc.InsertMode.ADD_VALUES)
-            petsc_mat_sparse.assemble()
-            # print('sparse to PETSc:')
-            # print(petsc_mat_sparse.view())
-            # ---------------------------------#
+                # Extract data from scipy sparse matrix
+                # rows = sparse_matrix.row
+                # cols = sparse_matrix.col
+                # data = sparse_matrix.data
+
+                # Set values to PETSc matrix
+                for row,col,dat in zip(sparse_matrix.row, sparse_matrix.col, sparse_matrix.data):
+                    petsc_mat_sparse.setValue(row, col, dat, PETSc.InsertMode.ADD_VALUES)
+                    # petsc_mat_sparse.setValue(rows[i], cols[i], data[i], PETSc.InsertMode.ADD_VALUES)
+                petsc_mat_sparse.assemble()
+                # print('sparse to PETSc:')
+                # print(petsc_mat_sparse.view())
+                # ---------------------------------#
 
 
-            # ---------------------------------#
-            # Setup solver
-            # ---------------------------------#
-            # Initialize ksp solver.
-            self.ksp = PETSc.KSP().create(comm=MPI.COMM_WORLD)
-            self.ksp.setOperators(petsc_mat_sparse)
-            self.ksp.setInitialGuessNonzero(True)
-            # self.ksp.setType(PETSc.KSP.Type.CG)
-            self.ksp.setTolerances(rtol=1e-7, atol=1e-7, divtol=None, max_it=3000)        
-            # self.ksp.setFromOptions()
-            self.ksp.setUp()
-            # ---------------------------------#
+                # ---------------------------------#
+                # Setup solver
+                # ---------------------------------#
+                # Initialize ksp solver.
+                self.ksp = PETSc.KSP().create(comm=MPI.COMM_WORLD)
+                self.ksp.setOperators(petsc_mat_sparse)
+                self.ksp.setInitialGuessNonzero(True)
+                # self.ksp.setType(PETSc.KSP.Type.CG)
+                self.ksp.setTolerances(rtol=1e-7, atol=1e-7, divtol=None, max_it=3000)        
+                # self.ksp.setFromOptions()
+                self.ksp.setUp()
 
+
+                # Clean up PETSc objects when done
+                petsc_mat_sparse.destroy()
+                # ---------------------------------#
     @property
     def A(self):
         """ Upper left block from [[A B], [C Id]].
@@ -272,8 +278,6 @@ class SchurSolver:
         assert isinstance(Byn, Vector)
         assert xn.space == self._A.domain
         assert Byn.space == self._A.codomain
-        # SOLVER_TYPE = 'petsc'
-        #SOLVER_TYPE = 'psydac'
         use_both_solvers = False
 
         # left- and right-hand side operators
@@ -291,7 +295,7 @@ class SchurSolver:
 
 
         if self.petsc or use_both_solvers:
-            print('Solving with PETSc')
+            #print('Solving with PETSc')
             # ---------------------------------#
             # Solve with PETSc
             with ProfileRegion("psydac2petsc"):

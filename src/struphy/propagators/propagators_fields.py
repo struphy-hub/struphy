@@ -84,13 +84,15 @@ class Maxwell(Propagator):
 
         # Instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
-
+        
         self._schur_solver = SchurSolver(_A, _BC,
                                          solver['type'][0],
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'],
+                                         petsc = solver['petsc'] if 'petsc' in solver.keys() else False,
+                                         )
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()

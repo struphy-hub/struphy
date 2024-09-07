@@ -311,11 +311,33 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # solve the model
-    main(args.model,
+    # # solve the model
+    # main(args.model,
+    #      args.input,
+    #      args.output,
+    #      restart = args.restart,
+    #      runtime = args.runtime,
+    #      save_step = args.save_step,
+    #      supress_out = args.supress_out)
+
+
+    from struphy.profiling.profiling import (
+        ProfileRegion,
+        set_likwid,
+        pylikwid_markerinit,
+        pylikwid_markerclose,
+    )
+    # Enable profiling if likwid == True
+    set_likwid(True)
+    pylikwid_markerinit()
+    with ProfileRegion("main"):
+        # solve the model
+        main(args.model,
          args.input,
          args.output,
          restart = args.restart,
          runtime = args.runtime,
          save_step = args.save_step,
          supress_out = args.supress_out)
+    pylikwid_markerclose()
+
