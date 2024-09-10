@@ -4903,7 +4903,7 @@ class VariationalViscosity(Propagator):
                                 'type': ['Newton'],
                                 'info': False}
         dct['physics'] = {'gamma': 1.66666666667,
-                          'mu': 0., 'mua': 0.}
+                          'mu': 0., 'mu_a': 0.}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -4916,8 +4916,9 @@ class VariationalViscosity(Propagator):
                  *,
                  model: str = 'barotropic',
                  gamma: float = options()['physics']['gamma'],
+                 rho: StencilVector,
                  mu: float = options()['physics']['mu'],
-                 mua: float = options()['physics']['mua'],
+                 mu_a: float = options()['physics']['mu_a'],
                  mass_ops: WeightedMassOperator,
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
@@ -4931,8 +4932,9 @@ class VariationalViscosity(Propagator):
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
-        self._mua = mua
+        self._mu_a = mu_a
         self._mu = mu
+        self._rho = rho
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -4988,7 +4990,7 @@ class VariationalViscosity(Propagator):
         self.pc.update_mass_operator(self._Mrho)
         sn = self.feec_vars[0]
         un = self.feec_vars[1]
-        if self._mu < 1.e-15 and self._mua < 1.e-15:
+        if self._mu < 1.e-15 and self._mu_a < 1.e-15:
             self.feec_vars_update(sn, un)
             return
 
@@ -5025,11 +5027,12 @@ class VariationalViscosity(Propagator):
         np.sqrt(gu_sq_v, out=gu_sq_v)
 
         gu_sq_v *= self._sq_term_metric
-        gu_sq_v *= dt*self._mua  # /2
+        gu_sq_v *= dt*self._mu_a  # /2
 
         self.M1_du.assemble([[gu_sq_v, None, None],
                              [None, gu_sq_v, None],
-                             [None, None, gu_sq_v]], verbose=False)
+                             [None, None, gu_sq_v]], 
+                             verbose=False)
 
         gu_sq_v /= self._sq_term_metric
         # gu_sq_v *= 2.
@@ -5367,10 +5370,12 @@ class VariationalResistivity(Propagator):
 
     .. math::
 
-        &\partial_t \mathbf B - \eta \Delta \mathbf B = 0 \,,
+        &\int_\Omega \partial_t \mathbf B \cdot \mathbf v \,\textrm d \mathbf x + \int_\Omega (\eta + \eta_a(\mathbf x)) \nabla \times \mathbf B \cdot \nabla \times \mathbf v \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in H(\textrm{div}) \,,
         \\[4mm]
-        &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q\,\textrm d \mathbf x - \eta \int_\Omega |\nabla \times \mathbf B|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,.
+        &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q\,\textrm d \mathbf x - \int_\Omega (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,.
 
+    With :math:`\eta_a(\mathbf x) = \eta_a |\nabla \times \mathbf B(\mathbf x)|`
+        
     On the logical domain:
 
     .. math::
@@ -5378,7 +5383,7 @@ class VariationalResistivity(Propagator):
         \begin{align}
         &\partial_t \hat{\boldsymbol B} - \eta \Delta \hat{\boldsymbol B} = 0 ~ ,
         \\[2mm]
-        &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \mathcal U(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta - \eta \int_{\hat{\Omega}} |DF^{-T}\tilde{\nabla} \times \hat{\boldsymbol B}|^2  \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ .
+        &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \mathcal U(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta - \int_{\hat{\Omega}} (\eta + \eta_a(\mathbf \eta)) |DF^{-T}\tilde{\nabla} \times \hat{\boldsymbol B}|^2  \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ .
         \end{align}
 
     It is discretized as
@@ -5387,9 +5392,9 @@ class VariationalResistivity(Propagator):
 
         \begin{align}
         &\frac{\mathbf B^{n+1}-\mathbf B^n}{\Delta t} 
-        + \eta\, \mathbb C \mathbb M_1^{-1} \mathbb C^T \mathbb M_2  \mathbf B^{n+1} = 0 ~ ,
+        + \, \mathbb C \mathbb M_1^{-1} (\eta M_1 + \eta_a M_1[|\nabla \times \mathbf B|]) M_1^{-1} \mathbb C^T \mathbb M_2  \mathbf B^{n+1} = 0 ~ ,
         \\[2mm]
-        &\frac{P^{3}(\rho e(s^{n+1})- P^{3}(\rho e(s^{n}))}{\Delta t} - \eta P^3(DF^{-T} \tilde{\mathbb C} \frac{ \mathbf B^{n+1}+\mathbf B^n}{2} \cdot DF^{-T} \tilde{\mathbb C} \mathbf B^{n+1}) = 0 ~ ,
+        &\frac{P^{3}(\rho e(s^{n+1})- P^{3}(\rho e(s^{n}))}{\Delta t} - P^3((\eta + \eta_a(\mathbf x)) DF^{-T} \tilde{\mathbb C} \frac{ \mathbf B^{n+1}+\mathbf B^n}{2} \cdot DF^{-T} \tilde{\mathbb C} \mathbf B^{n+1}) = 0 ~ ,
         \end{align}
 
     where $P^3$ denotes the $L^2$ projection in the last space of the de Rham sequence.
@@ -5409,6 +5414,7 @@ class VariationalResistivity(Propagator):
                                 'type': ['Newton'],
                                 'info': False}
         dct['physics'] = {'eta': 0.,
+                          'eta_a': 0.,
                           'gamma': 5/3}
 
         if default:
@@ -5422,7 +5428,9 @@ class VariationalResistivity(Propagator):
                  *,
                  model: str = 'full',
                  gamma: float = options()['physics']['gamma'],
+                 rho: StencilVector,
                  eta: float = options()['physics']['eta'],
+                 eta_a: float = options()['physics']['eta_a'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -5433,8 +5441,10 @@ class VariationalResistivity(Propagator):
         self._model = model
         self._gamma = gamma
         self._eta = eta
+        self._eta_a = eta_a
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
+        self._rho = rho
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -5479,13 +5489,35 @@ class VariationalResistivity(Propagator):
         # Compute dissipation implicitely
         sn = self.feec_vars[0]
         bn = self.feec_vars[1]
-        if self._eta < 1.e-15:
+        if self._eta < 1.e-15 and self._eta_a < 1.e-15:
             self.feec_vars_update(sn, bn)
             return
 
         if self._info:
             print()
             print("Computing the dissipation in VariationalResistivity")
+
+        # Update weighted mass matrix for artificial resistivity
+        cb = self.Tcurl.dot(bn, out=self._tmp_cb1)
+        self.cbf1.vector = cb
+        cb_v = self.cbf1.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_curl, out=self._cb1_values)
+
+        cb_sq_v = self._cb_sq_values_init
+        cb_sq_v *= 0.
+        for i in range(3):
+            for j in range(3):
+                cb_sq_v += cb_v[i]*self._sq_term_metric[i, j]*cb_v[j]
+
+        np.sqrt(cb_sq_v, out=cb_sq_v)
+
+        cb_sq_v *= dt*self._eta_a
+
+        cb_sq_v += dt*self._eta
+        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0,0],cb_sq_v*self._sq_term_metric[0,1],cb_sq_v*self._sq_term_metric[0,2]],
+                             [cb_sq_v*self._sq_term_metric[1,0],cb_sq_v*self._sq_term_metric[1,1],cb_sq_v*self._sq_term_metric[1,2]],
+                             [cb_sq_v*self._sq_term_metric[2,0],cb_sq_v*self._sq_term_metric[2,1],cb_sq_v*self._sq_term_metric[2,2]]],
+                             verbose = False)
 
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
@@ -5509,13 +5541,13 @@ class VariationalResistivity(Propagator):
         cb1_v = self.cbf1.eval_tp_fixed_loc(
             self.integration_grid_spans, self.integration_grid_curl, out=self._cb1_values)
 
-        gu_sq_v = self._cb_sq_values
-        gu_sq_v *= 0.
+        cb_sq_v = self._cb_sq_values
+        cb_sq_v *= 0.
         for i in range(3):
             for j in range(3):
-                gu_sq_v += cb12_v[i]*self._sq_term_metric[i, j]*cb1_v[j]
+                cb_sq_v += cb12_v[i]*self._sq_term_metric[i, j]*cb1_v[j]
 
-        gu_sq_v *= dt*self._eta
+        cb_sq_v *= self._cb_sq_values_init
         # 2) Initial energy and linear form
         rho = self._rho
         self.rhof.vector = rho
@@ -5532,9 +5564,9 @@ class VariationalResistivity(Propagator):
 
         e_rho_s *= self._energy_metric
 
-        gu_sq_v += e_rho_s
+        cb_sq_v += e_rho_s
 
-        self._get_L2dofs_V3(gu_sq_v, dofs=self._linear_form_tot_e)
+        self._get_L2dofs_V3(cb_sq_v, dofs=self._linear_form_tot_e)
 
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
@@ -5619,6 +5651,17 @@ class VariationalResistivity(Propagator):
             V_extraction_op=self.derham.extraction_ops['3'],
             W_extraction_op=self.derham.extraction_ops['3'])
 
+        g = self.mass_ops.sqrt_g
+
+        self.M1_cb = WeightedMassOperator(
+            self.derham.Vh_fem['1'],
+            self.derham.Vh_fem['1'],
+            V_extraction_op=self.derham.extraction_ops['1'],
+            W_extraction_op=self.derham.extraction_ops['1'],
+            weights_info=[[g, None, None],
+                          [None, g, None],
+                          [None, None, g]])
+
         if self._lin_solver['type'][1] is None:
             self.pc = None
         else:
@@ -5638,11 +5681,12 @@ class VariationalResistivity(Propagator):
         self.Tcurl = inv_M1@curl.T@M2
 
         self.phy_stiffness = M2@curl@inv_M1@curl.T@M2
+        self.phy_cb_stiffness = self.Tcurl.T@self.M1_cb@self.Tcurl
 
         self._scaled_stiffness = .00001 * self.phy_stiffness
 
         self.r_op = M2  # - self._scaled_stiffness
-        self.l_op = M2 + self._scaled_stiffness
+        self.l_op = M2 + self._scaled_stiffness + self.phy_cb_stiffness
 
         if self._lin_solver['type'][1] is None:
             self.pc = None
@@ -5679,6 +5723,7 @@ class VariationalResistivity(Propagator):
         self._cb1_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
 
         self._cb_sq_values = np.zeros(grid_shape, dtype=float)
+        self._cb_sq_values_init = np.zeros(grid_shape, dtype=float)
 
         self._sf_values = np.zeros(grid_shape, dtype=float)
         self._sf1_values = np.zeros(grid_shape, dtype=float)

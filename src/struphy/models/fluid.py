@@ -656,12 +656,12 @@ class ViscoresistiveMHD(StruphyModel):
         \\[4mm]
         &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \rho \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial \rho} + s \nabla \frac{(\rho \mathcal U (\rho, s))}{\partial s} + \mathbf B \times \nabla \times \mathbf B - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \mathbf u \right) = 0 \,,
         \\[4mm]
-        &\partial_t s + \nabla \cdot ( s \mathbf u ) = \frac{1}{T}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + \eta |\nabla \times \mathbf B|^2\right) \,,
+        &\partial_t s + \nabla \cdot ( s \mathbf u ) = \frac{1}{T}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2\right) \,,
         \\[4mm]
-        &\partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) - \eta \Delta \mathbf B = 0 \,,
+        &\partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \mathbf B = 0 \,,
 
     where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`, 
-    and :math:`\mu_a(\mathbf x)` is an artificial viscosity coefficient.
+    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
 
     :ref:`propagators` (called in sequence):
 
@@ -739,8 +739,9 @@ class ViscoresistiveMHD(StruphyModel):
 
         self._gamma = params['fluid']['mhd']['options']['VariationalDensityEvolve']['physics']['gamma']
         self._mu = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu']
-        self._mua = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mua']
+        self._mu_a = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu_a']
         self._eta = params['fluid']['mhd']['options']['VariationalResistivity']['physics']['eta']
+        self._eta_a = params['fluid']['mhd']['options']['VariationalResistivity']['physics']['eta_a']
         model = 'full'
 
         # set keyword arguments for propagators
@@ -767,16 +768,19 @@ class ViscoresistiveMHD(StruphyModel):
                                                                      'nonlin_solver': nonlin_solver_magfield}
         
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
+                                                                 'rho': self.pointer['mhd_rho3'],
                                                                  'gamma': self._gamma,
                                                                  'mu': self._mu,
-                                                                 'mua': self._mua,
+                                                                 'mu_a': self._mu_a,
                                                                  'mass_ops': self.WMM,
                                                                  'lin_solver': lin_solver_viscosity,
                                                                  'nonlin_solver': nonlin_solver_viscosity}
         
         self._kwargs[propagators_fields.VariationalResistivity] = {'model': model,
+                                                                   'rho': self.pointer['mhd_rho3'],
                                                                    'gamma': self._gamma,
                                                                    'eta': self._eta,
+                                                                   'eta_a': self._eta_a,
                                                                    'lin_solver': lin_solver_resistivity,
                                                                    'nonlin_solver': nonlin_solver_resistivity}
 
@@ -949,7 +953,7 @@ class ViscousFluid(StruphyModel):
 
         self._gamma = params['fluid']['fluid']['options']['VariationalDensityEvolve']['physics']['gamma']
         self._mu = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mu']
-        self._mua = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mua']
+        self._mu_a = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mu_a']
         model = 'full'
 
 
@@ -973,9 +977,10 @@ class ViscousFluid(StruphyModel):
                                                                      'nonlin_solver': nonlin_solver_entropy}
         
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
+                                                                 'rho': self.pointer['fluid_rho3'],
                                                                  'gamma': self._gamma,
                                                                  'mu': self._mu,
-                                                                 'mua': self._mua,
+                                                                 'mu_a': self._mu_a,
                                                                  'mass_ops': self.WMM,
                                                                  'lin_solver': lin_solver_viscosity,
                                                                  'nonlin_solver': nonlin_solver_viscosity}

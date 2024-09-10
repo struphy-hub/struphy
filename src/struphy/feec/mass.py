@@ -1116,7 +1116,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
@@ -1554,7 +1554,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
     def toarray(self):
         raise NotImplementedError()
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(self._codomain, self._domain, self._weights)
 
     @property
