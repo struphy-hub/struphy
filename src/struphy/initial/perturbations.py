@@ -33,7 +33,7 @@ class ModesSin:
                 Lz : 1.               
     '''
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1., theta=None):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1., theta=None, pfuns=['Id'], pfuns_params = [0.]):
         '''
         Parameters
         ----------
@@ -94,6 +94,16 @@ class ModesSin:
         else:
             assert len(theta) == n_modes
 
+        if len(pfuns) ==1:
+            pfuns = [pfuns[0]]*n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if len(pfuns_params) ==1:
+            pfuns_params = [pfuns_params[0]]*n_modes
+        else:
+            assert len(pfuns_params) == n_modes
+
         self._ls = ls
         self._ms = ms
         self._ns = ns
@@ -103,12 +113,22 @@ class ModesSin:
         self._Lz = Lz
         self._theta = theta
 
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfuns_params):
+            if pfun == 'Id':
+                self._pfuns += [lambda eta3: 1.]
+            elif pfun == 'localize':
+                self._pfuns += [lambda eta3:
+                                np.tanh((eta3 - 0.5)/params)/np.cosh((eta3 - 0.5)/params)]
+            else:
+                raise ValueError(f'Profile function {pfun} is not defined..')
+
     def __call__(self, x, y, z):
 
         val = 0.
 
-        for amp, l, m, n, t in zip(self._amps, self._ls, self._ms, self._ns, self._theta):
-            val += amp*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
+        for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
+            val += amp*pfun(z)*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
                               np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
 
         return val

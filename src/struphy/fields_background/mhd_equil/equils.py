@@ -969,6 +969,7 @@ class CurrentSheet(CartesianMHDequilibrium):
     Parameters
     ----------
     delta : characteristic size of the current sheet
+    amp : amplitude of the current sheet 
 
     Note
     ----
@@ -979,7 +980,8 @@ class CurrentSheet(CartesianMHDequilibrium):
 
     def __init__(self, **params):
 
-        params_default = {'delta': 0.1}
+        params_default = {'delta': 0.1,
+                          'amp' : 1.}
 
         self._params = set_defaults(params, params_default)
 
@@ -1037,7 +1039,10 @@ class CurrentSheet(CartesianMHDequilibrium):
         by = np.tanh(z/self._params['delta'])
         bx = np.sqrt(1-by**2)
 
-        return bx, by, bz
+        bxs = self._params['amp']*bx
+        bys = self._params['amp']*by
+
+        return bxs, bys, bz
 
     # equilibrium current, set to 0
     def j_xyz(self, x, y, z):
