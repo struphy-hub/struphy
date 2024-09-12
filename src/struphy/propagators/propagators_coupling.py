@@ -149,7 +149,8 @@ class VlasovAmpere(Propagator):
                                self._e_sum.blocks[2]._data,
                                self._c2),
                               self.derham.args_derham,
-                              self.domain.args_domain)
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
     def __call__(self, dt):
         # current e-field
@@ -345,8 +346,8 @@ class EfieldWeights(Propagator):
                                self._e_sum.blocks[2]._data,
                                self._f0_values, self._kappa, self._vth),
                               self.derham.args_derham,
-                              self.domain.args_domain
-                              )
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
     def __call__(self, dt):
 
@@ -1045,7 +1046,8 @@ class PressureCoupling6D(Propagator):
                                self._tmp_g2[0]._data, self._tmp_g2[1]._data, self._tmp_g2[2]._data,
                                self._tmp_g3[0]._data, self._tmp_g3[1]._data, self._tmp_g3[2]._data),
                               self.derham.args_derham,
-                              self.domain.args_domain)
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
         # Define operators
         self._A = getattr(self.mass_ops, id_Mn)
@@ -1345,7 +1347,8 @@ class CurrentCoupling6DCurrent(Propagator):
                                self._u_avg2[1]._data,
                                self._u_avg2[2]._data),
                               self.derham.args_derham,
-                              self.domain.args_domain)
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(self.mass_ops, 'M' + u_id + 'n')
@@ -1599,7 +1602,8 @@ class CurrentCoupling5DCurlb(Propagator):
                                self._u_avg2[0]._data, self._u_avg2[1]._data, self._u_avg2[2]._data,
                                0.),
                               self.derham.args_derham,
-                              self.domain.args_domain)
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         _BC = -1/4 * self._ACC.operators[0]
@@ -1989,7 +1993,8 @@ class CurrentCoupling5DGradB(Propagator):
                               kernel,
                               (None),
                               self.derham.args_derham,
-                              self.domain.args_domain)
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()

@@ -67,7 +67,7 @@ class Pusher:
         alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
         If float or int or then alpha = (alpha, alpha, alpha). 
         alpha must be between 0 and 1.
-        The default alpha[i]=0. means that evaluation is at the initial positions (time n),
+        alpha[i]=0 means that evaluation is at the initial positions (time n),
         stored at markers[:, buffer_idx + i].
 
     init_kernels : dict
@@ -107,7 +107,7 @@ class Pusher:
                  args_derham: DerhamArguments,
                  args_domain: DomainArguments,
                  *,
-                 alpha_in_kernel: float | int | tuple | list = 0.,
+                 alpha_in_kernel: float | int | tuple | list,
                  init_kernels: dict = {},
                  eval_kernels: dict = {},
                  n_stages: int = 1,
