@@ -4,8 +4,10 @@ import yaml
 from functools import reduce
 import operator
 import inspect
+from mpi4py import MPI
 
 from struphy.propagators.base import Propagator
+from struphy.profiling.profiling import ProfileRegion
 from psydac.linalg.stencil import StencilVector
 
 
@@ -27,7 +29,7 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.  
     """
 
-    def __init__(self, params=None, comm=None):
+    def __init__(self, params, comm=None, inter_comm=None):
 
         # TODO: comm=None does not work yet.
 
@@ -50,13 +52,22 @@ class StruphyModel(metaclass=ABCMeta):
 
         self._params = params
         self._comm = comm
-
+        self._inter_comm = inter_comm
+        
         # get rank and size
         if self.comm is None:
             self._rank = 0
         else:
             self._rank = self.comm.Get_rank()
 
+        if inter_comm == None:
+            self._comm_world_rank = comm.Get_rank()
+            self._Nclones = 1
+        else:
+            self._comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
+            self._Nclones = self._inter_comm.Get_size()
+        
+        
         # initialize model variable dictionaries
         self._init_variable_dicts()
 
@@ -99,7 +110,7 @@ class StruphyModel(metaclass=ABCMeta):
             dims_mask = [True]*3
 
         self._derham = setup_derham(
-            params['grid'], comm=comm, domain=self.domain, mpi_dims_mask=dims_mask)
+            params['grid'], comm=comm, inter_comm=inter_comm, domain=self.domain, mpi_dims_mask=dims_mask)
 
         # create projected MHD equilibrium
         self._projected_mhd_equil = ProjectedMHDequilibrium(self.mhd_equil, self.derham)
@@ -116,10 +127,13 @@ class StruphyModel(metaclass=ABCMeta):
         self._allocate_variables()
 
         # store plasma parameters
-        if comm.Get_rank() == 0:
+        if self._comm_world_rank == 0:
             self._pparams = self._print_plasma_params()
         else:
             self._pparams = self._print_plasma_params(verbose=False)
+
+        # if self._comm_world_rank == 0:
+        #     self._show_chosen_options()
 
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
@@ -133,6 +147,7 @@ class StruphyModel(metaclass=ABCMeta):
         self._propagators = []
         self._kwargs = {}
         self._scalar_quantities = {}
+
 
         return params
 
@@ -209,6 +224,16 @@ class StruphyModel(metaclass=ABCMeta):
     def comm(self):
         '''MPI communicator.'''
         return self._comm
+    
+    @property
+    def inter_comm(self):
+        '''MPI clone communicator.'''
+        return self._inter_comm
+    
+    @property
+    def Nclones(self):
+        ''' Number of clones. '''
+        return self._Nclones
 
     @property
     def pointer(self):
@@ -386,32 +411,97 @@ class StruphyModel(metaclass=ABCMeta):
             assert key is not None, 'Must provide key if option is not a class.'
             setInDict(dct, species + ['options'] + key, option)
 
-    def add_scalar(self, name):
+    def add_scalar(self, name, species=None, compute=None, summands=None):
+        """
+        Add a scalar to be saved during the simulation.
+
+        Parameters
+        ----------
+        name : str
+            Dictionary key for the scalar.
+        species : str, optional
+            The species associated with the scalar. Required if compute is 'from_particles'.
+        compute : str, optional
+            Type of scalar, determines the compute operations. 
+            Options: 'from_particles' or 'from_field'. Default is None.
+        summands : list, optional
+            List of other scalar names whose values should be summed 
+            to compute the value of this scalar. Default is None.
+        """
+        
+        assert isinstance(name, str), "name must be a string"
+        if compute == 'from_particles':
+            assert isinstance(species, str), "species must be a string when compute is 'from_particles'"
+
+        self._scalar_quantities[name] = {
+            'value': np.empty(1, dtype=float),
+            'species': species,
+            'compute': compute,
+            'summands': summands,
+        }
+
+    def update_scalar(self, name, value=None):
         '''Add a scalar that should be saved during the simulation.
 
         Parameters
         ----------
             name : str
                 Dictionary key of the scalar.
+
+            value : float, optional
+                Value to be saved. Required if there are no summands.
         '''
+        
+        # Ensure the name is a string
         assert isinstance(name, str)
-        self._scalar_quantities[name] = np.empty(1, dtype=float)
 
-    def update_scalar(self, name, value):
-        '''Add a scalar that should be saved during the simulation.
+        species = self._scalar_quantities[name]['species']
+        summands = self._scalar_quantities[name]['summands']
+        compute = self._scalar_quantities[name]['compute']
 
-        Parameters
-        ----------
-            name : str
-                Dictionary key of the scalar.
+        
+        if compute == 'from_particles':
+            compute_operations = ['sum_within_clone', 'sum_between_clones','divide_n_mks']
+        elif compute == 'from_field':
+            compute_operations = []
+        else:
+            compute_operations = []
+        
+        if summands is None:
+            # Ensure the value is a float if there are no summands
+            assert isinstance(value, float)
 
-            value : float
-                Value to be saved.
-        '''
-        assert isinstance(name, str)
-        assert isinstance(value, float)
-        self._scalar_quantities[name][0] = value
+            # Create a numpy array to hold the scalar value
+            value_array = np.array([value], dtype=np.float64)
+            
+            # Perform MPI operations based on the compute flags
+            if 'sum_within_clone' in compute_operations:
+                self.derham.comm.Allreduce(MPI.IN_PLACE, value_array, op=MPI.SUM)
+            
+            if 'sum_between_clones' in compute_operations and self.Nclones > 1:
+                self.inter_comm.Allreduce(MPI.IN_PLACE, value_array, op=MPI.SUM)
 
+            if 'average_between_clones' in compute_operations and self.Nclones > 1:
+                self.inter_comm.Allreduce(MPI.IN_PLACE, value_array, op=MPI.SUM)
+                value_array /= self.Nclones
+            
+            
+            
+            if 'divide_n_mks' in compute_operations:
+                # Initialize the total number of markers
+                n_mks_tot = np.array([self.pointer[species].n_mks])
+                if self.Nclones > 1:
+                    self.inter_comm.Allreduce(MPI.IN_PLACE, n_mks_tot, op=MPI.SUM)
+                value_array /= n_mks_tot
+            
+            # Update the scalar value
+            self._scalar_quantities[name]['value'][0] = value_array[0]
+            
+        else:
+            # Sum the values of the summands
+            value = sum(self._scalar_quantities[summand]['value'][0] for summand in summands)
+            self._scalar_quantities[name]['value'][0] = value
+        
     def add_time_state(self, time_state):
         '''Add a pointer to the time variable of the dynamics ('t')
         to the model and to all propagators of the model.
@@ -428,7 +518,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def init_propagators(self):
         '''Initialize the propagator objects specified in :attr:`~propagators_cls`.'''
-        if self.comm.Get_rank() == 0:
+        if self._comm_world_rank == 0:
             print('\nPROPAGATORS:')
         for (prop, variables), (prop2, kwargs_i) in zip(self.propagators_dct().items(), self.kwargs.items()):
 
@@ -438,7 +528,7 @@ class StruphyModel(metaclass=ABCMeta):
                 print(f'\n-> Propagator "{prop.__name__}" will not be used.')
                 continue
             else:
-                if self.comm.Get_rank() == 0:
+                if self._comm_world_rank == 0:
                     print(f'\n-> Initializing propagator "{prop.__name__}"')
                     print(f'-> for variables {variables}')
                     print(f'-> with the following parameters:')
@@ -453,7 +543,7 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(prop_instance, Propagator)
                 self._propagators += [prop_instance]
 
-        if self.comm.Get_rank() == 0:
+        if self._comm_world_rank == 0:
             print('\n---------------------------------------')
             print('Initialization of propagators complete.')
             print('---------------------------------------')
@@ -470,12 +560,19 @@ class StruphyModel(metaclass=ABCMeta):
         split_algo : str
             Splitting algorithm. Currently available: "LieTrotter" and "Strang".
         """
-
+        
         # first order in time
         if split_algo == 'LieTrotter':
-
             for propagator in self.propagators:
-                propagator(dt)
+                prop_name = type(propagator).__name__
+
+                with ProfileRegion(prop_name):
+                    propagator(dt)
+                
+                # if self.Nclones > 1:
+                #     with ProfileRegion(prop_name + '_barrier'):
+                #         self.comm.Barrier()
+                #         self.inter_comm.Barrier()
 
         # second order in time
         elif split_algo == 'Strang':
@@ -483,10 +580,23 @@ class StruphyModel(metaclass=ABCMeta):
             assert len(self.propagators) > 1
 
             for propagator in self.propagators:
-                propagator(dt/2)
+                prop_name = type(propagator).__name__
+                with ProfileRegion(prop_name):
+                    propagator(dt/2)
+                
+                # with ProfileRegion(prop_name + '_barrier'):
+                #         self.comm.Barrier()
+                #         self.inter_comm.Barrier()
 
             for propagator in self.propagators[::-1]:
-                propagator(dt/2)
+                prop_name = type(propagator).__name__
+                
+                with ProfileRegion(prop_name):
+                    propagator(dt/2)
+                
+                # with ProfileRegion(prop_name + '_barrier'):
+                #     self.comm.Barrier()
+                #     self.inter_comm.Barrier()
 
         else:
             raise NotImplementedError(
@@ -546,7 +656,8 @@ class StruphyModel(metaclass=ABCMeta):
         Check if scalar_quantities are not "nan" and print to screen.
         '''
         sq_str = ''
-        for key, val in self._scalar_quantities.items():
+        for key, scalar_dict in self._scalar_quantities.items():
+            val = scalar_dict['value']
             assert not np.isnan(val[0]), f'Scalar {key} is {val[0]}.'
             sq_str += key + ': {:14.11f}'.format(val[0]) + '   '
         print(sq_str)
@@ -559,31 +670,90 @@ class StruphyModel(metaclass=ABCMeta):
 
         from struphy.feec.psydac_derham import Derham
         from struphy.pic.base import Particles
-
-        if self.comm.Get_rank() == 0:
+        
+        if self._comm_world_rank == 0:
             print('\nINITIAL CONDITIONS:')
 
         # initialize em fields
         if len(self.em_fields) > 0:
+            with ProfileRegion('initialize_em_fields'):
+                for key, val in self.em_fields.items():
 
-            for key, val in self.em_fields.items():
+                    if 'params' in key:
+                        continue
+                    else:
 
-                if 'params' in key:
-                    continue
-                else:
+                        obj = val['obj']
+                        assert isinstance(obj, Derham.Field)
 
-                    obj = val['obj']
-                    assert isinstance(obj, Derham.Field)
+                        obj.initialize_coeffs(
+                            domain=self.domain, mhd_equil=self.mhd_equil)
 
-                    obj.initialize_coeffs(
-                        domain=self.domain, mhd_equil=self.mhd_equil)
+                        if self._comm_world_rank == 0:
+                            print(f'EM field "{key}" was initialized with:')
 
-                    if self.comm.Get_rank() == 0:
-                        print(f'EM field "{key}" was initialized with:')
+                            if 'background' in self.em_fields['params']:
+                                bckgr_type = self.em_fields['params']['background']['type']
+                                print('background:'.ljust(25), bckgr_type)
 
-                        if 'background' in self.em_fields['params']:
-                            bckgr_type = self.em_fields['params']['background']['type']
-                            print('background:'.ljust(25), bckgr_type)
+                                if bckgr_type is None:
+                                    pass
+                                elif type(bckgr_type) == str:
+                                    bckgr_types = [bckgr_type]
+                                elif type(bckgr_type) == list:
+                                    bckgr_types = bckgr_type
+                                else:
+                                    raise NotImplemented('The type of initial background must be null or str or list.')
+
+                                if bckgr_type is not None:
+                                    for _type in bckgr_types:
+                                        print(_type, ':')
+                                        for key, val2 in self.em_fields['params']['background'][_type].items():
+                                            print((key + ':').ljust(25), val2)
+                            else:
+                                print('No background.')
+
+                            if 'perturbation' in self.em_fields['params']:
+                                pert_type = self.em_fields['params']['perturbation']['type']
+                                print('perturbation:'.ljust(25), pert_type)
+
+                                if pert_type is None:
+                                    pass
+                                elif type(pert_type) == str:
+                                    pert_types = [pert_type]
+                                elif type(pert_type) == list:
+                                    pert_types = pert_type
+                                else:
+                                    raise NotImplemented(
+                                        f'The type of initial perturbation must be null or str or list.')
+
+                                if pert_type is not None:
+                                    for _type in pert_types:
+                                        print(_type, ':')
+                                        for key, val2 in self.em_fields['params']['perturbation'][_type].items():
+                                            print((key + ':').ljust(25), val2)
+                            else:
+                                print('No perturbation.')
+        if len(self.fluid) > 0:
+            with ProfileRegion('initialize_fluids'):
+                for species, val in self.fluid.items():
+
+                    for variable, subval in val.items():
+
+                        if 'params' in variable:
+                            continue
+                        else:
+                            obj = subval['obj']
+                            assert isinstance(obj, Derham.Field)
+                            obj.initialize_coeffs(
+                                domain=self.domain, mhd_equil=self.mhd_equil, species=species)
+
+                    if self._comm_world_rank == 0:
+                        print(f'Fluid species "{species}" was initialized with:')
+
+                        if 'background' in val['params']:
+                            bckgr_type = val['params']['background']['type']
+                            print('type:'.ljust(25), bckgr_type)
 
                             if bckgr_type is None:
                                 pass
@@ -593,19 +763,19 @@ class StruphyModel(metaclass=ABCMeta):
                                 bckgr_types = bckgr_type
                             else:
                                 raise NotImplemented(
-                                    f'The type of initial background must be null or str or list.')
+                                    f'The type of initial perturbation must be null or str or list.')
 
                             if bckgr_type is not None:
                                 for _type in bckgr_types:
                                     print(_type, ':')
-                                    for key, val2 in self.em_fields['params']['background'][_type].items():
+                                    for key, val2 in val['params']['background'][_type].items():
                                         print((key + ':').ljust(25), val2)
                         else:
                             print('No background.')
 
-                        if 'perturbation' in self.em_fields['params']:
-                            pert_type = self.em_fields['params']['perturbation']['type']
-                            print('perturbation:'.ljust(25), pert_type)
+                        if 'perturbation' in val['params']:
+                            pert_type = val['params']['perturbation']['type']
+                            print('type:'.ljust(25), pert_type)
 
                             if pert_type is None:
                                 pass
@@ -620,110 +790,47 @@ class StruphyModel(metaclass=ABCMeta):
                             if pert_type is not None:
                                 for _type in pert_types:
                                     print(_type, ':')
-                                    for key, val2 in self.em_fields['params']['perturbation'][_type].items():
+                                    for key, val2 in val['params']['perturbation'][_type].items():
                                         print((key + ':').ljust(25), val2)
                         else:
                             print('No perturbation.')
-
-        # initialize fields
-        if len(self.fluid) > 0:
-
-            for species, val in self.fluid.items():
-
-                for variable, subval in val.items():
-
-                    if 'params' in variable:
-                        continue
-                    else:
-                        obj = subval['obj']
-                        assert isinstance(obj, Derham.Field)
-                        obj.initialize_coeffs(
-                            domain=self.domain, mhd_equil=self.mhd_equil, species=species)
-
-                if self.comm.Get_rank() == 0:
-                    print(f'Fluid species "{species}" was initialized with:')
-
-                    if 'background' in val['params']:
-                        bckgr_type = val['params']['background']['type']
-                        print('type:'.ljust(25), bckgr_type)
-
-                        if bckgr_type is None:
-                            pass
-                        elif type(bckgr_type) == str:
-                            bckgr_types = [bckgr_type]
-                        elif type(bckgr_type) == list:
-                            bckgr_types = bckgr_type
-                        else:
-                            raise NotImplemented(
-                                f'The type of initial perturbation must be null or str or list.')
-
-                        if bckgr_type is not None:
-                            for _type in bckgr_types:
-                                print(_type, ':')
-                                for key, val2 in val['params']['background'][_type].items():
-                                    print((key + ':').ljust(25), val2)
-                    else:
-                        print('No background.')
-
-                    if 'perturbation' in val['params']:
-                        pert_type = val['params']['perturbation']['type']
-                        print('type:'.ljust(25), pert_type)
-
-                        if pert_type is None:
-                            pass
-                        elif type(pert_type) == str:
-                            pert_types = [pert_type]
-                        elif type(pert_type) == list:
-                            pert_types = pert_type
-                        else:
-                            raise NotImplemented(
-                                f'The type of initial perturbation must be null or str or list.')
-
-                        if pert_type is not None:
-                            for _type in pert_types:
-                                print(_type, ':')
-                                for key, val2 in val['params']['perturbation'][_type].items():
-                                    print((key + ':').ljust(25), val2)
-                    else:
-                        print('No perturbation.')
-
         # initialize particles
         if len(self.kinetic) > 0:
+            with ProfileRegion('initialize_particles'):
+                for species, val in self.kinetic.items():
 
-            for species, val in self.kinetic.items():
+                    obj = val['obj']
+                    assert isinstance(obj, Particles)
 
-                obj = val['obj']
-                assert isinstance(obj, Particles)
+                    if self._comm_world_rank == 0:
+                        _type = val['params']['background']['type']
+                        print(f'Kinetic species "{species}" was initialized with:')
+                        print('type:'.ljust(25), _type)
+                        if _type is not None:
+                            if not isinstance(_type, list):
+                                _type = [_type]
+                            for _t in _type:
+                                for key, par in val['params']['background'][_t].items():
+                                    print((key + ':').ljust(25), par)
 
-                if self.comm.Get_rank() == 0:
-                    _type = val['params']['background']['type']
-                    print(f'Kinetic species "{species}" was initialized with:')
-                    print('type:'.ljust(25), _type)
-                    if _type is not None:
-                        if not isinstance(_type, list):
-                            _type = [_type]
-                        for _t in _type:
-                            for key, par in val['params']['background'][_t].items():
-                                print((key + ':').ljust(25), par)
+                    obj.draw_markers()
+                    obj.mpi_sort_markers(do_test=True)
 
-                obj.draw_markers()
-                obj.mpi_sort_markers(do_test=True)
+                    if not val['params']['markers']['loading']['type'] == 'restart':
 
-                if not val['params']['markers']['loading']['type'] == 'restart':
+                        typ = val['params']['markers']['type']
+                        assert typ in ['full_f', 'delta_f', 'control_variate'], \
+                            f'Type {typ} for distribution function is not known!'
 
-                    typ = val['params']['markers']['type']
-                    assert typ in ['full_f', 'delta_f', 'control_variate'], \
-                        f'Type {typ} for distribution function is not known!'
+                        if obj.coords == 'vpara_mu':
 
-                    if obj.coords == 'vpara_mu':
+                            obj.save_constants_of_motion(
+                                epsilon=self.equation_params[species]['epsilon'], 
+                                f_coords=obj.f0.coords,
+                                initial=True)
 
-                        obj.save_constants_of_motion(
-                            epsilon=self.equation_params[species]['epsilon'], 
-                            f_coords=obj.f0.coords,
-                            initial=True)
-
-                    obj.initialize_weights()
-
+                        obj.initialize_weights()
+        
     def initialize_from_restart(self, data):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
@@ -804,7 +911,8 @@ class StruphyModel(metaclass=ABCMeta):
         assert isinstance(data, DataContainer)
 
         # save scalar quantities in group 'scalar/'
-        for key, val in self.scalar_quantities.items():
+        for key, scalar in self.scalar_quantities.items():
+            val = scalar['value']
             key_scalar = 'scalar/' + key
             data.add_data({key_scalar: val})
 
@@ -1454,7 +1562,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         self._kinetic = {}
         self._diagnostics = {}
 
-        if self.comm.Get_rank() == 0:
+        if self._comm_world_rank == 0:
             print('\nMODEL SPECIES:')
 
         # create dictionaries for each em-field/species and fill in space/class name and parameters
@@ -1462,7 +1570,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert space in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}
             assert 'em_fields' in self.params, 'Top-level key "em_fields" is missing in parameter file.'
 
-            if self.comm.Get_rank() == 0:
+            if self._comm_world_rank == 0:
                 print('em_field:'.ljust(25), f'"{var_name}" ({space})')
 
             self._em_fields[var_name] = {}
@@ -1482,7 +1590,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert var_name in self.params[
                 'fluid'], f'Fluid species {var_name} is missing in parameter file.'
 
-            if self.comm.Get_rank() == 0:
+            if self._comm_world_rank == 0:
                 print('fluid:'.ljust(25), f'"{var_name}" ({space})')
 
             self._fluid[var_name] = {}
@@ -1505,7 +1613,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert var_name in self.params['kinetic'], \
                 f'Kinetic species {var_name} is missing in parameter file.'
 
-            if self.comm.Get_rank() == 0:
+            if self._comm_world_rank == 0:
                 print('kinetic:'.ljust(25), f'"{var_name}" ({space})')
 
             self._kinetic[var_name] = {}

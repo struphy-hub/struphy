@@ -1520,7 +1520,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._tmp_acc = self._B2.codomain.zeros()
 
     def __call__(self, dt):
-
+        
         # current variables
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
@@ -1540,9 +1540,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC(self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
                   self._scale_vec, 0.)
 
-
         self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
-
+        
+        
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
         b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
@@ -1551,17 +1551,18 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         #b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
-
+        
+    
         # new b coeffs (no tmps created here)
         _u = un.copy(out=self._u_tmp2)
         _u += un1
         bn1 = self._C.dot(_u, out=self._b_tmp1)
         bn1 *= -dt
         bn1 += bn
-
+        
         # write new coeffs into self.feec_vars
         max_du, max_db = self.feec_vars_update(un1, bn1)
-
+        
         if self._info and self._rank == 0:
             print('Status     for ShearAlfven:', info['success'])
             print('Iterations for ShearAlfven:', info['niter'])

@@ -185,6 +185,8 @@ class Propagator(metaclass=ABCMeta):
             A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.
         """
 
+
+        
         diffs = []
 
         for i, new in enumerate(variables_new):

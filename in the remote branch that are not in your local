@@ -1,0 +1,77 @@
+[33mcommit b05e3da1676d62055b282cc2696310fed6eb3cb4[m[33m ([m[1;36mHEAD -> [m[1;32mdomain-cloning[m[33m)[m
+Author: Max <max.lindqvist@ipp.mpg.de>
+Date:   Wed Aug 7 14:47:04 2024 +0200
+
+    Some cleanup to make the tests work properly
+
+[33mcommit 69b29a879811c72bd1d6a414b4432f4be2e2143d[m
+Author: Max <max.lindqvist@ipp.mpg.de>
+Date:   Tue Aug 6 10:39:06 2024 +0200
+
+    Updated setup_domain_cloning to allow for Np and ppc that are not divisible by Nclones. A table is now displayed with the Np and ppc for each clone.
+
+[33mcommit bebcc81fee44c8665f217e48d72915f67be4474c[m
+Author: Max <max.lindqvist@ipp.mpg.de>
+Date:   Mon Aug 5 13:39:32 2024 +0200
+
+    Improved LIKWID profiling support.
+    
+    - Introduced profiling.profiling.py for centralized LIKWID profiling management, including ProfilingConfig and ProfileRegion context manager.
+    - No need to pass around a likwid bool anymore. Removed likwid parameter from model constructors in model classes
+
+[33mcommit 8d12f51fdef93c1c25ab21e49ff127a0dd292877[m
+Author: Max <max.lindqvist@ipp.mpg.de>
+Date:   Mon Aug 5 10:19:24 2024 +0200
+
+    Refactored scalar handling and kinetic adjustments for domain cloning
+    
+    - Unified marker adjustments for 'ppc' and 'Np' in setup.py.
+    - Fixed scalar handling in base.py, supporting species, computations, and summands. The new system ensures consistent scalars for any number of clones/MPI tasks.
+    - Updated LinearMHDDriftkineticCC and other models to use the new scalar system.
+
+[33mcommit f64450866fa5ec62653f768fc2389e34b52d9fe7[m
+Author: Max <max.lindqvist@ipp.mpg.de>
+Date:   Thu Aug 1 13:24:14 2024 +0200
+
+    Add Likwid Integration and Domain Cloning for MPI
+    
+    - Introduced command-line arguments and integration for running with Likwid.
+    - Added domain cloning support with appropriate MPI communicators.
+    - Updated batch script handling to accommodate Likwid and domain cloning.
+    - Adjusted particle parameters based on the number of clones.
+
+[33mcommit a35f45d37eee854f1133260c384e13b9475bd6e4[m[33m ([m[1;31morigin/devel[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mdevel[m[33m)[m
+Merge: 20dbb5c2 26cb78de
+Author: Stefan Possanner <stefan.possanner@ipp.mpg.de>
+Date:   Wed Aug 7 06:06:11 2024 +0000
+
+    Merge branch 'add_diagnostics' into 'devel'
+    
+    Implement FEEC diagnotics and Accumulation filtering
+    
+    Closes #289 and #285
+    
+    See merge request struphy/struphy!534
+
+[33mcommit 26cb78de4101bfaadc19355f306d3d32f7e0b953[m
+Author: Byung Kyu Na <byungkyu.na@ipp.mpg.de>
+Date:   Wed Aug 7 06:06:11 2024 +0000
+
+    Implement FEEC diagnotics and Accumulation filtering
+
+[33mcommit 20dbb5c2c7b7ebea3700835420f63867643814f0[m
+Merge: 5f5e2917 a8ca6000
+Author: Stefan Possanner <stefan.possanner@ipp.mpg.de>
+Date:   Wed Jul 31 15:51:07 2024 +0000
+
+    Merge branch 'restrict-mpi4py-version' into 'devel'
+    
+    Restrict mpi4py<4.0.0
+    
+    See merge request struphy/struphy!535
+
+[33mcommit a8ca600046702b3fe6d2b63a3ea2d0092341c687[m
+Author: Stefan Possanner <stefan.possanner@ipp.mpg.de>
+Date:   Wed Jul 31 15:51:07 2024 +0000
+
+    Restrict mpi4py<4.0.0

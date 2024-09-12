@@ -122,9 +122,10 @@ class VlasovAmpereOneSpecies(StruphyModel):
                        option=-1., dct=dct)
         return dct
 
-    def __init__(self, params, comm=None):
+    def __init__(self, params, comm, inter_comm = None):
 
-        super().__init__(params, comm=comm)
+        # initialize base class
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -391,9 +392,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                        option=-1., dct=dct)
         return dct
 
-    def __init__(self, params, comm=None):
+    def __init__(self, params, comm, inter_comm = None):
 
-        super().__init__(params, comm=comm)
+        # initialize base class
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -653,9 +655,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                        dct=dct)
         return dct
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
 
-        super().__init__(params, comm)
+        # initialize base class
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -897,9 +900,10 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                        option={'use': False, 'epsilon': 1.}, dct=dct)
         return dct
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
 
-        super().__init__(params, comm)
+        # initialize base class
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
         from struphy.feec.projectors import L2Projector
