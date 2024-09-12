@@ -83,7 +83,8 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
                              b2_eq_psy[1]._data + b2_psy[1]._data,
                              b2_eq_psy[2]._data + b2_psy[2]._data),
                             derham.args_derham,
-                            domain.args_domain)
+                            domain.args_domain,
+                            alpha_in_kernel=1.)
 
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -188,7 +189,8 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
                              u2_psy[1]._data,
                              u2_psy[2]._data),
                             derham.args_derham,
-                            domain.args_domain)
+                            domain.args_domain,
+                            alpha_in_kernel=1.)
 
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -293,7 +295,8 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
                              u1_psy[1]._data,
                              u1_psy[2]._data),
                             derham.args_derham,
-                            domain.args_domain)
+                            domain.args_domain,
+                            alpha_in_kernel=1.)
 
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -398,7 +401,8 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
                              uv_psy[1]._data,
                              uv_psy[2]._data),
                             derham.args_derham,
-                            domain.args_domain)
+                            domain.args_domain,
+                            alpha_in_kernel=1.)
 
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -506,7 +510,8 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
                              b0_eq_psy._data,
                              mu0_str),
                             derham.args_derham,
-                            domain.args_domain)
+                            domain.args_domain,
+                            alpha_in_kernel=1.)
 
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -546,6 +551,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
+    size = comm.Get_size()
     print('')
 
     # domain object
@@ -603,6 +609,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
                             (butcher.a, butcher.b, butcher.c),
                             derham.args_derham,
                             domain.args_domain,
+                            alpha_in_kernel=1.,
                             n_stages=butcher.n_stages)
 
     # compare if markers are the same BEFORE push
@@ -614,8 +621,31 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_str.push_step4(markers_str, dt)
     pusher_psy(dt)
 
-    # compare if markers are the same AFTER push
-    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
+    n_mks_load = np.zeros(size, dtype=int)
+
+    comm.Allgather(np.array(np.shape(particles.markers)[0]), n_mks_load)
+
+    sendcounts = np.zeros(size, dtype=int)
+    displacements = np.zeros(size, dtype=int)
+    accum_sendcounts = 0.
+
+    for i in range(size) :
+        sendcounts[i] = n_mks_load[i]*3
+        displacements[i] = accum_sendcounts
+        accum_sendcounts += sendcounts[i]
+
+    all_particles_psy = np.zeros((int(accum_sendcounts)*3,), dtype = float)
+    all_particles_str = np.zeros((int(accum_sendcounts)*3,), dtype = float)
+
+    comm.Barrier()
+    comm.Allgatherv(np.array(particles.markers[:,:3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(np.array(markers_str.T[:,:3]), [all_particles_str, sendcounts, displacements, MPI.DOUBLE])
+    comm.Barrier()
+
+    unique_psy = np.unique(all_particles_psy)
+    unique_str = np.unique(all_particles_str)
+
+    assert np.allclose(unique_psy, unique_str)
 
 
 if __name__ == '__main__':

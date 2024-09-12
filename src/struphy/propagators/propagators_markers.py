@@ -72,6 +72,7 @@ class PushEta(Propagator):
                               args_kernel,
                               self.derham.args_derham,
                               self.domain.args_domain,
+                              alpha_in_kernel=1.,
                               n_stages=butcher.n_stages,
                               mpi_sort='last')
 
@@ -143,7 +144,8 @@ class PushVxB(Propagator):
                               kernel,
                               args_kernel,
                               self.derham.args_derham,
-                              self.domain.args_domain)
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.extraction_ops['2'].transpose()
@@ -247,6 +249,7 @@ class PushEtaPC(Propagator):
                                self._u[2]._data),
                               self.derham.args_derham,
                               self.domain.args_domain,
+                              alpha_in_kernel=1.,
                               n_stages=4)
 
     def __call__(self, dt):
@@ -525,6 +528,7 @@ class PushGuidingCenterBxEstar(Propagator):
                                   args_kernel,
                                   self.derham.args_derham,
                                   self.domain.args_domain,
+                                  alpha_in_kernel=1.,
                                   n_stages=butcher.n_stages,
                                   mpi_sort=algo['mpi_sort'],
                                   verbose=algo['verbose'])
@@ -556,7 +560,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
             if self.particles[0].f0.coords == 'constants_of_motion':
                 self.particles[0].save_constants_of_motion(
-                    epsilon=self._epsilon, abs_B0=self._abs_b)
+                    epsilon=self._epsilon, abs_B0=self._absB0)
 
             self.particles[0].update_weights()
 
@@ -841,6 +845,7 @@ class PushGuidingCenterParallel(Propagator):
                                   args_kernel,
                                   self.derham.args_derham,
                                   self.domain.args_domain,
+                                  alpha_in_kernel=1.,
                                   n_stages=butcher.n_stages,
                                   mpi_sort=algo['mpi_sort'],
                                   verbose=algo['verbose'])
@@ -872,7 +877,7 @@ class PushGuidingCenterParallel(Propagator):
 
             if self.particles[0].f0.coords == 'constants_of_motion':
                 self.particles[0].save_constants_of_motion(
-                    epsilon=self._epsilon, abs_B0=self._abs_b)
+                    epsilon=self._epsilon, abs_B0=self._absB0)
 
             self.particles[0].update_weights()
 
@@ -917,7 +922,8 @@ class PushVinEfield(Propagator):
                                self._e_field.blocks[2]._data,
                                self.kappa),
                               self.derham.args_derham,
-                              self.domain.args_domain)
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
     def __call__(self, dt):
         """
@@ -1069,6 +1075,7 @@ class PushDeterministicDiffusion(Propagator):
                                self._butcher.a, self._butcher.b, self._butcher.c),
                               self.derham.args_derham,
                               self.domain.args_domain,
+                              alpha_in_kernel=1.,
                               n_stages=self._butcher.n_stages)
 
 
@@ -1145,6 +1152,7 @@ class PushRandomDiffusion(Propagator):
                                self._butcher.a, self._butcher.b, self._butcher.c),
                               self.derham.args_derham,
                               self.domain.args_domain,
+                              alpha_in_kernel=1.,
                               n_stages=self._butcher.n_stages)
 
         # self._tmp = self.derham.Vh['1'].zeros()
