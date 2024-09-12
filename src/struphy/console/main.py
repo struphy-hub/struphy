@@ -314,6 +314,23 @@ def struphy():
     parser_params.add_argument('-y', '--yes',
                                help='Say yes on prompt to overwrite .yml FILE',
                                action='store_true')
+    
+    parser_run.add_argument('--likwid',
+                            help='run with Likwid',
+                            action='store_true',)
+    
+    parser_run.add_argument('-li', '--likwid-inp',
+                            type=str,
+                            metavar='FILE',
+                            help='likwid parameter file (.yml) in current I/O path',)
+
+    parser_run.add_argument('--likwid-input-abs',
+                            type=str,
+                            metavar='FILE',
+                            help='likwid parameter file (.yml), absolute path',)
+    parser_run.add_argument('-lr', '--likwid-repetitions',
+                            type=int,
+                            help='number of repetitions of the same simulation',)
 
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(

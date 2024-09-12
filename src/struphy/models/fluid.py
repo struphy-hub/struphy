@@ -72,10 +72,10 @@ class LinearMHD(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params=None, comm=None):
+    def __init__(self, params, comm, inter_comm = None):
 
         # initialize base class
-        params = super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from struphy.polar.basic import PolarVector
 
@@ -226,10 +226,10 @@ class LinearExtendedMHDuniform(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params=None, comm=None):
+    def __init__(self, params, comm, inter_comm = None):
 
         # initialize base class
-        super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from struphy.polar.basic import PolarVector
 
@@ -390,9 +390,10 @@ class ColdPlasma(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
 
-        super().__init__(params, comm)
+        # initialize base class
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         # model parameters
         self._alpha = self.equation_params['electrons']['alpha']
@@ -505,7 +506,9 @@ class VariationalMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
+
+        
 
         from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
@@ -513,7 +516,8 @@ class VariationalMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
+
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
             self.derham.Vh_fem['v'],
@@ -705,7 +709,7 @@ class ViscoresistiveMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
 
         from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
@@ -713,7 +717,8 @@ class ViscoresistiveMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
+
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
             self.derham.Vh_fem['v'],
@@ -923,7 +928,7 @@ class ViscousFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
     
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
 
         from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
@@ -931,7 +936,8 @@ class ViscousFluid(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
             self.derham.Vh_fem['v'],

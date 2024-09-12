@@ -10,7 +10,11 @@ def struphy_run(model,
                 restart=False,
                 mpi=1,
                 debug=False,
-                cprofile=False,):
+                cprofile=False,
+                likwid=False,
+                likwid_inp=None,
+                likwid_input_abs=None,
+                likwid_repetitions=1,):
     """
     Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -44,16 +48,28 @@ def struphy_run(model,
         How often to save data in hdf5 file, i.e. every "save_step" time step.
 
     restart : bool
-        Wether to restart an existing simulation.
+        Whether to restart an existing simulation.
 
     mpi : int
         Number of MPI processes for runs with "mpirun".
 
     debug : bool
-        Wether to run in Cobra debug mode, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs'.
+        Whether to run in Cobra debug mode, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs'.
 
     cprofile : bool
-        Wether to run with Cprofile (slower).
+        Whether to run with Cprofile (slower).
+    
+    likwid : bool
+        Whether to run with Likwid (Needs to be installed first). Default is False.
+    
+    likwid_inp : str, optional
+        The .yml input parameter file for Likwid relative to <struphy_path>/io/inp. Default is None.
+
+    likwid_input_abs : str, optional
+        The absolute path to the .yml input parameter file for Likwid. Default is None.
+
+    likwid_repetitions : int, optional
+        Number of repetitions for Likwid profiling. Default is 1.
     """
 
     import subprocess
@@ -105,6 +121,46 @@ def struphy_run(model,
     if restart:
         input_abs = os.path.join(output_abs, 'parameters.yml')
 
+
+    # Read likwid params
+    if likwid:
+        if likwid_inp is None and likwid_input_abs is None:
+            # use default likwid parameters
+            likwid_command = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker']
+        else:
+            if likwid_inp is not None:
+                likwid_input_abs = os.path.join(i_path, likwid_inp)
+            
+            
+            with open(likwid_input_abs, 'r') as file:
+                config = yaml.safe_load(file)
+            
+            # Get the command from the configuration
+            command_base = config.get('command', None)
+            if not command_base:
+                print("Missing required configuration: 'command'")
+                exit(1)
+            
+            likwid_config = config.get(command_base, {})
+            
+            # Get the options list
+            options = likwid_config.get('options', [])
+            
+            # Flatten the options list
+            flattened_options = ['-np',str(mpi)]
+            for item in options:
+                if isinstance(item, dict):
+                    for key, value in item.items():
+                        flattened_options.append(key)
+                        flattened_options.append(str(value))  # Ensure the value is a string
+                else:
+                    flattened_options.append(item)
+
+            
+            # Construct the command as a list
+            likwid_command = [command_base]
+            likwid_command.extend(flattened_options)
+
     # command parts
     cmd_python = ['python3']
     cmd_main = ['main.py',
@@ -138,7 +194,8 @@ def struphy_run(model,
                        '119',
                        '--mem',
                        '2000'] + cmd_python + cprofile*cmd_cprofile + cmd_main
-
+        elif likwid:
+            command = likwid_command + cmd_python + cprofile*cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"] + ['--likwid']
         else:
             print('\nLaunching main() in normal mode ...')
             command = ['mpirun',
@@ -156,8 +213,11 @@ def struphy_run(model,
 
         # run command as subprocess
         print(f"\nRunning the following command:\n{' '.join(command)}")
-        subprocess.run(command, check=True, cwd=libpath)
-
+        if likwid:
+            subprocess.run(command, check=True)
+        else:
+            subprocess.run(command, check=True, cwd=libpath)
+        
     # run in batch mode
     else:
 
@@ -200,23 +260,30 @@ def struphy_run(model,
             if 'srun' in lines[-1]:
                 lines = lines[:-2]
 
-        # add new srun command
         with open(batch_abs_new, 'w') as f:
+
             for line in lines:
                 f.write(line)
             f.write('# Run command added by Struphy')
-
-            cmd_string = '\nsrun python3 ' + cprofile * \
-                ' '.join(cmd_cprofile) + ' ' + libpath + \
-                '/' + ' '.join(cmd_main)
-
+            
+            
+            command = cmd_python + cprofile*cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"]
             if restart:
-                cmd_string += ' -r'
-
-            cmd_string += ' > ' + os.path.join(output_abs, 'struphy.out')
-
-            f.write(cmd_string)
-
+                command += ['-r']
+            
+            if likwid:
+                command = likwid_command + command + ['--likwid']
+            
+            if likwid:
+                print('Running with likwid')
+                f.write(f'# Launching likwid {likwid_repetitions} times with likwid-mpirun\n')
+                for i in range(likwid_repetitions):
+                    f.write(f'\n\n# Run number {i:03}\n')
+                    f.write(' '.join(command) + ' > ' + os.path.join(output_abs, f'struphy_likwid_{i:03}.out'))
+            else:
+                print('Running with srun')
+                f.write('srun -n ' + str(mpi) + ' '.join(command) + ' > ' + os.path.join(output_abs, 'struphy.out'))
+        
         # submit batch script in output folder
         print('\nLaunching main() in batch mode ...')
         subprocess.run(['sbatch',

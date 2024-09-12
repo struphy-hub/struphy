@@ -102,10 +102,10 @@ class LinearMHDVlasovCC(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
 
         # initialize base class
-        super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from struphy.polar.basic import PolarVector
         from mpi4py.MPI import SUM, IN_PLACE
@@ -205,10 +205,28 @@ class LinearMHDVlasovCC(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
     def update_scalar_quantities(self):
-
+        
+        
+        
+            
+        
         # perturbed fields
         self._mass_ops.M2n.dot(self.pointer['mhd_u'], out=self._tmp_u)
         self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
+
+
+        # Average scalars between clones
+        if self.derham.Nclones > 1:
+            scalars = np.array([self._tmp_u, self._tmp_b1], dtype=np.float64)
+            
+            # Perform MPI Allreduce on the entire array
+            self.inter_comm.Allreduce(self._mpi_in_place, scalars, op=self._mpi_sum)
+
+            # Divide by the number of clones
+            scalars /= self.derham.Nclones
+            
+            # Update the original variables with the new values
+            self._tmp_u, self._tmp_b1 = scalars
 
         en_U = self.pointer['mhd_u'].dot(self._tmp_u)/2
         en_B = self.pointer['b_field'].dot(self._tmp_b1)/2
@@ -346,10 +364,10 @@ class LinearMHDVlasovPC(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params=None, comm=None):
+    def __init__(self, params, comm, inter_comm = None):
 
         # initialize base class
-        params = super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from struphy.polar.basic import PolarVector
         from mpi4py.MPI import SUM, IN_PLACE
@@ -585,7 +603,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 propagators_coupling.CurrentCoupling5DCurlb: ['energetic_ions', 'mhd_velocity'],
                 propagators_fields.CurrentCoupling5DDensity: ['mhd_velocity'],
                 propagators_fields.ShearAlfvenCurrentCoupling5D: ['mhd_velocity', 'b_field'],
-                propagators_fields.MagnetosonicCurrentCoupling5D: ['mhd_density', 'mhd_velocity', 'mhd_pressure']}
+                propagators_fields.MagnetosonicCurrentCoupling5D: ['mhd_density', 'mhd_velocity', 'mhd_pressure']
+                }
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -602,10 +621,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params=None, comm=None):
+    def __init__(self, params, comm, inter_comm = None):
 
         # initialize base class
-        params = super().__init__(params, comm)
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from struphy.polar.basic import PolarVector
         from mpi4py.MPI import SUM, IN_PLACE
@@ -746,21 +765,20 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
-
         # Scalar variables to be saved during simulation
-        self.add_scalar('en_U')
-        self.add_scalar('en_p')
-        self.add_scalar('en_B')
-        self.add_scalar('en_fv')
-        self.add_scalar('en_fB')
-        self.add_scalar('en_fv_lost')
-        self.add_scalar('en_fB_lost')
-        self.add_scalar('en_tot')
+        self.add_scalar('en_U', compute = 'from_field')
+        self.add_scalar('en_p', compute = 'from_field')
+        self.add_scalar('en_B', compute = 'from_field')
+        self.add_scalar('en_fv', compute = 'from_particles', species='energetic_ions')
+        self.add_scalar('en_fB', compute = 'from_particles', species='energetic_ions')
+        self.add_scalar('en_fv_lost', compute = 'from_particles', species='energetic_ions')
+        self.add_scalar('en_fB_lost', compute = 'from_particles', species='energetic_ions')
+        self.add_scalar('en_tot',summands = ['en_U','en_p','en_B','en_fv','en_fB','en_fv_lost','en_fB_lost'])
 
         # things needed in update_scalar_quantities
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
-
+        
         # temporaries
         self._b_full1 = self._b_eq.space.zeros()
         self._PBb = self._absB0.space.zeros()
@@ -779,31 +797,46 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._mass_ops.M2n.dot(self.pointer['mhd_velocity'], out=self._tmp_u)
         en_U = self.pointer['mhd_velocity'].dot(self._tmp_u)/2
 
-        en_p = self.pointer['mhd_pressure'].toarray().sum()/(5/3 - 1)
+        en_p = self.pointer['mhd_pressure'].dot(self._ones)/(5/3 - 1)
+        
         self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b)
         en_B = self.pointer['b_field'].dot(self._tmp_b)/2
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_p', en_p)
         self.update_scalar('en_B', en_B)
-
+        
         # self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
         #     self._ones)/(5/3 - 1)
         # self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
         #     self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
 
         # calculate particle kinetic energy
+        # for marker in self.pointer['energetic_ions'].markers:
+        #     if np.sum(marker) > 0:
+        #         print(self.derham.comm.Get_rank(), self.inter_comm.Get_rank(),marker[:10])
+        #         print(self.pointer['energetic_ions'].holes)
+        #         print('Ah_Ab',self._coupling_params['Ah'], self._coupling_params['Ab'])
+        #     #print(self.derham.comm.Get_rank(), self.pointer['energetic_ions'].markers)
+        # self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
+        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
+
+        # Don't do averaging within each clone
         self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
-        self.derham.comm.Allreduce(
-            self._mpi_in_place, self._en_fv, op=self._mpi_sum)
+            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
+        
+
+        #self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
         self.update_scalar('en_fv', self._en_fv[0])
 
+        # self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
+        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
+
+        # Don't do averaging within each clone
         self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
-        self.derham.comm.Allreduce(
-            self._mpi_in_place, self._en_fv_lost, op=self._mpi_sum)
+            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
+        #self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv_lost, op=self._mpi_sum)
 
         self.update_scalar('en_fv_lost', self._en_fv_lost[0])
 
@@ -811,33 +844,47 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.pointer['energetic_ions'].save_magnetic_energy(
             self.pointer['b_field'])
 
+        #print(f"{len(self.pointer['energetic_ions'].markers) = }")
+        
+        # self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
+        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
-        self.derham.comm.Allreduce(
-            self._mpi_in_place, self._en_fB, op=self._mpi_sum)
+            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])*self._coupling_params['Ah']/self._coupling_params['Ab']
+        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB, op=self._mpi_sum)
 
         self.update_scalar('en_fB', self._en_fB[0])
 
+        # self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
+        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) / self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
         self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) / self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
-        self.derham.comm.Allreduce(
-            self._mpi_in_place, self._en_fB_lost, op=self._mpi_sum)
+            self.pointer['energetic_ions']  .lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) * self._coupling_params['Ah']/self._coupling_params['Ab']
+        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB_lost, op=self._mpi_sum)
 
         self.update_scalar('en_fB_lost', self._en_fB_lost[0])
 
         # self.update_scalar('en_tot', en_U + en_p + en_B +
         #                    self._en_fv[0] + self._en_fv_lost[0] + self._en_fB[0] + self._en_fB_lost[0])
 
-        self.update_scalar('en_tot', en_U + en_B + en_p +
-                           self._en_fv[0] + self._en_fB[0])
+        # self.update_scalar('en_tot', en_U + en_B + en_p +
+        #                    self._en_fv[0] + self._en_fB[0])
+        
+        self.update_scalar('en_tot')
+        
+        # # Print number of lost ions
+        # self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
+        # self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+        # if self.derham.comm.Get_rank() == 0:
+        #     print('ratio of lost particles: ',
+        #           self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100, '%')
 
-        self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
-        self.derham.comm.Allreduce(
-            self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
 
-        if self.derham.comm.Get_rank() == 0:
-            print('ratio of lost particles: ',
-                  self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100, '%')
+        dct['accumulated_magnetization'] = 'Hdiv'
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
 
     @staticmethod
     def diagnostics_dct():
@@ -946,9 +993,10 @@ class ColdPlasmaVlasov(StruphyModel):
                        dct=dct)
         return dct
 
-    def __init__(self, params, comm):
+    def __init__(self, params, comm, inter_comm = None):
 
-        super().__init__(params, comm)
+        # initialize base class
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 

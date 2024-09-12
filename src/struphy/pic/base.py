@@ -744,18 +744,37 @@ class Particles(metaclass=ABCMeta):
 
             # 1. standard random number generator (pseudo-random)
             if self.marker_params['loading']['type'] == 'pseudo_random':
-
+                
+                # Set seed
                 _seed = self.marker_params['loading']['seed']
                 if _seed is not None:
                     np.random.seed(_seed)
-
+                # Draw pseudo_random markers
+                break_outer_loop = False
+                # The inner loop is over number of clones so that the set of markers
+                # for the first domain in each clone has the same markers independent
+                # of the number of clones
                 for i in range(self._mpi_size):
-                    temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim)
+                    for iclone in range(self.derham.Nclones):  
+                        temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim) 
+                        if i == self._mpi_rank:
+                            if self.derham.Nclones == 1:
+                                self.phasespace_coords = temp
+                                break_outer_loop = True
+                                #print(iclone,self._mpi_rank)
+                                break
+                            else:
+                                if iclone == self.derham.inter_comm.Get_rank():
+                                    self.phasespace_coords = temp
+                                    break_outer_loop = True
 
-                    if i == self._mpi_rank:
-                        self.phasespace_coords = temp
+                                    #print('b',iclone,self._mpi_rank)
+                                    break
+                    # Check the flag variable to break the outer loop
+                    if break_outer_loop:
                         break
-
+                # print(f"{break_outer_loop = }")
+                # exit()
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
