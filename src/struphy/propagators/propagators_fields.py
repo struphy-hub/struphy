@@ -4403,7 +4403,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._implicit_transport = implicit_transport
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
-        self._linearize_current = linearize_current
+        self._linearize_current = False
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -5518,7 +5518,10 @@ class VariationalResistivity(Propagator):
 
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
-        bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
+        if self._linearize_current :
+            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
+        else:
+            bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
             print("information on the linear solver : ", self.inv_lop._info)
 
@@ -5527,13 +5530,13 @@ class VariationalResistivity(Propagator):
         bn12 = bn.copy(out=self._tmp_bn12)
         bn12 += bn1
         bn12 /= 2.
-        cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
+        if self._linearize_current :
+            cb1 = self.Tcurl.dot(bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
+        else:
+            cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
         
-        if self._linearize_current :
-            cb12 = self.Tcurl.dot(bn12-self.projected_mhd_equil.b2, out=self._tmp_cb12)
-        else:
-            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
+        cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
         self.cbf12.vector = cb12
         self.cbf1.vector = cb1
