@@ -139,7 +139,8 @@ class VlasovAmpere(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'],
+                                         petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         # Instantiate particle pusher
         self._pusher = Pusher(particles,
@@ -334,7 +335,8 @@ class EfieldWeights(Propagator):
             pc=pc,
             tol=solver['tol'],
             maxiter=solver['maxiter'],
-            verbose=solver['verbose']
+            verbose=solver['verbose'],
+            petsc = solver['petsc'] if 'petsc' in solver.keys() else False,
         )
 
         # Instantiate particle pusher
@@ -533,7 +535,7 @@ class EfieldWeightsImplicit(Propagator):
                                          pc=pc,
                                          tol=params['tol'],
                                          maxiter=params['maxiter'],
-                                         verbose=params['verbose'])
+                                         verbose=params['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         # Instantiate particle pusher
         if params['model'] == 'linear_vlasov_maxwell':
@@ -1058,7 +1060,7 @@ class PressureCoupling6D(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         self.u_temp = u.space.zeros()
         self.u_temp2 = u.space.zeros()
@@ -1364,7 +1366,7 @@ class CurrentCoupling6DCurrent(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
     def __call__(self, dt):
 
@@ -1610,7 +1612,10 @@ class CurrentCoupling5DCurlb(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'],
+                                         petsc = solver['petsc'] if 'petsc' in solver.keys() else False,
+                                         )
+
 
     def __call__(self, dt):
 

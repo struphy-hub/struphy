@@ -207,7 +207,7 @@ class OhmCold(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         self._tmp_j1 = j.space.zeros()
         self._tmp_j2 = j.space.zeros()
@@ -413,7 +413,9 @@ class ShearAlfven(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'],
+                                         petsc = solver['petsc'] if 'petsc' in solver.keys() else False,
+                                         )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -793,7 +795,7 @@ class Magnetosonic(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -951,7 +953,7 @@ class MagnetosonicUniform(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -1505,13 +1507,12 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # Instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
-
         self._schur_solver = SchurSolver(_A, _BC,
                                          solver['type'][0],
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -1762,7 +1763,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                                          pc=pc,
                                          tol=solver['tol'],
                                          maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+                                         verbose=solver['verbose'], petsc = solver['petsc'] if 'petsc' in solver.keys() else False)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()

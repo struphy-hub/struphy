@@ -1,17 +1,20 @@
 from psydac.linalg.basic import Vector, LinearOperator, IdentityOperator
 from psydac.linalg.block import BlockVector, BlockLinearOperator
 from psydac.linalg.solvers import inverse
-from psydac.linalg.utilities import petsc_to_psydac
+
+
 from petsc4py import PETSc
 import numpy as np
 from mpi4py import MPI
 from math                  import sqrt
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector
 from psydac.linalg.block   import BlockVectorSpace
-
+from line_profiler import profile
 from struphy.profiling.profiling import (
         ProfileRegion,
     )
+from struphy.maxlib.utilities import petsc_to_psydac, petsc_to_psydac_new
+
 def print_solver_info(ksp):
     #print(f'x_petsc = {x_petsc.getArray()}')
     if PETSc.COMM_WORLD.rank == 0:
@@ -54,16 +57,17 @@ def compare_petsc_vecs(vec1, vec2, show_vecs = False):
     # Check if the norm is below the tolerance
     if show_vecs:
 
-        print('vec1:')
-        print(vec1.view())
+        vec1_array = vec1.getArray()
+        vec2_array = vec2.getArray()
+        diff_vec_array = diff_vec.getArray()
 
-        print('vec2:')
-        print(vec2.view())
-
-        print('diff_vec:')
-        print(diff_vec.view())
+        # Print differences element-wise
+        print('Differences (element-wise):')
+        for i, (v1,v2,d) in enumerate(zip(vec1_array, vec2_array, diff_vec_array)):
+            print(f"{i}\t{v1}\t{v2}\t{d}")
 
     print(f"{norm_diff = }")
+
 
 class SchurSolver:
     '''Solves for :math:`x^{n+1}` in the block system
@@ -121,6 +125,9 @@ class SchurSolver:
         assert A.domain == BC.domain
         assert A.codomain == BC.codomain
 
+        # Communicator (must be interclone)
+        self._comm = A.domain.spaces[0].cart.global_comm
+        
         # linear operators
         self._A = A
         self._BC = BC
@@ -131,7 +138,7 @@ class SchurSolver:
         if solver_params['pc'] is None:
             solver_params.pop('pc')
         
-        print(f"{solver_params = }")
+        #print(f"{solver_params = }")
         self.petsc = petsc
         
 
@@ -165,7 +172,7 @@ class SchurSolver:
                 # # Get the dimensions of the NumPy matrix
                 # rows, cols = numpy_matrix.shape
                 # # Create a PETSc matrix with the same dimensions
-                # petsc_mat = PETSc.Mat().create(MPI.COMM_WORLD)
+                # petsc_mat = PETSc.Mat().create(comm=self._comm)
                 # petsc_mat.setSizes([rows, cols])
                 # petsc_mat.setFromOptions()
                 # petsc_mat.setUp()
@@ -183,19 +190,19 @@ class SchurSolver:
                 # ---------------------------------#
                 # Convert via sparse matrix
                 # ---------------------------------#
+                for row in self.A.matrix.toarray():
+                    print(row)
                 sparse_matrix = self.A.matrix.tosparse()
-                # print(sparse_matrix)
+                # print(f"{sparse_matrix.data = }")
+                for row,col,dat in zip(sparse_matrix.row, sparse_matrix.col, sparse_matrix.data):
+                    print(row,col,dat)
+                exit()
                 
-                petsc_mat_sparse = PETSc.Mat().create(comm=MPI.COMM_WORLD)
+                petsc_mat_sparse = PETSc.Mat().create(comm=self._comm)
                 petsc_mat_sparse.setSizes(sparse_matrix.shape)
                 petsc_mat_sparse.setType('aij')
                 petsc_mat_sparse.setFromOptions()
                 petsc_mat_sparse.setUp()
-
-                # Extract data from scipy sparse matrix
-                # rows = sparse_matrix.row
-                # cols = sparse_matrix.col
-                # data = sparse_matrix.data
 
                 # Set values to PETSc matrix
                 for row,col,dat in zip(sparse_matrix.row, sparse_matrix.col, sparse_matrix.data):
@@ -211,12 +218,11 @@ class SchurSolver:
                 # Setup solver
                 # ---------------------------------#
                 # Initialize ksp solver.
-                self.ksp = PETSc.KSP().create(comm=MPI.COMM_WORLD)
+                self.ksp = PETSc.KSP().create(comm=self._comm)
                 self.ksp.setOperators(petsc_mat_sparse)
                 self.ksp.setInitialGuessNonzero(True)
                 # self.ksp.setType(PETSc.KSP.Type.CG)
-                self.ksp.setTolerances(rtol=1e-7, atol=1e-7, divtol=None, max_it=3000)        
-                # self.ksp.setFromOptions()
+                self.ksp.setTolerances(rtol=1e-15, atol=1e-15, divtol=None, max_it=3000)
                 self.ksp.setUp()
 
 
@@ -247,6 +253,7 @@ class SchurSolver:
         """
         self._BC = bc
 
+    @profile
     def __call__(self, xn, Byn, dt, out=None):
         """
         Solves the 2x2 block matrix linear system.
@@ -291,23 +298,21 @@ class SchurSolver:
         rhs -= Byn
         rhs *= 2*dt
 
-
-
-
         if self.petsc or use_both_solvers:
             #print('Solving with PETSc')
             # ---------------------------------#
             # Solve with PETSc
+            # with ProfileRegion("petsc_solve_and_convert"):
             with ProfileRegion("psydac2petsc"):
                 x_petsc = xn.topetsc()
                 rhs_petsc = rhs.topetsc()
+
             with ProfileRegion("petsc_solver"):
                 self.ksp.solve(rhs_petsc, x_petsc)
-            
-            # print_solver_info(self.ksp)
+            print_solver_info(self.ksp)
             with ProfileRegion("petsc2psydac"):
-                x_petsc2psydac = petsc_to_psydac(x_petsc, xn.space)
-
+                x_petsc2psydac = petsc_to_psydac_new(x_petsc, xn.space) # New
+                # x_petsc2psydac = petsc_to_psydac(x_petsc, xn.space) # Old
         if (not self.petsc) or use_both_solvers:
             # ---------------------------------#
             # Solve with psydac
@@ -315,6 +320,7 @@ class SchurSolver:
             with ProfileRegion("psydac_solver"):
                 self._solver.linop = schur
                 x = self._solver.dot(rhs, out=out)
+            print(self._solver._info)
             # if PETSc.COMM_WORLD.rank == 0:
             #     print(f'x_pdydac = {x.toarray()}')
             #     print(self._solver._info)
