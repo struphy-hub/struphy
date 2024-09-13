@@ -736,7 +736,10 @@ class ViscoresistiveMHD(StruphyModel):
         nonlin_solver_viscosity = params['fluid']['mhd']['options']['VariationalViscosity']['nonlin_solver']
         lin_solver_resistivity = params['fluid']['mhd']['options']['VariationalResistivity']['lin_solver']
         nonlin_solver_resistivity = params['fluid']['mhd']['options']['VariationalResistivity']['nonlin_solver']
-
+        if 'linearize_current' in params['fluid']['mhd']['options']['VariationalResistivity'].keys():
+            self._linearize_current = params['fluid']['mhd']['options']['VariationalResistivity']['linearize_current']
+        else :
+            self._linearize_current = False
         self._gamma = params['fluid']['mhd']['options']['VariationalDensityEvolve']['physics']['gamma']
         self._mu = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu']
         self._mu_a = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu_a']
@@ -765,7 +768,8 @@ class ViscoresistiveMHD(StruphyModel):
         
         self._kwargs[propagators_fields.VariationalMagFieldEvolve] = {'mass_ops': self.WMM,
                                                                      'lin_solver': lin_solver_magfield,
-                                                                     'nonlin_solver': nonlin_solver_magfield}
+                                                                     'nonlin_solver': nonlin_solver_magfield,
+                                                                     'linearize_current' :self._linearize_current}
         
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
                                                                  'rho': self.pointer['mhd_rho3'],
@@ -782,7 +786,8 @@ class ViscoresistiveMHD(StruphyModel):
                                                                    'eta': self._eta,
                                                                    'eta_a': self._eta_a,
                                                                    'lin_solver': lin_solver_resistivity,
-                                                                   'nonlin_solver': nonlin_solver_resistivity}
+                                                                   'nonlin_solver': nonlin_solver_resistivity,
+                                                                   'linearize_current' :self._linearize_current}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -824,8 +829,12 @@ class ViscoresistiveMHD(StruphyModel):
         en_U = self.pointer['mhd_uv'] .dot(m1)/2
         self.update_scalar('en_U', en_U)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer['b2'])
-        en_mag = wb2.dot(self.pointer['b2'])/2
+        if self._linearize_current:
+            wb2 = self._mass_ops.M2.dot(self.pointer['b2']-self.projected_mhd_equil.b2)
+            en_mag = wb2.dot(self.pointer['b2']-self.projected_mhd_equil.b2)/2
+        else:
+            wb2 = self._mass_ops.M2.dot(self.pointer['b2'])
+            en_mag = wb2.dot(self.pointer['b2'])/2
         self.update_scalar('en_mag', en_mag)
 
         en_thermo = self.update_thermo_energy()
