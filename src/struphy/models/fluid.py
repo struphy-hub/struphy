@@ -829,7 +829,7 @@ class ViscoresistiveMHD(StruphyModel):
         en_U = self.pointer['mhd_uv'] .dot(m1)/2
         self.update_scalar('en_U', en_U)
 
-        if self._linearize_current:
+        if False: #self._linearize_current:
             wb2 = self._mass_ops.M2.dot(self.pointer['b2']-self.projected_mhd_equil.b2)
             en_mag = wb2.dot(self.pointer['b2']-self.projected_mhd_equil.b2)/2
         else:
