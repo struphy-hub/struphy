@@ -5093,7 +5093,6 @@ class VariationalViscosity(Propagator):
 
 
         gu_sq_v *= self._gu_init_values
-        gu_sq_v *= self._sq_term_metric
         # 2) Initial energy and linear form
         rho = self._rho
         self.rhof.vector = rho
