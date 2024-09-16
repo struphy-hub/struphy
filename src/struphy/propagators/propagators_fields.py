@@ -2710,8 +2710,9 @@ class VariationalDensityEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False, }
-        dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
+                                'info': False, 
+                                'implicit_transport': False}
+        dct['physics'] = {'gamma': 5/3}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -2726,8 +2727,6 @@ class VariationalDensityEvolve(Propagator):
                  gamma: float = options()['physics']['gamma'],
                  s: StencilVector = None,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options(
-                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -2742,9 +2741,10 @@ class VariationalDensityEvolve(Propagator):
         self._gamma = gamma
         self._s = s
         self._mass_ops = mass_ops
-        self._implicit_transport = implicit_transport
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
+        self._implicit_transport = self._nonlin_solver['implicit_transport']
+
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -3622,8 +3622,9 @@ class VariationalEntropyEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False}
-        dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
+                                'info': False,
+                                'implicit_transport': False}
+        dct['physics'] = {'gamma': 5/3}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -3638,8 +3639,6 @@ class VariationalEntropyEvolve(Propagator):
                  gamma: float = options()['physics']['gamma'],
                  rho: StencilVector,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options(
-                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -3654,9 +3653,10 @@ class VariationalEntropyEvolve(Propagator):
         self._gamma = gamma
         self._rho = rho
         self._mass_ops = mass_ops
-        self._implicit_transport = implicit_transport
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
+        self._implicit_transport = nonlin_solver['implicit_transport']
+
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -4377,8 +4377,9 @@ class VariationalMagFieldEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False}
-        dct['physics'] = {'implicit_transport': False}
+                                'info': False,
+                                'implicit_transport': False}
+
         dct['linearize_current'] = False
 
         if default:
@@ -4391,8 +4392,6 @@ class VariationalMagFieldEvolve(Propagator):
                  u: BlockVector,
                  *,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options(
-                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver'],
                  linearize_current: dict = options(default=True)['linearize_current']):
@@ -4400,10 +4399,10 @@ class VariationalMagFieldEvolve(Propagator):
         super().__init__(b, u)
 
         self._mass_ops = mass_ops
-        self._implicit_transport = implicit_transport
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._linearize_current = False
+        self._implicit_transport = nonlin_solver['implicit_transport']
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
