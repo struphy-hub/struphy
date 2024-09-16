@@ -446,6 +446,11 @@ class MHDequilibrium(metaclass=ABCMeta):
         det_df = self.domain.jacobian_det(e1, e2, e3)
         p = self.p0(e1, e2, e3)
         print('Computation of pressure done.')
+        
+        #ori 240624
+        n_dens = self.n0(e1, e2, e3)
+        print('Computation of density done.')
+        
         absB = self.absB0(e1, e2, e3)
         print('Computation of abs(B) done.')
         j_cart, xyz = self.j_cart(e1, e2, e3)
@@ -606,6 +611,36 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.axis('equal')
             ax.set_title(
                 'Pressure at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+            fig.colorbar(map, ax=ax, location='right')
+        
+        # density
+        fig = plt.figure(figsize=(15, np.ceil(n_planes/2) * 6.5))
+        for n in range(n_planes):
+
+            xp = x[:, :, int(n*jump)].squeeze()
+            yp = y[:, :, int(n*jump)].squeeze()
+            zp = z[:, :, int(n*jump)].squeeze()
+
+            if self.domain.__class__.__name__ in torus_mappings:
+                pc1 = np.sqrt(xp**2 + yp**2)
+                pc2 = zp
+                l1 = 'R'
+                l2 = 'Z'
+            else:
+                pc1 = xp
+                pc2 = yp
+                l1 = 'x'
+                l2 = 'y'
+
+            nn = n_dens[:, :, int(n*jump)].squeeze()
+
+            ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
+            map = ax.contourf(pc1, pc2, nn, 30)
+            ax.set_xlabel(l1)
+            ax.set_ylabel(l2)
+            ax.axis('equal')
+            ax.set_title(
+                'Equilibrium density at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # magnetic field strength

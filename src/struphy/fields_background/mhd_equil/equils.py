@@ -2390,6 +2390,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
+    
+    T_kelvin : maximum of temperature in Kelvin (default: 100000).
 
     Note
     ----
@@ -2405,6 +2407,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
                 rmin : 0.0 # radius of domain hole around magnetic axis.
                 Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
                 p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+                T_kelvin : 100000 # maximum temperature in Kelvin used to set density
     """
 
     def __init__(self, units=None, **params):
@@ -2438,7 +2441,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
                           'use_nfp': True,
                           'rmin': 0.01,
                           'Nel': (16, 16, 50),
-                          'p': (3, 3, 3), }
+                          'p': (3, 3, 3), 
+                          'T_kelvin': 100000}
 
         self._params = set_defaults(params, params_default)
 
@@ -2703,8 +2707,10 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta3 = etas[2]
             flat_eval = False
 
-        # TODO: which density to set? Is proportional to pressure for the moment
-        return 0.2 * self.p0(*etas, squeeze_out=squeeze_out)
+        # Ori 25/06/24 - Add option to set temperature maximum and then set density accordingly, still proportional to pressure
+        k_Boltzmann = 1.38*1e-23
+        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units['p'] #computes pressure in units of 1 Pa
+        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / self.units['n'] #density in default units, n=1 --> 10^20 m^(-3)
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
