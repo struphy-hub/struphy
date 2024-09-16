@@ -1760,6 +1760,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             units['x'] = 1.
             units['B'] = 1.
             units['mu0'] = 1.25663706212e-6  # magnetic constant (N/A^2)
+            units['n'] = 1e20
             warnings.warn(
                 f'{units = }, no rescaling performed in EQDSK output.')
 
@@ -2116,6 +2117,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             units['B'] = 1.
             units['j'] = 1.
             units['p'] = 1.
+            units['n'] = 1e20
             warnings.warn(
                 f'{units = }, no rescaling performed in GVEC output.')
         else:
@@ -2430,6 +2432,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             units['B'] = 1.
             units['j'] = 1.
             units['p'] = 1.
+            units['n'] = 1e20
             warnings.warn(
                 f'{units = }, no rescaling performed in DESC output.')
 
