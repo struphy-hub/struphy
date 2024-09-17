@@ -264,7 +264,7 @@ def struphy_run(model,
 
             for line in lines:
                 f.write(line)
-            f.write('# Run command added by Struphy')
+            f.write('# Run command added by Struphy\n')
             
             
             command = cmd_python + cprofile*cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"]
@@ -282,7 +282,7 @@ def struphy_run(model,
                     f.write(' '.join(command) + ' > ' + os.path.join(output_abs, f'struphy_likwid_{i:03}.out'))
             else:
                 print('Running with srun')
-                f.write('srun -n ' + str(mpi) + ' '.join(command) + ' > ' + os.path.join(output_abs, 'struphy.out'))
+                f.write('srun ' + ' '.join(command) + ' > ' + os.path.join(output_abs, 'struphy.out'))
         
         # submit batch script in output folder
         print('\nLaunching main() in batch mode ...')
