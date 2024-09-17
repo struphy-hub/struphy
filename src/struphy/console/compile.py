@@ -212,38 +212,38 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
             flags += ' --verbose'
 
         # install psydac from wheel if not there
-        current_ver = '0.1.13'
-        psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
+        # current_ver = '0.1.13'
+        # psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
 
-        try:
-            import psydac
-            import importlib.metadata
+        # try:
+        #     import psydac
+        #     import importlib.metadata
 
-            your_ver = importlib.metadata.version("psydac")
+        #     your_ver = importlib.metadata.version("psydac")
 
-            if current_ver != your_ver:
-                print(
-                    f'You have psydac version {your_ver}, but version {current_ver} is available.\n')
-                subprocess.run(['pip',
-                                'uninstall',
-                                '-y',
-                                'psydac'])
-                print('\nInstalling Psydac ...')
-                subprocess.run(['pip',
-                                'install',
-                                os.path.join(
-                                    libpath, psydac_file),
-                                ], check=True)
-                print('Done.')
+        #     if current_ver != your_ver:
+        #         print(
+        #             f'You have psydac version {your_ver}, but version {current_ver} is available.\n')
+        #         subprocess.run(['pip',
+        #                         'uninstall',
+        #                         '-y',
+        #                         'psydac'])
+        #         print('\nInstalling Psydac ...')
+        #         subprocess.run(['pip',
+        #                         'install',
+        #                         os.path.join(
+        #                             libpath, psydac_file),
+        #                         ], check=True)
+        #         print('Done.')
 
-        except:
-            print('\nInstalling Psydac ...')
-            subprocess.run(['pip',
-                            'install',
-                            os.path.join(
-                                libpath, psydac_file),
-                            ], check=True)
-            print('Done.')
+        # except:
+        #     print('\nInstalling Psydac ...')
+        #     subprocess.run(['pip',
+        #                     'install',
+        #                     os.path.join(
+        #                         libpath, psydac_file),
+        #                     ], check=True)
+        #     print('Done.')
 
         # compilation
         subprocess.run(['compile-gvec-tp',
