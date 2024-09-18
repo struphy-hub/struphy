@@ -365,7 +365,7 @@ class ShearFluid(CartesianMHDequilibrium):
 
         T(z) &= (\tanh(z - z_1)/\delta)-\tanh(z - z_2)/\delta)) \,.
 
-        \mathbf B &= B_{0x}\,\mathbf e_x + B_{0y}\,\mathbf e_y + B_{0z}\,\mathbf e_z = const.\,,
+        \mathbf B &= (B_{ax} + T(z)B_{bx})\,\mathbf e_x + (B_{ay} + T(z)B_{by})\,\mathbf e_y + (B_{az} + T(z)B_{bz})\,\mathbf e_z ,
 
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
@@ -391,12 +391,18 @@ class ShearFluid(CartesianMHDequilibrium):
         Exterior value for the pressure (default: 1.).
     pb : float 
         Deviation of the pressure (default 0.).
-    B0x : float  
-        x-component of magnetic field (default: 0.).
-    B0y : float  
-        y-component of magnetic field (default: 0.).
-    B0z : float  
-        z-component of magnetic field (default: 1.).
+    Bax : float  
+        Exterior value for the x Magnetic field (default: 1.).
+    Bbx : float  
+        Deviation of the x Magnetic field (default: 1.).
+    Bay : float  
+        Exterior value for the y Magnetic field (default: 1.).
+    Bby : float  
+        Deviation of the y Magnetic field (default: 1.).
+    Baz : float  
+        Exterior value for the z Magnetic field (default: 1.).
+    Bbz : float  
+        Deviation of the z Magnetic field (default: 1.).
     Note
     ----
     In the parameter .yml, use the following in the section `mhd_equilibrium`::
@@ -431,9 +437,12 @@ class ShearFluid(CartesianMHDequilibrium):
                           'nb': 0.25,
                           'pa': 1.,
                           'pb': 0.,
-                          'B0x': 1.,
-                          'B0y': 0.,
-                          'B0z': 0.,}
+                          'Bax': 0.,
+                          'Bay': 0.,
+                          'Baz': 0.,
+                          'Bbx': 0.,
+                          'Bby': 0.,
+                          'Bbz': 0.,}
 
         self._params = set_defaults(params, params_default)
 
@@ -500,9 +509,9 @@ class ShearFluid(CartesianMHDequilibrium):
     def b_xyz(self, x, y, z):
         """ Magnetic field.
         """
-        bx = self.params['B0x'] - 0*x
-        by = self.params['B0y'] - 0*x
-        bz = self.params['B0z'] - 0*x
+        bx = self.params['Bax'] + self.params['Bbx']*self.T_z(z)
+        by = self.params['Bay'] + self.params['Bby']*self.T_z(z)
+        bz = self.params['Baz'] + self.params['Bbz']*self.T_z(z)
 
         return bx, by, bz
 
@@ -820,24 +829,15 @@ class ScrewPinch(CartesianMHDequilibrium):
         return gradBx, gradBy, gradBz
     
 
-class StationaryVortex(CartesianMHDequilibrium):
+class ViscousOrszagTang(CartesianMHDequilibrium):
     r"""
-    Stationay vortex equilibrium
+    Visco-Resistive Orszag Tang vortex set up
 
     TODO.
 
     Parameters
     ----------
-    a : float 
-        Dimension of the slab ((0,1) x (-a,a) x (-a,a)) (default: 10.).
-    rho0 : float
-        Equilibrium density (default: 1.)
-    p0 : float
-        Equilibrium pressure (default: 0.)
-    A0 : float
-        Amplitude of the perturbation of A (default sqrt(4 pi))
-    v0 : float 
-        Amplitude of the pertubation of v (default 1.)
+    None
 
     Note
     ----
@@ -848,17 +848,9 @@ class StationaryVortex(CartesianMHDequilibrium):
 
     def __init__(self, **params):
 
-        params_default = {'a': 10.,
-                          'A0': 3.54490770181,
-                          'v0': 1.,
-                          'rho0': 1.,
-                          'p0': 0.}
+        params_default = {}
 
         self._params = set_defaults(params, params_default)
-
-        # cylindrical coordinate from the center squared
-        #self.r2 = lambda x, y, z: ((y-0.5)**2 + (z-0.5)**2)*4*self._params['a']**2
-        self.r2 = lambda x, y, z: y**2 + z**2
 
     @property
     def params(self):
@@ -910,11 +902,9 @@ class StationaryVortex(CartesianMHDequilibrium):
         """ Magnetic field.
         """
 
-        r2 = self.r2(x, y, z)
-        prefactor = self._params['A0']/(2*np.pi)*np.exp((1-r2)/2)
         bx = 0*x
-        by = - prefactor * z
-        bz = prefactor * y
+        by = -np.sin(z)
+        bz = np.sin(2*y)
 
         return bx, by, bz
 
@@ -923,11 +913,9 @@ class StationaryVortex(CartesianMHDequilibrium):
     def j_xyz(self, x, y, z):
         """ Current density.
         """
-        r2 = self.r2(x, y, z)
-        prefactor = self._params['v0']/(2*np.pi)*np.exp((1-r2)/2)
         jx = 0*x
-        jy = - prefactor * z
-        jz = prefactor * y
+        jy = -np.sin(z)
+        jz = np.sin(y)
 
         return jx, jy, jz
 
@@ -935,18 +923,16 @@ class StationaryVortex(CartesianMHDequilibrium):
     def p_xyz(self, x, y, z):
         """ Pressure.
         """
-        r2 = self.r2(x,y,z)
-        B_term = 1/2*(self._params['A0']/(2*np.pi))**2*(1-r2)*np.exp(1-r2)
-        v_term = 1/2*(self._params['v0']/(2*np.pi))**2*np.exp(1-r2)
+        p = 15/4 + 1/4*np.cos(4*y)+4/5*np.cos(2*y)*np.cos(z)-np.cos(y)*np.cos(z)+1/4*np.cos(2*z)
 
-        return B_term-v_term+self._params['p0']
+        return p
 
     # equilibrium number density
     def n_xyz(self, x, y, z):
         """ Number density.
         """
 
-        return self._params['rho0']+0.*x
+        return 1.+0.*x
 
     # gradient of equilibrium magnetic field (not set)
     def gradB_xyz(self, x, y, z):
