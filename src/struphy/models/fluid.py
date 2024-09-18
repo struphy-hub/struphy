@@ -741,7 +741,10 @@ class ViscoresistiveMHD(StruphyModel):
         nonlin_solver_viscosity = params['fluid']['mhd']['options']['VariationalViscosity']['nonlin_solver']
         lin_solver_resistivity = params['fluid']['mhd']['options']['VariationalResistivity']['lin_solver']
         nonlin_solver_resistivity = params['fluid']['mhd']['options']['VariationalResistivity']['nonlin_solver']
-
+        if 'linearize_current' in params['fluid']['mhd']['options']['VariationalResistivity'].keys():
+            self._linearize_current = params['fluid']['mhd']['options']['VariationalResistivity']['linearize_current']
+        else :
+            self._linearize_current = False
         self._gamma = params['fluid']['mhd']['options']['VariationalDensityEvolve']['physics']['gamma']
         self._mu = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu']
         self._mu_a = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu_a']
@@ -770,7 +773,8 @@ class ViscoresistiveMHD(StruphyModel):
         
         self._kwargs[propagators_fields.VariationalMagFieldEvolve] = {'mass_ops': self.WMM,
                                                                      'lin_solver': lin_solver_magfield,
-                                                                     'nonlin_solver': nonlin_solver_magfield}
+                                                                     'nonlin_solver': nonlin_solver_magfield,
+                                                                     'linearize_current' :self._linearize_current}
         
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
                                                                  'rho': self.pointer['mhd_rho3'],
@@ -787,7 +791,8 @@ class ViscoresistiveMHD(StruphyModel):
                                                                    'eta': self._eta,
                                                                    'eta_a': self._eta_a,
                                                                    'lin_solver': lin_solver_resistivity,
-                                                                   'nonlin_solver': nonlin_solver_resistivity}
+                                                                   'nonlin_solver': nonlin_solver_resistivity,
+                                                                   'linearize_current' :self._linearize_current}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -983,8 +988,8 @@ class ViscousFluid(StruphyModel):
                                                                      'nonlin_solver': nonlin_solver_entropy}
         
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
-                                                                 'rho': self.pointer['fluid_rho3'],
                                                                  'gamma': self._gamma,
+                                                                 'rho': self.pointer['fluid_rho3'],
                                                                  'mu': self._mu,
                                                                  'mu_a': self._mu_a,
                                                                  'mass_ops': self.WMM,
