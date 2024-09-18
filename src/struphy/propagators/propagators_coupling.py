@@ -1494,7 +1494,8 @@ class CurrentCoupling5DCurlb(Propagator):
                          'info': False,
                          'verbose': False,
                          'recycle': True}
-        dct['filter'] = {'use_filter': False,
+        dct['filter'] = {'use_filter': None,
+                         'modes': (0,1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
@@ -1794,7 +1795,8 @@ class CurrentCoupling5DGradB(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
-        dct['filter'] = {'use_filter': False,
+        dct['filter'] = {'use_filter': None,
+                         'modes': (0,1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
