@@ -773,8 +773,7 @@ class ViscoresistiveMHD(StruphyModel):
         
         self._kwargs[propagators_fields.VariationalMagFieldEvolve] = {'mass_ops': self.WMM,
                                                                      'lin_solver': lin_solver_magfield,
-                                                                     'nonlin_solver': nonlin_solver_magfield,
-                                                                     'linearize_current' :self._linearize_current}
+                                                                     'nonlin_solver': nonlin_solver_magfield}
         
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
                                                                  'rho': self.pointer['mhd_rho3'],
