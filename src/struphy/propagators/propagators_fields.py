@@ -1410,7 +1410,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                          'info': False,
                          'verbose': False,
                          'recycle': True}
-        dct['filter'] = {'use_filter': False,
+        dct['filter'] = {'use_filter': None,
+                         'modes': (0,1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
@@ -1632,7 +1633,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'info': False,
                          'verbose': False,
                          'recycle': True}
-        dct['filter'] = {'use_filter': False,
+        dct['filter'] = {'use_filter': None,
+                         'modes': (0,1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
