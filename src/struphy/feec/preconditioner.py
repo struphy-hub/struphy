@@ -1,7 +1,10 @@
 from psydac.linalg.basic import Vector, LinearSolver, LinearOperator, ComposedLinearOperator
-from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
+from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace, StencilDiagonalMatrix
-from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
+# Temporary fix
+# from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
+# # The comment is here because there is no BlockDiagonalSolver in psydac.linalg.block
+# Can be uncommented once https://github.com/pyccel/psydac/pull/347 has been merged.
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from psydac.fem.tensor import TensorFemSpace
@@ -900,7 +903,7 @@ class ProjectorPreconditioner(LinearOperator):
         return out
 
 
-class FFTSolver(DirectSolver):
+class FFTSolver(BandedSolver):
     """
     Solve the equation Ax = b for x, assuming A is a circulant matrix.
     b can contain multiple right-hand sides (RHS) and is of shape (#RHS, N).
