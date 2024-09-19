@@ -18,12 +18,38 @@ FLAGS_openmp_mhd := $(flags_openmp_mhd)
 # SOURCE FILES 
 #--------------------------------------
 
+# PSY0
 PSY0  := $(psydac_path)/core/arrays
-PSY1  := $(psydac_path)/core/kernels
-PSY2  := $(psydac_path)/core/bsplines_pyccel
-PSY3  := $(psydac_path)/linalg/kernels
-PSY4  := $(psydac_path)/feec/dof_kernels
+# Doesn't exist devel psydac
+# Copied the file to the struphy-2024 branch
 
+# PSY1
+# PSY1  := $(psydac_path)/core/kernels
+# Found in psydac/core/field_evaluation_kernels
+PSY1  := $(psydac_path)/core/field_evaluation_kernels
+
+# PSY2
+# PSY2  := $(psydac_path)/core/bsplines_pyccel
+# Found in psydac/core/bsplines_kernels
+PSY2  := $(psydac_path)/core/bsplines_kernels
+
+# PSY3
+# PSY3  := $(psydac_path)/linalg/kernels
+# Found in psydac/linalg/kernels/stencil2coo_kernels.py
+PSY3  := $(psydac_path)/linalg/kernels/stencil2coo_kernels
+
+# PSY4
+PSY4  := $(psydac_path)/feec/dof_kernels
+# Found in psydac/feec/global_projectors.py
+# However, this file is not pyccelizable and the kernels are not separated out.
+# This is handled in stefan-psydac (https://github.com/pyccel/psydac/commit/2507c3c701596b1a40ea9357baad3fb88b09b636)
+# For now, I added the dof_kernels to the struphy-2024 branch
+
+
+# Old sources
+# SOURCES := $(PSY0).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py $(STRUPHY_SOURCES)
+
+# New sources:
 SOURCES := $(PSY0).py $(PSY1).py $(PSY2).py $(PSY3).py $(PSY4).py $(STRUPHY_SOURCES)
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
