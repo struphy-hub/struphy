@@ -2713,8 +2713,9 @@ class VariationalDensityEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False, }
-        dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
+                                'info': False, 
+                                'implicit_transport': False}
+        dct['physics'] = {'gamma': 5/3}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -2729,8 +2730,6 @@ class VariationalDensityEvolve(Propagator):
                  gamma: float = options()['physics']['gamma'],
                  s: StencilVector = None,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options(
-                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -2745,9 +2744,10 @@ class VariationalDensityEvolve(Propagator):
         self._gamma = gamma
         self._s = s
         self._mass_ops = mass_ops
-        self._implicit_transport = implicit_transport
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
+        self._implicit_transport = self._nonlin_solver['implicit_transport']
+
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -3625,8 +3625,9 @@ class VariationalEntropyEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False}
-        dct['physics'] = {'gamma': 5/3, 'implicit_transport': False}
+                                'info': False,
+                                'implicit_transport': False}
+        dct['physics'] = {'gamma': 5/3}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -3641,8 +3642,6 @@ class VariationalEntropyEvolve(Propagator):
                  gamma: float = options()['physics']['gamma'],
                  rho: StencilVector,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options(
-                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
@@ -3657,9 +3656,10 @@ class VariationalEntropyEvolve(Propagator):
         self._gamma = gamma
         self._rho = rho
         self._mass_ops = mass_ops
-        self._implicit_transport = implicit_transport
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
+        self._implicit_transport = nonlin_solver['implicit_transport']
+
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -4380,8 +4380,9 @@ class VariationalMagFieldEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False}
-        dct['physics'] = {'implicit_transport': False}
+                                'info': False,
+                                'implicit_transport': False}
+
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -4393,17 +4394,15 @@ class VariationalMagFieldEvolve(Propagator):
                  u: BlockVector,
                  *,
                  mass_ops: WeightedMassOperator,
-                 implicit_transport: bool = options(
-                 )['physics']['implicit_transport'],
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
 
         super().__init__(b, u)
 
         self._mass_ops = mass_ops
-        self._implicit_transport = implicit_transport
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
+        self._implicit_transport = nonlin_solver['implicit_transport']
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -5029,15 +5028,13 @@ class VariationalViscosity(Propagator):
 
         np.sqrt(gu_sq_v, out=gu_sq_v)
 
-        gu_sq_v *= self._sq_term_metric
         gu_sq_v *= dt*self._mu_a  # /2
 
-        self.M1_du.assemble([[gu_sq_v, None, None],
-                             [None, gu_sq_v, None],
-                             [None, None, gu_sq_v]], 
+        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0,0], gu_sq_v*self._mass_M1_metric[0,1], gu_sq_v*self._mass_M1_metric[0,2]],
+                             [gu_sq_v*self._mass_M1_metric[1,0], gu_sq_v*self._mass_M1_metric[1,1], gu_sq_v*self._mass_M1_metric[1,2]],
+                             [gu_sq_v*self._mass_M1_metric[2,0], gu_sq_v*self._mass_M1_metric[1,2], gu_sq_v*self._mass_M1_metric[2,2]]], 
                              verbose=False)
 
-        gu_sq_v /= self._sq_term_metric
         # gu_sq_v *= 2.
         gu_sq_v += dt*self._mu
 
@@ -5085,15 +5082,13 @@ class VariationalViscosity(Propagator):
         gu_sq_v = self._gu_sq_values
         gu_sq_v *= 0.
         for i in range(3):
-            gu0_v[i] *= gu120_v[i]
-            gu1_v[i] *= gu121_v[i]
-            gu2_v[i] *= gu122_v[i]
-            gu_sq_v += gu0_v[i]
-            gu_sq_v += gu1_v[i]
-            gu_sq_v += gu2_v[i]
+            for j in range(3):
+                gu_sq_v += gu0_v[i]*self._mass_M1_metric[i,j]*gu120_v[j]
+                gu_sq_v += gu1_v[i]*self._mass_M1_metric[i,j]*gu121_v[j]
+                gu_sq_v += gu2_v[i]*self._mass_M1_metric[i,j]*gu122_v[j]
+
 
         gu_sq_v *= self._gu_init_values
-        gu_sq_v *= self._sq_term_metric
         # 2) Initial energy and linear form
         rho = self._rho
         self.rhof.vector = rho
@@ -5181,23 +5176,13 @@ class VariationalViscosity(Propagator):
 
         g = self.mass_ops.sqrt_g
 
-        M1 = WeightedMassOperator(
-            self.derham.Vh_fem['1'],
-            self.derham.Vh_fem['1'],
-            V_extraction_op=self.derham.extraction_ops['1'],
-            W_extraction_op=self.derham.extraction_ops['1'],
-            weights_info=[[g, None, None],
-                          [None, g, None],
-                          [None, None, g]])
+        M1 = self.mass_ops.M1
 
         self.M1_du = WeightedMassOperator(
             self.derham.Vh_fem['1'],
             self.derham.Vh_fem['1'],
             V_extraction_op=self.derham.extraction_ops['1'],
-            W_extraction_op=self.derham.extraction_ops['1'],
-            weights_info=[[g, None, None],
-                          [None, g, None],
-                          [None, None, g]])
+            W_extraction_op=self.derham.extraction_ops['1'])
 
         self.pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
             self.mass_ops.M3)
@@ -5207,8 +5192,6 @@ class VariationalViscosity(Propagator):
                                tol=1e-16,
                                maxiter=1000,
                                verbose=False)
-
-        M1.assemble()
 
         self.M_de_ds = WeightedMassOperator(
             self.derham.Vh_fem['3'],
@@ -5329,6 +5312,10 @@ class VariationalViscosity(Propagator):
             *integration_grid), 1)
         self._sq_term_metric = deepcopy(metric)
 
+        metric = self.domain.metric_inv(
+            *integration_grid)*self.domain.jacobian_det(*integration_grid)
+        self._mass_M1_metric = deepcopy(metric)
+
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
 
     def __ener(self, rho, s, out=None):
@@ -5419,6 +5406,7 @@ class VariationalResistivity(Propagator):
         dct['physics'] = {'eta': 0.,
                           'eta_a': 0.,
                           'gamma': 5/3}
+        dct['linearize_current'] = False
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -5435,7 +5423,8 @@ class VariationalResistivity(Propagator):
                  eta: float = options()['physics']['eta'],
                  eta_a: float = options()['physics']['eta_a'],
                  lin_solver: dict = options(default=True)['lin_solver'],
-                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
+                 nonlin_solver: dict = options(default=True)['nonlin_solver'],
+                 linearize_current: dict = options(default=True)['linearize_current']):
 
         super().__init__(s, b)
 
@@ -5448,6 +5437,7 @@ class VariationalResistivity(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._rho = rho
+        self._linearize_current = linearize_current
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -5510,21 +5500,25 @@ class VariationalResistivity(Propagator):
         cb_sq_v *= 0.
         for i in range(3):
             for j in range(3):
-                cb_sq_v += cb_v[i]*self._sq_term_metric[i, j]*cb_v[j]
+                cb_sq_v += cb_v[i]*self._sq_term_metric_no_jac[i, j]*cb_v[j]
 
         np.sqrt(cb_sq_v, out=cb_sq_v)
 
         cb_sq_v *= dt*self._eta_a
 
-        cb_sq_v += dt*self._eta
         self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0,0],cb_sq_v*self._sq_term_metric[0,1],cb_sq_v*self._sq_term_metric[0,2]],
                              [cb_sq_v*self._sq_term_metric[1,0],cb_sq_v*self._sq_term_metric[1,1],cb_sq_v*self._sq_term_metric[1,2]],
                              [cb_sq_v*self._sq_term_metric[2,0],cb_sq_v*self._sq_term_metric[2,1],cb_sq_v*self._sq_term_metric[2,2]]],
                              verbose = False)
 
+        cb_sq_v += dt*self._eta
+
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
-        bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
+        if self._linearize_current :
+            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
+        else:
+            bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
             print("information on the linear solver : ", self.inv_lop._info)
 
@@ -5533,8 +5527,13 @@ class VariationalResistivity(Propagator):
         bn12 = bn.copy(out=self._tmp_bn12)
         bn12 += bn1
         bn12 /= 2.
+        if self._linearize_current :
+            cb1 = self.Tcurl.dot(bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
+        else:
+            cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
+
+        
         cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
-        cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
         self.cbf12.vector = cb12
         self.cbf1.vector = cb1
@@ -5619,7 +5618,7 @@ class VariationalResistivity(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err = } \n {tol**2 = }')
 
         self.feec_vars_update(sn1, bn1)
 
@@ -5752,6 +5751,10 @@ class VariationalResistivity(Propagator):
         metric = self.domain.metric_inv(
             *integration_grid)*self.domain.jacobian_det(*integration_grid)
         self._sq_term_metric = deepcopy(metric)
+
+        metric = self.domain.metric_inv(
+            *integration_grid)
+        self._sq_term_metric_no_jac = deepcopy(metric)
 
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
 
