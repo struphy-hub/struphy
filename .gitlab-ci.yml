@@ -32,6 +32,8 @@ default:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
 
   before_script:
+    - date
+    - ls -a
     - uname -a
     - module purge
     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
@@ -70,6 +72,8 @@ default_venv:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
+    - date
+    - ls -a
     - uname -s # get system info
     - uname -v
     - uname -m
@@ -101,6 +105,8 @@ ci_vars:
     - if: $CI_PIPELINE_SOURCE == "push"
   cache: []
   before_script:
+    - date
+    - ls -a
     - module purge
     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
     - module list
@@ -180,6 +186,8 @@ Ubuntu_latest:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - apt update -y && apt clean 
     - export DEBIAN_FRONTEND=noninteractive
     - apt install -y software-properties-common
@@ -336,6 +344,8 @@ Ubuntu_23_04:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - apt update -y && apt clean 
     - apt install -y python3-pip 
     - apt install -y python3-venv
@@ -369,8 +379,9 @@ struphy_ubuntu_python_3_11:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -397,6 +408,8 @@ Fedora:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - dnf install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - dnf update -y  
     - dnf install -y gcc
@@ -446,8 +459,9 @@ struphy_fedora_python_3_10:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -475,6 +489,8 @@ OpenSuse:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - zypper refresh
     - zypper install -y python311 python311-devel
     - zypper install -y python311-pip python3-virtualenv
@@ -518,8 +534,9 @@ struphy_opensuse_python_3_11:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -545,6 +562,8 @@ AlmaLinux:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - yum install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - yum update -y 
     - yum clean all 
@@ -593,8 +612,9 @@ struphy_almalinux_python_3_10:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -665,6 +685,8 @@ vars:
       when: never
     - if: $CI_COMMIT_REF_NAME == "master"
   before_script:
+    - date
+    - ls -a
     - uname -s # get system info
   script:
     - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
@@ -686,6 +708,8 @@ release_job:
     - if: $CI_COMMIT_REF_NAME == "master"
   needs: ['vars']
   before_script:
+    - date
+    - ls -a
     - uname -s # get system info
   script:
     - cat /etc/*-release
