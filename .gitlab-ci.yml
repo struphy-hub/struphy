@@ -29,28 +29,23 @@
 # A "scheduled" pipeline can be tested via the commit message "test-schedule" (this will use the current build of Struphy from devel).
 
 default:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
 
   before_script:
     - date
     - ls -a
     - uname -a
-    - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    - module list
+    - module avail
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
     - module list
     - make -v
     - python3 --version
-    - sqlite3 -version
     - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
 
-  tags:
-    - distributedcache
-
-  cache:
-    key: 'python-env'
-    paths:
-      - env_$CI_PIPELINE_ID/
+  # tags:
+  #   - distributedcache
 
   artifacts:
     expire_in: 1 day
@@ -80,9 +75,9 @@ default_venv:
     - uname -o
     - echo "Hello ${GITLAB_USER_NAME} !"
     - echo "This is job ${CI_JOB_ID}"
-    - module purge
+    - module list
     - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
     - module list
   script:
     - pip install -U virtualenv
@@ -93,6 +88,11 @@ default_venv:
     - python3 -m pip install --upgrade pip
     - pip install -U pytest coverage twine
     - pip list
+  artifacts:
+    name: 'python-env'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
@@ -103,12 +103,10 @@ ci_vars:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
-  cache: []
+  dependencies: []
   before_script:
     - date
     - ls -a
-    - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
     - module list
   script:
     - echo "All environment variables:"
@@ -127,6 +125,7 @@ default_build:
     - pip list
     - python3 -m build # build struphy (.whl) 
   artifacts:
+    name: 'dist'
     paths:
       - dist/
     expire_in: 1 day
@@ -152,6 +151,11 @@ default_install:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
+  artifacts:
+    name: 'python-env-installed'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 # Cron-job C:
 c_cronjob_install:
@@ -166,6 +170,11 @@ c_cronjob_install:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
+  artifacts:
+    name: 'python-env-installed'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 ##################
 ### TEST STAGE ###
@@ -175,7 +184,6 @@ c_cronjob_install:
 Ubuntu_latest:
   stage: test
   image: ubuntu:latest
-  cache: []
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
@@ -338,7 +346,6 @@ fortran_tutorial_tests:
 Ubuntu_23_04:
   stage: test
   image: ubuntu:23.04
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -373,7 +380,6 @@ Ubuntu_23_04:
 struphy_ubuntu_python_3_11:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -402,7 +408,6 @@ struphy_ubuntu_python_3_11:
 Fedora:
   stage: test
   image: fedora:latest
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -453,7 +458,6 @@ Fedora:
 struphy_fedora_python_3_10:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_fedora_python_3_10
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -483,7 +487,6 @@ struphy_fedora_python_3_10:
 OpenSuse:
   stage: test
   image: opensuse/tumbleweed:latest
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -528,7 +531,6 @@ OpenSuse:
 struphy_opensuse_python_3_11:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_python_3_11
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -556,7 +558,6 @@ struphy_opensuse_python_3_11:
 AlmaLinux:
   stage: test
   image: almalinux:latest
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -606,7 +607,6 @@ AlmaLinux:
 struphy_almalinux_python_3_10:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_python_3_10
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
@@ -636,6 +636,7 @@ struphy_almalinux_python_3_10:
 ###################
 
 pages:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   stage: pages
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -643,6 +644,20 @@ pages:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "true"
+  needs: ['default_build']
+  before_script:
+    - date
+    - uname -a
+    - ls -a
+    - ls dist/
+    - ls /
+    - python3 -V
+    - python3.11 -V
+    - python3.11 -m venv env
+    - source env/bin/activate
+    - pip install --upgrade pip
+    - echo $CI_COMMIT_MESSAGE
+    - pip install dist/struphy*.whl
   script:
     - struphy -h
     - struphy compile --status
@@ -654,6 +669,7 @@ pages:
     - cd doc ; make html
     - mv _build/html/ ../public/
   artifacts:
+    name: 'pages'
     paths:
       - public/
 
@@ -691,6 +707,7 @@ vars:
   script:
     - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
   artifacts:
+    name: 'vars'
     reports:
       dotenv: vars.env
     expire_in: 1 day
