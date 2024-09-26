@@ -1,9 +1,9 @@
 # Here is how to build the image and upload it to the mpcdf gitlab registry:
 #
-# We suppose you are in the struphy repo directory. Start the docker engine and then run:
+# We suppose you are in the struphy repo directory. 
+# Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
 #
 # docker info
-# docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
 # docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11 -f docker/ubuntu.dockerfile .
 # docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
 
@@ -25,7 +25,7 @@ RUN apt update -y && apt clean \
     && apt install -y libblas-dev openmpi-bin \
     && apt install -y libomp-dev libomp5 \
     && apt install -y git \
-    && apt install -y pandoc \
+    && apt install -y pandoc graphviz \
     && apt install -y sqlite3 \
     && bash -c "echo 'alias python3=python3.11' >> ~/.bashrc" \
     && bash -c "source ~/.bashrc" 

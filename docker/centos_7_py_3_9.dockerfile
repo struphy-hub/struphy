@@ -1,9 +1,9 @@
 # Here is how to build the image and upload it to the mpcdf gitlab registry:
 #
-# We suppose you are in the struphy repo directory. Start the docker engine and then run:
+# We suppose you are in the struphy repo directory. 
+# Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
 #
 # docker info
-# docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
 # docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9 -f docker/centos_7_py_3_9.dockerfile .
 # docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/centos_7_py_3_9
 
