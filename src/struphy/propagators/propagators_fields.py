@@ -5660,9 +5660,9 @@ class VariationalResistivity(Propagator):
             self.derham.Vh_fem['1'],
             V_extraction_op=self.derham.extraction_ops['1'],
             W_extraction_op=self.derham.extraction_ops['1'],
-            weights_info=[[g, None, None],
-                          [None, g, None],
-                          [None, None, g]])
+            V_boundary_op  =self.derham.boundary_ops['1'],
+            W_boundary_op  =self.derham.boundary_ops['1']
+            )
 
         if self._lin_solver['type'][1] is None:
             self.pc = None
