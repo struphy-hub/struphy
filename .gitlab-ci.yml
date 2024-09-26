@@ -28,6 +28,8 @@
 #
 # A "scheduled" pipeline can be tested via the commit message "test-schedule" (this will use the current build of Struphy from devel).
 
+# The doc can be built via the commit message "make-pages".
+
 default:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
 
@@ -140,9 +142,11 @@ default_install:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
@@ -187,6 +191,8 @@ Ubuntu_latest:
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_TAG
@@ -230,6 +236,8 @@ c_unit_tests:
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_TAG
@@ -246,6 +254,8 @@ c_model_tests:
   stage: test
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -275,6 +285,8 @@ c_tutorial_tests:
   stage: test
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -644,6 +656,7 @@ pages:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "true"
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
   needs: ['default_build']
   before_script:
     - date
@@ -651,6 +664,8 @@ pages:
     - ls -a
     - ls dist/
     - ls /
+    - apt show pandoc
+    - apt show graphviz
     - python3 -V
     - python3.11 -V
     - python3.11 -m venv env
