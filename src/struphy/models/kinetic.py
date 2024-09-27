@@ -692,6 +692,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.kappa = self.equation_params['species1']['kappa']
             self.alpha = self.equation_params['species1']['alpha']
 
+        # allocate memory for evaluating f0 in energy computation
+        self._f0_values = np.zeros(self.pointer['species1'].markers.shape[0], dtype=float)
+
         # ====================================================================================
         # Create pointers to background electric potential and field
         self._phi_background = self.derham.Vh['0'].zeros()
@@ -786,13 +789,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar('en_e', en_E)
 
         # evaluate f0
-        self.pointer['species1'].markers[:, self._first_free_idx] = self._f0(
-            self.pointer['species1'].markers[:, 0],
-            self.pointer['species1'].markers[:, 1],
-            self.pointer['species1'].markers[:, 2],
-            self.pointer['species1'].markers[:, 3],
-            self.pointer['species1'].markers[:, 4],
-            self.pointer['species1'].markers[:, 5],
+        self._f0_values[~self.pointer['species1'].holes] = self._f0(
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 0],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 1],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 2],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 3],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 4],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 5],
         )
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
@@ -801,9 +804,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             np.dot(
                 self.pointer['species1'].markers_wo_holes[:, 6]**2,  # w_p^2
                 self.pointer['species1'].markers_wo_holes[:, 7] / \
-                self.pointer['species1'].markers[~self.pointer['species1'].holes, self._first_free_idx]  # s_{0,p} / f_{0,p}
+                self._f0_values[~self.pointer['species1'].holes]  # s_{0,p} / f_{0,p}
         )
-            
+
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum
         )
