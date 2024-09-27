@@ -53,7 +53,7 @@ class StruphyModel(metaclass=ABCMeta):
         self._params = params
         self._comm = comm
         self._inter_comm = inter_comm
-        
+
         # get rank and size
         if self.comm is None:
             self._rank = 0
@@ -66,8 +66,7 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             self._comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
             self._Nclones = self._inter_comm.Get_size()
-        
-        
+
         # initialize model variable dictionaries
         self._init_variable_dicts()
 
@@ -78,7 +77,7 @@ class StruphyModel(metaclass=ABCMeta):
         # create domain, equilibrium
         self._domain, self._mhd_equil = setup_domain_and_equil(
             params, units=self.units)
-        
+
         # TODO: remove
         self._braginskii_equil = self.mhd_equil
 
@@ -95,7 +94,7 @@ class StruphyModel(metaclass=ABCMeta):
             for key, val in self.domain.params_map.items():
                 if key not in {'cx', 'cy', 'cz'}:
                     print((key + ':').ljust(25), val)
-            
+
             print('\nEQUILIBRIUM:')
             if 'mhd_equilibrium' in params:
                 print('type:'.ljust(25), self.mhd_equil.__class__.__name__)
@@ -113,7 +112,8 @@ class StruphyModel(metaclass=ABCMeta):
             params['grid'], comm=comm, inter_comm=inter_comm, domain=self.domain, mpi_dims_mask=dims_mask)
 
         # create projected MHD equilibrium
-        self._projected_mhd_equil = ProjectedMHDequilibrium(self.mhd_equil, self.derham)
+        self._projected_mhd_equil = ProjectedMHDequilibrium(
+            self.mhd_equil, self.derham)
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
@@ -147,7 +147,6 @@ class StruphyModel(metaclass=ABCMeta):
         self._propagators = []
         self._kwargs = {}
         self._scalar_quantities = {}
-
 
         return params
 
@@ -192,7 +191,7 @@ class StruphyModel(metaclass=ABCMeta):
         pass
 
     @staticmethod
-    @abstractmethod 
+    @abstractmethod
     def propagators_dct(cls):
         '''Dictionary holding the propagators of the model in the sequence they should be called.
         Keys are the propagator classes and values are lists holding variable names (str) updated by the propagator.'''
@@ -224,12 +223,12 @@ class StruphyModel(metaclass=ABCMeta):
     def comm(self):
         '''MPI communicator.'''
         return self._comm
-    
+
     @property
     def inter_comm(self):
         '''MPI clone communicator.'''
         return self._inter_comm
-    
+
     @property
     def Nclones(self):
         ''' Number of clones. '''
@@ -282,7 +281,7 @@ class StruphyModel(metaclass=ABCMeta):
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
         return self._derham
-    
+
     @property
     def projected_mhd_equil(self):
         '''MHD equilibrium projected on 3d Derham sequence with commuting projectors.'''
@@ -339,7 +338,7 @@ class StruphyModel(metaclass=ABCMeta):
     def options(cls):
         '''Dictionary for available species options of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.'''
         dct = {}
-        
+
         for prop, vars in cls.propagators_dct().items():
             var = vars[0]
             if var in cls.species()['em_fields']:
@@ -352,10 +351,10 @@ class StruphyModel(metaclass=ABCMeta):
                 for el in spl[1:-1]:
                     var_stem += '_' + el
                 species = ['fluid', var_stem]
-              
+
             cls.add_option(species=species,
-                        option=prop,
-                        dct=dct)
+                           option=prop,
+                           dct=dct)
 
         return dct
 
@@ -428,10 +427,11 @@ class StruphyModel(metaclass=ABCMeta):
             List of other scalar names whose values should be summed 
             to compute the value of this scalar. Default is None.
         """
-        
+
         assert isinstance(name, str), "name must be a string"
         if compute == 'from_particles':
-            assert isinstance(species, str), "species must be a string when compute is 'from_particles'"
+            assert isinstance(
+                species, str), "species must be a string when compute is 'from_particles'"
 
         self._scalar_quantities[name] = {
             'value': np.empty(1, dtype=float),
@@ -451,7 +451,7 @@ class StruphyModel(metaclass=ABCMeta):
             value : float, optional
                 Value to be saved. Required if there are no summands.
         '''
-        
+
         # Ensure the name is a string
         assert isinstance(name, str)
 
@@ -459,49 +459,52 @@ class StruphyModel(metaclass=ABCMeta):
         summands = self._scalar_quantities[name]['summands']
         compute = self._scalar_quantities[name]['compute']
 
-        
         if compute == 'from_particles':
-            compute_operations = ['sum_within_clone', 'sum_between_clones','divide_n_mks']
+            compute_operations = ['sum_within_clone',
+                                  'sum_between_clones', 'divide_n_mks']
         elif compute == 'from_field':
             compute_operations = []
         else:
             compute_operations = []
-        
+
         if summands is None:
             # Ensure the value is a float if there are no summands
             assert isinstance(value, float)
 
             # Create a numpy array to hold the scalar value
             value_array = np.array([value], dtype=np.float64)
-            
+
             # Perform MPI operations based on the compute flags
             if 'sum_within_clone' in compute_operations:
-                self.derham.comm.Allreduce(MPI.IN_PLACE, value_array, op=MPI.SUM)
-            
+                self.derham.comm.Allreduce(
+                    MPI.IN_PLACE, value_array, op=MPI.SUM)
+
             if 'sum_between_clones' in compute_operations and self.Nclones > 1:
-                self.inter_comm.Allreduce(MPI.IN_PLACE, value_array, op=MPI.SUM)
+                self.inter_comm.Allreduce(
+                    MPI.IN_PLACE, value_array, op=MPI.SUM)
 
             if 'average_between_clones' in compute_operations and self.Nclones > 1:
-                self.inter_comm.Allreduce(MPI.IN_PLACE, value_array, op=MPI.SUM)
+                self.inter_comm.Allreduce(
+                    MPI.IN_PLACE, value_array, op=MPI.SUM)
                 value_array /= self.Nclones
-            
-            
-            
+
             if 'divide_n_mks' in compute_operations:
                 # Initialize the total number of markers
                 n_mks_tot = np.array([self.pointer[species].n_mks])
                 if self.Nclones > 1:
-                    self.inter_comm.Allreduce(MPI.IN_PLACE, n_mks_tot, op=MPI.SUM)
+                    self.inter_comm.Allreduce(
+                        MPI.IN_PLACE, n_mks_tot, op=MPI.SUM)
                 value_array /= n_mks_tot
-            
+
             # Update the scalar value
             self._scalar_quantities[name]['value'][0] = value_array[0]
-            
+
         else:
             # Sum the values of the summands
-            value = sum(self._scalar_quantities[summand]['value'][0] for summand in summands)
+            value = sum(
+                self._scalar_quantities[summand]['value'][0] for summand in summands)
             self._scalar_quantities[name]['value'][0] = value
-        
+
     def add_time_state(self, time_state):
         '''Add a pointer to the time variable of the dynamics ('t')
         to the model and to all propagators of the model.
@@ -539,7 +542,7 @@ class StruphyModel(metaclass=ABCMeta):
                             print(f'{k}: {v}')
 
                 prop_instance = prop(*[self.pointer[var]
-                                    for var in variables], **kwargs_i)
+                                       for var in variables], **kwargs_i)
                 assert isinstance(prop_instance, Propagator)
                 self._propagators += [prop_instance]
 
@@ -560,7 +563,7 @@ class StruphyModel(metaclass=ABCMeta):
         split_algo : str
             Splitting algorithm. Currently available: "LieTrotter" and "Strang".
         """
-        
+
         # first order in time
         if split_algo == 'LieTrotter':
             for propagator in self.propagators:
@@ -568,7 +571,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                 with ProfileRegion(prop_name):
                     propagator(dt)
-                
+
                 # if self.Nclones > 1:
                 #     with ProfileRegion(prop_name + '_barrier'):
                 #         self.comm.Barrier()
@@ -583,17 +586,17 @@ class StruphyModel(metaclass=ABCMeta):
                 prop_name = type(propagator).__name__
                 with ProfileRegion(prop_name):
                     propagator(dt/2)
-                
+
                 # with ProfileRegion(prop_name + '_barrier'):
                 #         self.comm.Barrier()
                 #         self.inter_comm.Barrier()
 
             for propagator in self.propagators[::-1]:
                 prop_name = type(propagator).__name__
-                
+
                 with ProfileRegion(prop_name):
                     propagator(dt/2)
-                
+
                 # with ProfileRegion(prop_name + '_barrier'):
                 #     self.comm.Barrier()
                 #     self.inter_comm.Barrier()
@@ -670,7 +673,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         from struphy.feec.psydac_derham import Derham
         from struphy.pic.base import Particles
-        
+
         if self._comm_world_rank == 0:
             print('\nINITIAL CONDITIONS:')
 
@@ -703,7 +706,8 @@ class StruphyModel(metaclass=ABCMeta):
                                 elif type(bckgr_type) == list:
                                     bckgr_types = bckgr_type
                                 else:
-                                    raise NotImplemented('The type of initial background must be null or str or list.')
+                                    raise NotImplemented(
+                                        'The type of initial background must be null or str or list.')
 
                                 if bckgr_type is not None:
                                     for _type in bckgr_types:
@@ -749,7 +753,8 @@ class StruphyModel(metaclass=ABCMeta):
                                 domain=self.domain, mhd_equil=self.mhd_equil, species=species)
 
                     if self._comm_world_rank == 0:
-                        print(f'Fluid species "{species}" was initialized with:')
+                        print(
+                            f'Fluid species "{species}" was initialized with:')
 
                         if 'background' in val['params']:
                             bckgr_type = val['params']['background']['type']
@@ -804,7 +809,8 @@ class StruphyModel(metaclass=ABCMeta):
 
                     if self._comm_world_rank == 0:
                         _type = val['params']['background']['type']
-                        print(f'Kinetic species "{species}" was initialized with:')
+                        print(
+                            f'Kinetic species "{species}" was initialized with:')
                         print('type:'.ljust(25), _type)
                         if _type is not None:
                             if not isinstance(_type, list):
@@ -825,12 +831,12 @@ class StruphyModel(metaclass=ABCMeta):
                         if obj.coords == 'vpara_mu':
 
                             obj.save_constants_of_motion(
-                                epsilon=self.equation_params[species]['epsilon'], 
+                                epsilon=self.equation_params[species]['epsilon'],
                                 f_coords=obj.f0.coords,
                                 initial=True)
 
                         obj.initialize_weights()
-        
+
     def initialize_from_restart(self, data):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
@@ -1540,7 +1546,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if cls.diagnostics_dct() is not None:
             parameters['diagnostics'] = {}
             for name, space in cls.diagnostics_dct().items():
-                parameters['diagnostics'][name]= {'save_data': True}
+                parameters['diagnostics'][name] = {'save_data': True}
 
         cls.write_parameters_to_file(
             parameters=parameters, file=file, save=save, prompt=prompt)
