@@ -37,7 +37,7 @@ class Pusher:
     need particle MPI sorting in between.
     This requires calling dedicated ``eval_kernels`` during the iteration. Here are some
     rules to follow for iterative solvers:
-    
+
     * Spline/geometry evaluations at :math:`\boldsymbol \eta^n_p` can be be done via ``init_kernels``.
     * Pusher ``kernel`` and ``eval_kernels`` can perform evaluations at arbitrary
     weighted averages :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`,
@@ -122,8 +122,9 @@ class Pusher:
         self._args_kernel = args_kernel
         self._args_derham = args_derham
         self._args_domain = args_domain
-        
-        self._alpha_in_kernel = alpha_in_kernel # determines the evaluation points for kernel
+
+        # determines the evaluation points for kernel
+        self._alpha_in_kernel = alpha_in_kernel
         self._n_stages = n_stages
         self._maxiter = maxiter
         self._tol = tol
@@ -135,20 +136,22 @@ class Pusher:
             assert len(ker_args) == 4
             column_nr = ker_args[1]
             comps = ker_args[2]
-            
+
             # check marker array column number
             assert isinstance(comps, np.ndarray)
-            assert column_nr + comps.size < particles.n_cols, f'{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!'
-        
-        # prepare and check eval_kernels    
+            assert column_nr + \
+                comps.size < particles.n_cols, f'{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!'
+
+        # prepare and check eval_kernels
         for ker_args in eval_kernels:
             assert len(ker_args) == 5
             column_nr = ker_args[2]
             comps = ker_args[3]
-            
+
             # check marker array column number
             assert isinstance(comps, np.ndarray)
-            assert column_nr + comps.size < particles.n_cols, f'{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!'
+            assert column_nr + \
+                comps.size < particles.n_cols, f'{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!'
 
         self._init_kernels = init_kernels
         self._eval_kernels = eval_kernels
@@ -174,9 +177,12 @@ class Pusher:
 
         # save initial phase space coordinates
         markers[:, buffer_idx:buffer_idx + 3 + vdim] = markers[:, :3 + vdim]
-        
+
         # set boundary shifts to zero
         markers[:, buffer_idx + 3 + vdim: buffer_idx + 3 + vdim + 3] = 0.
+
+        # clear buffer columns starting from residual index, dont clear ID (last column)
+        markers[:,  residual_idx:-1] = 0.
 
         if self.verbose:
             rank = self.particles.derham.comm.Get_rank()
@@ -223,7 +229,7 @@ class Pusher:
                     column_nr = ker_args[2]
                     comps = ker_args[3]
                     add_args = ker_args[4]
-                    
+
                     # sort according to alpha-weighted average
                     self.particles.mpi_sort_markers(apply_bc=False,
                                                     alpha=alpha[:3])
@@ -235,7 +241,7 @@ class Pusher:
                         self._args_derham,
                         self._args_domain,
                         *add_args)
-                    
+
                 # sort according to alpha-weighted average
                 self.particles.mpi_sort_markers(apply_bc=False,
                                                 alpha=self._alpha_in_kernel)
@@ -277,19 +283,19 @@ class Pusher:
                     if self.maxiter > 1:
                         rank = self.particles.derham.comm.Get_rank()
                         print(
-                            f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }')   
+                            f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }')
                     # sort markers according to domain decomposition
                     if self.mpi_sort == 'each':
                         self.particles.mpi_sort_markers()
-                    
+
                     break
-                
+
                 # check for convergence
                 if n_not_converged[0] == 0:
                     # sort markers according to domain decomposition
                     if self.mpi_sort == 'each':
                         self.particles.mpi_sort_markers()
-                        
+
                     break
 
             # print stage info
@@ -301,9 +307,6 @@ class Pusher:
         # sort markers according to domain decomposition
         if self.mpi_sort == 'last':
             self.particles.mpi_sort_markers(do_test=True)
-
-        # clear buffer columns starting from residual index, dont clear ID (last column)
-        markers[:,  residual_idx:-1] = 0.
 
     @property
     def particles(self):
