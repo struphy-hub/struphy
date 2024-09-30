@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-def create_femfields(path: str, 
+def create_femfields(path: str,
                      *,
                      step: int = 1):
     """
@@ -138,7 +138,7 @@ def eval_femfields(path: str,
                    fields: dict,
                    space_ids: dict,
                    *,
-                   celldivide: list = [1, 1, 1], 
+                   celldivide: list = [1, 1, 1],
                    physical: bool = False):
     """
     Evaluate FEM fields obtained from create_femfields. 
@@ -257,8 +257,8 @@ def eval_femfields(path: str,
     return point_data, grids_log, grids_phy
 
 
-def create_vtk(path: str, 
-               grids_phy: list, 
+def create_vtk(path: str,
+               grids_phy: list,
                point_data: dict,
                *,
                physical: bool = False):
@@ -275,7 +275,7 @@ def create_vtk(path: str,
 
     point_data : dict
         Field data obtained from struphy.diagnostics.post_processing.eval_femfields.
-        
+
     physical : bool
         Wether to create vtk for push-forwarded physical (xyz) components of fields.
     """

@@ -404,7 +404,7 @@ class Maxwellian3D(Maxwellian):
             tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
             assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
 
-        if (self.maxw_params['vth1'] == 'brginskii' or
+        if (self.maxw_params['vth1'] == 'braginskii' or
             self.maxw_params['vth2'] == 'braginskii' or
                 self.maxw_params['vth3'] == 'braginskii'):
 
