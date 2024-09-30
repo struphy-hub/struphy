@@ -18,10 +18,10 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     .. math::
 
-        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \mathbf{E}
-            \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
+        & \frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \left( \mathbf{E}
+            + \mathbf{v} \times \mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
         \\[2mm]
-        -&\frac{\partial \mathbf{E}}{\partial t} = 
+        & - \frac{\partial \mathbf{E}}{\partial t} = 
         \kappa^2 \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
 
     with the normalization parameter
@@ -77,6 +77,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
     2. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
+    3. :class:`~struphy.propagators.propagators_markers.PushVxB`
 
     :ref:`Model info <add_model>`:
     '''
@@ -99,8 +100,11 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushEta: ['species1'],
-                propagators_coupling.VlasovAmpere: ['e_field', 'species1']}
+        return {
+            propagators_markers.PushEta: ['species1'],
+            propagators_coupling.VlasovAmpere: ['e_field', 'species1'],
+            propagators_markers.PushVxB: ['species1'],
+        }
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
