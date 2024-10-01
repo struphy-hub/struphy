@@ -212,8 +212,8 @@ class MassMatrixPreconditioner(LinearOperator):
 
             self._matrix = BlockLinearOperator(
                 self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
-            self._solver = BlockDiagonalSolver(
-                self._femspace.vector_space, solverblocks)
+            self._solver = BlockLinearOperator(
+                self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
 
         # save mass operator to be inverted (needed in solve method)
         if apply_bc:
@@ -329,7 +329,7 @@ class MassMatrixPreconditioner(LinearOperator):
         else:
             if out is None:
                 out = self._tmp_vector.copy()
-            self.solver.solve(rhs, out=out)
+            self.solver.dot(rhs, out=out)
 
         return out
     
@@ -525,8 +525,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
             self._matrix = BlockLinearOperator(
                 self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
-            self._solver = BlockDiagonalSolver(
-                self._femspace.vector_space, solverblocks)
+            self._solver = BlockLinearOperator(
+                self._femspace.vector_space,self._femspace.vector_space,  blocks=blocks)
 
         # save mass operator to be inverted (needed in solve method)
         if apply_bc:
@@ -874,8 +874,8 @@ class ProjectorPreconditioner(LinearOperator):
                 
         else:
             if out is None:
-                out = self.solver.solve(rhs, transposed=self._transposed)
-            self.solver.solve(rhs, out=out, transposed=self._transposed)
+                out = self.solver.dot(rhs)#, transposed=self._transposed)
+            self.solver.dot(rhs, out=out)#, transposed=self._transposed)
 
         return out
     
