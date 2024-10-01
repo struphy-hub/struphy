@@ -37,22 +37,22 @@ class ModesSin:
                 comps :
                     scalar_name : '0' # choices: null, 'physical', '0', '3'
                     vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
-                ls : 
+                ls :
                     scalar_name: [1, 3] # two x-modes for scalar variable
-                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable            
+                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable
                 theta :
-                    scalar_name: [0, 3.1415] 
+                    scalar_name: [0, 3.1415]
                     vector_name: [null, [0, 0], [1.5708]]
                 pfuns :
                     vector_name: [null, ['localize'], ['Id']]
-                pfuns_params
+                pfuns_params :
                     vector_name: [null, ['0.1'], [0.]]
-                Lx : 7.853981633974483 
-                Ly : 1.                
-                Lz : 1.               
+                Lx : 7.853981633974483
+                Ly : 1.
+                Lz : 1.
     '''
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], theta=None, pfuns=['Id'], pfuns_params = [0.], Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], theta=None, pfuns=['Id'], pfuns_params=[0.], Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
@@ -97,17 +97,17 @@ class ModesSin:
             ls = [0]
             ms = [0]
             ns = [0]
-            
+
         if ms is None:
             ms = [0]*n_modes
         else:
             assert len(ms) == n_modes
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -121,12 +121,12 @@ class ModesSin:
         else:
             assert len(theta) == n_modes
 
-        if len(pfuns) ==1:
+        if len(pfuns) == 1:
             pfuns = [pfuns[0]]*n_modes
         else:
             assert len(pfuns) == n_modes
 
-        if len(pfuns_params) ==1:
+        if len(pfuns_params) == 1:
             pfuns_params = [pfuns_params[0]]*n_modes
         else:
             assert len(pfuns_params) == n_modes
@@ -156,7 +156,7 @@ class ModesSin:
 
         for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
             val += amp*pfun(z)*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
-                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
+                                      np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
 
         return val
 
@@ -168,7 +168,7 @@ class ModesCos:
 
         u(x, y, z) = \sum_{s} A_s \cos \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
 
-    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3` 
+    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
     and :math:`L_x=L_y=L_z=1.0` (default).
 
     Note
@@ -181,12 +181,12 @@ class ModesCos:
                 comps :
                     scalar_name : '0' # choices: null, 'physical', '0', '3'
                     vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
-                ls : 
+                ls :
                     scalar_name: [1, 3] # two x-modes for scalar variable
-                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable            
-                Lx : 7.853981633974483 
-                Ly : 1.                
-                Lz : 1. 
+                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable
+                Lx : 7.853981633974483
+                Ly : 1. 
+                Lz : 1.
     '''
 
     def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1.):
@@ -223,17 +223,17 @@ class ModesCos:
             ls = [0]
             ms = [0]
             ns = [0]
-            
+
         if ms is None:
             ms = [0]*n_modes
         else:
             assert len(ms) == n_modes
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -255,6 +255,78 @@ class ModesCos:
             val += amp * np.cos(l * 2.*np.pi / self._Lx * x
                                 + m * 2.*np.pi / self._Ly * y
                                 + n * 2.*np.pi / self._Lz * z)
+
+        return val
+
+
+class Diocotron:
+    r'''Diocotron intialization by piecewise defined cosinusoidal function in second variable.
+
+    .. math::
+
+        u(r, \theta, \phi) = \begin{cases}
+        0 & r_{\text{min}} \le r < r^- \\
+        sum_s A_s \cos \left(l_s \theta \right) & r^- \le r \le r^+ \\
+        0 & r^+ < r \le r_{\text{max}}
+        \end{cases}
+        \,.
+
+    where $\theta \in [0, 2\pi]$.
+
+    Note
+    ----
+    Example of use in a ``.yml`` parameter file::
+
+        perturbations :
+            type : Diocotron
+            Diocotron :
+                comps :
+                    scalar_name : '0' # choices: null, 'physical', '0', '3'
+                    vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
+                ls :
+                    scalar_name: [1, 3] # two x-modes for scalar variable
+                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable
+                amps :
+                    scalar_name : [0.001, 0.002]
+                    vector_name: [null, [0.001, 0.004], [0.001]]
+                r- :
+                    scalar_name : 0.1
+                    vector_name : [0., 0., 0.2]
+                r+ :
+                    scalar_name : 0.75
+                    vector_name : [1., 1., 0.8]
+    '''
+
+    def __init__(self, rm=0., rp=1., ls=None, amps=[1e-4]):
+        '''
+        Parameters
+        ----------
+        rm : float
+            lower limit r- of the non-zero domain
+
+        rp : float
+            upper limit r+ of the non-zero domain
+
+        ls : list
+            Mode numbers in theta-direction.
+
+        amps : list
+            Amplitude of each mode.
+        '''
+
+        self._rm = rm
+        self._rp = rp
+        self._ls = ls
+        self._amps = amps
+
+    def __call__(self, x, y, z):
+
+        # get inidices where function non-zero domain is defined
+        non_zero = (y >= self._rm) and (y <= self._rp)
+
+        val = 0.
+        for amp, l in zip(self._amps, self._ls):
+            val += amp * np.sin(l*y[non_zero])
 
         return val
 
@@ -344,12 +416,12 @@ class TorusModesSin:
             n_modes = 1
             ms = [1]
             ns = [0]
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -359,7 +431,7 @@ class TorusModesSin:
             pfuns = [pfuns[0]]*n_modes
         else:
             assert len(pfuns) == n_modes
-            
+
         if pfun_params is None:
             pfun_params = [None]*n_modes
 
@@ -370,9 +442,9 @@ class TorusModesSin:
         self._pfuns = []
         for pfun, params in zip(pfuns, pfun_params):
             if pfun == 'sin':
-                if params is None :
+                if params is None:
                     ls = 1
-                else :
+                else:
                     ls = params
                 self._pfuns += [lambda eta1: np.sin(ls*np.pi*eta1)]
             elif pfun == 'exp':
@@ -479,12 +551,12 @@ class TorusModesCos:
             n_modes = 1
             ms = [1]
             ns = [0]
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -494,7 +566,7 @@ class TorusModesCos:
             pfuns = [pfuns[0]]*n_modes
         else:
             assert len(pfuns) == n_modes
-            
+
         if pfun_params is None:
             pfun_params = [None]*n_modes
 
@@ -505,9 +577,9 @@ class TorusModesCos:
         self._pfuns = []
         for pfun, params in zip(pfuns, pfun_params):
             if pfun == 'sin':
-                if params is None :
+                if params is None:
                     ls = 1
-                else :
+                else:
                     ls = params
                 self._pfuns += [lambda eta1: np.sin(ls*np.pi*eta1)]
             elif pfun == 'cos':
@@ -720,7 +792,8 @@ class ITPA_density:
                                   np.tanh((eta1 - self._c[0])/self._c[2]))
 
         return val
-    
+
+
 class Erf_z:
     r'''Shear layer in eta3 (-1 in lower regions, 1 in upper regions).
 
