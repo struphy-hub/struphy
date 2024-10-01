@@ -1,10 +1,7 @@
 from psydac.linalg.basic import Vector, LinearSolver, LinearOperator, ComposedLinearOperator
 from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace, StencilDiagonalMatrix
-# Temporary fix
-# from psydac.linalg.block import BlockLinearOperator, BlockDiagonalSolver
-# # The comment is here because there is no BlockDiagonalSolver in psydac.linalg.block
-# Can be uncommented once https://github.com/pyccel/psydac/pull/347 has been merged.
+from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from psydac.fem.tensor import TensorFemSpace
