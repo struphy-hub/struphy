@@ -260,7 +260,7 @@ class ModesCos:
 
 
 class Diocotron:
-    r'''Diocotron intialization by piecewise defined cosinusoidal function in second variable.
+    r'''Diocotron initialization (only on geometry HollowCylinder)
 
     .. math::
 
@@ -271,7 +271,14 @@ class Diocotron:
         \end{cases}
         \,.
 
-    where $\theta \in [0, 2\pi]$.
+    where
+
+    .. math::
+
+        r & = r_{\text{min}} + \left( r_{\text{max}} - r_{\text{min}} \right) \eta1
+        \theta & = 2 \pi \, \eta_2
+
+    such that :math:`r \in [r_{\text{min}}, r_{\text{max}}]` and :math:`\theta \in [0, 2\pi]`
 
     Note
     ----
@@ -289,23 +296,23 @@ class Diocotron:
                 amps :
                     scalar_name : [0.001, 0.002]
                     vector_name: [null, [0.001, 0.004], [0.001]]
-                r- :
-                    scalar_name : 0.1
-                    vector_name : [0., 0., 0.2]
-                r+ :
-                    scalar_name : 0.75
-                    vector_name : [1., 1., 0.8]
+                eta2m :
+                    scalar_name : 0.1  # must be converted to logical domain by inverting above equation
+                    vector_name : [0., 0., 0.2]  # must be converted to logical domain by inverting above equation
+                eta2p :
+                    scalar_name : 0.75  # must be converted to logical domain by inverting above equation
+                    vector_name : [1., 1., 0.8]  # must be converted to logical domain by inverting above equation
     '''
 
-    def __init__(self, rm=0., rp=1., ls=None, amps=[1e-4]):
+    def __init__(self, eta1m=0., eta1p=1., ls=None, amps=[1e-4]):
         '''
         Parameters
         ----------
-        rm : float
-            lower limit r- of the non-zero domain
+        eta1m : float
+            lower limit r- of the non-zero domain (in logical coordinates)
 
-        rp : float
-            upper limit r+ of the non-zero domain
+        eta1p : float
+            upper limit r+ of the non-zero domain (in logical coordinates)
 
         ls : list
             Mode numbers in theta-direction.
@@ -314,19 +321,19 @@ class Diocotron:
             Amplitude of each mode.
         '''
 
-        self._rm = rm
-        self._rp = rp
+        self._rm = eta1m
+        self._rp = eta1p
         self._ls = ls
         self._amps = amps
 
     def __call__(self, x, y, z):
 
-        # get inidices where function non-zero domain is defined
-        non_zero = (y >= self._rm) and (y <= self._rp)
+        # get inidices where non-zero domain is defined
+        non_zero = np.logical_and(x >= self._rm, x <= self._rp)
 
-        val = 0.
+        val = np.zeros_like(x)
         for amp, l in zip(self._amps, self._ls):
-            val += amp * np.sin(l*y[non_zero])
+            val[non_zero] += amp * np.cos(l*x[non_zero])
 
         return val
 
