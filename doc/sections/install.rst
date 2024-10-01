@@ -202,7 +202,7 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
 2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
-    docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
+    docker login gitlab-registry.mpcdf.mpg.de -u docker_api_2024 -p glpat-SkfAWwNPEVwsRB3dLioz
 
 3. Pull one of the availabale images listed above (< 1 GB in size), for instance::
 

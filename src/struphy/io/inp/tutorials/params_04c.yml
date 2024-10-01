@@ -53,6 +53,7 @@ em_fields:
                 type: [pcg, MassMatrixDiagonalPreconditioner]
                 tol: 1.e-12
                 maxiter: 500
+                non_linear_maxiter: 100
                 verbose: False
                 recycle: True
             nonlin_solver:
@@ -60,6 +61,7 @@ em_fields:
                 tol: 1.e-8
                 maxiter: 100
                 info: False
+                implicit_transport: false
 
 fluid :
     mhd :
@@ -108,6 +110,7 @@ fluid :
                     tol: 1.e-8
                     maxiter: 100
                     info: False
+                    implicit_transport: false
                 physics: 
                     gamma: 1.6666666666666667
             VariationalEntropyEvolve:
@@ -122,5 +125,7 @@ fluid :
                     tol: 1.e-8
                     maxiter: 100
                     info: False
+                    implicit_transport: false
+                physics: {gamma: 1.6666666666666667}
             
 kinetic: {}
