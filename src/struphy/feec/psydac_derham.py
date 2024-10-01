@@ -245,6 +245,9 @@ class Derham:
             if isinstance(fem_space, VectorFemSpace):
                 # We iterate over each component of the vector
                 for comp_space in fem_space.spaces:
+                    
+                    # nquads must be manually set (has been deprecated in psydac)
+                    comp_space._nquads = nquads
 
                     self._nbasis[sp_form] += [[]]
                     self._spline_types[sp_form] += [[]]
@@ -260,21 +263,12 @@ class Derham:
                     self._quad_grid_spans[sp_form] += [[]]
                     self._quad_grid_bases[sp_form] += [[]]
 
-                    comp_space_nquads = [nq * 2 - 1 for nq in nquads]
-                    # fem_space_nquads = [sp.degree for sp in fem_space.spaces] # Why can't we do this?
-
-                    # Compute extended 1D quadrature grids (local to process) along each direction
-                    # from l.111 in stefan-psydac/psydac/fem/tensor.py
-                    # Converting numpy.int64 --> int
-                    comp_space_quad_grids = tuple({2 * q - 1: FemAssemblyGrid(V,  int(s), int(e), nderiv=V.degree, nquads= 2 * q - 1)}
-                                    for V, s, e, q in zip( comp_space.spaces, comp_space.vector_space.starts, comp_space.vector_space.ends, self._nquads))
-
                     # space iterates over each of the spatial coordinates.
                     for d, (space, s, e, quad_grid, nquad) in enumerate(zip(comp_space.spaces,
                                                                             comp_space.vector_space.starts,
                                                                             comp_space.vector_space.ends,
-                                                                            comp_space_quad_grids,
-                                                                            comp_space_nquads)):
+                                                                            comp_space._quad_grids,
+                                                                            nquads)):
 
                         self._nbasis[sp_form][-1] += [space.nbasis]
                         self._spline_types[sp_form][-1] += [space.basis]
@@ -305,20 +299,15 @@ class Derham:
             # In this case we are working with a scalar valued space
             else:
 
-                fem_space_nquads = [nq * 2 - 1 for nq in nquads]
-                # fem_space_nquads = [sp.degree for sp in fem_space.spaces] # Why can't we do this?
-
-                # Compute extended 1D quadrature grids (local to process) along each direction
-                # from l.111 in stefan-psydac/psydac/fem/tensor.
-                # Converting numpy.int64 --> int
-                fem_space_quad_grids = tuple({2 * q - 1: FemAssemblyGrid(V,  int(s), int(e), nderiv=V.degree, nquads= 2 * q - 1)}
-                                  for V, s, e, q in zip( fem_space.spaces, fem_space.vector_space.starts, fem_space.vector_space.ends, self._nquads))
+                # nquads must be manually set (has been deprecated in psydac)
+                fem_space._nquads = nquads
+                
                 # space iterates over each of the spatial coordinates.
                 for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
                                                                         fem_space.vector_space.starts,
                                                                         fem_space.vector_space.ends,
-                                                                        fem_space_quad_grids,
-                                                                        fem_space_nquads)):
+                                                                        fem_space._quad_grids,
+                                                                        nquads)):
 
                     self._nbasis[sp_form] += [space.nbasis]
                     self._spline_types[sp_form] += [space.basis]
