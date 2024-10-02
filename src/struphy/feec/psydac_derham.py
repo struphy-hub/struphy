@@ -247,7 +247,7 @@ class Derham:
                 for comp_space in fem_space.spaces:
                     
                     # nquads must be manually set (has been deprecated in psydac)
-                    comp_space._nquads = nquads
+                    comp_space._nquads = self.nquads
 
                     self._nbasis[sp_form] += [[]]
                     self._spline_types[sp_form] += [[]]
@@ -268,7 +268,7 @@ class Derham:
                                                                             comp_space.vector_space.starts,
                                                                             comp_space.vector_space.ends,
                                                                             comp_space._quad_grids,
-                                                                            nquads)):
+                                                                            self.nquads)):
 
                         self._nbasis[sp_form][-1] += [space.nbasis]
                         self._spline_types[sp_form][-1] += [space.basis]
@@ -300,14 +300,14 @@ class Derham:
             else:
 
                 # nquads must be manually set (has been deprecated in psydac)
-                fem_space._nquads = nquads
-                
+                fem_space._nquads = self.nquads
+
                 # space iterates over each of the spatial coordinates.
                 for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
                                                                         fem_space.vector_space.starts,
                                                                         fem_space.vector_space.ends,
                                                                         fem_space._quad_grids,
-                                                                        nquads)):
+                                                                        self.nquads)):
 
                     self._nbasis[sp_form] += [space.nbasis]
                     self._spline_types[sp_form] += [space.basis]
