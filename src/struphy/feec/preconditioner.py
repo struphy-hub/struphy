@@ -858,7 +858,9 @@ class ProjectorPreconditioner(LinearOperator):
                 y = self._tmp_vectors[-1 - i]
                 A = self._I.multiplicants[-1 - i]
                 if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
-                    self.solver.solve(x, out=y, transposed=self._transposed)
+                    self.solver.solve(x, out=y)
+                    if self._transposed:
+                        self.solver.transpose()
                 else:
                     A.dot(x, out=y)
                 x = y
@@ -874,9 +876,10 @@ class ProjectorPreconditioner(LinearOperator):
                 
         else:
             if out is None:
-                out = self.solver.dot(rhs)#, transposed=self._transposed)
-            self.solver.dot(rhs, out=out)#, transposed=self._transposed)
-
+                out = self.solver.dot(rhs)
+            self.solver.dot(rhs, out=out)
+            if self._transposed:
+                self.solver.transpose()
         return out
     
     def dot(self, v, out=None):
