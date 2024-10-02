@@ -770,7 +770,9 @@ class ProjectorPreconditioner(LinearOperator):
         
         # save Kronecker solver (needed in solve method)
         self._solver = projector.projector_tensor.solver
-
+        if transposed:
+            self._solver = self.solver.transpose()
+        
         self._transposed = transposed
 
         # save inter-/histopolation matrix to be inverted
@@ -864,8 +866,6 @@ class ProjectorPreconditioner(LinearOperator):
                 A = self._I.multiplicants[-1 - i]
                 if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
                     self.solver.solve(x, out=y)
-                    if self._transposed:
-                        self.solver.transpose()
                 else:
                     A.dot(x, out=y)
                 x = y
@@ -883,8 +883,6 @@ class ProjectorPreconditioner(LinearOperator):
             if out is None:
                 out = self.solver.dot(rhs)
             self.solver.dot(rhs, out=out)
-            if self._transposed:
-                self.solver.transpose()
         return out
     
     def dot(self, v, out=None):
