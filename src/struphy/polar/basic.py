@@ -215,7 +215,8 @@ class PolarDerhamSpace(VectorSpace):
         """
         return PolarVector(self)
 
-
+    def axpy(self, a, x, y):
+        pass
 class PolarVector(Vector):
     """
     Element of a PolarDerhamSpace.
