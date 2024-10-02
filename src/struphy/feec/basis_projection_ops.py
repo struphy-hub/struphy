@@ -1052,7 +1052,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
                 _ptsG = [pts.flatten() for pts in _ptsG]
 
-                _Vnbases = [space.nbasis for space in V1d]
+                _Vnbases = [int(space.nbasis) for space in V1d]
 
                 # Evaluate weight function at quadrature points
                 # evaluate weight at quadrature points
