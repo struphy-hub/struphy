@@ -209,11 +209,16 @@ class MassMatrixPreconditioner(LinearOperator):
             blocks = [[matrixblocks[0], None, None],
                       [None, matrixblocks[1], None],
                       [None, None, matrixblocks[2]]]
-
+            
             self._matrix = BlockLinearOperator(
                 self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
+            
+            sblocks = [[solverblocks[0], None, None],
+                      [None, solverblocks[1], None],
+                      [None, None, solverblocks[2]]]
+
             self._solver = BlockLinearOperator(
-                self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
+                self._femspace.vector_space, self._femspace.vector_space, blocks=sblocks)
 
         # save mass operator to be inverted (needed in solve method)
         if apply_bc:
