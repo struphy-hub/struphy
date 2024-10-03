@@ -1,7 +1,122 @@
 from numpy import shape
 
-import psydac.core.arrays as arrays
+# import psydac.core.bsplines_kernels as arrays
+# env_psydac/lib/python3.11/site-packages/psydac/core/bsplines_kernels.py
+@pure
+def matmul(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
+    """
+    Performs the matrix-matrix product a*b and writes the result into c.
 
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (matrix).
+
+        b : array[float]
+            The second input array (matrix).
+
+        c : array[float]
+            The output array (matrix) which is the result of the matrix-matrix product a.dot(b).
+    """
+
+    sh_a = shape(a)
+    sh_b = shape(b)
+    
+    if sh_a[0] == 0 or sh_a[1] == 0 or sh_b[0] == 0 or sh_b[1] == 0:
+        c[:, :] = 0.
+    else:
+        c[:, :] = 0.
+        for i in range(sh_a[0]):
+            for j in range(sh_b[1]):
+                for k in range(sh_a[1]):
+                    c[i, j] += a[i, k] * b[k, j] 
+                
+                
+@pure
+def sum_vec(a: 'float[:]') -> float:
+    """
+    Sum the elements of a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1d vector.
+    """
+
+    out = 0.
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        out += a[i] 
+        
+    return out
+        
+        
+@pure
+def min_vec(a: 'float[:]') -> float:
+    """
+    Compute the minimum a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1D vector.
+    """
+
+    out = a[0]
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        if a[i] < out:
+            out = a[i] 
+            
+    return out
+
+
+@pure
+def max_vec(a: 'float[:]') -> float:
+    """
+    Compute the maximum a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1D vector.
+    """
+
+    out = a[0]
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        if a[i] > out:
+            out = a[i] 
+            
+    return out
+
+
+@pure
+def max_vec_int(a: 'int[:]') -> int:
+    """
+    Compute the maximum a 1D vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The 1D vector.
+    """
+
+    out = a[0]
+    
+    sh_a = shape(a)
+
+    for i in range(sh_a[0]):
+        if a[i] > out:
+            out = a[i] 
+            
+    return out
 # ===========================================================================================================
 #                                                   1d
 # ===========================================================================================================
@@ -210,8 +325,8 @@ def rhs2_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', 
 # =============================================================================                
 def rhs0_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', bsp11 : 'float[:,:]', bsp12 : 'float[:,:]', bsp21 : 'float[:,:]', bsp22 : 'float[:,:]', mat_eq : 'float[:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
     
-    nv1 = arrays.max_vec_int(indices1[3]) + 1
-    nv2 = arrays.max_vec_int(indices2[3]) + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[1]
@@ -240,8 +355,8 @@ def rhs11_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs1 : 'int[:]', s
         
     nq1 = shape(wts1)[1]
     
-    nv1 = arrays.max_vec_int(indices1[3]) + 1
-    nv2 = arrays.max_vec_int(indices2[3]) + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
     
     n1i = shape(bsp11)[2]
     n2i = shape(bsp21)[1]
@@ -275,8 +390,8 @@ def rhs12_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs2 : 'int[:]', s
         
     nq2 = shape(wts2)[1]
     
-    nv1 = arrays.max_vec_int(indices1[3]) + 1
-    nv2 = arrays.max_vec_int(indices2[3]) + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[2]
@@ -666,9 +781,9 @@ def rhs11_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
         
     nq1 = shape(wts1)[1]
     
-    nv1 = arrays.max_vec_int(indices1[3]) + 1
-    nv2 = arrays.max_vec_int(indices2[3]) + 1
-    nv3 = arrays.max_vec_int(indices3[3]) + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
+    nv3 = max_vec_int(indices3[3]) + 1
     
     n1i = shape(bsp11)[2]
     n2i = shape(bsp21)[1]
@@ -706,9 +821,9 @@ def rhs12_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
         
     nq2 = shape(wts2)[1]
     
-    nv1 = arrays.max_vec_int(indices1[3]) + 1
-    nv2 = arrays.max_vec_int(indices2[3]) + 1
-    nv3 = arrays.max_vec_int(indices3[3]) + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
+    nv3 = max_vec_int(indices3[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[2]
@@ -746,9 +861,9 @@ def rhs13_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
         
     nq3 = shape(wts3)[1]
     
-    nv1 = arrays.max_vec_int(indices1[3]) + 1
-    nv2 = arrays.max_vec_int(indices2[3]) + 1
-    nv3 = arrays.max_vec_int(indices3[3]) + 1
+    nv1 = max_vec_int(indices1[3]) + 1
+    nv2 = max_vec_int(indices2[3]) + 1
+    nv3 = max_vec_int(indices3[3]) + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[1]
