@@ -1,7 +1,6 @@
 from numpy import shape
+from pyccel.decorators import pure
 
-# import psydac.core.bsplines_kernels as arrays
-# env_psydac/lib/python3.11/site-packages/psydac/core/bsplines_kernels.py
 @pure
 def matmul(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
     """
