@@ -511,12 +511,12 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 matrixblocks += [KroneckerStencilMatrix(
                     self._femspace.vector_space, self._femspace.vector_space, *matrixcells)]
                 solverblocks += [KroneckerLinearSolver(
-                    self._femspace.vector_space, solvercells)]
+                    self._femspace.vector_space, self._femspace.vector_space, solvercells)]
             else:
                 matrixblocks += [KroneckerStencilMatrix(
                     self._femspace.vector_space[c], self._femspace.vector_space[c], *matrixcells)]
                 solverblocks += [KroneckerLinearSolver(
-                    self._femspace.vector_space[c], solvercells)]
+                    self._femspace.vector_space[c], self._femspace.vector_space[c], solvercells)]
 
         # build final matrix and solver
         if isinstance(self._femspace, TensorFemSpace):
