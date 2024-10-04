@@ -657,7 +657,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         # M^-1 ~ D^{-1/2} \hat D^{1/2} \hat M ^{-1} \hat D^{1/2} D^{-1/2}
         Dmr   = self._M_invsrqt_diag.dot(rhs, out=self._tmp_vector_no_bc[0])
         DhDmr = self._logM_srqt_diag.dot(Dmr, out=self._tmp_vector_no_bc[1])
-        invMr = self.solver.solve(DhDmr, out=self._tmp_vector_no_bc[0])
+        invMr = self.solver.dot(DhDmr, out=self._tmp_vector_no_bc[0])
         DhiMr = self._logM_srqt_diag.dot(invMr, out=self._tmp_vector_no_bc[1])
         out   = self._M_invsrqt_diag.dot(DhiMr, out=out)
 
