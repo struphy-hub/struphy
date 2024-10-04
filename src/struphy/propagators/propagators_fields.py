@@ -1226,7 +1226,7 @@ class CurrentCoupling6DDensity(Propagator):
 
             # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
             quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
 
             self._nh0_at_quad = self.domain.push(
                 self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
@@ -1468,7 +1468,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
@@ -1697,7 +1697,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
@@ -1989,7 +1989,7 @@ class CurrentCoupling5DDensity(Propagator):
 
         #     # evaluate and save f0.n / |det(DF)| at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
 
         #     self._n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)

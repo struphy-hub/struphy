@@ -51,12 +51,12 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
                          derham.Vh_fem['0'].vector_space.pads[2],
                          nel1, nel2, nel3,
                          nqs1, nqs2, nqs3,
-                         derham.Vh_fem['0']._quad_grids[0].weights,
-                         derham.Vh_fem['0']._quad_grids[1].weights,
-                         derham.Vh_fem['0']._quad_grids[2].weights,
-                         derham.Vh_fem['0']._quad_grids[0].points,
-                         derham.Vh_fem['0']._quad_grids[1].points,
-                         derham.Vh_fem['0']._quad_grids[2].points,
+                         derham.Vh_fem['0'].quad_grids[0].weights,
+                         derham.Vh_fem['0'].quad_grids[1].weights,
+                         derham.Vh_fem['0'].quad_grids[2].weights,
+                         derham.Vh_fem['0'].quad_grids[0].points,
+                         derham.Vh_fem['0'].quad_grids[1].points,
+                         derham.Vh_fem['0'].quad_grids[2].points,
                          *domain.args_map)
 
     return res

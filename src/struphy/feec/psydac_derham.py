@@ -267,7 +267,7 @@ class Derham:
                     for d, (space, s, e, quad_grid, nquad) in enumerate(zip(comp_space.spaces,
                                                                             comp_space.vector_space.starts,
                                                                             comp_space.vector_space.ends,
-                                                                            comp_space._quad_grids,
+                                                                            comp_space.quad_grids,
                                                                             self.nquads)):
 
                         self._nbasis[sp_form][-1] += [space.nbasis]
@@ -306,7 +306,7 @@ class Derham:
                 for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
                                                                         fem_space.vector_space.starts,
                                                                         fem_space.vector_space.ends,
-                                                                        fem_space._quad_grids,
+                                                                        fem_space.quad_grids,
                                                                         self.nquads)):
 
                     self._nbasis[sp_form] += [space.nbasis]
