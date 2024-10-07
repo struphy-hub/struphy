@@ -122,10 +122,10 @@ class VlasovAmpereOneSpecies(StruphyModel):
                        option=-1., dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -392,10 +392,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                        option=-1., dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -555,10 +555,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     .. math::
 
         \begin{align}
-            & \frac{\partial \mathbf{E}}{\partial t} = - \alpha^2 \kappa \mathbf{v} f_1 \,,
+            & \frac{\partial \mathbf{E}_1}{\partial t} = - \alpha^2 \kappa \mathbf{v} f_1 \,,
             \\[2mm]
-            & \frac{\partial f_1}{\partial t} + \mathbf{v} \cdot \, \nabla f_1 + \mathbf{E}_0 \cdot \frac{\partial f_1}{\partial \mathbf{v}}
-            = \frac{\kappa}{v_{\text{th}}^2} \, \mathbf{E} \cdot \mathbf{v} f_0 \,,
+            & \frac{\partial f_1}{\partial t} + \mathbf{v} \cdot \, \nabla f_1 + \kappa \left( \mathbf{E}_0 + \mathbf{v} \times \mathbf{B}_0 \right)
+            \cdot \frac{\partial f_1}{\partial \mathbf{v}} = \frac{\kappa}{v_{\text{th}}^2} \, \mathbf{E}_1 \cdot \mathbf{v} f_0 \,,
         \end{align}
 
     with the normalization parameter
@@ -609,6 +609,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
     2. :class:`~struphy.propagators.propagators_markers.PushVinEfield`
     3. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`
+    4. :class:`~struphy.propagators.propagators_markers.PushVxB`
 
     :ref:`Model info <add_model>`:
     """
@@ -631,9 +632,12 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushEta: ['species1'],
-                propagators_markers.PushVinEfield: ['species1'],
-                propagators_coupling.EfieldWeights: ['e_field', 'species1']}
+        return {
+            propagators_markers.PushEta: ['species1'],
+            propagators_markers.PushVinEfield: ['species1'],
+            propagators_coupling.EfieldWeights: ['e_field', 'species1'],
+            propagators_markers.PushVxB: ['species1'],
+        }
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -655,10 +659,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                        dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
 
@@ -692,10 +696,24 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.kappa = self.equation_params['species1']['kappa']
             self.alpha = self.equation_params['species1']['alpha']
 
+        # allocate memory for evaluating f0 in energy computation
+        self._f0_values = np.zeros(
+            self.pointer['species1'].markers.shape[0], dtype=float)
+
         # ====================================================================================
         # Create pointers to background electric potential and field
         self._phi_background = self.derham.Vh['0'].zeros()
         self._e_background = self.derham.grad.dot(self._phi_background)
+
+        # Get parameters of the background magnetic field
+        if self.mhd_equil is not None:
+            mhd_equil_type = params['mhd_equilibrium']['type']
+            mhd_equil_params = params['mhd_equilibrium'][mhd_equil_type]
+
+            # Create pointers to background magnetic field from mhd equilibrium
+            self._b_background = self.projected_mhd_equil.b2
+        else:
+            mhd_equil_params = None
         # ====================================================================================
 
         # propagator parameters
@@ -709,7 +727,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             'bc_type': self._electron_params['markers']['bc']['type']
         }
 
-        # Only add StepVinEfield if e-field is non-zero, otherwise it is more expensive
+        # Only add PushVinEfield if e-field is non-zero, otherwise it is more expensive
         if not np.all(self._e_background[0]._data < 1e-14) or not np.all(self._e_background[1]._data < 1e-14) or not np.all(self._e_background[2]._data < 1e-14):
             self._kwargs[propagators_markers.PushVinEfield] = {
                 'e_field': self._e_background,
@@ -724,6 +742,15 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             'f0': self._f0,
             'solver': params_coupling
         }
+
+        # Only add PushVxB if megnetic field is not zero
+        self._kwargs[propagators_markers.PushVxB] = None
+        if mhd_equil_params is not None:
+            if any(value != 0. for value in mhd_equil_params.values()):
+                self._kwargs[propagators_markers.PushVxB] = {
+                    'b_eq': self._b_background,
+                    'scale_fac': self.kappa,
+                }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -786,13 +813,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar('en_e', en_E)
 
         # evaluate f0
-        self.pointer['species1'].markers[:, self._first_free_idx] = self._f0(
-            self.pointer['species1'].markers[:, 0],
-            self.pointer['species1'].markers[:, 1],
-            self.pointer['species1'].markers[:, 2],
-            self.pointer['species1'].markers[:, 3],
-            self.pointer['species1'].markers[:, 4],
-            self.pointer['species1'].markers[:, 5],
+        self._f0_values[~self.pointer['species1'].holes] = self._f0(
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 0],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 1],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 2],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 3],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 4],
+            self.pointer['species1'].markers[~self.pointer['species1'].holes, 5],
         )
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
@@ -801,9 +828,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             np.dot(
                 self.pointer['species1'].markers_wo_holes[:, 6]**2,  # w_p^2
                 self.pointer['species1'].markers_wo_holes[:, 7] / \
-                self.pointer['species1'].markers[~self.pointer['species1'].holes, self._first_free_idx]  # s_{0,p} / f_{0,p}
+                self._f0_values[~self.pointer['species1']
+                                .holes]  # s_{0,p} / f_{0,p}
         )
-            
+
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum
         )
@@ -900,10 +928,10 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                        option={'use': False, 'epsilon': 1.}, dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
         from struphy.feec.projectors import L2Projector

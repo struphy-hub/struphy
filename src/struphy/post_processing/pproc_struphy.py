@@ -82,12 +82,12 @@ def main(path: str,
         point_data, grids_log, grids_phy = pproc.eval_femfields(
             path, fields, space_ids,
             celldivide=[celldivide, celldivide, celldivide])
-        
+
         if physical:
             point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
-            path, fields, space_ids,
-            celldivide=[celldivide, celldivide, celldivide],
-            physical=True)
+                path, fields, space_ids,
+                celldivide=[celldivide, celldivide, celldivide],
+                physical=True)
 
         # directory for field data
         path_fields = os.path.join(path_pproc, 'fields_data')
@@ -147,7 +147,8 @@ def main(path: str,
         # create vtk files
         pproc.create_vtk(path_fields, grids_phy, point_data)
         if physical:
-            pproc.create_vtk(path_fields, grids_phy, point_data_phy, physical=True)
+            pproc.create_vtk(path_fields, grids_phy,
+                             point_data_phy, physical=True)
 
     # kinetic post-processing
     if exist_kinetic is not None:

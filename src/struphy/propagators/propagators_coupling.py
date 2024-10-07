@@ -352,7 +352,7 @@ class EfieldWeights(Propagator):
     def __call__(self, dt):
 
         # evaluate f0 and accumulate
-        self._f0_values = self._f0(
+        self._f0_values[:] = self._f0(
             self.particles[0].markers[:, 0],
             self.particles[0].markers[:, 1],
             self.particles[0].markers[:, 2],
