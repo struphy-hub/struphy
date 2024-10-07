@@ -317,7 +317,7 @@ class MassMatrixPreconditioner(LinearOperator):
                 y = self._tmp_vectors[-1 - i]
                 A = self._M.multiplicants[-1 - i]
                 if isinstance(A, (StencilMatrix, BlockLinearOperator)):
-                    self.solver.solve(x, out=y)
+                    self.solver.dot(x, out=y)
                 else:
                     A.dot(x, out=y)
                 x = y
