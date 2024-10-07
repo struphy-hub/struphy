@@ -2216,8 +2216,8 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
-            np.round_(union_breaks, decimals=14))
+        tmp = set(np.round(space_1d.histopolation_grid, decimals=14)).union(
+            np.round(union_breaks, decimals=14))
 
         tmp = list(tmp)
         tmp.sort()
