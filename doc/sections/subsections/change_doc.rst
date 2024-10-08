@@ -14,8 +14,9 @@ To convert the tutorial notebooks to ``.html``, you need first to generate the d
 
     struphy test tutorials
 
-If you make changes to docstrings, the ``.rst`` files or the tutorial notebooks, 
-you can review them in your browser (e.g. firefox)::
+This run will take some time, but has to be executed only once.
+
+Changes to the documentation can be reviewed in the browser (e.g. firefox)::
 
     cd doc
     make html

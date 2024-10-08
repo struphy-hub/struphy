@@ -696,7 +696,7 @@ class Particles(metaclass=ABCMeta):
 
             if self.mpi_rank == 0:
                 file = h5py.File(
-                    self.marker_params['loading']['dir_markers'], 'r')
+                    self.marker_params['loading']['dir_external'], 'r')
                 print('Loading markers from file: '.ljust(25), file)
 
                 self._markers[:n_mks_load_cum_sum[0], :

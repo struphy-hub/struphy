@@ -199,7 +199,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @abstractmethod
     def update_scalar_quantities(self):
-        ''' Specify an update rule for each item in scalar_quantities using :meth:`update_scalar`.
+        ''' Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`.
         '''
         pass
 
@@ -553,7 +553,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def integrate(self, dt, split_algo='LieTrotter'):
         """
-        Advance the model by a time step dt.
+        Advance the model by a time step ``dt`` by sequentially calling its Propagators.
 
         Parameters
         ----------
