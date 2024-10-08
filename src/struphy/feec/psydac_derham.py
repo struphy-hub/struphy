@@ -2050,9 +2050,12 @@ class TransformedPformComponent:
         Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
 
     fun_basis : str
-        In which basis fun is represented: either a p-form, then '0' or '3' for scalar and 'v', '1' or '2' for vector-valued,
-        'physical' when defined on the physical (mapped) domain, and 'norm' when given in the normalized
-        contra-variant basis (:math:`\delta_i / |\delta_i|`).
+        In which basis fun is represented: either a p-form, 
+        then '0' or '3' for scalar 
+        and 'v', '1' or '2' for vector-valued,
+        'physical' when defined on the physical (mapped) domain, 
+        'physical_at_eta' when given the Cartesian components defined on the logical domain, 
+        and 'norm' when given in the normalized contra-variant basis (:math:`\delta_i / |\delta_i|`).
 
     out_form : str
         The p-form representation of the output: '0', '1', '2' '3' or 'v'.

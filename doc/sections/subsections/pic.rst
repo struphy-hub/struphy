@@ -15,10 +15,10 @@ PIC methods are efficient for the discretization of conservation laws of the for
     \\[2mm]
     f(t=0) &= f_\textnormal{in}\,,
 
-with :math:`\Omega` open and appropriate boundary conditions on :math:`\partial\Omega`.
+where :math:`\Omega\subset \mathbb R^n` open, some (curvilinear) cooridinates :math:`q \in \Omega` and appropriate boundary conditions on :math:`\partial\Omega`.
 Here, the solution :math:`f: \mathbb R \times \Omega \to \mathbb R^+` 
 is often called "distribution function", :math:`G(f)`
-is a (nonlinear) flux and :math:`S(f)` is a (nonlinear) source term. 
+is a (nonlinear) flow velocity, and :math:`S(f)` is a (nonlinear) source term. 
 Equation :math:numref:`conservelaw` can be re-written as 
 
 .. math::
@@ -42,14 +42,14 @@ are derived from the following principle:
 .. math::
     :label: pic:principle
 
-    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega (f - f_h)\, \phi\,\textrm d^n q = O(N^{-1/2}) \qquad \forall \ \phi \in C^\infty(\Omega)\,.
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega (f - f_h)\, \phi\,\textrm d q = O(N^{-1/2}) \qquad \forall \ \phi \in C^\infty(\Omega)\,.
 
 The time derivative of the :math:`f_h`-integral reads
 
 .. math::
     :label: int_fh
 
-    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f_h \phi\,\textrm d^n q &= \frac{\textrm{d}}{\textrm{d} t} \frac 1N \sum_{k=1}^N w_k\, \phi(q_k)
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f_h \phi\,\textrm d q &= \frac{\textrm{d}}{\textrm{d} t} \frac 1N \sum_{k=1}^N w_k\, \phi(q_k)
     \\[2mm]
     &= \frac 1N \sum_{k=1}^N \left[ \dot w_k\, \phi(q_k) + w_k\, \dot q_k \cdot \nabla_q \phi(q_k) \right]\,.
 
@@ -57,48 +57,56 @@ Assuming that boundary terms vanish, the time derivative of the :math:`f`-integr
 
 .. math::
 
-    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f \phi\,\textrm d^n q &= - \int_\Omega \nabla_q \cdot (G(f) \, f) \phi\,\textrm d^n q + \int_\Omega S(f) \phi\,\textrm d^n q
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f \phi\,\textrm d q &= - \int_\Omega \nabla_q \cdot (G(f) \, f) \phi\,\textrm d q + \int_\Omega S(f) \phi\,\textrm d q
     \\[2mm]
-    &= \int_\Omega  f\,G(f) \cdot \nabla_q \phi\,\textrm d^n q + \int_\Omega S(f) \phi\,\textrm d^n q
-    \\[2mm]
-    &= \int_\Omega  \frac fs\,G(f) \cdot \nabla_q \phi\,s\,\textrm d^n q + \int_\Omega \frac 1s S(f) \phi\,s \,\textrm d^n q
+    &= \int_\Omega  f\,G(f) \cdot \nabla_q \phi\,\textrm d q + \int_\Omega S(f) \phi\,\textrm d q \,.
+
+These integrals are now viewed as :ref:`monte_carlo` in the following way: 
+assume :math:`s: \mathbb R \times \Omega \to \mathbb R^+` 
+to be a time-dependent probability distribution function (PDF) on :math:`\Omega`, 
+and let :math:`\mathbb E(X)_s` denote the expectation value of a random variable :math:`X`
+distributed according to :math:`s`. Then,
+
+.. math::
+    
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f \phi\,\textrm d q &= \int_\Omega  \frac fs\,G(f) \cdot \nabla_q \phi\,s\,\textrm d q + \int_\Omega \frac 1s S(f) \phi\,s \,\textrm d q
     \\[2mm]
     &= \mathbb E\left(\frac fs\,G(f) \cdot \nabla_q \phi \right)_s + \mathbb E\left(\frac 1s S(f) \phi \right)_s\,.
 
-Here, :math:`s(t, q)` is a time-dependent probability distribution function (PDF) on :math:`\Omega`, 
-and :math:`\mathbb E(X)_s` denotes the expectation value of a random variable :math:`X`
-distributed according to :math:`s`. We can assume that the PDF :math:`s` satisfies the transport equation
+.. Here,  We can assume that the PDF :math:`s` satisfies the transport equation
 
-.. math::
-    :label: s_eq
+.. .. math::
+..     :label: s_eq
 
-    \partial_t s + G(f) \cdot \nabla_q s &= 0\,,
-    \\[2mm]
-    s(t=0) &= s_{\textnormal{in}}\,.
+..     \partial_t s + G(f) \cdot \nabla_q s &= 0\,,
+..     \\[2mm]
+..     s(t=0) &= s_{\textnormal{in}}\,.
 
-(note :math:`G(f)` and not :math:`G(s)`) which means that :math:`s` is constant along the characteristics 
+.. (note :math:`G(f)` and not :math:`G(s)`) which means that :math:`s` is constant along the characteristics 
 
-.. math::
-    :label: chars
+.. .. math::
+..     :label: chars
 
-    \dot q_k = G(f(q_k)) \qquad q_k(0) = q_{k0}\,.
+..     \dot q_k = G(f(q_k)) \qquad q_k(0) = q_{k0}\,.
 
-More clearly,
+.. More clearly,
 
-.. math::
+.. .. math::
 
-    s(q_k(t)) = s_{\textnormal{in}}(q_{k0})\,.
+..     s(q_k(t)) = s_{\textnormal{in}}(q_{k0})\,.
 
-If the :math:`q_{k0}` are drawn from :math:`s_{\textnormal{in}}` it means that the :math:`q_k(t)`
-are distributed according to :math:`s`. Therefore, at each time :math:`t` we can estimate 
+.. If the :math:`q_{k0}` are drawn from :math:`s_{\textnormal{in}}` it means that the :math:`q_k(t)`
+.. are distributed according to :math:`s`.
+
+At each time :math:`t` we can estimate 
 the above expectation values from the :math:`N` samples :math:`q_k`:
 
 .. math::
     :label: expectvals
 
-    \mathbb E\left(\frac fs\,G(f) \cdot \nabla_q \phi \right)_s &= \frac 1N \sum_{k=1}^N \frac{f(q_k)}{s(q_k)}\,G(f(q_k)) \cdot \nabla_q \phi(q_k) + O(N^{-1/2})\,,
+    \mathbb E\left(\frac fs\,G(f) \cdot \nabla_q \phi \right)_s &\approx \frac 1N \sum_{k=1}^N \frac{f(q_k)}{s(q_k)}\,G(f(q_k)) \cdot \nabla_q \phi(q_k) + O(N^{-1/2})\,,
     \\[2mm]
-    \mathbb E\left(\frac 1s S(f) \phi \right)_s &= \frac 1N \sum_{k=1}^N\frac{1}{s(q_k)}\,S(f(q_k)) \phi(q_k) + O(N^{-1/2})\,.
+    \mathbb E\left(\frac 1s S(f) \phi \right)_s &\approx \frac 1N \sum_{k=1}^N\frac{1}{s(q_k)}\,S(f(q_k)) \phi(q_k) + O(N^{-1/2})\,.
 
 We can compare this to equation :math:numref:`int_fh` and since equation :math:numref:`pic:principle` 
 holds for any :math:`\phi`, by comparing coefficients we deduce
@@ -109,23 +117,58 @@ holds for any :math:`\phi`, by comparing coefficients we deduce
     \\[2mm]
     \dot w_k &= \frac{1}{s(q_k)}\,S(f(q_k))\,.
 
-Moreover, we can define
+Let us define the weights to be
 
 .. math::
     :label: def:weights
 
-    w_k := \frac{f(q_k)}{s(q_k)} = \frac{f(q_k)}{s_{\textnormal{in}}(q_{k0})}\,.
+    w_k := \frac{f(q_k)}{s(q_k)} \,,
 
-Using this definition of the weights, we can say that the PIC solution :math:numref:`pic:ansatz` is obtained by solving
+and check under which circumstances the above time derivative :math:`\dot w_k` is consistent:
+
+.. math::
+
+    \dot w_k = \frac{\dot f(q_k)}{s(q_k)} - \frac{f(q_k)}{s(q_k)^2} \dot s(q_k) = \frac{1}{s(q_k)}\,S(f(q_k))\,.
+
+This implies
+
+.. math::
+
+    \dot s(q_k) = \frac{s(q_k)}{f(q_k)} \Big[ \dot f(q_k) - S(f(q_k)) \Big]\,.
+
+Since, from equation (1),  
+
+.. math::
+
+    \dot f(q_k) = S(f(q_k)) - f(q_k) \nabla_q \cdot G(f(q_k))\,,
+
+we deduce
+
+.. math::
+
+    \dot s(q_k) = - s(q_k) \nabla_q \cdot G(f(q_k)) \,.
+
+For incompressible flow, :math:`\nabla_q \cdot G = 0`, the PDF 
+:math:`s` satisfies the same equation as :math:`f`
+and is constant along the characteristics :math:`q_k`.
+In this case the PIC solution :math:numref:`pic:ansatz` is obtained by solving
 
 .. math::
     :label: pic:eqs
 
-    \dot q_k &= G(f(q_k)) \qquad &&q_k(0) = q_{k0}\,,
+    \dot q_k &= G(t, q_k, f(t=0, q_{k0})) \qquad &&q_k(0) = q_{k0}\,,
     \\[2mm]
-    \dot w_k &= \frac{1}{s_{\textnormal{in}}(q_{k0})}\,S(f(q_k))  \qquad &&w_k(0) = \frac{f_\textrm{in}(q_{k0})}{s_{\textrm{in}}(q_{k0})}\,,
+    \dot w_k &= \frac{1}{s(t=0, q_{k0})}\,S(f(t=0, q_{k0}))  \qquad &&w_k(0) = \frac{f(t=0, q_{k0})}{s(t=0, q_{k0})}\,,
 
-where the :math:`q_{k0}` are drawn according to the PDF :math:`s_{\textnormal{in}}`.
+where the :math:`q_{k0}` are drawn according to the PDF :math:`s(t=0)`.
+For compressible flow one has to solve
+
+.. math::
+    :label: pic:eqs:compressible
+
+    \dot q_k &= G(t, q_k, f(t, q_k)) \qquad &&q_k(0) = q_{k0}\,,
+    \\[2mm]
+    \dot w_k &= w_k\,\frac{1}{f(t, q_k)}\,S(f(t, q_k))  \qquad &&w_k(0) = \frac{f(t=0, q_{k0})}{s(t=0, q_{k0})}\,.
 
 PIC methods are popular for solving these types of equations because
 
