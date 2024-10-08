@@ -280,6 +280,11 @@ c_model_cronjob_tests:
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+  artifacts:
+    name: 'python-env-installed-2'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 c_tutorial_tests:
   stage: test
@@ -302,8 +307,7 @@ c_tutorial_tests:
 # Cron-job Fortran install, after c tests:
 fortran_cronjob_install:
   stage: test
-  needs: 
-    - job: c_model_cronjob_tests
+  needs: ["c_model_cronjob_tests"]
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
     - if: $CI_PIPELINE_SOURCE == "schedule"
@@ -313,7 +317,12 @@ fortran_cronjob_install:
     - struphy
     - pyccel --version
     - struphy compile --status
-    - struphy compile --language=fortran -y # compiles struphy, psydac with language fortran 
+    - struphy compile --language=fortran -y # compiles struphy, psydac with language fortran
+  artifacts:
+    name: 'python-env-installed-3'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 fortran_unit_tests:
   stage: test
