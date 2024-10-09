@@ -45,11 +45,6 @@ all: $(OUTPUTS)
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUTS)
-
-	rm -rf $(psydac_path)/__pyccel__ $(psydac_path)/__pycache__
-	rm -rf $(psydac_path)/core/__pyccel__ $(psydac_path)/core/__pycache__ $(psydac_path)/core/.lock_acquisition.lock
-	rm -rf $(psydac_path)/linalg/__pyccel__ $(psydac_path)/linalg/__pycache__ $(psydac_path)/linalg/.lock_acquisition.lock
-	rm -rf $(psydac_path)/feec/__pyccel__ $(psydac_path)/feec/__pycache__ $(psydac_path)/feec/.lock_acquisition.lock
     
 	find $(struphy_path)/ -type d -name '__pyccel__' -prune -exec rm -rf {} \;
 	find $(struphy_path)/ -type d -name '__pycache__' -prune -exec rm -rf {} \;
