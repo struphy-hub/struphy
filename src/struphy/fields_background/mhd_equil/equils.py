@@ -2115,14 +2115,10 @@ class GVECequilibrium(LogicalMHDequilibrium):
             units = {}
             units['x'] = 1.
             units['B'] = 1.
-            units['j'] = 1.
-            units['p'] = 1.
+            units['mu0'] = 1.25663706212e-6  # magnetic constant (N/A^2)
             units['n'] = 1e20
             warnings.warn(
                 f'{units = }, no rescaling performed in GVEC output.')
-        else:
-            warnings.warn('Units not imlemented for GVEC interface.')
-            # TODO: implement units, ask Florian
 
         self._units = units
 
@@ -2339,7 +2335,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        return self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
+        return self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/(self.units['B']**2 / self.units['mu0'])
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
@@ -2360,6 +2356,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
+        r = rmin + eta1*(1. - rmin)
+        return 0.1+(1.-r)*0.9
         # TODO: which density to set? Is proportional to pressure for the moment
         return 0.2 * self.p0(*etas)
 

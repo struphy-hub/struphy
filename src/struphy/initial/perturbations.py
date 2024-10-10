@@ -143,10 +143,13 @@ class ModesSin:
         self._pfuns = []
         for pfun, params in zip(pfuns, pfuns_params):
             if pfun == 'Id':
-                self._pfuns += [lambda eta3: 1.]
+                self._pfuns += [lambda eta1, eta2, eta3: 1.]
             elif pfun == 'localize':
-                self._pfuns += [lambda eta3:
+                self._pfuns += [lambda eta1, eta2, eta3:
                                 np.tanh((eta3 - 0.5)/params)/np.cosh((eta3 - 0.5)/params)]
+            elif pfun == 'localize_r':
+                self._pfuns += [lambda eta1, eta2, eta3:
+                                eta1**2*(1-eta1**2)]
             else:
                 raise ValueError(f'Profile function {pfun} is not defined..')
 
@@ -155,7 +158,7 @@ class ModesSin:
         val = 0.
 
         for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
-            val += amp*pfun(z)*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
+            val += amp*pfun(x,y,z)*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
                               np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
 
         return val

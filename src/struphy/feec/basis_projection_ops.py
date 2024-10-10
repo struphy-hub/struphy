@@ -797,7 +797,7 @@ class BasisProjectionOperator(LinOpWithTransp):
             self._V_boundary_op = V_boundary_op
         else:
             self._V_boundary_op = IdentityOperator(
-                self._V_extraction_op.domain)
+                self._V_extraction_op.codomain)
 
         self._weights = weights
         self._transposed = transposed

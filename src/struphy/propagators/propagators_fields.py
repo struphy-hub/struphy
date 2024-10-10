@@ -3017,6 +3017,7 @@ class VariationalDensityEvolve(Propagator):
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
+            V_extraction_op=self.derham.extraction_ops['3'],
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
 
         self.PirhoT = self.Pirho.T
@@ -3921,6 +3922,7 @@ class VariationalEntropyEvolve(Propagator):
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
+            V_extraction_op=self.derham.extraction_ops['3'],
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
 
         self.PisT = self.Pis.T
@@ -4656,6 +4658,7 @@ class VariationalMagFieldEvolve(Propagator):
                       [None, None, None],
                       [None, None, None]],
             transposed=False, use_cache=True,
+            V_extraction_op=self.derham.extraction_ops['2'],
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']))
 
         self.PibT = self.Pib.T
@@ -5464,8 +5467,8 @@ class VariationalResistivity(Propagator):
         self._tmp_sn1 = s.space.zeros()
         self._tmp_sn_incr = s.space.zeros()
         self._tmp_sn_weak_diff = s.space.zeros()
-        self._tmp_cb12 = self.derham.Vh['1'].zeros()
-        self._tmp_cb1 = self.derham.Vh['1'].zeros()
+        self._tmp_cb12 = self.derham.Vh_pol['1'].zeros()
+        self._tmp_cb1 = self.derham.Vh_pol['1'].zeros()
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_e_sn1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
