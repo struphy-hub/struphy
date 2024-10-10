@@ -365,7 +365,7 @@ def generate_batch_script(**kwargs):
         'ntasks_per_core': None,
         'cpus_per_task': None,
         'memory': '2GB',
-        'module_setup': "module load anaconda/3/2023.03 gcc/14 openmpi/4.1 likwid/5.3",
+        'module_setup': "module load anaconda/3/2023.03 gcc/14 openmpi/4.1 likwid/5.2",
         'likwid': False
     }
 
