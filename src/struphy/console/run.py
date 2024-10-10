@@ -5,7 +5,7 @@ def struphy_run(model,
                 output_abs=None,
                 batch=None,
                 batch_abs=None,
-                batch_auto='mpcdf',
+                batch_auto=None,
                 runtime=300,
                 save_step=1,
                 restart=False,
@@ -183,7 +183,7 @@ def struphy_run(model,
                     'time']
 
     # run in normal or debug mode
-    if batch_abs is None:
+    if batch_abs is None and batch_auto is None:
 
         if debug:
             print('\nLaunching main() in Cobra debug mode ...')
@@ -261,15 +261,22 @@ def struphy_run(model,
             sbatch_params = {
                 'raven':{
                     'ntasks_per_node': 72,
-                    'likwid': True,
-                }
+                    'likwid': likwid,
+                },
+                'cobra':{
+                    'ntasks_per_node': 72,
+                    'likwid': likwid,
+                },
+                'viper':{
+                    'ntasks_per_node': 4,
+                    'likwid': likwid,
+                },
             }
 
             batch_script = generate_batch_script(**sbatch_params[batch_auto])
-            print(batch_script)
-            exit()
-            # with open(batch_abs_new,'w') as f:
-            #     f.write()
+            #print(batch_script); exit()
+            with open(batch_abs_new,'w') as f:
+                f.write(batch_script)
         else:   
             shutil.copy2(batch_abs, batch_abs_new)
 
@@ -311,6 +318,14 @@ def struphy_run(model,
                        check=True, cwd=output_abs)
 
 
+
+def add_line(script, line, comment='', chars_until_comment=80):
+    if len(line) > chars_until_comment:
+        script += f"{line} # {comment}\n"
+    else:
+        script += f"{line} {' ' * (chars_until_comment - len(line))}# {comment}\n"
+    return script
+
 def generate_batch_script(**kwargs):
     """
     Generate a batch script for submitting jobs with SLURM.
@@ -345,12 +360,12 @@ def generate_batch_script(**kwargs):
         'ntasks_per_node': 72,
         'mail_user': "",
         'time': "00:45:00",
-        'activate_env': "/u/maxlin/NMPP/01_envs/env_struphy/bin/activate",
+        'activate_env': "~/git_repos/env_struphy_devel/bin/activate",
         'partition': None,
         'ntasks_per_core': None,
         'cpus_per_task': None,
         'memory': None,
-        'module_setup': "module load anaconda/3/2023.03 gcc/10 openmpi/4.1 likwid/5.2",
+        'module_setup': "module load anaconda/3/2023.03 gcc/14 openmpi/4.1 likwid/5.3",
         'likwid': False
     }
 
@@ -358,65 +373,70 @@ def generate_batch_script(**kwargs):
     params.update(kwargs)
 
     # Start generating the SLURM batch script
-    script = f"""#!/bin/bash
-#SBATCH -o {params['output_file']}                      # Standard output file
-#SBATCH -e {params['error_file']}                      # Standard error file
-#SBATCH -D ./                                          # Working directory
-#SBATCH -J job_struphy                                 # Job name
-"""
+    script = "#!/bin/bash\n"
+    script = add_line(script, f"#SBATCH -o {params['output_file']}", "Standard output file")
+    script = add_line(script, f"#SBATCH -e {params['error_file']}", "Standard error file")
+    script = add_line(script, "#SBATCH -D ./", "Working directory")
+    script = add_line(script, "#SBATCH -J job_struphy", "Job name")
 
     if params['partition']:
-        script += f"#SBATCH --partition={params['partition']}           # Partition\n"
-    script += f"#SBATCH --nodes={params['nodes']}                      # Number of compute nodes\n"
+        script = add_line(script, f"#SBATCH --partition={params['partition']}", "Partition")
+    script = add_line(script, f"#SBATCH --nodes={params['nodes']}", "Number of compute nodes")
+
     if params['ntasks_per_core']:
-        script += f"#SBATCH --ntasks-per-core={params['ntasks_per_core']}  # Number of tasks per core\n"
-    script += f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}  # Number of MPI processes per node\n"
+        script = add_line(script, f"#SBATCH --ntasks-per-core={params['ntasks_per_core']}", "Number of tasks per core")
+    script = add_line(script, f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}", "Number of MPI processes per node")
+
     if params['cpus_per_task']:
-        script += f"#SBATCH --cpus-per-task={params['cpus_per_task']}       # Number of CPUs per task\n"
+        script = add_line(script, f"#SBATCH --cpus-per-task={params['cpus_per_task']}", "Number of CPUs per task")
     if params['memory']:
-        script += f"#SBATCH --mem={params['memory']}                   # Memory allocation\n"
-    script += f"#SBATCH --mail-type=all                                # Send email notifications for all events\n"
-    script += f"#SBATCH --mail-user={params['mail_user']}              # Email address for notifications\n"
-    script += f"#SBATCH --time={params['time']}                        # Maximum runtime\n"
+        script = add_line(script, f"#SBATCH --mem={params['memory']}", "Memory allocation")
+    script = add_line(script, "#SBATCH --mail-type=all", "Send email notifications for all events")
+    script = add_line(script, f"#SBATCH --mail-user={params['mail_user']}", "Email address for notifications")
+    script = add_line(script, f"#SBATCH --time={params['time']}", "Maximum runtime")
+    script += "\n"
 
     # Activate environment
-    script += f"\n# Activate environment\nsource {params['activate_env']}                        # Activate the virtual environment\nmodule purge\n{params['module_setup']}                               # Load necessary modules\n"
+    script += "# Activate environment\n"
+    script = add_line(script, f"source {params['activate_env']}", "Activate the virtual environment")
+    script = add_line(script, "module purge", "Purge modules")
+    script = add_line(script, params['module_setup'], "Load necessary modules")
+    script += "\n"
 
     # Set up environment variables
-    script += """
+    script +=  "# Set up environment variables\n"
+    script = add_line(script, "# Set the number of OMP threads *per process* to avoid overloading of the node!", "")
+    script = add_line(script, "#export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK", "")
+    script = add_line(script, "# For pinning threads correctly", "")
+    script = add_line(script, "#export OMP_PLACES=cores", "")
+    script = add_line(script, "KMP_AFFINITY=scatter", "")
+    script += "\n"
 
-export PATH=/raven/u/maxlin/NMPP/01_envs/env_struphy/bin:$PATH
+    # Save hardware information
+    script +=  "# Save hardware information\n"
+    script = add_line(script, "misc=\"misc_$SLURM_JOB_ID\"", "")
+    script = add_line(script, "mkdir -p $misc", "")
+    script = add_line(script, "module list > \"$misc/module_list.txt\"", "Save loaded modules")
+    script = add_line(script, "echo $OMP_NUM_THREADS > \"$misc/OMP_NUM_THREADS.txt\"", "Save OMP_NUM_THREADS value")
+    script = add_line(script, "printenv > \"$misc/printenv.txt\"", "Save environment variables")
+    script = add_line(script, "cp $0 $misc/", "Save a copy of the batch script")
+    script += "\n"
 
-# Set the number of OMP threads *per process* to avoid overloading of the node!
-#export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-
-# For pinning threads correctly
-#export OMP_PLACES=cores
-KMP_AFFINITY=scatter
-
-# Save hardware information
-misc="misc_$SLURM_JOB_ID"
-mkdir -p $misc
-module list > "$misc/module_list.txt"                # Save loaded modules
-echo $OMP_NUM_THREADS > "$misc/OMP_NUM_THREADS.txt"  # Save OMP_NUM_THREADS value
-printenv > "$misc/printenv.txt"                      # Save environment variables
-cp $0 $misc/                                         # Save a copy of the batch script
-
-# Save SLURM-specific environment variables
-for var in $(env | grep ^SLURM_ | cut -d= -f1); do
-    echo "$var=${{!var}}">>"$misc/SLURM_VARIABLES.txt"
-done
-"""
+    # Save SLURM-specific environment variables
+    script +=  "# Save SLURM-specific environment variables\n"
+    script = add_line(script, "for var in $(env | grep ^SLURM_ | cut -d= -f1); do", "Loop through SLURM variables")
+    script = add_line(script, "    echo \"$var=${!var}\" >> \"$misc/SLURM_VARIABLES.txt\"", "Save SLURM variable")
+    script = add_line(script, "done", "End of SLURM variable loop")
+    script += "\n"
 
     # Add LIKWID-related commands if requested
     if params['likwid']:
-        likwid_section = """
-LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
-export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
-
-likwid-topology > "$misc/likwid-topology.txt"         # Save LIKWID topology information
-likwid-topology -g > "$misc/likwid-topology-g.txt"   # Save extended LIKWID topology information
-"""
+        likwid_section = "# Add LIKWID-related commands\n"
+        likwid_section = add_line(likwid_section, "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)", "Set LIKWID prefix")
+        likwid_section = add_line(likwid_section, "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib", "Update LD_LIBRARY_PATH for LIKWID")
+        likwid_section = add_line(likwid_section, "likwid-topology > \"$misc/likwid-topology.txt\"", "Save LIKWID topology information")
+        likwid_section = add_line(likwid_section, "likwid-topology -g > \"$misc/likwid-topology-g.txt\"", "Save extended LIKWID topology information")
         script += likwid_section
+        script += "\n"
 
     return script

@@ -235,7 +235,6 @@ def struphy():
     parser_run.add_argument('-ba', '--batch-auto',
                             type=str,
                             choices=['raven', 'cobra', 'viper'],
-                            metavar='FILE',
                             help='Auto batch script', )
 
     parser_run.add_argument('--runtime',
