@@ -2055,9 +2055,18 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
 
 class GVECequilibrium(LogicalMHDequilibrium):
-    """
+    r"""
     Numerical equilibrium via an interface to `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
+    Density profile set to 
+
+    .. math::
+        n(r)= \left\{\begin{aligned}
+        \ n_0 * p(r) \quad &&\textnormal{if density_profile = 'pressure'}\,,
+
+        \ n_1+(1-(\frac{r}{a})^2)*(n_0-n_1) \quad &&\textnormal{if density_profile = 'parabolic'}\,, 
+        \end{aligned}\right. \,.
+        
     Parameters
     ----------
     units : dict
@@ -2078,7 +2087,12 @@ class GVECequilibrium(LogicalMHDequilibrium):
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
-
+    density_profile : str
+        'parabolic' for a parabolic density profile or 'pressure' for a density profile proportional to pressure
+    n0 : float
+        shape factor for ion number density profile (default: 0.2).
+    n1 : float
+        shape factor for ion number density profile (default: 0.).
     Note
     ----
     In the parameter .yml, use the following in the section `mhd_equilibrium`::
@@ -2094,6 +2108,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
                 rmin : 0.0 # radius of domain hole around magnetic axis.
                 Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
                 p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+                density_profile : 'pressure'
+                n0 : 0.2
+                n1 : 0.
     """
 
     def __init__(self, units=None, **params):
@@ -2129,7 +2146,10 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           'use_nfp': True,
                           'rmin': 0.01,
                           'Nel': (16, 16, 16),
-                          'p': (3, 3, 3), }
+                          'p': (3, 3, 3),
+                          'density_profile': 'pressure',
+                          'n0': .2,
+                          'n1': 0. }
 
         self._params = set_defaults(params, params_default)
 
@@ -2357,9 +2377,12 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         rmin = self._params['rmin']
         r = rmin + eta1*(1. - rmin)
-        return 0.1+(1.-r)*0.9
-        # TODO: which density to set? Is proportional to pressure for the moment
-        return 0.2 * self.p0(*etas)
+        if self._params['density_profile'] == 'pressure':
+            return self._params['n0'] * self.p0(*etas)
+        elif self._params['density_profile'] == 'parabolic':
+            return self._params['n1']+(1.-r**2)*(self._params['n0']-self._params['n1'])
+        else:
+            raise ValueError('wrong type of density profile for GVEC equilibrium')
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
