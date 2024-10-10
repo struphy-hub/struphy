@@ -10,7 +10,19 @@ class ModesSin:
 
     .. math::
 
-        u(x, y, z) = \sum_{s} A_s \sin \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
+        u(x, y, z) =  \sum_{s} \chi_s(z) A_s \sin \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z + \theta_s \right) \,.
+
+    where :math:`\chi_s(z)` is one of
+
+    .. math::
+
+        \chi_s(z) = \left\{ 
+        \begin{aligned}
+        1\,,
+        \\[2mm]
+         \tanh((z - 0.5)/\delta)/\cosh((z - 0.5)/\delta)\,, 
+        \end{aligned}
+        \right.
 
     Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3` 
     and :math:`L_x=L_y=L_z=1.0` (default).
@@ -28,12 +40,19 @@ class ModesSin:
                 ls : 
                     scalar_name: [1, 3] # two x-modes for scalar variable
                     vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable            
+                theta :
+                    scalar_name: [0, 3.1415] 
+                    vector_name: [null, [0, 0], [1.5708]]
+                pfuns :
+                    vector_name: [null, ['localize'], ['Id']]
+                pfuns_params
+                    vector_name: [null, ['0.1'], [0.]]
                 Lx : 7.853981633974483 
                 Ly : 1.                
                 Lz : 1.               
     '''
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], theta=None, pfuns=['Id'], pfuns_params = [0.], Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
@@ -48,6 +67,17 @@ class ModesSin:
 
         amps : list
             Amplitude of each mode.
+
+        theta : list
+            Phase of each mode
+
+        pfuns : list[str]
+            "Id" or "localize" define the profile functions.
+            localize multiply the sinus by :math: `tanh((\eta_3 - 0.5)/\delta)/cosh((\eta_3 - 0.5)/\delta)`
+            to localize it around 0.5. :math: `\delta` is given by the input parameter pfuns_params
+
+        pfuns_params : list
+            The parameter needed by the profile function
 
         Lx, Ly, Lz : float
             Domain lengths.
@@ -83,6 +113,24 @@ class ModesSin:
         else:
             assert len(amps) == n_modes
 
+        if theta is None:
+            theta = [0]*n_modes
+
+        if len(theta) == 1:
+            theta = [theta[0]]*n_modes
+        else:
+            assert len(theta) == n_modes
+
+        if len(pfuns) ==1:
+            pfuns = [pfuns[0]]*n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if len(pfuns_params) ==1:
+            pfuns_params = [pfuns_params[0]]*n_modes
+        else:
+            assert len(pfuns_params) == n_modes
+
         self._ls = ls
         self._ms = ms
         self._ns = ns
@@ -90,14 +138,25 @@ class ModesSin:
         self._Lx = Lx
         self._Ly = Ly
         self._Lz = Lz
+        self._theta = theta
+
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfuns_params):
+            if pfun == 'Id':
+                self._pfuns += [lambda eta3: 1.]
+            elif pfun == 'localize':
+                self._pfuns += [lambda eta3:
+                                np.tanh((eta3 - 0.5)/params)/np.cosh((eta3 - 0.5)/params)]
+            else:
+                raise ValueError(f'Profile function {pfun} is not defined..')
 
     def __call__(self, x, y, z):
 
         val = 0.
 
-        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
-                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
+        for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
+            val += amp*pfun(z)*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
+                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
 
         return val
 
@@ -233,7 +292,7 @@ class TorusModesSin:
                 comps :
                     n3 : null                     # choices: null, 'physical', '0', '3'
                     u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    p3 : H1                       # choices: null, 'physical', '0', '3'
+                    p3 : '0'                      # choices: null, 'physical', '0', '3'
                 ms : 
                     n3: null            # poloidal mode numbers
                     u2: [[0], [0], [0]] # poloidal mode numbers

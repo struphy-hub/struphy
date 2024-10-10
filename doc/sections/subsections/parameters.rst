@@ -39,7 +39,7 @@ species types ``em_fields``, ``fluid`` and ``kinetic`` must be present
 in each model, relating to the model variable(s). An ``mhd_equilibrium``
 is not mandatory.
 
-The structure of the dictionaries under one of the 8 top-level keys
+The structure of the dictionaries under each of the 8 top-level keys
 is discussed below. Special information is available on how to set :ref:`initial_conditions`
 and :ref:`boundary_conditions`. 
 
@@ -58,50 +58,164 @@ Some hints for editing a parameter file:
 Space grid parameters
 ^^^^^^^^^^^^^^^^^^^^^
 
-See :ref:`boundary_conditions` for how to set boundary conditions.
+Struphy uses a tensor-product grid in three dimensions for space discretization.
+
+Example:
 
 ::
 
     grid :
-        Nel          : [12, 14, 4] # number of grid cells, >p
-        p            : [3, 4, 2]  # spline degree
-        spl_kind     : [False, True, True] # spline type: True=periodic, False=clamped
-        dirichlet_bc : [[False, False], [False, False], [False, False]] # hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
-        dims_mask    : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
-        nq_el        : [2, 2, 2] # quadrature points per grid cell
-        nq_pr        : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
-        polar_ck     : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+        Nel          : [12, 14, 4] 
+        p            : [3, 4, 2]  
+        spl_kind     : [False, True, True] 
+        dirichlet_bc : [[False, False], [False, False], [False, False]] 
+        dims_mask    : [True, True, True] 
+        nq_el        : [2, 2, 2] 
+        nq_pr        : [2, 2, 2] 
+        polar_ck     : -1 
+
+Parameters:
+
+.. list-table:: 
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``Nel``
+     - Number of elements (grid cells) in each direction.
+     - 3-list[int]
+     - 
+   * - ``p``
+     - Spline degree in each direction.
+     - 3-list[int]
+     -
+   * - ``spl_kind``
+     - Kind of spline in each direction (see :ref:`uni_variate_spaces`).
+     - 3-list[bool]
+     - * ``True``: periodic
+       * ``False``: clamped
+   * - ``dirichlet_bc``
+     - Homogeneous Dirichlet boundary conditions at left and/or right boundary in each direction.
+     - 3-list[2-list[int]]
+     - * ``True``: yes
+       * ``False``: no
+       * See :ref:`feec_bcs` for how to set boundary conditions.
+   * - ``dims_mask``
+     - Allow domain decomposition of direction.
+     - 3-ist[bool]
+     - * ``True``: yes
+       * ``False``: no
+   * - ``nq_el``
+     - Number of quadrature points per element (e.g. for L2-projections) in each direction.
+     - List[int]
+     -
+   * - ``nq_pr``
+     - Quadrature points between Greville points (for commuting projectors) in each direction. 
+     - List[int]
+     -
+   * - ``polar_ck``
+     - :math:`C^k` smoothness of B-splines at polar singularity :math:`\eta_1=0` for polar geometries.
+     - int
+     - * ``-1``: standard tensor product, not continuous at pole
+       * ``1``: use :math:`C^1` :ref:`polar_splines`
+
+These paramters are primarily used to instantiate :class:`struphy.feec.psydac_derham.Derham`.
+
 
 .. _time:
 
 Time stepping parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+Example:
+
 ::
 
     time :
-        dt         : 0.005 # time step
-        Tend       : 0.015 # simulation time interval is [0, Tend]
-        split_algo : LieTrotter # LieTrotter | Strang
+        dt         : 0.005 
+        Tend       : 0.015 
+        split_algo : LieTrotter 
+
+Parameters:
+
+.. list-table:: 
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``dt``
+     - Time step in units given by a model's :ref:`normalization` (inspect via ``struphy units -i <params_file> MODEL`` from the console). 
+     - float
+     -
+   * - ``Tend``
+     - End time in same units as ``dt``.
+     - float
+     -
+   * - ``split_algo``
+     - Time splitting algorithm
+     - str
+     - * ``LieTrotter``: first order
+       * ``Strang``: second order, symmetric
+
 
 .. _units:
 
 Units
 ^^^^^
 
+Example:
+
 ::
 
     units : 
-        x : 1. # length scale unit in Meter (m)
-        B : 1. # magnetic field unit in Tesla
-        n : 1. # number density unit in 10^20 m^(-3)
+        x : 1.  
+        B : 1. 
+        n : 1. 
+        kBT : 1. 
+
+Parameters:
+
+.. list-table:: 
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``x``
+     - Length scale unit in Meter (m).
+     - float
+     -
+   * - ``B``
+     - Magnetic field unit in Tesla (T).
+     - float
+     -
+   * - ``n``
+     - Number density unit in :math:`10^{20}\ m^{-3}`.
+     - float
+     -
+   * - ``kBT`` (optional)
+     - Thermal energy unit in keV (optional).
+     - float
+     -
+
+Theses base units are used to derive all other units via :func:`struphy.io.setup.derive_units`.
+See also :ref:`normalization` for details.
+
 
 .. _geometry:
 
 Geometry
 ^^^^^^^^
 
-See :ref:`avail_mappings` for possible geometry ``type``.
+Example:
 
 ::
 
@@ -109,14 +223,32 @@ See :ref:`avail_mappings` for possible geometry ``type``.
         type : Cuboid 
         Cuboid : {}
 
-The empty dictionary means that ``Cuboid`` is instantiated with its default parameters.
+Parameters:
+
+.. list-table:: 
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - The mapping :math:`F:[0, 1]^3 \to \Omega` (its class name ``<mapping_class>``). 
+     - str
+     - See :ref:`avail_mappings`.
+   * - ``<mapping_class>``
+     - Parameters for the chosen mapping. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`avail_mappings`.
+
 
 .. _mhd_equilibrium:
 
 MHD equilibrium
 ^^^^^^^^^^^^^^^
 
-See :ref:`mhd_equil` for possible MHD equilibrium ``type``.
+Example:
 
 ::
 
@@ -124,7 +256,25 @@ See :ref:`mhd_equil` for possible MHD equilibrium ``type``.
         type : HomogenSlab 
         HomogenSlab : {}
 
-The empty dictionary means that ``HomogenSlab`` is instantiated with its default parameters.
+Parameters:
+
+.. list-table:: 
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - The MHD equilibrium (its class name ``<equil_class>``).
+     - str
+     - See :ref:`mhd_equil_avail`.
+   * - ``<equil_class>``
+     - Parameters for the chosen equilibrium. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`mhd_equil_avail`.
+
 
 .. _em_fields:
 
@@ -132,7 +282,8 @@ Electromagnetic fields
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Initial conditions are the sum of ``background`` + ``perturbation``, see :ref:`initial_conditions`.
-Check out :ref:`fluid_backgrounds` and :ref:`avail_inits` for available ``type``, respectively.
+
+Example:
 
 ::
 
@@ -141,89 +292,193 @@ Check out :ref:`fluid_backgrounds` and :ref:`avail_inits` for available ``type``
             type : LogicalConst
             LogicalConst :
                 comps :
-                    potential_name : 1.3 # scalar-valued variable
-                    field_name : [.3, .15, null] # vector-valued variable
+                    phi : 1.3 
+                    A : [.3, .15, null] 
         perturbation :
             type : TorusModesCos
             TorusModesCos :
-                comps : # components to be initialized
-                    potential_name : '0' # perturbation function given as 0-form 
-                    field_name : [null, 'v', null] # second component given as vector field, others zero
-                ms : # poloidal mode numbers
-                    potential_name : [1] # one poloidal mode
-                    field_name : [null, [1, 3], null] # two poloidal modes for the second component 
+                comps :
+                    phi : '0' 
+                    A : [null, 'v', null] 
+                ms : 
+                    phi : [1] 
+                    A : [null, [1, 3], null] 
+
+Parameters:
+
+.. list-table:: ``background``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - A static background (its class name ``<bckgr_class>``).
+     - str
+     - See :ref:`fluid_backgrounds`.
+   * - ``<bckgr_class>``
+     - Parameters for the static background. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`fluid_backgrounds`.
+
+.. list-table:: ``perturbation``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - An initial perturbation (its class name ``<perturb_class>``).
+     - str
+     - See :ref:`avail_inits`.
+   * - ``<perturb_class>``
+     - Parameters for the initial perturbation. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`avail_inits`.
+
+
+
 .. _fluid:
 
 Fluid variables
 ^^^^^^^^^^^^^^^
 
-``phys_params`` provides the mass and charge number of the fluid species.
+There can be multiple ``fluid`` species in a Struphy model,
+each of which has its paramaters under a key ``<species_name>``.
+For each species, there are
 
-Initial conditions are the sum of ``background`` + ``perturbation``, see :ref:`initial_conditions`.
-Check out :ref:`fluid_backgrounds` and :ref:`avail_inits` for available ``type``, respectively.
+* physical parameters ``phys_params``,
+* initial conditions as the sum of ``background`` + ``perturbation``, see :ref:`initial_conditions`.
+
+Example (one fluid species):
 
 ::
 
     fluid :
-        species_name :
+        <species_name> :
             phys_params:
-                A : 1 # mass number in units of proton mass
-                Z : 1 # signed charge number in units of elementary charge
+                A : 1 
+                Z : 1 
             background: 
                 type : LogicalConst
                 LogicalConst :
                     comps :
-                        var_name : [null, 1.5, null] # vector-valued variable
-                        another_var_name : 2.3 # scalar-valued variable
+                        velocity : [null, 1.5, null] 
+                        density : 2.3 
             perturbation :
                 type : TorusModesCos
                 TorusModesCos :
                     comps :
-                        var_name : '0' # perturbation function given as 0-form 
-                    ms : # poloidal mode numbers
-                        var_name : [1, 3] # two poloidal modes
+                        density : '0' 
+                    ms : 
+                        density : [1, 3] 
+
+Parameters:
+
+.. list-table:: ``phys_params``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``A``
+     - Mass number in units of proton mass.
+     - float
+     - :math:`A=1/1836` for electrons.
+   * - ``Z``
+     - Signed charge number in units of elementary charge.
+     - int
+     - :math:`Z=-1` for electrons.
+
+.. list-table:: ``background``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - A static fluid background (its class name ``<bckgr_class>``).
+     - str
+     - See :ref:`fluid_backgrounds`.
+   * - ``<bckgr_class>``
+     - Parameters for the static fluid background. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`fluid_backgrounds`.
+
+.. list-table:: ``perturbation``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - An initial perturbation (its class name ``<perturb_class>``).
+     - str
+     - See :ref:`avail_inits`.
+   * - ``<perturb_class>``
+     - Parameters for the initial perturbation. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`avail_inits`.
 
 .. _kinetic:
 
 Kinetic variables
 ^^^^^^^^^^^^^^^^^
 
-``phys_params`` provides the mass and charge number of the kinetic species.
 
-``markers`` provides all sorts of information for the marker (particle) initialization and boundary conditions.
+There can be multiple ``kinetic`` species in a Struphy model,
+each of which has its paramaters under a key ``<species_name>``.
+For each species, there are
 
-``save_data`` allows one to choose the particle binning options (under ``f``) and single particle tracking.
+* physical parameters ``phys_params``,
+* information on the ``markers``,
+* parameters for saving kinetic data ``save_data``,
+* initial conditions as the sum of ``background`` + ``perturbation``, see :ref:`initial_conditions`.
 
-Initial conditions are the sum of ``background`` + ``perturbation``, see :ref:`initial_conditions`.
-Check out :ref:`kinetic_backgrounds` and :ref:`avail_inits` for available ``type``, respectively.
+For ``kinetic`` species, the ``background`` is mandatory.
+
+Example (one kinetic species):
 
 ::
 
     kinetic :
-        species_name :
+        <species_name> :
             phys_params :
-                A : 1  # mass number in units of proton mass
-                Z : 1 # signed charge number in units of elementary charge
+                A : 1
+                Z : 1
             markers :
-                type    : full_f # full_f, control_variate, or delta_f
-                ppc     : null  # number of markers per 3d grid cell
-                Np      : 1000 # alternative if ppc = null, total number of markers
-                eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+                type    : full_f 
+                ppc     : null 
+                Np      : 1000
+                eps     : .25
                 bc : 
-                    type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+                    type    : [remove, periodic, periodic] 
+                    remove  : boundary_transfer
                 loading :
-                    type          : pseudo_random # particle loading mechanism 
-                    seed          : 1234 # seed for random number generator
-                    moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                    spatial       : uniform # uniform or disc
-                    dir_particles : 'path_to_particles' # directory of particles if loaded externally
+                    type              : pseudo_random
+                    seed              : 1234 
+                    moments           : [0., 0., 0., 1., 1., 1.] 
+                    spatial           : uniform
+                    dir_external      : 'path_to_particles' 
+                    dir_particles     : 'path_to_particles' 
+                    dir_particles_abs : 'path_to_particles' 
             save_data :
-                n_markers : 3 # number of markers to be saved during simulation
+                n_markers : 3
                 f :
-                    slices : [v1, e1_v1] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
-                    n_bins : [[32], [32, 32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
-                    ranges : [[[-3., 3.]], [[0., 1.], [-5., 5.]]] # bin range in each direction (e.g. [[[0., 1.], [0., 1.]], [[-3., 3.], [-4., 4.], [-5., 5.]]])
-            background : # background is mandatory for kinetic species
+                    slices : [v1, e1_v1]
+                    n_bins : [[32], [32, 32]]
+                    ranges : [[[-3., 3.]], [[0., 1.], [-5., 5.]]]
+            background : 
                 type : Maxwellian3D
                 Maxwellian3D :
                     n  : 0.05
@@ -232,6 +487,138 @@ Check out :ref:`kinetic_backgrounds` and :ref:`avail_inits` for available ``type
                 type : TorusModesCos
                 TorusModesCos :
                     comps :
-                        n : '0' # perturbation function given as 0-form 
+                        n : '0' 
                     ms : # poloidal mode numbers
-                        n : [1, 3] # two poloidal modes for the density
+                        n : [1, 3] 
+
+Parameters:
+
+.. list-table:: ``phys_params``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``A``
+     - Mass number in units of proton mass.
+     - float
+     - :math:`A=1/1836` for electrons.
+   * - ``Z``
+     - Signed charge number in units of elementary charge.
+     - int
+     - :math:`Z=-1` for electrons.
+
+.. list-table:: ``markers``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - Type of marker discretization.
+     - str
+     - * ``full_f``: solve PDE for full-:math:`f`
+       * ``control_variate``: solve PDE for full-:math:`f`, compute integrals with :ref:`control_var`
+       * ``delta_f``: solve PDE for :math:`\delta f = f - f_0` (update weights)
+   * - ``ppc``
+     - Number of markers per 3d grid cell.
+     - int
+     - If ``null``, ``Np`` is used.
+   * - ``Np``
+     - Total number of markers.
+     - int
+     - Takes effect only if ``ppc`` is ``null``.
+   * - ``eps``
+     - Size of MPI-buffer in markers array as fraction of markers per process (0.1 <= eps <= 1.0).
+     - float
+     - 
+   * - ``bc``
+     - Marker boundary conditions. See :meth:`struphy.pic.base.Particles.apply_kinetic_bc`.
+     - dict
+     - * ``type`` (3-list[str]): marker boundary conditions in each logical direction.
+     
+         * ``remove``: markers outside of :math:`\Omega` are removed or re-filled.
+         * ``reflect``: markers are reflected at :math:`\partial \Omega`.
+         * ``periodic``: markers re-enter at other side.
+       * ``remove`` (str): re-fills markers in radial direction on same flux surface if ``type`` is ``remove``.
+
+         * ``boundary_transfer``:  when particles reach the INNER radial boundary, transfer them to the opposite poloidal angle of the same magnetic flux surface.
+         * ``particle_refilling``: when particles reach the OUTER radial boundary, transfer them to the opposite poloidal angle of the same magnetic flux surface.
+   * - ``loading``
+     - How to load random markers.
+     - dict
+     - * ``type`` (str): particle loading mechanism, see :meth:`struphy.pic.base.Particles.draw_markers`.
+
+         * ``pseudo_random`` load markers with standard random generator ``np.random.rand``.
+         * ``sobol_standard`` load Sobol sequence, see :module:`struphy.pic.sobol_seq`.
+         * ``sobol_antithetic`` load Sobol sequence, see :module:`struphy.pic.sobol_seq`.
+         * ``external``: load markers from external .hdf5 file specified in ``dir_external``.
+         * ``restart``: load markers from stopped simulation in folder ``dir_particles`` or ``dir_particles_abs``.
+       * ``seed`` (int): seed for random number generator ``np.random.rand``.
+       * ``moments`` (list): mean velocity and standard deviation of Gaussian that markers are drawn from, see :meth:`struphy.pic.base.Particles.draw_markers`.
+       * ``spatial`` (str): uniformity of markers in position space.
+         
+         * ``uniform``: markers are uniform on the logical unit cube.
+         * ``disc``: markers are uniform on the disc :math:`(\eta_1, \eta_2) \mapsto (r, \theta)`.
+       * optional: ``dir_external`` (str): path to .hdf5 file
+       * optional: ``dir_particles`` (str): simulation folder relative to current output path 
+       * optional: ``dir_particles_abs`` (str): simulation folder, absolute path
+
+
+.. list-table:: ``save_data``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``n_markers``
+     - Number of markers to be saved during simulation. Markers with an ID less than ``n_markers`` are saved.
+     - int
+     - 
+   * - ``f``
+     - Binning plots of the distribution function in phase space.
+     - dict
+     - * ``slices`` (list): in which directions to bin (e.g. ``[e1_e2, e1_v2_v3]``)
+       * ``n_bins`` (list): number of bins in each slice-direction (e.g. ``[[16, 20], [16, 18, 22]]``)
+       * ``ranges`` (list): bin range in each slice-direction (e.g. [[[0., 1.], [0., 1.]], [[0, 1.], [-4., 4.], [-5., 5.]]])
+
+
+.. list-table:: ``background``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - A MANDATORY static kinetic background (its class name ``<bckgr_class>``).
+     - str
+     - See :ref:`kinetic_backgrounds`.
+   * - ``<bckgr_class>``
+     - Parameters for the static kinetic background. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`kinetic_backgrounds`.
+
+.. list-table:: ``perturbation``
+   :widths: 15 35 10 40
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Format
+     - Choices
+   * - ``type``
+     - An initial perturbation (its class name ``<perturb_class>``).
+     - str
+     - See :ref:`avail_inits`.
+   * - ``<perturb_class>``
+     - Parameters for the initial perturbation. If empty, the defaults are taken.
+     - dict
+     - See docstrings in :ref:`avail_inits`.

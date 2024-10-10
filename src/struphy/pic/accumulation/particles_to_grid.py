@@ -57,7 +57,7 @@ class Accumulator:
         In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm, pressure or None (=full matrix, default)
 
     filter_params : dict
-        The three components for the accumulation filter: use_filter(boolian), repeat(int) and alpha(float).
+        Params for the accumulation filter: use_filter(string, either `three_point or `fourier), repeat(int), alpha(float) and modes(list with int).
     Note
     ----
         Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py``
@@ -75,8 +75,8 @@ class Accumulator:
         *,
         add_vector: bool = False,
         symmetry: str = None,
-        filter_params: dict = {"use_filter": False,
-                               "repeat": None, "alpha": None},
+        filter_params: dict = {"use_filter": None,
+                               "modes": None, "repeat": None, "alpha": None},
     ):
 
         self._particles = particles
@@ -201,29 +201,41 @@ class Accumulator:
                     *optional_args)
 
         # apply filter
-        if self.filter_params["use_filter"]:
-
-            repeat = self.filter_params["repeat"]
-            alpha = self.filter_params["alpha"]
+        if self.filter_params["use_filter"] is not None:
 
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
-                vec_finished = True
 
-                for count in range(repeat):
-                    for i in range(3):
-                        filters.apply_three_point_filter(
-                            vec[i]._data,
-                            np.array(self.derham.Nel),
-                            np.array(self.derham.spl_kind),
-                            np.array(self.derham.p),
-                            np.array(self.derham.Vh[self.form][i].starts),
-                            np.array(self.derham.Vh[self.form][i].ends),
-                            alpha=alpha,
-                        )
+                if self.filter_params["use_filter"] == 'fourier':
 
-                    vec.update_ghost_regions()
+                    modes = self.filter_params["modes"]
+
+                    self.apply_toroidal_fourier_filter(vec, modes)
+
+                elif self.filter_params["use_filter"] == 'three_point':
+
+                    repeat = self.filter_params["repeat"]
+                    alpha = self.filter_params["alpha"]
+
+                    for count in range(repeat):
+                        for i in range(3):
+                            filters.apply_three_point_filter(
+                                vec[i]._data,
+                                np.array(self.derham.Nel),
+                                np.array(self.derham.spl_kind),
+                                np.array(self.derham.p),
+                                np.array(self.derham.Vh[self.form][i].starts),
+                                np.array(self.derham.Vh[self.form][i].ends),
+                                alpha=alpha,
+                            )
+
+                        vec.update_ghost_regions()
+
+                else: 
+                    raise NotImplemented('The type of filter must be fourier or three_point.')
+
+            vec_finished = True
 
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
@@ -350,12 +362,12 @@ class Accumulator:
 
     @property
     def filter_params(self):
-        """Dict of three components for the accumulation filter parameters: use_filter(boolian), repeat(int) and alpha(float)."""
+        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
         return self._filter_params
 
     @property
     def filter_params(self):
-        """Dict of three components for the accumulation filter parameters: use_filter(boolian), repeat(int) and alpha(float)."""
+        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
         return self._filter_params
 
     def init_control_variate(self, mass_ops):
@@ -365,6 +377,55 @@ class Accumulator:
 
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
+
+    def apply_toroidal_fourier_filter(self, vec, modes):
+        """
+        Applying fourier filter to the spline coefficients of the accumulated vector (toroidal direction).
+
+        Parameters
+        ----------
+        vec : BlockVector
+
+        modes : list
+            Mode numbers which are not filtered out.
+        """
+
+        from scipy.fft import rfft, irfft
+
+        tor_Nel = self.derham.Nel[2]
+
+        # Nel along the toroidal direction must be equal or bigger than 2*maximum mode
+        assert tor_Nel >= 2*max(modes)
+
+        pn = self.derham.p
+        ir = np.empty(3, dtype=int)
+
+        if (tor_Nel%2) == 0:
+            vec_temp = np.zeros(int(tor_Nel/2) + 1, dtype=complex)
+        else:
+            vec_temp = np.zeros(int((tor_Nel-1)/2) + 1, dtype=complex)
+
+        # no domain decomposition along the toroidal direction
+        assert self.derham.domain_decomposition.nprocs[2] == 1
+
+        for axis in range(3):
+
+            starts = self.derham.Vh[ſelf.form][axis].starts
+            ends = self.derham.Vh[self.form][axis].ends
+
+            # index range
+            for i in range(3):
+                ir[i] = ends[i] + 1 - starts[i]
+
+            # filtering
+            for i in range(ir[0]):
+                for j in range(ir[1]):
+
+                    vec_temp[:] = 0
+                    vec_temp[modes] = rfft(vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]])[modes]
+                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
+
+            vec.update_ghost_regions()
 
 
 class AccumulatorVector:

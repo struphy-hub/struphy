@@ -202,7 +202,7 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
 2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
-    docker login gitlab-registry.mpcdf.mpg.de -u docker_api -p glpat--z6kJtobeG-xM_LdL6k6
+    docker login gitlab-registry.mpcdf.mpg.de -u docker_api_2024 -p glpat-SkfAWwNPEVwsRB3dLioz
 
 3. Pull one of the availabale images listed above (< 1 GB in size), for instance::
 
@@ -246,7 +246,7 @@ with the ``-v`` option. For a ``rsa`` key this is done with::
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
 You can now install Struphy from source (see above). An installation in **editable mode** (``pip install -e .``) can only be done
-within a :ref:`virtualenv`.
+within a virtual environment.
 
 In order to develop inside the container, we recommend to use `Visual Studio Code <https://code.visualstudio.com/>`_.
 Once installed, you can click on **Extensions** (red circle below) and install the ``Dev Containers``
@@ -267,28 +267,24 @@ We recommend to install the following VScode extensions inside the container:
 MPCDF computing clusters
 ------------------------
 
-Some specifics for the HPC systems ``cobra`` and ``draco`` at `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
+Struphy is periodically tested on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
+Tests are performed with the `available MPCDF images <https://docs.mpcdf.mpg.de/doc/data/gitlab/gitlabrunners.html#docker-images-for-ci-with-mpcdf-environment-modules>`_.
+The modules loaded in these tests can be found in Struphy's `.gitlab-ci.yml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L82>`_.
 
-1. Load necessary modules::
+A common installation looks like this
+
+1. Load necessary modules and create a virtual environment::
 
     module purge
-    module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc
-    module list
-
-2. Create a Python virtual environment::
-
+    module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
     pip install -U virtualenv
     python3 -m venv <some_name>
     source <some_name>/bin/activate
     python3 -m pip install --upgrade pip
 
-3. Continue with one of the install methods from above.
+2. Continue with one of the install methods from above (:ref:`pypi_install` or :ref:`source_install`).
 
-4. Test your installation with a debug run using up to 8 mpi processes (only on nodes ``cobra03-cobra06``)::
-
-    struphy run Maxwell --mpi 8 --debug
-
-5. When using slurm, include the following lines in your BATCH script::
+3. When using slurm, include the following lines in your BATCH script::
 
     source <some_name>/bin/activate
 
