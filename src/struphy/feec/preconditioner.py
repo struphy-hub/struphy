@@ -123,7 +123,7 @@ class MassMatrixPreconditioner(LinearOperator):
                 domain_decompos_1d = DomainDecomposition(
                     [femspace_1d.ncells], [femspace_1d.periodic])
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                femspace_1d_tensor._nquads = [qu_order_1d]
+                femspace_1d_tensor.nquads = [qu_order_1d]
 
                 M = WeightedMassOperator(
                     femspace_1d_tensor, femspace_1d_tensor, weights_info=fun)
@@ -441,7 +441,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 domain_decompos_1d = DomainDecomposition(
                     [femspace_1d.ncells], [femspace_1d.periodic])
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                femspace_1d_tensor._nquads = [qu_order_1d]
+                femspace_1d_tensor.nquads = [qu_order_1d]
 
                 M = WeightedMassOperator(
                     femspace_1d_tensor, femspace_1d_tensor, weights_info=fun)

@@ -247,7 +247,7 @@ class Derham:
                 for comp_space in fem_space.spaces:
                     
                     # nquads must be manually set (has been deprecated in psydac)
-                    comp_space._nquads = self.nquads
+                    comp_space.nquads = self.nquads
 
                     self._nbasis[sp_form] += [[]]
                     self._spline_types[sp_form] += [[]]
@@ -300,7 +300,7 @@ class Derham:
             else:
 
                 # nquads must be manually set (has been deprecated in psydac)
-                fem_space._nquads = self.nquads
+                fem_space.nquads = self.nquads
 
                 # space iterates over each of the spatial coordinates.
                 for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
