@@ -261,6 +261,7 @@ def struphy_run(model,
             sbatch_params = {
                 'raven':{
                     'ntasks_per_node': 8,
+                    'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
                     'likwid': likwid,
                 },
                 'cobra':{
@@ -359,13 +360,13 @@ def generate_batch_script(**kwargs):
         'nodes': 1,
         'ntasks_per_node': 72,
         'mail_user': "",
-        'time': "00:45:00",
+        'time': "00:10:00",
         'activate_env': "~/git_repos/env_struphy_devel/bin/activate",
         'partition': None,
         'ntasks_per_core': None,
         'cpus_per_task': None,
         'memory': '2GB',
-        'module_setup': "module load anaconda/3/2023.03 gcc/14 openmpi/4.1 likwid/5.2",
+        'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
         'likwid': False
     }
 
