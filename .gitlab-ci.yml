@@ -39,7 +39,7 @@ default:
     - uname -a
     - module list
     - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8 likwid/5.3
     - module list
     - make -v
     - python3 --version
@@ -79,7 +79,7 @@ default_venv:
     - echo "This is job ${CI_JOB_ID}"
     - module list
     - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8 likwid/5.3
     - module list
   script:
     - pip install -U virtualenv
