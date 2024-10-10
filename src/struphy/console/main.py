@@ -335,7 +335,8 @@ def struphy():
                             help='likwid parameter file (.yml), absolute path',)
     parser_run.add_argument('-lr', '--likwid-repetitions',
                             type=int,
-                            help='number of repetitions of the same simulation',)
+                            help='number of repetitions of the same simulation',
+                            default=1,)
 
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(

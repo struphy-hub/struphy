@@ -260,7 +260,7 @@ def struphy_run(model,
             batch_auto = 'raven'
             sbatch_params = {
                 'raven':{
-                    'ntasks_per_node': 72,
+                    'ntasks_per_node': 8,
                     'likwid': likwid,
                 },
                 'cobra':{
@@ -301,7 +301,7 @@ def struphy_run(model,
                 command = likwid_command + command + ['--likwid']
             
             if likwid:
-                print('Running with likwid')
+                print(f'Running with likwid with {likwid_repetitions = }')
                 f.write(f'# Launching likwid {likwid_repetitions} times with likwid-mpirun\n')
                 for i in range(likwid_repetitions):
                     f.write(f'\n\n# Run number {i:03}\n')
@@ -364,7 +364,7 @@ def generate_batch_script(**kwargs):
         'partition': None,
         'ntasks_per_core': None,
         'cpus_per_task': None,
-        'memory': None,
+        'memory': '2GB',
         'module_setup': "module load anaconda/3/2023.03 gcc/14 openmpi/4.1 likwid/5.3",
         'likwid': False
     }
@@ -401,6 +401,8 @@ def generate_batch_script(**kwargs):
     script = add_line(script, f"source {params['activate_env']}", "Activate the virtual environment")
     script = add_line(script, "module purge", "Purge modules")
     script = add_line(script, params['module_setup'], "Load necessary modules")
+    script = add_line(script, "export PATH={params['activate_env']}/../:$PATH", "Export path")
+    
     script += "\n"
 
     # Set up environment variables
