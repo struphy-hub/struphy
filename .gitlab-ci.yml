@@ -43,6 +43,8 @@ default:
     - module list
     - make -v
     - python3 --version
+    # This is a temporary fix due to ImportError
+    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2023.03/lib
     - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
 
