@@ -143,20 +143,28 @@ class Accumulator:
 
         # initialize vectors
         self._vectors = []
+        self._vectors_temp = []
+        self._vectors_out = []
 
         if add_vector:
             # special treatment in model LinearMHDVlasovPC (symmetry=pressure, three BlockVectors are needed)
             if symmetry == "pressure":
-                for i in range(3):
+                for _ in range(3):
                     self._vectors += [BlockVector(derham.Vh[self.form])]
+                    self._vectors_temp += [BlockVector(derham.Vh[self.form])]
+                    self._vectors_out += [BlockVector(derham.Vh[self.form])]
 
             # normal treatment (just one vector)
             else:
                 for op in self._operators:
                     if isinstance(op.matrix, StencilMatrix):
                         self._vectors += [StencilVector(op.matrix.domain)]
+                        self._vectors_temp += [StencilVector(op.matrix.domain)]
+                        self._vectors_out += [StencilVector(op.matrix.domain)]
                     else:
                         self._vectors += [BlockVector(op.matrix.domain)]
+                        self._vectors_temp += [BlockVector(op.matrix.domain)]
+                        self._vectors_out += [BlockVector(op.matrix.domain)]
 
             for vec in self._vectors:
                 if isinstance(vec, StencilVector):
@@ -232,8 +240,9 @@ class Accumulator:
 
                         vec.update_ghost_regions()
 
-                else: 
-                    raise NotImplemented('The type of filter must be fourier or three_point.')
+                else:
+                    raise NotImplemented(
+                        'The type of filter must be fourier or three_point.')
 
             vec_finished = True
 
@@ -273,38 +282,41 @@ class Accumulator:
 
             if self.symmetry == "symm":
 
-                self._operators[0].matrix[1, 0]._data[:] = (
-                    self._operators[0].matrix[0, 1].T._data
+                self._operators[0].matrix[0, 1].transpose(
+                    out=self._operators[0].matrix[1, 0]
                 )
-                self._operators[0].matrix[2, 0]._data[:] = (
-                    self._operators[0].matrix[0, 2].T._data
+                self._operators[0].matrix[0, 2].transpose(
+                    out=self._operators[0].matrix[2, 0]
                 )
-                self._operators[0].matrix[2, 1]._data[:] = (
-                    self._operators[0].matrix[1, 2].T._data
+                self._operators[0].matrix[1, 2].transpose(
+                    out=self._operators[0].matrix[2, 1]
                 )
 
             elif self.symmetry == "asym":
 
-                self._operators[0].matrix[1, 0]._data[:] = (
-                    -self._operators[0].matrix[0, 1].T._data
+                self._operators[0].matrix[0, 1].transpose(
+                    out=self._operators[0].matrix[1, 0]
                 )
-                self._operators[0].matrix[2, 0]._data[:] = (
-                    -self._operators[0].matrix[0, 2].T._data
+                self._operators[0].matrix[1, 0] *= (-1)
+                self._operators[0].matrix[0, 2].transpose(
+                    out=self._operators[0].matrix[2, 0]
                 )
-                self._operators[0].matrix[2, 1]._data[:] = (
-                    -self._operators[0].matrix[1, 2].T._data
+                self._operators[0].matrix[2, 0] *= (-1)
+                self._operators[0].matrix[1, 2].transpose(
+                    out=self._operators[0].matrix[2, 1]
                 )
+                self._operators[0].matrix[2, 1] *= (-1)
 
             elif self.symmetry == "pressure":
                 for i in range(6):
-                    self._operators[i].matrix[1, 0]._data[:] = (
-                        self._operators[i].matrix[0, 1].T._data
+                    self._operators[i].matrix[0, 1].transpose(
+                        out=self._operators[i].matrix[1, 0]
                     )
-                    self._operators[i].matrix[2, 0]._data[:] = (
-                        self._operators[i].matrix[0, 2].T._data
+                    self._operators[i].matrix[0, 2].transpose(
+                        out=self._operators[i].matrix[2, 0]
                     )
-                    self._operators[i].matrix[2, 1]._data[:] = (
-                        self._operators[i].matrix[1, 2].T._data
+                    self._operators[i].matrix[1, 2].transpose(
+                        out=self._operators[i].matrix[2, 1]
                     )
 
     @property
@@ -351,12 +363,10 @@ class Accumulator:
     def vectors(self):
         """List of Stencil-/Block-/PolarVectors of the accumulator."""
         out = []
-        for vec in self._vectors:
-            out += [
-                self._derham.boundary_ops[self.form].dot(
-                    self._derham.extraction_ops[self.form].dot(vec)
-                )
-            ]
+        for vec, vec_temp, vec_out in zip(self._vectors, self._vectors_temp, self._vectors_out):
+            self._derham.extraction_ops[self.form].dot(vec, out=vec_temp)
+            self._derham.boundary_ops[self.form].dot(vec_temp, out=vec_out)
+            out += [vec_out]
 
         return out
 
@@ -400,7 +410,7 @@ class Accumulator:
         pn = self.derham.p
         ir = np.empty(3, dtype=int)
 
-        if (tor_Nel%2) == 0:
+        if (tor_Nel % 2) == 0:
             vec_temp = np.zeros(int(tor_Nel/2) + 1, dtype=complex)
         else:
             vec_temp = np.zeros(int((tor_Nel-1)/2) + 1, dtype=complex)
@@ -422,8 +432,9 @@ class Accumulator:
                 for j in range(ir[1]):
 
                     vec_temp[:] = 0
-                    vec_temp[modes] = rfft(vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]])[modes]
-                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
+                    vec_temp[modes] = rfft(
+                        vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]])[modes]
+                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]                                    :pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
 
             vec.update_ghost_regions()
 
@@ -478,16 +489,27 @@ class AccumulatorVector:
 
         # initialize vectors
         self._vectors = []
+        self._vectors_temp = []
+        self._vectors_out = []
 
         # collect all _data attributes needed in accumulation kernel
         self._args_data = ()
 
         if space_id in ("H1", "L2"):
-            self._vectors += [StencilVector(
-                derham.Vh_fem[self.form].vector_space)]
+            self._vectors += [
+                StencilVector(derham.Vh_fem[self.form].vector_space)
+            ]
+            self._vectors_temp += [
+                StencilVector(derham.Vh_fem[self.form].vector_space)
+            ]
+            self._vectors_out += [
+                StencilVector(derham.Vh_fem[self.form].vector_space)
+            ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
             self._vectors += [BlockVector(derham.Vh_fem[self.form].vector_space)]
+            self._vectors_temp += [BlockVector(derham.Vh_fem[self.form].vector_space)]
+            self._vectors_out += [BlockVector(derham.Vh_fem[self.form].vector_space)]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):
@@ -587,12 +609,10 @@ class AccumulatorVector:
     def vectors(self):
         """List of Stencil-/Block-/PolarVectors of the accumulator."""
         out = []
-        for vec in self._vectors:
-            out += [
-                self._derham.boundary_ops[self.form].dot(
-                    self._derham.extraction_ops[self.form].dot(vec)
-                )
-            ]
+        for vec, vec_temp, vec_out in zip(self._vectors, self._vectors_temp, self._vectors_out):
+            self._derham.extraction_ops[self.form].dot(vec, out=vec_temp)
+            self._derham.boundary_ops[self.form].dot(vec_temp, out=vec_out)
+            out += [vec_out]
 
         return out
 
