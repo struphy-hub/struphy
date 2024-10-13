@@ -195,7 +195,8 @@ def struphy_run(model,
                        '--mem',
                        '2000'] + cmd_python + cprofile*cmd_cprofile + cmd_main
         elif likwid:
-            command = likwid_command + cmd_python + cprofile*cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"] + ['--likwid']
+            cmd_main[0] = f"{libpath}/{cmd_main[0]}"
+            command = likwid_command + cmd_python + cprofile*cmd_cprofile + cmd_main + ['--likwid']
         else:
             print('\nLaunching main() in normal mode ...')
             command = ['mpirun',
