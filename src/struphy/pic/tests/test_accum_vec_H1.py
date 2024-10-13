@@ -11,7 +11,8 @@ import pytest
     ['Cuboid', {
         'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}],
 ])
-def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, Nclones=1):
+@pytest.mark.parametrize('Nclones', [1,2])
+def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     '''DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -119,4 +120,4 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, Nclones=1):
 if __name__ == '__main__':
     for Nclones in [1, 2]:
         test_accum_poisson([8, 5, 6], [2, 2, 3], [True]*3, ['Cuboid', {
-            'l1': 0., 'r1': 1., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}], Np=1000, Nclones=Nclones)
+            'l1': 0., 'r1': 1., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}], Nclones=Nclones, Np=1000)
