@@ -6,7 +6,8 @@ import pytest
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('dirichlet_bc', [None,
-                                          [[False,  True], [True, False], [False, False]],
+                                          [[False,  True], [True, False],
+                                              [False, False]],
                                           [[True, False], [False,  True], [False, False]]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
@@ -26,8 +27,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
 
     from mpi4py import MPI
-    
-    import copy
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -95,7 +94,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 dirichlet_bc[i] = [False, False]
     else:
         dirichlet_bc = [[False, False]]*3
-        
+
     print(f'{dirichlet_bc = }')
 
     # derham object
@@ -112,7 +111,8 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
-    mass_mats_free = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd, matrix_free = True)
+    mass_mats_free = WeightedMassOperators(
+        derham, domain, eq_mhd=eq_mhd, matrix_free=True)
 
     # test calling the diagonal method
     aaa = mass_mats.M0.matrix.diagonal()
@@ -127,7 +127,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 bc_old[i][j] = 'd'
             else:
                 bc_old[i][j] = 'f'
-    
+
     spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
               Spline_space_1d(Nel[1], p[1], spl_kind[1],
                               p[1] + 1, bc_old[1]),
@@ -258,8 +258,9 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 12, 6]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('dirichlet_bc', [None, 
-                                          [[False,  True], [False, False], [False, True]],
+@pytest.mark.parametrize('dirichlet_bc', [None,
+                                          [[False,  True], [False, False],
+                                              [False, True]],
                                           [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
@@ -274,15 +275,13 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.utilities import create_equal_random_arrays
     from struphy.feec.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
 
     from struphy.polar.basic import PolarVector
 
     from mpi4py import MPI
-    
-    import copy
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -347,7 +346,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 bc_old[i][j] = 'd'
             else:
                 bc_old[i][j] = 'f'
-    
+
     spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
               Spline_space_1d(Nel[1], p[1], spl_kind[1],
                               p[1] + 1, bc_old[1]),
@@ -464,8 +463,9 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 @pytest.mark.parametrize('Nel', [[8, 12, 6]])
 @pytest.mark.parametrize('p',   [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('dirichlet_bc', [None, 
-                                          [[False,  True], [False, False], [False, True]],
+@pytest.mark.parametrize('dirichlet_bc', [None,
+                                          [[False,  True], [False, False],
+                                              [False, True]],
                                           [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['HollowCylinder', {
@@ -483,7 +483,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
-    
+
     from psydac.linalg.solvers import inverse
 
     from mpi4py import MPI
@@ -601,7 +601,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
     # compare mass matrix-vector products with Kronecker products of preconditioner
     do_this_test = False
-    
+
     if (mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder') and do_this_test:
 
         if mpi_rank == 0:
@@ -770,8 +770,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 @pytest.mark.parametrize('Nel', [[8, 9, 6]])
 @pytest.mark.parametrize('p',   [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('dirichlet_bc', [None, 
-                                          [[False,  True], [False, False], [False, True]],
+@pytest.mark.parametrize('dirichlet_bc', [None,
+                                          [[False,  True], [False, False],
+                                              [False, True]],
                                           [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
@@ -790,7 +791,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.polar.basic import PolarVector
     from struphy.fields_background.mhd_equil.equils import ScrewPinch
-    
+
     from psydac.linalg.solvers import inverse
 
     from mpi4py import MPI
@@ -1074,15 +1075,15 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
 
 if __name__ == '__main__':
-    test_mass([5, 6, 7], 
-               [2, 2, 3], 
-               [True, False, True], 
-               [[False,  True], [True, False], [False, False]], 
-               ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+    test_mass([5, 6, 7],
+              [2, 2, 3],
+              [True, False, True],
+              [[False,  True], [True, False], [False, False]],
+              ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
     # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
     # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
 
-    # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
+    # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False,  True], [False, False], [False, True]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
 
     # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [[True, True], [False, False], [False, False]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     # test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)

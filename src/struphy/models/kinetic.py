@@ -86,12 +86,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['e_field'] = 'Hcurl'
-        dct['kinetic']['ions'] = 'Particles6D'
+        dct['kinetic']['species1'] = 'Particles6D'
         return dct
 
     @staticmethod
     def bulk_species():
-        return 'ions'
+        return 'species1'
 
     @staticmethod
     def velocity_scale():
@@ -99,8 +99,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushEta: ['ions'],
-                propagators_coupling.VlasovAmpere: ['e_field', 'ions']}
+        return {propagators_markers.PushEta: ['species1'],
+                propagators_coupling.VlasovAmpere: ['e_field', 'species1']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -116,9 +116,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         cls.add_option(species=['em_fields'],
                        option=propagators_fields.ImplicitDiffusion,
                        dct=dct)
-        cls.add_option(species=['kinetic', 'ions'], key='verification',
+        cls.add_option(species=['kinetic', 'species1'], key='verification',
                        option={'use': False, 'kappa': 1.}, dct=dct)
-        cls.add_option(species=['kinetic', 'ions'], key='Z0',
+        cls.add_option(species=['kinetic', 'species1'], key='Z0',
                        option=-1., dct=dct)
         return dct
 
@@ -130,40 +130,40 @@ class VlasovAmpereOneSpecies(StruphyModel):
         from mpi4py.MPI import SUM, IN_PLACE
 
         # get species paramaters
-        ions_params = params['kinetic']['ions']
+        species1_params = params['kinetic']['species1']
 
         # Get coupling strength
-        if ions_params['options']['verification']['use']:
-            self.kappa = ions_params['options']['verification']['kappa']
+        if species1_params['options']['verification']['use']:
+            self.kappa = species1_params['options']['verification']['kappa']
             print(
                 f'\n!!! Verification run: equation parameters set to {self.kappa = }.')
         else:
-            self.kappa = self.equation_params['ions']['kappa']
+            self.kappa = self.equation_params['species1']['kappa']
 
         # Check if it is control-variate method
         self._control_variate = (
-            ions_params['markers']['type'] == 'control_variate')
+            species1_params['markers']['type'] == 'control_variate')
 
         # set background density factor
-        Z0 = ions_params['options']['Z0']
-        Z = ions_params['phys_params']['Z']
+        Z0 = species1_params['options']['Z0']
+        Z = species1_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
 
         # multiply background to get quasi neutrality
-        self.pointer['ions']._f0 = - Z0/Z * self.pointer['ions'].f0
+        self.pointer['species1']._f0 = - Z0/Z * self.pointer['species1'].f0
 
         # check mean velocity
         # TODO: assert f0.params[] == 0.
 
         # propagator parameters
         self._poisson_params = params['em_fields']['options']['ImplicitDiffusion']['solver']
-        algo_eta = params['kinetic']['ions']['options']['PushEta']['algo']
+        algo_eta = params['kinetic']['species1']['options']['PushEta']['algo']
         params_coupling = params['em_fields']['options']['VlasovAmpere']['solver']
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
-                                                     'bc_type': ions_params['markers']['bc']['type']}
+                                                     'bc_type': species1_params['markers']['bc']['type']}
 
         self._kwargs[propagators_coupling.VlasovAmpere] = {'c1': self.kappa**2,
                                                            'solver': params_coupling}
@@ -200,20 +200,20 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # use control variate method
         if self._control_variate:
-            self.pointer['ions'].update_weights()
+            self.pointer['species1'].update_weights()
 
         # sanity check
-        # self.pointer['ions'].show_distribution_function(
+        # self.pointer['species1'].show_distribution_function(
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(self.pointer['ions'],
+        charge_accum = AccumulatorVector(self.pointer['species1'],
                                          'H1',
                                          accum_kernels.charge_density_0form,
                                          self.derham,
                                          self.domain.args_domain)
 
-        charge_accum(self.pointer['ions'].vdim)
+        charge_accum(self.pointer['species1'].vdim)
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
@@ -245,11 +245,11 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar('en_E', en_E)
 
         # kappa^2 / 2 / N * sum_p w_p v_p^2
-        self._tmp[0] = self.kappa**2 / (2 * self.pointer['ions'].n_mks) * \
-            np.dot(self.pointer['ions'].markers_wo_holes[:, 3]**2 +
-                   self.pointer['ions'].markers_wo_holes[:, 4]**2 +
-                   self.pointer['ions'].markers_wo_holes[:, 5]**2,
-                   self.pointer['ions'].markers_wo_holes[:, 6])
+        self._tmp[0] = self.kappa**2 / (2 * self.pointer['species1'].n_mks) * \
+            np.dot(self.pointer['species1'].markers_wo_holes[:, 3]**2 +
+                   self.pointer['species1'].markers_wo_holes[:, 4]**2 +
+                   self.pointer['species1'].markers_wo_holes[:, 5]**2,
+                   self.pointer['species1'].markers_wo_holes[:, 6])
         if self.comm is not None:
             self.comm.Allreduce(
                 self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -354,12 +354,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         dct['em_fields']['e_field'] = 'Hcurl'
         dct['em_fields']['b_field'] = 'Hdiv'
-        dct['kinetic']['ions'] = 'Particles6D'
+        dct['kinetic']['species1'] = 'Particles6D'
         return dct
 
     @staticmethod
     def bulk_species():
-        return 'ions'
+        return 'species1'
 
     @staticmethod
     def velocity_scale():
@@ -368,9 +368,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {propagators_fields.Maxwell: ['e_field', 'b_field'],
-                propagators_markers.PushEta: ['ions'],
-                propagators_markers.PushVxB: ['ions'],
-                propagators_coupling.VlasovAmpere: ['e_field', 'ions']}
+                propagators_markers.PushEta: ['species1'],
+                propagators_markers.PushVxB: ['species1'],
+                propagators_coupling.VlasovAmpere: ['e_field', 'species1']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -386,9 +386,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         cls.add_option(species=['em_fields'],
                        option=propagators_fields.ImplicitDiffusion,
                        dct=dct)
-        cls.add_option(species=['kinetic', 'ions'], key='verification',
+        cls.add_option(species=['kinetic', 'species1'], key='verification',
                        option={'use': False, 'alpha': 1., 'epsilon': -1.}, dct=dct)
-        cls.add_option(species=['kinetic', 'ions'], key='Z0',
+        cls.add_option(species=['kinetic', 'species1'], key='Z0',
                        option=-1., dct=dct)
         return dct
 
@@ -400,26 +400,26 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         from mpi4py.MPI import SUM, IN_PLACE
 
         # get species paramaters
-        ions_params = params['kinetic']['ions']
+        species1_params = params['kinetic']['species1']
 
         # equation parameters
-        if ions_params['options']['verification']:
-            self._alpha = ions_params['options']['verification']['alpha']
-            self._epsilon = ions_params['options']['verification']['epsilon']
+        if species1_params['options']['verification']:
+            self._alpha = species1_params['options']['verification']['alpha']
+            self._epsilon = species1_params['options']['verification']['epsilon']
             print(
                 f'\n!!! Verification run: equation parameters set to {self._alpha = } and {self._epsilon = }.')
         else:
-            self._alpha = self.equation_params['ions']['alpha']
-            self._epsilon = self.equation_params['ions']['epsilon']
+            self._alpha = self.equation_params['species1']['alpha']
+            self._epsilon = self.equation_params['species1']['epsilon']
 
         # set background density and mean velocity factors
-        Z0 = ions_params['options']['Z0']
-        Z = ions_params['phys_params']['Z']
+        Z0 = species1_params['options']['Z0']
+        Z = species1_params['phys_params']['Z']
         assert Z0 * \
             Z < 0, f'Neutralizing background has wrong polarity {Z0 = } to {Z = }.'
 
-        self.pointer['ions'].f0.moment_factors['n'] = - Z0/Z
-        self.pointer['ions'].f0.moment_factors['u'] = [
+        self.pointer['species1'].f0.moment_factors['n'] = - Z0/Z
+        self.pointer['species1'].f0.moment_factors['u'] = [
             self._epsilon/self._alpha**2]*3
 
         # Initialize background magnetic field from MHD equilibrium
@@ -429,8 +429,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # propagator parameters
         params_maxwell = params['em_fields']['options']['Maxwell']['solver']
-        algo_eta = params['kinetic']['ions']['options']['PushEta']['algo']
-        algo_vxb = params['kinetic']['ions']['options']['PushVxB']['algo']
+        algo_eta = params['kinetic']['species1']['options']['PushEta']['algo']
+        algo_vxb = params['kinetic']['species1']['options']['PushVxB']['algo']
         params_coupling = params['em_fields']['options']['VlasovAmpere']['solver']
         self._poisson_params = params['em_fields']['options']['ImplicitDiffusion']['solver']
 
@@ -438,7 +438,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self._kwargs[propagators_fields.Maxwell] = {'solver': params_maxwell}
 
         self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
-                                                     'bc_type': ions_params['markers']['bc']['type']}
+                                                     'bc_type': species1_params['markers']['bc']['type']}
 
         self._kwargs[propagators_markers.PushVxB] = {'algo': algo_vxb,
                                                      'scale_fac': 1./self._epsilon,
@@ -479,20 +479,20 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             print('\nINITIAL POISSON SOLVE:')
 
         # use control variate method
-        self.pointer['ions'].update_weights()
+        self.pointer['species1'].update_weights()
 
         # sanity check
-        # self.pointer['ions'].show_distribution_function(
+        # self.pointer['species1'].show_distribution_function(
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(self.pointer['ions'],
+        charge_accum = AccumulatorVector(self.pointer['species1'],
                                          "H1",
                                          accum_kernels.charge_density_0form,
                                          self.derham,
                                          self.domain.args_domain)
 
-        charge_accum(self.pointer['ions'].vdim)
+        charge_accum(self.pointer['species1'].vdim)
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
@@ -527,11 +527,11 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.update_scalar('en_B', en_B)
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2
-        self._tmp[0] = self._alpha**2 / (2 * self.pointer['ions'].n_mks) * \
-            np.dot(self.pointer['ions'].markers_wo_holes[:, 3]**2 +
-                   self.pointer['ions'].markers_wo_holes[:, 4] ** 2 +
-                   self.pointer['ions'].markers_wo_holes[:, 5]**2,
-                   self.pointer['ions'].markers_wo_holes[:, 6])
+        self._tmp[0] = self._alpha**2 / (2 * self.pointer['species1'].n_mks) * \
+            np.dot(self.pointer['species1'].markers_wo_holes[:, 3]**2 +
+                   self.pointer['species1'].markers_wo_holes[:, 4] ** 2 +
+                   self.pointer['species1'].markers_wo_holes[:, 5]**2,
+                   self.pointer['species1'].markers_wo_holes[:, 6])
         if self.comm is not None:
             self.comm.Allreduce(
                 self._mpi_in_place, self._tmp, op=self._mpi_sum)

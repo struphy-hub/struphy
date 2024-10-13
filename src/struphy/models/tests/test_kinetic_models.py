@@ -32,7 +32,6 @@ def test_kinetic(map_and_equil, fast, model=None, Tend=None):
                             f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
                         continue
 
-                
                 call_model(key, val, map_and_equil, Tend=Tend)
     else:
         val = getattr(kinetic, model)
@@ -45,9 +44,12 @@ def test_kinetic(map_and_equil, fast, model=None, Tend=None):
 
         call_model(model, val, map_and_equil, Tend=Tend)
 
+
 if __name__ == '__main__':
-    
-    test_kinetic(fast=True, map_and_equil=('Cuboid', 'HomogenSlab'), model=None)
-    test_kinetic(fast=True, map_and_equil=('HollowTorus', 'AdhocTorus'), model=None)
-    test_kinetic(fast=True, map_and_equil=('Tokamak', 'EQDSKequilibrium'), model=None)
-    
+
+    test_kinetic(fast=True, map_and_equil=(
+        'Cuboid', 'HomogenSlab'), model=None)
+    test_kinetic(fast=True, map_and_equil=(
+        'HollowTorus', 'AdhocTorus'), model=None)
+    test_kinetic(fast=True, map_and_equil=(
+        'Tokamak', 'EQDSKequilibrium'), model=None)
