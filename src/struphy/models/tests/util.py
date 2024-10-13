@@ -20,7 +20,7 @@ def call_model(key, val, map_and_equil, Tend=None):
 
     map_and_equil : tuple[str]
         Name of mapping and MHD equilibirum.
-        
+
     Tend : float
         End time of simulation other than default.
     '''
@@ -91,12 +91,12 @@ def call_model(key, val, map_and_equil, Tend=None):
 
     if Tend is not None:
         parameters['time']['Tend'] = Tend
-        main(key, parameters, path_out, save_step=int(Tend/parameters['time']['dt']))
+        main(key, parameters, path_out, save_step=int(
+            Tend/parameters['time']['dt']))
         return
     else:
         # run with default
         main(key, parameters, path_out)
-    
 
     # run available options (if present)
     if len(d_opts['em_fields']) > 0:
