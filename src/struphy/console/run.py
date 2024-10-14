@@ -221,8 +221,9 @@ def generate_batch_script(model, **kwargs):
     likwid_repetitions = kwargs.get('likwid_repetitions', 1)
 
     # copy batch script to output folder
-    batch_abs_new = os.path.join(output_abs, 'batch_script.sh')
-    shutil.copy2(batch_abs, batch_abs_new)
+    if batch_abs and output_abs:
+        batch_abs_new = os.path.join(output_abs, 'batch_script.sh')
+        shutil.copy2(batch_abs, batch_abs_new)
 
     # delete srun command from batch script
     with open(batch_abs_new, 'r') as f:
