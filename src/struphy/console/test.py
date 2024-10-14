@@ -212,7 +212,10 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             _file = os.path.join(pymon_abs, '.pymon_' + gr)
             if os.path.isfile(_file):
                 pymon_html_json(gr, verbose=verbose)
-
+    elif 'performance' in group:
+        likwid_cmd = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker'] # ['']
+        cmd = likwid_cmd + ['python3', f'{libpath}/models/tests/test_performance.py']
+        subprocess.run(cmd, check=True)
     else:
         from struphy.models.tests import test_toy_models, test_fluid_models, test_kinetic_models, test_hybrid_models
         from struphy.models.tests.test_xxpproc import test_pproc_codes

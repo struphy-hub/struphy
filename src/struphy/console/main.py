@@ -421,7 +421,8 @@ def struphy():
                              ['fluid'] +
                              ['kinetic'] +
                              ['hybrid'] +
-                             ['toy'],
+                             ['toy'] +
+                             ['performance'],
                              metavar='GROUP',
                              help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
