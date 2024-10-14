@@ -12,11 +12,10 @@ units : # units not stated here can be viewed via "struphy units -h"
     x  : 1. # length scale unit in m
     B  : 1. # magnetic field unit in T
     n  : 1. # number density unit in 10^20 m^(-3)
-    kBT: 1. # thermal energy unit in keV
 
 time :
-    dt         : 0.1  # time step
-    Tend       : 100. # simulation time interval is [0, Tend]
+    dt         : 0.2  # time step
+    Tend       : 3000. # simulation time interval is [0, Tend]
     split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
@@ -57,26 +56,22 @@ kinetic :
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : 2.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             bc : 
-                type    : [remove, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
-                remove  :
-                    save              : False
-                    boundary_transfer : False
-                    particle_refilling : False            
+                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading :
                 type    : pseudo_random # particle loading mechanism 
                 seed    : 1608 # seed for random number generator
-                moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                moments : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial : uniform # uniform or disc
-                initial : [[.501, 0.001, 0.001, -1.935 , 1.72], # co-passing particle
-                           [.501, 0.001, 0.001,  1.935 , 1.72], # couner-passing particle
-                           [.501, 0.001, 0.001, -0.6665, 1.72], # co-trapped particle
-                           [.501, 0.001, 0.001,  0.4515, 1.72]] # counter-trapped particle
+                initial : [[.501, 0.001, 0.001, 0.,  0.0450, -0.04], # co-passing particle
+                           [.501, 0.001, 0.001, 0., -0.0450, -0.04], # counter passing particle
+                           [.501, 0.001, 0.001, 0.,  0.0105, -0.04], # co-trapped particle
+                           [.501, 0.001, 0.001, 0., -0.0155, -0.04]] # counter-trapped particle
         background :
-            type : GyroMaxwellian2D
-            GyroMaxwellian2D:
+            type : Maxwellian3D
+            Maxwellian3D :
                 n : 0.05
         save_data :
             n_markers : 4 # number of markers to be save during simulation
         options:
-            push_bxEstar: {method: discrete_gradient, maxiter: 20, tol: 1.0e-05}
-            push_Bstar: {method: discrete_gradient, maxiter: 20, tol: 1.0e-05}
+            PushEta: {algo: rk2}
+            PushVxB: {algo: analytic}

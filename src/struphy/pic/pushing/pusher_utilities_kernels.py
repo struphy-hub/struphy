@@ -5,14 +5,16 @@ from numpy import empty, sqrt, floor, zeros
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
+# do not remove; needed to identify dependencies
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.bsplines.evaluation_kernels_3d import get_spans
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_T', 'basis_normal', 'basis_normal_inv', 'norm_df', 'norm_dfinv_T', 'eta', 'eta_old', 'eta_boundary', 'v', 'v_logical', 'v_normal', 't')
 def reflect(markers: 'float[:,:]',
-            kind_map: 'int', params_map: 'float[:]',
-            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+            args_domain: 'DomainArguments',
             outside_inds: 'int[:]', axis: 'int'):
     '''
     Reflect the particles which are pushed outside of the logical cube.
@@ -44,7 +46,7 @@ def reflect(markers: 'float[:,:]',
         markers : array[float]
             Local markers array
 
-        domain.args_map : tuple of all needed mapping parameters
+        args_domain : DomainArguments
             kind_map, params_map, ..., cx, cy, cz
 
         outside_inds : array[int]
@@ -78,10 +80,7 @@ def reflect(markers: 'float[:,:]',
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta_old[0], eta_old[1], eta_old[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
+                              args_domain,
                               dfm)
 
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -103,10 +102,7 @@ def reflect(markers: 'float[:,:]',
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(eta_boundary[0], eta_boundary[1], eta_boundary[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
+                              args_domain,
                               dfm)
 
         # metric coeffs
@@ -226,16 +222,10 @@ def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', u
 
 @stack_array('Nel')
 def aux_fun_x_v_stat_e(particle: 'float[:]',
-                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                       starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
-                       kind_map: 'int', params_map: 'float[:]',
-                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                       args_derham: 'DerhamArguments',
+                       args_domain: 'DomainArguments',
                        n_quad1: 'int', n_quad2: 'int', n_quad3: 'int',
                        dfm: 'float[:,:]', df_inv: 'float[:,:]',
-                       bn1: 'float[:]', bn2: 'float[:]', bn3: 'float[:]',
-                       bd1: 'float[:]', bd2: 'float[:]', bd3: 'float[:]',
                        taus: 'float[:]',
                        dt: 'float',
                        loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
@@ -272,14 +262,14 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
 
     # Find number of elements in each direction
     Nel = empty(3, dtype=int)
-    Nel[0] = len(tn1)
-    Nel[1] = len(tn2)
-    Nel[2] = len(tn3)
+    Nel[0] = len(args_derham.tn1)
+    Nel[1] = len(args_derham.tn2)
+    Nel[2] = len(args_derham.tn3)
 
     # total number of basis functions : B-splines (pn) and D-splines (pd)
-    pn1 = int(pn[0])
-    pn2 = int(pn[1])
-    pn3 = int(pn[2])
+    pn1 = int(args_derham.pn[0])
+    pn2 = int(args_derham.pn[1])
+    pn3 = int(args_derham.pn[2])
 
     pd1 = pn1 - 1
     pd2 = pn2 - 1
@@ -309,8 +299,10 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
     v3_curr = v3
 
     # Use Euler method as a predictor for positions
-    evaluation_kernels.df(eta1, eta2, eta3, kind_map, params_map, t1_map, t2_map,
-                          t3_map, p_map, ind1_map, ind2_map, ind3_map, cx, cy, cz, dfm)
+    evaluation_kernels.df(eta1, eta2, eta3,
+                          args_domain,
+                          dfm)
+
     linalg_kernels.matrix_inv(dfm, df_inv)
 
     v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
@@ -344,12 +336,11 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
         v3_curr = v3_next
 
         # find Jacobian matrix
-        evaluation_kernels.df((eta1_curr + eta1)/2, (eta2_curr + eta2)/2, (eta3_curr + eta3)/2,
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map,
-                              p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz, dfm)
+        evaluation_kernels.df((eta1_curr + eta1)/2,
+                              (eta2_curr + eta2)/2,
+                              (eta3_curr + eta3)/2,
+                              args_domain,
+                              dfm)
 
         # evaluate inverse Jacobian matrix
         linalg_kernels.matrix_inv(dfm, df_inv)
@@ -389,15 +380,15 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
         taus[length + 1] = 1.0
 
         tmp1 = taus[1:length1 + 1]
-        find_taus(eta1_curr, eta1_next, Nel[0], tn1, 1, tmp1)
+        find_taus(eta1_curr, eta1_next, Nel[0], args_derham.tn1, 1, tmp1)
         taus[1:length1 + 1] = tmp1
-        
+
         tmp2 = taus[length1 + 1:length1 + length2 + 1]
-        find_taus(eta2_curr, eta2_next, Nel[1], tn2, 1, tmp2)
+        find_taus(eta2_curr, eta2_next, Nel[1], args_derham.tn2, 1, tmp2)
         taus[length1 + 1:length1 + length2 + 1] = tmp2
-        
+
         tmp3 = taus[length1 + length2 + 1:length + 1]
-        find_taus(eta3_curr, eta3_next, Nel[2], tn3, 1, tmp3)
+        find_taus(eta3_curr, eta3_next, Nel[2], args_derham.tn3, 1, tmp3)
         taus[length1 + length2 + 1:length + 1] = tmp3
 
         del tmp1, tmp2, tmp3
@@ -407,7 +398,7 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
             quicksort(tmp4, 1, length)
             taus[0:length + 1] = tmp4
             del tmp4
-        
+
         # ======================================================================================
         # update velocity in direction 1
 
@@ -427,35 +418,28 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                 quad_pos2 = factor * loc1[n] + adding
                 quad_pos3 = factor * loc1[n] + adding
 
-                # spans (i.e. index for non-vanishing basis functions)
-                span1 = bsplines_kernels.find_span(tn1, pn1, quad_pos1)
-                span2 = bsplines_kernels.find_span(tn2, pn2, quad_pos2)
-                span3 = bsplines_kernels.find_span(tn3, pn3, quad_pos3)
-
-                # compute bn, bd, i.e. values for non-vanishing B-/D-splines at quadrature point
-                bsplines_kernels.b_d_splines_slim(
-                    tn1, pn1, quad_pos1, span1, bn1, bd1)
-                bsplines_kernels.b_d_splines_slim(
-                    tn2, pn2, quad_pos2, span2, bn2, bd2)
-                bsplines_kernels.b_d_splines_slim(
-                    tn3, pn3, quad_pos3, span3, bn3, bd3)
+                # spline evaluation
+                span1, span2, span3 = get_spans(
+                    quad_pos1, quad_pos2, quad_pos3, args_derham)
 
                 # find global index where non-zero basis functions begin
-                ie1 = span1 - pn[0]
-                ie2 = span2 - pn[1]
-                ie3 = span3 - pn[2]
+                ie1 = span1 - args_derham.pn[0]
+                ie2 = span2 - args_derham.pn[1]
+                ie3 = span3 - args_derham.pn[2]
 
                 # (DNN)
                 for il1 in range(pd1 + 1):
                     i1 = ie1 + il1
-                    bi1 = bd1[il1]
+                    bi1 = args_derham.bd1[il1]
                     for il2 in range(pn2 + 1):
                         i2 = ie2 + il2
-                        bi2 = bi1 * bn2[il2]
+                        bi2 = bi1 * args_derham.bn2[il2]
                         for il3 in range(pn3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * bn3[il3] * e1_1[i1 - starts1[0] + pn1,
-                                                        i2 - starts1[1] + pn2, i3 - starts1[2] + pn3]
+                            bi3 = bi2 * args_derham.bn3[il3] * e1_1[i1 - args_derham.starts[0] + pn1,
+                                                                    i2 -
+                                                                    args_derham.starts[1] + pn2,
+                                                                    i3 - args_derham.starts[2] + pn3]
 
                             temp1 += bi3 * weight1[n]
 
@@ -478,35 +462,28 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                 quad_pos2 = factor * loc2[n] + adding
                 quad_pos3 = factor * loc2[n] + adding
 
-                # spans (i.e. index for non-vanishing basis functions)
-                span1 = bsplines_kernels.find_span(tn1, pn1, quad_pos1)
-                span2 = bsplines_kernels.find_span(tn2, pn2, quad_pos2)
-                span3 = bsplines_kernels.find_span(tn3, pn3, quad_pos3)
-
-                # compute bn, bd, i.e. values for non-vanishing B-/D-splines at quadrature point
-                bsplines_kernels.b_d_splines_slim(
-                    tn1, pn1, quad_pos1, span1, bn1, bd1)
-                bsplines_kernels.b_d_splines_slim(
-                    tn2, pn2, quad_pos2, span2, bn2, bd2)
-                bsplines_kernels.b_d_splines_slim(
-                    tn3, pn3, quad_pos3, span3, bn3, bd3)
+                # spline evaluation
+                span1, span2, span3 = get_spans(
+                    quad_pos1, quad_pos2, quad_pos3, args_derham)
 
                 # find global index where non-zero basis functions begin
-                ie1 = span1 - pn[0]
-                ie2 = span2 - pn[1]
-                ie3 = span3 - pn[2]
+                ie1 = span1 - args_derham.pn[0]
+                ie2 = span2 - args_derham.pn[1]
+                ie3 = span3 - args_derham.pn[2]
 
                 # (NDN)
                 for il1 in range(pn1 + 1):
                     i1 = ie1 + il1
-                    bi1 = bn1[il1]
+                    bi1 = args_derham.bn1[il1]
                     for il2 in range(pd2 + 1):
                         i2 = ie2 + il2
-                        bi2 = bi1 * bd2[il2]
+                        bi2 = bi1 * args_derham.bd2[il2]
                         for il3 in range(pn3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * bn3[il3] * e1_2[i1 - starts2[0] + pn1,
-                                                        i2 - starts2[1] + pn2, i3 - starts2[2] + pn3]
+                            bi3 = bi2 * args_derham.bn3[il3] * e1_2[i1 - args_derham.starts[0] + pn1,
+                                                                    i2 -
+                                                                    args_derham.starts[1] + pn2,
+                                                                    i3 - args_derham.starts[2] + pn3]
 
                             temp2 += bi3 * weight2[n]
 
@@ -529,35 +506,28 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                 quad_pos2 = factor * loc3[n] + adding
                 quad_pos3 = factor * loc3[n] + adding
 
-                # spans (i.e. index for non-vanishing basis functions)
-                span1 = bsplines_kernels.find_span(tn1, pn1, quad_pos1)
-                span2 = bsplines_kernels.find_span(tn2, pn2, quad_pos2)
-                span3 = bsplines_kernels.find_span(tn3, pn3, quad_pos3)
-
-                # compute bn, bd, i.e. values for non-vanishing B-/D-splines at quadrature point
-                bsplines_kernels.b_d_splines_slim(
-                    tn1, pn1, quad_pos1, span1, bn1, bd1)
-                bsplines_kernels.b_d_splines_slim(
-                    tn2, pn2, quad_pos2, span2, bn2, bd2)
-                bsplines_kernels.b_d_splines_slim(
-                    tn3, pn3, quad_pos3, span3, bn3, bd3)
+                # spline evaluation
+                span1, span2, span3 = get_spans(
+                    quad_pos1, quad_pos2, quad_pos3, args_derham)
 
                 # find global index where non-zero basis functions begin
-                ie1 = span1 - pn[0]
-                ie2 = span2 - pn[1]
-                ie3 = span3 - pn[2]
+                ie1 = span1 - args_derham.pn[0]
+                ie2 = span2 - args_derham.pn[1]
+                ie3 = span3 - args_derham.pn[2]
 
                 # (NND)
                 for il1 in range(pn1 + 1):
                     i1 = ie1 + il1
-                    bi1 = bn1[il1]
+                    bi1 = args_derham.bn1[il1]
                     for il2 in range(pn2 + 1):
                         i2 = ie2 + il2
-                        bi2 = bi1 * bn2[il2]
+                        bi2 = bi1 * args_derham.bn2[il2]
                         for il3 in range(pd3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * bd3[il3] * e1_3[i1 - starts3[0] + pn1,
-                                                        i2 - starts3[1] + pn2, i3 - starts3[2] + pn3]
+                            bi3 = bi2 * args_derham.bd3[il3] * e1_3[i1 - args_derham.starts[0] + pn1,
+                                                                    i2 -
+                                                                    args_derham.starts[1] + pn2,
+                                                                    i3 - args_derham.starts[2] + pn3]
 
                             temp3 += bi3 * weight3[n]
 

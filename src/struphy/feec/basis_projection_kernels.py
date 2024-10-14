@@ -1,3 +1,7 @@
+from pyccel.decorators import stack_array
+from numpy import shape, zeros
+
+
 def assemble_dofs_for_weighted_basisfuns_1d(
     mat: 'float[:,:]',
     starts_in: 'int[:]', ends_in: 'int[:]', pads_in: 'int[:]',
@@ -57,8 +61,6 @@ def assemble_dofs_for_weighted_basisfuns_1d(
         p1_out : int
             Spline degree of the first direction of the output space
     '''
-
-    from numpy import shape
 
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0}
@@ -203,8 +205,6 @@ def assemble_dofs_for_weighted_basisfuns_2d(
         p2_out : int
             Spline degree of the second direction of the output space
     '''
-
-    from numpy import shape
 
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0]
@@ -411,8 +411,6 @@ def assemble_dofs_for_weighted_basisfuns_3d(
             Spline degree of the third direction of the output space
     '''
 
-    from numpy import shape
-
     # Start/end indices and paddings for distributed stencil matrix of input space
     # si1 = starts_in[0]
     # si2 = starts_in[1]
@@ -557,6 +555,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                                             col1, col2, col3] += value
 
 
+@stack_array('shp')
 def get_dofs_local_1_form_e1_component(
     f1: 'float[:,:,:]',
     p1: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
@@ -577,11 +576,12 @@ def get_dofs_local_1_form_e1_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    from numpy import shape
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
-    for i in range(shape(f_eval_aux)[0]):
-        for j in range(shape(f_eval_aux)[1]):
-            for k in range(shape(f_eval_aux)[2]):
+    for i in range(shp[0]):
+        for j in range(shp[1]):
+            for k in range(shp[2]):
                 # Te following loop must be tantamount to:
                 # f_eval_aux[i,j,k] = sum(numpy.multiply(f1[i*p1:(i+1)*p1,j,k],wts))
                 in_start_1 = i*p1
@@ -589,6 +589,7 @@ def get_dofs_local_1_form_e1_component(
                     f_eval_aux[i, j, k] += f1[in_start_1+ii, j, k]*wts[ii]
 
 
+@stack_array('shp')
 def get_dofs_local_1_form_e2_component(
     f2: 'float[:,:,:]',
     p2: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
@@ -609,11 +610,12 @@ def get_dofs_local_1_form_e2_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    from numpy import shape
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
-    for i in range(shape(f_eval_aux)[0]):
-        for j in range(shape(f_eval_aux)[1]):
-            for k in range(shape(f_eval_aux)[2]):
+    for i in range(shp[0]):
+        for j in range(shp[1]):
+            for k in range(shp[2]):
                 # Te following loop must be tantamount to:
                 # f_eval_aux[i,j,k] = np.sum(np.multiply(f2[i,j*self._p[1]:(j+1)*self._p[1],k],self._wts[1][1][0]))
                 in_start_2 = j*p2
@@ -621,6 +623,7 @@ def get_dofs_local_1_form_e2_component(
                     f_eval_aux[i, j, k] += f2[i, in_start_2+ii, k]*wts[ii]
 
 
+@stack_array('shp')
 def get_dofs_local_1_form_e3_component(
     f3: 'float[:,:,:]',
     p3: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
@@ -641,18 +644,19 @@ def get_dofs_local_1_form_e3_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    from numpy import shape
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
-    for i in range(shape(f_eval_aux)[0]):
-        for j in range(shape(f_eval_aux)[1]):
-            for k in range(shape(f_eval_aux)[2]):
+    for i in range(shp[0]):
+        for j in range(shp[1]):
+            for k in range(shp[2]):
                 # Te following loop must be tantamount to:
                 # f_eval_aux[i,j,k] = np.sum(np.multiply(f3[i,j,k*self._p[2]:(k+1)*self._p[2]],self._wts[2][2][0]))
                 in_start_3 = k*p3
                 for ii in range(p3):
                     f_eval_aux[i, j, k] += f3[i, j, in_start_3+ii]*wts[ii]
 
-
+@stack_array('shp')
 def get_dofs_local_2_form_e1_component(
     f1: 'float[:,:,:]',
     p2: int, p3: int, GLweightsx: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
@@ -676,11 +680,12 @@ def get_dofs_local_2_form_e1_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    from numpy import shape
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
-    for i in range(shape(f_eval_aux)[0]):
-        for j in range(shape(f_eval_aux)[1]):
-            for k in range(shape(f_eval_aux)[2]):
+    for i in range(shp[0]):
+        for j in range(shp[1]):
+            for k in range(shp[2]):
                 # The following loop must be tantamount to:
                 # f_eval_aux[i,j,k] = np.sum(np.multiply(f1[i,j*p2:(j+1)*p2,k*p3:(k+1)*p3],GLweightsx))
                 in_start_2 = j*p2
@@ -690,7 +695,7 @@ def get_dofs_local_2_form_e1_component(
                         f_eval_aux[i, j, k] += f1[i, in_start_2 +
                                                   jj, in_start_3+kk] * GLweightsx[jj, kk]
 
-
+@stack_array('shp')
 def get_dofs_local_2_form_e2_component(
     f2: 'float[:,:,:]',
     p1: int, p3: int, GLweightsy: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
@@ -714,11 +719,12 @@ def get_dofs_local_2_form_e2_component(
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    from numpy import shape
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
-    for i in range(shape(f_eval_aux)[0]):
-        for j in range(shape(f_eval_aux)[1]):
-            for k in range(shape(f_eval_aux)[2]):
+    for i in range(shp[0]):
+        for j in range(shp[1]):
+            for k in range(shp[2]):
                 # The following loop must be tantamount to:
                 # f_eval_aux[i,j,k] = np.sum(np.multiply(f2[i*self._p[0]:(i+1)*self._p[0],j,k*self._p[2]:(k+1)*self._p[2]],self._GLweightsy))
                 in_start_1 = i*p1
@@ -728,7 +734,7 @@ def get_dofs_local_2_form_e2_component(
                         f_eval_aux[i, j, k] += f2[in_start_1+ii,
                                                   j, in_start_3+kk] * GLweightsy[ii, kk]
 
-
+@stack_array('shp')
 def get_dofs_local_2_form_e3_component(
     f3: 'float[:,:,:]',
     p1: int, p2: int, GLweightsz: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
@@ -748,15 +754,17 @@ def get_dofs_local_2_form_e3_component(
 
         GLweightsz : 2d float array
             Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e1 and e2 direction.
+        
         f_eval_aux : 3d float array
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    from numpy import shape
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval_aux)
 
-    for i in range(shape(f_eval_aux)[0]):
-        for j in range(shape(f_eval_aux)[1]):
-            for k in range(shape(f_eval_aux)[2]):
+    for i in range(shp[0]):
+        for j in range(shp[1]):
+            for k in range(shp[2]):
                 # The following loop must be tantamount to:
                 # f_eval_aux[i,j,k] = np.sum(np.multiply(f3[i*self._p[0]:(i+1)*self._p[0],j*self._p[1]:(j+1)*self._p[1],k],self._GLweightsz))
                 in_start_1 = i*p1
@@ -766,7 +774,7 @@ def get_dofs_local_2_form_e3_component(
                         f_eval_aux[i, j, k] += f3[in_start_1+ii,
                                                   in_start_2+jj, k] * GLweightsz[ii, jj]
 
-
+@stack_array('shp')
 def get_dofs_local_3_form(
     faux: 'float[:,:,:]',
     p1: int, p2: int, p3: int, GLweights: 'float[:,:,:]', f_eval: 'float[:,:,:]'
@@ -789,15 +797,17 @@ def get_dofs_local_3_form(
 
         GLweights : 3d float array
             Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e1, e2 and e3 direction.
+        
         f_eval : 3d float array
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
 
-    from numpy import shape
+    shp = zeros(3, dtype=int)
+    shp[:] = shape(f_eval)
 
-    for i in range(shape(f_eval)[0]):
-        for j in range(shape(f_eval)[1]):
-            for k in range(shape(f_eval)[2]):
+    for i in range(shp[0]):
+        for j in range(shp[1]):
+            for k in range(shp[2]):
                 # The following loop must be tantamount to:
                 # f_eval[i,j,k] = np.sum(np.multiply(faux[i*self._p[0]:(i+1)*self._p[0],j*self._p[1]:(j+1)*self._p[1],k*self._p[2]:(k+1)*self._p[2]],self._GLweights))
                 in_start_1 = i*p1
@@ -1360,7 +1370,6 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
         out2 : 3d float array
             Array of FEEC coefficients for the third component of the 2-form function.
     '''
-    from numpy import shape
 
     # We iterate over the stencil vectors inside the BlockVector
     for h in range(nsp):
@@ -1632,7 +1641,7 @@ def solve_local_3_form(
         out : 3d float array
             Array of FEEC coefficients for the 3-form function.
     '''
-    from numpy import shape
+
     # We get the number of B-Splines
     if (periodic[0]):
         NB0 = npts[0]

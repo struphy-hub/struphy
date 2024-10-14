@@ -13,10 +13,9 @@ def struphy():
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import inspect
+    import pickle
     import argparse
     import yaml
-    from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.console.compile import struphy_compile
     from struphy.console.run import struphy_run
     from struphy.console.units import struphy_units
@@ -91,67 +90,15 @@ def struphy():
     batch_files = recursive_get_files(
         b_path, contains=('.sh'), out=[], prefix=[])
 
-    # collect available model, contains=('.yml', '.yaml')s
-    list_fluid = []
-    fluid_string = ''
-    for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_fluid += [name]
-                fluid_string += '"' + name + '"\n'
-
-    list_kinetic = []
-    kinetic_string = ''
-    for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_kinetic += [name]
-                kinetic_string += '"' + name + '"\n'
-
-    list_hybrid = []
-    hybrid_string = ''
-    for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_hybrid += [name]
-                hybrid_string += '"' + name + '"\n'
-
-    list_toy = []
-    toy_string = ''
-    for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
-                list_toy += [name]
-                toy_string += '"' + name + '"\n'
-
-    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
-
-    # fluid message
-    fluid_message = 'Fluid models:\n'
-    fluid_message += '-------------\n'
-    fluid_message += fluid_string
-
-    # kinetic message
-    kinetic_message = 'Kinetic models:\n'
-    kinetic_message += '---------------\n'
-    kinetic_message += kinetic_string
-
-    # hybrid message
-    hybrid_message = 'Hybrid models:\n'
-    hybrid_message += '--------------\n'
-    hybrid_message += hybrid_string
-
-    # toy message
-    toy_message = 'Toy models:\n'
-    toy_message += '-----------\n'
-    toy_message += toy_string
-
-    # model message
-    model_message = 'run one of the following models:\n'
-    model_message += '\n' + fluid_message
-    model_message += '\n' + kinetic_message
-    model_message += '\n' + hybrid_message
-    model_message += '\n' + toy_message
+    try:
+        with open(os.path.join(libpath, 'models', 'models_list'), "rb") as fp:
+            list_models = pickle.load(fp)
+        with open(os.path.join(libpath, 'models', 'models_message'), "rb") as fp:
+            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+                fp)
+    except:
+        list_models = []
+        model_message = ''
 
     # 0. basic options
     parser.add_argument('-v', '--version', action='version',
@@ -168,6 +115,9 @@ def struphy():
                         help='display available hybrid models')
     parser.add_argument('--toy', action='store_true',
                         help='display available toy models')
+    parser.add_argument('--refresh-models',
+                        help='refresh list of available model names',
+                        action='store_true',)
     parser.add_argument('--set-i',
                         type=str,
                         metavar='PATH',
@@ -364,6 +314,24 @@ def struphy():
     parser_params.add_argument('-y', '--yes',
                                help='Say yes on prompt to overwrite .yml FILE',
                                action='store_true')
+    
+    parser_run.add_argument('--likwid',
+                            help='run with Likwid',
+                            action='store_true',)
+    
+    parser_run.add_argument('-li', '--likwid-inp',
+                            type=str,
+                            metavar='FILE',
+                            help='likwid parameter file (.yml) in current I/O path',)
+
+    parser_run.add_argument('--likwid-input-abs',
+                            type=str,
+                            metavar='FILE',
+                            help='likwid parameter file (.yml), absolute path',)
+    parser_run.add_argument('-lr', '--likwid-repetitions',
+                            type=int,
+                            help='number of repetitions of the same simulation',
+                            default=1,)
 
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
@@ -432,6 +400,10 @@ def struphy():
                               help='divide each grid cell by N for field evaluation (default=1)',
                               default=1)
 
+    parser_pproc.add_argument('--physical',
+                              help='in addition to logical components, evaluates push-forwarded physical (xyz) components',
+                              action='store_true')
+
     # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',
                                         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
@@ -442,11 +414,17 @@ def struphy():
     parser_test.add_argument('group',
                              type=str,
                              choices=list_models +
-                             ['models'] + ['unit'] +
-                             ['tutorials'] + ['timings'],
+                             ['models'] +
+                             ['unit'] +
+                             ['tutorials'] +
+                             ['timings'] +
+                             ['fluid'] +
+                             ['kinetic'] +
+                             ['hybrid'] +
+                             ['toy'],
                              metavar='GROUP',
                              help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
-                                \nb) "models" for quick testing of all models \
+                                \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                 \nc) "unit" for performing unit tests \
                                 \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
                                 \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
@@ -459,6 +437,10 @@ def struphy():
 
     parser_test.add_argument('-f', '--fast',
                              help='test model(s) just in slab geometry (Cuboid)',
+                             action='store_true')
+
+    parser_test.add_argument('--with-desc',
+                             help='include DESC equilibrium in tests (mem consuming)',
                              action='store_true')
 
     parser_test.add_argument('-v', '--verbose',
@@ -614,6 +596,88 @@ def struphy():
         subprocess.run(['struphy', '--set-b', b_path])
 
         exit()
+        
+    if args.refresh_models:
+        
+        print('Collecting available models ...')
+        
+        import inspect
+        from struphy.models import fluid, kinetic, hybrid, toy
+        import pickle
+
+        list_fluid = []
+        fluid_string = ''
+        for name, obj in inspect.getmembers(fluid):
+            if inspect.isclass(obj):
+                if name not in {'StruphyModel', 'Propagator'}:
+                    list_fluid += [name]
+                    fluid_string += '"' + name + '"\n'
+
+        list_kinetic = []
+        kinetic_string = ''
+        for name, obj in inspect.getmembers(kinetic):
+            if inspect.isclass(obj):
+                if name not in {'StruphyModel', 'Propagator'}:
+                    list_kinetic += [name]
+                    kinetic_string += '"' + name + '"\n'
+
+        list_hybrid = []
+        hybrid_string = ''
+        for name, obj in inspect.getmembers(hybrid):
+            if inspect.isclass(obj):
+                if name not in {'StruphyModel', 'Propagator'}:
+                    list_hybrid += [name]
+                    hybrid_string += '"' + name + '"\n'
+
+        list_toy = []
+        toy_string = ''
+        for name, obj in inspect.getmembers(toy):
+            if inspect.isclass(obj):
+                if name not in {'StruphyModel', 'Propagator'}:
+                    list_toy += [name]
+                    toy_string += '"' + name + '"\n'
+
+        list_models = list_fluid + list_kinetic + list_hybrid + list_toy
+
+        with open(os.path.join(libpath, 'models', 'models_list'), "wb") as fp:
+            pickle.dump(list_models, fp)
+
+        # fluid message
+        fluid_message = 'Fluid models:\n'
+        fluid_message += '-------------\n'
+        fluid_message += fluid_string
+
+        # kinetic message
+        kinetic_message = 'Kinetic models:\n'
+        kinetic_message += '---------------\n'
+        kinetic_message += kinetic_string
+
+        # hybrid message
+        hybrid_message = 'Hybrid models:\n'
+        hybrid_message += '--------------\n'
+        hybrid_message += hybrid_string
+
+        # toy message
+        toy_message = 'Toy models:\n'
+        toy_message += '-----------\n'
+        toy_message += toy_string
+
+        # model message
+        model_message = 'run one of the following models:\n'
+        model_message += '\n' + fluid_message
+        model_message += '\n' + kinetic_message
+        model_message += '\n' + hybrid_message
+        model_message += '\n' + toy_message
+
+        with open(os.path.join(libpath, 'models', 'models_message'), "wb") as fp:
+            pickle.dump([model_message,
+                         fluid_message,
+                         kinetic_message,
+                         hybrid_message,
+                         toy_message], fp)
+            
+        print('Done.')    
+        exit()
 
     # load sub-command function (see functions below)
     func = locals()['struphy_' + args.command]
@@ -630,6 +694,7 @@ def struphy():
     kwargs.pop('set_o')
     kwargs.pop('set_b')
     kwargs.pop('set_iob')
+    kwargs.pop('refresh_models')
 
     # start sub-command function with all parameters of that function
     # for k, v in kwargs.items():

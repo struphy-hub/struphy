@@ -25,16 +25,18 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.feec.projectors import CommutingProjectorLocal, select_quasi_points
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 
 import numpy as np
 from mpi4py import MPI
+from mpi4py.MPI import Intracomm
 
 
 class Derham:
     """
     The discrete Derham sequence on the logical unit cube (3d).
 
-    Check out `Tutorial 09 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_09_discrete_derham.html>`_ for a hands-on introduction.
+    Check out the corresponding `Struphy API <https://struphy.pages.mpcdf.de/struphy/api/discrete_derham.html>`_ for a hands-on introduction.
 
     The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_ 
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
@@ -62,7 +64,10 @@ class Derham:
         Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
 
     comm : mpi4py.MPI.Intracomm
-        MPI communicator.
+        MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
+    
+    inter_comm : mpi4py.MPI.Intracomm
+        MPI communicator (between clones if domain cloning is used, otherwise None)
 
     mpi_dims_mask: list of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension). 
@@ -77,23 +82,25 @@ class Derham:
     local_projectors : bool
         Whether to build the local commuting projectors based on quasi-inter-/histopolation.
 
-    domain : struphy.geometry.domains
+    domain : struphy.geometry.base.Domain
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
     def __init__(self,
-                 Nel,
-                 p,
-                 spl_kind,
-                 dirichlet_bc=None,
-                 nquads=None,
-                 nq_pr=None,
-                 comm=None,
-                 mpi_dims_mask=None,
-                 with_projectors=True,
-                 polar_ck=-1,
-                 local_projectors=False,
-                 domain=None):
+                 Nel: list | tuple,
+                 p: list | tuple,
+                 spl_kind: list | tuple,
+                 *,
+                 dirichlet_bc: list | tuple = None,
+                 nquads: list | tuple = None,
+                 nq_pr: list | tuple = None,
+                 comm: Intracomm = None,
+                 inter_comm: Intracomm = None,
+                 mpi_dims_mask: list = None,
+                 with_projectors: bool = True,
+                 polar_ck: int = -1,
+                 local_projectors: bool = False,
+                 domain: Domain = None):
 
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
         assert len(Nel) == 3
@@ -127,8 +134,14 @@ class Derham:
             assert len(nq_pr) == 3
             self._nq_pr = nq_pr
 
-        # MPI communicator
+        # MPI communicators
         self._comm = comm
+        self._inter_comm = inter_comm
+        if self._inter_comm  == None:
+            self._Nclones = 1
+        else:
+            self._Nclones = self._inter_comm.Get_size()
+            
 
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
@@ -264,7 +277,7 @@ class Derham:
                             self._proj_loc_grid_wts[sp_form][-1] += [wtsloc]
 
                         pts, wts, subs = get_pts_and_wts(
-                            space, s, e, n_quad = self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
+                            space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
                         self._proj_grid_subs[sp_form][-1] += [subs]
 
                         self._proj_grid_pts[sp_form][-1] += [pts]
@@ -414,6 +427,19 @@ class Derham:
         self._curl = self._boundary_ops['2'] @ self._curl @ self._boundary_ops['1'].T
         self._div = self._boundary_ops['3'] @ self._div @ self._boundary_ops['2'].T
 
+        # collect arguments for kernels
+        self._args_derham = DerhamArguments(np.array(self.p),
+                                            self.Vh_fem['0'].knots[0],
+                                            self.Vh_fem['0'].knots[1],
+                                            self.Vh_fem['0'].knots[2],
+                                            np.array(self.Vh['0'].starts),
+                                            np.empty(self.p[0] + 1, dtype=float),
+                                            np.empty(self.p[1] + 1, dtype=float),
+                                            np.empty(self.p[2] + 1, dtype=float),
+                                            np.empty(self.p[0], dtype=float),
+                                            np.empty(self.p[1], dtype=float),
+                                            np.empty(self.p[2], dtype=float))
+
     @property
     def Nel(self):
         """ List of number of elements (=cells) in each direction.
@@ -450,12 +476,24 @@ class Derham:
         """ List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.
         """
         return self._nq_pr
+    
+    @property
+    def Nclones(self):
+        """ Number of clones
+        """
+        return self._Nclones
 
     @property
     def comm(self):
         """ MPI communicator.
         """
         return self._comm
+    
+    @property
+    def inter_comm(self):
+        """ MPI communicator between the clones.
+        """
+        return self._inter_comm
 
     @property
     def polar_ck(self):
@@ -686,6 +724,12 @@ class Derham:
         """ Discrete divergence Vh2_pol (Hdiv) -> Vh3_pol (L2).
         """
         return self._div
+
+    @property
+    def args_derham(self):
+        """ Collection of mandatory arguments for pusher kernels.
+        """
+        return self._args_derham
 
     # --------------------------
     #      methods:
@@ -1565,7 +1609,7 @@ class Derham:
             if isinstance(vec, StencilVector):
 
                 assert [span.size for span in spans] == [base.shape[0]
-                                                        for base in bases]
+                                                         for base in bases]
 
                 if out is None:
                     out = np.empty([span.size for span in spans], dtype=float)
@@ -1573,13 +1617,13 @@ class Derham:
                     assert out.shape == tuple([span.size for span in spans])
 
                 eval_spline_mpi_tensor_product_fixed(*spans,
-                                                    *bases,
-                                                    vec._data,
-                                                    self.derham.spline_types_pyccel[self.space_key],
-                                                    np.array(self.derham.p),
-                                                    np.array(self.starts),
-                                                    out)
-                
+                                                     *bases,
+                                                     vec._data,
+                                                     self.derham.spline_types_pyccel[self.space_key],
+                                                     np.array(self.derham.p),
+                                                     np.array(self.starts),
+                                                     out)
+
             else:
                 out_is_none = False
                 if out is None:
@@ -1589,7 +1633,7 @@ class Derham:
                 for i in range(3):
 
                     assert [span.size for span in spans] == [base.shape[0]
-                                                            for base in bases[i]]
+                                                             for base in bases[i]]
 
                     if out_is_none:
                         out += np.empty([span.size for span in spans],
@@ -1599,14 +1643,14 @@ class Derham:
                             [span.size for span in spans])
 
                     eval_spline_mpi_tensor_product_fixed(*spans,
-                                                        *bases[i],
-                                                        vec[i]._data,
-                                                        self.derham.spline_types_pyccel[self.space_key][i],
-                                                        np.array(
-                                                            self.derham.p),
-                                                        np.array(
-                                                            self.starts[i]),
-                                                        out[i])
+                                                         *bases[i],
+                                                         vec[i]._data,
+                                                         self.derham.spline_types_pyccel[self.space_key][i],
+                                                         np.array(
+                                                             self.derham.p),
+                                                         np.array(
+                                                             self.starts[i]),
+                                                         out[i])
 
             return out
 
@@ -2006,9 +2050,12 @@ class TransformedPformComponent:
         Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
 
     fun_basis : str
-        In which basis fun is represented: either a p-form, then '0' or '3' for scalar and 'v', '1' or '2' for vector-valued,
-        'physical' when defined on the physical (mapped) domain, and 'norm' when given in the normalized
-        contra-variant basis (:math:`\delta_i / |\delta_i|`).
+        In which basis fun is represented: either a p-form, 
+        then '0' or '3' for scalar 
+        and 'v', '1' or '2' for vector-valued,
+        'physical' when defined on the physical (mapped) domain, 
+        'physical_at_eta' when given the Cartesian components defined on the logical domain, 
+        and 'norm' when given in the normalized contra-variant basis (:math:`\delta_i / |\delta_i|`).
 
     out_form : str
         The p-form representation of the output: '0', '1', '2' '3' or 'v'.
@@ -2237,13 +2284,13 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
     # h = space_1d.knots[p+1]
     h = space_1d.breaks[1]
     N = len(space_1d.breaks) - 1  # number of cells
-    
+
     # We have two different behaviours depending on whether the spline space is periodic or not
     if space_1d.periodic:
         # interpolation
         if space_1d.basis == 'B':
             # x_grid = np.arange(-(p-1.0)*h, 1.0-h+(h/2.0), h/2.0)
-            if(p == 1 and h!= 1.0):
+            if (p == 1 and h != 1.0):
                 x_grid = np.linspace(-(p-1)*h, 1.0 - h + (h/2.0), (N + p-1)*2)
             else:
                 x_grid = np.linspace(-(p-1)*h, 1.0 - h, (N + p-1)*2 - 1)
@@ -2261,10 +2308,10 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
             # We need to build the histopolation points by hand in this scenario.
             if (p == 0 and h == 1.0):
                 x_grid = np.array([0.0, 0.5, 1.0])
-            elif (p == 0 and h!= 1.0):
-                x_grid = np.linspace(-p*h, 1.0 - h + (h/2.0), (N + p)*2 )
+            elif (p == 0 and h != 1.0):
+                x_grid = np.linspace(-p*h, 1.0 - h + (h/2.0), (N + p)*2)
             else:
-                #x_grid = np.arange(-p*h, 1.0-h+(h/2.0), h/2.0)
+                # x_grid = np.arange(-p*h, 1.0-h+(h/2.0), h/2.0)
                 x_grid = np.linspace(-p*h, 1.0 - h, (N + p)*2 - 1)
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly

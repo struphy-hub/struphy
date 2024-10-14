@@ -1,17 +1,12 @@
 .. _modules:
 
-Python modules
-==============
+More Physics
+============
 
 .. toctree::
     :maxdepth: 1
     :caption: Contents:
 
-    subsections/model_base_class
-    subsections/propagators
-    subsections/pic_classes
-    subsections/feec_classes
-    subsections/domains
     subsections/mhd_equils
     subsections/braginskii_equils
     subsections/kinetic_backgrounds

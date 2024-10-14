@@ -3,6 +3,7 @@
 
 from numpy import array, polynomial, random
 
+from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.polar.basic import PolarVector
@@ -11,412 +12,248 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.pic.pushing.pusher import ButcherTableau
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.pic.particles import Particles6D, Particles5D
+from struphy.pic.particles import Particles6D, Particles5D, Particles3D
+from struphy.pic.base import Particles
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.io.setup import descend_options_dict
+from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc, eval_kernels_gc
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 
 
 class PushEta(Propagator):
-    r"""Solves
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v
+        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = \mathbf v_p\,,
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms:
+    for constant :math:`\mathbf v_p` in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
-        * forward_euler (1st order)
-        * heun2 (2nd order)
-        * rk2 (2nd order)
-        * heun3 (3rd order)
-        * rk4 (4th order)
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p\,. 
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms:
+
+    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
     """
 
-    def __init__(self, particles, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
 
+    def __init__(self,
+                 particles: Particles,
+                 *,
+                 algo: str = options(default=True)['algo'],
+                 bc_type: list = ['reflect', 'periodic', 'periodic']):
+
+        # base class constructor call
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'rk4',
-                          'bc_type': ['reflect', 'periodic', 'periodic'],
-                          }
+        # parameters that need to be exposed
+        self._bc_type = bc_type
 
-        params = set_defaults(params, params_default)
+        butcher = ButcherTableau(algo)
 
-        self._bc_type = params['bc_type']
+        # instantiate Pusher
+        kernel = pusher_kernels.push_eta_stage
 
-        # choose algorithm
-        if params['algo'] == 'forward_euler':
-            a = []
-            b = [1.]
-            c = [0.]
-        elif params['algo'] == 'heun2':
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif params['algo'] == 'rk2':
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif params['algo'] == 'heun3':
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif params['algo'] == 'rk4':
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        else:
-            raise NotImplementedError('Chosen algorithm is not implemented.')
+        args_kernel = (butcher.a,
+                       butcher.b,
+                       butcher.c)
 
-        self._butcher = ButcherTableau(a, b, c)
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_eta_stage', n_stages=self._butcher.n_stages)
+        self._pusher = Pusher(particles,
+                              kernel,
+                              args_kernel,
+                              self.derham.args_derham,
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.,
+                              n_stages=butcher.n_stages,
+                              mpi_sort='last')
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-
         # push markers
-        self._pusher(self.particles[0], dt,
-                     self._butcher.a, self._butcher.b, self._butcher.c,
-                     mpi_sort='last')
+        self._pusher(dt)
 
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
-        return dct
 
 
 class PushVxB(Propagator):
-    r"""Solves
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \mathbf B\,,
 
-    for each marker :math:`p` in markers array, with fixed rotation vector. Available algorithms:
+    for fixed rotation vector :math:`\mathbf B`, given as a 2-form:
 
-        * analytic
-        * implicit
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+        \mathbf B =  \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}\,.
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms: ``analytic``, ``implicit``.
     """
 
-    def __init__(self, particles, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['analytic', 'implicit']
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
 
+    def __init__(self,
+                 particles: Particles6D,
+                 *,
+                 algo: str = options(default=True)['algo'],
+                 scale_fac: float = 1.,
+                 b_eq: BlockVector | PolarVector,
+                 b_tilde: BlockVector | PolarVector = None):
+
+        # base class constructor call
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'analytic',
-                          'scale_fac': 1.,
-                          'b_eq': None,
-                          'b_tilde': None, }
+        # parameters that need to be exposed
+        self._scale_fac = scale_fac
+        self._b_eq = b_eq
+        self._b_tilde = b_tilde
+        self._tmp = self.derham.Vh['2'].zeros()
+        self._b_full = self.derham.Vh['2'].zeros()
 
-        params = set_defaults(params, params_default)
+        # define pusher kernel
+        if algo == 'analytic':
+            kernel = pusher_kernels.push_vxb_analytic
+        elif algo == 'implicit':
+            kernel = pusher_kernels.push_vxb_implicit
+        else:
+            raise ValueError(f'{algo = } not supported.')
 
-        assert isinstance(params['b_eq'], (BlockVector, PolarVector))
+        # instantiate Pusher
+        args_kernel = (self._b_full[0]._data,
+                       self._b_full[1]._data,
+                       self._b_full[2]._data)
 
-        if params['b_tilde'] is not None:
-            assert isinstance(params['b_tilde'], (BlockVector, PolarVector))
-
-        self._scale_fac = params['scale_fac']
-        self._b_eq = params['b_eq']
-        self._b_tilde = params['b_tilde']
-
-        # load pusher
-        kernel_name = 'push_vxb_' + params['algo']
-        self._pusher = Pusher(self.derham, self.domain, kernel_name)
+        self._pusher = Pusher(particles,
+                              kernel,
+                              args_kernel,
+                              self.derham.args_derham,
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.extraction_ops['2'].transpose()
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-
         # sum up total magnetic field
-        b_full = self._b_eq.copy()
+        tmp = self._b_eq.copy(out=self._tmp)
         if self._b_tilde is not None:
-            b_full += self._b_tilde
+            tmp += self._b_tilde
 
         # extract coefficients to tensor product space
-        b_full = self._E2T.dot(b_full)
-
-        # update ghost regions because of non-local access in pusher kernel
+        b_full = self._E2T.dot(tmp, out=self._b_full)
         b_full.update_ghost_regions()
 
         # call pusher kernel
-        self._pusher(self.particles[0], self._scale_fac*dt,
-                     b_full[0]._data,
-                     b_full[1]._data,
-                     b_full[2]._data)
+        self._pusher(self._scale_fac*dt)
 
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['analytic', 'implicit']
-        return dct
-
-
-class StepPushpxBHybrid(Propagator):
-    r"""Solves
-
-    .. math::
-
-        \frac{\textnormal d \mathbf p_i(t)}{\textnormal d t} =  (\mathbf p_i(t) - {\mathbf A}({\mathbf x})) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
-
-    for each marker :math:`i` in markers array, with fixed rotation vector. Available algorithms:
-
-        * analytic
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
-    """
-
-    def __init__(self, particles, **params):
-
-        super().__init__(particles)
-
-        # parameters
-        params_default = {'b_eq': None,
-                          'a': None,
-                          'method': None
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._b_eq = params['b_eq']
-        self._a = params['a']
-        self._algo = params['method']
-
-        self._C = self.derham.curl
-
-        # load pusher
-        kernel_name = 'push_pxb_' + self._algo
-
-        self._pusher = Pusher(self.derham, self.domain, kernel_name)
-
-        assert isinstance(self._b_eq, (BlockVector, PolarVector))
-        assert isinstance(self._a,    (BlockVector, PolarVector))
-
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.extraction_ops['2'].transpose()
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-
-        # sum up total magnetic field
-        b_full = self._b_eq.space.zeros()
-
-        b_full += self._b_eq
-
-        # extract coefficients to tensor product space
-        b_full = self._E2T.dot(b_full)
-
-        # update ghost regions because of non-local access in pusher kernel
-        b_full.update_ghost_regions()
-        self._a.update_ghost_regions()
-
-        # call pusher kernel
-        self._pusher(self.particles[0], dt,
-                     b_full[0]._data,
-                     b_full[1]._data,
-                     b_full[2]._data,
-                     self._a[0]._data,
-                     self._a[1]._data,
-                     self._a[2]._data)
-
-
-class StepHybridXPSymplectic(Propagator):
-    r'''Step for the update of particles' positions and canonical momentum with symplectic methods (only in Cartesian coordinates) which solve the following Hamiltonian system
-
-    .. math::
-
-        \frac{\mathrm{d} {\mathbf x}(t)}{\textnormal d t} = {\mathbf p} - {\mathbf A}, \quad \frac{\mathrm{d} {\mathbf p}(t)}{\textnormal d t} = - \left( \frac{\partial{\mathbf A}}{\partial {\mathbf x}} \right)^\top ({\mathbf A} - {\mathbf p} ) - T \frac{\nabla n}{n}. 
-
-    for each marker in markers array.
-
-    Parameters
-    ----------
-        particles : struphy.pic.particles.Particles6D
-
-        **params : dict
-        Solver- and/or other parameters for this splitting step.
-    '''
-
-    def __init__(self, particles, **params):
-
-        super().__init__(particles)
-
-        # parameters
-        params_default = {'a': None,
-                          'particle_bc': None,
-                          'quad_number': None,
-                          'shape_degree': None,
-                          'shape_size': None,
-                          'electron_temperature': None,
-                          'accumulate_density': None
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._a = params['a']
-        self._bc = params['particle_bc']
-        self._thermal = params['electron_temperature']
-
-        assert isinstance(self._a, BlockVector)
-
-        self._nqs = params['quad_number']
-        self._p_shape = params['shape_degree']
-        self._p_size = params['shape_size']
-        self._accum_density = params['accumulate_density']
-
-        # Initialize Accumulator object for getting density from particles
-        self._pts_x = 1.0 / (2.0*self.derham.Nel[0]) * polynomial.legendre.leggauss(
-            self._nqs[0])[0] + 1.0 / (2.0*self.derham.Nel[0])
-        self._pts_y = 1.0 / (2.0*self.derham.Nel[1]) * polynomial.legendre.leggauss(
-            self._nqs[1])[0] + 1.0 / (2.0*self.derham.Nel[1])
-        self._pts_z = 1.0 / (2.0*self.derham.Nel[2]) * polynomial.legendre.leggauss(
-            self._nqs[2])[0] + 1.0 / (2.0*self.derham.Nel[2])
-
-        self._wts_x = 1.0 / \
-            (2.0*self.derham.Nel[0]) * \
-            polynomial.legendre.leggauss(self._nqs[0])[1]
-        self._wts_y = 1.0 / \
-            (2.0*self.derham.Nel[0]) * \
-            polynomial.legendre.leggauss(self._nqs[1])[1]
-        self._wts_z = 1.0 / \
-            (2.0*self.derham.Nel[0]) * \
-            polynomial.legendre.leggauss(self._nqs[2])[1]
-
-        # set kernel function
-        self._pusher_lnn = Pusher(
-            self.derham, self.domain, 'push_hybrid_xp_lnn')
-        self._pusher_ap = Pusher(self.derham, self.domain, 'push_hybrid_xp_ap')
-
-        self._pusher_inputs = (
-            self._a[0]._data, self._a[1]._data, self._a[2]._data)
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-        # get density from particles
-        self._accum_density.accumulate(self.particles[0], array(self.derham.Nel), array(self._nqs), array(
-            self._pts_x), array(self._pts_y), array(self._pts_z), array(self._p_shape), array(self._p_size))
-        if not self._accum_density._operators[0].matrix.ghost_regions_in_sync:
-            self._accum_density._operators[0].matrix.update_ghost_regions()
-        # print('++++++check_density+++++++++', self._accum_density._operators[0].matrix._data)
-        self._pusher_lnn(self.particles[0], dt, array(self._p_shape), array(self._p_size), array(self.derham.Nel), array(self._pts_x), array(self._pts_y), array(
-            self._pts_z), array(self._wts_x), array(self._wts_y), array(self._wts_z), self._accum_density._operators[0].matrix._data, self._thermal, array(self._nqs))
-
-        if not self._a[0].ghost_regions_in_sync:
-            self._a[0].update_ghost_regions()
-        if not self._a[1].ghost_regions_in_sync:
-            self._a[1].update_ghost_regions()
-        if not self._a[2].ghost_regions_in_sync:
-            self._a[2].update_ghost_regions()
-        self._pusher_ap(
-            self.particles[0], dt, self._a[0]._data, self._a[1]._data, self._a[2]._data, mpi_sort='last')
-
 
 class PushEtaPC(Propagator):
-    r'''Step for the update of particles' positions with the RK4 method which solves
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U})
+        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = \mathbf v_p + \mathbf U (\mathbf x_p(t))\,,
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
+    for constant :math:`\mathbf v_p` and :math:`\mathbf U` in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p + \textnormal{vec}(\hat{\mathbf U}) \,, 
+
+    where
 
     .. math::
 
         \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,, \qquad \textnormal{vec}( \hat{\mathbf U}) = \hat{\mathbf U}\,.
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
+    Available algorithms:
 
-    derham : struphy.feec.psydac_derham.Derham
-        Discrete Derham complex.
+    * ``rk4`` (4th order, default)
+    * ``forward_euler`` (1st order)
+    * ``heun2`` (2nd order)
+    * ``rk2`` (2nd order)
+    * ``heun3`` (3rd order)
+    """
 
-    domain : struphy.geometry.domains
-        Mapping info for evaluating metric coefficients.
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['use_perp_model'] = [True, False]
 
-    u : psydac.linalg.block.BlockVector
-        FE coefficients of a discrete 0-form, 1-form or 2-form.
+        if default:
+            dct = descend_options_dict(dct, [])
 
-    u_space : dic
-        params['fields']['mhd_u_space']
+        return dct
 
-    bc : list[str]
-        Kinetic boundary conditions in each direction.
-    '''
-
-    def __init__(self, particles, **params):
+    def __init__(self,
+                 particles: Particles,
+                 *,
+                 u: BlockVector | PolarVector,
+                 use_perp_model: bool = options(default=True)[
+                     'use_perp_model'],
+                 u_space: str):
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {'u_mhd': None,
-                          'u_space': 'Hdiv',
-                          'bc_type': ['reflect', 'periodic', 'periodic'],
-                          'use_perp_model': True
-                          }
+        assert isinstance(u, (BlockVector, PolarVector))
 
-        params = set_defaults(params, params_default)
-
-        assert isinstance(params['u_mhd'], (BlockVector, PolarVector))
-
-        self._u = params['u_mhd']
-        self._u_space = params['u_space']
-        self._bc = params['bc_type']
+        self._u = u
 
         # call Pusher class
-        pusher_ker = 'push_pc_eta_rk4_' + self._u_space
-        if not params['use_perp_model']:
-            pusher_ker += '_full'
+        if use_perp_model:
+            if u_space == 'Hcurl':
+                kernel = pusher_kernels.push_pc_eta_rk4_Hcurl
+            elif u_space == 'Hdiv':
+                kernel = pusher_kernels.push_pc_eta_rk4_Hdiv
+            elif u_space == 'H1vec':
+                kernel = pusher_kernels.push_pc_eta_rk4_H1vec
+            else:
+                raise ValueError(
+                    f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.')
+        else:
+            if u_space == 'Hcurl':
+                kernel = pusher_kernels.push_pc_eta_rk4_Hcurl_full
+            elif u_space == 'Hdiv':
+                kernel = pusher_kernels.push_pc_eta_rk4_Hdiv_full
+            elif u_space == 'H1vec':
+                kernel = pusher_kernels.push_pc_eta_rk4_H1vec_full
+            else:
+                raise ValueError(
+                    f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.')
 
-        self._pusher = Pusher(
-            self.derham, self.domain, pusher_ker, n_stages=4)
+        self._pusher = Pusher(particles,
+                              kernel,
+                              (self._u[0]._data,
+                               self._u[1]._data,
+                               self._u[2]._data),
+                              self.derham.args_derham,
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.,
+                              n_stages=4)
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-        # push particles
+
         # check if ghost regions are synchronized
         if not self._u[0].ghost_regions_in_sync:
             self._u[0].update_ghost_regions()
@@ -425,526 +262,674 @@ class PushEtaPC(Propagator):
         if not self._u[2].ghost_regions_in_sync:
             self._u[2].update_ghost_regions()
 
-        self._pusher(self.particles[0], dt,
-                     self._u[0]._data, self._u[1]._data, self._u[2]._data,
-                     mpi_sort='last')
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['use_perp_model'] = [True, False]
-        dct['u_space'] = ['Hcurl', 'Hdiv', 'H1vec']
-        return dct
+        self._pusher(dt)
 
 
 class PushGuidingCenterBxEstar(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf b_ \times \mathbf E^*` guiding center drift part in :class:`~struphy.models.toy.DriftKinetic`,
-
-    Equation:
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &= - \frac{1}{B_\parallel^*} \mathbf b_0 \times \mathbf E^* \,,
-                \\
-                \dot v_\parallel &= 0 \,.
-            \end{aligned}
-        \right.
+        \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} = \frac{\mathbf E^* \times \mathbf b_0}{B_\parallel^*} (\mathbf X_p(t))   \,,
 
-    where :math:`\mathbf E^* = - \varepsilon \mu \nabla B_0`.
-
-    Marker update:
+    where 
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \varepsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_0 (\boldsymbol \eta_p) \,,
-            \\
-            \dot v_{\parallel,\,p} &= 0 \,.
-        \end{aligned}
+        \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf b_0\,,
 
-    for each marker :math:`p` in markers array. Available algorithms:
+    where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation).
+    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde`` 
+    can be ignored by passing ``None``.
+    In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (1st order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = \frac{\hat{\mathbf E}^{*1} \times \hat{\mathbf b}^1_0}{\sqrt g\,\hat B_\parallel^{*}} (\boldsymbol \eta_p(t)) \,.
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms:
+
+    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton` 
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`  
     """
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = {'method': ['discrete_gradient_2nd_order',
+                                  'discrete_gradient_1st_order',
+                                  'discrete_gradient_1st_order_newton',
+                                  'rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3'],
+                       'maxiter': 20,
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
     def __init__(self,
-                 particles,
+                 particles: Particles5D,
                  *,
-                 magn_bckgr=None,
-                 epsilon=1.,
-                 **algo_params):
+                 phi: StencilVector = None,
+                 evaluate_e_field: bool = False,
+                 b_tilde: BlockVector = None,
+                 epsilon: float = 1.,
+                 algo: dict = options(default=True)['algo']):
 
         super().__init__(particles)
 
-        # parameters
-        algo_params_default = {
-            'method': 'discrete_gradient',
-            'maxiter': 20,
-            'tol': 1e-07,
-            'mpi_sort': 'each',
-            'verbose': False}
+        # magnetic equilibrium field
+        unit_b1 = self.projected_mhd_equil.unit_b1
+        self._gradB1 = self.projected_mhd_equil.gradB1
+        self._absB0 = self.projected_mhd_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
 
-        params = set_defaults(algo_params, algo_params_default)
+        # magnetic perturbation
+        self._b_tilde = b_tilde
+        if self._b_tilde is not None:
+            self._B_dot_b = self.derham.Vh['0'].zeros()
+            self._grad_b_full = self.derham.Vh['1'].zeros()
 
-        self._mpi_sort = params['mpi_sort']
-        self._verbose = params['verbose']
+            self._PB = getattr(self.basis_ops, 'PB')
+
+            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+            B_dot_b.update_ghost_regions()
+
+            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
+            grad_b_full.update_ghost_regions()
+
+            grad_b_full += self._gradB1
+            B_dot_b += self._absB0
+        else:
+            self._grad_b_full = self._gradB1
+            self._B_dot_b = self._absB0
+
+        # allocate electric field
+        if phi is None:
+            phi = self.derham.Vh['0'].zeros()
+            self._evaluate_e_field = False
+        self._phi = phi
+        self._evaluate_e_field = evaluate_e_field
+        self._e_field = self.derham.Vh['1'].zeros()
         self._epsilon = epsilon
 
-        # magnetic field
-        b_eq = self.derham.P['2']([magn_bckgr.b2_1,
-                                   magn_bckgr.b2_2,
-                                   magn_bckgr.b2_3])
+        # choose method
+        if 'discrete_gradient' in algo['method']:
 
-        self._abs_b = self.derham.P['0'](magn_bckgr.absB0)
+            # place for storing data during iteration
+            first_free_idx = particles.args_markers.first_free_idx
 
-        unit_b1 = self.derham.P['1']([magn_bckgr.unit_b1_1,
-                                      magn_bckgr.unit_b1_2,
-                                      magn_bckgr.unit_b1_3])
+            if '1st_order' in algo['method']:
+                # init kernels
+                self.add_init_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                     first_free_idx,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      self._phi._data,
+                                      self._evaluate_e_field))
 
-        unit_b2 = self.derham.P['2']([magn_bckgr.unit_b2_1,
-                                      magn_bckgr.unit_b2_2,
-                                      magn_bckgr.unit_b2_3])
+                self.add_init_kernel(eval_kernels_gc.bstar_parallel_3form,
+                                     first_free_idx + 1,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      curl_unit_b_dot_b0._data))
 
-        grad_abs_b = self.derham.P['1']([magn_bckgr.gradB1_1,
-                                         magn_bckgr.gradB1_2,
-                                         magn_bckgr.gradB1_3])
+                self.add_init_kernel(eval_kernels_gc.unit_b_1form,
+                                     first_free_idx + 2,
+                                     (0, 1, 2),
+                                     (unit_b1[0]._data,
+                                      unit_b1[1]._data, unit_b1[2]._data))
 
-        if hasattr(magn_bckgr, 'curl_unit_b2_1'):
-            curl_norm_b = self.derham.P['2']([magn_bckgr.curl_unit_b2_1,
-                                              magn_bckgr.curl_unit_b2_2,
-                                              magn_bckgr.curl_unit_b2_3])
+                if 'newton' in algo['method']:
+                    # eval kernels
+                    self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                         first_free_idx + 5,
+                                         None,
+                                         (self._epsilon,
+                                          self._B_dot_b._data,
+                                          self._phi._data,
+                                          self._evaluate_e_field),
+                                         alpha=(1., 0., 0., 0.))
+
+                    self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                         first_free_idx + 6,
+                                         None,
+                                         (self._epsilon,
+                                          self._B_dot_b._data,
+                                          self._phi._data,
+                                          self._evaluate_e_field),
+                                         alpha=(1., 1., 0., 0.))
+
+                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                                         first_free_idx + 7,
+                                         (0,),
+                                         (self._epsilon,
+                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                             self._evaluate_e_field),
+                                         alpha=(1., 0., 0., 0.))
+
+                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                                         first_free_idx + 8,
+                                         (0, 1),
+                                         (self._epsilon,
+                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                             self._evaluate_e_field),
+                                         alpha=(1., 1., 0., 0.))
+
+                    # pusher kernel
+                    kernel = pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton
+
+                    alpha_in_kernel = 1.  # evaluate at eta^{n+1,k} and save
+                    args_kernel = (self._epsilon,
+                                   self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                   self._B_dot_b._data,
+                                   self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                   self._phi._data,
+                                   self._evaluate_e_field)
+
+                else:
+                    # eval kernels
+                    self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                         first_free_idx + 5,
+                                         None,
+                                         (self._epsilon,
+                                          self._B_dot_b._data,
+                                          self._phi._data,
+                                          self._evaluate_e_field),
+                                         alpha=(1., 1., 1., 0.))  # evaluate at eta^{n+1,k} and save
+
+                    # pusher kernel
+                    kernel = pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order
+
+                    alpha_in_kernel = .5  # evaluate at mid-point
+                    args_kernel = (self._epsilon,
+                                   self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                   self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                   self._evaluate_e_field)
+
+            elif '2nd_order' in algo['method']:
+                # init kernels (evaluate at eta^n and save)
+                self.add_init_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                     first_free_idx,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      self._phi._data,
+                                      self._evaluate_e_field))
+
+                # eval kernels
+                self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                     first_free_idx + 1,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      self._phi._data,
+                                      self._evaluate_e_field),
+                                     alpha=(1., 1., 1., 0.))  # evaluate at eta^{n+1,k} and save)
+
+                # pusher kernel
+                kernel = pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order
+
+                alpha_in_kernel = .5  # evaluate at mid-point
+                args_kernel = (self._epsilon,
+                               unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                               self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                               self._B_dot_b._data,
+                               curl_unit_b_dot_b0._data,
+                               self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                               self._evaluate_e_field)
+
+            else:
+                raise NotImplementedError(
+                    f'Chosen method {algo["method"]} is not implemented.')
+
+            # Pusher instance
+            self._pusher = Pusher(particles,
+                                  kernel,
+                                  args_kernel,
+                                  self.derham.args_derham,
+                                  self.domain.args_domain,
+                                  alpha_in_kernel=alpha_in_kernel,
+                                  init_kernels=self.init_kernels,
+                                  eval_kernels=self.eval_kernels,
+                                  maxiter=algo['maxiter'],
+                                  tol=algo['tol'],
+                                  mpi_sort=algo['mpi_sort'],
+                                  verbose=algo['verbose'])
+
         else:
-            curl_norm_b = self.derham.curl.dot(unit_b1)
+            butcher = ButcherTableau(algo['method'])
 
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        E0T = self.derham.extraction_ops['0'].transpose()
-        E1T = self.derham.extraction_ops['1'].transpose()
-        E2T = self.derham.extraction_ops['2'].transpose()
+            kernel = pusher_kernels_gc.push_gc_bxEstar_explicit_multistage
 
-        # new array allocation
-        b_eq = E2T.dot(b_eq)
-        unit_b1 = E1T.dot(unit_b1)
-        unit_b2 = E2T.dot(unit_b2)
-        self._abs_b = E0T.dot(self._abs_b)
-        curl_norm_b = E2T.dot(curl_norm_b)
-        grad_abs_b = E1T.dot(grad_abs_b)
+            args_kernel = (self._epsilon,
+                           unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
+                           self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                           self._B_dot_b._data,
+                           curl_unit_b_dot_b0._data,
+                           self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                           self._evaluate_e_field,
+                           butcher.a, butcher.b, butcher.c)
 
-        curl_norm_b.update_ghost_regions()
-        grad_abs_b.update_ghost_regions()
-
-        _eval_ker_names = []
-
-        if params['method'] == 'forward_euler':
-            _method = 'explicit'
-            a = []
-            b = [1.]
-            c = [0.]
-        elif params['method'] == 'heun2':
-            _method = 'explicit'
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif params['method'] == 'rk2':
-            _method = 'explicit'
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif params['method'] == 'heun3':
-            _method = 'explicit'
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif params['method'] == 'rk4':
-            _method = 'explicit'
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        elif params['method'] == 'discrete_gradient':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval_gradI']
-        elif params['method'] == 'discrete_gradient_faster':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval_gradI']
-
-        elif params['method'] == 'discrete_gradient_Itoh_Newton':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval1',
-                                'gc_bxEstar_' +
-                                params['method'] + '_eval2']
-        else:
-            raise NotImplementedError(
-                f'Chosen method {params["method"]} is not implemented.')
-
-        if _method == 'explicit':
-            butcher = ButcherTableau(a, b, c)
-
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  'push_gc_bxEstar_explicit_multistage',
-                                  n_stages=butcher.n_stages)
-
-            self._pusher_inputs = (self._epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
-                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
-                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
-                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   butcher.a, butcher.b, butcher.c)
-        else:
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  _kernel_name,
-                                  init_kernel=True,
-                                  eval_kernels_names=_eval_ker_names,
-                                  maxiter=params['maxiter'],
-                                  tol=params['tol'])
-
-            self._pusher_inputs = (self._epsilon, self._abs_b._data,
-                                   b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
-                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
-                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
-                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   params['maxiter'], params['tol'])
+            self._pusher = Pusher(particles,
+                                  kernel,
+                                  args_kernel,
+                                  self.derham.args_derham,
+                                  self.domain.args_domain,
+                                  alpha_in_kernel=1.,
+                                  n_stages=butcher.n_stages,
+                                  mpi_sort=algo['mpi_sort'],
+                                  verbose=algo['verbose'])
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-        self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
+
+        # electric field
+        # TODO: add out to __neg__ of StencilVector
+        if self._evaluate_e_field:
+            e_field = self.derham.grad.dot(-self._phi, out=self._e_field)
+            e_field.update_ghost_regions()
+
+        # magnetic perturbation
+        if self._b_tilde is not None:
+            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+            B_dot_b.update_ghost_regions()
+
+            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
+            grad_b_full.update_ghost_regions()
+
+            grad_b_full += self._gradB1
+            B_dot_b += self._absB0
+
+        # call pusher
+        self._pusher(dt)
 
         # update_weights
         if self.particles[0].control_variate:
 
             if self.particles[0].f0.coords == 'constants_of_motion':
                 self.particles[0].save_constants_of_motion(
-                    epsilon=self._epsilon, abs_B0=self._abs_b)
+                    epsilon=self._epsilon, abs_B0=self._absB0)
 
             self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',
-                                  'discrete_gradient',
-                                  'discrete_gradient_faster',
-                                  'discrete_gradient_Itoh_Newton'],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
 
 
 class PushGuidingCenterParallel(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*` guiding center drift part in :class:`~struphy.models.toy.DriftKinetic`,
-
-    Equation:
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
         \left\{ 
             \begin{aligned} 
-                \dot{\mathbf X} &= v_\parallel \frac{\mathbf B^*}{B^*_\parallel} \,,
+                \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} &= v_{\parallel,p}(t) \frac{\mathbf B^*}{B^*_\parallel}(\mathbf X_p(t)) \,,
                 \\
-                \dot v_\parallel &= \frac{1}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* \,,
+                \frac{\textnormal d v_{\parallel,p}(t)}{\textnormal d t} &= \frac{1}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* (\mathbf X_p(t)) \,,
             \end{aligned}
         \right.
 
-    where :math:`\mathbf B^* = \mathbf B_0 + \varepsilon v_\parallel \nabla \times \mathbf b_0`, :math:`B^*_\parallel = \mathbf b_0 \cdot \mathbf B^*` and :math:`\mathbf E^* = - \varepsilon \mu \nabla B_0`.
-
-    Marker update:
+    where
 
     .. math::
 
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
-            \\
-            \dot v_{\parallel,\,p} &= - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p  \hat \nabla \hat{B}^0_0(\boldsymbol \eta_p) \,.
-        \end{aligned}
+        \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf b_0\,,
 
-    for each marker :math:`p` in markers array. Available algorithms:
+    where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation).
+    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde`` 
+    can be ignored by passing ``None``.
+    In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (2nd order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
+    .. math::
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
+        \left\{ 
+            \begin{aligned} 
+                \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} &= v_{\parallel,p}(t) \frac{\hat{\mathbf B}^{*2}}{\hat B^{*3}_\parallel}(\boldsymbol \eta_p(t)) \,,
+                \\
+                \frac{\textnormal d v_{\parallel,p}(t)}{\textnormal d t} &= \frac{1}{\varepsilon} \frac{\hat{\mathbf B}^{*2}}{\hat B^{*3}_\parallel} \cdot \hat{\mathbf E}^{*1} (\boldsymbol \eta_p(t)) \,.
+            \end{aligned}
+        \right.
 
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    Available algorithms:
+
+    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order`
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton` 
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`  
     """
 
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = {'method': ['discrete_gradient_2nd_order',
+                                  'discrete_gradient_1st_order',
+                                  'discrete_gradient_1st_order_newton',
+                                  'rk4',
+                                  'forward_euler',
+                                  'heun2',
+                                  'rk2',
+                                  'heun3'],
+                       'maxiter': 20,
+                       'tol': 1e-7,
+                       'mpi_sort': 'each',
+                       'verbose': False}
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
     def __init__(self,
-                 particles,
+                 particles: Particles5D,
                  *,
-                 magn_bckgr=None,
-                 epsilon=1.,
-                 **algo_params):
+                 phi: StencilVector = None,
+                 evaluate_e_field: bool = False,
+                 b_tilde: BlockVector = None,
+                 epsilon: float = 1.,
+                 algo: dict = options(default=True)['algo']):
 
         super().__init__(particles)
 
-        # parameters
-        algo_params_default = {'method': 'discrete_gradient_faster',
-                               'maxiter': 20,
-                               'tol': 1e-07,
-                               'mpi_sort': 'each',
-                               'verbose': False
-                               }
-
-        params = set_defaults(algo_params, algo_params_default)
-
-        self._mpi_sort = params['mpi_sort']
-        self._verbose = params['verbose']
         self._epsilon = epsilon
 
-        b_eq = self.derham.P['2']([magn_bckgr.b2_1,
-                                   magn_bckgr.b2_2,
-                                   magn_bckgr.b2_3])
+        # magnetic equilibrium field
+        self._gradB1 = self.projected_mhd_equil.gradB1
+        b2 = self.projected_mhd_equil.b2
+        curl_unit_b2 = self.projected_mhd_equil.curl_unit_b2
+        self._absB0 = self.projected_mhd_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
 
-        self._abs_b = self.derham.P['0'](magn_bckgr.absB0)
+        # magnetic perturbation
+        self._b_tilde = b_tilde
+        if self._b_tilde is not None:
+            self._B_dot_b = self.derham.Vh['0'].zeros()
+            self._grad_b_full = self.derham.Vh['1'].zeros()
 
-        unit_b1 = self.derham.P['1']([magn_bckgr.unit_b1_1,
-                                      magn_bckgr.unit_b1_2,
-                                      magn_bckgr.unit_b1_3])
+            self._PB = getattr(self.basis_ops, 'PB')
 
-        unit_b2 = self.derham.P['2']([magn_bckgr.unit_b2_1,
-                                      magn_bckgr.unit_b2_2,
-                                      magn_bckgr.unit_b2_3])
+            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+            B_dot_b.update_ghost_regions()
 
-        grad_abs_b = self.derham.P['1']([magn_bckgr.gradB1_1,
-                                         magn_bckgr.gradB1_2,
-                                         magn_bckgr.gradB1_3])
+            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
+            grad_b_full.update_ghost_regions()
 
-        if hasattr(magn_bckgr, 'curl_unit_b2_1'):
-            curl_norm_b = self.derham.P['2']([magn_bckgr.curl_unit_b2_1,
-                                              magn_bckgr.curl_unit_b2_2,
-                                              magn_bckgr.curl_unit_b2_3])
+            grad_b_full += self._gradB1
+            B_dot_b += self._absB0
         else:
-            curl_norm_b = self.derham.curl.dot(unit_b1)
+            self._grad_b_full = self._gradB1
+            self._B_dot_b = self._absB0
 
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        E0T = self.derham.extraction_ops['0'].transpose()
-        E1T = self.derham.extraction_ops['1'].transpose()
-        E2T = self.derham.extraction_ops['2'].transpose()
+        # allocate electric field
+        if phi is None:
+            phi = self.derham.Vh['0'].zeros()
+        self._phi = phi
+        self._evaluate_e_field = evaluate_e_field
+        self._e_field = self.derham.Vh['1'].zeros()
+        self._epsilon = epsilon
 
-        b_eq = E2T.dot(b_eq)
-        unit_b1 = E1T.dot(unit_b1)
-        unit_b2 = E2T.dot(unit_b2)
-        self._abs_b = E0T.dot(self._abs_b)
-        curl_norm_b = E2T.dot(curl_norm_b)
-        grad_abs_b = E1T.dot(grad_abs_b)
+        # choose method
+        if 'discrete_gradient' in algo['method']:
 
-        curl_norm_b.update_ghost_regions()
-        grad_abs_b.update_ghost_regions()
+            # place for storing data during iteration
+            first_free_idx = particles.args_markers.first_free_idx
 
-        _eval_ker_names = []
+            if '1st_order' in algo['method']:
 
-        if params['method'] == 'forward_euler':
-            _method = 'explicit'
-            a = []
-            b = [1.]
-            c = [0.]
-        elif params['method'] == 'heun2':
-            _method = 'explicit'
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif params['method'] == 'rk2':
-            _method = 'explicit'
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif params['method'] == 'heun3':
-            _method = 'explicit'
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif params['method'] == 'rk4':
-            _method = 'explicit'
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        elif params['method'] == 'discrete_gradient':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval_gradI']
+                # init kernels
+                self.add_init_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                     first_free_idx,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      self._phi._data,
+                                      self._evaluate_e_field))
 
-        elif params['method'] == 'discrete_gradient_faster':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval_gradI']
+                self.add_init_kernel(eval_kernels_gc.bstar_parallel_3form,
+                                     first_free_idx + 1,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      curl_unit_b_dot_b0._data))
 
-        elif params['method'] == 'discrete_gradient_Itoh_Newton':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval1',
-                                'gc_Bstar_' +
-                                params['method'] + '_eval2']
+                self.add_init_kernel(eval_kernels_gc.bstar_2form,
+                                     first_free_idx + 2,
+                                     (0, 1, 2),
+                                     (self._epsilon,
+                                      b2[0]._data, b2[1]._data, b2[2]._data,
+                                         curl_unit_b2[0]._data, curl_unit_b2[1]._data, curl_unit_b2[2]._data))
+
+                if 'newton' in algo['method']:
+                    # eval kernels
+                    self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                         first_free_idx + 5,
+                                         None,
+                                         (self._epsilon,
+                                          self._B_dot_b._data,
+                                          self._phi._data,
+                                          self._evaluate_e_field),
+                                         alpha=(1., 0., 0., 0.))
+
+                    self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                         first_free_idx + 6,
+                                         None,
+                                         (self._epsilon,
+                                          self._B_dot_b._data,
+                                          self._phi._data,
+                                          self._evaluate_e_field),
+                                         alpha=(1., 1., 0., 0.))
+
+                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                                         first_free_idx + 7,
+                                         (0,),
+                                         (self._epsilon,
+                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                             self._evaluate_e_field),
+                                         alpha=(1., 0., 0., 0.))
+
+                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                                         first_free_idx + 8,
+                                         (0, 1),
+                                         (self._epsilon,
+                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                          self._evaluate_e_field),
+                                         alpha=(1., 1., 0., 0.))
+
+                    # pusher kernel
+                    kernel = pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton
+
+                    alpha_in_kernel = 1.  # evaluate at eta^{n+1,k} and save
+                    args_kernel = (self._epsilon,
+                                   self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                   self._B_dot_b._data,
+                                   self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                   self._phi._data,
+                                   self._evaluate_e_field)
+                else:
+                    # eval kernels
+                    self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                         first_free_idx + 5,
+                                         None,
+                                         args_eval=(self._epsilon,
+                                                    self._B_dot_b._data,
+                                                    self._phi._data,
+                                                    self._evaluate_e_field),
+                                         alpha=1.)  # evaluate at Z^{n+1,k} and save
+
+                    # pusher kernel
+                    kernel = pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order
+
+                    alpha_in_kernel = .5  # evaluate at mid-point
+                    args_kernel = (self._epsilon,
+                                   self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                                   self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                                   self._evaluate_e_field)
+
+            elif '2nd_order' in algo['method']:
+                # init kernels (evaluate at eta^n and save)
+                self.add_init_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                     first_free_idx,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      self._phi._data,
+                                      self._evaluate_e_field))
+
+                # eval kernels
+                self.add_eval_kernel(eval_kernels_gc.driftkinetic_hamiltonian,
+                                     first_free_idx + 1,
+                                     None,
+                                     (self._epsilon,
+                                      self._B_dot_b._data,
+                                      self._phi._data,
+                                      self._evaluate_e_field),
+                                     alpha=1.)  # evaluate at Z^{n+1,k} and save
+
+                # pusher kernel
+                kernel = pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order
+
+                alpha_in_kernel = .5  # evaluate at mid-point
+                args_kernel = (self._epsilon,
+                               self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                               b2[0]._data, b2[1]._data, b2[2]._data,
+                               curl_unit_b2[0]._data, curl_unit_b2[1]._data, curl_unit_b2[2]._data,
+                               self._B_dot_b._data,
+                               curl_unit_b_dot_b0._data,
+                               self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                               self._evaluate_e_field)
+
+            else:
+                raise NotImplementedError(
+                    f'Chosen method {algo["method"]} is not implemented.')
+
+            # Pusher instance
+            self._pusher = Pusher(particles,
+                                  kernel,
+                                  args_kernel,
+                                  self.derham.args_derham,
+                                  self.domain.args_domain,
+                                  alpha_in_kernel=alpha_in_kernel,
+                                  init_kernels=self.init_kernels,
+                                  eval_kernels=self.eval_kernels,
+                                  maxiter=algo['maxiter'],
+                                  tol=algo['tol'],
+                                  mpi_sort=algo['mpi_sort'],
+                                  verbose=algo['verbose'])
+
         else:
-            raise NotImplementedError(
-                f'Chosen method {params["method"]} is not implemented.')
+            butcher = ButcherTableau(algo['method'])
 
-        if _method == 'explicit':
-            butcher = ButcherTableau(a, b, c)
+            kernel = pusher_kernels_gc.push_gc_Bstar_explicit_multistage
 
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  'push_gc_Bstar_explicit_multistage',
-                                  n_stages=butcher.n_stages)
+            args_kernel = (self._epsilon,
+                           self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
+                           b2[0]._data, b2[1]._data, b2[2]._data,
+                           curl_unit_b2[0]._data, curl_unit_b2[1]._data, curl_unit_b2[2]._data,
+                           self._B_dot_b._data,
+                           curl_unit_b_dot_b0._data,
+                           self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
+                           self._evaluate_e_field,
+                           butcher.a, butcher.b, butcher.c)
 
-            self._pusher_inputs = (self._epsilon, b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
-                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
-                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
-                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   butcher.a, butcher.b, butcher.c)
-        else:
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  _kernel_name,
-                                  init_kernel=True,
-                                  eval_kernels_names=_eval_ker_names,
-                                  maxiter=params['maxiter'],
-                                  tol=params['tol'])
-
-            self._pusher_inputs = (self._epsilon, self._abs_b._data,
-                                   b_eq[0]._data, b_eq[1]._data, b_eq[2]._data,
-                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                   unit_b2[0]._data, unit_b2[1]._data, unit_b2[2]._data,
-                                   curl_norm_b[0]._data, curl_norm_b[1]._data, curl_norm_b[2]._data,
-                                   grad_abs_b[0]._data, grad_abs_b[1]._data, grad_abs_b[2]._data,
-                                   params['maxiter'], params['tol'])
+            self._pusher = Pusher(particles,
+                                  kernel,
+                                  args_kernel,
+                                  self.derham.args_derham,
+                                  self.domain.args_domain,
+                                  alpha_in_kernel=1.,
+                                  n_stages=butcher.n_stages,
+                                  mpi_sort=algo['mpi_sort'],
+                                  verbose=algo['verbose'])
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-        self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
+
+        # electric field
+        # TODO: add out to __neg__ of StencilVector
+        if self._evaluate_e_field:
+            e_field = self.derham.grad.dot(-self._phi, out=self._e_field)
+            e_field.update_ghost_regions()
+
+        # magnetic perturbation
+        if self._b_tilde is not None:
+            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+            B_dot_b.update_ghost_regions()
+
+            grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
+            grad_b_full.update_ghost_regions()
+
+            grad_b_full += self._gradB1
+            B_dot_b += self._absB0
+
+        # call pusher
+        self._pusher(dt)
 
         # update_weights
         if self.particles[0].control_variate:
 
             if self.particles[0].f0.coords == 'constants_of_motion':
                 self.particles[0].save_constants_of_motion(
-                    epsilon=self._epsilon, abs_B0=self._abs_b)
+                    epsilon=self._epsilon, abs_B0=self._absB0)
 
             self.particles[0].update_weights()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',
-                                  'discrete_gradient',
-                                  'discrete_gradient_faster',
-                                  'discrete_gradient_Itoh_Newton'],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
 
-
-class StepVinEfield(Propagator):
+class PushVinEfield(Propagator):
     r'''Push the velocities according to
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, \mathbf{E}(\mathbf{x}_p) \,,
+
+    and in logical coordinates given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+
+    .. math::
+
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DF^{-T} \mathbf{E}(\boldsymbol \eta_p})  \,,
 
     which is solved analytically.
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Holdes the markers to push.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
     '''
 
-    def __init__(self, particles, **params):
+    @staticmethod
+    def options():
+        pass
+
+    def __init__(self,
+                 particles: Particles6D,
+                 *,
+                 e_field: BlockVector | PolarVector,
+                 kappa: float = 1.):
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {
-            'e_field': BlockVector(self.derham.Vh_fem['1'].vector_space),
-            'method': 'analytical',
-            'kappa': 1e2
-        }
+        self.kappa = kappa
 
-        params = set_defaults(params, params_default)
-        self.kappa = params['kappa']
-        method = params['method']
+        assert isinstance(e_field, (BlockVector, PolarVector))
+        self._e_field = e_field
 
-        assert isinstance(params['e_field'], (BlockVector, PolarVector))
-        self._e_field = params['e_field']
-
-        if method == 'analytical':
-            self._pusher = Pusher(self.derham, self.domain,
-                                  'push_v_with_efield')
-        elif method == 'discrete_gradient':
-            raise NotImplementedError('Not yet implemented.')
-            # self._pusher = Pusher(self.derham, self.domain,
-            #                     'push_v_in_static_efield_dg')
-        else:
-            raise ValueError(f'Method {method} not known.')
+        self._pusher = Pusher(particles,
+                              pusher_kernels.push_v_with_efield,
+                              (self._e_field.blocks[0]._data,
+                               self._e_field.blocks[1]._data,
+                               self._e_field.blocks[2]._data,
+                               self.kappa),
+                              self.derham.args_derham,
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.)
 
     def __call__(self, dt):
         """
         TODO
         """
-        self._pusher(self.particles[0], dt,
-                     self._e_field.blocks[0]._data, self._e_field.blocks[1]._data, self._e_field.blocks[2]._data,
-                     self.kappa)
-
-    @classmethod
-    def options(cls):
-        pass
+        self._pusher(dt)
 
 
 class StepStaticEfield(Propagator):
@@ -1027,1092 +1012,164 @@ class StepStaticEfield(Propagator):
                      array([1e-10, 1e-10]), 100)
 
 
-class PushDriftKineticbxGradB(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf b_0 \times \nabla B_\parallel` driftkinetic part in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
-
-    Equation:
-
-    .. math::
-
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &= \varepsilon \frac{1}{B_\parallel^*} \mathbf b_0 \times \mu \nabla B_\parallel \,,
-                \\
-                \dot v_\parallel &= 0 \,.
-            \end{aligned}
-        \right.
-
-    Marker update:
-
-    .. math::
-
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \varepsilon \mu_p \frac{1}{ B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  G^{-1}(\boldsymbol \eta_p) \hat{\mathbf b}^2_0(\boldsymbol \eta_p) \times G^{-1}(\boldsymbol \eta_p) \hat \nabla \hat{B}^0_\parallel (\boldsymbol \eta_p) \,,
-            \\
-            \dot v_{\parallel,\,p} &= 0 \,.
-        \end{aligned}
-
-    for each marker :math:`p` in markers array. Available algorithms:
-
-        Explicit:
-        * forward_euler (1st order)
-        * heun2 (2nd order)
-        * rk2 (2nd order)
-        * heun3 (3rd order)
-        * rk4 (4th order)
-
-        Implicit:
-        * discrete_gradient
-        * discrete_gradient_faster
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
-    """
-
-    def __init__(self, particles, **params):
-
-        super().__init__(particles)
-
-        # parameters
-        params_default = {'epsilon': 1.,
-                          'b': None,
-                          'b_eq': None,
-                          'unit_b1': None,
-                          'unit_b2': None,
-                          'abs_b': None,
-                          'gradB1': None,
-                          'curl_unit_b2': None,
-                          'method': 'discrete_gradient',
-                          'maxiter': 20,
-                          'tol': 1e-07,
-                          'mpi_sort': 'each',
-                          'verbose': False
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._mpi_sort = params['mpi_sort']
-        self._verbose = params['verbose']
-        self._epsilon = params['epsilon']
-        self._b = params['b']
-        self._b_eq = params['b_eq']
-        self._unit_b1 = params['unit_b1']
-        self._unit_b2 = params['unit_b2']
-        self._abs_b = params['abs_b']
-        self._grad_abs_b = params['gradB1']
-        self._curl_norm_b = params['curl_unit_b2']
-        self._maxiter = params['maxiter']
-        self._tol = params['tol']
-
-        self._b_full = self._b_eq.space.zeros()
-
-        # define gradient of absolute value of parallel magnetic field
-        self._PB = getattr(self.basis_ops, 'PB')
-        self._PBb = self._PB.dot(self._b)
-        self._grad_PBb = self.derham.grad.dot(self._PBb)
-        self._PBb += self._abs_b
-        self._grad_PBb += self._grad_abs_b
-
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E0T = self.derham.extraction_ops['0'].transpose()
-        self._E1T = self.derham.extraction_ops['1'].transpose()
-        self._E2T = self.derham.extraction_ops['2'].transpose()
-
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-        self._unit_b2 = self._E2T.dot(self._unit_b2)
-        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
-        self._abs_b = self._E0T.dot(self._abs_b)
-
-        self._curl_norm_b.update_ghost_regions()
-
-        _eval_ker_names = []
-
-        if params['method'] == 'forward_euler':
-            self._method = 'explicit'
-            a = []
-            b = [1.]
-            c = [0.]
-        elif params['method'] == 'heun2':
-            self._method = 'explicit'
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif params['method'] == 'rk2':
-            self._method = 'explicit'
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif params['method'] == 'heun3':
-            self._method = 'explicit'
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif params['method'] == 'rk4':
-            self._method = 'explicit'
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        elif params['method'] == 'discrete_gradient':
-            self._method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval_gradI']
-        elif params['method'] == 'discrete_gradient_faster':
-            self._method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval_gradI']
-        elif params['method'] == 'discrete_gradient_Itoh_Newton':
-            self._method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                params['method'] + '_eval1',
-                                'gc_bxEstar_' +
-                                params['method'] + '_eval2']
-        else:
-            raise NotImplementedError(
-                f'Chosen method {params["method"]} is not implemented.')
-
-        if self._method == 'explicit':
-            self._butcher = ButcherTableau(a, b, c)
-
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  'push_gc_bxEstar_explicit_multistage',
-                                  n_stages=self._butcher.n_stages)
-        else:
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  _kernel_name,
-                                  init_kernel=True,
-                                  eval_kernels_names=_eval_ker_names,
-                                  maxiter=params['maxiter'],
-                                  tol=params['tol'])
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-
-        # sum up total magnetic field
-        self._b_full = self._b_eq.copy()
-        if self._b is not None:
-            self._b_full += self._b
-
-        # define gradient of absolute value of parallel magnetic field
-        self._PBb = self._PB.dot(self._b)
-        self._grad_PBb = self.derham.grad.dot(self._PBb)
-        self._PBb += self._abs_b
-        self._grad_PBb += self._grad_abs_b
-
-        self._b_full = self._E2T.dot(self._b_full)
-        self._PBb = self._E0T.dot(self._PBb)
-        self._grad_PBb = self._E1T.dot(self._grad_PBb)
-
-        self._b_full.update_ghost_regions()
-        self._PBb.update_ghost_regions()
-        self._grad_PBb.update_ghost_regions()
-
-        if self._method == 'explicit':
-            self._pusher_inputs = (self._epsilon,
-                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
-                                   self._butcher.a, self._butcher.b, self._butcher.c)
-        else:
-            self._pusher_inputs = (self._epsilon, self._PBb._data,
-                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
-                                   self._maxiter, self._tol)
-
-        self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-
-        # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].save_constants_of_motion(
-                epsilon=self._epsilon, abs_B0=self._abs_b)
-            self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',
-                                  'discrete_gradient',
-                                  'discrete_gradient_faster',
-                                  'discrete_gradient_Itoh_Newton'],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
-
-
-class PushDriftKineticParallelZeroEfield(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*` driftkinetic part in :class:`~struphy.models.hybrid.LinearMHDDriftkineticCC`,
-
-    Equation:
-
-    .. math::
-
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &= v_\parallel \frac{\mathbf B^*}{B^*_\parallel} \,,
-                \\
-                \dot v_\parallel &= - \frac{\mathbf B^*}{B^*_\parallel} \cdot \mu \nabla B_\parallel \,,
-            \end{aligned}
-        \right.
-
-    where :math:`\mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf b_0` and :math:`B^*_\parallel = \mathbf b_0 \cdot \mathbf B^*`.
-
-    Marker update:
-
-    .. math::
-
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
-            \\
-            \dot v_{\parallel,\,p} &= - \frac{1}{B^*_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})}  \frac{1}{\sqrt{g(\boldsymbol \eta_p)}} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \cdot \mu_p \hat \nabla \hat{B}^0_\parallel(\boldsymbol \eta_p) \,.
-        \end{aligned}
-
-    for each marker :math:`p` in markers array. Available algorithms:
-
-        * forward_euler (1st order)
-        * heun2 (2nd order)
-        * rk2 (2nd order)
-        * heun3 (3rd order)
-        * rk4 (4th order)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
-    """
-
-    def __init__(self, particles, **params):
-
-        super().__init__(particles)
-
-        # parameters
-        params_default = {'epsilon': 1.,
-                          'b': None,
-                          'b_eq': None,
-                          'unit_b1': None,
-                          'unit_b2': None,
-                          'abs_b': None,
-                          'gradB1': None,
-                          'curl_unit_b2': None,
-                          'method': 'discrete_gradient',
-                          'maxiter': 20,
-                          'tol': 1e-07,
-                          'mpi_sort': 'each',
-                          'verbose': False
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._mpi_sort = params['mpi_sort']
-        self._verbose = params['verbose']
-        self._epsilon = params['epsilon']
-        self._b = params['b']
-        self._b_eq = params['b_eq']
-        self._unit_b1 = params['unit_b1']
-        self._unit_b2 = params['unit_b2']
-        self._abs_b = params['abs_b']
-        self._grad_abs_b = params['gradB1']
-        self._curl_norm_b = params['curl_unit_b2']
-        self._maxiter = params['maxiter']
-        self._tol = params['tol']
-
-        self._b_full = self._b_eq.space.zeros()
-
-        # define gradient of absolute value of parallel magnetic field
-        self._PB = getattr(self.basis_ops, 'PB')
-        self._PBb = self._PB.dot(self._b)
-        self._grad_PBb = self.derham.grad.dot(self._PBb)
-        self._PBb += self._abs_b
-        self._grad_PBb += self._grad_abs_b
-
-        # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E0T = self.derham.extraction_ops['0'].transpose()
-        self._E1T = self.derham.extraction_ops['1'].transpose()
-        self._E2T = self.derham.extraction_ops['2'].transpose()
-
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-        self._unit_b2 = self._E2T.dot(self._unit_b2)
-        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
-        self._abs_b = self._E0T.dot(self._abs_b)
-
-        self._curl_norm_b.update_ghost_regions()
-
-        _eval_ker_names = []
-
-        if params['method'] == 'forward_euler':
-            self._method = 'explicit'
-            a = []
-            b = [1.]
-            c = [0.]
-        elif params['method'] == 'heun2':
-            self._method = 'explicit'
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif params['method'] == 'rk2':
-            self._method = 'explicit'
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif params['method'] == 'heun3':
-            self._method = 'explicit'
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif params['method'] == 'rk4':
-            self._method = 'explicit'
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        elif params['method'] == 'discrete_gradient':
-            self._method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval_gradI']
-
-        elif params['method'] == 'discrete_gradient_faster':
-            self._method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval_gradI']
-
-        elif params['method'] == 'discrete_gradient_Itoh_Newton':
-            self._method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                params['method'] + '_eval1',
-                                'gc_Bstar_' +
-                                params['method'] + '_eval2']
-        else:
-            raise NotImplementedError(
-                f'Chosen method {params["method"]} is not implemented.')
-
-        if self._method == 'explicit':
-            self._butcher = ButcherTableau(a, b, c)
-
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  'push_gc_Bstar_explicit_multistage',
-                                  n_stages=self._butcher.n_stages)
-        else:
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  _kernel_name,
-                                  init_kernel=True,
-                                  eval_kernels_names=_eval_ker_names,
-                                  maxiter=params['maxiter'],
-                                  tol=params['tol'])
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-        # sum up total magnetic field
-        self._b_full = self._b_eq.copy()
-        if self._b is not None:
-            self._b_full += self._b
-
-        # define gradient of absolute value of parallel magnetic field
-        self._PBb = self._PB.dot(self._b)
-        self._grad_PBb = self.derham.grad.dot(self._PBb)
-        self._PBb += self._abs_b
-        self._grad_PBb += self._grad_abs_b
-
-        self._b_full = self._E2T.dot(self._b_full)
-        self._PBb = self._E0T.dot(self._PBb)
-        self._grad_PBb = self._E1T.dot(self._grad_PBb)
-
-        self._b_full.update_ghost_regions()
-        self._PBb.update_ghost_regions()
-        self._grad_PBb.update_ghost_regions()
-
-        if self._method == 'explicit':
-            self._pusher_inputs = (self._epsilon,
-                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
-                                   self._butcher.a, self._butcher.b, self._butcher.c)
-        else:
-            self._pusher_inputs = (self._epsilon, self._PBb._data,
-                                   self._b_full[0]._data, self._b_full[1]._data, self._b_full[2]._data,
-                                   self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                                   self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
-                                   self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_PBb[0]._data, self._grad_PBb[1]._data, self._grad_PBb[2]._data,
-                                   self._maxiter, self._tol)
-
-        self._pusher(self.particles[0], dt,
-                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-
-        # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].save_constants_of_motion(
-                epsilon=self._epsilon, abs_B0=self._abs_b)
-            self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',
-                                  'discrete_gradient',
-                                  'discrete_gradient_faster',
-                                  'discrete_gradient_Itoh_Newton'],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
-
-
-class PushDriftKineticBxEstar(Propagator):
-    r"""Particle pushing step for guiding center :math:`E\times B`-drift:
-
-    .. math::
-
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &=  \frac{1}{B_\parallel^*} \mathbf E^* \times \mathbf b_0 \,,
-                \\
-                \dot v_\parallel &= 0 \,.
-            \end{aligned}
-        \right.
-
-    where 
-
-    .. math::
-
-        \mathbf{E}^* &=  - \nabla \phi - \frac{\varepsilon}{Z}\,\mu \, \nabla |B_0|\,,
-        \\[2mm]
-        B^*_\parallel &= |B_0| + \frac{\varepsilon}{Z} v_\parallel (\nabla \times \mathbf{b}_0) \cdot  \mathbf{b}_0 \,. 
-
-    Marker update:
-
-    .. math::
-
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &=  \frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf E}^{*1}(\boldsymbol \eta_p, \mu_p) \times  \hat{\mathbf b}^1_0(\boldsymbol \eta_p) \,,
-            \\
-            \dot v_{\parallel,\,p} &= 0 \,.
-        \end{aligned}
-
-    for each marker :math:`p` in markers array. Available algorithms:
-
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (1st order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles6D
-        Particles object.
-
-    phi0 : StencilVector
-        Electrostatic potential.
-
-    magn_bckgr: BraginskiiEquilibrium
-        Electrostatic background.
-
-    epsilon : float
-        Normalization parameter :math:`1/(\hat \Omega_i \hat t)`.
-
-    **algo_params : dict
-        Algorithmic parameters.
-    """
-
-    def __init__(self,
-                 particles,
-                 *,
-                 phi0=None,
-                 magn_bckgr: BraginskiiEquilibrium = None,
-                 epsilon=1.,
-                 Z=1,
-                 **algo_params):
-
-        super().__init__(particles)
-
-        # types
-        # assert isinstance(magn_bckgr, BraginskiiEquilibrium)
-
-        # parameters
-        algo_params_default = {
-            'method': 'rk4',
-            'maxiter': 20,
-            'tol': 1e-07,
-            'mpi_sort': 'each',
-            'verbose': False}
-
-        algo_params = set_defaults(algo_params, algo_params_default)
-
-        self._mpi_sort = algo_params['mpi_sort']
-        self._verbose = algo_params['verbose']
-
-        # magnetic field
-        absB0 = self.derham.P['0'](magn_bckgr.absB0)
-
-        gradB1 = self.derham.P['1']([magn_bckgr.gradB1_1,
-                                     magn_bckgr.gradB1_2,
-                                     magn_bckgr.gradB1_3])
-
-        unit_b1 = self.derham.P['1']([magn_bckgr.unit_b1_1,
-                                      magn_bckgr.unit_b1_2,
-                                      magn_bckgr.unit_b1_3])
-
-        curl_unit_b1 = self.derham.curl.dot(unit_b1)
-
-        # expose phi for use in __call__
-        self._phi0 = phi0
-        self._e1 = self.derham.Vh['1'].zeros()
-
-        _eval_ker_names = []
-
-        if algo_params['method'] == 'forward_euler':
-            _method = 'explicit'
-            a = []
-            b = [1.]
-            c = [0.]
-        elif algo_params['method'] == 'heun2':
-            _method = 'explicit'
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif algo_params['method'] == 'rk2':
-            _method = 'explicit'
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif algo_params['method'] == 'heun3':
-            _method = 'explicit'
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif algo_params['method'] == 'rk4':
-            _method = 'explicit'
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        elif algo_params['method'] == 'discrete_gradient':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstarwithPhi_' + algo_params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval_gradI']
-        elif algo_params['method'] == 'discrete_gradient_faster':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval_gradI']
-        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_bxEstar_' + algo_params['method']
-            _eval_ker_names += ['gc_bxEstar_' +
-                                algo_params['method'] + '_eval1',
-                                'gc_bxEstar_' +
-                                algo_params['method'] + '_eval2']
-        else:
-            raise NotImplementedError(
-                f'Chosen method {algo_params["method"]} is not implemented.')
-
-        if _method == 'explicit':
-            butcher = ButcherTableau(a, b, c)
-
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  'push_gc_bxEstarWithPhi_explicit_multistage',
-                                  n_stages=butcher.n_stages)
-
-            self._pusher_inputs = (gradB1[0]._data, gradB1[1]._data, gradB1[2]._data,
-                                   absB0._data,
-                                   curl_unit_b1[0]._data, curl_unit_b1[1]._data, curl_unit_b1[2]._data,
-                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                   epsilon,
-                                   Z,
-                                   butcher.a, butcher.b, butcher.c)
-        else:
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  _kernel_name,
-                                  init_kernel=True,
-                                  eval_kernels_names=_eval_ker_names,
-                                  maxiter=algo_params['maxiter'],
-                                  tol=algo_params['tol'])
-
-            self._pusher_inputs = (gradB1[0]._data, gradB1[1]._data, gradB1[2]._data,
-                                   absB0._data,
-                                   curl_unit_b1[0]._data, curl_unit_b1[1]._data, curl_unit_b1[2]._data,
-                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                   epsilon,
-                                   Z,
-                                   algo_params['maxiter'], algo_params['tol'])
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-
-        # efield=self._grad_phi0
-        e1 = self._e1 = self.derham.grad.dot(-self._phi0, out=self._e1)
-        e1.update_ghost_regions()
-
-        self._pusher(self.particles[0], dt,
-                     e1[0]._data, e1[1]._data, e1[2]._data,
-                     *self._pusher_inputs,
-                     mpi_sort=self._mpi_sort, verbose=self._verbose)
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
-
-
-class PushDriftKineticParallel(Propagator):
-    r"""Particle pushing step for the :math:`\mathbf B^*`-acceleration,
-
-    .. math::
-
-        \left\{ 
-            \begin{aligned} 
-                \dot{\mathbf X} &= v_\parallel \frac{\mathbf B^*}{B^*_\parallel} \,,
-                \\
-                \dot v_\parallel &=  \frac{Z}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* \,,
-            \end{aligned}
-        \right.
-
-    where 
-
-    .. math::
-
-        \mathbf{E}^* &=  - \nabla \phi - \frac{\varepsilon}{Z} \,\mu \, \nabla |B_0|\,,
-        \\
-        \mathbf B^* &=  \mathbf B_0 + \frac{\varepsilon}{Z} v_\parallel \nabla \times \mathbf b_0\,,
-        \\[2mm]
-        B^*_\parallel &= |B_0| + \frac{\varepsilon}{Z} v_\parallel (\nabla \times \mathbf{b}_0) \cdot  \mathbf{b}_0 \,. 
-
-
-    Marker update:
-
-    .. math::
-
-        \begin{aligned}
-            \dot{\boldsymbol \eta}_p &= \frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \, v_{\parallel,p} \,,
-            \\
-            \dot v_{\parallel,\,p} &= \frac{Z}{\varepsilon}\frac{1}{ \sqrt g\, \hat B^{*}_\parallel (\boldsymbol \eta_p, v_{\parallel,\,p})} \hat{\mathbf E}^{*1} (\boldsymbol \eta_p, v_{\parallel,\,p})\cdot \hat{\mathbf B}^{*2} (\boldsymbol \eta_p, v_{\parallel,\,p}) \,.
-        \end{aligned}
-
-    for each marker :math:`p` in markers array. Available algorithms:
-
-        * forward_euler (1st order, explicit)
-        * heun2 (2nd order, explicit)
-        * rk2 (2nd order, explicit)
-        * heun3 (3rd order, explicit)
-        * rk4 (4th order, explicit)
-        * discrete_gradient (2nd order, implicit)
-        * discrete_gradient_faster (2nd order, implicit)
-        * discrete_gradient_Itoh_Newton (2nd order, implicit)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles5D
-        Particles object.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
-    """
-
-    def __init__(self,
-                 particles: Particles5D,
-                 *,
-                 phi0=None,
-                 magn_bckgr=None,
-                 epsilon=1.,
-                 Z=1,
-                 **algo_params):
-
-        super().__init__(particles)
-
-        # types
-        # assert isinstance(magn_bckgr, BraginskiiEquilibrium)
-
-        # parameters
-        algo_params_default = {
-            'method': 'rk4',
-            'maxiter': 20,
-            'tol': 1e-07,
-            'mpi_sort': 'each',
-            'verbose': False}
-
-        algo_params = set_defaults(algo_params, algo_params_default)
-
-        # expose phi for use in __call__
-        self._mpi_sort = algo_params['mpi_sort']
-        self._verbose = algo_params['verbose']
-        self._phi0 = phi0
-        self._e1 = self.derham.Vh['1'].zeros()
-
-        # magnetic field
-        b2_eq = self.derham.P['2']([magn_bckgr.b2_1,
-                                    magn_bckgr.b2_2,
-                                    magn_bckgr.b2_3])
-
-        absB0 = self.derham.P['0'](magn_bckgr.absB0)
-
-        unit_b1 = self.derham.P['1']([magn_bckgr.unit_b1_1,
-                                      magn_bckgr.unit_b1_2,
-                                      magn_bckgr.unit_b1_3])
-
-        curl_unit_b1 = self.derham.curl.dot(unit_b1)
-
-        # grad phi and grad absB0
-        grad_absB0 = self.derham.grad.dot(absB0)
-        grad_absB0.update_ghost_regions()
-
-        _eval_ker_names = []
-
-        if algo_params['method'] == 'forward_euler':
-            _method = 'explicit'
-            a = []
-            b = [1.]
-            c = [0.]
-        elif algo_params['method'] == 'heun2':
-            _method = 'explicit'
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif algo_params['method'] == 'rk2':
-            _method = 'explicit'
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif algo_params['method'] == 'heun3':
-            _method = 'explicit'
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif algo_params['method'] == 'rk4':
-            _method = 'explicit'
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        elif algo_params['method'] == 'discrete_gradient':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_BstarWithPhi_' + algo_params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval_gradI']
-
-        elif algo_params['method'] == 'discrete_gradient_faster':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval_gradI']
-
-        elif algo_params['method'] == 'discrete_gradient_Itoh_Newton':
-            _method = 'implicit'
-            _kernel_name = 'push_gc_Bstar_' + algo_params['method']
-            _eval_ker_names += ['gc_Bstar_' +
-                                algo_params['method'] + '_eval1',
-                                'gc_Bstar_' +
-                                algo_params['method'] + '_eval2']
-        else:
-            raise NotImplementedError(
-                f'Chosen method {algo_params["method"]} is not implemented.')
-
-        if _method == 'explicit':
-            butcher = ButcherTableau(a, b, c)
-
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  'push_gc_BstarWithPhi_explicit_multistage',
-                                  n_stages=butcher.n_stages)
-
-            self._pusher_inputs = (b2_eq[0]._data, b2_eq[1]._data, b2_eq[2]._data,
-                                   curl_unit_b1[0]._data, curl_unit_b1[1]._data, curl_unit_b1[2]._data,
-                                   grad_absB0[0]._data, grad_absB0[1]._data, grad_absB0[2]._data,
-                                   unit_b1[0]._data, unit_b1[0]._data, unit_b1[0]._data,
-                                   absB0._data,
-                                   epsilon,
-                                   Z,
-                                   butcher.a, butcher.b, butcher.c)
-        else:
-            self._pusher = Pusher(self.derham,
-                                  self.domain,
-                                  _kernel_name,
-                                  init_kernel=True,
-                                  eval_kernels_names=_eval_ker_names,
-                                  maxiter=algo_params['maxiter'],
-                                  tol=algo_params['tol'])
-
-            self._pusher_inputs = (b2_eq[0]._data, b2_eq[1]._data, b2_eq[2]._data,
-                                   curl_unit_b1[0]._data, curl_unit_b1[1]._data, curl_unit_b1[2]._data,
-                                   grad_absB0[0]._data, grad_absB0[1]._data, grad_absB0[2]._data,
-                                   unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
-                                   absB0._data,
-                                   epsilon,
-                                   Z,
-                                   algo_params['maxiter'], algo_params['tol'])
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-        # efield=self._grad_phi0
-        e1 = self.derham.grad.dot(-self._phi0, out=self._e1)
-        e1.update_ghost_regions()
-
-        self._pusher(self.particles[0], dt,
-                     e1[0]._data, e1[1]._data, e1[2]._data,
-                     *self._pusher_inputs, mpi_sort=self._mpi_sort, verbose=self._verbose)
-
-        # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-
-        dct['algo'] = {'method': ['rk4',
-                                  'forward_euler',
-                                  'heun2',
-                                  'rk2',
-                                  'heun3',],
-                       'maxiter': 20,
-                       'tol': 1e-7,
-                       'mpi_sort': 'each',
-                       'verbose': False}
-        return dct
-
-
 class PushDeterministicDiffusion(Propagator):
-    r"""Solves with explicit time stepping
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - D \, \frac{\nabla \Pi^0_{L^2}u_h}{\Pi^0_{L^2} u_h}\mathbf (\boldsymbol \eta_p(t))\,, 
+        \frac{\textnormal d \mathbf x_p(t)}{\textnormal d t} = - D \, \frac{\nabla u}{ u}\mathbf (\mathbf x_p(t))\,,
+
+    in logical space given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - G\, D \, \frac{\nabla \Pi^0_{L^2}u_h}{\Pi^0_{L^2} u_h}\mathbf (\boldsymbol \eta_p(t))\,, 
         \qquad [\Pi^0_{L^2, ijk} u_h](\boldsymbol \eta_p) = \frac 1N \sum_{p} w_p \boldsymbol \Lambda^0_{ijk}(\boldsymbol \eta_p)\,,
 
-    for each marker :math:`p` in markers array, wher :math:`D>0` is a positive diffusion coefficient. 
+    where :math:`D>0` is a positive diffusion coefficient. 
+
     Available algorithms:
 
-    * forward_euler (1st order)
-    * heun2 (2nd order)
-    * rk2 (2nd order)
-    * heun3 (3rd order)
-    * rk4 (4th order)
-
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles3D
-        Holdes the markers to push.
-
-    **params : dict
-        Solver- and/or other parameters for this splitting step.
+    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
     """
 
-    def __init__(self, particles, **params):
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
+        dct['diffusion_coefficient'] = 1.
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(self,
+                 particles: Particles3D,
+                 *,
+                 algo: str = options(default=True)['algo'],
+                 bc_type: list = ['periodic', 'periodic', 'periodic'],
+                 diffusion_coefficient: float = options()['diffusion_coefficient']):
 
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'push_deterministic_diffusion_stage',
-                          'bc_type': ['periodic', 'periodic', 'periodic'],
-                          'diffusion_coefficient': 1.
-                          }
-
-        params = set_defaults(params, params_default)
-
-        self._bc_type = params['bc_type']
-
-        # choose algorithm
-        if params['algo'] == 'forward_euler':
-            a = []
-            b = [1.]
-            c = [0.]
-        elif params['algo'] == 'heun2':
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif params['algo'] == 'rk2':
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif params['algo'] == 'heun3':
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif params['algo'] == 'rk4':
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
-        else:
-            raise NotImplementedError('Chosen algorithm is not implemented.')
-
-        self._u_on_grid = AccumulatorVector(
-            self.derham, self.domain, "H1", "charge_density_0form")
-
-        self._butcher = ButcherTableau(a, b, c)
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_deterministic_diffusion_stage', n_stages=self._butcher.n_stages)
-
+        self._bc_type = bc_type
+        self._diffusion = diffusion_coefficient
+        
         self._tmp = self.derham.Vh['1'].zeros()
 
-        self._diffusion = params['diffusion_coefficient']
+        # choose algorithm
+        self._butcher = ButcherTableau(algo)
+
+        self._u_on_grid = AccumulatorVector(particles,
+                                            'H1',
+                                            accum_kernels.charge_density_0form,
+                                            self.derham,
+                                            self.domain.args_domain)
+
+        self._pusher = Pusher(particles,
+                              pusher_kernels.push_deterministic_diffusion_stage,
+                              (self._u_on_grid.vectors[0]._data,
+                               self._tmp[0]._data, self._tmp[1]._data, self._tmp[2]._data,
+                               self._diffusion,
+                               self._butcher.a, self._butcher.b, self._butcher.c),
+                              self.derham.args_derham,
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.,
+                              n_stages=self._butcher.n_stages)
+
 
     def __call__(self, dt):
         """
         TODO
         """
 
-        self._u_on_grid.accumulate(self.particles[0], self.particles[0].vdim)
+        # accumulate
+        self._u_on_grid(self.particles[0].vdim)
 
+        # take gradient
         pi_u = self._u_on_grid.vectors[0]
         grad_pi_u = self.derham.grad.dot(pi_u, out=self._tmp)
         grad_pi_u.update_ghost_regions()
 
         # push markers
-        self._pusher(self.particles[0], dt,
-                     pi_u._data,
-                     grad_pi_u[0]._data, grad_pi_u[1]._data, grad_pi_u[2]._data,
-                     self._diffusion,
-                     self._butcher.a, self._butcher.b, self._butcher.c,
-                     mpi_sort='last')
+        self._pusher(dt)
 
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
 
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
-        dct['diffusion_coefficient'] = 1.
-        return dct
-
 
 class PushRandomDiffusion(Propagator):
-    r"""Solves for each marker :math:`p` in markers array
+    r"""For each marker :math:`p`, solves
 
     .. math::
 
-        \textnormal d \boldsymbol \eta_p(t) = \sqrt{2 D} \, \textnormal d \mathbf B_{t}\,,
+        \textnormal d \mathbf x_p(t) = \sqrt{2 D} \, \textnormal d \mathbf B_{t}\,,
 
     where :math:`D>0` is a positive diffusion coefficient and :math:`\textnormal d \mathbf B_{t}` is a Wiener process,
-    
+
     .. math::
-    
+
         \mathbf B_{t + \Delta t} - \mathbf B_{t} = \sqrt{\Delta t} \,\mathcal N(0;1)\,,
-        
+
     with :math:`\mathcal N(0;1)` denoting the standard normal distribution with mean zero and variance one.
-    
+
     Available algorithms:
 
-        * forward_euler (1st order)
+    * ``forward_euler`` (1st order)
+    """
 
-    Parameters
-    ----------
-    particles : struphy.pic.particles.Particles3D
-        Holdes the markers to push.
-        """
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct['algo'] = ['forward_euler']
+        dct['diffusion_coefficient'] = 1.
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
 
-    def __init__(self, particles, **params):
+    def __init__(self,
+                 particles: Particles3D,
+                 algo: str = options(default=True)['algo'],
+                 bc_type: list = ['periodic', 'periodic', 'periodic'],
+                 diffusion_coefficient: float = options()['diffusion_coefficient']):
 
         super().__init__(particles)
 
-        # parameters
-        params_default = {'algo': 'forward_euler',
-                          'bc_type': ['periodic', 'periodic', 'periodic'],
-                          'diffusion_coefficient': 1.
-                          }
+        self._bc_type = bc_type
+        self._diffusion = diffusion_coefficient
 
-        params = set_defaults(params, params_default)
-
-        self._bc_type = params['bc_type']
+        self._noise = array(self.particles[0].markers[:, :3])
 
         # choose algorithm
-        if params['algo'] == 'forward_euler':
-            a = []
-            b = [1.]
-            c = [0.]
-        else:
-            raise NotImplementedError('Chosen algorithm is not implemented.')
+        self._butcher = ButcherTableau('forward_euler')
 
-        self._butcher = ButcherTableau(a, b, c)
-        self._pusher = Pusher(self.derham, self.domain,
-                              'push_random_diffusion_stage', n_stages=self._butcher.n_stages)
+        self._pusher = Pusher(particles,
+                              pusher_kernels.push_random_diffusion_stage,
+                              (self._noise,
+                               self._diffusion,
+                               self._butcher.a, self._butcher.b, self._butcher.c),
+                              self.derham.args_derham,
+                              self.domain.args_domain,
+                              alpha_in_kernel=1.,
+                              n_stages=self._butcher.n_stages)
 
         # self._tmp = self.derham.Vh['1'].zeros()
-
-        self._noise = array(self.particles[0].markers[0:3])
-
         self._mean = [0, 0, 0]
         self._cov = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-        self._diffusion = params['diffusion_coefficient']
 
     def __call__(self, dt):
         """
         TODO
         """
 
-        self._noise = random.multivariate_normal(
+        self._noise[:] = random.multivariate_normal(
             self._mean, self._cov, len(self.particles[0].markers))
 
         # push markers
-        self._pusher(self.particles[0], dt,
-                     self._noise, self._diffusion,
-                     self._butcher.a, self._butcher.b, self._butcher.c,
-                     mpi_sort='last')
+        self._pusher(dt)
 
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
-
-    @classmethod
-    def options(cls):
-        dct = {}
-        dct['algo'] = ['forward_euler']
-        dct['diffusion_coefficient'] = 1.
-        return dct

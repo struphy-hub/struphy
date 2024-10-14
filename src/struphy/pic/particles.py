@@ -4,6 +4,11 @@ from struphy.pic import utilities_kernels
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
+from struphy.feec.psydac_derham import Derham
+from struphy.geometry.base import Domain
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+
 
 class Particles6D(Particles):
     """
@@ -14,7 +19,7 @@ class Particles6D(Particles):
     ===== ============== ======================= ======= ====== ====== ==========
     index  | 0 | 1 | 2 | | 3 | 4 | 5           |  6       7       8    >=9
     ===== ============== ======================= ======= ====== ====== ==========
-    value position (eta)    velocities           weight   s0     w0    additional
+    value position (eta)    velocities           weight   s0     w0    buffer
     ===== ============== ======================= ======= ====== ====== ==========
 
     Parameters
@@ -31,19 +36,34 @@ class Particles6D(Particles):
         return {'type': 'Maxwellian3D',
                 'Maxwellian3D': {}}
 
-    def __init__(self, name, **params):
+    def __init__(self,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
+                 **marker_params):
 
-        assert 'bckgr_params' in params
-        if params['bckgr_params'] is None:
-            params['bckgr_params'] = self.default_bckgr_params()
+        if bckgr_params is None:
+            bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name, **params)
+        super().__init__(name,
+                         derham,
+                         domain=domain,
+                         mhd_equil=mhd_equil,
+                         braginskii_equil=braginskii_equil,
+                         bckgr_params=bckgr_params,
+                         pert_params=pert_params,
+                         **marker_params)
 
     @property
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 16
+        return 23
 
     @property
     def vdim(self):
@@ -131,10 +151,10 @@ class Particles5D(Particles):
 
     The numpy marker array is as follows:
 
-    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================ ===========
+    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
     index  | 0 | 1 | 2 |     3        4       5      6      7      8          9             10            >=11
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
-    value position (eta) v_parallel v_perp  weight   s0     w0   energy magn. moment toro. can. moment additional
+    value position (eta) v_parallel v_perp  weight   s0     w0   energy magn. moment toro. can. moment buffer
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========   
 
     Parameters
@@ -151,13 +171,28 @@ class Particles5D(Particles):
         return {'type': 'GyroMaxwellian2D',
                 'GyroMaxwellian2D': {}}
 
-    def __init__(self, name, **params):
+    def __init__(self,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
+                 **marker_params):
 
-        assert 'bckgr_params' in params
-        if params['bckgr_params'] is None:
-            params['bckgr_params'] = self.default_bckgr_params()
+        if bckgr_params is None:
+            bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name, **params)
+        super().__init__(name,
+                         derham,
+                         domain=domain,
+                         mhd_equil=mhd_equil,
+                         braginskii_equil=braginskii_equil,
+                         bckgr_params=bckgr_params,
+                         pert_params=pert_params,
+                         **marker_params)
 
         # magnetic background
         if self.mhd_equil is not None:
@@ -180,9 +215,9 @@ class Particles5D(Particles):
 
     @property
     def n_cols(self):
-        """Number of the columns at each markers.
+        """Number of columns in markers array, i.e. the attributes of each marker.
         """
-        return 25
+        return 31
 
     @property
     def vdim(self):
@@ -212,6 +247,7 @@ class Particles5D(Particles):
         '''Discrete 1-form coefficients of B/|B|.'''
         return self._unit_b1_h
 
+    @property
     def coords(self):
         """ Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`.
         """
@@ -302,7 +338,7 @@ class Particles5D(Particles):
 
         return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
-    def save_constants_of_motion(self, epsilon, abs_B0=None, initial=False):
+    def save_constants_of_motion(self, epsilon, abs_B0=None, f_coords='constants_of_motion', initial=False):
         """
         Calculate each markers' constants of motion and assign them into markers[:,8:11].
         Only equilibrium magnetic field is considered.
@@ -315,15 +351,12 @@ class Particles5D(Particles):
         abs_B0 : BlockVector
             FE coeffs of equilibrium magnetic field magnitude.
 
+        f_coords : str
+            Coordinates of the distribution function f0.
+
         initial : bool
             If True, magnetic moment is also calculated and saved.
         """
-        # fixed FEM arguments for the accumulator kernel
-        args_fem = (np.array(self.derham.p),
-                    self.derham.Vh_fem['0'].knots[0],
-                    self.derham.Vh_fem['0'].knots[1],
-                    self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
 
         if abs_B0 is None:
             abs_B0 = self.derham.P['0'](self.mhd_equil.absB0)
@@ -333,25 +366,29 @@ class Particles5D(Particles):
 
         if initial:
             utilities_kernels.eval_magnetic_moment_5d(self.markers,
-                                                      *args_fem,
+                                                      self.derham.args_derham,
                                                       abs_B0._data)
 
         utilities_kernels.eval_energy_5d(self.markers,
-                                         *args_fem,
+                                         self.derham.args_derham,
                                          abs_B0._data)
 
-        # eval psi at etas
-        a1 = self.mhd_equil.domain.params_map['a1']
-        R0 = self.mhd_equil.params['R0']
-        B0 = self.mhd_equil.params['B0']
+        if f_coords == 'constants_of_motion':
 
-        r = self.markers[~self.holes, 0]*(1 - a1) + a1
-        self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
+            # eval psi at etas
+            a1 = self.mhd_equil.domain.params_map['a1']
+            R0 = self.mhd_equil.params['R0']
+            B0 = self.mhd_equil.params['B0']
 
-        utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
-                                                            *args_fem,
-                                                            epsilon, B0, R0,
-                                                            abs_B0._data)
+            r = self.markers[~self.holes, 0]*(1 - a1) + a1
+            self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
+
+            utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
+                                                                self.derham.args_derham,
+                                                                epsilon,
+                                                                B0,
+                                                                R0,
+                                                                abs_B0._data)
 
     def save_magnetic_energy(self, b2):
         r"""
@@ -364,22 +401,20 @@ class Particles5D(Particles):
             Finite element coefficients of the time-dependent magnetic field.
         """
 
-        # fixed FEM arguments for the accumulator kernel
-        args_fem = (np.array(self.derham.p),
-                    self.derham.Vh_fem['0'].knots[0],
-                    self.derham.Vh_fem['0'].knots[1],
-                    self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
-
         E2T = self.derham.extraction_ops['2'].transpose()
         b2t = E2T.dot(b2, out=self._tmp2)
         b2t.update_ghost_regions()
 
         utilities_kernels.eval_magnetic_energy(self.markers,
-                                               *args_fem, *self.domain.args_map,
+                                               self.derham.args_derham,
+                                               self.domain.args_domain,
                                                self.absB0_h._data,
-                                               self._unit_b1_h[0]._data, self.unit_b1_h[1]._data, self.unit_b1_h[2]._data,
-                                               b2t[0]._data, b2t[1]._data, b2t[2]._data)
+                                               self.unit_b1_h[0]._data,
+                                               self.unit_b1_h[1]._data,
+                                               self.unit_b1_h[2]._data,
+                                               b2t[0]._data,
+                                               b2t[1]._data,
+                                               b2t[2]._data)
 
     def save_magnetic_background_energy(self):
         r"""
@@ -387,20 +422,14 @@ class Particles5D(Particles):
         The result is stored at markers[:, 8].
         """
 
-        # fixed FEM arguments for the accumulator kernel
-        args_fem = (np.array(self.derham.p),
-                    self.derham.Vh_fem['0'].knots[0],
-                    self.derham.Vh_fem['0'].knots[1],
-                    self.derham.Vh_fem['0'].knots[2],
-                    np.array(self.derham.Vh['0'].starts))
-
         E0T = self.derham.extraction_ops['0'].transpose()
 
         abs_B0 = E0T.dot(self.absB0_h)
         abs_B0.update_ghost_regions()
 
         utilities_kernels.eval_magnetic_background_energy(self.markers,
-                                                          *args_fem, *self.domain.args_map,
+                                                          self.derham.args_derham,
+                                                          self.domain.args_domain,
                                                           abs_B0._data)
 
 
@@ -413,37 +442,45 @@ class Particles3D(Particles):
     ===== ============== ====== ====== ====== ======  
     index  | 0 | 1 | 2 |   3       4     5      >=6       
     ===== ============== ====== ====== ====== ======  
-    value position (eta) weight   s0     w0   other    
+    value position (eta) weight   s0     w0   buffer    
     ===== ============== ====== ====== ====== ======   
 
-    Parameters
-    ----------
-    name : str
-        Name of the particle species.
-
-    **params : dict
-        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
+    See :class:`~struphy.pic.base.Particles` for more info on parameters.
     """
-
 
     @classmethod
     def default_bckgr_params(cls):
         return {'type': 'Constant',
                 'Constant': {}}
 
-    def __init__(self, name, **params):
+    def __init__(self,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
+                 **marker_params):
 
-        assert 'bckgr_params' in params
-        if params['bckgr_params'] is None:
-            params['bckgr_params'] = self.default_bckgr_params()
+        if bckgr_params is None:
+            bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name, **params)
+        super().__init__(name,
+                         derham,
+                         domain=domain,
+                         mhd_equil=mhd_equil,
+                         braginskii_equil=braginskii_equil,
+                         bckgr_params=bckgr_params,
+                         pert_params=pert_params,
+                         **marker_params)
 
     @property
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 16
+        return 17
 
     @property
     def vdim(self):
@@ -456,6 +493,12 @@ class Particles3D(Particles):
         """Starting buffer marker index number
         """
         return 6
+
+    @property
+    def coords(self):
+        """ Coordinates of the Particles3D.
+        """
+        return 'cartesian'
 
     def svol(self, eta1, eta2, eta3):
         """ Sampling density function as volume form.

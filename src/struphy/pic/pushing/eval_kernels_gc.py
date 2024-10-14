@@ -7,62 +7,52 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.geometry.evaluation_kernels as evaluation_kernels
+# do not remove; needed to identify dependencies
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 
-from numpy import empty, shape, zeros, sqrt, log, abs
+from struphy.pic.pushing.pusher_args_kernels import MarkerArguments, DerhamArguments, DomainArguments
+from struphy.bsplines.evaluation_kernels_3d import get_spans, eval_0form_spline_mpi, eval_1form_spline_mpi, eval_2form_spline_mpi, eval_3form_spline_mpi, eval_vectorfield_spline_mpi
+
+from numpy import empty, shape, size, zeros, sqrt, log, abs, mod
 
 
-@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
-def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
-                                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                      starts: 'int[:]',
-                                      kind_map: int, params_map: 'float[:]',
-                                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                      epsilon: float,
-                                      abs_b: 'float[:,:,:]',
-                                      b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                      norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                      norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                      curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                      grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                      maxiter: int, tol: float):
-    r"""Initialization kernel for the pusher kernel `push_gc_bxEstar_discrete_gradient <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient>`_ .
+@stack_array('eta_k', 'eta_n', 'eta')
+def driftkinetic_hamiltonian(alpha: 'float[:]',
+                                  column_nr: int,
+                                  comps: 'int[:]',
+                                  args_markers: 'MarkerArguments',
+                                  args_derham: 'DerhamArguments',
+                                  args_domain: 'DomainArguments',
+                                  epsilon: float,
+                                  B_dot_b_coeffs: 'float[:,:, :]',
+                                  phi_coeffs: 'float[:,:, :]',
+                                  evaluate_e_field: bool):
+    r"""Evaluate the Hamiltonian
+    
+    .. math::
+    
+        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2} 
+        + \varepsilon\mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+        
+    where the evaluation point is the weighted average
+    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+    :math:`\boldsymbol \eta_p` beforehand.   
+    
+    The result is saved at ``column_nr`` in markers array for each particle.
     """
 
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta = empty(3, dtype=float)
 
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    S = zeros((3, 3), dtype=float)
-    b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    bcross = zeros((3, 3), dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    temp = empty(3, dtype=float)
-    temp1 = zeros((3, 3), dtype=float)
-    temp2 = zeros((3, 3), dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
 
     for ip in range(n_markers):
 
@@ -70,304 +60,250 @@ def init_gc_bxEstar_discrete_gradient(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        e[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
+        eta[:] = mod(eta, 1.)
+
+        v_k = markers[ip, 3]
+        v_n = markers[ip, buffer_idx + 3]
+        v = alpha[3]*v_k + (1. - alpha[3])*v_n
+        
+        mu = markers[ip, mu_idx]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
+
+        if evaluate_e_field:
+            phi = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        phi_coeffs)
+        else:
+            phi = 0.
+        
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        B_dot_b_coeffs)
+
+        # save
+        markers[ip, column_nr] = epsilon*v**2/2. + epsilon*mu*B_dot_b + phi
+
+
+@stack_array('eta_k', 'eta_n', 'eta', 'grad_H', 'e_field')
+def grad_driftkinetic_hamiltonian(alpha: 'float[:]',
+                                       column_nr: int,
+                                       comps: 'int[:]',
+                                       args_markers: 'MarkerArguments',
+                                       args_derham: 'DerhamArguments',
+                                       args_domain: 'DomainArguments',
+                                       epsilon: float,
+                                       grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]', 
+                                       e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                       evaluate_e_field: bool):
+    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+    
+    .. math::
+    
+        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2} 
+        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+        
+    that is
+    
+    .. math::
+    
+        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p) 
+        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
+        
+    where the evaluation point is the weighted average
+    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+    :math:`\boldsymbol \eta_p` beforehand. 
+    
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)`` 
+    in markers array for each particle.
+    """
+
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta = empty(3, dtype=float)
+    grad_H = empty(3, dtype=float)
+    e_field = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    
+    # for saving
+    n_comps = size(comps)
+
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
+        eta[:] = mod(eta, 1.)
+        
+        mu = markers[ip, mu_idx]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
+
+        eval_1form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              grad_b_full_1,
+                              grad_b_full_2,
+                              grad_b_full_3,
+                              grad_H)
+
+        grad_H *= epsilon*mu
+        
+        if evaluate_e_field:
+            eval_1form_spline_mpi(span1, span2, span3,
+                                  args_derham,
+                                  e_field_1,
+                                  e_field_2,
+                                  e_field_3,
+                                  e_field)
+            
+            e_field *= -1.
+            grad_H += e_field
+
+        # save 
+        for j in range(n_comps):
+            markers[ip, column_nr + j] = grad_H[comps[j]]
+
+
+@stack_array('eta_k', 'eta_n', 'eta', 'dfm')
+def bstar_parallel_3form(alpha: 'float[:]',
+                              column_nr: int,
+                              comps: 'int[:]',
+                              args_markers: 'MarkerArguments',
+                              args_derham: 'DerhamArguments',
+                              args_domain: 'DomainArguments',
+                              epsilon: float,
+                              B_dot_b_coeffs: 'float[:,:,:]',
+                              curl_unit_b_dot_b0: 'float[:,:,:]'):
+    r'''Evaluate
+    
+    .. math::
+    
+        \hat B^{*3}_\parallel(\mathbf Z_p) = \sqrt g \left(\hat B + \varepsilon v_{\parallel,p} \widehat{\left[(\nabla \times \mathbf b_0) \cdot \mathbf b_0\right]}(\boldsymbol \eta_p) \right)\,,
+        
+    where the evaluation point is the weighted average
+    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+    :math:`\boldsymbol \eta_p` beforehand. 
+        
+    The result is saved at ``column_nr``  in markers array for each particle.
+    '''
+
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
+        eta[:] = mod(eta, 1.)
+        
+        v_k = markers[ip, 3]
+        v_n = markers[ip, buffer_idx + 3]
+        v = alpha[3]*v_k + (1. - alpha[3])*v_n
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
+        evaluation_kernels.df(eta[0], eta[1], eta[2],
+                              args_domain,
                               dfm)
 
-        # evaluate inverse of G
-        linalg_kernels.transpose(dfm, df_t)
-        linalg_kernels.matrix_matrix(df_t, dfm, g)
-        linalg_kernels.matrix_inv(g, g_inv)
-
-        # metric coeffs
         det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
 
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        # compute B*_parallel
+        B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
+                                        args_derham,
+                                        B_dot_b_coeffs)
 
-        # eval all the needed field
-        # abs_b; 0form
-        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
+        b_star_parallel = eval_0form_spline_mpi(span1, span2, span3,
+                                                args_derham,
+                                                curl_unit_b_dot_b0)
 
-        # save for later steps
-        markers[ip, 21] = abs_b0*mu
+        b_star_parallel *= epsilon * v
+        b_star_parallel += B_dot_b
+        b_star_parallel *= det_df 
 
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
-
-        # norm_b2; 2form
-        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
-        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
-        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
-
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # assemble b cross (.)
-        bcross[0, 1] = -norm_b2[2]
-        bcross[0, 2] = norm_b2[1]
-        bcross[1, 0] = norm_b2[2]
-        bcross[1, 2] = -norm_b2[0]
-        bcross[2, 0] = -norm_b2[1]
-        bcross[2, 1] = norm_b2[0]
-
-        # calculate G-1 b cross G-1
-        linalg_kernels.matrix_matrix(bcross, g_inv, temp1)
-        linalg_kernels.matrix_matrix(g_inv, temp1, temp2)
-
-        # calculate S
-        S[:, :] = (epsilon*temp2)/abs_b_star_para
-
-        # calculate S1 * grad I1
-        linalg_kernels.matrix_vector(S, grad_abs_b, temp)
-
-        # save at the markers
-        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
-
-        markers[ip, 18:21] = markers[ip, 0:3]
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
+        markers[ip, column_nr] = b_star_parallel
 
 
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
-def init_gc_Bstar_discrete_gradient(markers: 'float[:,:]', dt: float,
-                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                    starts: 'int[:]',
-                                    kind_map: int, params_map: 'float[:]',
-                                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                    epsilon: float,
-                                    abs_b: 'float[:,:,:]',
-                                    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                    grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                    maxiter: int, tol: float):
-    r"""Initialization kernel for the pusher kernel `push_gc_Bstar_discrete_gradient <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient>`_ .
-    """
+@stack_array('eta_k', 'eta_n', 'eta', 'b2', 'b_star')
+def bstar_2form(alpha: 'float[:]',
+                     column_nr: int,
+                     comps: 'int[:]',
+                     args_markers: 'MarkerArguments',
+                     args_derham: 'DerhamArguments',
+                     args_domain: 'DomainArguments',
+                     epsilon: float,
+                     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+                     curl_unit_b2_1: 'float[:,:,:]', curl_unit_b2_2: 'float[:,:,:]', curl_unit_b2_3: 'float[:,:,:]'):
+    r'''Evaluate
+    
+    .. math::
+    
+        \hat{\mathbf B}^{*2}(\mathbf Z_p) = \hat{\mathbf B}^2(\boldsymbol \eta_p)
+        + \varepsilon v_{\parallel,p} \hat \nabla \times \hat{\mathbf b}^1_0 (\boldsymbol \eta_p)\,,
+        
+    where the evaluation point is the weighted average
+    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+    :math:`\boldsymbol \eta_p` beforehand.   
+        
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)`` 
+    in markers array for each particle.
+    '''
 
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta = empty(3, dtype=float)
+    b2 = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
 
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        # save initial parallel velocity
-        markers[ip, 14] = markers[ip, 3]
-
-        e[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # save for later steps
-        markers[ip, 18] = mu*abs_b0
-
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
-
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # calculate b_star . grad_abs_b
-        b_star_dot_grad_abs_b = linalg_kernels.scalar_dot(
-            b_star, grad_abs_b)*mu
-
-        # save at the markers
-        markers[ip, 0:3] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 3] = markers[ip, 14] - dt * \
-            b_star_dot_grad_abs_b/abs_b_star_para
-
-        markers[ip, 19:23] = markers[ip, 0:4]
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
-
-
-@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
-def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
-                                             pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                             starts: 'int[:]',
-                                             kind_map: int, params_map: 'float[:]',
-                                             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                             ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                             cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                             epsilon: float,
-                                             abs_b: 'float[:,:,:]',
-                                             b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                             norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                             norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                             curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                             grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                             maxiter: int, tol: float):
-    r"""Initialization kernel for the pusher kernel `push_gc_bxEstar_discrete_gradient_faster <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_faster>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    S = zeros((3, 3), dtype=float)
-    b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    bcross = zeros((3, 3), dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    temp = empty(3, dtype=float)
-    temp1 = zeros((3, 3), dtype=float)
-    temp2 = zeros((3, 3), dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
+    
+    # for saving
+    n_comps = size(comps)
 
     for ip in range(n_markers):
 
@@ -375,160 +311,75 @@ def init_gc_bxEstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        e[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # evaluate inverse of G
-        linalg_kernels.transpose(dfm, df_t)
-        linalg_kernels.matrix_matrix(df_t, dfm, g)
-        linalg_kernels.matrix_inv(g, g_inv)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
+        eta[:] = mod(eta, 1.)
+        
+        v_k = markers[ip, 3]
+        v_n = markers[ip, buffer_idx + 3]
+        v = alpha[3]*v_k + (1. - alpha[3])*v_n
 
         # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
 
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+        # compute B*
+        eval_2form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              b2_1,
+                              b2_2,
+                              b2_3,
+                              b2)
+        
+        eval_2form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              curl_unit_b2_1,
+                              curl_unit_b2_2,
+                              curl_unit_b2_3,
+                              b_star)
 
-        # eval all the needed field
-        # abs_b; 0form
-        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
+        b_star *= epsilon * v
+        b_star += b2
 
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
+        # save 
+        for j in range(n_comps):
+            markers[ip, column_nr + j] = b_star[comps[j]]
+        
 
-        # norm_b2; 2form
-        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
-        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
-        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
+@stack_array('eta_k', 'eta_n', 'eta', 'unit_b1')
+def unit_b_1form(alpha: 'float[:]',
+                      column_nr: int,
+                      comps: 'int[:]',
+                      args_markers: 'MarkerArguments',
+                      args_derham: 'DerhamArguments',
+                      args_domain: 'DomainArguments',
+                      unit_b1_1: 'float[:,:,:]', unit_b1_2: 'float[:,:,:]', unit_b1_3: 'float[:,:,:]'):
+    r'''Evaluate :math:`\hat{\mathbf b}^1_0(\boldsymbol \eta_p)`,
+    where the evaluation point is the weighted average
+    :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`,
+    for :math:`i=1,2,3`. Markers must be sorted according to the evaluation point
+    :math:`\boldsymbol \eta_p` beforehand. 
+    
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)`` 
+    in markers array for each particle.
+    '''
 
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
+    # allocate stack arrays
+    eta_k = empty(3, dtype=float)
+    eta_n = empty(3, dtype=float)
+    eta = empty(3, dtype=float)
+    unit_b1 = empty(3, dtype=float)
 
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    buffer_idx = args_markers.buffer_idx
+    shift_idx = args_markers.shift_idx
 
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # assemble b cross (.)
-        bcross[0, 1] = -norm_b2[2]
-        bcross[0, 2] = norm_b2[1]
-        bcross[1, 0] = norm_b2[2]
-        bcross[1, 2] = -norm_b2[0]
-        bcross[2, 0] = -norm_b2[1]
-        bcross[2, 1] = norm_b2[0]
-
-        # calculate G-1 b cross G-1
-        linalg_kernels.matrix_matrix(bcross, g_inv, temp1)
-        linalg_kernels.matrix_matrix(g_inv, temp1, temp2)
-
-        # calculate S
-        S[:, :] = (epsilon*temp2)/abs_b_star_para
-
-        # save at the markers
-        markers[ip, 15:17] = S[0, 1:3]
-        markers[ip, 17] = S[1, 2]
-        markers[ip, 21] = abs_b0*mu
-
-        # calculate S1 * grad I1
-        linalg_kernels.matrix_vector(S, grad_abs_b, temp)
-
-        # save at the markers
-        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]*mu
-
-        markers[ip, 18:21] = markers[ip, 0:3]
-        markers[ip, 0:3] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
-def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
-                                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                           starts: 'int[:]',
-                                           kind_map: int, params_map: 'float[:]',
-                                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                           epsilon: float,
-                                           abs_b: 'float[:,:,:]',
-                                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                           grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                           maxiter: int, tol: float):
-    r"""Initialization kernel for the pusher kernel `push_gc_Bstar_discrete_gradient_faster <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_faster>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
+    # for saving
+    n_comps = size(comps)
 
     for ip in range(n_markers):
 
@@ -536,1153 +387,22 @@ def init_gc_Bstar_discrete_gradient_faster(markers: 'float[:,:]', dt: float,
         if markers[ip, 0] == -1.:
             continue
 
-        # save initial parallel velocity
-        markers[ip, 14] = markers[ip, 3]
-
-        e[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        
+        eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
+        eta[:] = mod(eta, 1.)
 
         # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
-
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # save at the markers
-        markers[ip, 15:18] = b_star[:]/abs_b_star_para
-        markers[ip, 18] = mu*abs_b0
-
-        # calculate b_star . grad_abs_b
-        b_star_dot_grad_abs_b = linalg_kernels.scalar_dot(
-            b_star, grad_abs_b)*mu
-
-        # save at the markers
-        markers[ip, 0:3] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 3] = markers[ip, 14] - dt * \
-            b_star_dot_grad_abs_b/abs_b_star_para
-
-        markers[ip, 19:23] = markers[ip, 0:4]
-        markers[ip, 0:4] = (markers[ip, 0:4] + markers[ip, 11:15])/2.
-
-
-@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp', 'temp1', 'temp2')
-def init_gc_bxEstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float,
-                                                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                  starts: 'int[:]',
-                                                  kind_map: int, params_map: 'float[:]',
-                                                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                  epsilon: float,
-                                                  abs_b: 'float[:,:,:]',
-                                                  b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                  norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                  norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                  curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                  grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                  maxiter: int, tol: float):
-    r"""Initialization kernel for the pusher kernel `push_gc_bxEstar_discrete_Itoh_Newton <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_Itoh_Newton>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    S = zeros((3, 3), dtype=float)
-    b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    bcross = zeros((3, 3), dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    temp = empty(3, dtype=float)
-    temp1 = zeros((3, 3), dtype=float)
-    temp2 = zeros((3, 3), dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # evaluate inverse of G
-        linalg_kernels.transpose(dfm, df_t)
-        linalg_kernels.matrix_matrix(df_t, dfm, g)
-        linalg_kernels.matrix_inv(g, g_inv)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
-
-        # norm_b2; 2form
-        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
-        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
-        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
-
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # assemble b cross (.) as 3x3 matrix
-        bcross[0, 1] = -norm_b2[2]
-        bcross[0, 2] = norm_b2[1]
-        bcross[1, 0] = norm_b2[2]
-        bcross[1, 2] = -norm_b2[0]
-        bcross[2, 0] = -norm_b2[1]
-        bcross[2, 1] = norm_b2[0]
-
-        # calculate G^-1 b cross G^-1
-        linalg_kernels.matrix_matrix(bcross, g_inv, temp1)
-        linalg_kernels.matrix_matrix(g_inv, temp1, temp2)
-
-        # calculate S
-        S[:, :] = (epsilon*temp2)/abs_b_star_para
-
-        # save at the markers
-        markers[ip, 15:17] = S[0, 1:3]
-        markers[ip, 17] = S[1, 2]
-        markers[ip, 21] = abs_b0
-
-        # calculate S1 * grad I1
-        linalg_kernels.matrix_vector(S, grad_abs_b, temp)
-
-        # save at the markers
-        markers[ip, 18:21] = markers[ip, 0:3] + dt*temp[:]*mu
-
-        # send particles to the (eta^0_n+1, eta_n, eta_n)
-        markers[ip, 0] = markers[ip, 18]
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
-def init_gc_Bstar_discrete_gradient_Itoh_Newton(markers: 'float[:,:]', dt: float,
-                                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                starts: 'int[:]',
-                                                kind_map: int, params_map: 'float[:]',
-                                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                epsilon: float,
-                                                abs_b: 'float[:,:,:]',
-                                                b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                maxiter: int, tol: float):
-    r"""Initialization kernel for the pusher kernel `push_gc_Bstar_discrete_Itoh_Newton <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_Itoh_Newton>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        # save initial parallel velocity
-        markers[ip, 14] = markers[ip, 3]
-
-        e[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        abs_b0 = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
-
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # save at the markers
-        markers[ip, 15:18] = b_star[:]/abs_b_star_para
-        markers[ip, 21] = abs_b0
-
-        # calculate b_star . grad_abs_b
-        b_star_dot_grad_abs_b = linalg_kernels.scalar_dot(
-            b_star, grad_abs_b)*mu
-
-        # save at the markers
-        markers[ip, 18:21] = markers[ip, 0:3] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 3] = markers[ip, 14] - dt * \
-            b_star_dot_grad_abs_b/abs_b_star_para
-
-        # send particles to the (eta^0_n+1,eta_n, eta_n)
-        markers[ip, 0] = markers[ip, 18]
-
-
-@stack_array('dfm', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'S', 'b', 'b_star', 'bcross', 'grad_abs_b', 'curl_norm_b', 'norm_b1', 'norm_b2', 'temp1', 'temp2')
-def gc_bxEstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
-                                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                            starts: 'int[:]',
-                                            kind_map: int, params_map: 'float[:]',
-                                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                            epsilon: float,
-                                            abs_b: 'float[:,:,:]',
-                                            b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                            norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                            norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                            curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                            grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                            maxiter: int, tol: float):
-    r"""Evaluation kernel for the pusher kernel `push_gc_bxEstar_discrete_gradient <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_t = empty((3, 3), dtype=float)
-    g = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    S = zeros((3, 3), dtype=float)
-    b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    bcross = zeros((3, 3), dtype=float)
-    grad_abs_b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
-    temp1 = zeros((3, 3), dtype=float)
-    temp2 = zeros((3, 3), dtype=float)
-
-    # marker position e
-    e_mid = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e_mid[:] = markers[ip, 0:3]
-        v = markers[ip, 3]
-        markers[ip, 0:3] = markers[ip, 18:21]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e_mid[0], e_mid[1], e_mid[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # evaluate inverse of G
-        linalg_kernels.transpose(dfm, df_t)
-        linalg_kernels.matrix_matrix(df_t, dfm, g)
-        linalg_kernels.matrix_inv(g, g_inv)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e_mid[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e_mid[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e_mid[2])
-
-        bsplines_kernels.b_d_splines_slim(
-            tn1, pn[0], e_mid[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(
-            tn2, pn[1], e_mid[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(
-            tn3, pn[2], e_mid[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
-
-        # norm_b2; 2form
-        norm_b2[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts)
-        norm_b2[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts)
-        norm_b2[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts)
-
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # assemble b cross (.) as 3x3 matrix
-        bcross[0, 1] = -norm_b2[2]
-        bcross[0, 2] = norm_b2[1]
-        bcross[1, 0] = norm_b2[2]
-        bcross[1, 2] = -norm_b2[0]
-        bcross[2, 0] = -norm_b2[1]
-        bcross[2, 1] = norm_b2[0]
-
-        # calculate G-1 b cross G-1
-        linalg_kernels.matrix_matrix(bcross, g_inv, temp1)
-        linalg_kernels.matrix_matrix(g_inv, temp1, temp2)
-
-        # calculate S
-        S[:, :] = (epsilon*temp2)/abs_b_star_para
-
-        # save at the markers
-        markers[ip, 15:17] = S[0, 1:3]
-        markers[ip, 17] = S[1, 2]
-
-        markers[ip, 18:21] = mu*grad_abs_b[:]
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'b', 'grad_abs_b', 'curl_norm_b', 'b_star', 'norm_b1')
-def gc_Bstar_discrete_gradient_eval_gradI(markers: 'float[:,:]', dt: float,
-                                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                          starts: 'int[:]',
-                                          kind_map: int, params_map: 'float[:]',
-                                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                          epsilon: float,
-                                          abs_b: 'float[:,:,:]',
-                                          b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                          norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                          norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                          curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                          grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                          maxiter: int, tol: float):
-    r"""Evaluation kernel for the pusher kernel `push_gc_Bstar_discrete_gradient <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    grad_abs_b = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    b = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-
-    # marker position e
-    e_mid = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e_mid[:] = markers[ip, 0:3]
-        v_mid = markers[ip, 3]
-        markers[ip, 0:4] = markers[ip, 19:23]
-        mu = markers[ip, 9]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e_mid[0], e_mid[1], e_mid[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e_mid[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e_mid[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e_mid[2])
-
-        bsplines_kernels.b_d_splines_slim(
-            tn1, pn[0], e_mid[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(
-            tn2, pn[1], e_mid[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(
-            tn3, pn[2], e_mid[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # norm_b1; 1form
-        norm_b1[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts)
-        norm_b1[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts)
-        norm_b1[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts)
-
-        # b; 2form
-        b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1, starts)
-        b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2, starts)
-        b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3, starts)
-
-        # curl_norm_b; 2form
-        curl_norm_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, curl_norm_b1, starts)
-        curl_norm_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, curl_norm_b2, starts)
-        curl_norm_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, curl_norm_b3, starts)
-
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        # transform to H1vec
-        b_star[:] = b + epsilon*v_mid*curl_norm_b
-        b_star[:] = b_star/det_df
-
-        # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        # save at the markers
-        markers[ip, 15:18] = b_star[:]/abs_b_star_para
-        markers[ip, 19:22] = mu*grad_abs_b[:]
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
-def gc_bxEstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
-                                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                   starts: 'int[:]',
-                                                   kind_map: int, params_map: 'float[:]',
-                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                   epsilon: float,
-                                                   abs_b: 'float[:,:,:]',
-                                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                   grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                   maxiter: int, tol: float):
-    r"""Evaluation kernel for the pusher kernel `push_gc_bxEstar_discrete_gradient_faster <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_faster>`_ .
-    """
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    grad_abs_b = empty(3, dtype=float)
-
-    # marker position e
-    e_mid = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:3] = markers[ip, 18:21]
-        mu = markers[ip, 9]
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e_mid[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e_mid[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e_mid[2])
-
-        bsplines_kernels.b_d_splines_slim(
-            tn1, pn[0], e_mid[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(
-            tn2, pn[1], e_mid[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(
-            tn3, pn[2], e_mid[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        markers[ip, 18:21] = mu*grad_abs_b[:]
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e_mid', 'grad_abs_b')
-def gc_Bstar_discrete_gradient_faster_eval_gradI(markers: 'float[:,:]', dt: float,
-                                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                 starts: 'int[:]',
-                                                 kind_map: int, params_map: 'float[:]',
-                                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                 epsilon: float,
-                                                 abs_b: 'float[:,:,:]',
-                                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                 grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                 maxiter: int, tol: float):
-    r"""Evaluation kernel for the pusher kernel `push_gc_Bstar_discrete_gradient_faster <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_faster>`_ .
-    """
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # containers
-    grad_abs_b = empty(3, dtype=float)
-
-    # marker position e
-    e_mid = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e_mid[:] = markers[ip, 0:3]
-        markers[ip, 0:4] = markers[ip, 19:23]
-        mu = markers[ip, 9]
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e_mid[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e_mid[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e_mid[2])
-
-        bsplines_kernels.b_d_splines_slim(
-            tn1, pn[0], e_mid[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(
-            tn2, pn[1], e_mid[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(
-            tn3, pn[2], e_mid[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # grad_abs_b; 1form
-        grad_abs_b[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        grad_abs_b[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-        grad_abs_b[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts)
-
-        markers[ip, 19:22] = mu*grad_abs_b[:]
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
-def gc_bxEstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: float,
-                                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                   starts: 'int[:]',
-                                                   kind_map: int, params_map: 'float[:]',
-                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                   epsilon: float,
-                                                   abs_b: 'float[:,:,:]',
-                                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                   grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                   maxiter: int, tol: float):
-    r"""First evaluation kernel for the pusher kernel `push_gc_bxEstar_discrete_Itoh_Newton <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_Itoh_Newton>`_ .
-    TODO: better name than eval1
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        markers[ip, 22] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # grad_abs_b; 1form
-        markers[ip, 23] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-
-        # send particles to the (eta^0_n+1, eta^0_n+1, eta_n)
-        markers[ip, 1] = markers[ip, 19]
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
-def gc_bxEstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: float,
-                                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                   starts: 'int[:]',
-                                                   kind_map: int, params_map: 'float[:]',
-                                                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                   epsilon: float,
-                                                   abs_b: 'float[:,:,:]',
-                                                   b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                   norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                   norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                   curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                   grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                   maxiter: int, tol: float):
-    r"""Second evaluation kernel for the pusher kernel `push_gc_bxEstar_discrete_Itoh_Newton <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_Itoh_Newton>`_ .
-    TODO: better name than eval2
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-
-        # send particles to the (eta^0_n+1, eta^0_n+1, eta^0_n+1)
-        markers[ip, 2] = markers[ip, 20]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        markers[ip, 18] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # grad_abs_b; 1form
-        markers[ip, 19] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        markers[ip, 20] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
-def gc_Bstar_discrete_gradient_Itoh_Newton_eval1(markers: 'float[:,:]', dt: float,
-                                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                 starts: 'int[:]',
-                                                 kind_map: int, params_map: 'float[:]',
-                                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                 epsilon: float,
-                                                 abs_b: 'float[:,:,:]',
-                                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                 grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                 maxiter: int, tol: float):
-    r"""First evaluation kernel for the pusher kernel `push_gc_Bstar_discrete_Itoh_Newton <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_Itoh_Newton>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        markers[ip, 22] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # grad_abs_b; 1form
-        markers[ip, 23] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-
-        # send particles to the (eta^0_n+1,eta^0_n+1, eta_n)
-        markers[ip, 1] = markers[ip, 19]
-
-
-@stack_array('dfm', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e')
-def gc_Bstar_discrete_gradient_Itoh_Newton_eval2(markers: 'float[:,:]', dt: float,
-                                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                                 starts: 'int[:]',
-                                                 kind_map: int, params_map: 'float[:]',
-                                                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                                                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                                                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                                                 epsilon: float,
-                                                 abs_b: 'float[:,:,:]',
-                                                 b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-                                                 norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-                                                 norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
-                                                 curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                                                 grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
-                                                 maxiter: int, tol: float):
-    r"""Second evaluation kernel for the pusher kernel `push_gc_Bstar_discrete_Itoh_Newton <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_Itoh_Newton>`_ .
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
-    # allocate spline values
-    bn1 = empty(pn[0] + 1, dtype=float)
-    bn2 = empty(pn[1] + 1, dtype=float)
-    bn3 = empty(pn[2] + 1, dtype=float)
-
-    bd1 = empty(pn[0], dtype=float)
-    bd2 = empty(pn[1], dtype=float)
-    bd3 = empty(pn[2], dtype=float)
-
-    # marker position e
-    e = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    for ip in range(n_markers):
-
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.:
-            continue
-
-        if markers[ip, 11] == -1.:
-            continue
-
-        e[:] = markers[ip, 0:3]
-
-        # send particles to the (eta^0_n+1,eta^0_n+1, eta^0_n+1)
-        markers[ip, 2] = markers[ip, 20]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e[0], e[1], e[2],
-                              kind_map, params_map,
-                              t1_map, t2_map, t3_map, p_map,
-                              ind1_map, ind2_map, ind3_map,
-                              cx, cy, cz,
-                              dfm)
-
-        # spline evaluation
-        span1 = bsplines_kernels.find_span(tn1, pn[0], e[0])
-        span2 = bsplines_kernels.find_span(tn2, pn[1], e[1])
-        span3 = bsplines_kernels.find_span(tn3, pn[2], e[2])
-
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
-        bsplines_kernels.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
-        bsplines_kernels.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
-
-        # eval all the needed field
-        # abs_b; 0form
-        markers[ip, 18] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, abs_b, starts)
-
-        # grad_abs_b; 1form
-        markers[ip, 19] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts)
-        markers[ip, 20] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts)
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
+
+        eval_1form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              unit_b1_1,
+                              unit_b1_2,
+                              unit_b1_3,
+                              unit_b1)
+        
+        # save 
+        for j in range(n_comps):
+            markers[ip, column_nr + j] = unit_b1[comps[j]]

@@ -1,4 +1,4 @@
-def test_pproc_codes(model=None):
+def test_pproc_codes(model: str = None, group: str = None):
     '''Tests the post processing of runs in test_codes.py'''
 
     import os
@@ -15,28 +15,39 @@ def test_pproc_codes(model=None):
     list_fluid = []
     for name, obj in inspect.getmembers(fluid):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_fluid += [name]
 
     list_kinetic = []
     for name, obj in inspect.getmembers(kinetic):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', 'KineticBackground'}:
+            if name not in {'StruphyModel', 'KineticBackground', 'Propagator'}:
                 list_kinetic += [name]
 
     list_hybrid = []
     for name, obj in inspect.getmembers(hybrid):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_hybrid += [name]
 
     list_toy = []
     for name, obj in inspect.getmembers(toy):
         if inspect.isclass(obj):
-            if name not in {'StruphyModel', }:
+            if name not in {'StruphyModel', 'Propagator'}:
                 list_toy += [name]
 
-    list_models = list_fluid + list_kinetic + list_hybrid + list_toy
+    if group is None:
+        list_models = list_fluid + list_kinetic + list_hybrid + list_toy
+    elif group == 'fluid':
+        list_models = list_fluid
+    elif group == 'kinetic':
+        list_models = list_kinetic
+    elif group == 'hybrid':
+        list_models = list_hybrid
+    elif group == 'toy':
+        list_models = list_toy
+    else:
+        raise ValueError(f'{group = } is not a valid group specification.')
 
     if comm.Get_rank() == 0:
         if model is None:
@@ -44,6 +55,11 @@ def test_pproc_codes(model=None):
 
                 # TODO: remove if-clause
                 if 'VlasovMasslessElectrons' in model:
+                    print(
+                        f'Model {model} is currently excluded from tests.')
+                    continue
+
+                if 'Variational' in model or 'Visco' in model:
                     print(
                         f'Model {model} is currently excluded from tests.')
                     continue

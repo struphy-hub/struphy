@@ -19,7 +19,7 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
 
     if model is None:
         for key, val in inspect.getmembers(toy):
-            if inspect.isclass(val) and 'StruphyModel' not in key:
+            if inspect.isclass(val) and key not in {'StruphyModel', 'Propagator'}:
 
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:
@@ -31,9 +31,10 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
     else:
         val = getattr(toy, model)
         call_model(model, val, map_and_equil, Tend=Tend)
-        
+
+
 if __name__ == '__main__':
-    
+
     test_toy(('Cuboid', 'HomogenSlab'), True)
     test_toy(('HollowTorus', 'AdhocTorus'), True)
     test_toy(('Tokamak', 'EQDSKequilibrium'), True)

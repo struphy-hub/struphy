@@ -18,7 +18,7 @@ def test_hybrid(map_and_equil, fast, model=None, Tend=None):
 
     if model is None:
         for key, val in inspect.getmembers(hybrid):
-            if inspect.isclass(val) and 'StruphyModel' not in key:
+            if inspect.isclass(val) and key not in {'StruphyModel', 'Propagator'}:
 
                 # TODO: remove if-clause
                 if 'VlasovMasslessElectrons' in key:
@@ -43,9 +43,10 @@ def test_hybrid(map_and_equil, fast, model=None, Tend=None):
             exit()
 
         call_model(model, val, map_and_equil, Tend=Tend)
-        
+
+
 if __name__ == '__main__':
-    
+
     test_hybrid(True, ('Cuboid', 'HomogenSlab'), model=None)
     test_hybrid(True, ('HollowTorus', 'AdhocTorus'), model=None)
     test_hybrid(True, ('Tokamak', 'EQDSKequilibrium'), model=None)

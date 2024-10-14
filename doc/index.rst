@@ -9,7 +9,7 @@ Struphy: structure-preserving hybrid codes
 
 Struphy is open-source (https://gitlab.mpcdf.mpg.de/struphy/struphy) and can be :ref:`installed on any architecture <install>`.
 
-The package is designed for the efficient solution of partial differential equations based
+The package is designed for the parallel solution of partial differential equations based
 on :ref:`geomFE` and :ref:`particle_discrete`.
 
 Struphy features a :ref:`growing list of PDE models <models>` 
@@ -29,10 +29,15 @@ which can be solved on a variety of :ref:`mapped domains <avail_mappings>`.
    sections/quickstart
    sections/models
    sections/numerics
+   sections/api
    sections/tutorials
    sections/userguide
    sections/developers
-   sections/modules
+   sections/domains
+   sections/propagators
+   sections/pic_classes
+   sections/feec_classes
+   sections/physics
    sections/examples
 
 

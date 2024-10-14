@@ -28,7 +28,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
     dependencies : bool
         Whether to print Struphy kernels (to be compiled) and their dependencies on screen.
-        
+
     yes : bool
         Whether to say yes to prompt when changing the language.
     """
@@ -90,6 +90,10 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                        'compile',
                         '--status',
                         ], check=True, cwd=libpath)
+
+        print('\nDeleting state.yml ...')
+        os.remove(os.path.join(libpath, 'state.yml'))
+        print('Done.')
 
     elif status:
 
@@ -183,7 +187,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
             else:
                 yesno = input(
                     f'Kernels compiled in language {state["last_used_language"]} exist, will be deleted, continue (Y/n)?')
-                
+
             if yesno in ('', 'Y', 'y', 'yes'):
                 subprocess.run(['struphy',
                                 'compile',
@@ -260,4 +264,10 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         subprocess.run(['struphy',
                        'compile',
                         '--status',
+                        ], check=True, cwd=libpath)
+
+        # collect available models
+        print('')
+        subprocess.run(['struphy',
+                        '--refresh-models',
                         ], check=True, cwd=libpath)

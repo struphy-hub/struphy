@@ -25,7 +25,7 @@ class SchurSolver:
         } \\right)
 
     using the Schur complement :math:`S = A - \Delta t^2 BC`, where Id is the identity matrix
-    and :math:`(x^n, y^n)^T` is given. The solution is given by
+    and :math:`(x^n, y^n)` is given. The solution is given by
 
     .. math::
 
@@ -46,7 +46,11 @@ class SchurSolver:
         Must correspond to the chosen solver.
     '''
 
-    def __init__(self, A, BC, solver_name, **solver_params):
+    def __init__(self, 
+                 A: LinearOperator, 
+                 BC: LinearOperator,
+                 solver_name: str,
+                 **solver_params):
 
         assert isinstance(A, LinearOperator)
         assert isinstance(BC, LinearOperator)
@@ -57,6 +61,10 @@ class SchurSolver:
         # linear operators
         self._A = A
         self._BC = BC
+
+        # Allocate memory for matrices used in solving the Schur system
+        self._schur = A.copy()
+        self._rhs_m = A.copy()
 
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
@@ -94,8 +102,7 @@ class SchurSolver:
         self._BC = bc
 
     def __call__(self, xn, Byn, dt, out=None):
-        """
-        Solves the 2x2 block matrix linear system.
+        """ Solves the 2x2 block matrix linear system.
 
         Parameters
         ----------
@@ -126,14 +133,21 @@ class SchurSolver:
         assert Byn.space == self._A.codomain
 
         # left- and right-hand side operators
-        schur = self._A - dt**2 * self._BC
-        rhs_m = self._A + dt**2 * self._BC
+        self._schur *= 0.
+        self._schur += self._BC
+        self._schur *= (-dt**2)
+        self._schur += self._A
+
+        self._rhs_m *= 0.
+        self._rhs_m += self._BC
+        self._rhs_m *= dt**2
+        self._rhs_m += self._A
 
         # use setter to update lhs matrix
-        self._solver.linop = schur
+        self._solver.linop = self._schur
 
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
-        rhs = rhs_m.dot(xn, out=self._rhs)
+        rhs = self._rhs_m.dot(xn, out=self._rhs)
         rhs /= 2*dt
         rhs -= Byn
         rhs *= 2*dt
@@ -208,8 +222,7 @@ class SchurSolverFull:
         self._rhs = self._A.codomain.zeros()
 
     def dot(self, v, out=None):
-        """
-        Solves the 2x2 block matrix linear system.
+        """ Solves the 2x2 block matrix linear system.
 
         Parameters
         ----------

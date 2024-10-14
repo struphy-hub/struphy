@@ -72,4 +72,6 @@ kinetic :
                 n : 0.05
         save_data :
             n_markers : 4 # number of markers to be save during simulation
-        options: {push_eta: rk4, push_vxb: analytic}
+        options:
+            PushEta: {algo: rk4}
+            PushVxB: {algo: analytic}

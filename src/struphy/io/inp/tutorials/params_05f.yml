@@ -1,0 +1,84 @@
+grid :
+    Nel      : [32, 72, 1] # number of grid cells, >p
+    p        : [3, 3, 1]  # spline degree
+    spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+    dirichlet_bc : null # [[False, False], [False, False], [False, False]], hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
+    dims_mask : [True, True, True] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [6, 6, 1] # quadrature points per grid cell
+    nq_pr    : [4, 4, 1] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+units : # units not stated here can be viewed via "struphy units -h"
+    x  : 1. # length scale unit in m
+    B  : 1. # magnetic field unit in T
+    n  : 1. # number density unit in 10^20 m^(-3)
+    kBT: 1. # thermal energy unit in keV
+
+time :
+    dt         : 0.1  # time step
+    Tend       : 100. # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
+
+geometry :
+    type : Tokamak # mapping F (possible types seen below)
+    Tokamak :
+        Nel        : [28, 72] # number of poloidal grid cells, >p
+        p          : [3, 3] # poloidal spline degrees, >1
+        psi_power  : 0.6 # parametrization of radial flux coordinate eta1=psi_norm^psi_power, where psi_norm is normalized flux
+        psi_shifts : [0.000001, 1.] # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
+        xi_param   : equal_angle # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
+        r0         : 0.3 # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
+        Nel_pre    : [64, 256] # number of poloidal grid cells of pre-mapping needed for equal_arc_length and sfl
+        p_pre      : [3, 3] # poloidal spline degrees of pre-mapping needed for equal_arc_length and sfl
+        tor_period : 1 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+
+mhd_equilibrium :
+    type : EQDSKequilibrium # (possible choices seen below)
+    EQDSKequilibrium :
+        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
+        file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+        data_type       : 0 # 0: there is no space between data, 1: there is space between data
+        p_for_psi       : [3, 3] # spline degrees used in interpolation of poloidal flux function grid data
+        psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
+        p_for_flux      : 3 # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
+        flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
+        n1              : 0. # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        n2              : 0. # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        na              : 1. # number density at last closed flux surface
+
+kinetic :
+    ions :
+        phys_params:
+            A : 1 # mass number in units of proton mass
+            Z : 1 # signed charge number in units of elementary charge
+        markers :
+            type    : full_f # full_f, control_variate, or delta_f
+            ppc     : null
+            Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
+            eps     : 2.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bc : 
+                type    : [remove, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+                remove  :
+                    save              : False
+                    boundary_transfer : False
+                    particle_refilling : False            
+            loading :
+                type    : pseudo_random # particle loading mechanism 
+                seed    : 1608 # seed for random number generator
+                moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                spatial : uniform # uniform or disc
+                initial : [[.501, 0.001, 0.001, -1.935 , 1.72], # co-passing particle
+                           [.501, 0.001, 0.001,  1.935 , 1.72], # couner-passing particle
+                           [.501, 0.001, 0.001, -0.6665, 1.72], # co-trapped particle
+                           [.501, 0.001, 0.001,  0.4515, 1.72]] # counter-trapped particle
+        background :
+            type : GyroMaxwellian2D
+            GyroMaxwellian2D:
+                n : 0.05
+        save_data :
+            n_markers : 4 # number of markers to be save during simulation
+        options:
+            PushGuidingCenterBxEstar:
+                algo: {method: discrete_gradient_1st_order_newton, maxiter: 20, tol: 1.0e-05, mpi_sort: each, verbose: False}
+            PushGuidingCenterParallel:
+                algo: {method: discrete_gradient_1st_order_newton, maxiter: 20, tol: 1.0e-05, mpi_sort: each, verbose: False}

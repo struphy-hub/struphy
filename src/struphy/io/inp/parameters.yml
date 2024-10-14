@@ -2,7 +2,7 @@
 
 # 1. Strings can either be set as e.g. 'Cuboid' or Cuboid, i.e. with or without quotes - both works
 # 2. The parameter null will be transformed to Python's None type
-# 3. Available geometries: https://struphy.pages.mpcdf.de/struphy/sections/subsections/domains.html
+# 3. Available geometries: https://struphy.pages.mpcdf.de/struphy/sections/domains.html
 # 4. Available MHD equilibria: https://struphy.pages.mpcdf.de/struphy/sections/subsections/mhd_equils.html
 # 5. Available kinetic backgrounds: https://struphy.pages.mpcdf.de/struphy/sections/subsections/kinetic_backgrounds.html
 # 6. Available perturbation functions: https://struphy.pages.mpcdf.de/struphy/sections/subsections/inits.html
@@ -16,6 +16,7 @@ grid :
     nq_el        : [2, 2, 1] # quadrature points per grid cell
     nq_pr        : [2, 2, 1] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck     : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    Nclones      : 1
 
 time :
     dt         : 0.005 # time step

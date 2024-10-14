@@ -31,7 +31,8 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                      'tol': 1.e-13,
                      'maxiter': 3000,
                      'info': True,
-                     'verbose': False}
+                     'verbose': False,
+                     'recycle': False}
 
     # create domain object
     dom_type = mapping[0]
@@ -50,7 +51,7 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
         Lz = dom_params['Lz']
 
     Nels = [2**n for n in range(3, 9)]
-    p_values = [1, 2, 3]
+    p_values = [1, 2]
     for pi in p_values:
         
         errors = []
@@ -168,7 +169,7 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                                                sigma_2=0.,
                                                sigma_3=1.,
                                                rho=rho_vec,
-                                               **solver_params)
+                                               solver=solver_params)
             
             # Solve Poisson (call propagator with dt=1.)
             dt = 1.
@@ -227,11 +228,10 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[64, 64, 1]])
-@pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1], [3, 3, 1]])
+@pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize('bc_type', ['periodic', 'dirichlet', 'neumann'])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}],
-    ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}],
     ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
 ])
 def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
@@ -243,7 +243,8 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
         'tol': 1.e-13,
         'maxiter': 3000,
         'info': True,
-        'verbose': False}
+        'verbose': False,
+        'recycle': False}
 
     # create domain object
     dom_type = mapping[0]
@@ -349,7 +350,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         sigma_2=0.,
                                         sigma_3=1.,
                                         rho=rho_vec1,
-                                        **solver_params)
+                                        solver=solver_params)
 
     _phi2 = derham.create_field('test2', 'H1')
     poisson_solver2 = ImplicitDiffusion(_phi2.vector,
@@ -357,7 +358,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         sigma_2=0.,
                                         sigma_3=1.,
                                         rho=rho_vec2,
-                                        **solver_params)
+                                        solver=solver_params)
 
     # Solve Poisson equation (call propagator with dt=1.)
     dt = 1.

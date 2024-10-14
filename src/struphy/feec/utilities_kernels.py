@@ -4,6 +4,9 @@ from numpy import empty
 import struphy.bsplines.bsplines_kernels as bsplines_kernels 
 import struphy.pic.accumulation.filler_kernels as filler_kernels 
 import struphy.geometry.evaluation_kernels as evaluation_kernels 
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not remove; needed to identify dependencies
+
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 @pure
@@ -121,10 +124,8 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
                   nq1: int, nq2: int, nq3: int,
                   w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]',
                   data1: 'float[:,:,:]', data2: 'float[:,:,:]', data3: 'float[:,:,:]',
-                  n_data: 'float[:,:,:,:,:,:]', kind_map: int, params_map: 'float[:]', p_map: 'int[:]',
-                  t1: 'float[:]', t2: 'float[:]', t3: 'float[:]',
-                  ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
-                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]'):
+                  n_data: 'float[:,:,:,:,:,:]', 
+                  args_domain: 'DomainArguments'):
 
     nel1 = spans1.size
     nel2 = spans2.size
@@ -154,8 +155,7 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
                             eta2 = pts2[iel2, q2]
                             eta3 = pts3[iel3, q3]
 
-                            evaluation_kernels.df(eta1, eta2, eta3, kind_map, params_map, t1,
-                                      t2, t3, p_map, ind1, ind2, ind3, cx, cy, cz, df_out)
+                            evaluation_kernels.df(eta1, eta2, eta3, args_domain, df_out)
                             # sqrtg = evaluation_kernels.det_df(eta1, eta2, eta3, kind_map, params_map, t1, t2, t3, p_map, ind1, ind2, ind3, cx, cy, cz)
 
                             G[0, 0] = df_out[0, 0]*df_out[0, 0] + df_out[1, 0]*df_out[1, 0] + \

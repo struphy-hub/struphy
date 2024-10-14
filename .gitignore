@@ -81,3 +81,7 @@ logs
 # I/O
 src/struphy/io/out/
 src/struphy/state.yml
+
+# models list
+src/struphy/models/models_list
+src/struphy/models/models_message

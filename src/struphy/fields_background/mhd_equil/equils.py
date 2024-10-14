@@ -448,7 +448,7 @@ class ShearFluid(CartesianMHDequilibrium):
     # ===============================================================
 
     def T_z(self, z):
-        """Swap function T(z) = \tanh(z - z_1)/\delta) - \tanh(z - z_2)/\delta)"""
+        r"""Swap function T(z) = \tanh(z - z_1)/\delta) - \tanh(z - z_2)/\delta)"""
         Tout = (np.tanh((z-self.params['z1'])/self.params['delta']) - np.tanh((z-self.params['z2'])/self.params['delta']))/2.
         return Tout
 
@@ -1759,7 +1759,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             units = {}
             units['x'] = 1.
             units['B'] = 1.
-            units['mu0'] = 1.25663706212e-6  # magnetic constant (N/A^2)
+            units['j'] = 1.
+            units['p'] = 1.
+            units['n'] = 1e20
             warnings.warn(
                 f'{units = }, no rescaling performed in EQDSK output.')
 
@@ -1827,9 +1829,6 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         assert g_profile.size == p_profile.size
         assert g_profile.size == q_profile.size
         assert psi.shape == (nR, nZ)
-
-        # normalize pressure profile to pressure unit 1 Tesla^2/mu_0
-        p_profile *= 1.25663706212e-6
 
         # spline interpolation of smoothed flux function
         self._r_range = [rleft, rleft + rdim]
@@ -1966,6 +1965,9 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         if isinstance(psi, (int, float)):
             assert out.ndim == 0
             out = out.item()
+            
+        # rescale to Struphy units
+        out /= self.units['p']
 
         return out
 
@@ -2037,7 +2039,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         out = self.p_psi(self.psi(R, Z))
 
         # rescale to Struphy units
-        out /= self.units['B']**2 / self.units['mu0']
+        out /= self.units['p']
 
         return out
 
@@ -2054,9 +2056,19 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
 
 class GVECequilibrium(LogicalMHDequilibrium):
-    """
+    r"""
     Numerical equilibrium via an interface to `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
+    Density profile can be set to 
+
+    .. math::
+    
+        n(r)= \left\{\begin{aligned}
+        \ &n_0 p(r) \quad &&\textnormal{if density_profile = 'pressure'}\,,
+
+        \ &n_1+\left(1-\left(\frac{r}{a}\right)^2\right) (n_0-n_1) \quad &&\textnormal{if density_profile = 'parabolic'}\,, 
+        \end{aligned}\right. \,.
+        
     Parameters
     ----------
     units : dict
@@ -2077,7 +2089,12 @@ class GVECequilibrium(LogicalMHDequilibrium):
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
-
+    density_profile : str
+        'parabolic' for a parabolic density profile or 'pressure' for a density profile proportional to pressure
+    n0 : float
+        shape factor for ion number density profile (default: 0.2).
+    n1 : float
+        shape factor for ion number density profile (default: 0.).
     Note
     ----
     In the parameter .yml, use the following in the section `mhd_equilibrium`::
@@ -2093,6 +2110,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
                 rmin : 0.0 # radius of domain hole around magnetic axis.
                 Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
                 p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+                density_profile : 'pressure'
+                n0 : 0.2
+                n1 : 0.
     """
 
     def __init__(self, units=None, **params):
@@ -2116,11 +2136,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
             units['B'] = 1.
             units['j'] = 1.
             units['p'] = 1.
+            units['n'] = 1e20
             warnings.warn(
                 f'{units = }, no rescaling performed in GVEC output.')
-        else:
-            warnings.warn('Units not imlemented for GVEC interface.')
-            # TODO: implement units, ask Florian
 
         self._units = units
 
@@ -2131,7 +2149,10 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           'use_nfp': True,
                           'rmin': 0.01,
                           'Nel': (16, 16, 16),
-                          'p': (3, 3, 3), }
+                          'p': (3, 3, 3),
+                          'density_profile': 'pressure',
+                          'n0': .2,
+                          'n1': 0. }
 
         self._params = set_defaults(params, params_default)
 
@@ -2337,7 +2358,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        return self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
+        return self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/self.units['p']
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
@@ -2358,8 +2379,13 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        # TODO: which density to set? Is proportional to pressure for the moment
-        return 0.2 * self.p0(*etas)
+        r = rmin + eta1*(1. - rmin)
+        if self._params['density_profile'] == 'pressure':
+            return self._params['n0'] * self.p0(*etas)
+        elif self._params['density_profile'] == 'parabolic':
+            return self._params['n1']+(1.-r**2)*(self._params['n0']-self._params['n1'])
+        else:
+            raise ValueError('wrong type of density profile for GVEC equilibrium')
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
@@ -2390,6 +2416,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
+    
+    T_kelvin : maximum of temperature in Kelvin (default: 100000).
 
     Note
     ----
@@ -2405,6 +2433,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
                 rmin : 0.0 # radius of domain hole around magnetic axis.
                 Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
                 p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+                T_kelvin : 100000 # maximum temperature in Kelvin used to set density
     """
 
     def __init__(self, units=None, **params):
@@ -2427,6 +2456,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             units['B'] = 1.
             units['j'] = 1.
             units['p'] = 1.
+            units['n'] = 1e20
             warnings.warn(
                 f'{units = }, no rescaling performed in DESC output.')
 
@@ -2438,7 +2468,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
                           'use_nfp': True,
                           'rmin': 0.01,
                           'Nel': (16, 16, 50),
-                          'p': (3, 3, 3), }
+                          'p': (3, 3, 3), 
+                          'T_kelvin': 100000}
 
         self._params = set_defaults(params, params_default)
 
@@ -2703,8 +2734,10 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta3 = etas[2]
             flat_eval = False
 
-        # TODO: which density to set? Is proportional to pressure for the moment
-        return 0.2 * self.p0(*etas, squeeze_out=squeeze_out)
+        # Ori 25/06/24 - Add option to set temperature maximum and then set density accordingly, still proportional to pressure
+        k_Boltzmann = 1.38*1e-23
+        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units['p'] #computes pressure in units of 1 Pa
+        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / self.units['n'] #density in default units, n=1 --> 10^20 m^(-3)
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
@@ -2829,7 +2862,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             z = z.flatten()
 
         nodes = np.stack((r, t, z)).T
-        grid_3d = Grid(nodes, jitable=False)
+        grid_3d = Grid(nodes, spacing=np.ones_like(nodes), jitable=False)
 
         # compute output corresponding to the generated desc grid
         node_values = self.eq.compute(

@@ -28,27 +28,26 @@
 #
 # A "scheduled" pipeline can be tested via the commit message "test-schedule" (this will use the current build of Struphy from devel).
 
+# The doc can be built via the commit message "make-pages".
+
 default:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
 
   before_script:
+    - date
+    - ls -a
     - uname -a
-    - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    - module list
+    - module avail
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
     - module list
     - make -v
     - python3 --version
-    - sqlite3 -version
     - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
 
-  tags:
-    - distributedcache
-
-  cache:
-    key: 'python-env'
-    paths:
-      - env_$CI_PIPELINE_ID/
+  # tags:
+  #   - distributedcache
 
   artifacts:
     expire_in: 1 day
@@ -70,15 +69,17 @@ default_venv:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
+    - date
+    - ls -a
     - uname -s # get system info
     - uname -v
     - uname -m
     - uname -o
     - echo "Hello ${GITLAB_USER_NAME} !"
     - echo "This is job ${CI_JOB_ID}"
-    - module purge
+    - module list
     - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
     - module list
   script:
     - pip install -U virtualenv
@@ -89,6 +90,11 @@ default_venv:
     - python3 -m pip install --upgrade pip
     - pip install -U pytest coverage twine
     - pip list
+  artifacts:
+    name: 'python-env'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
@@ -99,10 +105,10 @@ ci_vars:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
-  cache: []
+  dependencies: []
   before_script:
-    - module purge
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    - date
+    - ls -a
     - module list
   script:
     - echo "All environment variables:"
@@ -114,14 +120,14 @@ default_build:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
     - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   script:  
     - pip install -U build
     - pip list
     - python3 -m build # build struphy (.whl) 
   artifacts:
+    name: 'dist'
     paths:
       - dist/
     expire_in: 1 day
@@ -136,9 +142,11 @@ default_install:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
@@ -147,6 +155,11 @@ default_install:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
+  artifacts:
+    name: 'python-env-installed'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 # Cron-job C:
 c_cronjob_install:
@@ -161,6 +174,11 @@ c_cronjob_install:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
+  artifacts:
+    name: 'python-env-installed'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 ##################
 ### TEST STAGE ###
@@ -170,9 +188,10 @@ c_cronjob_install:
 Ubuntu_latest:
   stage: test
   image: ubuntu:latest
-  cache: []
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -181,6 +200,8 @@ Ubuntu_latest:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - apt update -y && apt clean 
     - export DEBIAN_FRONTEND=noninteractive
     - apt install -y software-properties-common
@@ -215,6 +236,8 @@ c_unit_tests:
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_TAG
@@ -231,6 +254,8 @@ c_model_tests:
   stage: test
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -255,11 +280,18 @@ c_model_cronjob_tests:
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+  artifacts:
+    name: 'python-env-installed-2'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 c_tutorial_tests:
   stage: test
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -270,13 +302,12 @@ c_tutorial_tests:
     - pwd
     - ls -1
     - struphy compile --status
-    - struphy test tutorials
+    - struphy test tutorials --fast
 
 # Cron-job Fortran install, after c tests:
 fortran_cronjob_install:
   stage: test
-  needs: 
-    - job: c_model_cronjob_tests
+  needs: ["c_model_cronjob_tests"]
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
     - if: $CI_PIPELINE_SOURCE == "schedule"
@@ -286,7 +317,12 @@ fortran_cronjob_install:
     - struphy
     - pyccel --version
     - struphy compile --status
-    - struphy compile --language=fortran -y # compiles struphy, psydac with language fortran 
+    - struphy compile --language=fortran -y # compiles struphy, psydac with language fortran
+  artifacts:
+    name: 'python-env-installed-3'
+    paths:
+      - env_$CI_PIPELINE_ID/
+    expire_in: 1 day
 
 fortran_unit_tests:
   stage: test
@@ -298,7 +334,7 @@ fortran_unit_tests:
     - pwd
     - ls -1
     - struphy compile --status
-    - struphy test unit
+    - struphy test unit 
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 fortran_model_tests:
@@ -331,12 +367,13 @@ fortran_tutorial_tests:
 Ubuntu_23_04:
   stage: test
   image: ubuntu:23.04
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - apt update -y && apt clean 
     - apt install -y python3-pip 
     - apt install -y python3-venv
@@ -364,14 +401,14 @@ Ubuntu_23_04:
 struphy_ubuntu_python_3_11:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -392,12 +429,13 @@ struphy_ubuntu_python_3_11:
 Fedora:
   stage: test
   image: fedora:latest
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - dnf install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - dnf update -y  
     - dnf install -y gcc
@@ -441,14 +479,14 @@ Fedora:
 struphy_fedora_python_3_10:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_fedora_python_3_10
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -470,12 +508,13 @@ struphy_fedora_python_3_10:
 OpenSuse:
   stage: test
   image: opensuse/tumbleweed:latest
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - zypper refresh
     - zypper install -y python311 python311-devel
     - zypper install -y python311-pip python3-virtualenv
@@ -513,14 +552,14 @@ OpenSuse:
 struphy_opensuse_python_3_11:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_python_3_11
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -540,12 +579,13 @@ struphy_opensuse_python_3_11:
 AlmaLinux:
   stage: test
   image: almalinux:latest
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
+    - ls -a
     - yum install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - yum update -y 
     - yum clean all 
@@ -588,14 +628,14 @@ AlmaLinux:
 struphy_almalinux_python_3_10:
   stage: test
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_python_3_10
-  cache: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
   needs: ['default_build']
   before_script:
+    - date
     - uname -a
-    - ls
+    - ls -a
     - ls dist/
     - ls /
   script:
@@ -617,6 +657,7 @@ struphy_almalinux_python_3_10:
 ###################
 
 pages:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   stage: pages
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -624,6 +665,23 @@ pages:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "true"
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+  needs: ['default_build']
+  before_script:
+    - date
+    - uname -a
+    - ls -a
+    - ls dist/
+    - ls /
+    - apt show pandoc
+    - apt show graphviz
+    - python3 -V
+    - python3.11 -V
+    - python3.11 -m venv env
+    - source env/bin/activate
+    - pip install --upgrade pip
+    - echo $CI_COMMIT_MESSAGE
+    - pip install dist/struphy*.whl
   script:
     - struphy -h
     - struphy compile --status
@@ -635,6 +693,7 @@ pages:
     - cd doc ; make html
     - mv _build/html/ ../public/
   artifacts:
+    name: 'pages'
     paths:
       - public/
 
@@ -666,10 +725,13 @@ vars:
       when: never
     - if: $CI_COMMIT_REF_NAME == "master"
   before_script:
+    - date
+    - ls -a
     - uname -s # get system info
   script:
     - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
   artifacts:
+    name: 'vars'
     reports:
       dotenv: vars.env
     expire_in: 1 day
@@ -687,6 +749,8 @@ release_job:
     - if: $CI_COMMIT_REF_NAME == "master"
   needs: ['vars']
   before_script:
+    - date
+    - ls -a
     - uname -s # get system info
   script:
     - cat /etc/*-release
