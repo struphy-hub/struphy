@@ -116,6 +116,7 @@ class VlasovAmpere(Propagator):
 
         # Create buffers to store temporarily e and its sum with old e
         self._e_tmp = e.space.zeros()
+        self._e_scale = e.space.zeros()
         self._e_sum = e.space.zeros()
 
         # ================================
@@ -131,7 +132,7 @@ class VlasovAmpere(Propagator):
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
-        _BC = - self._accum.operators[0].matrix
+        _BC = - self._accum.operators[0]
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(_A, _BC,
@@ -153,24 +154,28 @@ class VlasovAmpere(Propagator):
                               alpha_in_kernel=1.)
 
     def __call__(self, dt):
-        # current e-field
-        en = self.feec_vars[0]
 
         # accumulate
         self._accum()
 
         # Update Schur solver
-        self._schur_solver.BC = - self._c1 * self._c2 / \
-            4. * self._accum.operators[0].matrix
+        self._schur_solver.BC = self._accum.operators[0]
+        self._schur_solver.BC *= - self._c1 * self._c2 / 4.
+
+        # Vector for schur solver
+        self._e_scale *= 0.
+        self._e_scale += self._accum.vectors[0]
+        self._e_scale *= self._c1 / 2.
 
         # new e coeffs
-        en1, info = self._schur_solver(
-            en, self._c1 / 2. * self._accum.vectors[0], dt, out=self._e_tmp)
+        self._e_tmp, info = self._schur_solver(
+            self.feec_vars[0], self._e_scale, dt, out=self._e_tmp)
 
         # mid-point e-field (no tmps created here)
-        _e = en.copy(out=self._e_sum)
-        _e += en1
-        _e *= 0.5
+        self._e_sum *= 0.
+        self._e_sum += self.feec_vars[0]
+        self._e_sum += self._e_tmp
+        self._e_sum *= 0.5
 
         # Update velocities
         self._pusher(dt)
@@ -185,7 +190,7 @@ class VlasovAmpere(Propagator):
             self.particles[0].update_weights()
 
         # write new coeffs into self.variables
-        max_de, = self.feec_vars_update(en1)
+        max_de, = self.feec_vars_update(self._e_tmp)
 
         # Print out max differences for weights and e-field
         if self._info:
@@ -306,6 +311,7 @@ class EfieldWeights(Propagator):
 
         # Create buffers to store temporarily e and its sum with old e
         self._e_tmp = e.space.zeros()
+        self._e_scale = e.space.zeros()
         self._e_sum = e.space.zeros()
 
         # marker storage
@@ -326,7 +332,7 @@ class EfieldWeights(Propagator):
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
         _BC = self._alpha**2 * self._kappa**2 * \
-            self._accum.operators[0].matrix / (4 * self._vth**2)
+            self._accum.operators[0] / (4 * self._vth**2)
 
         # Instantiate Schur solver
         self._schur_solver = SchurSolver(
@@ -364,14 +370,19 @@ class EfieldWeights(Propagator):
         self._accum(self._f0_values)
 
         # Update Schur solver
-        self._schur_solver.BC = self._accum.operators[0].matrix
+        self._schur_solver.BC = self._accum.operators[0]
         self._schur_solver.BC *= (-1) * self._alpha**2 * \
             self._kappa**2 / (4 * self._vth**2)
+
+        # Vector for schur solver
+        self._e_scale *= 0.
+        self._e_scale += self._accum.vectors[0]
+        self._e_scale *= self._alpha**2 * self._kappa / 2.
 
         # new e-field (no tmps created here)
         self._e_tmp, info = self._schur_solver(
             xn=self.feec_vars[0],
-            Byn=self._alpha**2 * self._kappa * self._accum.vectors[0] / 2.,
+            Byn=self._e_scale,
             dt=dt,
             out=self._e_tmp
         )

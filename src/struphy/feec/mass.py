@@ -3,7 +3,7 @@ from mpi4py import MPI
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix, StencilDiagonalMatrix
 from psydac.linalg.block import BlockVector, BlockLinearOperator
-from psydac.linalg.basic import Vector, IdentityOperator
+from psydac.linalg.basic import Vector, IdentityOperator, LinearOperator
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
@@ -48,7 +48,7 @@ class WeightedMassOperators:
         self._matrix_free = matrix_free
 
         if 'eq_mhd' in weights:
-            self._selected_weight = 'eq_mhd' # default is to use mhd_equil for weights
+            self._selected_weight = 'eq_mhd'  # default is to use mhd_equil for weights
         elif len(weights) > 0:
             self._selected_weight = list(weights.keys())[0]
         else:
@@ -73,12 +73,12 @@ class WeightedMassOperators:
     def weights(self):
         '''Dictionary of objects that provide access to callables that can serve as weight functions.'''
         return self._weights
-    
+
     @property
     def selected_weight(self):
         '''String identifying one key of "weigths". This key is used when selecting weight functions.'''
         return self._selected_weight
-    
+
     @selected_weight.setter
     def selected_weight(self, new):
         assert new in self.weights
@@ -589,12 +589,12 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M0ad'):
             fun = [[lambda e1, e2, e3: self.weights[self.selected_weight].n0(
-                e1, e2, e3)  * self.sqrt_g(e1, e2, e3)]]
+                e1, e2, e3) * self.sqrt_g(e1, e2, e3)]]
             self._M0ad = self.assemble_weighted_mass(
                 fun, 'H1', 'H1', name='M0ad')
 
         return self._M0ad
-    
+
     @property
     def M1gyro(self):
         r"""
@@ -733,7 +733,7 @@ class WeightedMassOperator(LinOpWithTransp):
     weights_info : NoneType | str | list
         Information about the weights/block structure of the operator. 
         Three cases are possible:
-        
+
         1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
         2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
         3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
@@ -745,13 +745,13 @@ class WeightedMassOperator(LinOpWithTransp):
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
     """
 
-    def __init__(self, V, W, 
-                 V_extraction_op=None, 
-                 W_extraction_op=None, 
-                 V_boundary_op=None, 
-                 W_boundary_op=None, 
-                 weights_info=None, 
-                 transposed=False, 
+    def __init__(self, V, W,
+                 V_extraction_op=None,
+                 W_extraction_op=None,
+                 V_boundary_op=None,
+                 W_boundary_op=None,
+                 weights_info=None,
+                 transposed=False,
                  matrix_free=False):
 
         # only for M1 Mac users
@@ -789,6 +789,7 @@ class WeightedMassOperator(LinOpWithTransp):
             self._W_boundary_op = IdentityOperator(
                 self._W_extraction_op.codomain)
 
+        self._weights_info = weights_info
         self._transposed = transposed
         self._matrix_free = matrix_free
 
@@ -998,26 +999,30 @@ class WeightedMassOperator(LinOpWithTransp):
 
             self._weights = tmp_weights
 
-        # ===============================================
+        self._W_extraction_op_T = self._W_extraction_op.T
+        self._W_boundary_op_T = self._W_boundary_op.T
+        self._V_extraction_op_T = self._V_extraction_op.T
+        self._V_boundary_op_T = self._V_boundary_op.T
 
-        # some shortcuts
-        BW = self._W_boundary_op
-        BV = self._V_boundary_op
-
-        EW = self._W_extraction_op
-        EV = self._V_extraction_op
-
+        # TODO: maybe remove since this is done in the .dot() explicitly
         # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
-        if transposed:
-            self._M = EV @ self._mat @ EW.T
-            self._M0 = BV @ self._M @ BW.T
+        if self._transposed:
+            self._M = self._V_extraction_op @ self._mat @ self._W_extraction_op_T
+            self._M0 = self._V_boundary_op @ self._M @ self._W_boundary_op_T
         else:
-            self._M = EW @ self._mat @ EV.T
-            self._M0 = BW @ self._M @ BV.T
+            self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
+            self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
 
         # set domain and codomain
         self._domain = self._M.domain
         self._codomain = self._M.codomain
+
+        # allocate temporaries for .dot()
+        self._temp_WB = self._W_boundary_op.domain.zeros()
+        self._temp_WE = self._W_extraction_op.domain.zeros()
+        self._temp_VB = self._V_boundary_op.domain.zeros()
+        self._temp_VE = self._V_extraction_op.domain.zeros()
+        self._temp_mat = self._mat.domain.zeros()
 
         # load assembly kernel
         if not self._matrix_free:
@@ -1073,8 +1078,7 @@ class WeightedMassOperator(LinOpWithTransp):
         return self._weights
 
     def dot(self, v, out=None, apply_bc=True):
-        """
-        Dot product of the operator with a vector.
+        """ Dot product of the operator with a vector.
 
         Parameters
         ----------
@@ -1098,21 +1102,33 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # newly created output vector
         if out is None:
-            if apply_bc:
-                out = self._M0.dot(v)
-            else:
-                out = self._M.dot(v)
-
-        # in-place dot-product (result is written to out)
+            out = self.codomain.zeros()
         else:
-
             assert isinstance(out, Vector)
             assert out.space == self.codomain
 
-            if apply_bc:
-                self._M0.dot(v, out=out)
+        if apply_bc:
+            if self._transposed:
+                self._W_boundary_op_T.dot(v, out=self._temp_WB)
+                self._W_extraction_op_T.dot(self._temp_WB, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                self._V_extraction_op.dot(self._temp_VE, out=self._temp_VB)
+                out = self._V_boundary_op.dot(self._temp_VB, out=out)
             else:
-                self._M.dot(v, out=out)
+                self._V_boundary_op_T.dot(v, out=self._temp_VB)
+                self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
+                out = self._W_boundary_op.dot(self._temp_WB, out=out)
+        else:
+            if self._transposed:
+                self._W_extraction_op_T.dot(v, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                out = self._V_extraction_op.dot(self._temp_VE, out=out)
+            else:
+                self._V_extraction_op_T.dot(v, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                out = self._W_extraction_op.dot(self._temp_WE, out=out)
 
         return out
 
@@ -1161,7 +1177,7 @@ class WeightedMassOperator(LinOpWithTransp):
     def assemble(self, weights=None, clear=True, verbose=True, name=None):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
-        
+
         .. math::
 
             \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,.
@@ -1367,6 +1383,68 @@ class WeightedMassOperator(LinOpWithTransp):
 
             if rank == 0 and verbose:
                 print('Done.')
+
+    def copy(self, out=None):
+        """Create a copy of self, that can potentially be stored in a given WeightedMassOperator.
+
+        Parameters
+        ----------
+        out : WeightedMassOperator(optional)
+            The existing WeightedMassOperator in which we want to copy self.
+        """
+        if out is not None:
+            assert isinstance(out, WeightedMassOperator)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = WeightedMassOperator(
+                V=self._V,
+                W=self._W,
+                V_extraction_op=self._V_extraction_op,
+                W_extraction_op=self._W_extraction_op,
+                V_boundary_op=self._V_boundary_op,
+                W_boundary_op=self._W_boundary_op,
+                weights_info=self._weights_info,
+                transposed=self._transposed,
+                matrix_free=self._matrix_free,
+            )
+
+        self._mat.copy(out=out._mat)
+        return out
+
+    def __imul__(self, a):
+        self._mat *= a
+        return self
+
+    def __iadd__(self, M):
+        assert M.domain is self.domain
+        assert M.codomain is self.codomain
+
+        if isinstance(M, WeightedMassOperator):
+            self._mat += M._mat
+            return self
+
+        elif isinstance(M, LinearOperator):
+            self._mat += M
+            return self
+
+        else:
+            return LinearOperator.__add__(self, M)
+
+    def __isub__(self, M):
+        assert M.domain is self.domain
+        assert M.codomain is self.codomain
+
+        if isinstance(M, WeightedMassOperator):
+            self._mat -= M._mat
+            return self
+
+        elif isinstance(M, LinearOperator):
+            self._mat -= M
+            return self
+
+        else:
+            return LinOpWithTransp.__sub__(self, M)
 
     @staticmethod
     def eval_quad(W, coeffs, out=None):

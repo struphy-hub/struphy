@@ -1,76 +1,91 @@
-## Version 2.3.1
+## Version 2.3.2
+
+Diff to previous release: Merge requests !521 - !564 
 
 
-### Core changes
+### User news
 
-* Addition of `Particles3D` class. !517
+* Bug fixes !525, !546, !551, !557.
 
-* Addition of `Constant` background function. !517
+* Generate logical output in post-processing, i.e. variables on the computational unit cube `[0, 1]^3`.
+The previous default of push-forwared physical output can now be obtained with the `--physical` flag, e.g. `struphy pproc -d sim_1 --physical`. !521
 
-* New psydac v0.1.13: removed `igakit` from `pyproject.toml` (will not be installed anymore). !517
+* Additional options in `struphy test GROUP` for testing of model subgroups. Use as `struphy test kinetic` for example. !532
 
-* New kinetic_background base class `CanonicalMaxwellian` and its test were added. !512
+* Restrict to `mpi4py<4.0.0`. !535
 
-* Parallelized the DOFs evaluation for the local projection operators. !509
+* Model `ViscoResistiveMHD`: Added an artificial resistivity term to stabilize the simulations. 
+This term is given by $\nabla \times (\eta_a(\mathbf x) \nabla \times \mathbf B)$ where $\eta_a(\mathbf x) = \eta_a |\nabla \times \mathbf B|$. An additional term is also added to the entropy equation to keep energy preservation of the model. !539
 
-* Added new base class `KineticBackground` with the magic methods `__add__`, `__mul__`, `__rmul__` and `__sub__`.
-The Maxwellians now inherit this base class, class `Maxwellian(KineticBackground)`. In the parameter file, this enables to specify multiple backgrounds of the same type by appending _1, _2 etc. to the type name. !510
+* Scale the density in `Desc` equilibrium by a constant temperature (ideal gas law $p = n k_B T$). !542
 
-* Modification at Particles5D marker array indexing. New property (abstractmethod) `bufferindex` is added at `Particles` class. !507
+* In addition to FEEC coefficients of the `StruphyModel.species`, any other FEEC variables can be saved during the simulation and post-processed as well. By adding the staticmethod `StruphyModel.diagnostics_dct`, we can define a new FEEC variable for a specific diagnostics, for example !534
 
-* Added dispersion relation `FluidSlabITG`, Tutorial 11 on dispersion relations, `BraginskiiEquilibrium` in new folder and `self.braginskii_equil` to `StruphyModel`. !506
+```
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
 
-* Several changes to streamline `PolarSplines`. !501
+        dct['accumulated_magnetization']= 'Hdiv'
+        return dct
+```
 
-* Implementation of local commuting projection operators bsed on quasi-inter/histopolation. Added the `CommutingProjectorLocal` class to projectors.py !494
+This variable can be accessed through `StruphyModel.pointer['accumulated_magnetization']`.
+For instance, we can save the accumulated vector by doing `self._ACC.vectors[0].copy(out=self._accumulated_magnetization)`. In the parameter file, the saving can be controlled via the new top-level key
 
-* Implemented Particle refilling: So far, it only transfers the particle to the opposite poloidal angle θ\thetaθ but now it also considers the toroidal angle ϕ\phiϕ in order to put the particle at the same magnetic flux surface (`particle_refilling`). !499
+```
+diagnostics:
+    accumulated_magnetization: {save_data: true}
+```
 
-* Add a new `SchurSolver` to for the variational propagators. !498
+* **Binomial filter** ("three-point filter") has been added for noise reduction. !534
 
-* Changed the abstract methods for `LogicalMHDequilibrium` from `b2`, `j2` to covariant `b1` and `j1`. !495
+* **Fourier filter** has been added for noise reduction. !547
 
-* Added the new classes `DESCunit` and `DESCequilibrium` to interface to the [DESC equilibirum code](https://github.com/PlasmaControl/DESC). !495
+* Introduced command-line arguments and integration for running with [**Likwid**](https://github.com/RRZE-HPC/likwid), which allows for measuring hardware counters (timing, performance, bandwidth, vectorization and more) for specific code-blocks. Called via the option `struphy run MODEL --likwid`. The likwid parameters can be included as a YAML file from the console with `--likwid-inp` or `--likwid-input-abs`. Parameter `--likwid-repetitions` is added to the console to run the same simulation multiple times for statistics. !537
 
-* Add the entropy interfaces `s0` and `s3` to `MHDequilibrium`. !497
+* Added **domain cloning** support with appropriate MPI communicators. `Nclones` number of identical clones are created at the start of the simulation. Each clone contains `Np/Nclones` particles, but each clone contains the same fields. Each clone runs on a distinct group of processors, allowing for improved load balancing and simulation scalability without grid size restrictions. Resources: https://doi.org/10.1016/j.parco.2006.03.001. 
+The number of clones should be included in the parameters file as `params['grid']['Nclones']`. !537
 
-* Re-factored `ImplicitDiffusion` propagator; the right-hand side can now be a list of `StencilVector` or (`Auccumulator`, `Particles`)-tuple. !496
+* Added a background magnetic field to `LinearVlasovAmpere`. !555
 
-* New propagator `propagators_fields.AdiabaticPhi`. !479
-
-* `WeightedMassOperators` has the new attribute `selected_weight` which can be set to change the object from which the weights are taken (usually `eq_mhd` or `eq_braginskii`, but more in the future). !479
-
-* New method `MHDequilibrium.curl_unit_b_dot_b0` for the curvature as a 0-form. !479
-
-* Renaming of kinetic backgrounds: `Maxwellian6D` -> `Maxwellian3D` and `Maxwellian5D` -> `GyroMaxwellian2D` !479
-
-* New key `kBT` in the parameter `units`; this is used only if the velocity scale is set to `thermal`, which is a new option. !479
-
-* `StruphyModel.update_distribution_functions()` now always calculates full-f and delta-f binnings from the weights `w0` and `w`, repsectively. The function `Particles.binning()` has been adapted accordingly. !479
-
-* Renamed `Particles.f_backgr` -> `Particles.f0`. !479
-
-
-### Model specific changes 
-
-* Addition of `DeterministicParticleDiffusion` and `RandomParticleDiffusion` models, along with corresponding propagators. !517
-
-* Add viscous and resistive terms to fluid and MHD models resulting in the two new models `ViscousFluid` and `ViscoresistiveMHD`. !513
-
-* Implemented implicit forms in the transport operators of `Variational` models. !503
-
-* New model `LinearVlasovAmpereOneSpecies` based Hamiltonian delta-f approach. !504
-
-* Several updates to `Variational` models to run itpa test cases. !501
-
-* Implemented control variate calculation for 5D hybrid model `LinearMHDDriftkineticCC`. !489
-
-* The model `DriftKineticElectrostaticAdiabatic` has been added. !479
+* Added the normalization with the rights units in `GVEC` equilibrium and the option to choose the density profile. !564
 
 
-### Documentation, tutorials, testing, etc.
 
-* Add a `VariationalMHD` test to Tutorial 04. !511
+### Developer news
 
+* Improved code structure of models. The addition of `Propagators` is now done through the static method `StruphyModel.propagators_dct()`, which
+appears automatically in the doc. 
+Propagator keyword arguments are now passed via the dict `StruphyModel._kwargs[PropagatorX] = ...`, where `PropagatorX` is a propagator class.
+A value `None` in this dict inidicates that `PropagatorX` is not used in the model. !522 and !531
+
+* Use pyccelized classes for pusher arguments (available since pyccel 1.12). New classes `DerhamArguments` and `DomainArguments` in new file `pusher_args_kernels.py` (-> will be pyccelized automatically). 
+These classes hold the relevant arguments for pusher kernels. Re-factoring of `Pusher` class: new signatures of `__init__` as well as `__call__`.
+Re-factoring of `Accumulator` class: new signatures of `__init__` as well as `__call__`. The method `accumulate` has been replaced by `__call__`. !533
+
+* New class `mhd_equil.projected_equils.ProjectedMHDequilibrium`: has attributes that return the Derham spline coeffs of each MHDequilibrium callable. Projections are done with commuting projectors; polar splines extraction and `update_ghost_regions` is automated. Propagators can access these via `self.projected_mhd_equil`, see `PushGuidingCenterBxEstar` for an example. !536
+
+* Introduced pyccel class `pic.pushing.pusher_args_kernels.MarkerArguments`; it holds all info regarding markers that is necessary in kernels, in particular `markers`, `n_markers`, `vdim` and the indices `buffer_idx`, `shift_idx = buffer_idx + 3 + vdim`, `residual_idx = shift_idx + 3` and `first_free_idx = residual_idx + 1`. The buffer_idx has already been used before: it yields the position after the "usual" marker attributes. The columns of each marker array are as follows: !536
+
+```
+    0:buffer_idx                -> usual attributes (eta, v, w0, etc.)
+    buffer_idx:shift_idx        -> phase space coords at time t^n
+    shift_idx:residual_idx      -> eta-shifts due to kinetic boundary conditions
+    residual_idx:first_free_idx -> the residual in iterative solvers
+    first_free_idx:-1           -> auxiliary positions for saving
+    -1                          -> marker ID
+```
+
+* Moved optional arguments of a pusher kernel to the constructor, i.e. now we call just `self._pusher(dt)`. This makes for better practice of allocating all arrays in the constructor, and none during `__call__`. !536
+
+* Changed the evaluation logic of the `eval_kernels` in `Pusher`: an MPI sort is performed before the call to each kernel. This allows to specify weights `alpha` for each evaluation: sorting before evaluation is according to `alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i]` for `i=0,1,2`. alpha must be between 0 and 1. The routine `Particles.mpi_sort_markers` has been adapted accordingly. !536
+
+* Added new abstraction methods `Propagator.add_init_kernel` and `Propagator.add_eval_kernel` for easier creation of iterative Pushers. !536
+
+* Use new MPCDF image `gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1`. 
+Use artifacts instead of cache. !551
+
+* Added magic methods` __imul__`, `__iadd__`, `__isub__` to `WeightedMassOperator` which are used in `SchurSolver.__call__` to do in-place updates, aka no new memory allocation. !557
 
 

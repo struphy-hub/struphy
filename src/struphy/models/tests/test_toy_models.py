@@ -31,9 +31,10 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
     else:
         val = getattr(toy, model)
         call_model(model, val, map_and_equil, Tend=Tend)
-        
+
+
 if __name__ == '__main__':
-    
+
     test_toy(('Cuboid', 'HomogenSlab'), True)
     test_toy(('HollowTorus', 'AdhocTorus'), True)
     test_toy(('Tokamak', 'EQDSKequilibrium'), True)
