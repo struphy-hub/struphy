@@ -62,9 +62,8 @@ def test_struphy_run(mock_run, model, input_abs, output_abs, batch_abs, runtime,
         batch_run_command = lines[-1].strip().split(' ')
 
         # Remove batch script
-        os.remove(batch_script_path)
-        assert not os.path.exists(
-            batch_script_path), f"{batch_script_path} should have been deleted"
+        # os.remove(batch_script_path)
+        # assert not os.path.exists(batch_script_path), f"{batch_script_path} should have been deleted"
 
         # Update the command to the command fron the batch script
         command = batch_run_command
