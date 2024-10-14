@@ -1,35 +1,33 @@
 #!/usr/bin/env python3
 
-from sympde.topology import Cube
-from sympde.topology import Derham as Derham_psy
-
-from psydac.api.discretization import discretize
-from psydac.fem.vector import VectorFemSpace
-from psydac.feec.global_projectors import Projector_H1vec
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
-from psydac.linalg.basic import IdentityOperator
-
-from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.projectors import CommutingProjector
-from struphy.polar.basic import PolarDerhamSpace
-from struphy.polar.extraction_operators import PolarExtractionBlocksC1
-from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
-from struphy.polar.basic import PolarVector
-from struphy.initial import perturbations
-from struphy.initial import eigenfunctions
-from struphy.initial import utilities
-from struphy.geometry.base import Domain
-from struphy.bsplines import evaluation_kernels_3d as eval_3d
-from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.feec.projectors import CommutingProjectorLocal, select_quasi_points
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
-
 import numpy as np
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
+from psydac.api.discretization import discretize
+from psydac.feec.global_projectors import Projector_H1vec
+from psydac.fem.vector import VectorFemSpace
+from psydac.linalg.basic import IdentityOperator
+from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
+from sympde.topology import Cube
+from sympde.topology import Derham as Derham_psy
+
+from struphy.bsplines import evaluation_kernels_3d as eval_3d
+from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+from struphy.feec.linear_operators import BoundaryOperator
+from struphy.feec.projectors import (
+    CommutingProjector,
+    CommutingProjectorLocal,
+    select_quasi_points,
+)
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.geometry.base import Domain
+from struphy.initial import eigenfunctions, perturbations, utilities
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
+from struphy.polar.basic import PolarDerhamSpace, PolarVector
+from struphy.polar.extraction_operators import PolarExtractionBlocksC1
+from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 
 
 class Derham:
@@ -38,7 +36,7 @@ class Derham:
 
     Check out the corresponding `Struphy API <https://struphy.pages.mpcdf.de/struphy/api/discrete_derham.html>`_ for a hands-on introduction.
 
-    The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_ 
+    The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
 
     .. image:: ../../pics/polar_derham.png
@@ -65,12 +63,12 @@ class Derham:
 
     comm : mpi4py.MPI.Intracomm
         MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
-    
+
     inter_comm : mpi4py.MPI.Intracomm
         MPI communicator (between clones if domain cloning is used, otherwise None)
 
     mpi_dims_mask: list of bool
-        True if the dimension is to be used in the domain decomposition (=default for each dimension). 
+        True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
     with_projectors : bool
@@ -141,7 +139,6 @@ class Derham:
             self._Nclones = 1
         else:
             self._Nclones = self._inter_comm.Get_size()
-            
 
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
@@ -460,7 +457,7 @@ class Derham:
 
     @property
     def dirichlet_bc(self):
-        """ None, or list of boundary conditions in each direction. 
+        """ None, or list of boundary conditions in each direction.
         Each entry is a list with two entries (left and right boundary), "d" (hom. Dirichlet) or None (periodic).
         """
         return self._dirichlet_bc
@@ -476,7 +473,7 @@ class Derham:
         """ List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.
         """
         return self._nq_pr
-    
+
     @property
     def Nclones(self):
         """ Number of clones
@@ -488,7 +485,7 @@ class Derham:
         """ MPI communicator.
         """
         return self._comm
-    
+
     @property
     def inter_comm(self):
         """ MPI communicator between the clones.
@@ -569,7 +566,7 @@ class Derham:
     @property
     def index_array_D(self):
         """
-        A 2d array[int] of shape (comm.Get_size(), 6). The row index denotes the process number 
+        A 2d array[int] of shape (comm.Get_size(), 6). The row index denotes the process number
         and for n=0,1,2:
 
             * arr[i, 2*n + 0] holds the global start index of M-splines (D) of process i in direction eta_(n+1).
@@ -797,7 +794,7 @@ class Derham:
         Returns
         -------
         dom_arr : np.ndarray
-            A 2d array of shape (#MPI processes, 9). The row index denotes the process rank. The columns are for n=0,1,2: 
+            A 2d array of shape (#MPI processes, 9). The row index denotes the process rank. The columns are for n=0,1,2:
                 - arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
                 - arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
                 - arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
@@ -846,7 +843,7 @@ class Derham:
         Returns
         -------
         ind_arr : np.ndarray
-            A 2d array of shape (#MPI processes, 6). The row index denotes the process rank. The columns are for n=0,1,2: 
+            A 2d array of shape (#MPI processes, 6). The row index denotes the process rank. The columns are for n=0,1,2:
                 - arr[i, 2*n + 0] holds the global start index process i in direction eta_(n+1).
                 - arr[i, 2*n + 1] holds the global end index of process i in direction eta_(n+1).
         """
@@ -908,7 +905,7 @@ class Derham:
         neighbours : np.ndarray
             A 3d array of shape (3,3,3).
             The i-th axis is the direction eta_(i+1). Neighbours along the faces have index with two 1s,
-            neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index. 
+            neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index.
         """
 
         neighs = np.empty((3, 3, 3), dtype=int)
@@ -1008,9 +1005,9 @@ class Derham:
         return neigh_id
 
     def _get_span_and_basis_for_eval_mpi(self, etas, Nspace, end):
-        '''Compute 
+        '''Compute
 
-        the knot span index, 
+        the knot span index,
         pn + 1 values of N-splines,
         pn values of D-splines,
 
@@ -1033,10 +1030,10 @@ class Derham:
             1d array of knot span indices.
 
         bn : np.array
-            2d array of pn + 1 values of N-splines indexed by (eta, spline value). 
+            2d array of pn + 1 values of N-splines indexed by (eta, spline value).
 
         bd : np.array
-            2d array of pn values of D-splines indexed by (eta, spline value). 
+            2d array of pn values of D-splines indexed by (eta, spline value).
         '''
 
         from struphy.bsplines import bsplines_kernels
@@ -1265,9 +1262,9 @@ class Derham:
 
         @property
         def vector_stencil(self):
-            """ Tensor-product Stencil-/BlockVector corresponding to a copy of self.vector in case of Stencil-/Blockvector 
+            """ Tensor-product Stencil-/BlockVector corresponding to a copy of self.vector in case of Stencil-/Blockvector
 
-                OR 
+                OR
 
                 the extracted coefficients in case of PolarVector. Call self.extract_coeffs() beforehand.
             """
@@ -1308,7 +1305,7 @@ class Derham:
 
             Parameters
             ----------
-            domain : struphy.geometry.domains 
+            domain : struphy.geometry.domains
                 Domain object for metric coefficients, only needed for transform of analytical perturbations.
 
             mhd_equil: MHDequilibrium
@@ -1332,7 +1329,7 @@ class Derham:
             bckgr_type_params = []
 
             if self.bckgr_params is not None:
-                if type(self.bckgr_params['type']) == str:
+                if isinstance(self.bckgr_params['type'], str):
                     self.bckgr_params['type'] = [self.bckgr_params['type']]
                 else:
                     assert isinstance(
@@ -1416,7 +1413,7 @@ class Derham:
             pert_type_params = []
 
             if self.pert_params is not None:
-                if type(self.pert_params['type']) == str:
+                if isinstance(self.pert_params['type'], str):
                     self.pert_params['type'] = [self.pert_params['type']]
                 else:
                     assert isinstance(
@@ -1753,7 +1750,7 @@ class Derham:
                                                    np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
 
                 if self.derham.comm is not None:
-                    if local == False:
+                    if not local:
                         self.derham.comm.Allreduce(
                             MPI.IN_PLACE, tmp, op=MPI.SUM)
 
@@ -1785,7 +1782,7 @@ class Derham:
                                                        np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
 
                     if self.derham.comm is not None:
-                        if local == False:
+                        if not local:
                             self.derham.comm.Allreduce(
                                 MPI.IN_PLACE, tmp, op=MPI.SUM)
 
@@ -2050,12 +2047,12 @@ class TransformedPformComponent:
         Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
 
     fun_basis : str
-        In which basis fun is represented: either a p-form, 
-        then '0' or '3' for scalar 
+        In which basis fun is represented: either a p-form,
+        then '0' or '3' for scalar
         and 'v', '1' or '2' for vector-valued,
-        'physical' when defined on the physical (mapped) domain, 
-        'physical_at_eta' when given the Cartesian components defined on the logical domain, 
-        and 'norm' when given in the normalized contra-variant basis (:math:`\delta_i / |\delta_i|`).
+        'physical' when defined on the physical (mapped) domain,
+        'physical_at_eta' when given the Cartesian components defined on the logical domain,
+        and 'norm' when given in the normalized contra-variant basis (:math:`\\delta_i / |\\delta_i|`).
 
     out_form : str
         The p-form representation of the output: '0', '1', '2' '3' or 'v'.
@@ -2104,7 +2101,7 @@ class TransformedPformComponent:
         """
         Evaluate the component of the transformed p-form specified in self._comp.
 
-        Depending on the dimension of eta1 either point-wise, tensor-product, 
+        Depending on the dimension of eta1 either point-wise, tensor-product,
         slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
         """
 
@@ -2177,7 +2174,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
         Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point).
 
     subs : 1D int array
-        One entry for each interval ii; usually has value 0. 
+        One entry for each interval ii; usually has value 0.
         A value of 1 indicates that the cell ii is the second subinterval of a split Greville cell (for histopolation with even degree).'''
 
     import psydac.core.bsplines as bsp
@@ -2213,8 +2210,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
         tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
             np.round_(union_breaks, decimals=14))
 
-        tmp = list(tmp)
-        tmp.sort()
+        tmp = sorted(tmp)
         tmp_a = np.array(tmp)
 
         x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
@@ -2248,19 +2244,19 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
     The quasi-interpolation points are :math:`2p - 1` equidistant points :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
 
     \begin{itemize}
-        \item Clamped: 
-        .. math:: 
+        \item Clamped:
+        .. math::
             Q = \left\{\begin{array}{lr}
             [\eta_p, \eta_{2p -1}], & i < p-1\\
             {[\eta_{i+1}, \eta_{i+p}]}, & p-1 \leq i \leq \hat{n}_N - p\\
             {[\eta_{\hat{n}_N - p +1}, \eta_{\hat{n}_N}]}, &  i > \hat{n}_N - p
             \end{array} \; \right .
-        \item Periodic: 
+        \item Periodic:
         .. math::
             Q = [\eta_{i + 1}, \eta_{i + p}] \:\:\:\:\: \forall \:\: i.
     \end{itemize}
 
-    Which are allways a subset of  :math:`\{-(p-1)h,-(p-1)h + \frac{h}{2}, ..., 1-h - \frac{h}{2},1-h \}` for the periodic case or of 
+    Which are allways a subset of  :math:`\{-(p-1)h,-(p-1)h + \frac{h}{2}, ..., 1-h - \frac{h}{2},1-h \}` for the periodic case or of
     :math:`\{0, \frac{h}{2}, h, ..., 1-\frac{h}{2}, 1 \}` for the clamped case.
 
     Parameters
@@ -2369,7 +2365,7 @@ def get_span_and_basis(pts, space):
         2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
     basis : np.array
-        3d array of values of basis functions indexed by (n, nq, basis function). 
+        3d array of values of basis functions indexed by (n, nq, basis function).
     '''
 
     import psydac.core.bsplines as bsp
@@ -2394,7 +2390,7 @@ def get_span_and_basis(pts, space):
 
 
 def get_weights_local_projector(pts, fem_space):
-    '''Compute the geometric weights for interpolation and histopolation. 
+    '''Compute the geometric weights for interpolation and histopolation.
     Should be called only with the grid points for 0-forms.
 
     Parameters
@@ -2414,6 +2410,7 @@ def get_weights_local_projector(pts, fem_space):
         List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for histopolation.
     '''
     import psydac.core.bsplines as bsp
+
     # wij[space_direction][i][j]
     wij = []
     # whij[space_direction][i][j]
@@ -2450,7 +2447,9 @@ def get_weights_local_projector(pts, fem_space):
 
             # We need to consider the case in which our minicollocation matrix ends up being just one number
             if np.shape(minicol)[0] == 1:
-                # There seems to be a bug with the bsp.collocation_matrix function for the case Nel = 1, p = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
+                # There seems to be a bug with the bsp.collocation_matrix function for the
+                # case Nel = 1, p = 1 and periodic, when evaluating the only B-spline at 0
+                # the answer should be 1 not 0.
                 if (p == 1 and Nbasis == 1):
                     minicol[0] = 1.0
                 invmini = 1.0/minicol[0]

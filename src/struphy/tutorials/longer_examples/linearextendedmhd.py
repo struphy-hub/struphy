@@ -10,6 +10,7 @@ def run(n_procs):
 
     import os
     import subprocess
+
     import struphy
 
     libpath = struphy.__path__[0]
@@ -42,13 +43,13 @@ def diagnostics():
     """
 
     import os
-    import yaml
-    import h5py
     import pickle
 
-    from struphy.diagnostics.diagn_tools import power_spectrum_2d
+    import h5py
+    import yaml
 
     import struphy
+    from struphy.diagnostics.diagn_tools import power_spectrum_2d
 
     libpath = struphy.__path__[0]
 

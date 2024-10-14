@@ -1,8 +1,13 @@
 import numpy as np
-from struphy.models.base import StruphyModel
+
 from struphy.kinetic_background.base import KineticBackground
-from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.propagators import (
+    propagators_coupling,
+    propagators_fields,
+    propagators_markers,
+)
 
 
 class VlasovAmpereOneSpecies(StruphyModel):
@@ -21,7 +26,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \mathbf{E}
             \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
         \\[2mm]
-        -&\frac{\partial \mathbf{E}}{\partial t} = 
+        -&\frac{\partial \mathbf{E}}{\partial t} =
         \kappa^2 \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
 
     with the normalization parameter
@@ -30,7 +35,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         \kappa = \hat \Omega_\textnormal{p}\hat t\,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,
 
-    where :math:`Z=-1` and :math:`A=1/1836` for electrons. 
+    where :math:`Z=-1` and :math:`A=1/1836` for electrons.
     At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
 
     .. math::
@@ -41,14 +46,14 @@ class VlasovAmpereOneSpecies(StruphyModel):
             \mathbf{E}(t=0) &= -\nabla \phi(t=0)\,,
             \end{align}
 
-    where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density 
+    where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density
     of the neutralizing background, respectively, such that
 
     .. math::
 
         \frac{Z_0}{Z} n_0 = - \int_{\mathbb{R}^3} f_0 \, \text{d}^3 \mathbf{v} < 0\,,
 
-    where :math:`f_0` is the kinetic background distribution (static). 
+    where :math:`f_0` is the kinetic background distribution (static).
     Moreover, it is assumed that
 
     .. math::
@@ -60,13 +65,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     * The Poisson equation is solved with the :ref:`control_var`.
 
-    * The :ref:`control_var` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved: 
+    * The :ref:`control_var` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved:
     Find :math:`(\mathbf E, f) \in H(\textnormal{curl}) \times C^\infty` such that
 
     .. math::
 
         \begin{align}
-            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x = 
+            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x =
             \kappa^2 \int_\Omega \int_{\mathbb{R}^3} \mathbf F \cdot \mathbf{v} (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \mathbf F \in H(\textnormal{curl}) \,,
             \\[2mm]
             &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \mathbf{E} \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,.
@@ -127,7 +132,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # get species paramaters
         ions_params = params['kinetic']['ions']
@@ -277,7 +282,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B} \right)
         \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
         \\[2mm]
-        -&\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf B = 
+        -&\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf B =
         \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3}  \mathbf{v} f \, \text{d}^3 \mathbf{v}\,,
         \\[2mm]
         &\frac{\partial \mathbf{B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
@@ -288,7 +293,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,,\qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \qquad \hat\Omega_\textnormal{p} = \sqrt{\frac{\hat n (Ze)^2}{\epsilon_0 (A m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
 
-    where :math:`Z=-1` and :math:`A=1/1836` for electrons. 
+    where :math:`Z=-1` and :math:`A=1/1836` for electrons.
     At initial time the weak Poisson equation is solved once to weakly satisfy Gauss' law,
 
     .. math::
@@ -299,14 +304,14 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             \mathbf{E}(t=0) &= -\nabla \phi(t=0)\,,
             \end{align}
 
-    where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density 
+    where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density
     of the neutralizing background, respectively, such that
 
     .. math::
 
         \frac{Z_0}{Z} n_0 = - \int_{\mathbb{R}^3} f_0 \, \text{d}^3 \mathbf{v} < 0\,,
 
-    where :math:`f_0` is the kinetic background distribution (static). 
+    where :math:`f_0` is the kinetic background distribution (static).
     Moreover, it is assumed that
 
     .. math::
@@ -320,13 +325,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     * The Poisson equation is solved with the :ref:`control_var`.
 
-    * The :ref:`control_var` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved: 
+    * The :ref:`control_var` for Ampère's law is optional; in case it is enabled via the parameter file, the following system is solved:
     Find :math:`(\mathbf E, \tilde{\mathbf B}, f) \in H(\textnormal{curl}) \times H(\textnormal{div}) \times C^\infty` such that
 
     .. math::
 
         \begin{align}
-            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \times \mathbf{F} \cdot \tilde{\mathbf B}\,\textrm d \mathbf x = 
+            -\int_\Omega \mathbf F\, \cdot \, &\frac{\partial \mathbf{E}}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \times \mathbf{F} \cdot \tilde{\mathbf B}\,\textrm d \mathbf x =
             \frac{\alpha^2}{\varepsilon} \int_\Omega \int_{\mathbb{R}^3} \mathbf F \cdot \mathbf{v} (f - f_0) \, \text{d}^3 \mathbf{v}\,\textrm d \mathbf x \qquad \forall \ \mathbf F \in H(\textnormal{curl}) \,,
             \\[2mm]
             &\frac{\partial \tilde{\mathbf B}}{\partial t} + \nabla \times \mathbf{E} = 0 \,,
@@ -397,7 +402,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # get species paramaters
         ions_params = params['kinetic']['ions']
@@ -590,14 +595,14 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             \mathbf{E}(t=0) &= -\nabla \phi(t=0) \,,
             \end{align}
 
-    where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density 
+    where :math:`Z_0 \in \mathbb Z` and :math:`n_0:\Omega \to \mathbb R^+` denote the charge number and the number density
     of the neutralizing background, respectively, such that
 
     .. math::
 
         \frac{Z_0}{Z} n_0 = - \int_{\mathbb{R}^3} f_i \, \text{d}^3 \mathbf{v} < 0 \,,
 
-    where :math:`f_i` is the kinetic background distribution (static). 
+    where :math:`f_i` is the kinetic background distribution (static).
     Moreover, it is assumed that
 
     .. math::
@@ -664,7 +669,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # prelim
         self._electron_params = params['kinetic']['species1']
@@ -827,7 +832,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.alpha**2 * self.vth**2 / (2 * self.pointer['species1'].n_mks) * \
             np.dot(
                 self.pointer['species1'].markers_wo_holes[:, 6]**2,  # w_p^2
-                self.pointer['species1'].markers_wo_holes[:, 7] / \
+                self.pointer['species1'].markers_wo_holes[:, 7] /
                 self._f0_values[~self.pointer['species1']
                                 .holes]  # s_{0,p} / f_{0,p}
         )
@@ -844,7 +849,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
     r'''Drift-kinetic equation for one ion species in static background magnetic field,
-    coupled to quasi-neutrality equation with adiabatic electrons. 
+    coupled to quasi-neutrality equation with adiabatic electrons.
 
     :ref:`normalization`:
 
@@ -860,7 +865,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         \\[2mm]
         - &\nabla_\perp \cdot \left( \frac{n_0}{|B_0|^2} \nabla_\perp \phi \right) + \frac{1}{\varepsilon} n_0 \left(1 + \frac{1}{Z \varepsilon} \frac{1}{T_{0}} \phi \right) = \frac 1 \varepsilon \int f B^*_\parallel \,\textnormal d v_\parallel \textnormal d \mu \,.
 
-    where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and 
+    where :math:`f(\mathbf{X}, v_\parallel, \mu, t)` is the guiding center distribution and
 
     .. math::
         \mathbf{E}^* = - \nabla \phi - \varepsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,,
@@ -874,7 +879,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     Notes
     -----
 
-    * The :ref:`control_var` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved: 
+    * The :ref:`control_var` in the Poisson equation is optional; in case it is enabled via the parameter file, the following Poisson equation is solved:
     Find :math:`\phi \in H^1` such that
 
     .. math::
@@ -933,7 +938,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
+
         from struphy.feec.projectors import L2Projector
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 

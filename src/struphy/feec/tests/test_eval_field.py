@@ -1,6 +1,6 @@
+import numpy as np
 import pytest
 from mpi4py import MPI
-import numpy as np
 
 
 @pytest.mark.mpi(min_size=2)
@@ -10,11 +10,10 @@ import numpy as np
 def test_eval_field(Nel, p, spl_kind):
     '''Compares distributed array spline evaluation in Field object with legacy code.'''
 
-    from struphy.geometry.base import Domain
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.feec.utilities import compare_arrays
     from struphy.bsplines.evaluation_kernels_3d import evaluate_matrix
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays
+    from struphy.geometry.base import Domain
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -31,10 +30,10 @@ def test_eval_field(Nel, p, spl_kind):
     uv = derham.create_field('velocity', 'H1vec')
 
     # initialize fields with sin/cos
-    comps = {'pressure':  '0',
+    comps = {'pressure': '0',
              'e_field': ['1', '1', '1'],
              'b_field': ['2', '2', '2'],
-             'density':  '3',
+             'density': '3',
              'velocity': ['v', 'v', 'v']}
 
     init_params = {'type': 'ModesCos',

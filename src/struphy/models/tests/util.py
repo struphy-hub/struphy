@@ -1,8 +1,9 @@
 import copy
 import os
+
 import struphy
-from struphy.main import main
 from struphy.io.setup import descend_options_dict
+from struphy.main import main
 
 libpath = struphy.__path__[0]
 
@@ -20,7 +21,7 @@ def call_model(key, val, map_and_equil, Tend=None):
 
     map_and_equil : tuple[str]
         Name of mapping and MHD equilibirum.
-        
+
     Tend : float
         End time of simulation other than default.
     '''
@@ -96,7 +97,6 @@ def call_model(key, val, map_and_equil, Tend=None):
     else:
         # run with default
         main(key, parameters, path_out)
-    
 
     # run available options (if present)
     if len(d_opts['em_fields']) > 0:

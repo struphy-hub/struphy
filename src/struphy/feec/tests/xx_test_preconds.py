@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.parametrize('Nel', [[8, 12, 4]])
-@pytest.mark.parametrize('p',   [[2, 3, 1]])
+@pytest.mark.parametrize('p', [[2, 3, 1]])
 @pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, False]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
@@ -13,15 +13,14 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
     import numpy as np
     from mpi4py import MPI
+    from psydac.linalg.block import BlockVector
+    from psydac.linalg.stencil import StencilVector
 
-    from struphy.geometry import domains
-    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.linear_operators import InverseLinearOperator
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
-    from struphy.feec.linear_operators import InverseLinearOperator
-
-    from psydac.linalg.stencil import StencilVector
-    from psydac.linalg.block import BlockVector
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
 
     MPI_COMM = MPI.COMM_WORLD
 
@@ -30,7 +29,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
     derham = Derham(Nel, p, spl_kind, comm=MPI_COMM)
     derham_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
-    
+
     # assemble mass matrices in V0, V1, V2 and V3
     mass = WeightedMassOperators(derham, domain)
 
@@ -52,20 +51,21 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
     v += [StencilVector(derham.V3.vector_space)]
     v[-1]._data = np.random.rand(*v[-1]._data.shape)
-    
+
     v += [BlockVector(derham.V0vec.vector_space)]
     for v1i in v[-1]:
         v1i._data = np.random.rand(*v1i._data.shape)
 
     # assemble preconditioners
     M_pre = []
-    
+
     for mass_op in derham_M:
         M_pre += [MassMatrixPreconditioner(mass_op)]
 
     for n, (M, M_p, vn) in enumerate(zip(derham_M, M_pre, v)):
-        
-        if n == 4: n = 'v'
+
+        if n == 4:
+            n = 'v'
 
         if domain.kind_map == 10 or domain.kind_map == 11:
             assert np.allclose(M._mat.toarray(), M_p.matrix.toarray())
@@ -90,10 +90,10 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 if __name__ == '__main__':
     test_mass_preconditioner(
         [12, 16, 4], [2, 3, 2], [False, False, False], ['Cuboid', {
-        'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}])
-    #test_mass_preconditioner(
+            'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}])
+    # test_mass_preconditioner(
     #    [12, 16, 4], [2, 3, 2], [False, True, False], ['HollowCylinder', {
     #    'a1': .1, 'a2': 2., 'R0': 0., 'Lz': 3.}])
-    #test_mass_preconditioner(
+    # test_mass_preconditioner(
     #    [12, 16, 4], [2, 3, 2], [False, True, True], ['Orthogonal', {
     #    'Lx': 1., 'Ly': 2., 'alpha': .1, 'Lz': 4.}])

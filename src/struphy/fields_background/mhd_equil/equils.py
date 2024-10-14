@@ -1,10 +1,15 @@
 'MHD equilibria.'
 
 
-import numpy as np
 import warnings
 
-from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, LogicalMHDequilibrium, AxisymmMHDequilibrium
+import numpy as np
+
+from struphy.fields_background.mhd_equil.base import (
+    AxisymmMHDequilibrium,
+    CartesianMHDequilibrium,
+    LogicalMHDequilibrium,
+)
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -23,15 +28,15 @@ class HomogenSlab(CartesianMHDequilibrium):
 
     Parameters
     ----------
-    B0x : float  
+    B0x : float
         x-component of magnetic field (default: 0.).
-    B0y : float  
+    B0y : float
         y-component of magnetic field (default: 0.).
-    B0z : float  
+    B0z : float
         z-component of magnetic field (default: 1.).
     beta : float
         Plasma beta (ratio of kinematic pressure to B^2/(2*mu0), default: 0.1).
-    n0 : float 
+    n0 : float
         Ion number density (default: 1.).
 
     Note
@@ -45,7 +50,7 @@ class HomogenSlab(CartesianMHDequilibrium):
                 B0y  : 0. # magnetic field in y
                 B0z  : 1. # magnetic field in z
                 beta : .1 # plasma beta = p*(2*mu_0)/B^2
-                n0   : 1. # number density     
+                n0   : 1. # number density
     """
 
     def __init__(self, **params):
@@ -132,7 +137,7 @@ class HomogenSlab(CartesianMHDequilibrium):
 
 class ShearedSlab(CartesianMHDequilibrium):
     r"""
-    Sheared slab MHD equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=2\pi a,\,L_z=2\pi R_0`. Profiles depend on :math:`x` solely: 
+    Sheared slab MHD equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=2\pi a,\,L_z=2\pi R_0`. Profiles depend on :math:`x` solely:
 
     .. math::
 
@@ -145,8 +150,8 @@ class ShearedSlab(CartesianMHDequilibrium):
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
-    ---------- 
-    a : float 
+    ----------
+    a : float
         "Minor" radius (must be compatible with :math:`L_x=a` and :math:`L_y=2\pi a`, default: 1.).
     R0 : float
         "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
@@ -159,7 +164,7 @@ class ShearedSlab(CartesianMHDequilibrium):
     n1 : float
         1st shape factor for ion number density profile (default: 0.).
     n2 : float
-        2nd shape factor for ion number density profile (default: 0.). 
+        2nd shape factor for ion number density profile (default: 0.).
     na : float
         Ion number density at x=a (default: 1.).
     beta : float
@@ -172,9 +177,9 @@ class ShearedSlab(CartesianMHDequilibrium):
         mhd_equilibrium :
             type : ShearedSlab
             ShearedSlab :
-                a    : 1.   # minor radius (Lx=a, Ly=2*pi*a) 
+                a    : 1.   # minor radius (Lx=a, Ly=2*pi*a)
                 R0   : 3.   # major radius (Lz=2*pi*R0)
-                B0   : 1.   # magnetic field in z-direction    
+                B0   : 1.   # magnetic field in z-direction
                 q0   : 1.05 # safety factor at x = 0
                 q1   : 1.80 # safety factor at x = a
                 n1   : 0.   # 1st shape factor for ion number density profile
@@ -351,11 +356,11 @@ class ShearedSlab(CartesianMHDequilibrium):
                 self.q_x(x, der=1)/self.q_x(x)**3
 
         return gradBx, gradBy, gradBz
-    
+
 
 class ShearFluid(CartesianMHDequilibrium):
     r"""
-    Sheared fluid equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=b,\,L_z=c`. Profiles depend on :math:`z` solely: 
+    Sheared fluid equilibrium in a cube with side lengths :math:`L_x=a,\,L_y=b,\,L_z=c`. Profiles depend on :math:`z` solely:
 
     .. math::
 
@@ -370,10 +375,10 @@ class ShearFluid(CartesianMHDequilibrium):
     Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
-    ---------- 
-    a : float 
+    ----------
+    a : float
         Dimension of the slab in x (default: 1.).
-    b : float 
+    b : float
         Dimension of the slab in y (default: 1.).
     c : float
         Dimension of the slab in z (default: 1.).
@@ -381,21 +386,21 @@ class ShearFluid(CartesianMHDequilibrium):
         Location of the first swap in density (default 0.25).
     z2 : float
         Location of the second swap in density (default 0.75).
-    delta : float 
+    delta : float
         Characteristic size of the swap region (default 1/15).
     na : float
         Exterior value for the density (default: 1.).
     nb : float
         Deviation of the density (default 0.25).
-    pa : float 
+    pa : float
         Exterior value for the pressure (default: 1.).
-    pb : float 
+    pb : float
         Deviation of the pressure (default 0.).
-    B0x : float  
+    B0x : float
         x-component of magnetic field (default: 0.).
-    B0y : float  
+    B0y : float
         y-component of magnetic field (default: 0.).
-    B0z : float  
+    B0z : float
         z-component of magnetic field (default: 1.).
     Note
     ----
@@ -404,9 +409,9 @@ class ShearFluid(CartesianMHDequilibrium):
         mhd_equilibrium :
             type : ShearFluid
             ShearFluid :
-                a    : 1.   # dimension in x 
+                a    : 1.   # dimension in x
                 b    : 1.   # dimension in y
-                c    : 2.   # dimension in z    
+                c    : 2.   # dimension in z
                 z1   : 0.5  # first swap location
                 z2   : 1.5  # second swap location
                 delta: 0.06666666   # characteristic size of the swap
@@ -433,7 +438,7 @@ class ShearFluid(CartesianMHDequilibrium):
                           'pb': 0.,
                           'B0x': 1.,
                           'B0y': 0.,
-                          'B0z': 0.,}
+                          'B0z': 0., }
 
         self._params = set_defaults(params, params_default)
 
@@ -448,7 +453,7 @@ class ShearFluid(CartesianMHDequilibrium):
     # ===============================================================
 
     def T_z(self, z):
-        """Swap function T(z) = \tanh(z - z_1)/\delta) - \tanh(z - z_2)/\delta)"""
+        """Swap function T(z) = \tanh(z - z_1)/\\delta) - \tanh(z - z_2)/\\delta)"""
         Tout = (np.tanh((z-self.params['z1'])/self.params['delta']) - np.tanh((z-self.params['z2'])/self.params['delta']))/2.
         return Tout
 
@@ -457,7 +462,7 @@ class ShearFluid(CartesianMHDequilibrium):
         """
 
         pout = self.params['pa'] + self.params['pb']*self.T_z(z)
-        
+
         return pout
 
     def n_z(self, z):
@@ -561,7 +566,7 @@ class ScrewPinch(CartesianMHDequilibrium):
     r"""
     Straight tokamak (screw pinch) MHD equilibrium for a cylindrical geometry of radius :math:`a` and length :math:`L_z=2\pi R_0`.
 
-    The profiles in cylindrical coordinates :math:`(r, \theta, z)` with transformation formulae 
+    The profiles in cylindrical coordinates :math:`(r, \theta, z)` with transformation formulae
 
     .. math::
 
@@ -578,11 +583,11 @@ class ScrewPinch(CartesianMHDequilibrium):
         \mathbf B(r) &= B_{0}\left( \mathbf e_z + \frac{r}{q(r) R_0}\mathbf e_\theta \right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\frac{r^2}{a^2}\,,
 
         p(r) &= p0 + \left\{\begin{aligned}
-        &\frac{B_{0}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \frac{1}{q(r)^2} - \frac{1}{q_1^2} \right) \quad &&\textnormal{if}\quad q_1\neq q_0\neq\infty\,, 
+        &\frac{B_{0}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \frac{1}{q(r)^2} - \frac{1}{q_1^2} \right) \quad &&\textnormal{if}\quad q_1\neq q_0\neq\infty\,,
 
-        &\frac{B_{0}^2 a^2}{R_0^2q_0^2} \left(1 - \frac{r^2}{a^2} \right) \quad &&\textnormal{if}\quad q_1= q_0\neq\infty\,, 
+        &\frac{B_{0}^2 a^2}{R_0^2q_0^2} \left(1 - \frac{r^2}{a^2} \right) \quad &&\textnormal{if}\quad q_1= q_0\neq\infty\,,
 
-        &\beta\frac{B_{0}^2}{2} \quad &&\textnormal{if}\quad q_0= q_1=\infty\,, 
+        &\beta\frac{B_{0}^2}{2} \quad &&\textnormal{if}\quad q_0= q_1=\infty\,,
         \end{aligned}\right.
 
         n(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
@@ -591,9 +596,9 @@ class ScrewPinch(CartesianMHDequilibrium):
 
     Parameters
     ----------
-    a : float 
+    a : float
         "Minor" radius (radius of cylinder, default: 1.).
-    R0 : float 
+    R0 : float
         "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 5.).
     B0 : float
         z-component of magnetic field (constant) (default: 1.).
@@ -604,7 +609,7 @@ class ScrewPinch(CartesianMHDequilibrium):
     n1 : float
         1st shape factor for ion number density profile (default: 0.).
     n2 : float
-        2nd shape factor for ion number density profile (default: 0.). 
+        2nd shape factor for ion number density profile (default: 0.).
     na : float
         Ion nnumber density at r=a (default: 1.).
     p0 : float
@@ -624,8 +629,8 @@ class ScrewPinch(CartesianMHDequilibrium):
                 B0   : 1.   # magnetic field in z-direction
                 q0   : 1.05 # safety factor at r=0
                 q1   : 1.80 # safety factor at r=a
-                n1   : 0.   # 1st shape factor for ion number density profile 
-                n2   : 0.   # 2nd shape factor for ion number density profile 
+                n1   : 0.   # 1st shape factor for ion number density profile
+                n2   : 0.   # 2nd shape factor for ion number density profile
                 na   : 1.   # ion number density at r=a
                 p0   : 1.   # pressure offset
                 beta : 0.1  # plasma beta = p*(2*mu_0)/B^2 for q0=q1=inf (pure axial field).
@@ -880,7 +885,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         Major radius of torus (default: 3.).
     B0 : float
         On-axis (r=0) toroidal magnetic field (default: 2.).
-    q_kind : int 
+    q_kind : int
         Which safety factor profile, see docstring (0 or 1, default: 0).
     q0 : float
         Safety factor at r=0 (default: 1.71).
@@ -892,7 +897,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
         2nd shape factor for ion number density profile (default: 0.).
     na : float
         Ion number density at r=a (default: 1.).
-    p_kind : int 
+    p_kind : int
         Kind of pressure profile, see docstring (0 or 1, default: 1).
     p0 : float
         constant factor for ad hoc pressure profile (default: 1.).
@@ -920,22 +925,22 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
                 q0      : 1.05 # safety factor at r=0
                 q1      : 1.80 # safety factor at r=a
-                n1      : .5   # 1st shape factor for number density profile 
-                n2      : 1.   # 2nd shape factor for number density profile 
+                n1      : .5   # 1st shape factor for number density profile
+                n2      : 1.   # 2nd shape factor for number density profile
                 na      : .2   # number density at r=a
                 p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
                 p0      : 1.   # constant factor for ad hoc pressure profile
                 p1      : .1   # 1st shape factor for ad hoc pressure profile
                 p2      : .1   # 2nd shape factor for ad hoc pressure profile
-                beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor 
+                beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
                 psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind=1)
                 psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
     """
 
     def __init__(self, **params):
 
-        from scipy.interpolate import UnivariateSpline
         from scipy.integrate import quad
+        from scipy.interpolate import UnivariateSpline
 
         # parameters
         params_default = {'a': 1.,
@@ -1220,7 +1225,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         ax[0, 0].plot(r, self.psi_r(r))
         ax[0, 0].set_xlabel('$r$')
-        ax[0, 0].set_ylabel('$\psi$')
+        ax[0, 0].set_ylabel('$\\psi$')
 
         ax[0, 1].plot(r, self.q_r(r))
         ax[0, 1].set_xlabel('$r$')
@@ -1407,8 +1412,8 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                 q1      : 2.5  # safety factor at r=a
                 q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
                 q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
-                n1      : .5   # shape factor for number density profile 
-                n2      : 1.   # shape factor for number density profile 
+                n1      : .5   # shape factor for number density profile
+                n2      : 1.   # shape factor for number density profile
                 na      : .2   # number density at r=a
                 beta    : .1   # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
                 p1      : 0.25 # shape factor of pressure profile
@@ -1418,9 +1423,9 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
     def __init__(self, **params):
 
-        from scipy.optimize import fsolve
         from scipy.integrate import odeint
         from scipy.interpolate import UnivariateSpline
+        from scipy.optimize import fsolve
 
         # parameters
         params_default = {'a': 0.361925,
@@ -1612,18 +1617,18 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         ax[0, 0].plot(r, self.psi_r(r))
         ax[0, 0].set_xlabel('$r$')
-        ax[0, 0].set_ylabel('$\psi$')
+        ax[0, 0].set_ylabel('$\\psi$')
 
         ax[0, 1].plot(psi, self.q_psi(psi))
-        ax[0, 1].set_xlabel('$\psi$')
+        ax[0, 1].set_xlabel('$\\psi$')
         ax[0, 1].set_ylabel('$q$')
 
         ax[1, 0].plot(psi, self.p_psi(psi))
-        ax[1, 0].set_xlabel('$\psi$')
+        ax[1, 0].set_xlabel('$\\psi$')
         ax[1, 0].set_ylabel('$p$')
 
         ax[1, 1].plot(psi, self.n_psi(psi))
-        ax[1, 1].set_xlabel('$\psi$')
+        ax[1, 1].set_xlabel('$\\psi$')
         ax[1, 1].set_ylabel('$n$')
 
         plt.subplots_adjust(wspace=0.4, hspace=0.4)
@@ -1747,12 +1752,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     def __init__(self, units=None, **params):
 
-        from scipy.interpolate import UnivariateSpline, RectBivariateSpline
+        from scipy.interpolate import RectBivariateSpline, UnivariateSpline
         from scipy.optimize import minimize
 
-        from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-
         import struphy
+        from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 
         # no rescaling if units are not provided
         if units is None:
@@ -2043,7 +2047,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
     def n_xyz(self, x, y, z):
-        """ Number density in physical space. Units from parameter file. 
+        """ Number density in physical space. Units from parameter file.
         """
 
         R = np.sqrt(x**2 + y**2)
@@ -2065,7 +2069,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
     rel_path : bool
         Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or are absolute paths (default: True).
     dat_file : str
-        Path to .dat file (default: "/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat").    
+        Path to .dat file (default: "/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat").
     json_file : str
         Path to .json file (default: None).
     use_pest : bool
@@ -2075,7 +2079,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
     Nel : tuple[int]
-        Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
+        Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
 
@@ -2085,9 +2089,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         mhd_equilibrium :
             type : GVECequilibrium
-            GVECequilibrium : 
+            GVECequilibrium :
                 rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
-                dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file 
+                dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file
                 json_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
                 use_pest : False # whether to use straight-field line coordinates (PEST)
                 use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
@@ -2098,14 +2102,14 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
     def __init__(self, units=None, **params):
 
-        from struphy.geometry.domains import GVECunit
+        import os
 
-        from gvec_to_python.reader.gvec_reader import create_GVEC_json
         from gvec_to_python import GVEC
+        from gvec_to_python.reader.gvec_reader import create_GVEC_json
+        from mpi4py import MPI
 
         import struphy
-        import os
-        from mpi4py import MPI
+        from struphy.geometry.domains import GVECunit
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -2180,7 +2184,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         # struphy domain object
         self._domain = GVECunit(self)
-        
+
         # create cache
         self._cache = {'bv': {'grids': [], 'outs': []},
                        'jv': {'grids': [], 'outs': []}}
@@ -2228,7 +2232,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['bv']['outs'][i]
-                #print(f'Used cached bv at {i = }.')
+                # print(f'Used cached bv at {i = }.')
             else:
                 out = self._eval_bv(*etas, squeeze_out=squeeze_out)
                 self._cache['bv']['grids'] += [etas]
@@ -2238,9 +2242,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
             out = self._eval_bv(*etas, squeeze_out=squeeze_out)
             self._cache['bv']['grids'] += [etas]
             self._cache['bv']['outs'] += [out]
-            
+
         return out
-        
+
     def _eval_bv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2261,7 +2265,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         out = self.gvec.bv(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
             o /= self.units['B'] / self.units['x']
-        
+
         return out
 
     def jv(self, *etas, squeeze_out=False):
@@ -2284,7 +2288,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['jv']['outs'][i]
-                #print(f'Used cached jv at {i = }.')
+                # print(f'Used cached jv at {i = }.')
             else:
                 out = self._eval_jv(*etas, squeeze_out=squeeze_out)
                 self._cache['jv']['grids'] += [etas]
@@ -2296,7 +2300,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             self._cache['jv']['outs'] += [out]
 
         return out
-        
+
     def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2317,7 +2321,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         out = self.gvec.jv(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
             o /= self.units['j'] / self.units['x']
-        
+
         return out
 
     def p0(self, *etas, squeeze_out=False):
@@ -2389,10 +2393,10 @@ class DESCequilibrium(LogicalMHDequilibrium):
     rmin : float
         Between [0, 1), radius (in logical space) of the domian hole around the magnetic axis (default: rmin=0.01).
     Nel : tuple[int]
-        Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
+        Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
-    
+
     T_kelvin : maximum of temperature in Kelvin (default: 100000).
 
     Note
@@ -2401,7 +2405,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         mhd_equilibrium :
             type : DESCequilibrium
-            DESCequilibrium : 
+            DESCequilibrium :
                 eq_name : null # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
                 rel_path : False # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
                 use_pest : False # whether to use straight-field line coordinates (PEST)
@@ -2414,13 +2418,13 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
     def __init__(self, units=None, **params):
 
-        from struphy.geometry.domains import DESCunit
+        import os
 
         import desc
+        from mpi4py import MPI
 
         import struphy
-        import os
-        from mpi4py import MPI
+        from struphy.geometry.domains import DESCunit
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -2444,7 +2448,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
                           'use_nfp': True,
                           'rmin': 0.01,
                           'Nel': (16, 16, 50),
-                          'p': (3, 3, 3), 
+                          'p': (3, 3, 3),
                           'T_kelvin': 100000}
 
         self._params = set_defaults(params, params_default)
@@ -2463,7 +2467,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         self._rmin = params['rmin']
         self._use_nfp = params['use_nfp']
-        
+
         # straight field line coords
         if self._params['use_pest']:
             raise ValueError(
@@ -2500,7 +2504,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
     @property
     def use_nfp(self):
-        """ True (=default) if to use the field periods of the stellarator in the mapping, 
+        """ True (=default) if to use the field periods of the stellarator in the mapping,
         i.e. phi = 2*pi*eta3 / nfp (piece of cake).
         """
         return self._use_nfp
@@ -2536,7 +2540,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['bv']['outs'][i]
-                #print(f'Used cached bv at {i = }.')
+                # print(f'Used cached bv at {i = }.')
             else:
                 out = self._eval_bv(*etas, squeeze_out=squeeze_out)
                 self._cache['bv']['grids'] += [etas]
@@ -2564,7 +2568,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
-            
+
         nfp = self.eq.NFP
         if not self.use_nfp:
             nfp = 1
@@ -2589,7 +2593,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
         return out
 
     def jv(self, *etas, squeeze_out=False):
-        """Contra-variant (vector field) current density (=curl B) 
+        """Contra-variant (vector field) current density (=curl B)
         on logical cube [0, 1]^3 in Ampere / meter^3.
         """
         # check if already cached
@@ -2609,7 +2613,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['jv']['outs'][i]
-                #print(f'Used cached jv at {i = }.')
+                # print(f'Used cached jv at {i = }.')
             else:
                 out = self._eval_jv(*etas, squeeze_out=squeeze_out)
                 self._cache['jv']['grids'] += [etas]
@@ -2621,7 +2625,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             self._cache['jv']['outs'] += [out]
 
         return out
-    
+
     def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2658,7 +2662,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             # adjust for Struphy units
             tmp /= self.units['j'] / self.units['x']
             out += [tmp]
-            
+
         return out
 
     def p0(self, *etas, squeeze_out=False):
@@ -2712,8 +2716,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         # Ori 25/06/24 - Add option to set temperature maximum and then set density accordingly, still proportional to pressure
         k_Boltzmann = 1.38*1e-23
-        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units['p'] #computes pressure in units of 1 Pa
-        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / self.units['n'] #density in default units, n=1 --> 10^20 m^(-3)
+        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units['p']  # computes pressure in units of 1 Pa
+        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / self.units['n']  # density in default units, n=1 --> 10^20 m^(-3)
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
@@ -2743,10 +2747,10 @@ class DESCequilibrium(LogicalMHDequilibrium):
             # print('No bv grids yet.')
             out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
             self._cache['gradB1']['grids'] += [etas]
-            self._cache['gradB1']['outs'] += [out] 
+            self._cache['gradB1']['outs'] += [out]
 
         return out
-    
+
     def _eval_gradB1(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2762,7 +2766,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
-            
+
         nfp = self.eq.NFP
         if not self.use_nfp:
             nfp = 1
@@ -2781,19 +2785,19 @@ class DESCequilibrium(LogicalMHDequilibrium):
             elif var == "|B|_z":
                 tmp *= 2.*np.pi/nfp
             # adjust for Struphy units
-            tmp /= self.units['B'] 
+            tmp /= self.units['B']
             out += [tmp]
 
         return out
 
-    def desc_eval(self, var: str, e1: np.ndarray, e2: np.ndarray, e3: np.ndarray, flat_eval: bool=False, nfp: int=1, verbose: bool=False):
+    def desc_eval(self, var: str, e1: np.ndarray, e2: np.ndarray, e3: np.ndarray, flat_eval: bool = False, nfp: int = 1, verbose: bool = False):
         '''Transform the input grids to conform to desc's .compute method
         and evaluate var.
 
         Parameters
         ----------
         var : str
-            Desc equilibrium quantitiy to evaluate, 
+            Desc equilibrium quantitiy to evaluate,
             from `https://desc-docs.readthedocs.io/en/latest/variables.html#list-of-variables`_.
 
         e1, e2, e3 : np.ndarray
@@ -2801,15 +2805,16 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         flat_eval : bool
             Whether to do flat (marker) evaluation.
-            
+
         nfp : int
             Number of stellarator field periods to be used in the mapping (nfp=1 uses the whole stellarator).
 
         verbose : bool
             Print grid check to screen.'''
 
-        from desc.grid import Grid
         import warnings
+
+        from desc.grid import Grid
 
         warnings.filterwarnings("ignore")
 
@@ -2860,7 +2865,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
                 (rho.size, theta.size, zeta.size), order="C"))[0, :, 0]
             zeta1 = (grid_3d.nodes[:, 2].reshape(
                 (rho.size, theta.size, zeta.size), order="C"))[0, 0, :]
-            
+
         # make sure the desc grid is correct
         assert np.all(rho == rho1)
         assert np.all(theta == theta1)

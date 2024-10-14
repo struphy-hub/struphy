@@ -16,15 +16,15 @@ class ModesSin:
 
     .. math::
 
-        \chi_s(z) = \left\{ 
+        \chi_s(z) = \left\{
         \begin{aligned}
         1\,,
         \\[2mm]
-         \tanh((z - 0.5)/\delta)/\cosh((z - 0.5)/\delta)\,, 
+         \tanh((z - 0.5)/\delta)/\cosh((z - 0.5)/\delta)\,,
         \end{aligned}
         \right.
 
-    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3` 
+    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
     and :math:`L_x=L_y=L_z=1.0` (default).
 
     Note
@@ -37,22 +37,22 @@ class ModesSin:
                 comps :
                     scalar_name : '0' # choices: null, 'physical', '0', '3'
                     vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
-                ls : 
+                ls :
                     scalar_name: [1, 3] # two x-modes for scalar variable
-                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable            
+                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable
                 theta :
-                    scalar_name: [0, 3.1415] 
+                    scalar_name: [0, 3.1415]
                     vector_name: [null, [0, 0], [1.5708]]
                 pfuns :
                     vector_name: [null, ['localize'], ['Id']]
                 pfuns_params
                     vector_name: [null, ['0.1'], [0.]]
-                Lx : 7.853981633974483 
-                Ly : 1.                
-                Lz : 1.               
+                Lx : 7.853981633974483
+                Ly : 1.
+                Lz : 1.
     '''
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], theta=None, pfuns=['Id'], pfuns_params = [0.], Lx=1., Ly=1., Lz=1.):
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], theta=None, pfuns=['Id'], pfuns_params=[0.], Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
@@ -73,8 +73,8 @@ class ModesSin:
 
         pfuns : list[str]
             "Id" or "localize" define the profile functions.
-            localize multiply the sinus by :math: `tanh((\eta_3 - 0.5)/\delta)/cosh((\eta_3 - 0.5)/\delta)`
-            to localize it around 0.5. :math: `\delta` is given by the input parameter pfuns_params
+            localize multiply the sinus by :math: `tanh((\\eta_3 - 0.5)/\\delta)/cosh((\\eta_3 - 0.5)/\\delta)`
+            to localize it around 0.5. :math: `\\delta` is given by the input parameter pfuns_params
 
         pfuns_params : list
             The parameter needed by the profile function
@@ -97,17 +97,17 @@ class ModesSin:
             ls = [0]
             ms = [0]
             ns = [0]
-            
+
         if ms is None:
             ms = [0]*n_modes
         else:
             assert len(ms) == n_modes
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -121,12 +121,12 @@ class ModesSin:
         else:
             assert len(theta) == n_modes
 
-        if len(pfuns) ==1:
+        if len(pfuns) == 1:
             pfuns = [pfuns[0]]*n_modes
         else:
             assert len(pfuns) == n_modes
 
-        if len(pfuns_params) ==1:
+        if len(pfuns_params) == 1:
             pfuns_params = [pfuns_params[0]]*n_modes
         else:
             assert len(pfuns_params) == n_modes
@@ -156,7 +156,7 @@ class ModesSin:
 
         for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
             val += amp*pfun(z)*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
-                              np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
+                                      np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
 
         return val
 
@@ -168,7 +168,7 @@ class ModesCos:
 
         u(x, y, z) = \sum_{s} A_s \cos \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
 
-    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3` 
+    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
     and :math:`L_x=L_y=L_z=1.0` (default).
 
     Note
@@ -181,12 +181,12 @@ class ModesCos:
                 comps :
                     scalar_name : '0' # choices: null, 'physical', '0', '3'
                     vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
-                ls : 
+                ls :
                     scalar_name: [1, 3] # two x-modes for scalar variable
-                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable            
-                Lx : 7.853981633974483 
-                Ly : 1.                
-                Lz : 1. 
+                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable
+                Lx : 7.853981633974483
+                Ly : 1.
+                Lz : 1.
     '''
 
     def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1.):
@@ -223,17 +223,17 @@ class ModesCos:
             ls = [0]
             ms = [0]
             ns = [0]
-            
+
         if ms is None:
             ms = [0]*n_modes
         else:
             assert len(ms) == n_modes
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -270,11 +270,11 @@ class TorusModesSin:
 
     .. math::
 
-        \chi_s(\eta_1) = \left\{ 
+        \chi_s(\eta_1) = \left\{
         \begin{aligned}
         &\sin(l_s\pi\eta_1)\,,
         \\[2mm]
-        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,, 
+        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,,
         \\[2mm]
         & -2(\eta_1 - r_0)/\sigma)\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
         \end{aligned}
@@ -293,7 +293,7 @@ class TorusModesSin:
                     n3 : null                     # choices: null, 'physical', '0', '3'
                     u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
                     p3 : '0'                      # choices: null, 'physical', '0', '3'
-                ms : 
+                ms :
                     n3: null            # poloidal mode numbers
                     u2: [[0], [0], [0]] # poloidal mode numbers
                     p3: [0]             # poloidal mode numbers
@@ -312,7 +312,7 @@ class TorusModesSin:
                 pfun_params :
                     n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
                     u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
-                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"  
+                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
     '''
 
     def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
@@ -344,12 +344,12 @@ class TorusModesSin:
             n_modes = 1
             ms = [1]
             ns = [0]
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -359,7 +359,7 @@ class TorusModesSin:
             pfuns = [pfuns[0]]*n_modes
         else:
             assert len(pfuns) == n_modes
-            
+
         if pfun_params is None:
             pfun_params = [None]*n_modes
 
@@ -405,11 +405,11 @@ class TorusModesCos:
 
     .. math::
 
-        \chi_s(\eta_1) = \left\{ 
+        \chi_s(\eta_1) = \left\{
         \begin{aligned}
         &\sin(\pi\eta_1)\,,
         \\[2mm]
-        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,, 
+        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,,
         \\[2mm]
         & -2(\eta_1 - r_0)/\sigma)\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
         \end{aligned}
@@ -428,7 +428,7 @@ class TorusModesCos:
                     n3 : null                     # choices: null, 'physical', '0', '3'
                     u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
                     p3 : H1                       # choices: null, 'physical', '0', '3'
-                ms : 
+                ms :
                     n3: null            # poloidal mode numbers
                     u2: [[0], [0], [0]] # poloidal mode numbers
                     p3: [0]             # poloidal mode numbers
@@ -447,7 +447,7 @@ class TorusModesCos:
                 pfun_params :
                     n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
                     u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
-                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".     
+                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
     '''
 
     def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
@@ -479,12 +479,12 @@ class TorusModesCos:
             n_modes = 1
             ms = [1]
             ns = [0]
-            
+
         if ns is None:
             ns = [0]*n_modes
         else:
             assert len(ns) == n_modes
-            
+
         if len(amps) == 1:
             amps = [amps[0]]*n_modes
         else:
@@ -494,7 +494,7 @@ class TorusModesCos:
             pfuns = [pfuns[0]]*n_modes
         else:
             assert len(pfuns) == n_modes
-            
+
         if pfun_params is None:
             pfun_params = [None]*n_modes
 
@@ -537,7 +537,7 @@ class Shear_x:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,. 
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_1 - 0.25)/\delta)+\tanh((\eta_1 - 0.75)/\delta) - 1) \,.
 
     Can only be used in logical space.
 
@@ -629,7 +629,7 @@ class Shear_z:
 
     .. math::
 
-        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,. 
+        u(\eta_1, \eta_2, \eta_3) = A(-\tanh((\eta_3 - 0.25)/\delta) + \tanh((\eta_3 - 0.75)/\delta) - 1) \,.
 
     Can only be used in logical space.
 
@@ -720,7 +720,8 @@ class ITPA_density:
                                   np.tanh((eta1 - self._c[0])/self._c[2]))
 
         return val
-    
+
+
 class Erf_z:
     r'''Shear layer in eta3 (-1 in lower regions, 1 in upper regions).
 
@@ -739,7 +740,7 @@ class Erf_z:
         Erf_z :
             comps :
                 b2 : ['2', null, null] # choices: null, 'physical', '0', '3'
-            amp : 
+            amp :
                 b2 : [0.001] # amplitudes of each mode
             delta :
                 b2 : [0.02] # characteristic size of the shear layer

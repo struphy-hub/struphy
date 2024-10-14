@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 
 @pytest.mark.mpi(min_size=2)
@@ -13,15 +13,15 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     for all routines in particle_to_mat_kernels.py
     '''
 
-    from mpi4py import MPI
     from time import sleep
 
+    from mpi4py import MPI
+    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+    from psydac.linalg.stencil import StencilMatrix, StencilVector
+
+    from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
-    from struphy.bsplines import bsplines_kernels as bsp
-
-    from psydac.linalg.stencil import StencilVector, StencilMatrix
-    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -252,9 +252,9 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         # testing salar spaces
         if rank == 0:
             print(f'\nTesting mat_fill_b_v0 ...')
-        ptomat.mat_fill_b_v0(DR.args_derham, 
-                             eta1, eta2, eta3, 
-                             mat['v0'], 
+        ptomat.mat_fill_b_v0(DR.args_derham,
+                             eta1, eta2, eta3,
+                             mat['v0'],
                              fill_mat[0, 0])
         assert_mat(mat['v0'], rows, cols, basis['v0'],
                    basis['v0'], rank)  # assertion test of mat
@@ -264,10 +264,10 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         if rank == 0:
             print(f'\nTesting m_v_fill_b_v0 ...')
         ptomat.m_v_fill_b_v0(DR.args_derham,
-                             eta1, eta2, eta3, 
+                             eta1, eta2, eta3,
                              mat['v0'],
                              fill_mat[0, 0],
-                             vec['v0'], 
+                             vec['v0'],
                              fill_vec[0])
         assert_mat(mat['v0'], rows, cols, basis['v0'],
                    basis['v0'], rank)  # assertion test of mat
@@ -279,7 +279,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
             print(f'\nTesting mat_fill_b_v3 ...')
         ptomat.mat_fill_b_v3(DR.args_derham,
                              eta1, eta2, eta3,
-                             mat['v3'], 
+                             mat['v3'],
                              fill_mat[0, 0])
         assert_mat(mat['v3'], rows, cols, basis['v3'],
                    basis['v3'], rank)  # assertion test of mat
@@ -289,10 +289,10 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         if rank == 0:
             print(f'\nTesting m_v_fill_b_v3 ...')
         ptomat.m_v_fill_b_v3(DR.args_derham,
-                             eta1, eta2, eta3, 
-                             mat['v3'], 
-                             fill_mat[0, 0], 
-                             vec['v3'], 
+                             eta1, eta2, eta3,
+                             mat['v3'],
+                             fill_mat[0, 0],
+                             vec['v3'],
                              fill_vec[0])
         assert_mat(mat['v3'], rows, cols, basis['v3'],
                    basis['v3'], rank)  # assertion test of mat
@@ -303,8 +303,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         if rank == 0:
             print(f'\nTesting mat_fill_v0 ...')
         ptomat.mat_fill_v0(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v0'], 
+                           span1, span2, span3,
+                           mat['v0'],
                            fill_mat[0, 0])
         assert_mat(mat['v0'], rows, cols, basis['v0'],
                    basis['v0'], rank)  # assertion test of mat
@@ -314,10 +314,10 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         if rank == 0:
             print(f'\nTesting m_v_fill_v0 ...')
         ptomat.m_v_fill_v0(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v0'], 
+                           span1, span2, span3,
+                           mat['v0'],
                            fill_mat[0, 0],
-                           vec['v0'], 
+                           vec['v0'],
                            fill_vec[0])
         assert_mat(mat['v0'], rows, cols, basis['v0'],
                    basis['v0'], rank)  # assertion test of mat
@@ -328,8 +328,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         if rank == 0:
             print(f'\nTesting mat_fill_v3 ...')
         ptomat.mat_fill_v3(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v3'], 
+                           span1, span2, span3,
+                           mat['v3'],
                            fill_mat[0, 0])
         assert_mat(mat['v3'], rows, cols, basis['v3'],
                    basis['v3'], rank)  # assertion test of mat
@@ -339,10 +339,10 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         if rank == 0:
             print(f'\nTesting m_v_fill_v3 ...')
         ptomat.m_v_fill_v3(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v3'], 
-                           fill_mat[0, 0], 
-                           vec['v3'], 
+                           span1, span2, span3,
+                           mat['v3'],
+                           fill_mat[0, 0],
+                           vec['v3'],
                            fill_vec[0])
         assert_mat(mat['v3'], rows, cols, basis['v3'],
                    basis['v3'], rank)  # assertion test of mat

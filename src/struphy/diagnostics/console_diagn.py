@@ -1,14 +1,19 @@
 """ An executable for quick access to the diagnostic tools in diagn_tools.py """
 
 #!/usr/bin/env python3
-import numpy as np
 import argparse
 import os
+
 import h5py
+import numpy as np
 import yaml
 
 import struphy
-from struphy.diagnostics.diagn_tools import plot_scalars, plot_distr_fun, phase_space_video
+from struphy.diagnostics.diagn_tools import (
+    phase_space_video,
+    plot_distr_fun,
+    plot_scalars,
+)
 
 
 def main():
@@ -121,7 +126,7 @@ def main():
     if 'plot_distr' or 'phase_space' in actions:
         for species in params['kinetic'].keys():
             # Get model class
-            from struphy.models import fluid, kinetic, hybrid, toy
+            from struphy.models import fluid, hybrid, kinetic, toy
             objs = [fluid, kinetic, hybrid, toy]
             for obj in objs:
                 try:

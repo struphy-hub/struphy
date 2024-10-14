@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import re
+
 import numpy
 
 """
@@ -12,16 +13,16 @@ The official document describing g-eqdsk files:
 http://fusion.gat.com/conferences/snowmass/working/mfe/physics/p3/equilibria/g_eqdsk_s.pdf
 """
 
+
 class Geqdsk:
 
     def __init__(self):
-
         """
-        Note that, 
+        Note that,
         (1) if the grid points are large that there is no space between 2 numbers,
             one should artificially adding 1 space.
         (2) The last line of the file should be '0        ', in order to make the reading
-            recognizes the end of the file. 
+            recognizes the end of the file.
         """
         self.data = {}
 
@@ -31,21 +32,21 @@ class Geqdsk:
         data_type=0 : there is no space between data
         data_type=1 : there is space between data
         """
-	
-        lines =  open(filename, 'r').readlines()
+
+        lines = open(filename, 'r').readlines()
 
         # first line
         m = re.search(r'^\s*(.*)\s+\d+\s+(\d+)\s+(\d+)\s*$', lines[0])
         self.data['case'] = m.group(1), "Identification character string"
         self.data['nw'] = int(m.group(2)), "Number of horizontal R grid points"
         self.data['nh'] = int(m.group(3)), "Number of vertical Z grid points"
-        #print('nw, nh=', self.data['nw'][0], self.data['nh'][0])
+        # print('nw, nh=', self.data['nw'][0], self.data['nh'][0])
 
         if data_type == 0:
             fltsPat = r'^\s*([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)([ \-]\d\.\d+[Ee][\+\-]\d\d)\s*$'
         elif data_type == 1:
             fltsPat = r'^\s*([ \-]\d\.\d+[Ee][\+\-]\d\d)\s([ \-]\d\.\d+[Ee][\+\-]\d\d)\s([ \-]\d\.\d+[Ee][\+\-]\d\d)\s([ \-]\d\.\d+[Ee][\+\-]\d\d)\s([ \-]\d\.\d+[Ee][\+\-]\d\d)\s*$'
-	
+
         # 2nd line
         m = re.search(fltsPat, lines[1])
         self.data['rdim'] = float(m.group(1)), "Horizontal dimension in meter of computational box"
@@ -61,28 +62,29 @@ class Geqdsk:
         self.data['simag'] = float(m.group(3)), "poloidal flux at magnetic axis in Weber /rad"
         self.data['sibry'] = float(m.group(4)), "poloidal flux at the plasma boundary in Weber /rad"
         self.data['bcentr'] = float(m.group(5)), "Vacuum toroidal magnetic field in Tesla at RCENTR"
-	
+
         # 4th line
         m = re.search(fltsPat, lines[3])
         self.data['current'] = float(m.group(1)), "Plasma current in Ampere"
-        #self.data['simag'] = float(m.group(2)), ""
+        # self.data['simag'] = float(m.group(2)), ""
 
-        #self.data['rmaxis'] = float(m.group(4)), ""
-        
+        # self.data['rmaxis'] = float(m.group(4)), ""
+
         # 5th line
         m = re.search(fltsPat, lines[4])
-	#self.data['zmaxis'] = float(m.group(1)), ""
+        # self.data['zmaxis'] = float(m.group(1)), ""
 
-	#self.data['sibry'] = float(m.group(3)), ""
+        # self.data['sibry'] = float(m.group(3)), ""
 
-	# read remaining data
+        # read remaining data
         data = []
         counter = 5
-        while 1:
+        while True:
             line = lines[counter]
             m = re.match(r'^\s*[ \-]\d\.\d+[Ee][\+\-]\d\d', line)
-            
-            if not m: break
+
+            if not m:
+                break
 
             if data_type == 0:
                 data += eval('[' + re.sub(r'(\d)([ \-]\d\.)', '\\1,\\2', line) + ']')
@@ -100,39 +102,39 @@ class Geqdsk:
 
         self.data['pprime'] = numpy.array(data[3*nw:4*nw]), "P'(psi) in (nt/m2)/(Weber/rad) on uniform flux grid"
 
-        self.data['psirz'] = numpy.reshape( data[4*nw:4*nw+nw*nh], (nh, nw) ), "Poloidal flux in Weber / rad on the rectangular grid points"
+        self.data['psirz'] = numpy.reshape(data[4*nw:4*nw+nw*nh], (nh, nw)), "Poloidal flux in Weber / rad on the rectangular grid points"
         self.data['qpsi']  = numpy.array(data[4*nw+nw*nh:5*nw+nw*nh]), "q values on uniform flux grid from axis to boundary"
-	
+
         line = lines[counter]
         m = re.search(r'^\s*(\d+)\s+(\d+)', line)
-        #print(line)
+        # print(line)
         nbbbs = int(m.group(1))
         limitr = int(m.group(2))
         self.data['nbbbs'] = nbbbs, "Number of boundary points"
         self.data['limitr'] = limitr, "Number of limiter points"
         counter += 1
         data = []
-        while 1:
+        while True:
             line = lines[counter]
             m = re.search(r'^\s*[ \-]\d\.\d+[Ee][\+\-]\d\d', line)
             counter += 1
-            if not m: 
+            if not m:
                 break
             if data_type == 0:
                 data += eval('[' + re.sub(r'(\d)([ \-]\d\.)', '\\1,\\2', line) + ']')
             elif data_type == 1:
                 data += eval('[' + re.sub(r'(\d)\s([ \-]\d\.)', '\\1,\\2', line) + ']')
-        self.data['rbbbs'] = numpy.zeros( (nbbbs,), numpy.float64 ), "R of boundary points in meter"
-        self.data['zbbbs'] = numpy.zeros( (nbbbs,), numpy.float64 ), "Z of boundary points in meter"
+        self.data['rbbbs'] = numpy.zeros((nbbbs,), numpy.float64), "R of boundary points in meter"
+        self.data['zbbbs'] = numpy.zeros((nbbbs,), numpy.float64), "Z of boundary points in meter"
         for i in range(nbbbs):
             self.data['rbbbs'][0][i] = data[2*i]
             self.data['zbbbs'][0][i] = data[2*i + 1]
-	
-        self.data['rlim'] = numpy.zeros( (limitr,), numpy.float64 ), "R of surrounding limiter contour in meter"
-        self.data['zlim'] = numpy.zeros( (limitr,), numpy.float64 ), "Z of surrounding limiter contour in meter"
+
+        self.data['rlim'] = numpy.zeros((limitr,), numpy.float64), "R of surrounding limiter contour in meter"
+        self.data['zlim'] = numpy.zeros((limitr,), numpy.float64), "Z of surrounding limiter contour in meter"
         for i in range(limitr):
-#           self.data['rbbbs'][0][i] = data[2*nbbbs + 2*i]
-#           self.data['zbbbs'][0][i] = data[2*nbbbs + 2*i + 1]
+            #           self.data['rbbbs'][0][i] = data[2*nbbbs + 2*i]
+            #           self.data['zbbbs'][0][i] = data[2*nbbbs + 2*i + 1]
             self.data['rlim'][0][i] = data[2*nbbbs + 2*i]
             self.data['zlim'][0][i] = data[2*nbbbs + 2*i + 1]
 
@@ -142,7 +144,7 @@ class Geqdsk:
     def getAllVars(self):
         return self.data.keys()
 
-    def get(self, varname): 
+    def get(self, varname):
         return self.data[varname.lower()][0]
 
     def getDescriptor(self, varname):
@@ -150,27 +152,26 @@ class Geqdsk:
 
 ################################
 
+
 def main():
     import sys
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option("-f", "--file", dest="filename",
-                  help="g-eqdsk file", default="")
+                      help="g-eqdsk file", default="")
     parser.add_option("-a", "--all", dest="all",
-                  help="display all variables", action="store_true",)
-    parser.add_option("-v", "--vars", dest="vars", 
-                  help="comma separated list of variables (use '-v \"*\"' for all)", default="*")
+                      help="display all variables", action="store_true",)
+    parser.add_option("-v", "--vars", dest="vars",
+                      help="comma separated list of variables (use '-v \"*\"' for all)", default="*")
     parser.add_option("-p", "--plot", dest="plot",
-                  help="plot all variables", action="store_true",)
+                      help="plot all variables", action="store_true",)
     parser.add_option("-i", "--inquire", dest="inquire",
-                  help="inquire list of variables", action="store_true",)
- 
+                      help="inquire list of variables", action="store_true",)
 
     options, args = parser.parse_args()
     if not options.filename:
         parser.error("MUST provide filename (type -h for list of options)")
 
-	
     geq = Geqdsk()
     geq.openFile(options.filename)
 
@@ -185,12 +186,12 @@ def main():
         vs = options.vars.split(',')
 
     for v in vs:
-        print('%s: %s'% (v, str(geq.get(v))))
+        print('%s: %s' % (v, str(geq.get(v))))
 
     if options.plot:
         from matplotlib import pylab
 
-        if options.vars == '*': 
+        if options.vars == '*':
             options.vars = geq.getAllVars()
             print(options.vars)
         else:
@@ -211,7 +212,7 @@ def main():
                 pylab.xlabel('psi poloidal')
                 pylab.ylabel(v)
                 pylab.title(geq.getDescriptor(v))
-	   # 2d plasma plot
+           # 2d plasma plot
         nw = geq.get('nw')
         nh = geq.get('nh')
         rmin = geq.get('rleft')
@@ -225,14 +226,14 @@ def main():
         pylab.figure()
         pylab.pcolor(rs, zs, geq.get('psirz'), shading='interp')
         pylab.plot(geq.get('rbbbs'), geq.get('zbbbs'), 'w-')
-        #pylab.plot(geq.get('rlim'), geq.get('zlim'), 'k--')    
+        # pylab.plot(geq.get('rlim'), geq.get('zlim'), 'k--')
         pylab.axis('image')
         pylab.title('poloidal flux')
         pylab.xlabel('R')
         pylab.ylabel('Z')
 
         pylab.show()
-	
 
-if __name__ == '__main__': main()
 
+if __name__ == '__main__':
+    main()

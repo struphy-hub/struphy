@@ -33,12 +33,14 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         Whether to say yes to prompt when changing the language.
     """
 
-    import subprocess
-    import struphy
     import os
+    import subprocess
+    import sysconfig
+
     import pyccel
     import yaml
-    import sysconfig
+
+    import struphy
     import struphy.dependencies as depmod
 
     libpath = struphy.__path__[0]
@@ -216,8 +218,9 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
 
         try:
-            import psydac
             import importlib.metadata
+
+            import psydac
 
             your_ver = importlib.metadata.version("psydac")
 
@@ -236,7 +239,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                                 ], check=True)
                 print('Done.')
 
-        except:
+        except BaseException:
             print('\nInstalling Psydac ...')
             subprocess.run(['pip',
                             'install',

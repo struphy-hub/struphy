@@ -1,6 +1,7 @@
-import h5py
 import ctypes
 import os
+
+import h5py
 import numpy as np
 
 
@@ -151,7 +152,7 @@ class DataContainer:
                     self._dset_dict[key], ctypes.py_object).value
 
     def info(self):
-        """ Print info of data sets to screen.  
+        """ Print info of data sets to screen.
         """
 
         for key in self._dset_dict:

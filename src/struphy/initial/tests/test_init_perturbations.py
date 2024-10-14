@@ -1,8 +1,11 @@
-import pytest
 import inspect
+
+import pytest
 
 # @pytest.mark.mpi(min_size=2)
 # @pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
+
+
 @pytest.mark.parametrize('Nel', [[16, 16, 16]])
 @pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])
@@ -16,12 +19,12 @@ import inspect
 def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
     '''Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py.'''
 
-    from mpi4py import MPI
     import numpy as np
     from matplotlib import pyplot as plt
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
     from struphy.initial import perturbations
 
     comm = MPI.COMM_WORLD

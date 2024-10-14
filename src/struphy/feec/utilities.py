@@ -1,28 +1,25 @@
-from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockLinearOperator
-
+import numpy as np
+from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
+from psydac.linalg.block import BlockLinearOperator, BlockVector
+from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-from psydac.api.essential_bc import apply_essential_bc_stencil
-
-from struphy.polar.basic import PolarVector
-from struphy.feec import banded_to_stencil_kernels as bts
 import struphy.feec.utilities_kernels as kernels
-
-import numpy as np
+from struphy.feec import banded_to_stencil_kernels as bts
+from struphy.polar.basic import PolarVector
 
 
 class RotationMatrix:
-    '''For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3) 
-    that represents the local rotation Rv = a x v at (e1, e2, e3) for any vector v in R^3. 
+    '''For a given vector-valued function a(e1, e2, e3), creates the callable matrix R(e1, e2, e3)
+    that represents the local rotation Rv = a x v at (e1, e2, e3) for any vector v in R^3.
 
     When called, R(e1, e2, e3) is a five-dimensional array, with the 3x3 matrix in the last two indices.
 
     Parameters
     ----------
     *vec_fun : list
-        Three callables that represent the vector-valued function a. 
+        Three callables that represent the vector-valued function a.
     '''
 
     def __init__(self, *vec_fun):
@@ -30,9 +27,9 @@ class RotationMatrix:
         assert len(vec_fun) == 3
         assert all([callable(fun) for fun in vec_fun])
 
-        self._cross_mask = [[0, -1,  1],
-                            [1,  0, -1],
-                            [-1,  1,  0]]
+        self._cross_mask = [[0, -1, 1],
+                            [1, 0, -1],
+                            [-1, 1, 0]]
 
         self._funs = [[lambda e1, e2, e3: 0*e1, vec_fun[2], vec_fun[1]],
                       [vec_fun[2], lambda e1, e2, e3: 0*e2, vec_fun[0]],
@@ -278,7 +275,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp, axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:,  0] = 0.
+                vector.pol[0][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp, axis=2, ext=+1, order=0)
@@ -312,8 +309,8 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:,  0] = 0.
-                vector.pol[1][:,  0] = 0.
+                vector.pol[0][:, 0] = 0.
+                vector.pol[1][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
@@ -344,7 +341,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[2][:,  0] = 0.
+                vector.pol[2][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
@@ -373,7 +370,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[2][:,  0] = 0.
+                vector.pol[2][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
@@ -394,7 +391,7 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
 
         derham : derham class
 
-        accum_density : StencilMatrix 
+        accum_density : StencilMatrix
             the density obtained by deposition of particles
 
         domain : domain class

@@ -1,12 +1,14 @@
+import inspect
+import time
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from mpi4py import MPI
-import matplotlib.pyplot as plt
-import inspect
-import time
-from struphy.feec.psydac_derham import Derham
-from struphy.feec.projectors import CommutingProjectorLocal
+
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.projectors import CommutingProjectorLocal
+from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 
 

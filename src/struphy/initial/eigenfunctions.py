@@ -1,13 +1,11 @@
 import os
-import yaml
 
 import numpy as np
+import yaml
+from psydac.api.discretization import discretize
+from sympde.topology import Derham, Line
 
 from struphy.fields_background.mhd_equil.equils import set_defaults
-
-from sympde.topology import Line, Derham
-
-from psydac.api.discretization import discretize
 
 
 class InitialMHDAxisymHdivEigFun:

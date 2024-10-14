@@ -2,14 +2,15 @@
 
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 
 
 class Propagator(metaclass=ABCMeta):
-    """ Base class for Struphy propagators used in Struphy models. 
+    """ Base class for Struphy propagators used in Struphy models.
 
     Note
-    ---- 
+    ----
     All Struphy propagators are subclasses of ``Propagator`` and must be added to ``struphy/propagators``
     in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
     Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
@@ -24,6 +25,7 @@ class Propagator(metaclass=ABCMeta):
             :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
         """
         from psydac.linalg.basic import Vector
+
         from struphy.pic.particles import Particles
 
         self._feec_vars = []
@@ -44,14 +46,14 @@ class Propagator(metaclass=ABCMeta):
 
     @property
     def feec_vars(self):
-        """ List of FEEC variables (not particles) to be updated by the propagator. 
+        """ List of FEEC variables (not particles) to be updated by the propagator.
         Contains FE coefficients from :attr:`struphy.feec.Derham.Field.vector`.
         """
         return self._feec_vars
 
     @property
     def particles(self):
-        """ List of kinetic variables (not FEEC) to be updated by the propagator. 
+        """ List of kinetic variables (not FEEC) to be updated by the propagator.
         Contains :class:`struphy.pic.particles.Particles`.
         """
         return self._particles
@@ -68,7 +70,7 @@ class Propagator(metaclass=ABCMeta):
     def eval_kernels(self):
         r""" List of evaluation kernels for evaluation at
         :math:`\alpha_i \eta_{i}^{n+1,k} + (1 - \alpha_i) \eta_{i}^n`
-        for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]`, 
+        for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]`,
         in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
         """
         return self._eval_kernels
@@ -168,7 +170,7 @@ class Propagator(metaclass=ABCMeta):
         self._time_state = time_state
 
     def feec_vars_update(self, *variables_new):
-        r"""Return :math:`\textrm{max}_i |x_i(t + \Delta t) - x_i(t)|` for each unknown in list, 
+        r"""Return :math:`\textrm{max}_i |x_i(t + \Delta t) - x_i(t)|` for each unknown in list,
         update :method:`~struphy.propagators.base.Propagator.feec_vars`
         and update ghost regions.
 
@@ -176,7 +178,7 @@ class Propagator(metaclass=ABCMeta):
         ----------
         variables_new : list[StencilVector | BlockVector]
             Same sequence as in :method:`~struphy.propagators.base.Propagator.feec_vars`
-            but with the updated variables, 
+            but with the updated variables,
             i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
 
         Returns
@@ -185,13 +187,11 @@ class Propagator(metaclass=ABCMeta):
             A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.
         """
 
-
-        
         diffs = []
 
         for i, new in enumerate(variables_new):
 
-            assert type(new) is type(self.feec_vars[i])
+            assert isinstance(new, type(self.feec_vars[i]))
 
             # calculate maximum of difference abs(old - new)
             diffs += [np.max(np.abs(self.feec_vars[i].toarray() - new.toarray()))]
@@ -203,40 +203,40 @@ class Propagator(metaclass=ABCMeta):
             self.feec_vars[i].update_ghost_regions()
 
         return diffs
-    
+
     def add_init_kernel(self,
                         kernel,
                         column_nr: int,
                         comps: tuple | int,
                         args_init: tuple):
         '''Add an initialization kernel to self.init_kernels.
-        
+
         Parameters
         ----------
         kernel : pyccel func
             The kernel function.
-            
+
         column_nr : int
             The column index at which the result is stored in marker array.
-            
+
         comps : tuple | int
-            None or (0) for scalar-valued function evaluation. 
-            In vector valued case, allows to specify which components to save 
+            None or (0) for scalar-valued function evaluation.
+            In vector valued case, allows to specify which components to save
             at column_nr:column_nr + len(comps).
-            
+
         args_init : tuple
             The arguments for the kernel function.
         '''
         if comps is None:
-            comps = np.array([0]) # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
             comps = np.array(comps, dtype=int)
-        
+
         self._init_kernels += [(kernel,
                                 column_nr,
                                 comps,
                                 args_init)]
-        
+
     def add_eval_kernel(self,
                         kernel,
                         column_nr: int,
@@ -244,39 +244,39 @@ class Propagator(metaclass=ABCMeta):
                         args_eval: tuple,
                         alpha: float | int | tuple | list = 1.):
         '''Add an evaluation kernel to self.eval_kernels.
-        
+
         Parameters
         ----------
         kernel : pyccel func
-            The kernel function. 
-            
+            The kernel function.
+
         column_nr : int
             The column index at which the result is stored in marker array.
-            
+
         comps : tuple | int
             None for scalar-valued function evaluation. In vecotr valued case,
-            allows to specify which components to save 
+            allows to specify which components to save
             at column_nr:column_nr + len(comps).
-            
+
         args_init : tuple
             The arguments for the kernel function.
-            
+
         alpha : float | int | tuple | list
             Evaluations in kernel are at the weighted average
             alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i],
             for i=0,1,2. If float or int or then alpha = [alpha]*dim,
-            where dim is the dimension of the phase space (<=6). 
+            where dim is the dimension of the phase space (<=6).
             alpha[i] must be between 0 and 1.
         '''
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = [alpha]*6
         alpha = np.array(alpha)
-        
+
         if comps is None:
-            comps = np.array([0]) # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
             comps = np.array(comps, dtype=int)
-        
+
         self._eval_kernels += [(kernel,
                                 alpha,
                                 column_nr,

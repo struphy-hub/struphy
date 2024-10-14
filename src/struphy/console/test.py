@@ -1,9 +1,11 @@
+import importlib
 import os
 import subprocess
-import yaml
-import importlib
-import struphy
+
 import pyccel
+import yaml
+
+import struphy
 
 
 def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monitor=False, n=None, Tend=None):
@@ -114,7 +116,7 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
                         '-s',
                         '--no-monitor',],
                        check=True, cwd=libpath)
-        
+
     elif group in {'fluid', 'kinetic', 'hybrid', 'toy'}:
         pymon_file = os.path.join(pymon_abs, '.pymon_' + group)
         if os.path.isfile(pymon_file):
@@ -188,7 +190,7 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
                            check=True, cwd=libpath)
         else:
             subprocess.run(cmd,
-                        check=True, cwd=libpath)
+                           check=True, cwd=libpath)
 
         # retcode = pytest.main(['-k',
         #                        test_only,
@@ -214,7 +216,12 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
                 pymon_html_json(gr, verbose=verbose)
 
     else:
-        from struphy.models.tests import test_toy_models, test_fluid_models, test_kinetic_models, test_hybrid_models
+        from struphy.models.tests import (
+            test_fluid_models,
+            test_hybrid_models,
+            test_kinetic_models,
+            test_toy_models,
+        )
         from struphy.models.tests.test_xxpproc import test_pproc_codes
 
         objs = [test_toy_models.test_toy, test_fluid_models.test_fluid,

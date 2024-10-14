@@ -1,8 +1,12 @@
 import numpy as np
-from struphy.models.base import StruphyModel
 
-from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.propagators import (
+    propagators_coupling,
+    propagators_fields,
+    propagators_markers,
+)
 
 
 class LinearMHDVlasovCC(StruphyModel):
@@ -22,13 +26,13 @@ class LinearMHDVlasovCC(StruphyModel):
         \begin{align}
         \textnormal{MHD}\,\, &\left\{\,\,
         \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
         \\[2mm]
-        \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p 
+        \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
         =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}} \color{blue} + \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \left(n_\textnormal{h}\tilde{\mathbf{U}}-n_\textnormal{h}\mathbf{u}_\textnormal{h}\right)\times(\mathbf{B}_0+\tilde{\mathbf{B}}) \color{black}\,,
         \\[2mm]
-        &\frac{\partial \tilde p}{\partial t} + (\gamma-1)\nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
+        &\frac{\partial \tilde p}{\partial t} + (\gamma-1)\nabla\cdot(p_0 \tilde{\mathbf{U}})
+        + p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
         \\[2mm]
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} = \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)\,,\qquad \nabla\cdot\tilde{\mathbf{B}}=0\,,
         \end{aligned}
@@ -102,13 +106,14 @@ class LinearMHDVlasovCC(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
+
+        from mpi4py.MPI import IN_PLACE, SUM
 
         from struphy.polar.basic import PolarVector
-        from mpi4py.MPI import SUM, IN_PLACE
 
         # prelim
         e_ions_params = self.kinetic['energetic_ions']['params']
@@ -205,26 +210,21 @@ class LinearMHDVlasovCC(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
     def update_scalar_quantities(self):
-        
-        
-        
-            
-        
+
         # perturbed fields
         self._mass_ops.M2n.dot(self.pointer['mhd_u'], out=self._tmp_u)
         self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-
         # Average scalars between clones
         if self.derham.Nclones > 1:
             scalars = np.array([self._tmp_u, self._tmp_b1], dtype=np.float64)
-            
+
             # Perform MPI Allreduce on the entire array
             self.inter_comm.Allreduce(self._mpi_in_place, scalars, op=self._mpi_sum)
 
             # Divide by the number of clones
             scalars /= self.derham.Nclones
-            
+
             # Update the original variables with the new values
             self._tmp_u, self._tmp_b1 = scalars
 
@@ -270,7 +270,7 @@ class LinearMHDVlasovPC(StruphyModel):
     .. math::
 
         \hat U = \hat v =: \hat v_\textnormal{A, bulk} \,, \qquad
-        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,,\qquad 
+        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{A}^3} \,,\qquad
         \hat{\mathbb{P}}_\textnormal{h} = A_\textnormal{h}m_\textnormal{H}\hat n \hat v_\textnormal{A}^2\,,
 
     Implemented equations:
@@ -280,15 +280,15 @@ class LinearMHDVlasovPC(StruphyModel):
         \begin{align}
         \textnormal{MHD} &\left\{
         \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
         \\
         \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p + \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla\cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp}
         =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
         \,, \qquad
-        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,, 
+        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,,
         \\
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}})
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
         \\
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,,
@@ -306,7 +306,7 @@ class LinearMHDVlasovPC(StruphyModel):
         \right.
         \end{align}
 
-    where 
+    where
 
     .. math::
 
@@ -364,13 +364,14 @@ class LinearMHDVlasovPC(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
+
+        from mpi4py.MPI import IN_PLACE, SUM
 
         from struphy.polar.basic import PolarVector
-        from mpi4py.MPI import SUM, IN_PLACE
 
         # extract necessary parameters
         u_space = params['fluid']['mhd']['options']['u_space']
@@ -502,14 +503,14 @@ class LinearMHDVlasovPC(StruphyModel):
 
 
 class LinearMHDDriftkineticCC(StruphyModel):
-    r'''Hybrid linear ideal MHD + energetic ions (5D Driftkinetic) with **current coupling scheme**. 
+    r'''Hybrid linear ideal MHD + energetic ions (5D Driftkinetic) with **current coupling scheme**.
 
-    :ref:`normalization`: 
+    :ref:`normalization`:
 
     .. math::
 
         \hat U = \hat v =: \hat v_\textnormal{A, bulk} \,, \qquad
-        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{h} \hat \mu \hat B} \,,\qquad 
+        \hat f_\textnormal{h} = \frac{\hat n}{\hat v_\textnormal{h} \hat \mu \hat B} \,,\qquad
         \hat \mu = \frac{A_\textnormal{h} m_\textnormal{H} \hat v_\textnormal{h}^2}{\hat B} \,.
 
     :ref:`Equations <gempic>`:
@@ -519,14 +520,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
         \begin{align}
         \textnormal{MHD} &\left\{
         \begin{aligned}
-        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_{0} \tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde{\rho}}{\partial t}+\nabla\cdot(\rho_{0} \tilde{\mathbf{U}})=0\,,
         \\
         \rho_{0} &\frac{\partial \tilde{\mathbf{U}}}{\partial t} - \tilde p\, \nabla
         = (\nabla \times \tilde{\mathbf{B}}) \times (\mathbf{B}_0 + (\nabla \times \mathbf B_0) \times \tilde{\mathbf{B}}
         + \frac{A_\textnormal{h}}{A_\textnormal{b}} \left[ \frac{1}{\epsilon} n_\textnormal{gc} \tilde{\mathbf{U}} - \frac{1}{\epsilon} \mathbf{J}_\textnormal{gc} - \nabla \times \mathbf{M}_\textnormal{gc} \right] \times \mathbf{B} \,,
         \\
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,, 
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}})
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
         \\
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,,
@@ -548,7 +549,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         \right.
         \end{align}
 
-    where 
+    where
 
     .. math::
 
@@ -558,7 +559,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         \mathbf{E}^* &= - \tilde{\mathbf{U}} \times \mathbf{B} - \epsilon \mu \nabla B_\parallel \,,
         \end{align}
 
-    with the normalization parameter 
+    with the normalization parameter
 
     .. math::
 
@@ -621,13 +622,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
+
+        from mpi4py.MPI import IN_PLACE, SUM
 
         from struphy.polar.basic import PolarVector
-        from mpi4py.MPI import SUM, IN_PLACE
 
         # extract necessary parameters
         u_space = params['fluid']['mhd']['options']['u_space']
@@ -687,8 +689,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'b_tilde': self.pointer['b_field'],
-                                                                     'algo': params_bxE['algo'],
-                                                                     'epsilon': epsilon}
+                                                                      'algo': params_bxE['algo'],
+                                                                      'epsilon': epsilon}
 
         self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'b_tilde': self.pointer['b_field'],
                                                                        'algo': params_parallel['algo'],
@@ -766,19 +768,19 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # Initialize propagators used in splitting substeps
         self.init_propagators()
         # Scalar variables to be saved during simulation
-        self.add_scalar('en_U', compute = 'from_field')
-        self.add_scalar('en_p', compute = 'from_field')
-        self.add_scalar('en_B', compute = 'from_field')
-        self.add_scalar('en_fv', compute = 'from_particles', species='energetic_ions')
-        self.add_scalar('en_fB', compute = 'from_particles', species='energetic_ions')
-        self.add_scalar('en_fv_lost', compute = 'from_particles', species='energetic_ions')
-        self.add_scalar('en_fB_lost', compute = 'from_particles', species='energetic_ions')
-        self.add_scalar('en_tot',summands = ['en_U','en_p','en_B','en_fv','en_fB','en_fv_lost','en_fB_lost'])
+        self.add_scalar('en_U', compute='from_field')
+        self.add_scalar('en_p', compute='from_field')
+        self.add_scalar('en_B', compute='from_field')
+        self.add_scalar('en_fv', compute='from_particles', species='energetic_ions')
+        self.add_scalar('en_fB', compute='from_particles', species='energetic_ions')
+        self.add_scalar('en_fv_lost', compute='from_particles', species='energetic_ions')
+        self.add_scalar('en_fB_lost', compute='from_particles', species='energetic_ions')
+        self.add_scalar('en_tot', summands=['en_U', 'en_p', 'en_B', 'en_fv', 'en_fB', 'en_fv_lost', 'en_fB_lost'])
 
         # things needed in update_scalar_quantities
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
-        
+
         # temporaries
         self._b_full1 = self._b_eq.space.zeros()
         self._PBb = self._absB0.space.zeros()
@@ -798,14 +800,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
         en_U = self.pointer['mhd_velocity'].dot(self._tmp_u)/2
 
         en_p = self.pointer['mhd_pressure'].dot(self._ones)/(5/3 - 1)
-        
+
         self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b)
         en_B = self.pointer['b_field'].dot(self._tmp_b)/2
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_p', en_p)
         self.update_scalar('en_B', en_B)
-        
+
         # self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
         #     self._ones)/(5/3 - 1)
         # self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
@@ -819,24 +821,27 @@ class LinearMHDDriftkineticCC(StruphyModel):
         #         print('Ah_Ab',self._coupling_params['Ah'], self._coupling_params['Ab'])
         #     #print(self.derham.comm.Get_rank(), self.pointer['energetic_ions'].markers)
         # self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
+        # self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes,
+        # 3]**2) /
+        # (2*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
 
         # Don't do averaging within each clone
         self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
             self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
-        
 
-        #self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv, op=self._mpi_sum)
+        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
         self.update_scalar('en_fv', self._en_fv[0])
 
         # self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
+        # self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers,
+        # 3]**2) /
+        # (2.*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
 
         # Don't do averaging within each clone
         self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
             self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
-        #self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv_lost, op=self._mpi_sum)
+        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv_lost, op=self._mpi_sum)
 
         self.update_scalar('en_fv_lost', self._en_fv_lost[0])
 
@@ -844,10 +849,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.pointer['energetic_ions'].save_magnetic_energy(
             self.pointer['b_field'])
 
-        #print(f"{len(self.pointer['energetic_ions'].markers) = }")
-        
+        # print(f"{len(self.pointer['energetic_ions'].markers) = }")
+
         # self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
+        # self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes,
+        # 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
             self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])*self._coupling_params['Ah']/self._coupling_params['Ab']
         # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB, op=self._mpi_sum)
@@ -855,7 +861,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar('en_fB', self._en_fB[0])
 
         # self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) / self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
+        # self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers,
+        # 8]) /
+        # self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
         self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
             self.pointer['energetic_ions']  .lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) * self._coupling_params['Ah']/self._coupling_params['Ab']
         # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB_lost, op=self._mpi_sum)
@@ -867,9 +875,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # self.update_scalar('en_tot', en_U + en_B + en_p +
         #                    self._en_fv[0] + self._en_fB[0])
-        
+
         self.update_scalar('en_tot')
-        
+
         # # Print number of lost ions
         # self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
         # self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
@@ -944,7 +952,7 @@ class ColdPlasmaVlasov(StruphyModel):
     2. :class:`~struphy.propagators.propagators_fields.OhmCold`
     3. :class:`~struphy.propagators.propagators_fields.JxBCold`
     4. :class:`~struphy.propagators.propagators_markers.PushVxB`
-    5. :class:`~struphy.propagators.propagators_markers.PushEta` 
+    5. :class:`~struphy.propagators.propagators_markers.PushEta`
     6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
 
     :ref:`Model info <add_model>`:
@@ -993,12 +1001,12 @@ class ColdPlasmaVlasov(StruphyModel):
                        dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # Get rank and size
         self._rank = comm.Get_rank()
@@ -1072,8 +1080,9 @@ class ColdPlasmaVlasov(StruphyModel):
 
     def initialize_from_params(self):
         ''':meta private:'''
-        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
         from psydac.linalg.stencil import StencilVector
+
+        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
         # Initialize fields and particles
         super().initialize_from_params()

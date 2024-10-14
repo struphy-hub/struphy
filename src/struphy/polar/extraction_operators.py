@@ -4,24 +4,24 @@ import numpy as np
 # ============================= 2D polar splines (C1) ===================================
 class PolarExtractionBlocksC1:
     """
-    Class for operator blocks defining C1 basis extraction operators and DOF extraction operators. 
+    Class for operator blocks defining C1 basis extraction operators and DOF extraction operators.
 
                      /       /       /               /               /
              k = 1  /       /       /               /               /
            k = 0   /       /       /               /               /
                   ------------------------------- -----------------
           j = 0   |       |       |               |               |
-          j = 1   |       |       |               |               |     
+          j = 1   |       |       |               |               |
                   |       |       |               |               |
-                  | i = 0 |  ...  |  i = n_rings  |  i > n_rings  |    
+                  | i = 0 |  ...  |  i = n_rings  |  i > n_rings  |
                   |       |       |               |               |   /
                   |       |       |               |               |  /
         j = n2-1  |       |       |               |               | /
                   -------------------------------------------------
                   |  polar rings  | first tp ring | outer tp zone |
 
-    Fig. : Indexing of 3d spline tensor-product (tp) basis functions/DOFs. 
-           A linear combination of n_rings rings is used to construct n_polar polar basis functions/DOFs 
+    Fig. : Indexing of 3d spline tensor-product (tp) basis functions/DOFs.
+           A linear combination of n_rings rings is used to construct n_polar polar basis functions/DOFs
            and "first tp ring" basis functions/DOFs.
 
     Parameters
@@ -36,6 +36,7 @@ class PolarExtractionBlocksC1:
     def __init__(self, domain, derham):
 
         from scipy.sparse import csr_matrix as csr
+
         from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
 
         # get control points
@@ -537,6 +538,7 @@ class PolarSplines_C0_2D:
     def __init__(self, n0, n1):
 
         import scipy.sparse as spa
+
         from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
 
         d0 = n0 - 1
@@ -687,6 +689,7 @@ class PolarSplines_C1_2D:
     def __init__(self, cx, cy):
 
         import scipy.sparse as spa
+
         from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
 
         n0, n1 = cx.shape
@@ -773,7 +776,7 @@ class PolarSplines_C1_2D:
         # 2nd component
         for s in range(2):
             for j in range(d1):
-                self.E1C_23[s,      j] = 0.
+                self.E1C_23[s, j] = 0.
                 self.E1C_23[s, n1 + j] = self.Xi_1[s + 1,
                                                    (j + 1) % n1] - self.Xi_1[s + 1, j]
 
@@ -821,7 +824,7 @@ class PolarSplines_C1_2D:
         # 1st component
         for s in range(2):
             for j in range(d1):
-                self.E1D_11[s,      j] = 0.
+                self.E1D_11[s, j] = 0.
                 self.E1D_11[s, n1 + j] = (self.Xi_1[s + 1,
                                           (j + 1) % n1] - self.Xi_1[s + 1, j])
 
@@ -971,6 +974,7 @@ class PolarSplines:
     def __init__(self, tensor_space, cx, cy):
 
         import scipy.sparse as spa
+
         from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
 
         n0, n1, n2 = tensor_space.NbaseN
@@ -1036,7 +1040,7 @@ class PolarSplines:
         # 2nd component
         for s in range(2):
             for j in range(n1):
-                self.E1_2_pol[(d0 - 1)*n1 + s,      j] = 0.
+                self.E1_2_pol[(d0 - 1)*n1 + s, j] = 0.
                 self.E1_2_pol[(d0 - 1)*n1 + s, n1 + j] = \
                     self.Xi_1[s + 1, (j + 1) % n1] - self.Xi_1[s + 1, j]
 
@@ -1063,7 +1067,7 @@ class PolarSplines:
         self.P1_1_pol[:n1, 2*n1//3] = -self.Xi_1[2].reshape(n1, 1)
         self.P1_1_pol[:n1, :1*n1] += spa.identity(n1)
         self.P1_1_pol[:n1, n1:2*n1] = spa.identity(n1)
-        self.P1_1_pol[n1:,   2*n1:] = spa.identity((d0 - 2)*n1)
+        self.P1_1_pol[n1:, 2*n1:] = spa.identity((d0 - 2)*n1)
         self.P1_1_pol = self.P1_1_pol.tocsr()
 
         # 2nd component
@@ -1096,7 +1100,7 @@ class PolarSplines:
         # 1st component
         for s in range(2):
             for j in range(n1):
-                self.E2_1_pol[s,      j] = 0.
+                self.E2_1_pol[s, j] = 0.
                 self.E2_1_pol[s, n1 + j] = (self.Xi_1[s + 1,
                                             (j + 1) % n1] - self.Xi_1[s + 1, j])
 

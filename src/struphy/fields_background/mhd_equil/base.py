@@ -2,6 +2,7 @@
 
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
@@ -13,8 +14,8 @@ class MHDequilibrium(metaclass=ABCMeta):
     The callables B, J, p and n have to be provided through the child classes `CartesianMHDequilibrium`, `LogicalMHDequilibrium`
     or `AxisymmMHDequilibrium`.
     The base class provides transformations of callables to different representations or coordinates.
-    For logical equilibria, the methods bv, jv, p0 and n0 are overidden by the child class.   
-    """    
+    For logical equilibria, the methods bv, jv, p0 and n0 are overidden by the child class.
+    """
 
     def absB0(self, *etas, squeeze_out=False):
         """ 0-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3.
@@ -209,7 +210,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         n = self.n_xyz(xyz[0], xyz[1], xyz[2])
         s = n * np.log(p/(2/3*np.power(n, 5/3)))
         return self.domain.pull(s, *etas, kind='0', squeeze_out=squeeze_out)
-    
+
     def s3_monoatomic(self, *etas, squeeze_out=False):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
@@ -225,13 +226,12 @@ class MHDequilibrium(metaclass=ABCMeta):
         n = self.n_xyz(xyz[0], xyz[1], xyz[2])
         s = n * np.log(p/(2/5*np.power(n, 7/5)))
         return self.domain.pull(s, *etas, kind='0', squeeze_out=squeeze_out)
-    
+
     def s3_diatomic(self, *etas, squeeze_out=False):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
         """
         return self.domain.transform(self.s0_diatomic(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
-
 
     ###################
     # Single components
@@ -344,7 +344,7 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def j2_3(self, *etas, squeeze_out=False):
         return self.j2(*etas, squeeze_out=squeeze_out)[2]
-    
+
     def jv_1(self, *etas, squeeze_out=False):
         return self.jv(*etas, squeeze_out=squeeze_out)[0]
 
@@ -371,7 +371,7 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def gradB2_3(self, *etas, squeeze_out=False):
         return self.gradB2(*etas, squeeze_out=squeeze_out)[2]
-    
+
     def gradBv_1(self, *etas, squeeze_out=False):
         return self.gradBv(*etas, squeeze_out=squeeze_out)[0]
 
@@ -398,7 +398,7 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def curl_unit_b2_3(self, *etas, squeeze_out=False):
         return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[2]
-    
+
     def curl_unit_bv_1(self, *etas, squeeze_out=False):
         return self.curl_unit_bv(*etas, squeeze_out=squeeze_out)[0]
 
@@ -446,11 +446,11 @@ class MHDequilibrium(metaclass=ABCMeta):
         det_df = self.domain.jacobian_det(e1, e2, e3)
         p = self.p0(e1, e2, e3)
         print('Computation of pressure done.')
-        
-        #ori 240624
+
+        # ori 240624
         n_dens = self.n0(e1, e2, e3)
         print('Computation of density done.')
-        
+
         absB = self.absB0(e1, e2, e3)
         print('Computation of abs(B) done.')
         j_cart, xyz = self.j_cart(e1, e2, e3)
@@ -508,7 +508,7 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Poloidal plane at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Poloidal plane at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
 
         # top view
         e1 = np.linspace(0, 1, n1)  # radial coordinate in [0, 1]
@@ -580,7 +580,7 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Jacobian determinant at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Jacobian determinant at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # pressure
@@ -610,9 +610,9 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Pressure at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Pressure at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
-        
+
         # density
         fig = plt.figure(figsize=(15, np.ceil(n_planes/2) * 6.5))
         for n in range(n_planes):
@@ -640,7 +640,7 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Equilibrium density at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Equilibrium density at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # magnetic field strength
@@ -670,7 +670,7 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Magnetic field strength at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Magnetic field strength at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # current density
@@ -700,14 +700,14 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Current density (abs) at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Current density (abs) at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
 
 class CartesianMHDequilibrium(MHDequilibrium):
     """
-    Base class for MHD equilibria where B, J, n and p are specified in Cartesian coordinates.  
-    The domain must be set using the setter method.    
+    Base class for MHD equilibria where B, J, n and p are specified in Cartesian coordinates.
+    The domain must be set using the setter method.
     """
 
     @property
@@ -756,8 +756,8 @@ class CartesianMHDequilibrium(MHDequilibrium):
 
 class LogicalMHDequilibrium(MHDequilibrium):
     """
-    Base class for MHD equilibria where B, J, p and n are specified on the logical cube [0, 1]^3. 
-    Must prescribe B, J and grad(|B|) as 1-forms (covariant), p and n as a 0-forms.      
+    Base class for MHD equilibria where B, J, p and n are specified on the logical cube [0, 1]^3.
+    Must prescribe B, J and grad(|B|) as 1-forms (covariant), p and n as a 0-forms.
     """
 
     @property
@@ -769,21 +769,21 @@ class LogicalMHDequilibrium(MHDequilibrium):
 
     @abstractmethod
     def bv(self, *etas, squeeze_out=False):
-        """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3. 
+        """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
         pass
 
     @abstractmethod
     def jv(self, *etas, squeeze_out=False):
-        """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3. 
+        """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
         pass
 
     @abstractmethod
     def p0(self, *etas, squeeze_out=False):
-        """0-form equilibrium pressure on logical cube [0, 1]^3. 
+        """0-form equilibrium pressure on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
         pass
@@ -796,7 +796,7 @@ class LogicalMHDequilibrium(MHDequilibrium):
 
     @abstractmethod
     def gradB1(self, *etas, squeeze_out=False):
-        """1-form gradient of equilibrium magnetic field strength on logical cube [0, 1]^3. 
+        """1-form gradient of equilibrium magnetic field strength on logical cube [0, 1]^3.
         Must return the components as a tuple.
         """
         pass
@@ -804,8 +804,8 @@ class LogicalMHDequilibrium(MHDequilibrium):
 
 class AxisymmMHDequilibrium(CartesianMHDequilibrium):
     r"""
-    Base class for ideal axisymmetric MHD equilibria based on a poloidal flux function 
-    :math:`\psi(R, Z)` and a toroidal field function :math:`g_{tor}(R, Z)` 
+    Base class for ideal axisymmetric MHD equilibria based on a poloidal flux function
+    :math:`\psi(R, Z)` and a toroidal field function :math:`g_{tor}(R, Z)`
     in a cylindrical coordinate system :math:`(R, \phi, Z)`.
 
     The magnetic field and current density are then given by

@@ -14,7 +14,7 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-with open('../src/struphy/console/main.py') as f:  
+with open('../src/struphy/console/main.py') as f:
     exec(f.read())
 
 # -- Project information -----------------------------------------------------
@@ -64,9 +64,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-#html_theme = 'sphinx_rtd_theme'
-#html_theme = 'classic'
-#html_theme = 'press'
+# html_theme = 'sphinx_rtd_theme'
+# html_theme = 'classic'
+# html_theme = 'press'
 html_theme = 'pydata_sphinx_theme'
 
 html_theme_options = {
@@ -92,7 +92,7 @@ html_theme_options = {
 # }
 
 html_sidebars = {
-   '**': ['globaltoc.html', 'relations.html', 'searchbox.html'],
+    '**': ['globaltoc.html', 'relations.html', 'searchbox.html'],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -141,4 +141,4 @@ myst_enable_extensions = [
     "tasklist",
 ]
 
-myst_dmath_allow_labels=True
+myst_dmath_allow_labels = True

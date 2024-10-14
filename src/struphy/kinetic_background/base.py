@@ -2,15 +2,16 @@
 
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 
 
 class KineticBackground(metaclass=ABCMeta):
     r"""Base class for kinetic background distributions
-    defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
+    defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,`
     with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`.
 
-    Explicit expressions for the following number density :math:`n` 
+    Explicit expressions for the following number density :math:`n`
     and mean velocity :math:`\mathbf u` must be implemented:
 
     .. math::
@@ -56,7 +57,7 @@ class KineticBackground(metaclass=ABCMeta):
 
     @abstractmethod
     def n(self, *etas):
-        """ Number density (0-form). 
+        """ Number density (0-form).
 
         Parameters
         ----------
@@ -93,7 +94,7 @@ class KineticBackground(metaclass=ABCMeta):
         1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
         2. Evaluating the function on a meshgrid (in phase space).
 
-        Hence all arguments must always have 
+        Hence all arguments must always have
 
         1. the same shape
         2. either ndim = 1 or ndim = 3 + vdim.
@@ -165,7 +166,7 @@ class SumKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f1.is_polar
-    
+
     @property
     def volume_form(self):
         """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
@@ -178,7 +179,7 @@ class SumKineticBackground(KineticBackground):
         return self._f1.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def n(self, *etas):
-        """ Number density (0-form). 
+        """ Number density (0-form).
 
         Parameters
         ----------
@@ -217,7 +218,7 @@ class SumKineticBackground(KineticBackground):
         1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
         2. Evaluating the function on a meshgrid (in phase space).
 
-        Hence all arguments must always have 
+        Hence all arguments must always have
 
         1. the same shape
         2. either ndim = 1 or ndim = 3 + vdim.
@@ -263,7 +264,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f.is_polar
-    
+
     @property
     def volume_form(self):
         """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
@@ -276,7 +277,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         return self._f.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def n(self, *etas):
-        """ Number density (0-form). 
+        """ Number density (0-form).
 
         Parameters
         ----------
@@ -311,7 +312,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
         2. Evaluating the function on a meshgrid (in phase space).
 
-        Hence all arguments must always have 
+        Hence all arguments must always have
 
         1. the same shape
         2. either ndim = 1 or ndim = 3 + vdim.
@@ -330,8 +331,8 @@ class ScalarMultiplyKineticBackground(KineticBackground):
 
 
 class Maxwellian(KineticBackground):
-    r""" Base class for a Maxwellian distribution function. 
-    It is defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,` 
+    r""" Base class for a Maxwellian distribution function.
+    It is defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,`
     with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
 
     .. math::
@@ -376,7 +377,7 @@ class Maxwellian(KineticBackground):
 
         polar : bool
             True if the velocity coordinate is the radial one of polar coordinates (v >= 0).
-            
+
         volume_form : bool
             If True, the polar Gaussian is multiplied by the polar velocity Jacobian |v|.
 
@@ -393,8 +394,9 @@ class Maxwellian(KineticBackground):
         else:
             assert np.all(v >= 0.)
             out = 1./vth**2 * np.exp(-(v - u)**2/(2.*vth**2))
-            if volume_form: out *= v
-            
+            if volume_form:
+                out *= v
+
         return out
 
     def __call__(self, *args):
@@ -405,7 +407,7 @@ class Maxwellian(KineticBackground):
         1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
         2. Evaluating the function on a meshgrid (in phase space).
 
-        Hence all arguments must always have 
+        Hence all arguments must always have
 
         1. the same shape
         2. either ndim = 1 or ndim = 3 + vdim.
@@ -425,7 +427,7 @@ class Maxwellian(KineticBackground):
         shape0 = np.shape(args[0])
         for i, arg in enumerate(args):
             assert np.shape(arg) == shape0, \
-                    f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
+                f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
             assert np.ndim(arg) == 1 or np.ndim(
                 arg) == 3 + self.vdim, f'{np.ndim(arg) = } not allowed for Maxwellian evaluation.'  # flat or meshgrid evaluation
 
@@ -466,8 +468,8 @@ class Maxwellian(KineticBackground):
                 u = us[i]
                 vth = vths[i]
 
-            res *= self.gaussian(v, 
-                                 u=u, 
+            res *= self.gaussian(v,
+                                 u=u,
                                  vth=vth,
                                  polar=self.is_polar[i],
                                  volume_form=self.volume_form)
@@ -493,7 +495,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
 
     - Magnetic moment
 
-    .. math:: 
+    .. math::
 
         \mu = \frac{m_s v_\perp²}{2B},
 
@@ -522,7 +524,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
 
     @abstractmethod
     def n(self, psic):
-        """ Number density (0-form). 
+        """ Number density (0-form).
 
         Parameters
         ----------
@@ -580,7 +582,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
         1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
         2. Evaluating the function on a meshgrid (in phase space).
 
-        Hence all arguments must always have 
+        Hence all arguments must always have
 
         1. the same shape
         2. either ndim = 1 or ndim = 3.

@@ -1,8 +1,9 @@
 'Braginskii equilibria.'
 
 
-import numpy as np
 import warnings
+
+import numpy as np
 
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -24,15 +25,15 @@ class HomogenSlabITG(BraginskiiEquilibrium):
 
     Parameters
     ----------
-    B0z : float  
+    B0z : float
         z-component of magnetic field (default: 1.).
     Lx : float
         Domain length in x; 1/Lx is the temperature scale length.
-    p0 : float 
+    p0 : float
         Constant pressure coefficient (default: 1.).
     pmin : float
         Minimum pressure at x = Lx.
-    n0 : float 
+    n0 : float
         Ion number density (default: 1.).
     eps : float
         The unit factor :math:`1/(\hat\Omega_i \hat t)`.
@@ -44,11 +45,11 @@ class HomogenSlabITG(BraginskiiEquilibrium):
         braginskii_equilibrium :
             type : HomogenSlabITG
             HomogenSlabITG :
-                B0z  : 1. 
-                Lx   : 1. 
+                B0z  : 1.
+                Lx   : 1.
                 p0   : 1.
                 pmin : .1
-                n0   : 1. 
+                n0   : 1.
                 eps  : .1
     """
 
@@ -83,7 +84,7 @@ class HomogenSlabITG(BraginskiiEquilibrium):
 
         return bx, by, bz
 
-    # equilibrium ion velocity 
+    # equilibrium ion velocity
     def u_xyz(self, x, y, z):
         """ Ion velocity.
         """

@@ -1,13 +1,13 @@
 import numpy as np
-from struphy.pic.base import Particles
-from struphy.pic import utilities_kernels
-from struphy.kinetic_background import maxwellians
-from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry.base import Domain
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.geometry.base import Domain
+from struphy.kinetic_background import maxwellians
+from struphy.pic import utilities_kernels
+from struphy.pic.base import Particles
 
 
 class Particles6D(Particles):
@@ -155,7 +155,7 @@ class Particles5D(Particles):
     index  | 0 | 1 | 2 |     3        4       5      6      7      8          9             10            >=11
     ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
     value position (eta) v_parallel v_perp  weight   s0     w0   energy magn. moment toro. can. moment buffer
-    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========   
+    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
 
     Parameters
     ----------
@@ -249,12 +249,12 @@ class Particles5D(Particles):
 
     @property
     def coords(self):
-        """ Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`.
+        """ Coordinates of the Particles5D, :math:`(v_\\parallel, \\mu)`.
         """
         return 'vpara_mu'
 
     def svol(self, eta1, eta2, eta3, *v):
-        """ 
+        """
         Sampling density function as volume-form.
 
         Parameters
@@ -315,7 +315,7 @@ class Particles5D(Particles):
         return self.svol(eta1, eta2, eta3, *v)/self._svol.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
-        """ 
+        """
         Sampling density function as 0-form.
 
         Parameters
@@ -439,11 +439,11 @@ class Particles3D(Particles):
 
     The numpy marker array is as follows:
 
-    ===== ============== ====== ====== ====== ======  
-    index  | 0 | 1 | 2 |   3       4     5      >=6       
-    ===== ============== ====== ====== ====== ======  
-    value position (eta) weight   s0     w0   buffer    
-    ===== ============== ====== ====== ====== ======   
+    ===== ============== ====== ====== ====== ======
+    index  | 0 | 1 | 2 |   3       4     5      >=6
+    ===== ============== ====== ====== ====== ======
+    value position (eta) weight   s0     w0   buffer
+    ===== ============== ====== ====== ====== ======
 
     See :class:`~struphy.pic.base.Particles` for more info on parameters.
     """

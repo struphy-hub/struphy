@@ -9,7 +9,7 @@ def pytest_generate_tests(metafunc):
     option_value = metafunc.config.option.fast
     if 'fast' in metafunc.fixturenames and option_value is not None:
         metafunc.parametrize("fast", [option_value])
-        
+
     option_value = metafunc.config.option.with_desc
     if 'with_desc' in metafunc.fixturenames and option_value is not None:
         metafunc.parametrize("with_desc", [option_value])

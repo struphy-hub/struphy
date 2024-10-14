@@ -1,13 +1,12 @@
+import itertools
 from abc import abstractmethod
 
-from mpi4py import MPI
 import numpy as np
-from scipy import sparse
-import itertools
-
-from psydac.linalg.basic import Vector, VectorSpace, LinearOperator
-from psydac.linalg.stencil import StencilVectorSpace
+from mpi4py import MPI
+from psydac.linalg.basic import LinearOperator, Vector, VectorSpace
 from psydac.linalg.block import BlockVectorSpace
+from psydac.linalg.stencil import StencilVectorSpace
+from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
@@ -36,8 +35,8 @@ class LinOpWithTransp(LinearOperator):
             If set to True the method returns the matrix as a Scipy sparse matrix, if set to false
             it returns the full matrix as a Numpy.ndarray
         format : string, optional
-            Only relevant if is_sparse is True. Specifies the format in which the sparse matrix is to be stored. 
-            Choose from "csr" (Compressed Sparse Row, default),"csc" (Compressed Sparse Column), "bsr" (Block Sparse Row ), 
+            Only relevant if is_sparse is True. Specifies the format in which the sparse matrix is to be stored.
+            Choose from "csr" (Compressed Sparse Row, default),"csc" (Compressed Sparse Column), "bsr" (Block Sparse Row ),
             "lil" (List of Lists), "dok" (Dictionary of Keys), "coo" (COOrdinate format) and "dia" (DIAgonal).
 
         Returns
@@ -142,7 +141,7 @@ class LinOpWithTransp(LinearOperator):
                         # Compute to which column this iteration belongs
                         col = spoint
                         col += np.ravel_multi_index(i, npts[h])
-                        if is_sparse == False:
+                        if not is_sparse:
                             result[:, col] = tmp2.toarray()
                         else:
                             aux = tmp2.toarray()
@@ -208,7 +207,7 @@ class LinOpWithTransp(LinearOperator):
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
                     col = np.ravel_multi_index(i, npts)
-                    if is_sparse == False:
+                    if not is_sparse:
                         result[:, col] = tmp2.toarray()
                     else:
                         aux = tmp2.toarray()
@@ -226,7 +225,7 @@ class LinOpWithTransp(LinearOperator):
             raise Exception(
                 'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
 
-        if is_sparse == False:
+        if not is_sparse:
             # Use Allreduce to perform addition reduction and give one copy of the result to all ranks.
             comm.Allreduce(result, out, op=MPI.SUM)
             return out
@@ -509,4 +508,3 @@ class BoundaryOperator(LinOpWithTransp):
         Returns the transposed operator.
         """
         return BoundaryOperator(self._domain, self._space_id, self.bc)
-    

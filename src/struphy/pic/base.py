@@ -1,31 +1,30 @@
+import copy
+import os
 from abc import ABCMeta, abstractmethod
 
-import struphy
-import os
-import yaml
-import numpy as np
 import h5py
+import numpy as np
 import scipy.special as sp
-import copy
+import yaml
 
-from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.pusher_utilities_kernels import reflect
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
-from struphy.kinetic_background import maxwellians
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.io.output_handling import DataContainer
-
+import struphy
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry.base import Domain
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.geometry.base import Domain
+from struphy.io.output_handling import DataContainer
+from struphy.kinetic_background import maxwellians
+from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
+from struphy.pic.pushing.pusher_utilities_kernels import reflect
 
 
 class Particles(metaclass=ABCMeta):
     """
     Base class for particle species.
 
-    The marker information is stored in a 2D numpy array, 
+    The marker information is stored in a 2D numpy array,
     see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#PIC-data-structures>`_.
 
     Parameters
@@ -34,7 +33,7 @@ class Particles(metaclass=ABCMeta):
         Name of particle species.
 
     derham : Derham
-        Struphy Derham object. 
+        Struphy Derham object.
 
     domain : Domain
         Struphy domain object.
@@ -69,13 +68,13 @@ class Particles(metaclass=ABCMeta):
         if domain is None:
             from struphy.geometry.domains import Cuboid
             domain = Cuboid()
-        
+
         self._name = name
         self._derham = derham
         self._domain = domain
         self._mhd_equil = mhd_equil
         self._braginskii_equil = braginskii_equil
-        
+
         self._mpi_comm = derham.comm
         self._mpi_size = derham.comm.Get_size()
         self._mpi_rank = derham.comm.Get_rank()
@@ -313,7 +312,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def markers(self):
-        """ 2D numpy array holding the marker information, including holes. 
+        """ 2D numpy array holding the marker information, including holes.
         The i-th row holds the i-th marker info.
 
         ===== ============== ======================= ======= ====== ====== ========== === ===
@@ -329,7 +328,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def holes(self):
-        """ Array of booleans stating if an entry in the markers array is a hole or not. 
+        """ Array of booleans stating if an entry in the markers array is a hole or not.
         """
         return self._holes
 
@@ -390,7 +389,7 @@ class Particles(metaclass=ABCMeta):
         out['vel'] = slice(3, 3 + self.vdim)  # velocities
         out['coords'] = slice(0, 3 + self.vdim)  # phasespace_coords
         out['com'] = slice(8, 11)  # constants of motion
-        out['pos+energy'] = list(range(0, 3)) + [8] # positions + energy
+        out['pos+energy'] = list(range(0, 3)) + [8]  # positions + energy
         out['weights'] = 3 + self.vdim  # weights
         out['s0'] = 4 + self.vdim  # sampling_density
         out['w0'] = 5 + self.vdim  # weights0
@@ -495,7 +494,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def pforms(self):
-        """ Tuple of size 2; each entry must be either "vol" or None, defining the p-form 
+        """ Tuple of size 2; each entry must be either "vol" or None, defining the p-form
         (space and velocity, respectively) of f_init.
         """
         return self._pforms
@@ -534,7 +533,7 @@ class Particles(metaclass=ABCMeta):
         '''Collection of mandatory arguments for pusher kernels.
         '''
         return self._args_markers
-    
+
     @property
     def f_jacobian_coords(self):
         """ Coordinates of the velocity jacobian determinant of the distribution fuction.
@@ -602,7 +601,7 @@ class Particles(metaclass=ABCMeta):
         self._lost_markers = np.zeros((int(n_rows*0.5), 10), dtype=float)
 
     def draw_markers(self):
-        r""" 
+        r"""
         Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
         In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
 
@@ -612,7 +611,7 @@ class Particles(metaclass=ABCMeta):
 
         with :math:`\mathcal M(v)` a multi-variate Gaussian:
 
-        .. math:: 
+        .. math::
 
             \mathcal M(v) = \prod_{i=1}^{d_v} \frac{1}{\sqrt{2\pi}\,v_{\mathrm{th},i}}
                 \exp\left[-\frac{(v_i-u_i)^2}{2 v_{\mathrm{th},i}^2}\right]\,,
@@ -629,7 +628,7 @@ class Particles(metaclass=ABCMeta):
 
         1. Uniform distribution on the unit cube: :math:`n^3(\eta) = 1`
 
-        2. Uniform distribution on the disc: :math:`n^3(\eta) = 2\eta_1` (radial coordinate = volume element of square-to-disc mapping) 
+        2. Uniform distribution on the disc: :math:`n^3(\eta) = 2\eta_1` (radial coordinate = volume element of square-to-disc mapping)
 
         Velocities are sampled via inverse transform sampling.
         In case of Particles6D, velocities are sampled as a Maxwellian in each 3 directions,
@@ -644,7 +643,7 @@ class Particles(metaclass=ABCMeta):
 
             v_i = \text{erfinv}(2r_i - 1)\sqrt{2}v_{\mathrm{th},i} + u_i \,.
 
-        In case of Particles5D, parallel velocity is sampled as a Maxwellian and perpendicular particle speed :math:`v_\perp = \sqrt{v_1^2 + v_2^2}` 
+        In case of Particles5D, parallel velocity is sampled as a Maxwellian and perpendicular particle speed :math:`v_\perp = \sqrt{v_1^2 + v_2^2}`
         is sampled as a 2D Maxwellian in polar coordinates,
 
         .. math::
@@ -744,7 +743,7 @@ class Particles(metaclass=ABCMeta):
 
             # 1. standard random number generator (pseudo-random)
             if self.marker_params['loading']['type'] == 'pseudo_random':
-                
+
                 # Set seed
                 _seed = self.marker_params['loading']['seed']
                 if _seed is not None:
@@ -755,20 +754,20 @@ class Particles(metaclass=ABCMeta):
                 # for the first domain in each clone has the same markers independent
                 # of the number of clones
                 for i in range(self._mpi_size):
-                    for iclone in range(self.derham.Nclones):  
-                        temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim) 
+                    for iclone in range(self.derham.Nclones):
+                        temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim)
                         if i == self._mpi_rank:
                             if self.derham.Nclones == 1:
                                 self.phasespace_coords = temp
                                 break_outer_loop = True
-                                #print(iclone,self._mpi_rank)
+                                # print(iclone,self._mpi_rank)
                                 break
                             else:
                                 if iclone == self.derham.inter_comm.Get_rank():
                                     self.phasespace_coords = temp
                                     break_outer_loop = True
 
-                                    #print('b',iclone,self._mpi_rank)
+                                    # print('b',iclone,self._mpi_rank)
                                     break
                     # Check the flag variable to break the outer loop
                     if break_outer_loop:
@@ -860,13 +859,13 @@ class Particles(metaclass=ABCMeta):
                          apply_bc: bool = True,
                          alpha: tuple | list | int | float = 1.,
                          do_test=False):
-        """ 
+        """
         Sorts markers according to MPI domain decomposition.
 
         Markers are sent to the process corresponding to the alpha-weighted position
         alpha*markers[:, 0:3] + (1 - alpha)*markers[:, buffer_idx:buffer_idx + 3].
 
-        Periodic boundary conditions are taken into account 
+        Periodic boundary conditions are taken into account
         when computing the alpha-weighted position.
 
         Parameters
@@ -876,7 +875,7 @@ class Particles(metaclass=ABCMeta):
 
         alpha : tuple | list | int | float
             For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
-            If int or float then alpha = (alpha, alpha, alpha). alpha must be between 0 and 1. 
+            If int or float then alpha = (alpha, alpha, alpha). alpha must be between 0 and 1.
 
         do_test : bool
             Check if all markers are on the right process after sorting.
@@ -1009,7 +1008,7 @@ class Particles(metaclass=ABCMeta):
 
     def update_weights(self):
         """
-        Applies the control variate method, i.e. updates the time-dependent marker weights 
+        Applies the control variate method, i.e. updates the time-dependent marker weights
         according to the algorithm in :ref:`control_var`.
         The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
@@ -1027,7 +1026,7 @@ class Particles(metaclass=ABCMeta):
 
     def binning(self, components, bin_edges):
         r""" Computes full-f and delta-f distribution functions via marker binning in logical space.
-        Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`. 
+        Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
 
         Parameters
         ----------
@@ -1129,7 +1128,7 @@ class Particles(metaclass=ABCMeta):
         Parameters
         ----------
         newton : bool
-            Whether the shift due to boundary conditions should be computed 
+            Whether the shift due to boundary conditions should be computed
             for a Newton step or for a strandard (explicit or Picard) step.
         """
 
@@ -1170,15 +1169,15 @@ class Particles(metaclass=ABCMeta):
                 outside_left_inds = np.nonzero(self._is_outside_left)[0]
                 if newton:
                     self.markers[outside_right_inds,
-                                self.bufferindex + 3 + self.vdim + axis] += 1.
+                                 self.bufferindex + 3 + self.vdim + axis] += 1.
                     self.markers[outside_left_inds,
-                                self.bufferindex + 3 + self.vdim + axis] += -1.
+                                 self.bufferindex + 3 + self.vdim + axis] += -1.
                 else:
                     self.markers[:, self.bufferindex + 3 + self.vdim + axis] = 0.
                     self.markers[outside_right_inds,
-                                self.bufferindex + 3 + self.vdim + axis] = 1.
+                                 self.bufferindex + 3 + self.vdim + axis] = 1.
                     self.markers[outside_left_inds,
-                                self.bufferindex + 3 + self.vdim + axis] = -1.
+                                 self.bufferindex + 3 + self.vdim + axis] = -1.
 
             elif bc == 'reflect':
                 reflect(self.markers, self.domain.args_domain,
@@ -1189,7 +1188,7 @@ class Particles(metaclass=ABCMeta):
 
     def boundary_transfer(self, is_outside):
         """
-        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
+        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction).
 
         When particles reach the inner boundary circle, transfer them to the opposite poloidal angle of the same magnetic flux surface.
 
@@ -1228,7 +1227,7 @@ class Particles(metaclass=ABCMeta):
 
     def particle_refilling(self, is_outside):
         """
-        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
+        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction).
 
         When particles reach the outter boundary of the poloidal plane, refills them to the opposite poloidal angle of the same magnetic flux surface.
 
@@ -1274,7 +1273,7 @@ def sendrecv_determine_mtbs(markers,
                             buffer_index,
                             alpha: list | tuple | np.ndarray = (1., 1., 1.)):
     """
-    Determine which markers have to be sent from current process and put them in a new array. 
+    Determine which markers have to be sent from current process and put them in a new array.
     Corresponding rows in markers array become holes and are therefore set to -1.
     This can be done purely with numpy functions (fast, vectorized).
 
@@ -1294,7 +1293,7 @@ def sendrecv_determine_mtbs(markers,
 
         alpha : list | tuple
             For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
-            alpha[i] must be between 0 and 1. 
+            alpha[i] must be between 0 and 1.
 
         buffer_index : int
             The buffer index of the markers array.

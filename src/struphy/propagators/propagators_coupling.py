@@ -2,32 +2,29 @@
 
 
 import numpy as np
-
+from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
-
-from struphy.propagators.base import Propagator
-from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.pushing.pusher import Pusher
-from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
-from struphy.pic.particles import Particles6D, Particles5D, Particles3D
-from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
-from struphy.pic.particles import Particles6D, Particles5D, Particles3D
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.io.setup import descend_options_dict
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.mass import WeightedMassOperator
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.io.setup import descend_options_dict
+from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
+from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.particles import Particles3D, Particles5D, Particles6D
+from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
+from struphy.pic.pushing.pusher import Pusher
+from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
 
 
 class VlasovAmpere(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf E \in H(\textnormal{curl})` and :math:`f` such that
 
     .. math::
@@ -35,7 +32,7 @@ class VlasovAmpere(Propagator):
         -& \int_\Omega \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F\,\textrm d \mathbf x  =
         c_1 \int_\Omega \int_{\mathbb{R}^3} f \mathbf{v} \cdot \mathbf F \, \text{d}^3 \mathbf{v} \,\textrm d \mathbf x \qquad \forall \, \mathbf F \in H(\textnormal{curl}) \,,
         \\[2mm]
-        &\frac{\partial f}{\partial t} + c_2\, \mathbf{E} 
+        &\frac{\partial f}{\partial t} + c_2\, \mathbf{E}
             \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`, such that
@@ -444,7 +441,7 @@ class EfieldWeightsImplicit(Propagator):
     which make up the accumulation matrix :math:`\mathbb{E} \mathbb{W}` .
 
     Parameters
-    ---------- 
+    ----------
     e : psydac.linalg.block.BlockVector
         FE coefficients of a 1-form.
 
@@ -640,7 +637,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
     using the symplectic Euler method.
 
     Parameters
-    ---------- 
+    ----------
     e : psydac.linalg.block.BlockVector
         FE coefficients of a 1-form.
 
@@ -789,7 +786,7 @@ class EfieldWeightsAnalytic(Propagator):
         \end{align}
 
     Parameters
-    ---------- 
+    ----------
     e : psydac.linalg.block.BlockVector
         FE coefficients of a 1-form.
 
@@ -935,12 +932,12 @@ class EfieldWeightsAnalytic(Propagator):
 
 class PressureCoupling6D(Propagator):
     r"""
-    :ref:`FEEC <gempic>` discretization of the following equations: 
+    :ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\tilde{\mathbf{U}}  \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and :math:`f` such that
 
     .. math::
 
-        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} \cdot \mathbf V \,\textrm d \mathbf x 
+        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \nabla \cdot \tilde{\mathbb{P}}_{\textnormal{h},\perp} \cdot \mathbf V \,\textrm d \mathbf x
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &\frac{\partial f_\textnormal{h}}{\partial t} - \left(\nabla \tilde{\mathbf U}_\perp \cdot \mathbf{v} \right) \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
@@ -951,8 +948,8 @@ class PressureCoupling6D(Propagator):
 
     .. math::
 
-        \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix} 
-        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n)^{-1} V^\top (\bar {\mathcal X})^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X} V (\mathbb M^n)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix}
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n)^{-1} V^\top (\bar {\mathcal X})^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X} V (\mathbb M^n)^{-1} & 0 \end{bmatrix}
         \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,.
     """
 
@@ -1124,7 +1121,7 @@ class PressureCoupling6D(Propagator):
 
     class GT_MAT_G(LinOpWithTransp):
         r'''
-        Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}` 
+        Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}`
         where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
 
         Parameters
@@ -1211,12 +1208,12 @@ class PressureCoupling6D(Propagator):
 
 class CurrentCoupling6DCurrent(Propagator):
     r"""
-    :ref:`FEEC <gempic>` discretization of the following equations: 
+    :ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\tilde{\mathbf{U}}  \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and :math:`f` such that
 
     .. math::
 
-        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon}  \int_\Omega n_\textnormal{h}\mathbf{u}_\textnormal{h} \times(\mathbf{B}_0+\tilde{\mathbf{B}}) \cdot \mathbf V \,\textrm d \mathbf x 
+        \int_\Omega \rho_0 &\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = - \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon}  \int_\Omega n_\textnormal{h}\mathbf{u}_\textnormal{h} \times(\mathbf{B}_0+\tilde{\mathbf{B}}) \cdot \mathbf V \,\textrm d \mathbf x
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &\frac{\partial f_\textnormal{h}}{\partial t} + \frac{1}{\varepsilon} \Big[(\mathbf{B}_0+\tilde{\mathbf{B}})\times\tilde{\mathbf{U}} \Big] \cdot \frac{\partial f_\textnormal{h}}{\partial \mathbf{v}} =0\,,
@@ -1449,13 +1446,13 @@ class CurrentCoupling6DCurrent(Propagator):
 
 
 class CurrentCoupling5DCurlb(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
+        \left\{
+            \begin{aligned}
                 \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V\, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \frac{f^\text{vol}}{B^*_\parallel} v_\parallel^2 (\nabla \times \mathbf b_0)  \times \mathbf B \cdot \mathbf V \, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
                 \\
                 &\frac{\partial f}{\partial t} = - \frac{1}{B^*_\parallel} v_\parallel (\nabla \times \mathbf b_0) \cdot (\mathbf B \times \tilde{\mathbf U}) \nabla_{v_\parallel}f \,.
@@ -1466,15 +1463,15 @@ class CurrentCoupling5DCurlb(Propagator):
 
     .. math::
 
-        \begin{bmatrix} 
+        \begin{bmatrix}
             \mathbf u^{n+1} - \mathbf u^n \\ V_\parallel^{n+1} - V_\parallel^n
-        \end{bmatrix} 
-        = \frac{\Delta t}{2} 
-        \begin{bmatrix} 
+        \end{bmatrix}
+        = \frac{\Delta t}{2}
+        \begin{bmatrix}
             0 & - (\mathbb{M}^{2,n})^{-1} \left\{ \mathbb{L}^2 \frac{1}{\bar{\sqrt{g}}} \right\}\cdot_\text{vector} \left\{\bar{b}^{\nabla \times}_0 (\bar{B}^\times_f)^\top \bar{V}_\parallel \frac{1}{\bar{\sqrt{g}}}\right\} \frac{1}{\bar B^{*0}_\parallel})
-            \\  
-            \frac{1}{\bar B^{*0}_\parallel} \left\{\bar{b}^{\nabla \times}_0 (\bar{B}^\times_f)^\top \bar{V}_\parallel \frac{1}{\bar{\sqrt{g}}}\right\}\, \cdot_\text{vector} \left\{\frac{1}{\bar{\sqrt{g}}}(\mathbb{L}²)^\top\right\} (\mathbb{M}^{2,n})^{-1} & 0 
-        \end{bmatrix} 
+            \\
+            \frac{1}{\bar B^{*0}_\parallel} \left\{\bar{b}^{\nabla \times}_0 (\bar{B}^\times_f)^\top \bar{V}_\parallel \frac{1}{\bar{\sqrt{g}}}\right\}\, \cdot_\text{vector} \left\{\frac{1}{\bar{\sqrt{g}}}(\mathbb{L}²)^\top\right\} (\mathbb{M}^{2,n})^{-1} & 0
+        \end{bmatrix}
         \begin{bmatrix}
             (\mathbb{M}^{2,n})^{-1} (\mathbf u^{n+1} + \mathbf u^n)
             \\
@@ -1495,7 +1492,7 @@ class CurrentCoupling5DCurlb(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
@@ -1749,13 +1746,13 @@ class CurrentCoupling5DCurlb(Propagator):
 
 
 class CurrentCoupling5DGradB(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
+        \left\{
+            \begin{aligned}
                 \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf x = - \frac{A_\textnormal{h}}{A_b} \iint \mu \frac{f^\text{vol}}{B^*_\parallel} (\mathbf b_0 \times \nabla B_\parallel) \times \mathbf B \cdot \mathbf V \,\textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu \quad \forall \,\mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
                 \\
                 &\frac{\partial f}{\partial t} = \frac{1}{B^*_\parallel} \left[ \mathbf b_0 \times (\tilde{\mathbf U} \times \mathbf B) \right] \cdot \nabla f\,.
@@ -1766,19 +1763,19 @@ class CurrentCoupling5DGradB(Propagator):
 
     .. math::
 
-        \begin{bmatrix} 
+        \begin{bmatrix}
             \dot{\mathbf u}\\ \dot{\mathbf H}
-        \end{bmatrix} 
+        \end{bmatrix}
         =
-        \begin{bmatrix} 
-            0 & (\mathbb{M}^{2,n})^{-1} \mathbb{L}² \frac{1}{\bar{\sqrt{g}}} \frac{1}{\bar B^{*0}_\parallel}\bar{B}^\times_f \bar{G}^{-1} \bar{b}^\times_0 \bar{G}^{-1} 
-            \\  
-            -\bar{G}^{-1} \bar{b}^\times_0 \bar{G}^{-1}  \bar{B}^\times_f \frac{1}{\bar B^{*0}_\parallel} \frac{1}{\bar{\sqrt{g}}} (\mathbb{L}²)^\top (\mathbb{M}^{2,n})^{-1} & 0 
-        \end{bmatrix} 
+        \begin{bmatrix}
+            0 & (\mathbb{M}^{2,n})^{-1} \mathbb{L}² \frac{1}{\bar{\sqrt{g}}} \frac{1}{\bar B^{*0}_\parallel}\bar{B}^\times_f \bar{G}^{-1} \bar{b}^\times_0 \bar{G}^{-1}
+            \\
+            -\bar{G}^{-1} \bar{b}^\times_0 \bar{G}^{-1}  \bar{B}^\times_f \frac{1}{\bar B^{*0}_\parallel} \frac{1}{\bar{\sqrt{g}}} (\mathbb{L}²)^\top (\mathbb{M}^{2,n})^{-1} & 0
+        \end{bmatrix}
         \begin{bmatrix}
             \mathbb M^{2,n} \mathbf u
             \\
-            \frac{A_\textnormal{h}}{A_b} \bar M \bar W \overline{\nabla B}_\parallel 
+            \frac{A_\textnormal{h}}{A_b} \bar M \bar W \overline{\nabla B}_\parallel
         \end{bmatrix} \,.
 
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
@@ -1796,7 +1793,7 @@ class CurrentCoupling5DGradB(Propagator):
                          'recycle': True}
         dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
@@ -1824,8 +1821,9 @@ class CurrentCoupling5DGradB(Propagator):
                  coupling_params: dict,
                  epsilon: float = 1.):
 
-        from struphy.pic.pushing.pusher import ButcherTableau
         from psydac.linalg.solvers import inverse
+
+        from struphy.pic.pushing.pusher import ButcherTableau
 
         super().__init__(particles, u)
 
@@ -2138,7 +2136,7 @@ class CurrentCoupling5DGradB(Propagator):
 
             # clear the buffer
             if stage == self._butcher.n_stages - 1:
-                self.particles[0].markers[~self.particles[0].holes,  11:-
+                self.particles[0].markers[~self.particles[0].holes, 11:-
                                           1] = 0.
 
         # write new coeffs into Propagator.variables

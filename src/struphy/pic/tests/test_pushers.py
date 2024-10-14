@@ -3,23 +3,26 @@ import pytest
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}]])
 def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.geometry import domains
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.pushing import pusher_kernels
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry import domains
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
     comm = MPI.COMM_WORLD
@@ -102,23 +105,26 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}]])
 def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.geometry import domains
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.pushing import pusher_kernels
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry import domains
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
     comm = MPI.COMM_WORLD
@@ -208,23 +214,26 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}]])
 def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.geometry import domains
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.pushing import pusher_kernels
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry import domains
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
     comm = MPI.COMM_WORLD
@@ -314,23 +323,26 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}]])
 def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.geometry import domains
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.pushing import pusher_kernels
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry import domains
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
     comm = MPI.COMM_WORLD
@@ -420,23 +432,26 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}]])
 def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.geometry import domains
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.pushing import pusher_kernels
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry import domains
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing import pusher_kernels
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
     comm = MPI.COMM_WORLD
@@ -529,25 +544,28 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
+@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
     ['Colella', {
         'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}]])
 def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.geometry import domains
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.pushing import pusher_kernels
     from struphy.feec.utilities import create_equal_random_arrays
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
+    from struphy.geometry import domains
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import ButcherTableau
+    from struphy.pic.pushing.pusher import Pusher as Pusher_psy
+    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -634,12 +652,12 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
         displacements[i] = accum_sendcounts
         accum_sendcounts += sendcounts[i]
 
-    all_particles_psy = np.zeros((int(accum_sendcounts)*3,), dtype = float)
-    all_particles_str = np.zeros((int(accum_sendcounts)*3,), dtype = float)
+    all_particles_psy = np.zeros((int(accum_sendcounts)*3,), dtype=float)
+    all_particles_str = np.zeros((int(accum_sendcounts)*3,), dtype=float)
 
     comm.Barrier()
-    comm.Allgatherv(np.array(particles.markers[:,:3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
-    comm.Allgatherv(np.array(markers_str.T[:,:3]), [all_particles_str, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(np.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(np.array(markers_str.T[:, :3]), [all_particles_str, sendcounts, displacements, MPI.DOUBLE])
     comm.Barrier()
 
     unique_psy = np.unique(all_particles_psy)

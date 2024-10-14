@@ -2,22 +2,20 @@
 
 
 from numpy import array, polynomial, random
-
-from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
 
+from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.io.setup import descend_options_dict
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.base import Particles
+from struphy.pic.particles import Particles3D, Particles5D, Particles6D
+from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
+from struphy.pic.pushing.pusher import ButcherTableau, Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.pic.pushing.pusher import Pusher
-from struphy.pic.pushing.pusher import ButcherTableau
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.pic.particles import Particles6D, Particles5D, Particles3D
-from struphy.pic.base import Particles
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.io.setup import descend_options_dict
-from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc, eval_kernels_gc
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 
 
 class PushEta(Propagator):
@@ -31,7 +29,7 @@ class PushEta(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p\,. 
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p\,.
 
     Available algorithms:
 
@@ -179,7 +177,7 @@ class PushEtaPC(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p + \textnormal{vec}(\hat{\mathbf U}) \,, 
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \,\mathbf v_p + \textnormal{vec}(\hat{\mathbf U}) \,,
 
     where
 
@@ -272,14 +270,14 @@ class PushGuidingCenterBxEstar(Propagator):
 
         \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} = \frac{\mathbf E^* \times \mathbf b_0}{B_\parallel^*} (\mathbf X_p(t))   \,,
 
-    where 
+    where
 
     .. math::
 
         \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf b_0\,,
 
     where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation).
-    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde`` 
+    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde``
     can be ignored by passing ``None``.
     In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
@@ -291,8 +289,8 @@ class PushGuidingCenterBxEstar(Propagator):
 
     * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton` 
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`  
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
 
     @staticmethod
@@ -570,8 +568,8 @@ class PushGuidingCenterParallel(Propagator):
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
+        \left\{
+            \begin{aligned}
                 \frac{\textnormal d \mathbf X_p(t)}{\textnormal d t} &= v_{\parallel,p}(t) \frac{\mathbf B^*}{B^*_\parallel}(\mathbf X_p(t)) \,,
                 \\
                 \frac{\textnormal d v_{\parallel,p}(t)}{\textnormal d t} &= \frac{1}{\varepsilon} \frac{\mathbf B^*}{B^*_\parallel} \cdot \mathbf E^* (\mathbf X_p(t)) \,,
@@ -585,14 +583,14 @@ class PushGuidingCenterParallel(Propagator):
         \mathbf E^* = -\nabla \phi - \varepsilon \mu_p \nabla |\mathbf B|\,,\qquad \mathbf B^* = \mathbf B + \varepsilon v_\parallel \nabla \times \mathbf b_0\,,\qquad  B^*_\parallel = \mathbf B^* \cdot \mathbf b_0\,,
 
     where :math:`\mathbf B = \mathbf B_0 + \tilde{\mathbf B}` can be the full magnetic field (equilibrium + perturbation).
-    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde`` 
+    The electric potential ``phi`` and/or the magnetic perturbation ``b_tilde``
     can be ignored by passing ``None``.
     In logical space this is given by :math:`\mathbf X = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
+        \left\{
+            \begin{aligned}
                 \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} &= v_{\parallel,p}(t) \frac{\hat{\mathbf B}^{*2}}{\hat B^{*3}_\parallel}(\boldsymbol \eta_p(t)) \,,
                 \\
                 \frac{\textnormal d v_{\parallel,p}(t)}{\textnormal d t} &= \frac{1}{\varepsilon} \frac{\hat{\mathbf B}^{*2}}{\hat B^{*3}_\parallel} \cdot \hat{\mathbf E}^{*1} (\boldsymbol \eta_p(t)) \,.
@@ -603,8 +601,8 @@ class PushGuidingCenterParallel(Propagator):
 
     * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order`
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton` 
-    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`  
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton`
+    * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`
     """
 
     @staticmethod
@@ -963,7 +961,7 @@ class StepStaticEfield(Propagator):
 
     def __init__(self, particles, **params):
 
-        from numpy import polynomial, floor
+        from numpy import floor, polynomial
 
         super().__init__(particles)
 
@@ -1023,10 +1021,10 @@ class PushDeterministicDiffusion(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - G\, D \, \frac{\nabla \Pi^0_{L^2}u_h}{\Pi^0_{L^2} u_h}\mathbf (\boldsymbol \eta_p(t))\,, 
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = - G\, D \, \frac{\nabla \Pi^0_{L^2}u_h}{\Pi^0_{L^2} u_h}\mathbf (\boldsymbol \eta_p(t))\,,
         \qquad [\Pi^0_{L^2, ijk} u_h](\boldsymbol \eta_p) = \frac 1N \sum_{p} w_p \boldsymbol \Lambda^0_{ijk}(\boldsymbol \eta_p)\,,
 
-    where :math:`D>0` is a positive diffusion coefficient. 
+    where :math:`D>0` is a positive diffusion coefficient.
 
     Available algorithms:
 
@@ -1055,7 +1053,7 @@ class PushDeterministicDiffusion(Propagator):
 
         self._bc_type = bc_type
         self._diffusion = diffusion_coefficient
-        
+
         self._tmp = self.derham.Vh['1'].zeros()
 
         # choose algorithm
@@ -1077,7 +1075,6 @@ class PushDeterministicDiffusion(Propagator):
                               self.domain.args_domain,
                               alpha_in_kernel=1.,
                               n_stages=self._butcher.n_stages)
-
 
     def __call__(self, dt):
         """

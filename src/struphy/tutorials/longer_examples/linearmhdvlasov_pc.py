@@ -1,24 +1,26 @@
 def run(n_procs):
     """
     Run an example for the model "LinearMHDVlasovPC", including post-processing.
-    
+
     Parameters
     ----------
     n_procs : int
         Number of MPI processes to run the model.
     """
-    
-    import os, subprocess
+
+    import os
+    import subprocess
+
     import struphy
-    
+
     libpath = struphy.__path__[0]
-    
+
     # name of simulation output folder
     out_name = 'sim_example_linearmhdvlasovpc'
-    
+
     # run the model
-    subprocess.run(['struphy', 
-                    'run', 
+    subprocess.run(['struphy',
+                    'run',
                     'LinearMHDVlasovPC',
                     '-i',
                     os.path.join(libpath, 'io/inp/longer_examples/params_hybridmhdvlasovpc.yml'),
@@ -26,33 +28,36 @@ def run(n_procs):
                     out_name,
                     '--mpi',
                     str(n_procs)], check=True)
-    
+
     # perform post-processing
     subprocess.run(['struphy',
                     'pproc',
                     '-d',
                     out_name], check=True)
-    
+
 
 def diagnostics():
     """
     Perform diagnostics and plot results for the example run.
     """
-    
-    import os, h5py, pickle, yaml
-    
-    import numpy as np
+
+    import os
+    import pickle
+
+    import h5py
     import matplotlib.pyplot as plt
-    
+    import numpy as np
+    import yaml
+
     import struphy
 
     libpath = struphy.__path__[0]
-    
+
     with open(os.path.join(libpath, 'state.yml')) as f:
         state = yaml.load(f, Loader=yaml.FullLoader)
 
     o_path = state['o_path']
-    
+
     out_name = 'sim_example_linearmhdvlasovpc'
     out_path = os.path.join(o_path, out_name)
 
@@ -115,28 +120,28 @@ def diagnostics():
     plt.plot(np.ones(11)*vR, np.linspace(0.01, 0.04, 11), 'k--')
 
     plt.show()
-    
+
 
 if __name__ == '__main__':
-    
+
     import argparse
-    
+
     # get number of MPI processes
     parser = argparse.ArgumentParser(description='Run an example for the model "LinearMHDVlasovPC".')
-    
+
     parser.add_argument('--mpi',
                         type=int,
                         metavar='N',
                         help='number of MPI processes used to run the model (default=1)',
                         default=1)
-    
+
     parser.add_argument('-d', '--diagnostics',
                         help='run diagnostics only, if output folder of example already exists',
                         action='store_true')
-    
+
     args = parser.parse_args()
-    
+
     if not args.diagnostics:
         run(args.mpi)
-        
+
     diagnostics()

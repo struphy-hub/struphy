@@ -1,19 +1,18 @@
-import numpy as np
-
 import os
 import shutil
+
 import h5py
-import yaml
-
-from struphy.feec.psydac_derham import Derham
-from struphy.kinetic_background import maxwellians
-from struphy.io.setup import setup_domain_and_equil
 import matplotlib.pyplot as plt
-
+import numpy as np
+import yaml
 from tqdm import tqdm
 
+from struphy.feec.psydac_derham import Derham
+from struphy.io.setup import setup_domain_and_equil
+from struphy.kinetic_background import maxwellians
 
-def create_femfields(path: str, 
+
+def create_femfields(path: str,
                      *,
                      step: int = 1):
     """
@@ -25,7 +24,7 @@ def create_femfields(path: str,
         Absolute path of simulation output folder.
 
     step : int
-        Whether to create FEM fields at every time step (step=1, default), every second time step (step=2), etc. 
+        Whether to create FEM fields at every time step (step=1, default), every second time step (step=2), etc.
 
     Returns
     -------
@@ -138,10 +137,10 @@ def eval_femfields(path: str,
                    fields: dict,
                    space_ids: dict,
                    *,
-                   celldivide: list = [1, 1, 1], 
+                   celldivide: list = [1, 1, 1],
                    physical: bool = False):
     """
-    Evaluate FEM fields obtained from create_femfields. 
+    Evaluate FEM fields obtained from create_femfields.
 
     Parameters
     ----------
@@ -166,11 +165,11 @@ def eval_femfields(path: str,
         Nested dictionary holding values of FemFields on the grid as list of 3d np.arrays:
         point_data[name][t] contains the values of the field with name "name" in fields[t].keys() at time t.
 
-        If physical is True, physical components of fields are saved. 
+        If physical is True, physical components of fields are saved.
         Otherwise, logical components (differential n-forms) are saved.
 
     grids_log : 3-list
-        1d logical grids in each eta-direction with Nel[i]*cell_divide[i] + 1 entries in each direction.  
+        1d logical grids in each eta-direction with Nel[i]*cell_divide[i] + 1 entries in each direction.
 
     grids_phy : 3-list
         Mapped (physical) grids obtained by domain(*grids_log).
@@ -257,8 +256,8 @@ def eval_femfields(path: str,
     return point_data, grids_log, grids_phy
 
 
-def create_vtk(path: str, 
-               grids_phy: list, 
+def create_vtk(path: str,
+               grids_phy: list,
                point_data: dict,
                *,
                physical: bool = False):
@@ -275,7 +274,7 @@ def create_vtk(path: str,
 
     point_data : dict
         Field data obtained from struphy.diagnostics.post_processing.eval_femfields.
-        
+
     physical : bool
         Wether to create vtk for push-forwarded physical (xyz) components of fields.
     """
@@ -287,7 +286,7 @@ def create_vtk(path: str,
 
     try:
         os.mkdir(path_vtk)
-    except:
+    except BaseException:
         shutil.rmtree(path_vtk)
         os.mkdir(path_vtk)
 
@@ -334,13 +333,13 @@ def post_process_markers(path_in, path_out, species, step=1):
         Absolute path of simulation output folder.
 
     path_out : str
-        Absolute path of where to store the .txt files. Will be in path_out/orbits. 
+        Absolute path of where to store the .txt files. Will be in path_out/orbits.
 
     species : str
         Name of the species for which the post processing should be performed.
 
     step : int, optional
-        Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc. 
+        Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
     """
 
     # get # of MPI processes from meta.txt file
@@ -369,7 +368,7 @@ def post_process_markers(path_in, path_out, species, step=1):
 
     try:
         os.mkdir(path_orbits)
-    except:
+    except BaseException:
         shutil.rmtree(path_orbits)
         os.mkdir(path_orbits)
 
@@ -442,7 +441,7 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         Absolute path of simulation output folder.
 
     path_out : str
-        Absolute path of where to store the .txt files. Will be in path_out/orbits. 
+        Absolute path of where to store the .txt files. Will be in path_out/orbits.
 
     species : str
         Name of the species for which the post processing should be performed.
@@ -474,7 +473,7 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
 
     try:
         os.mkdir(path_distr)
-    except:
+    except BaseException:
         shutil.rmtree(path_distr)
         os.mkdir(path_distr)
 

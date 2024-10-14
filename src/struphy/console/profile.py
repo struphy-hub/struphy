@@ -5,11 +5,16 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
     import os
     import pickle
-    import yaml
+
     import numpy as np
+    import yaml
     from matplotlib import pyplot as plt
-    from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
+
     import struphy
+    from struphy.post_processing.cprofile_analyser import (
+        get_cprofile_data,
+        replace_keys,
+    )
 
     libpath = struphy.__path__[0]
 

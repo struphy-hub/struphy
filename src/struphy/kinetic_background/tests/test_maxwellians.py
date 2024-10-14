@@ -8,8 +8,8 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
     Asserts that the results over the domain and velocity space correspond to the
     analytical computation.
     """
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
@@ -106,8 +106,8 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
 def test_maxwellian_3d_perturbed(Nel, show_plot=False):
     '''Tests the Maxwellian3D class for perturbations.'''
 
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
@@ -308,14 +308,15 @@ def test_maxwellian_3d_perturbed(Nel, show_plot=False):
 def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     '''Tests the Maxwellian3D class for mhd equilibrium moments.'''
 
-    import numpy as np
-    import matplotlib.pyplot as plt
     import inspect
 
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     from struphy.fields_background.mhd_equil import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     maxw_params_mhd = {'n': 'mhd',
                        'u1': 'mhd',
@@ -357,11 +358,11 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and 'MHDequilibrium' not in key:
             print(f'{key = }')
-            
+
             if 'DESCequilibrium' in key and not with_desc:
                 print(f'Attention: {with_desc = }, DESC not tested here !!')
                 continue
-            
+
             mhd_equil = val()
             print(f'{mhd_equil.params = }')
             if 'AdhocTorus' in key:
@@ -742,8 +743,8 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     Asserts that the results over the domain and velocity space correspond to the
     analytical computation.
     """
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
@@ -756,7 +757,7 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     # ===========================================================
     maxw_params = {'n': 2.}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, volume_form=False)
 
     meshgrids = np.meshgrid(
         e1, e2, e3,
@@ -804,7 +805,7 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
                    'vth_para': vth_para,
                    'vth_perp': vth_perp}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, volume_form=False)
 
     # test Maxwellian profile in v
     v_para = np.linspace(-5, 5, 64)
@@ -849,8 +850,8 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
 def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     '''Tests the GyroMaxwellian2D class for perturbations.'''
 
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
@@ -870,7 +871,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'ls': {'n': [mode]},
                        'amps': {'n': [amp]}}}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form=False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -913,7 +914,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'u_para': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form=False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -967,7 +968,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'u_perp': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form=False)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -1020,7 +1021,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_para': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form=False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1075,7 +1076,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'amps': {'vth_perp': [amp]}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form=False)
 
     meshgrids = np.meshgrid(
         e1, [0.], [0.],
@@ -1125,7 +1126,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
                        'c': {'n': c}
                    }}
 
-    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form = False)
+    maxwellian = GyroMaxwellian2D(maxw_params=maxw_params, pert_params=pert_params, volume_form=False)
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -1158,14 +1159,15 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
 def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     '''Tests the GyroMaxwellian2D class for mhd equilibrium moments.'''
 
-    import numpy as np
-    import matplotlib.pyplot as plt
     import inspect
 
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     from struphy.fields_background.mhd_equil import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     maxw_params_mhd = {'n': 'mhd',
                        'u_para': 'mhd',
@@ -1199,11 +1201,11 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and 'MHDequilibrium' not in key:
             print(f'{key = }')
-            
+
             if 'DESCequilibrium' in key and not with_desc:
                 print(f'Attention: {with_desc = }, DESC not tested here !!')
                 continue
-            
+
             mhd_equil = val()
             print(f'{mhd_equil.params = }')
             if 'AdhocTorus' in key:
@@ -1228,10 +1230,10 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                                           Lz=mhd_equil.params['R0']*2*np.pi)
 
             maxwellian = GyroMaxwellian2D(
-                maxw_params=maxw_params_mhd, mhd_equil=mhd_equil, volume_form = False)
+                maxw_params=maxw_params_mhd, mhd_equil=mhd_equil, volume_form=False)
 
             maxwellian_1 = GyroMaxwellian2D(
-                maxw_params=maxw_params_1, mhd_equil=mhd_equil, volume_form = False)
+                maxw_params=maxw_params_1, mhd_equil=mhd_equil, volume_form=False)
 
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
@@ -1411,7 +1413,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             maxw_params=maxw_params_mhd,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil,
-                            volume_form = False)
+                            volume_form=False)
 
                         # test meshgrid evaluation
                         assert maxwellian_perturbed(
@@ -1426,7 +1428,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             maxw_params=maxw_params_zero,
                             pert_params=pert_params,
                             mhd_equil=mhd_equil,
-                            volume_form = False)
+                            volume_form=False)
 
                         assert np.allclose(maxwellian_zero_bckgr.n(
                             *e_meshgrids), pert(*e_meshgrids))
@@ -1581,12 +1583,12 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     Asserts that the results over the domain and velocity space correspond to the
     analytical computation.
     """
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
-    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
     from struphy.fields_background.mhd_equil import equils
     from struphy.geometry import domains
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
 
     e1 = np.linspace(0., 1., Nel[0])
     e2 = np.linspace(0., 1., Nel[1])

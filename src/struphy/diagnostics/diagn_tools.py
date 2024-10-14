@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import os
 import subprocess
+
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
 
 from struphy.dispersion_relations import analytic
 
@@ -25,13 +26,13 @@ def power_spectrum_2d(values, name, code, grids,
         values[n] contains the values at time step n, where n = 0:Nt-1:step with 0<step.
 
     name : str
-        Name of the FemField. 
+        Name of the FemField.
 
     code : str
         From which code the data has been obtained.
 
     grids : 3-list
-        1d logical grids in each eta-direction with Nel[i]*npts_per_cell[i] + 1 entries in each direction. 
+        1d logical grids in each eta-direction with Nel[i]*npts_per_cell[i] + 1 entries in each direction.
 
     grids_mapped : 3-list
         Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.
@@ -40,9 +41,9 @@ def power_spectrum_2d(values, name, code, grids,
         Which component of a FemField to consider; is 0 for 0-and 3-forms, is in {0, 1, 2} for 1- and 2-forms.
 
     slice_at : 3-list
-        At which indices i, j the 1d slice data (t, eta)_(i, j) should be obtained. 
-        One entry must be "None"; this is the direction of the fft. 
-        Default: [None, 0, 0] performs the eta1-fft at (eta2[0], eta3[0]). 
+        At which indices i, j the 1d slice data (t, eta)_(i, j) should be obtained.
+        One entry must be "None"; this is the direction of the fft.
+        Default: [None, 0, 0] performs the eta1-fft at (eta2[0], eta3[0]).
 
     do_plot : boolean
         Plot result if True, otherwise return things.
@@ -142,7 +143,7 @@ def power_spectrum_2d(values, name, code, grids,
             str(component + 1) + ' from code: ' + code
         ax.set_title(title)
         ax.set_xlabel('$k$ [a.u.]')
-        ax.set_ylabel('$\omega$ [a.u.]')
+        ax.set_ylabel('$\\omega$ [a.u.]')
 
         # analytic solution:
         disp_class = getattr(analytic, disp_name)
@@ -610,7 +611,7 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
 
         try:
             import cv2
-        except:
+        except BaseException:
             yn = input(
                 "It seems like cv2 is not installed. Would you like to install it now (Y/n)?")
 

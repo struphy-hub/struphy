@@ -1,10 +1,8 @@
-from psydac.linalg.basic import VectorSpace, Vector
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
-
-from mpi4py import MPI
-
 import numpy as np
+from mpi4py import MPI
+from psydac.linalg.basic import Vector, VectorSpace
+from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
 
 
 class PolarDerhamSpace(VectorSpace):
@@ -117,37 +115,37 @@ class PolarDerhamSpace(VectorSpace):
 
     @property
     def dtype(self):
-        """ TODO 
+        """ TODO
         """
         return self._dtype
 
     @property
     def comm(self):
-        """ TODO 
+        """ TODO
         """
         return self._comm
 
     @property
     def space_id(self):
-        """ TODO 
+        """ TODO
         """
         return self._space_id
 
     @property
     def n_comps(self):
-        """ TODO 
+        """ TODO
         """
         return self._n_comps
 
     @property
     def n(self):
-        """ TODO 
+        """ TODO
         """
         return self._n
 
     @property
     def d(self):
-        """ TODO 
+        """ TODO
         """
         return self._d
 
@@ -159,19 +157,19 @@ class PolarDerhamSpace(VectorSpace):
 
     @property
     def starts(self):
-        """ TODO 
+        """ TODO
         """
         return self._starts
 
     @property
     def ends(self):
-        """ TODO 
+        """ TODO
         """
         return self._ends
 
     @property
     def dimension(self):
-        """ TODO 
+        """ TODO
         """
         return self._dimension
 
@@ -204,13 +202,13 @@ class PolarDerhamSpace(VectorSpace):
         """ Tuple holding type of spline basis (B-splines or M-splines), for each component.
         """
         return self._type_of_basis_3
-    
+
     @property
-    def parallel( self ):
+    def parallel(self):
         return self._parallel
 
     def zeros(self):
-        """ 
+        """
         Creates an element of the vector space filled with zeros.
         """
         return PolarVector(self)
@@ -221,7 +219,7 @@ class PolarVector(Vector):
     Element of a PolarDerhamSpace.
 
     An instance of a PolarVector consists of two parts:
-        1. a list of np.arrays of the polar coeffs (not distributed) 
+        1. a list of np.arrays of the polar coeffs (not distributed)
         2. a tensor product StencilVector/BlockVector of the parent space with inner rings set to zero (distributed).
 
     Parameters
@@ -244,13 +242,13 @@ class PolarVector(Vector):
 
     @property
     def space(self):
-        """ TODO 
+        """ TODO
         """
         return self._space
 
     @property
     def dtype(self):
-        """ TODO 
+        """ TODO
         """
         return self._dtype
 
@@ -299,7 +297,7 @@ class PolarVector(Vector):
         return self.tp.ghost_regions_in_sync
 
     def dot(self, v):
-        """ 
+        """
         Scalar product with another instance of PolarVector.
         """
         assert isinstance(v, PolarVector)
@@ -377,7 +375,7 @@ class PolarVector(Vector):
         return self.pol, self.tp.toarray()
 
     def copy(self, out=None):
-        """ TODO 
+        """ TODO
         """
         w = out or PolarVector(self.space)
         # copy stencil part
@@ -388,7 +386,7 @@ class PolarVector(Vector):
         return w
 
     def __neg__(self):
-        """ TODO 
+        """ TODO
         """
         w = PolarVector(self.space)
         if isinstance(w.tp, StencilVector):
@@ -401,7 +399,7 @@ class PolarVector(Vector):
         return w
 
     def __mul__(self, a):
-        """ TODO 
+        """ TODO
         """
         w = PolarVector(self.space)
         if isinstance(w.tp, StencilVector):
@@ -414,7 +412,7 @@ class PolarVector(Vector):
         return w
 
     def __rmul__(self, a):
-        """ TODO 
+        """ TODO
         """
         w = PolarVector(self.space)
         if isinstance(w.tp, StencilVector):
@@ -427,7 +425,7 @@ class PolarVector(Vector):
         return w
 
     def __add__(self, v):
-        """ TODO 
+        """ TODO
         """
         assert isinstance(v, PolarVector)
         assert v.space == self.space
@@ -443,7 +441,7 @@ class PolarVector(Vector):
         return w
 
     def __sub__(self, v):
-        """ TODO 
+        """ TODO
         """
         assert isinstance(v, PolarVector)
         assert v.space == self.space
@@ -459,7 +457,7 @@ class PolarVector(Vector):
         return w
 
     def __imul__(self, a):
-        """ TODO 
+        """ TODO
         """
         if isinstance(self.tp, StencilVector):
             self._pol[0] *= a
@@ -471,7 +469,7 @@ class PolarVector(Vector):
         return self
 
     def __iadd__(self, v):
-        """ TODO 
+        """ TODO
         """
         assert isinstance(v, PolarVector)
         assert v.space == self.space
@@ -486,7 +484,7 @@ class PolarVector(Vector):
         return self
 
     def __isub__(self, v):
-        """ TODO 
+        """ TODO
         """
         assert isinstance(v, PolarVector)
         assert v.space == self.space
@@ -512,10 +510,10 @@ class PolarVector(Vector):
             Single direction along which to operate (if not specified, all of them).
 
         """
-        #self._tp.update_ghost_regions(direction=direction)
+        # self._tp.update_ghost_regions(direction=direction)
         self._tp.update_ghost_regions()
 
-            # def update_ghost_regions(self, *, direction=None):
+        # def update_ghost_regions(self, *, direction=None):
     def exchange_assembly_data(self):
         """
         Exchange assembly data before performing non-local access to vector
@@ -527,7 +525,7 @@ class PolarVector(Vector):
             Single direction along which to operate (if not specified, all of them).
 
         """
-        #self._tp.update_ghost_regions(direction=direction)
+        # self._tp.update_ghost_regions(direction=direction)
         self._tp.exchange_assembly_data()
 
     def conjugate(self):

@@ -1,8 +1,7 @@
 import numpy as np
+from psydac.linalg.basic import IdentityOperator, Vector
 
 from struphy.feec.linear_operators import LinOpWithTransp
-
-from psydac.linalg.basic import Vector, IdentityOperator
 
 
 class BracketOperator(LinOpWithTransp):
@@ -12,7 +11,7 @@ class BracketOperator(LinOpWithTransp):
 
         \mathbf v \in \mathbb R^{3N_0} \mapsto \mathbf w = (w_{\mu,ijk})_{\mu,ijk} \in \mathbb R^{3N_0}\,,
 
-    defined by    
+    defined by
 
     .. math::
 
@@ -22,16 +21,16 @@ class BracketOperator(LinOpWithTransp):
 
     .. math::
 
-        [\mathbf v^\top \vec{\boldsymbol \Lambda}^v, \vec{\Lambda}^v_{\mu,ijk}] = \mathbf v^\top \vec{\boldsymbol \Lambda}^v \cdot \nabla \vec{\Lambda}^v_{\mu,ijk} - \vec{\Lambda}^v_{\mu,ijk} \cdot \nabla (\mathbf v^\top \vec{\boldsymbol \Lambda}^v)\,. 
+        [\mathbf v^\top \vec{\boldsymbol \Lambda}^v, \vec{\Lambda}^v_{\mu,ijk}] = \mathbf v^\top \vec{\boldsymbol \Lambda}^v \cdot \nabla \vec{\Lambda}^v_{\mu,ijk} - \vec{\Lambda}^v_{\mu,ijk} \cdot \nabla (\mathbf v^\top \vec{\boldsymbol \Lambda}^v)\,.
 
-    This is discretized as 
+    This is discretized as
 
-    .. math:: 
+    .. math::
 
         \mathbf w = \sum_{\mu = 1}^3 I_\mu \Big(\hat{\Pi}^{0}[\hat{\mathbf v}_h \cdot \vec{\boldsymbol \Lambda}^1 ] \mathbb G P_\mu - \hat{\Pi}^0[\hat{\mathbf A}^1_{\mu,h} \cdot \vec{\boldsymbol \Lambda}^v] \Big)^\top \mathbf u  \,,
 
     where :math:`I_\mu` and :math:`P_\mu` stand for the :class:`~struphy.feec.basis_projection_ops.CoordinateInclusion`
-    and :class:`~struphy.feec.basis_projection_ops.CoordinateProjector`, respectively, 
+    and :class:`~struphy.feec.basis_projection_ops.CoordinateProjector`, respectively,
     and the vector :math:`\mathbf u = (\hat{\mathbf m}, \vec{\boldsymbol \Lambda}^v)_{L^2} = \mathbb M^v \mathbf m` is provided as input.
     The weights in the the two :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` are given by
 
@@ -44,17 +43,20 @@ class BracketOperator(LinOpWithTransp):
     Parameters
     ----------
     derham : Derham
-        Discrete de Rham sequence. 
+        Discrete de Rham sequence.
 
     u : BlockVector
-        Coefficient of a field belonging to the H1vec space of the de Rahm sequence, 
+        Coefficient of a field belonging to the H1vec space of the de Rahm sequence,
         representing the mass matrix applie to the m factor in the above integral.
 
     """
 
     def __init__(self, derham, u):
 
-        from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
+        from struphy.feec.basis_projection_ops import (
+            BasisProjectionOperator,
+            CoordinateProjector,
+        )
 
         Xh = derham.Vh_fem['v']
         V1h = derham.Vh_fem['1']
@@ -87,26 +89,26 @@ class BracketOperator(LinOpWithTransp):
 
         # Initialize the BasisProjectionOperators
         self.PiuT = BasisProjectionOperator(
-            P0, V1h, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['1'],
-            V_boundary_op = IdentityOperator(derham.Vh_pol['1']),
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, V1h, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['1'],
+            V_boundary_op=IdentityOperator(derham.Vh_pol['1']),
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']))
 
         self.PigvT_1 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['v'],
-            V_boundary_op = derham.boundary_ops['v'],
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, Xh, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['v'],
+            V_boundary_op=derham.boundary_ops['v'],
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']))
         self.PigvT_2 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['v'],
-            V_boundary_op = derham.boundary_ops['v'],
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, Xh, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['v'],
+            V_boundary_op=derham.boundary_ops['v'],
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']))
         self.PigvT_3 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['v'],
-            V_boundary_op = derham.boundary_ops['v'],
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, Xh, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['v'],
+            V_boundary_op=derham.boundary_ops['v'],
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']))
 
         # Store the interpolation grid for later use in _update_all_weights
         interpolation_grid = [pts.flatten()
@@ -198,16 +200,16 @@ class BracketOperator(LinOpWithTransp):
         self.gv3f.vector = grad_3_v
 
         vf_values = self.vf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, [self.interpolation_grid_bn]*3, out = self._vf_values)
+            self.interpolation_grid_spans, [self.interpolation_grid_bn]*3, out=self._vf_values)
 
         gvf1_values = self.gv1f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out = self._gvf1_values)
+                                                  self.interpolation_grid_gradient, out=self._gvf1_values)
 
         gvf2_values = self.gv2f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out = self._gvf2_values)
+                                                  self.interpolation_grid_gradient, out=self._gvf2_values)
 
         gvf3_values = self.gv3f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out = self._gvf3_values)
+                                                  self.interpolation_grid_gradient, out=self._gvf3_values)
 
         self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
 

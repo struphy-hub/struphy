@@ -1,11 +1,11 @@
 'Accelerated particle pushing.'
 
 
+import numpy as np
+from mpi4py.MPI import IN_PLACE, SUM
+
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
-
-import numpy as np
-from mpi4py.MPI import SUM, IN_PLACE
 
 
 class Pusher:
@@ -31,9 +31,9 @@ class Pusher:
     Notes
     -----
 
-    For iterative methods with iteration index :math:`k`, spline evaluations at positions 
+    For iterative methods with iteration index :math:`k`, spline evaluations at positions
     :math:`\alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`
-    for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]` 
+    for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]`
     need particle MPI sorting in between.
     This requires calling dedicated ``eval_kernels`` during the iteration. Here are some
     rules to follow for iterative solvers:
@@ -42,7 +42,7 @@ class Pusher:
     * Pusher ``kernel`` and ``eval_kernels`` can perform evaluations at arbitrary
     weighted averages :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`,
     for :math:`i=1,2,3`.
-    * MPI sorting is done automatically before kernel calls according to the specified 
+    * MPI sorting is done automatically before kernel calls according to the specified
     values :math:`\alpha_i` for each kernel.
 
     Parameters
@@ -65,7 +65,7 @@ class Pusher:
     alpha_in_kernel: float | int | tuple | list
         For i=0,1,2, the spline/geometry evaluations in kernel are at
         alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
-        If float or int or then alpha = (alpha, alpha, alpha). 
+        If float or int or then alpha = (alpha, alpha, alpha).
         alpha must be between 0 and 1.
         alpha[i]=0 means that evaluation is at the initial positions (time n),
         stored at markers[:, buffer_idx + i].
@@ -76,8 +76,8 @@ class Pusher:
 
     eval_kernels : dict
         Keys: evaluation kernels for splines before the pusher kernel is called.
-        Values: optional arguments and weighting parameters alpha for 
-        sorting (before evaluation), according to 
+        Values: optional arguments and weighting parameters alpha for
+        sorting (before evaluation), according to
         alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i] for i=0,1,2.
         alpha must be between 0 and 1, see :meth:`~struphy.pic.base.Particles.mpi_sort_markers`.
 
@@ -165,7 +165,7 @@ class Pusher:
 
     def __call__(self, dt: float):
         """
-        Applies the chosen pusher kernel by a time step dt, 
+        Applies the chosen pusher kernel by a time step dt,
         applies kinetic boundary conditions and performs MPI sorting.
         """
 
@@ -182,7 +182,7 @@ class Pusher:
         markers[:, buffer_idx + 3 + vdim: buffer_idx + 3 + vdim + 3] = 0.
 
         # clear buffer columns starting from residual index, dont clear ID (last column)
-        markers[:,  residual_idx:-1] = 0.
+        markers[:, residual_idx:-1] = 0.
 
         if self.verbose:
             rank = self.particles.derham.comm.Get_rank()
@@ -328,7 +328,7 @@ class Pusher:
 
     @property
     def eval_kernels(self):
-        """ A dict of kernels for spline evaluation before execution of kernel during iteration. 
+        """ A dict of kernels for spline evaluation before execution of kernel during iteration.
         """
         return self._eval_kernels
 
@@ -386,7 +386,7 @@ class Pusher:
 
 class ButcherTableau:
     r"""
-    Butcher tableau for explicit s-stage Runge-Kutta methods. 
+    Butcher tableau for explicit s-stage Runge-Kutta methods.
 
     The Butcher tableau has the form
 

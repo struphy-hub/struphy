@@ -2,19 +2,17 @@
 
 
 import numpy as np
-
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from mpi4py import MPI
 from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-from struphy.feec.psydac_derham import Derham
-from struphy.feec.mass import WeightedMassOperator
-from struphy.pic.base import Particles
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 import struphy.pic.accumulation.filter_kernels as filters
+from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.psydac_derham import Derham
+from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
-
-from mpi4py import MPI
 
 
 class Accumulator:
@@ -232,7 +230,7 @@ class Accumulator:
 
                         vec.update_ghost_regions()
 
-                else: 
+                else:
                     raise NotImplemented('The type of filter must be fourier or three_point.')
 
             vec_finished = True
@@ -390,7 +388,7 @@ class Accumulator:
             Mode numbers which are not filtered out.
         """
 
-        from scipy.fft import rfft, irfft
+        from scipy.fft import irfft, rfft
 
         tor_Nel = self.derham.Nel[2]
 
@@ -400,7 +398,7 @@ class Accumulator:
         pn = self.derham.p
         ir = np.empty(3, dtype=int)
 
-        if (tor_Nel%2) == 0:
+        if (tor_Nel % 2) == 0:
             vec_temp = np.zeros(int(tor_Nel/2) + 1, dtype=complex)
         else:
             vec_temp = np.zeros(int((tor_Nel-1)/2) + 1, dtype=complex)
@@ -614,8 +612,9 @@ class AccumulatorVector:
 
         The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
         """
-        from struphy.feec.projectors import L2Projector
         from matplotlib import pyplot as plt
+
+        from struphy.feec.projectors import L2Projector
 
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
@@ -637,6 +636,6 @@ class AccumulatorVector:
         plt.plot(eta, field(*args, squeeze_output=True))
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel_name}"')
-        plt.xlabel(f"$\eta_{eta_direction + 1}$")
+        plt.xlabel(f"$\\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()

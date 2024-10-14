@@ -29,20 +29,24 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 
 
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
-    import numpy as np
-    from mpi4py import MPI
     from time import time
 
-    from struphy.feec.utilities import compare_arrays
+    import numpy as np
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-    from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.accumulation.particles_to_grid import Accumulator
+    from struphy.feec.utilities import compare_arrays
+    from struphy.geometry import domains
     from struphy.pic.accumulation import accum_kernels
+    from struphy.pic.accumulation.particles_to_grid import Accumulator
+    from struphy.pic.particles import Particles6D
+    from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import (
+        kernel_step_ph_full,
+    )
 
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
@@ -165,11 +169,11 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     # ======== New Part =======
     # =========================
     ACC = Accumulator(particles,
-                      'Hcurl', 
+                      'Hcurl',
                       accum_kernels.pc_lin_mhd_6d_full,
-                      derham, 
-                      domain.args_domain, 
-                      add_vector=True, 
+                      derham,
+                      domain.args_domain,
+                      add_vector=True,
                       symmetry='pressure')
 
     start_time = time()

@@ -1,14 +1,20 @@
 'Mapped domains (single patch).'
 
 
-from struphy.geometry.base import Domain, Spline, PoloidalSplineStraight, PoloidalSplineTorus
-from struphy.geometry.utilities import field_line_tracing
 import numpy as np
+
+from struphy.geometry.base import (
+    Domain,
+    PoloidalSplineStraight,
+    PoloidalSplineTorus,
+    Spline,
+)
+from struphy.geometry.utilities import field_line_tracing
 
 
 class Tokamak(PoloidalSplineTorus):
     """
-    Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\psi`.
+    Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\\psi`.
 
     .. image:: ../../pics/mappings/tokamak.png
 
@@ -21,7 +27,7 @@ class Tokamak(PoloidalSplineTorus):
     p : list[int]
         Spline degrees in (radial, angular) direction to be used in spline mapping (default: [2, 3]).
     psi_power : float
-        Parametrization of radial flux coordinate :math:`\eta_1=\psi_{\mathrm{norm}}^p`, where :math:`\psi_{\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
+        Parametrization of radial flux coordinate :math:`\\eta_1=\\psi_{\\mathrm{norm}}^p`, where :math:`\\psi_{\\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
     psi_shifts : list[float]
         Start and end shifts of polidal flux in % --> cuts away regions at the axis and edge (default: [2., 2.])
     xi_param : str
@@ -33,7 +39,7 @@ class Tokamak(PoloidalSplineTorus):
     p : list[int]
         Spline degrees in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [3, 3]).
     tor_period : int
-        Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1 --> full torus).
+        Toroidal periodicity built into the mapping: :math:`\\phi=2\\pi\\,\\eta_3/\\mathrm{torperiod}` (default: 1 --> full torus).
 
     Note
     ----
@@ -133,7 +139,7 @@ class Tokamak(PoloidalSplineTorus):
 
 class GVECunit(Spline):
     """
-    The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_, 
+    The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_,
     computed by the GVEC MHD equilibrium code.
 
     .. image:: ../../pics/mappings/gvec.png
@@ -197,8 +203,8 @@ class GVECunit(Spline):
 
 class DESCunit(Spline):
     r"""
-    The mapping :math:`(\rho, \theta,\zeta) \mapsto (X, Y, Z)` to 
-    Cartesian coordinates computed by the 
+    The mapping :math:`(\rho, \theta,\zeta) \mapsto (X, Y, Z)` to
+    Cartesian coordinates computed by the
     `DESC MHD equilibrium code <https://desc-docs.readthedocs.io/en/latest/theory_general.html#flux-coordinates>`_.
 
     .. image:: ../../pics/mappings/desc.png
@@ -271,7 +277,7 @@ class IGAPolarCylinder(PoloidalSplineStraight):
     r"""
     A cylinder with the cross section approximated by a spline mapping.
 
-    .. math:: 
+    .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &\sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\cos(2\pi\eta_2)\,\,\\
@@ -285,7 +291,7 @@ class IGAPolarCylinder(PoloidalSplineStraight):
     Nel : list[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
     p : list[int]
-        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
+        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).
     a : float
         Radius of cylinder (default: 1.).
     Lz : float
@@ -364,7 +370,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
     Nel : list[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
     p : list[int]
-        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
+        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).
     a : float
         Minor radius of torus (default: 1.).
     R0 : float
@@ -386,7 +392,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
                 a          : 1. # minor radius
                 R0         : 3. # major radius
                 tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-                sfl        : False # whether to use straight field line coordinates (particular theta parametrization) 
+                sfl        : False # whether to use straight field line coordinates (particular theta parametrization)
     """
 
     def __init__(self, **params):
@@ -529,7 +535,7 @@ class Orthogonal(Domain):
     r"""
     Slab geometry with orthogonal mesh distortion.
 
-    .. math:: 
+    .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\right]\,\,\\
@@ -837,7 +843,7 @@ class HollowTorus(Domain):
 
     .. math::
 
-        &\theta(\eta_1,\eta_2) = \left\{\begin{aligned} 
+        &\theta(\eta_1,\eta_2) = \left\{\begin{aligned}
 
         & 2\pi\,\eta_2\,, \quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{False}\,,
 
@@ -921,7 +927,7 @@ class ShafranovShiftCylinder(Domain):
     r"""
     Cylinder with quadratic Shafranov shift.
 
-    .. math:: 
+    .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\eta_1^2)\,r_x\Delta\,\,\\
@@ -995,7 +1001,7 @@ class ShafranovSqrtCylinder(Domain):
     r"""
     Cylinder with square-root Shafranov shift.
 
-    .. math:: 
+    .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\sqrt \eta_1)r_x\Delta\,\,\\
@@ -1068,7 +1074,7 @@ class ShafranovSqrtCylinder(Domain):
 class ShafranovDshapedCylinder(Domain):
     r"""
     Cylinder with D-shaped cross section and quadratic Shafranov shift.
-    .. math:: 
+    .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &R_0\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \right]\,\,\\
@@ -1079,19 +1085,19 @@ class ShafranovDshapedCylinder(Domain):
 
     Parameters
     ----------
-    R0 : float 
+    R0 : float
         Base radius (default: 2.).
-    Lz : float 
+    Lz : float
         Length in z-direction (default: 4.).
-    delta_x : float 
+    delta_x : float
         Shafranov shift in x-direction (default: 0.05).
-    delta_y : float 
+    delta_y : float
         Shafranov shift in y-direction (default: 0.025).
-    delta_gs : float 
+    delta_gs : float
         Delta = sin(alpha): triangularity, shift of high point  (default: 0.05).
     epsilon_gs : float
         Epsilon: inverse aspect ratio a/r0 (default: 0.5).
-    kappa_gs : float 
+    kappa_gs : float
         Kappa: ellipticity (elongation) (default: 2.).
 
     Note

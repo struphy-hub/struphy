@@ -174,18 +174,21 @@ def test_spaces(Nel, p, spl_kind):
 def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
     import numpy as np
-
-    from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
-
-    from struphy.polar.extraction_operators import PolarExtractionBlocksC1
-    from struphy.polar.basic import PolarDerhamSpace, PolarVector
-    from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
-
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
     from mpi4py import MPI
+
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.polar.basic import PolarDerhamSpace, PolarVector
+    from struphy.polar.extraction_operators import PolarExtractionBlocksC1
+    from struphy.polar.linear_operators import (
+        PolarExtractionOperator,
+        PolarLinearOperator,
+    )
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -324,13 +327,14 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 def test_projectors(Nel, p, spl_kind):
 
     import numpy as np
-
-    from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
     from mpi4py import MPI
+
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

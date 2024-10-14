@@ -16,21 +16,21 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Np=1000, Nclones=1):
 
     Tests:
 
-        * Whether all weights are initialized as \sqrt(g) = const. (Cuboid mappings).
+        * Whether all weights are initialized as \\sqrt(g) = const. (Cuboid mappings).
         * Whether the sum oaver all MC integrals is 1.
     '''
 
     import copy
+
     import numpy as np
     from mpi4py import MPI
 
-    from struphy.geometry import domains
     from struphy.feec.psydac_derham import Derham
-
-    from struphy.pic.particles import Particles6D
-    from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-    from struphy.pic.accumulation import accum_kernels
+    from struphy.geometry import domains
     from struphy.io.setup import setup_domain_cloning
+    from struphy.pic.accumulation import accum_kernels
+    from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+    from struphy.pic.particles import Particles6D
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

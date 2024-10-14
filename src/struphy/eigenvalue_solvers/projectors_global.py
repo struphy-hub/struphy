@@ -10,12 +10,12 @@ import numpy as np
 import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp
-
-from struphy.linear_algebra.linalg_kron import kron_matvec_2d
-from struphy.linear_algebra.linalg_kron import kron_matvec_3d
-
-from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
-from struphy.linear_algebra.linalg_kron import kron_lusolve_3d
+from struphy.linear_algebra.linalg_kron import (
+    kron_lusolve_2d,
+    kron_lusolve_3d,
+    kron_matvec_2d,
+    kron_matvec_3d,
+)
 
 
 # ======================= 1d ====================================
@@ -55,7 +55,7 @@ class Projectors_global_1d:
         Cumulative sum of subs, starting with 0.
 
     pts : 2d array (float)
-        Gauss-Legendre quadrature points in format (integration interval, local quadrature point) 
+        Gauss-Legendre quadrature points in format (integration interval, local quadrature point)
 
     wts : 2d array (float)
         Gauss-Legendre quadrature weights in format (integration interval, local quadrature weight)
@@ -176,7 +176,7 @@ class Projectors_global_1d:
             for br in spline_space.el_b:
 
                 # left and right integration boundaries
-                if spline_space.spl_kind == False:
+                if not spline_space.spl_kind:
                     xl = self.x_int[i]
                     xr = self.x_int[i + 1]
                 else:
@@ -193,7 +193,7 @@ class Projectors_global_1d:
                     self.x_his = np.append(self.x_his, xr)
                     break
 
-        if spline_space.spl_kind == True and spline_space.p % 2 == 0:
+        if spline_space.spl_kind and spline_space.p % 2 == 0:
             self.x_his = np.append(
                 self.x_his, spline_space.el_b[-1] + self.x_his[0])
 
@@ -207,7 +207,7 @@ class Projectors_global_1d:
 
         # quadrature points and weights, ignoring subs (less accurate integration for even degree)
         self.x_hisG = self.x_int
-        if spline_space.spl_kind == True:
+        if spline_space.spl_kind:
             if spline_space.p % 2 == 0:
                 self.x_hisG = np.append(
                     self.x_hisG, spline_space.el_b[-1] + self.x_hisG[0])
@@ -685,7 +685,7 @@ class Projectors_tensor_2d:
 
         Returns
         -------
-        dofs : 2d numpy array 
+        dofs : 2d numpy array
             The degrees of freedom sigma_ij.
         """
 
@@ -721,7 +721,7 @@ class Projectors_tensor_2d:
         comp : string
             Which projector: '0', '11', '12' or '2'.
 
-        dofs : 2d numpy array 
+        dofs : 2d numpy array
             The degrees of freedom sigma_ij.
 
         Returns
@@ -758,7 +758,7 @@ class Projectors_tensor_2d:
         comp : string
             Which projector: '0', '11', '12' or '2'.
 
-        fun : callable 
+        fun : callable
             fun(eta1, eta2).
 
         Returns
@@ -795,7 +795,7 @@ class Projectors_tensor_2d:
 
         Parameters
         ----------
-        fun : callable 
+        fun : callable
             Element in V_0 continuous space, fun(eta1, eta2).
 
         Returns
@@ -816,9 +816,9 @@ class Projectors_tensor_2d:
 
         Parameters
         ----------
-        fun1 : callable 
+        fun1 : callable
             First component of element in V_1 continuous space, fun1(eta1, eta2).
-        fun2 : callable 
+        fun2 : callable
             Second component of element in V_1 continuous space, fun2(eta1, eta2).
 
         Returns
@@ -842,7 +842,7 @@ class Projectors_tensor_2d:
 
         Parameters
         ----------
-        fun : callable 
+        fun : callable
             Element in V_2 continuous space, fun(eta1, eta2).
 
         Returns
@@ -1164,7 +1164,7 @@ class Projectors_tensor_3d:
 
         Returns
         -------
-        dofs : 3d numpy array 
+        dofs : 3d numpy array
             The degrees of freedom sigma_ijk.
         """
 
@@ -1219,7 +1219,7 @@ class Projectors_tensor_3d:
 
         Returns
         -------
-        rhs : 3d numpy array 
+        rhs : 3d numpy array
             The degrees of freedom sigma_ijk.
         """
 
@@ -1266,7 +1266,7 @@ class Projectors_tensor_3d:
         comp : string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
-        dofs : 3d numpy array 
+        dofs : 3d numpy array
             The degrees of freedom sigma_ijk.
 
         Returns
@@ -1327,7 +1327,7 @@ class Projectors_tensor_3d:
         comp : string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
-        fun : callable 
+        fun : callable
             f(eta1, eta2, eta3).
 
         Returns
@@ -1388,7 +1388,7 @@ class Projectors_tensor_3d:
 
         Parameters
         ----------
-        fun : callable 
+        fun : callable
             Element in V_0 continuous space, f(eta1, eta2, eta3).
 
         Returns
@@ -1409,11 +1409,11 @@ class Projectors_tensor_3d:
 
         Parameters
         ----------
-        fun1 : callable 
+        fun1 : callable
             1st component of element in V_1 continuous space, fun1(eta1, eta2, eta3).
-        fun2 : callable 
+        fun2 : callable
             2nd component of element in V_1 continuous space, fun2(eta1, eta2, eta3).
-        fun3 : callable 
+        fun3 : callable
             3rd component of element in V_1 continuous space, fun3(eta1, eta2, eta3).
 
         Returns
@@ -1440,11 +1440,11 @@ class Projectors_tensor_3d:
 
         Parameters
         ----------
-        fun1 : callable 
+        fun1 : callable
             1st component of element in V_2 continuous space, fun1(eta1, eta2, eta3).
-        fun2 : callable 
+        fun2 : callable
             2nd component of element in V_2 continuous space, fun2(eta1, eta2, eta3).
-        fun3 : callable 
+        fun3 : callable
             3rd component of element in V_2 continuous space, fun3(eta1, eta2, eta3).
 
         Returns
@@ -1771,7 +1771,7 @@ class ProjectorsGlobal3D:
 
         Returns
         -------
-        pts_PI : list of 1d arrays 
+        pts_PI : list of 1d arrays
             the 1D point sets.
         """
 
@@ -2244,7 +2244,7 @@ class ProjectorsGlobal3D:
 
     def assemble_approx_inv(self, tol):
 
-        if self.approx_Ik_0_inv == False or (self.approx_Ik_0_inv == True and self.approx_Ik_0_tol != tol):
+        if self.approx_Ik_0_inv == False or (self.approx_Ik_0_inv and self.approx_Ik_0_tol != tol):
 
             # poloidal plane
             I0_pol_0_inv_approx = np.linalg.inv(self.I0_pol_0.toarray())

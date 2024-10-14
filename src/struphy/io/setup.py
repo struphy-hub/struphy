@@ -150,10 +150,10 @@ def setup_domain_and_equil(params: dict, units: dict = None):
         The equilibrium object.
     """
 
-    from struphy.geometry import domains
-    from struphy.fields_background.mhd_equil import equils as mhd_equils
     from struphy.fields_background.braginskii_equil import equils as braginskii_equils
+    from struphy.fields_background.mhd_equil import equils as mhd_equils
     from struphy.fields_background.mhd_equil.base import LogicalMHDequilibrium
+    from struphy.geometry import domains
 
     if 'mhd_equilibrium' in params:
 
@@ -507,13 +507,15 @@ def pre_processing(
         The simulation parameters.
     """
 
+    import datetime
+    import glob
     import os
     import shutil
-    import datetime
     import sysconfig
-    import glob
+
     import yaml
-    from struphy.models import fluid, kinetic, hybrid, toy
+
+    from struphy.models import fluid, hybrid, kinetic, toy
 
     # prepare output folder
     if mpi_rank == 0:
@@ -583,7 +585,7 @@ def pre_processing(
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
 
-    if not "Nclones" in params["grid"].keys():
+    if "Nclones" not in params["grid"].keys():
         params["grid"]["Nclones"] = 1
     if mpi_rank == 0:
 

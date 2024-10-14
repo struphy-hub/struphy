@@ -1,13 +1,11 @@
 import numpy as np
-# from tqdm import tqdm
-
 import vtkmodules.all as vtk
-from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
+from gvec_to_python import GVEC, Form, Variable
 from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
+from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
 from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
 
-from gvec_to_python import GVEC, Form, Variable
-
+# from tqdm import tqdm
 
 
 def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec: GVEC, s_range, u_range, v_range, periodic):
@@ -48,6 +46,7 @@ def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec: GVEC, s_range
     set_data(ugrid, point_data, cell_data)
     writer.write(vtk_dir, filename, ugrid)
     # vtk_render(ugrid)
+
 
 def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
     """Generate vertices for `vtkUnstructuredGrid`.
@@ -101,7 +100,7 @@ def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
     point_data['chi']      = np.zeros(num_pts, dtype=np.float_)
     point_data['iota']     = np.zeros(num_pts, dtype=np.float_)
     point_data['q']        = np.zeros(num_pts, dtype=np.float_)
-    point_data['det'     ] = np.zeros(num_pts, dtype=np.float_)
+    point_data['det'] = np.zeros(num_pts, dtype=np.float_)
     point_data['det/(2pi)^2'] = np.zeros(num_pts, dtype=np.float_)
     point_data['A']     = np.zeros((num_pts, 3), dtype=np.float_)
     point_data['A_vec'] = np.zeros((num_pts, 3), dtype=np.float_)
@@ -132,18 +131,18 @@ def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
                 point_data['z'][pt_idx] = point[2]
                 point_data['Point ID'][pt_idx] = pt_idx
                 point_data['pressure'][pt_idx] = gvec.P(s, u, v)
-                point_data['phi'     ][pt_idx] = gvec.PHI(s, u, v)
-                point_data['chi'     ][pt_idx] = gvec.CHI(s, u, v)
-                point_data['iota'    ][pt_idx] = gvec.IOTA(s, u, v)
-                point_data['det'     ][pt_idx] = gvec.df_det(s, u, v)
-                point_data['A'    ][pt_idx] = gvec.A(s, u, v)
+                point_data['phi'][pt_idx] = gvec.PHI(s, u, v)
+                point_data['chi'][pt_idx] = gvec.CHI(s, u, v)
+                point_data['iota'][pt_idx] = gvec.IOTA(s, u, v)
+                point_data['det'][pt_idx] = gvec.df_det(s, u, v)
+                point_data['A'][pt_idx] = gvec.A(s, u, v)
                 point_data['A_vec'][pt_idx] = gvec.A_vec(s, u, v)
-                point_data['A_1'  ][pt_idx] = gvec.A_1(s, u, v)
-                point_data['A_2'  ][pt_idx] = gvec.A_2(s, u, v)
-                point_data['B'    ][pt_idx] = gvec.B(s, u, v) # TODO: if s > 1e-4: ...
+                point_data['A_1'][pt_idx] = gvec.A_1(s, u, v)
+                point_data['A_2'][pt_idx] = gvec.A_2(s, u, v)
+                point_data['B'][pt_idx] = gvec.B(s, u, v)  # TODO: if s > 1e-4: ...
                 point_data['B_vec'][pt_idx] = gvec.B_vec(s, u, v)
-                point_data['B_1'  ][pt_idx] = gvec.B_1(s, u, v)
-                point_data['B_2'  ][pt_idx] = gvec.B_2(s, u, v)
+                point_data['B_1'][pt_idx] = gvec.B_1(s, u, v)
+                point_data['B_2'][pt_idx] = gvec.B_2(s, u, v)
 
                 # pbar.update(1)
                 pt_idx += 1
@@ -155,6 +154,7 @@ def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
     point_data['det/(2pi)^2'] = point_data['det'] / (2 * np.pi)**2
 
     return vtk_points, suv_points, xyz_points, point_indices
+
 
 def setup_ugrid(pts, num_pts):
     """Associate vertices/points with a new `vtkUnstructuredGrid`.
@@ -177,6 +177,7 @@ def setup_ugrid(pts, num_pts):
     ugrid.Allocate(num_pts)
 
     return ugrid
+
 
 def set_data(ugrid, point_data, cell_data):
     """Associate point and cell data with an `vtkUnstructuredGrid`.
@@ -206,7 +207,8 @@ def set_data(ugrid, point_data, cell_data):
         vtk_array.SetName(k)
         vtk_cell_data.AddArray(vtk_array)
 
-def vtk_render(ugrid): # pragma: no cover
+
+def vtk_render(ugrid):  # pragma: no cover
     """Opens an interactive window that renders the current `vtkUnstructuredGrid`.
 
     Parameters
@@ -223,7 +225,6 @@ def vtk_render(ugrid): # pragma: no cover
     renWin.AddRenderer(renderer)
     iren = vtk.vtkRenderWindowInteractor()
     iren.SetRenderWindow(renWin)
-
 
     ugridMapper = vtk.vtkDataSetMapper()
     ugridMapper.SetInputData(ugrid)
@@ -249,7 +250,6 @@ def vtk_render(ugrid): # pragma: no cover
     renWin.Render()
 
     iren.Start()
-
 
 
 # ============================================================
@@ -294,14 +294,14 @@ def connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, ce
 
                 if (periodic[0] or s_idx + 1 < len_s) and (periodic[1] or u_idx + 1 < len_u) and (periodic[2] or v_idx + 1 < len_v):
 
-                    vertex1 = point_indices[ s_idx,     u_idx         ,  v_idx         ]
-                    vertex2 = point_indices[ s_idx,    (u_idx+1)%len_u,  v_idx         ]
-                    vertex3 = point_indices[ s_idx,    (u_idx+1)%len_u, (v_idx+1)%len_v]
-                    vertex4 = point_indices[ s_idx,     u_idx         , (v_idx+1)%len_v]
-                    vertex5 = point_indices[(s_idx+1),  u_idx         ,  v_idx         ]
-                    vertex6 = point_indices[(s_idx+1), (u_idx+1)%len_u,  v_idx         ]
-                    vertex7 = point_indices[(s_idx+1), (u_idx+1)%len_u, (v_idx+1)%len_v]
-                    vertex8 = point_indices[(s_idx+1),  u_idx         , (v_idx+1)%len_v]
+                    vertex1 = point_indices[s_idx, u_idx         , v_idx]
+                    vertex2 = point_indices[s_idx, (u_idx+1) % len_u, v_idx]
+                    vertex3 = point_indices[s_idx, (u_idx+1) % len_u, (v_idx+1) % len_v]
+                    vertex4 = point_indices[s_idx, u_idx         , (v_idx+1) % len_v]
+                    vertex5 = point_indices[(s_idx+1), u_idx         , v_idx]
+                    vertex6 = point_indices[(s_idx+1), (u_idx+1) % len_u, v_idx]
+                    vertex7 = point_indices[(s_idx+1), (u_idx+1) % len_u, (v_idx+1) % len_v]
+                    vertex8 = point_indices[(s_idx+1), u_idx         , (v_idx+1) % len_v]
 
                     connected_idx = [vertex1, vertex2, vertex3, vertex4, vertex5, vertex6, vertex7, vertex8]
                     ugrid.InsertNextCell(vtk.VTK_HEXAHEDRON, len(connected_idx), connected_idx)

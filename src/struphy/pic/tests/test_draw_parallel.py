@@ -16,13 +16,11 @@ import pytest
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     '''Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`.'''
 
+    import numpy as np
     from mpi4py import MPI
-    import numpy as np
 
-    import numpy as np
-
-    from struphy.geometry import domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
 
     comm = MPI.COMM_WORLD

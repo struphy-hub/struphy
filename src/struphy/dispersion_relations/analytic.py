@@ -5,7 +5,7 @@ import numpy as np
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
 
-from struphy.dispersion_relations.base import DispersionRelations1D, ContinuousSpectra1D
+from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
@@ -53,7 +53,7 @@ class Maxwell1D(DispersionRelations1D):
 
 class MHDhomogenSlab(DispersionRelations1D):
     r"""
-    Dispersion relation for linear MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)` 
+    Dispersion relation for linear MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)`
     and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearMHD`):
 
     .. math::
@@ -62,22 +62,22 @@ class MHDhomogenSlab(DispersionRelations1D):
 
         \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega = k\sqrt{\frac{1}{2}(c_\textnormal{S}^2+v_\textnormal{A}^2)(1\pm\sqrt{1-\delta})}\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2v_\textnormal{A}^2}{(c_\textnormal{S}^2+v_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
 
-    where :math:`v_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity 
+    where :math:`v_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity
     and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
 
     Parameters
     ----------
-    B0x : float  
+    B0x : float
         x-component of magnetic field (default: 0.).
-    B0y : float  
+    B0y : float
         y-component of magnetic field (default: 1.).
-    B0z : float  
+    B0z : float
         z-component of magnetic field (default: 1.).
     p0 : float
         Plasma pressure (default: 0.1).
-    n0 : float 
+    n0 : float
         Ion number density (default: 1.).
-    gamma : float 
+    gamma : float
         Adiabatic index (default: 5/3).
     """
 
@@ -141,7 +141,7 @@ class MHDhomogenSlab(DispersionRelations1D):
 
 class ExtendedMHDhomogenSlab(DispersionRelations1D):
     r"""
-    Dispersion relation for linear extended MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)` 
+    Dispersion relation for linear extended MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)`
     and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearExtendedMHD`).
     The linear mode analysis is performed on the following system:
 
@@ -161,10 +161,10 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
 
         (x - \omega_0^2) \Big\{ x^3 - x^2\Big[(c_s^2 + v_A^2)k^2 + v_A^2 k_z^2 + \omega_0^2\Big] + x\Big[c_s^2 k^2 (2 v_A^2 k_z^2 + \omega_0^2) + v_A^4 k_z^2 k^2 \Big] - c_s^2 v_A^4 k_z^4 k^2\Big\} = 0
 
-    where :math:`x = \omega^2`, :math:`v_\textnormal{A}^2=|\mathbf B_0|^2/n_0` denotes the Alfvén velocity, 
+    where :math:`x = \omega^2`, :math:`v_\textnormal{A}^2=|\mathbf B_0|^2/n_0` denotes the Alfvén velocity,
     :math:`c_s^2=\gamma\,p_0/n_0` is the speed of sound, and :math:`\omega_0 = v_A^2 k_z k/\Omega_i`
-    stands for the first root where 
-    :math:`\Omega_i = |\mathbf B_0|/\epsilon` is the cyclotron frequency 
+    stands for the first root where
+    :math:`\Omega_i = |\mathbf B_0|/\epsilon` is the cyclotron frequency
     with :math:`\epsilon = 1/(\hat \Omega_i \hat t)`.
     """
 
@@ -261,13 +261,13 @@ class FluidSlabITG(DispersionRelations1D):
 
         \omega^3 - (Z + \gamma)v_i^2 k_z^2 \omega + Z \frac{v_i^4}{v^*} k_z^2 k_y = 0\,,
 
-    where :math:`v_i^2=k_B T_0/m` denotes the ion thermal velocity and  
+    where :math:`v_i^2=k_B T_0/m` denotes the ion thermal velocity and
 
     .. math::
 
         v^* = \frac{\Omega_i}{\partial_x T_0/T_0}\,,\qquad \Omega_i = \frac{Ze B_0}{m}\,.
 
-    The dispersion relation is calculated as a function of :math:`k_y` for fixed :math:`k_z`.    
+    The dispersion relation is calculated as a function of :math:`k_y` for fixed :math:`k_z`.
     Instabilites occur when
 
     .. math::
@@ -346,7 +346,7 @@ class ColdPlasma1D(DispersionRelations1D):
         \left[ \left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\alpha^2}{\varepsilon_c} \omega \sigma_c \right] \mathbf E = 0\,,
 
     where :math:`\left( \omega^2 - |k|^2 \right) \mathbb I + \mathbf k \otimes \mathbf k + i \frac{\alpha^2}{\varepsilon_c} \omega \sigma_c = \epsilon`
-    is the dielectric tensor, :math:`\alpha` is the plasma frequency in units of the electron cyclotron frequency, 
+    is the dielectric tensor, :math:`\alpha` is the plasma frequency in units of the electron cyclotron frequency,
     :math:`1/\varepsilon_c` is the electron cyclotron frequency in struphy units,
     and :math:`\sigma_c = \left( \mathbb I - i Q / \varepsilon_c \omega \right)^{-1} i n_0 / \varepsilon_c \omega`,
     with :math:`Q` being an operator which, if applied to vector :math:`\mathbf v`, returns :math:`\mathbf v \times \mathbf B_0`.
@@ -463,23 +463,23 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
     ----------
     **params
         Keyword arguments that characterize the dispersion relation.
-            * B0 : float  
+            * B0 : float
                 Magnetic field strength (default: 1.).
             * p0 : float
                 Plasma pressure (default: 0.5).
-            * gamma : float 
+            * gamma : float
                 Adiabatic index (default: 5/3).
-            * Ab : int 
+            * Ab : int
                 Bulk species mass number (default: 1).
-            * Ah : int 
+            * Ah : int
                 Energetic species mass number (default: 1).
-            * Zh : int 
+            * Zh : int
                 Energetic species charge number (default: 1).
-            * vth : float 
+            * vth : float
                 Energetic species thermal velocity (default: 1.).
-            * v0 : float 
+            * v0 : float
                 Energetic species shift of Maxwellian (default: 2.).
-            * nuh : float 
+            * nuh : float
                 Ratio of energetic/bulk number densities (default: 0.5).
             * nb : float
                 Bulk species number density in units of 1e20 / m^3 (default: 0.0005185219355).
@@ -617,7 +617,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
     def D_RL(self, w, k, pol, der=0):
         """
-        Dispersion relation :math:`D_\mathrm{R/L}(\omega,k)=0` (or its first derivative with respect to :math:`\omega`) for R- and L- shear Alfvén waves.
+        Dispersion relation :math:`D_\\mathrm{R/L}(\\omega,k)=0` (or its first derivative with respect to :math:`\\omega`) for R- and L- shear Alfvén waves.
 
         Parameters
         ----------
@@ -681,7 +681,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
 class PressureCouplingFull6DParallel(DispersionRelations1D):
     r'''Dispersion relation for linear MHD equations coupled to the Vlasov equation with Full Pressure Coupling scheme
-    for homogeneous background :math:`(n_0,p_0,\mathbf B_0)`, wave propagation along z-axis in Struphy units and space-homogeneous shifted Maxwellian energetic particles distribution :math:`f_h = f_{h,0} + \tilde{f_h}` 
+    for homogeneous background :math:`(n_0,p_0,\mathbf B_0)`, wave propagation along z-axis in Struphy units and space-homogeneous shifted Maxwellian energetic particles distribution :math:`f_h = f_{h,0} + \tilde{f_h}`
     where :math:`f_{h,0}(v_{\parallel}, v_{\perp}) = n_0 \frac{1}{\sqrt{\pi}} \frac{1}{\hat{v_{\parallel}}} e^{- (v_{\parallel} - u_0)^2 / \hat{v}^2_{\parallel} } \frac{1}{\pi} \frac{1}{\hat{v^2_{\perp}}} e^{- v^2_{\perp} / \hat{v}^2_{\perp}}`
     here, :math:`u_0` is a velocity shift in the parallel direction (see ``PC_LinMHD_6d_full`` in :ref:`models`):
 
@@ -709,18 +709,18 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
         Y_1(\xi_-, \xi_+, a_0) := \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{t+a_0}{(t-\xi_-)(t-\xi_+)} e^{-t^2} dt &= Z(\xi_-) + (\xi_+ + a_0) \frac{Z(\xi_-) - Z(\xi_+)}{\xi_- - \xi_+} \,,
 
-        Y_2(\xi_-, \xi_+, a_0) := \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{(t+a)^2}{(t-\xi_-)(t-\xi_+)} e^{-t^2} dt &= 1 + (\xi_- + \xi_+ + 2a_0) Z(\xi_-) 
+        Y_2(\xi_-, \xi_+, a_0) := \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{(t+a)^2}{(t-\xi_-)(t-\xi_+)} e^{-t^2} dt &= 1 + (\xi_- + \xi_+ + 2a_0) Z(\xi_-)
 
         &+ (\xi_+ + a_0)^2 \frac{Z(\xi_-) - Z(\xi_+)}{\xi_- - \xi_+} \,,
 
-        Y_3(\xi_-, \xi_+, a_0) := \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{(t+a)^3}{(t-\xi_-)(t-\xi_+)} e^{-t^2} dt &= \xi_- + \xi_+ + 3a_0 
+        Y_3(\xi_-, \xi_+, a_0) := \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{(t+a)^3}{(t-\xi_-)(t-\xi_+)} e^{-t^2} dt &= \xi_- + \xi_+ + 3a_0
 
-        &+ [\xi_-^2 + \xi_- \xi_+ + \xi_+^2 + 3a_0(\xi_- + \xi_+) + 3a_0^2] Z(\xi_-) 
+        &+ [\xi_-^2 + \xi_- \xi_+ + \xi_+^2 + 3a_0(\xi_- + \xi_+) + 3a_0^2] Z(\xi_-)
 
         &+ (\xi_+ + a_0)^3 \frac{Z(\xi_-) - Z(\xi_+)}{\xi_- - \xi_+} \,,
 
     where :math:`\xi_0 = \frac{\omega / k_\parallel - u_0}{\hat{v}_\parallel}, \quad \xi_\pm = \frac{(\omega \pm \omega_c) / k_\parallel - u_0}{\hat{v}_\parallel}, \quad a_0 = \frac{u_0}{\hat{v}_\parallel}`
-    and :math:`Z(\xi) = \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{e^{- t^2}}{t - \xi} dt = i \sqrt{\pi} e^{- \xi^2} ( 1 + \text{erf}(i\xi))` is the plasma dispersion function. 
+    and :math:`Z(\xi) = \frac{1}{\sqrt{\pi}} \int^\infty_\infty \frac{e^{- t^2}}{t - \xi} dt = i \sqrt{\pi} e^{- \xi^2} ( 1 + \text{erf}(i\xi))` is the plasma dispersion function.
 
     '''
 
@@ -788,7 +788,7 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
     def D_RL(self, w, k, pol):
         """
-        Dispersion relation :math:`D_\mathrm{R/L}(\omega,k)=0` for R- and L- shear Alfvén waves.
+        Dispersion relation :math:`D_\\mathrm{R/L}(\\omega,k)=0` for R- and L- shear Alfvén waves.
 
         Parameters
         ----------
@@ -854,7 +854,7 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
     def D_sonic(self, w, k):
         """
-        Dispersion relation :math:`D_\mathrm{sonic}(\omega,k)=0` for sonic waves.
+        Dispersion relation :math:`D_\\mathrm{sonic}(\\omega,k)=0` for sonic waves.
 
         Parameters
         ----------
@@ -949,7 +949,7 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
 
         \mathbf B_0 &= \mathbf B_0(x) = B_{0z}(x)\left( \mathbf e_z + \frac{a}{q(x) R_0}\mathbf e_y \right)\,,
 
-        p_0 &= p_0(x) 
+        p_0 &= p_0(x)
 
         n_0 &= n_0(x)\,.
 
@@ -965,11 +965,11 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
     ----------
     **params
         Keyword arguments that characterize the dispersion relation.
-            * a : float 
+            * a : float
                 "Minor" radius (must be compatible with :math:`L_x=a` and :math:`L_y=2\pi a`, default: 1.).
             * R0 : float
                 "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
-            * gamma : float 
+            * gamma : float
                 Adiabatic index (default: 5/3).
             * Bz : callable
                 Profile of axial magnetic field Bz=Bz(x) (default: 1. - 0*x).
@@ -997,7 +997,7 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
         super().__init__('shear_Alfvén', 'slow_sound', **params_all)
 
     def __call__(self, x, m, n):
-        """ 
+        """
         The calculation of all continuous spectra.
 
         Parameters
@@ -1059,7 +1059,7 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
 
         \mathbf B_0 &= \mathbf B_0(r) = B_{0z}(r)\left( \mathbf e_z + \frac{r}{q(r) R_0}\mathbf e_\theta \right)\,,
 
-        p_0 &= p_0(r) 
+        p_0 &= p_0(r)
 
         n_0 &= n_0(r)\,.
 
@@ -1077,7 +1077,7 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
         Keyword arguments that characterize the dispersion relation.
             * R0 : float
                 "Major" radius (must be compatible with :math:`L_z=2\pi R_0`, default: 3.).
-            * gamma : float 
+            * gamma : float
                 Adiabatic index (default: 5/3).
             * Bz : callable
                 Profile of axial magnetic field Bz=Bz(x) (default: 1. - 0*r).
@@ -1104,7 +1104,7 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
         super().__init__('shear_Alfvén', 'slow_sound', **params_all)
 
     def __call__(self, r, m, n):
-        """ 
+        """
         The evaluation of all continuous spectra.
 
         Parameters

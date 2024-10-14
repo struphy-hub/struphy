@@ -35,20 +35,20 @@ def main(
         Whether to supress screen output during time integration.
     """
 
-    from struphy.models.base import StruphyModel
-    from struphy.feec.psydac_derham import Derham
-    from struphy.models import fluid, kinetic, hybrid, toy
-    from struphy.io.setup import pre_processing, setup_domain_cloning
-    from struphy.profiling.profiling import ProfileRegion
-    from struphy.io.output_handling import DataContainer
+    import copy
+    import os
+    import time
+
+    import numpy as np
+    from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
-    import copy
-    import numpy as np
-    import time
-    import os
-
-    from mpi4py import MPI
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.output_handling import DataContainer
+    from struphy.io.setup import pre_processing, setup_domain_cloning
+    from struphy.models import fluid, hybrid, kinetic, toy
+    from struphy.models.base import StruphyModel
+    from struphy.profiling.profiling import ProfileRegion
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -288,13 +288,15 @@ if __name__ == '__main__':
 
     import argparse
     import os
-    import struphy
+
     import yaml
+
+    import struphy
     from struphy.profiling.profiling import (
         ProfileRegion,
-        set_likwid,
-        pylikwid_markerinit,
         pylikwid_markerclose,
+        pylikwid_markerinit,
+        set_likwid,
     )
 
     libpath = struphy.__path__[0]

@@ -8,15 +8,17 @@ import pytest
 def test_psydac_derham(Nel, p, spl_kind):
     '''Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
+    from psydac.linalg.block import BlockVector
+    from psydac.linalg.stencil import StencilVector
 
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-    from psydac.linalg.stencil import StencilVector
-    from psydac.linalg.block import BlockVector
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -232,7 +234,7 @@ def test_psydac_derham(Nel, p, spl_kind):
 
     fh3_STR = PI('3', f)
     fh3_PSY = derham.P['3'](f)
-    
+
     if rank == 0:
         print('\nCompare P3:')
     compare_arrays(fh3_PSY, fh3_STR, rank, atol=1e-5)

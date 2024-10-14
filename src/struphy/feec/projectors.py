@@ -1,29 +1,41 @@
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector, BlockLinearOperator
-from psydac.linalg.kron import KroneckerStencilMatrix
-from psydac.linalg.basic import Vector, IdentityOperator
-from psydac.linalg.solvers import inverse
-from psydac.fem.tensor import TensorFemSpace
-from psydac.feec.global_projectors import GlobalProjector
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-
-from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.feec import preconditioner
-from struphy.feec.preconditioner import ProjectorPreconditioner
-from struphy.feec import mass_kernels
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.feec.basis_projection_kernels import get_dofs_local_1_form_e1_component, get_dofs_local_1_form_e2_component, get_dofs_local_1_form_e3_component, solve_local_0_form, solve_local_1_form, get_dofs_local_2_form_e1_component, get_dofs_local_2_form_e2_component, get_dofs_local_2_form_e3_component, solve_local_2_form, solve_local_3_form, solve_local_0V_form, get_dofs_local_3_form
-from struphy.polar.basic import PolarVector
+import time
 
 import numpy as np
-import time
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.feec.global_projectors import GlobalProjector
+from psydac.fem.tensor import TensorFemSpace
+from psydac.linalg.basic import IdentityOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
+from psydac.linalg.kron import KroneckerStencilMatrix
+from psydac.linalg.solvers import inverse
+from psydac.linalg.stencil import StencilVector
+
+from struphy.feec import mass_kernels, preconditioner
+from struphy.feec.basis_projection_kernels import (
+    get_dofs_local_1_form_e1_component,
+    get_dofs_local_1_form_e2_component,
+    get_dofs_local_1_form_e3_component,
+    get_dofs_local_2_form_e1_component,
+    get_dofs_local_2_form_e2_component,
+    get_dofs_local_2_form_e3_component,
+    get_dofs_local_3_form,
+    solve_local_0_form,
+    solve_local_0V_form,
+    solve_local_1_form,
+    solve_local_2_form,
+    solve_local_3_form,
+)
+from struphy.feec.preconditioner import ProjectorPreconditioner
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.polar.basic import PolarVector
+from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class CommutingProjector:
     r"""
-    A commuting projector of the 3d :class:`~struphy.feec.psydac_derham.Derham` diagram (can be polar). 
+    A commuting projector of the 3d :class:`~struphy.feec.psydac_derham.Derham` diagram (can be polar).
 
-    The general structure of the inter-/histopolation problem reads: 
+    The general structure of the inter-/histopolation problem reads:
     given a function :math:`f \in V^\alpha` in one of the (continuous) de Rham spaces :math:`\alpha \in \{0,1,2,3,v\}`,
     find its projection :math:`f_h \in V_h^\alpha \subset V^\alpha` determined by
     the spline coefficients :math:`\mathbf f \in \mathbb R^{N_\alpha}` such that
@@ -40,7 +52,7 @@ class CommutingProjector:
     * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_projectors.GlobalProjector`
     * :math:`\mathbb E`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for FE coefficients.
 
-    :math:`\mathbb P` and :math:`\mathbb E` (and :math:`\mathbb B` in case of no boundary conditions) can be identity operators, 
+    :math:`\mathbb P` and :math:`\mathbb E` (and :math:`\mathbb B` in case of no boundary conditions) can be identity operators,
     which gives the pure tensor-product Psydac :class:`~psydac.feec.global_projectors.GlobalProjector`.
 
     Parameters
@@ -364,12 +376,12 @@ class CommutingProjectorLocal:
     A commuting projector of the 3d :class:`~struphy.feec.psydac_derham.Derham` diagram,
     based on local quasi-inter/histopolation.
 
-    We shall describe the algortihm by means of 1d inter- and histopolation, 
+    We shall describe the algortihm by means of 1d inter- and histopolation,
     which is then combined to give the 3d projections.
 
-    For interpolation, given a knot vector :math:`\hat{T} = \{ \eta_i \}_{0 \leq i \leq n+2p}`, 
-    we perform the following steps to obtain the i-th coefficient :math:`\lambda_i(f)` 
-    of the quasi-interpolant 
+    For interpolation, given a knot vector :math:`\hat{T} = \{ \eta_i \}_{0 \leq i \leq n+2p}`,
+    we perform the following steps to obtain the i-th coefficient :math:`\lambda_i(f)`
+    of the quasi-interpolant
 
     .. math::
 
@@ -377,9 +389,9 @@ class CommutingProjectorLocal:
 
     1. For :math:`i` fixed, choose :math:`2p - 1` equidistant interpolation points :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
 
-       * Clamped: 
+       * Clamped:
 
-       .. math:: 
+       .. math::
 
             Q = \left\{\begin{array}{lr}
             [\eta_p, \eta_{2p -1}], & i < p-1\\
@@ -387,7 +399,7 @@ class CommutingProjectorLocal:
             {[\eta_{\hat{n}_N - p +1}, \eta_{\hat{n}_N}]}, &  i > \hat{n}_N - p
             \end{array} \; \right .
 
-       * Periodic: 
+       * Periodic:
 
        .. math::
 
@@ -405,15 +417,15 @@ class CommutingProjectorLocal:
 
     3. Set :math:`\lambda_i(f) = f_i`.
 
-    Solving the local interpolation problem in step 2 means that :math:`\lambda_i(f)` can be written as a 
+    Solving the local interpolation problem in step 2 means that :math:`\lambda_i(f)` can be written as a
     linear combination of :math:`f(x^i_j)`
 
     .. math::
 
         \lambda_i(f) = \sum_{j=0}^{2p-2}\omega^i_j f(x^i_j)\,,
 
-    where :math:`\omega^i` is the :math:`i`-th line of the inverse collocation matrix 
-    :math:`\omega = C^{-1} \in \mathbb R^{(2p-1)\times (2p-1)}` with :math:`C_{jk} = N^p_k(x^i_j)`. 
+    where :math:`\omega^i` is the :math:`i`-th line of the inverse collocation matrix
+    :math:`\omega = C^{-1} \in \mathbb R^{(2p-1)\times (2p-1)}` with :math:`C_{jk} = N^p_k(x^i_j)`.
 
     On the other hand, the histopolation operator is defined by
 
@@ -427,7 +439,7 @@ class CommutingProjectorLocal:
 
         \tilde{\lambda}_i(f) = \sum_{j=0}^{2p-1}\tilde{\omega}^i_j \int_{x^i_j}^{x^i_{j+1}}f(t)dt,
 
-    In the the clamped case, if :math:`i<p-1` 
+    In the the clamped case, if :math:`i<p-1`
     or :math:`i \geq \hat{n}_D -(p-1)`, the weights are given by
 
     .. math::
@@ -435,9 +447,9 @@ class CommutingProjectorLocal:
         \tilde{\omega}^i_j = \left\{\begin{array}{lr}
         \sum_{q=0}^{j}(\omega^i_q - \omega^{i+1}_q) , & j=0,...,2p-3\\
         0, &  j= 2p-2, 2p-1
-        \end{array} \; \right . 
+        \end{array} \; \right .
 
-    In the periodic case, and in the clamped case with  :math:`p-1\leq i< \hat{n}_D -(p-1)`, 
+    In the periodic case, and in the clamped case with  :math:`p-1\leq i< \hat{n}_D -(p-1)`,
     the weights given by
 
     .. math::
@@ -447,7 +459,7 @@ class CommutingProjectorLocal:
         \omega^i_0 + \omega^i_1, & j = 1\\
         \sum_{q=0}^{j}\omega^i_q - \sum_{q=0}^{j-2}\omega^{i+1}_q, & j = 2,...,2p-2\\
         \sum_{q=0}^{2p-2}\omega^i_q - \sum_{q=0}^{2p-3}\omega^{i+1}_q, &  j= 2p-1
-        \end{array} \; \right . 
+        \end{array} \; \right .
 
     Furthermore, in the particular case :math:`p=1`, the weights are given by
 
@@ -455,8 +467,8 @@ class CommutingProjectorLocal:
 
         \tilde{\omega}^i_j = \omega^i_0 , \:\:\:\: j=0,1.
 
-    The integration points :math:`\{x^i_j\}` are the same as the quasi-interpolation points. 
-    Except in the case :math:`p=1, n=1` with periodic boundary conditions, in which they are :math:`\{0,0.5,1\}`. 
+    The integration points :math:`\{x^i_j\}` are the same as the quasi-interpolation points.
+    Except in the case :math:`p=1, n=1` with periodic boundary conditions, in which they are :math:`\{0,0.5,1\}`.
 
 
     Parameters:
@@ -471,25 +483,25 @@ class CommutingProjectorLocal:
         FEEC space onto which the functions shall be projected
 
     pts : list of np.array
-        3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points 
-        (or Gauss-Legendre quadrature points for histopolation). 
-        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces 
+        3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points
+        (or Gauss-Legendre quadrature points for histopolation).
+        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces
         or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces.
 
     wts : list
-        3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature points 
-        (full of ones for interpolation). 
-        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces 
+        3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature points
+        (full of ones for interpolation).
+        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces
         or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces.
 
     wij : list of np.array
-        List of 2D arrays for the coefficients :math:`\omega_j^i` obtained by inverting the local collocation matrix. 
-        Use for obtaining the FE coefficients of a function via interpolation. 
+        List of 2D arrays for the coefficients :math:`\omega_j^i` obtained by inverting the local collocation matrix.
+        Use for obtaining the FE coefficients of a function via interpolation.
         In format (ns, nb, np) = (spatial direction, B-spline index, point).
 
     whij : list of np.array
-        List of 2D arrays for the coefficients :math:`\hat{\omega}_j^i` obtained from the :math:`\omega_j^i`. 
-        Use for obtaining the FE coefficients of a function via histopolation. 
+        List of 2D arrays for the coefficients :math:`\hat{\omega}_j^i` obtained from the :math:`\omega_j^i`.
+        Use for obtaining the FE coefficients of a function via histopolation.
         In format (ns, nb, np) = (spatial direction, D-spline index, point).
     """
 
@@ -533,7 +545,9 @@ class CommutingProjectorLocal:
             # We get the number of space we have
             self._nsp = len(self._domain.spaces)
 
-        # Degree of the B-spline space, not to be confused with the degrees given by fem_space.spaces.degree since depending on the situation it will give the D-spline degree instead
+        # Degree of the B-spline space, not to be confused with the degrees given
+        # by fem_space.spaces.degree since depending on the situation it will give
+        # the D-spline degree instead
         self._p = []
         self._periodic = []
 
@@ -543,7 +557,9 @@ class CommutingProjectorLocal:
         if space_id == 'H1':
             for space in fem_space.spaces:
                 self._p.append(space.degree)
-            # We want to build the meshgrid for the evaluation of the degrees of freedom so it only contains the evaluation points that each specific MPI rank is actually going to use.
+            # We want to build the meshgrid for the evaluation of the degrees of
+            # freedom so it only contains the evaluation points that each specific MPI
+            # rank is actually going to use.
 
             self._localpts = []
             self._index_translation = []
@@ -938,17 +954,17 @@ class CommutingProjectorLocal:
 
     @property
     def wij(self):
-        '''List of 2D arrays for the coefficients :math:`\omega_j^i` obtained by inverting the local collocation matrix. Use for obtaining the FE coefficients of a function via interpolation. In format (ns, nb, np) = (spatial direction, B-spline index, point).'''
+        '''List of 2D arrays for the coefficients :math:`\\omega_j^i` obtained by inverting the local collocation matrix. Use for obtaining the FE coefficients of a function via interpolation. In format (ns, nb, np) = (spatial direction, B-spline index, point).'''
         return self._wij
 
     @property
     def whij(self):
-        '''List of 2D arrays for the coefficients :math:`\hat{\omega}_j^i` obtained from the :math:`\omega_j^i`. Use for obtaining the FE coefficients of a function via histopolation. In format (ns, nb, np) = (spatial direction, D-spline index, point).'''
+        '''List of 2D arrays for the coefficients :math:`\\hat{\\omega}_j^i` obtained from the :math:`\\omega_j^i`. Use for obtaining the FE coefficients of a function via histopolation. In format (ns, nb, np) = (spatial direction, D-spline index, point).'''
         return self._whij
 
     def solve(self, rhs, out=None):
         """
-        Solves 
+        Solves
 
         Parameters
         ----------
@@ -973,16 +989,66 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, StencilVector)
 
-            solve_local_0_form(self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
-                               self._periodic, p1, p2, p3, self._wij[0], self._wij[1], self._wij[2], rhs, out._data)
+            solve_local_0_form(
+                self._original_pts_size[0],
+                self._original_pts_size[1],
+                self._original_pts_size[2],
+                self._index_translation[0],
+                self._index_translation[1],
+                self._index_translation[2],
+                self._starts,
+                self._ends,
+                self._pds,
+                self._npts,
+                self._periodic,
+                p1,
+                p2,
+                p3,
+                self._wij[0],
+                self._wij[1],
+                self._wij[2],
+                rhs,
+                out._data)
         elif (self._space_key == "1"):
             if out is None:
                 out = self._domain.zeros()
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_1_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
-                               self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
+            solve_local_1_form(
+                self._original_pts_sizex,
+                self._original_pts_sizey,
+                self._original_pts_sizez,
+                self._index_translationx[0],
+                self._index_translationx[1],
+                self._index_translationx[2],
+                self._index_translationy[0],
+                self._index_translationy[1],
+                self._index_translationy[2],
+                self._index_translationz[0],
+                self._index_translationz[1],
+                self._index_translationz[2],
+                self._nsp,
+                self._starts,
+                self._ends,
+                self._pds,
+                self._npts,
+                self._periodic,
+                p1,
+                p2,
+                p3,
+                self._wij[0],
+                self._wij[1],
+                self._wij[2],
+                self._whij[0],
+                self._whij[1],
+                self._whij[2],
+                rhs[0],
+                rhs[1],
+                rhs[2],
+                out[0]._data,
+                out[1]._data,
+                out[2]._data)
 
         elif (self._space_key == "2"):
             if out is None:
@@ -990,8 +1056,40 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_2_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
-                               self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
+            solve_local_2_form(
+                self._original_pts_sizex,
+                self._original_pts_sizey,
+                self._original_pts_sizez,
+                self._index_translationx[0],
+                self._index_translationx[1],
+                self._index_translationx[2],
+                self._index_translationy[0],
+                self._index_translationy[1],
+                self._index_translationy[2],
+                self._index_translationz[0],
+                self._index_translationz[1],
+                self._index_translationz[2],
+                self._nsp,
+                self._starts,
+                self._ends,
+                self._pds,
+                self._npts,
+                self._periodic,
+                p1,
+                p2,
+                p3,
+                self._wij[0],
+                self._wij[1],
+                self._wij[2],
+                self._whij[0],
+                self._whij[1],
+                self._whij[2],
+                rhs[0],
+                rhs[1],
+                rhs[2],
+                out[0]._data,
+                out[1]._data,
+                out[2]._data)
 
         elif (self._space_key == "3"):
             if out is None:
@@ -999,8 +1097,26 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, StencilVector)
 
-            solve_local_3_form(self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
-                               self._periodic, p1, p2, p3, self._whij[0], self._whij[1], self._whij[2], rhs, out._data)
+            solve_local_3_form(
+                self._original_pts_size[0],
+                self._original_pts_size[1],
+                self._original_pts_size[2],
+                self._index_translation[0],
+                self._index_translation[1],
+                self._index_translation[2],
+                self._starts,
+                self._ends,
+                self._pds,
+                self._npts,
+                self._periodic,
+                p1,
+                p2,
+                p3,
+                self._whij[0],
+                self._whij[1],
+                self._whij[2],
+                rhs,
+                out._data)
 
         elif (self._space_key == "v"):
 
@@ -1009,8 +1125,37 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_0V_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3,
-                                self._wij[0], self._wij[1], self._wij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
+            solve_local_0V_form(
+                self._original_pts_sizex,
+                self._original_pts_sizey,
+                self._original_pts_sizez,
+                self._index_translationx[0],
+                self._index_translationx[1],
+                self._index_translationx[2],
+                self._index_translationy[0],
+                self._index_translationy[1],
+                self._index_translationy[2],
+                self._index_translationz[0],
+                self._index_translationz[1],
+                self._index_translationz[2],
+                self._nsp,
+                self._starts,
+                self._ends,
+                self._pds,
+                self._npts,
+                self._periodic,
+                p1,
+                p2,
+                p3,
+                self._wij[0],
+                self._wij[1],
+                self._wij[2],
+                rhs[0],
+                rhs[1],
+                rhs[2],
+                out[0]._data,
+                out[1]._data,
+                out[2]._data)
 
         else:
             raise Exception(
@@ -1282,7 +1427,7 @@ class CommutingProjectorLocal:
 
 class L2Projector:
     r"""
-    An orthogonal projection into a discrete :class:`~struphy.feec.psydac_derham.Derham` space 
+    An orthogonal projection into a discrete :class:`~struphy.feec.psydac_derham.Derham` space
     based on the L2-scalar product.
 
     It solves the following system for the FE-coefficients :math:`\mathbf f = (f_{lmn}) \in \mathbb R^{N_\alpha}`:
@@ -1291,7 +1436,7 @@ class L2Projector:
 
         \mathbb M^\alpha_{ijk, lmn} f_{lmn} = (f^\alpha, \Lambda^\alpha_{ijk})_{L^2}\,,
 
-    where :math:`\mathbb M^\alpha` denotes the :ref:`mass matrix <weighted_mass>` of space :math:`\alpha \in \{0,1,2,3,v\}` and :math:`f^\alpha` is a :math:`\alpha`-form proxy function. 
+    where :math:`\mathbb M^\alpha` denotes the :ref:`mass matrix <weighted_mass>` of space :math:`\alpha \in \{0,1,2,3,v\}` and :math:`f^\alpha` is a :math:`\alpha`-form proxy function.
 
     Parameters:
     -----------
@@ -1459,12 +1604,12 @@ class L2Projector:
 
         .. math::
 
-            V_{ijk} = \int f * w_\textrm{geom} * \Lambda^\alpha_{ijk}\,\textrm d \boldsymbol \eta = \left( f\,, \Lambda^\alpha_{ijk}\right)_{L^2}\,, 
+            V_{ijk} = \int f * w_\textrm{geom} * \Lambda^\alpha_{ijk}\,\textrm d \boldsymbol \eta = \left( f\,, \Lambda^\alpha_{ijk}\right)_{L^2}\,,
 
         where :math:`\Lambda^\alpha_{ijk}` are the basis functions of :math:`V_h^\alpha`,
         :math:`f` is an :math:`\alpha`-form proxy function and :math:`w_\textrm{geom}` stand for metric coefficients.
 
-        Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled 
+        Note that any geometric terms (e.g. Jacobians) in the L2 scalar product are automatically assembled
         into :math:`w_\textrm{geom}`, depending on the space of :math:`\alpha`-forms.
 
         The integration is performed with Gauss-Legendre quadrature over the whole logical domain.
@@ -1664,9 +1809,9 @@ def split_points(BoS, IoH, h, lenj, shift, pts, starts, ends, p, npts, periodic,
         For each one of the three spatial directions it determines by which amount to shift the position index (pos) in case we have to loop over the evaluation points.
 
     pts : list of np.array
-        3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points 
-        (or Gauss-Legendre quadrature points for histopolation). 
-        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces 
+        3D (4D for BlockVectors) list of 2D array with the quasi-interpolation points
+        (or Gauss-Legendre quadrature points for histopolation).
+        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces
         or (nv,ns, nb, np) = (vector entry,spatial direction, B-spline index, point) for BlockVector spaces.
 
     starts : 2d (or 1D) int array

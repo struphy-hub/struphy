@@ -1,15 +1,14 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from mpi4py import MPI
-import numpy as np
-import matplotlib.pyplot as plt
 
-from struphy.geometry import domains
-from struphy.feec.psydac_derham import Derham
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
+from struphy.feec.psydac_derham import Derham
+from struphy.geometry import domains
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
-
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -168,15 +167,15 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
                 plt.subplot(2, 3, n + 1)
                 if direction == 0:
                     plt.plot(x[:, 0, 0], sol_val1[:, 0, 0],
-                            'ob', label='numerical')
+                             'ob', label='numerical')
                     plt.plot(x[:, 0, 0], analytic_value1[:, 0, 0],
-                            'r--', label='exact')
+                             'r--', label='exact')
                     plt.xlabel('x')
                 elif direction == 1:
                     plt.plot(y[0, :, 0], sol_val1[0, :, 0],
-                            'ob', label='numerical')
+                             'ob', label='numerical')
                     plt.plot(y[0, :, 0], analytic_value1[0, :, 0],
-                            'r--', label='exact')
+                             'r--', label='exact')
                     plt.xlabel('y')
                 plt.title(f'{Nel = }')
                 plt.legend()
@@ -199,7 +198,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
                 f'Convergence for degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(12, 8))
             plt.plot(h_vec, errors, 'o', label=f'p={p[direction]}')
             plt.plot(h_vec, [h**(p[direction]+1)/h_vec[direction]**(p[direction]+1)*errors[direction]
-                            for h in h_vec], 'k--', label='correct rate p+1')
+                             for h in h_vec], 'k--', label='correct rate p+1')
             plt.yscale("log")
             plt.xscale("log")
             plt.xlabel('Grid Spacing h')
@@ -473,7 +472,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
                                           diffusion_mat='M1perp',
                                           rho=rho_vec,
                                           solver=solver_params)
-    
+
     s = _phi.starts
     e = _phi.ends
 
@@ -527,7 +526,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     sol_val = domain.push(_phi, e1, e2, e3, kind='0')
     sol_val_2p5d = domain.push(_phi_2p5d, e1, e2, e3, kind='0')
     x, y, z = domain(e1, e2, e3)
-    
+
     print('max diff:', np.max(np.abs(sol_val - sol_val_2p5d)))
     assert np.max(np.abs(sol_val - sol_val_2p5d)) < 0.026
 
@@ -573,7 +572,7 @@ if __name__ == '__main__':
     direction = 0
     bc_type = 'periodic'
     mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
+    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
     test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
     # Nel = [64, 64, 1]

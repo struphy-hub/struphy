@@ -5,8 +5,9 @@ def test_prepare_arg():
     """ Tests prepare_arg static method in domain base class.
     """
 
-    from struphy.geometry.base import Domain
     import numpy as np
+
+    from struphy.geometry.base import Domain
 
     def a1(e1, e2, e3): return e1*e2
     def a2(e1, e2, e3): return e2*e3
@@ -116,8 +117,9 @@ def test_evaluation_mappings(mapping):
     """ Tests domain object creation with default parameters and evaluation of metric coefficients.
     """
 
-    from struphy.geometry import domains
     import numpy as np
+
+    from struphy.geometry import domains
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -319,8 +321,9 @@ def test_pullback():
     """ Tests pullbacks to p-forms.
     """
 
-    from struphy.geometry import domains
     import numpy as np
+
+    from struphy.geometry import domains
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -368,7 +371,7 @@ def test_pullback():
                 3, markers.shape[0])
 
         # eta1-array pullback:
-        #print('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
+        # print('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
         if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, arr1, .5, .5,
                                kind=p_str, squeeze_out=True).shape == arr1.shape
@@ -377,7 +380,7 @@ def test_pullback():
                                kind=p_str, squeeze_out=True).shape == (3,) + arr1.shape
 
         # eta2-array pullback:
-        #print('eta2 array pullback, shape:', domain.pull(fun_form, .5, arr2, .5, p_str).shape)
+        # print('eta2 array pullback, shape:', domain.pull(fun_form, .5, arr2, .5, p_str).shape)
         if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, .5, arr2, .5,
                                kind=p_str, squeeze_out=True).shape == arr2.shape
@@ -386,7 +389,7 @@ def test_pullback():
                                kind=p_str, squeeze_out=True).shape == (3,) + arr2.shape
 
         # eta3-array pullback:
-        #print('eta3 array pullback, shape:', domain.pull(fun_form, .5, .5, arr3, p_str).shape)
+        # print('eta3 array pullback, shape:', domain.pull(fun_form, .5, .5, arr3, p_str).shape)
         if p_str == '0' or p_str == '3':
             assert domain.pull(fun_form, .5, .5, arr3,
                                kind=p_str, squeeze_out=True).shape == arr3.shape
@@ -479,8 +482,9 @@ def test_pushforward():
     """ Tests pushforward of p-forms.
     """
 
-    from struphy.geometry import domains
     import numpy as np
+
+    from struphy.geometry import domains
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -528,7 +532,7 @@ def test_pushforward():
                 3, markers.shape[0])
 
         # eta1-array push:
-        #print('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
+        # print('eta1 array push, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
         if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, arr1, .5, .5,
                                kind=p_str, squeeze_out=True).shape == arr1.shape
@@ -537,7 +541,7 @@ def test_pushforward():
                                kind=p_str, squeeze_out=True).shape == (3,) + arr1.shape
 
         # eta2-array push:
-        #print('eta2 array push, shape:', domain.push(fun_form, .5, arr2, .5, p_str).shape)
+        # print('eta2 array push, shape:', domain.push(fun_form, .5, arr2, .5, p_str).shape)
         if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, .5, arr2, .5,
                                kind=p_str, squeeze_out=True).shape == arr2.shape
@@ -546,7 +550,7 @@ def test_pushforward():
                                kind=p_str, squeeze_out=True).shape == (3,) + arr2.shape
 
         # eta3-array push:
-        #print('eta3 array push, shape:', domain.push(fun_form, .5, .5, arr3, p_str).shape)
+        # print('eta3 array push, shape:', domain.push(fun_form, .5, .5, arr3, p_str).shape)
         if p_str == '0' or p_str == '3':
             assert domain.push(fun_form, .5, .5, arr3,
                                kind=p_str, squeeze_out=True).shape == arr3.shape
@@ -639,8 +643,9 @@ def test_transform():
     """ Tests transformation of p-forms.
     """
 
-    from struphy.geometry import domains
     import numpy as np
+
+    from struphy.geometry import domains
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -689,7 +694,7 @@ def test_transform():
                 fun_form, markers, kind=p_str).shape == (3, markers.shape[0])
 
         # eta1-array transform:
-        #print('eta1 array transform, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
+        # print('eta1 array transform, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
         if p_str == '0_to_3' or p_str == '3_to_0':
             assert domain.transform(
                 fun_form, arr1, .5, .5, kind=p_str, squeeze_out=True).shape == arr1.shape
@@ -698,7 +703,7 @@ def test_transform():
                 fun_form, arr1, .5, .5, kind=p_str, squeeze_out=True).shape == (3,) + arr1.shape
 
         # eta2-array transform:
-        #print('eta2 array transform, shape:', domain.transform(fun_form, .5, arr2, .5, p_str).shape)
+        # print('eta2 array transform, shape:', domain.transform(fun_form, .5, arr2, .5, p_str).shape)
         if p_str == '0_to_3' or p_str == '3_to_0':
             assert domain.transform(
                 fun_form, .5, arr2, .5, kind=p_str, squeeze_out=True).shape == arr2.shape
@@ -707,7 +712,7 @@ def test_transform():
                 fun_form, .5, arr2, .5, kind=p_str, squeeze_out=True).shape == (3,) + arr2.shape
 
         # eta3-array transform:
-        #print('eta3 array transform, shape:', domain.transform(fun_form, .5, .5, arr3, p_str).shape)
+        # print('eta3 array transform, shape:', domain.transform(fun_form, .5, .5, arr3, p_str).shape)
         if p_str == '0_to_3' or p_str == '3_to_0':
             assert domain.transform(
                 fun_form, .5, .5, arr3, kind=p_str, squeeze_out=True).shape == arr3.shape

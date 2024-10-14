@@ -1,18 +1,16 @@
 import numpy as np
 from mpi4py import MPI
-
-from psydac.linalg.stencil import StencilMatrix
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.basic import Vector, IdentityOperator, LinearOperator
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
+from psydac.linalg.stencil import StencilMatrix
 
-from struphy.feec.psydac_derham import get_pts_and_wts
-from struphy.feec.psydac_derham import get_span_and_basis
-from struphy.feec.projectors import CommutingProjector
-from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec import basis_projection_kernels
+from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
+from struphy.feec.projectors import CommutingProjector
+from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace
 
@@ -52,7 +50,7 @@ class BasisProjectionOperators:
 
     @property
     def derham(self):
-        """ Discrete de Rham sequence on the logical unit cube. 
+        """ Discrete de Rham sequence on the logical unit cube.
         """
         return self._derham
 
@@ -98,7 +96,7 @@ class BasisProjectionOperators:
 
     @property
     def K0(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -129,7 +127,7 @@ class BasisProjectionOperators:
 
     @property
     def Qv(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -150,7 +148,7 @@ class BasisProjectionOperators:
 
     @property
     def Q1(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -172,7 +170,7 @@ class BasisProjectionOperators:
 
     @property
     def Q2(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -210,7 +208,7 @@ class BasisProjectionOperators:
 
     @property
     def Tv(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -243,7 +241,7 @@ class BasisProjectionOperators:
 
     @property
     def T1(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -277,7 +275,7 @@ class BasisProjectionOperators:
 
     @property
     def T2(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -310,7 +308,7 @@ class BasisProjectionOperators:
 
     @property
     def Sv(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -354,7 +352,7 @@ class BasisProjectionOperators:
 
     @property
     def S2(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -399,7 +397,7 @@ class BasisProjectionOperators:
 
     @property
     def S21(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -443,7 +441,7 @@ class BasisProjectionOperators:
 
     @property
     def U1(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -465,7 +463,7 @@ class BasisProjectionOperators:
 
     @property
     def Xv(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -487,7 +485,7 @@ class BasisProjectionOperators:
 
     @property
     def X1(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -509,7 +507,7 @@ class BasisProjectionOperators:
 
     @property
     def X2(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -531,7 +529,7 @@ class BasisProjectionOperators:
 
     @property
     def W1(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -553,7 +551,7 @@ class BasisProjectionOperators:
 
     @property
     def R1(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -587,7 +585,7 @@ class BasisProjectionOperators:
 
     @property
     def R2(self):
-        r'''Basis projection operator 
+        r'''Basis projection operator
 
         .. math::
 
@@ -649,13 +647,13 @@ class BasisProjectionOperators:
 
             \mathcal P_{(\mu, ijk),(\nu, mno)} = \hat \Pi^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^\alpha_{\nu, mno} \right)\,.
 
-        Here, :math:`\alpha \in \{0, 1, 2, 3, v\}` indicates the domain and :math:`\beta \in \{0, 1, 2, 3, v\}` indicates the co-domain 
+        Here, :math:`\alpha \in \{0, 1, 2, 3, v\}` indicates the domain and :math:`\beta \in \{0, 1, 2, 3, v\}` indicates the co-domain
         of the operator.
 
         Parameters
         ----------
         fun : list[list[callable | ndarray]]
-            2d list of either all 3d arrays or all scalar functions of eta1, eta2, eta3 (must allow matrix evaluations). 
+            2d list of either all 3d arrays or all scalar functions of eta1, eta2, eta3 (must allow matrix evaluations).
             3d arrays must have shape corresponding to the 1d quad_grids of V1-VectorFemSpace.
 
         V_id : str
@@ -897,7 +895,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
     @property
     def dof_operator(self):
-        """ The degrees of freedom operator as composite linear operator containing polar extraction and boundary operators. 
+        """ The degrees of freedom operator as composite linear operator containing polar extraction and boundary operators.
         """
         return self._dof_operator
 
@@ -987,8 +985,8 @@ class BasisProjectionOperator(LinOpWithTransp):
 
     def _assemble_mat(self):
         """
-        Assembles the tensor-product DOF matrix sigma_i(weights[i,j]*Lambda_j), where i=(i1, i2, ...) 
-        and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d). And 
+        Assembles the tensor-product DOF matrix sigma_i(weights[i,j]*Lambda_j), where i=(i1, i2, ...)
+        and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d). And
         store it in self._dof_mat.
         """
 
@@ -1115,7 +1113,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         Three SplineSpace objects from Psydac from the output space (projected onto).
 
     starts_out : 3-list
-        Global starting indices of process. 
+        Global starting indices of process.
 
     ends_out : 3-list
         Global ending indices of process.
@@ -1163,33 +1161,32 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
         spans += [s_i]
         bases += [b_i]
 
-    #print("#################################################")
-    #print("#################################################")
-    #print("W1d[0]:")
-    #print(W1d[0])
-    #print("W1d[1]:")
-    #print(W1d[1])
-    #print("W1d[2]:")
-    #print(W1d[2])
-    #print("pts :")
-    #print(pts)
-    #print("#################################################")
-    #print("#################################################")
-    
-    
+    # print("#################################################")
+    # print("#################################################")
+    # print("W1d[0]:")
+    # print(W1d[0])
+    # print("W1d[1]:")
+    # print(W1d[1])
+    # print("W1d[2]:")
+    # print(W1d[2])
+    # print("pts :")
+    # print(pts)
+    # print("#################################################")
+    # print("#################################################")
+
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 
 
 class CoordinateProjector(LinearOperator):
     r"""
-    Class of projectors on one component of a ProductFemSpace. 
+    Class of projectors on one component of a ProductFemSpace.
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
 
         \begin{align}
         P_\mu : \ & V_1 \times \ldots \times V_\mu \times \ldots \times V_n \longrightarrow V_\mu \,,
-        \\[2mm]    
+        \\[2mm]
         &\vec{x} = (x_1,\ldots,x_\mu,\ldots ,x_n) \mapsto x_\mu \,.
         \end{align}
 
@@ -1276,7 +1273,7 @@ class CoordinateProjector(LinearOperator):
 
 class CoordinateInclusion(LinearOperator):
     r"""
-    Class of inclusion operator from one component of a ProductFemSpace. 
+    Class of inclusion operator from one component of a ProductFemSpace.
     Represent the canonical inclusion on the :math:`\mu`-th component :
 
     .. math::

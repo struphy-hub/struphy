@@ -15,9 +15,11 @@ def struphy_units(model, input, input_abs=None):
     """
 
     import os
+
     import yaml
+
     import struphy
-    from struphy.models import fluid, kinetic, hybrid, toy
+    from struphy.models import fluid, hybrid, kinetic, toy
 
     # load model class
     objs = [fluid, kinetic, hybrid, toy]
@@ -32,7 +34,7 @@ def struphy_units(model, input, input_abs=None):
 
     with open(os.path.join(libpath, 'state.yml')) as f:
         state = yaml.load(f, Loader=yaml.FullLoader)
-        
+
     i_path = state['i_path']
 
     # create absolute i/o paths
@@ -41,10 +43,9 @@ def struphy_units(model, input, input_abs=None):
             params = model_class.generate_default_parameter_file(save=False)
         else:
             input_abs = os.path.join(i_path, input)
-            
+
             with open(input_abs) as file:
                 params = yaml.load(file, Loader=yaml.FullLoader)
 
-    
     # print units
     model_class.model_units(params, verbose=True)

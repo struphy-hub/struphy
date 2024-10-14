@@ -8,14 +8,13 @@ import pytest
 def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     '''Test Nel=1 in various directions.'''
 
-    from mpi4py import MPI
     import numpy as np
     from matplotlib import pyplot as plt
+    from mpi4py import MPI
+    from psydac.linalg.block import BlockVector
+    from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
-
-    from psydac.linalg.stencil import StencilVector
-    from psydac.linalg.block import BlockVector
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -84,7 +83,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     #################################
     def fun(eta): return np.cos(2*np.pi*eta)
     def dfun(eta): return - 2*np.pi * np.sin(2*np.pi*eta)
-    
+
     # evaluation points and gradient
     e1 = 0.
     e2 = 0.
@@ -113,13 +112,13 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
         def dfx(x, y, z): return np.zeros_like(z)
         def dfy(x, y, z): return np.zeros_like(z)
         def dfz(x, y, z): return dfun(z)
-    
+
     def curl_f_1(x, y, z): return dfy(x, y, z) - dfz(x, y, z)
     def curl_f_2(x, y, z): return dfz(x, y, z) - dfx(x, y, z)
     def curl_f_3(x, y, z): return dfx(x, y, z) - dfy(x, y, z)
-    
+
     def div_f(x, y, z): return dfx(x, y, z) + dfy(x, y, z) + dfz(x, y, z)
-    
+
     grad_f = (dfx, dfy, dfz)
     curl_f = (curl_f_1, curl_f_2, curl_f_3)
     proj_of_grad_f = derham.P['1'](grad_f)
@@ -165,7 +164,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     plt.plot(e, grad_f[c](e1, e2, e3), 'o')
     plt.plot(e, field_df0_vals[c])
     plt.title(f'grad comp {c + 1}')
-    
+
     plt.subplots_adjust(wspace=1.0, hspace=0.4)
 
     ##########
@@ -207,12 +206,12 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     plt.plot(e, curl_f[(c + 1) % 3](e1, e2, e3), 'o')
     plt.plot(e, field_df1_vals[(c + 1) % 3])
     plt.title(f'curl comp {(c + 1) % 3}')
-    
+
     plt.subplot(3, 1, 3)
     plt.plot(e, curl_f[(c + 2) % 3](e1, e2, e3), 'o')
     plt.plot(e, field_df1_vals[(c + 2) % 3])
     plt.title(f'curl comp {(c + 2) % 3}')
-    
+
     plt.subplots_adjust(wspace=1.0, hspace=0.4)
 
     ##########
@@ -238,7 +237,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_df2.vector = df2_h
     field_df2_vals = field_df2(e1, e2, e3, squeeze_output=True)
 
-    err_df2 = np.max(np.abs(div_f(e1, e2, e3) - field_df2_vals)) 
+    err_df2 = np.max(np.abs(div_f(e1, e2, e3) - field_df2_vals))
     print(f'{err_df2 = }')
     assert np.max(err_df2) < .64
 
@@ -254,9 +253,9 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     plt.plot(e, div_f(e1, e2, e3), 'o')
     plt.plot(e, field_df2_vals)
     plt.title(f'div')
-    
+
     plt.subplots_adjust(wspace=1.0, hspace=0.4)
-    
+
     ##########
     # 3-form #
     ##########
@@ -278,11 +277,12 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     plt.plot(e, field_f3_vals)
     plt.title('fun')
     plt.xlabel(f'eta{c + 1}')
-    
+
     plt.subplots_adjust(wspace=1.0, hspace=0.4)
 
     if do_plot:
         plt.show()
+
 
 if __name__ == '__main__':
     test_lowdim_derham([32, 1, 1], [1, 1, 1], [True, True, True], do_plot=False)

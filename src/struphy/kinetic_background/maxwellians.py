@@ -3,11 +3,15 @@
 
 import numpy as np
 
-from struphy.kinetic_background.base import Maxwellian, CanonicalMaxwellian, KineticBackground
+from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.initial import perturbations
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.kinetic_background.base import (
+    CanonicalMaxwellian,
+    KineticBackground,
+    Maxwellian,
+)
 
 
 class Maxwellian3D(Maxwellian):
@@ -111,14 +115,14 @@ class Maxwellian3D(Maxwellian):
 
     @property
     def mhd_equil(self):
-        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        """ One of :mod:`~struphy.fields_background.mhd_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._mhd_equil
 
     @property
     def braginskii_equil(self):
-        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._braginskii_equil
@@ -477,13 +481,13 @@ class Maxwellian3D(Maxwellian):
 
 class GyroMaxwellian2D(Maxwellian):
     r""" A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
-    two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`, 
+    two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`,
     where :math:`v_\parallel = \matbf v \cdot \mathbf b_0` and :math:`v_\perp`
     is the radial component of a polar coordinate system perpendicular
     to the magentic direction :math:`\mathbf b_0`.
 
     Parameters
-    ----------    
+    ----------
     maxw_params : dict
         Parameters for the kinetic background.
 
@@ -491,7 +495,7 @@ class GyroMaxwellian2D(Maxwellian):
         Parameters for the kinetic perturbation added to the background.
 
     volume_form : bool
-        Whether to represent the Maxwellian as a volume form; 
+        Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
 
@@ -567,7 +571,7 @@ class GyroMaxwellian2D(Maxwellian):
 
     @property
     def coords(self):
-        """ Coordinates of the Maxwellian5D, :math:`(v_\parallel, v_\perp)`.
+        """ Coordinates of the Maxwellian5D, :math:`(v_\\parallel, v_\\perp)`.
         """
         return 'vpara_vperp'
 
@@ -585,14 +589,14 @@ class GyroMaxwellian2D(Maxwellian):
 
     @property
     def mhd_equil(self):
-        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        """ One of :mod:`~struphy.fields_background.mhd_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._mhd_equil
 
     @property
     def braginskii_equil(self):
-        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._braginskii_equil
@@ -1007,7 +1011,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
     @property
     def coords(self):
-        """ Coordinates of the CanonicalMaxwellian, :math:`(\epsilon, \mu, \psi_c)`.
+        """ Coordinates of the CanonicalMaxwellian, :math:`(\\epsilon, \\mu, \\psi_c)`.
         """
         return 'constants_of_motion'
 
@@ -1025,14 +1029,14 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
     @property
     def mhd_equil(self):
-        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        """ One of :mod:`~struphy.fields_background.mhd_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._mhd_equil
 
     @property
     def braginskii_equil(self):
-        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._braginskii_equil
@@ -1207,7 +1211,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
 
 class Constant(KineticBackground):
-    r""" Base class for a constant distribution function on the unit cube. 
+    r""" Base class for a constant distribution function on the unit cube.
 
     """
 
@@ -1283,7 +1287,7 @@ class Constant(KineticBackground):
 
     @property
     def n(self, *etas):
-        """ Number density (0-form). 
+        """ Number density (0-form).
 
         Parameters
         ----------

@@ -1,18 +1,15 @@
 import numpy as np
 from mpi4py import MPI
-
-from psydac.linalg.stencil import StencilVector, StencilMatrix, StencilDiagonalMatrix
-from psydac.linalg.block import BlockVector, BlockLinearOperator
-from psydac.linalg.basic import Vector, IdentityOperator
-
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
-
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.linalg.basic import IdentityOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
+from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
-from struphy.feec.utilities import RotationMatrix
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.utilities import RotationMatrix
 
 
 class WeightedMassOperators:
@@ -48,7 +45,7 @@ class WeightedMassOperators:
         self._matrix_free = matrix_free
 
         if 'eq_mhd' in weights:
-            self._selected_weight = 'eq_mhd' # default is to use mhd_equil for weights
+            self._selected_weight = 'eq_mhd'  # default is to use mhd_equil for weights
         elif len(weights) > 0:
             self._selected_weight = list(weights.keys())[0]
         else:
@@ -59,7 +56,7 @@ class WeightedMassOperators:
 
     @property
     def derham(self):
-        """ Discrete de Rham sequence on the logical unit cube. 
+        """ Discrete de Rham sequence on the logical unit cube.
         """
         return self._derham
 
@@ -73,12 +70,12 @@ class WeightedMassOperators:
     def weights(self):
         '''Dictionary of objects that provide access to callables that can serve as weight functions.'''
         return self._weights
-    
+
     @property
     def selected_weight(self):
         '''String identifying one key of "weigths". This key is used when selecting weight functions.'''
         return self._selected_weight
-    
+
     @selected_weight.setter
     def selected_weight(self, new):
         assert new in self.weights
@@ -107,7 +104,7 @@ class WeightedMassOperators:
     @property
     def M0(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
@@ -123,11 +120,11 @@ class WeightedMassOperators:
     @property
     def M1(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
         """
 
         if not hasattr(self, '_M1'):
@@ -146,11 +143,11 @@ class WeightedMassOperators:
     @property
     def M2(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
         """
 
         if not hasattr(self, '_M2'):
@@ -169,7 +166,7 @@ class WeightedMassOperators:
     @property
     def M3(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
@@ -185,11 +182,11 @@ class WeightedMassOperators:
     @property
     def Mv(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^v_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^v_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
         """
 
         if not hasattr(self, '_Mv'):
@@ -211,11 +208,11 @@ class WeightedMassOperators:
     @property
     def M1n(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -236,11 +233,11 @@ class WeightedMassOperators:
     @property
     def M2n(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{2,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -261,11 +258,11 @@ class WeightedMassOperators:
     @property
     def Mvn(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{v,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{v,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -286,11 +283,11 @@ class WeightedMassOperators:
     @property
     def M1ninv(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{1,\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)} \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)} \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -311,11 +308,11 @@ class WeightedMassOperators:
     @property
     def M1J(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{1,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \,  \textnormal d \boldsymbol\eta.
 
         with the rotation matrix
 
@@ -346,11 +343,11 @@ class WeightedMassOperators:
     @property
     def M2J(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{2,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
 
         with the rotation matrix
 
@@ -381,11 +378,11 @@ class WeightedMassOperators:
     @property
     def MvJ(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{v,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^v_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{v,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^v_{\nu, mno} \,  \textnormal d \boldsymbol\eta.
 
         with the rotation matrix
 
@@ -416,11 +413,11 @@ class WeightedMassOperators:
     @property
     def M2B(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
 
         with the rotation matrix
 
@@ -468,11 +465,11 @@ class WeightedMassOperators:
     @property
     def M2Bn(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
 
         with the rotation matrix
 
@@ -520,11 +517,11 @@ class WeightedMassOperators:
     @property
     def M1Bninv(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{1,B\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J_{\alpha, \gamma}\, G^{-1}_{\gamma,\nu}\, \vec{\Lambda}^1_{\nu, mno} \, \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,B\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J_{\alpha, \gamma}\, G^{-1}_{\gamma,\nu}\, \vec{\Lambda}^1_{\nu, mno} \, \sqrt g\,  \textnormal d \boldsymbol\eta.
 
         with the rotation matrix
 
@@ -544,8 +541,8 @@ class WeightedMassOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n] * (self.sqrt_g(e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3))]
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n]
+                                * (self.sqrt_g(e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3))]
 
             self._M1Bninv = self.assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1Bninv')
@@ -555,7 +552,7 @@ class WeightedMassOperators:
     @property
     def M1perp(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
@@ -580,7 +577,7 @@ class WeightedMassOperators:
     @property
     def M0ad(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
@@ -594,15 +591,15 @@ class WeightedMassOperators:
                 fun, 'H1', 'H1', name='M0ad')
 
         return self._M0ad
-    
+
     @property
     def M1gyro(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\nu}\, \Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\nu}\, \Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
@@ -613,8 +610,23 @@ class WeightedMassOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights[self.selected_weight].n0(e1, e2, e3) / self.weights[self.selected_weight].absB0(e1, e2, e3)**2 * self.D[m][n] * self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.sqrt_g(
-                        e1, e2, e3)]
+                    fun[-1] += [lambda e1,
+                                e2,
+                                e3,
+                                m=m,
+                                n=n: self.weights[self.selected_weight].n0(e1,
+                                                                           e2,
+                                                                           e3) / self.weights[self.selected_weight].absB0(e1,
+                                                                                                                          e2,
+                                                                                                                          e3)**2 * self.D[m][n] * self.Ginv(e1,
+                                                                                                                                                            e2,
+                                                                                                                                                            e3)[:,
+                                                                                                                                                                :,
+                                                                                                                                                                :,
+                                                                                                                                                                m,
+                                                                                                                                                                n] * self.D[m][n] * self.sqrt_g(e1,
+                                                                                                                                                                                                e2,
+                                                                                                                                                                                                e3)]
 
             self._M1gyro = self.assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1gyro')
@@ -629,15 +641,15 @@ class WeightedMassOperators:
 
         .. math::
 
-            \mathbb M_{(\mu, ijk), (\nu, mno)}(W) = \int \Lambda^\beta_{\mu, ijk}\, W_{\mu,\nu}(\boldsymbol \eta)\,  \Lambda^\alpha_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+            \mathbb M_{(\mu, ijk), (\nu, mno)}(W) = \int \Lambda^\beta_{\mu, ijk}\, W_{\mu,\nu}(\boldsymbol \eta)\,  \Lambda^\alpha_{\nu, mno} \,  \textnormal d \boldsymbol\eta.
 
-        Here, :math:`\alpha \in \{0, 1, 2, 3, v\}` indicates the domain and :math:`\beta \in \{0, 1, 2, 3, v\}` indicates the co-domain 
+        Here, :math:`\alpha \in \{0, 1, 2, 3, v\}` indicates the domain and :math:`\beta \in \{0, 1, 2, 3, v\}` indicates the co-domain
         of the operator.
 
         Parameters
         ----------
         fun : list[list[callable | ndarray]]
-            2d list of either all 3d arrays or all scalar functions of eta1, eta2, eta3 (must allow matrix evaluations). 
+            2d list of either all 3d arrays or all scalar functions of eta1, eta2, eta3 (must allow matrix evaluations).
             3d arrays must have shape corresponding to the 1d quad_grids of V1-VectorFemSpace.
 
         V_id : str
@@ -690,24 +702,24 @@ class WeightedMassOperator(LinOpWithTransp):
     r"""
     Class for assembling weighted mass matrices in 3d.
 
-    Weighted mass matrices :math:`\mathbb M^{\beta\alpha}: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` 
+    Weighted mass matrices :math:`\mathbb M^{\beta\alpha}: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}`
     are of the general form
 
     .. math::
 
         \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,,
 
-    where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, 
-    depending on domain and co-domain of the operator, 
-    and :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function 
+    where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2,
+    depending on domain and co-domain of the operator,
+    and :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function
     with tensor-product index :math:`mno` of the
-    :math:`\nu`-th component in the space :math:`V^\alpha_h`. 
+    :math:`\nu`-th component in the space :math:`V^\alpha_h`.
     These matrices are sparse and stored in StencilMatrix format.
 
-    Finally, :math:`\mathbb M^{\beta\alpha}` can be multiplied by 
-    :class:`~struphy.polar.linear_operators.PolarExtractionOperator` 
-    and :class:`~struphy.feec.linear_operators.BoundaryOperator`, 
-    :math:`\mathbb B\, \mathbb E\, \mathbb M^{\beta\alpha} \mathbb E^T \mathbb B^T`, 
+    Finally, :math:`\mathbb M^{\beta\alpha}` can be multiplied by
+    :class:`~struphy.polar.linear_operators.PolarExtractionOperator`
+    and :class:`~struphy.feec.linear_operators.BoundaryOperator`,
+    :math:`\mathbb B\, \mathbb E\, \mathbb M^{\beta\alpha} \mathbb E^T \mathbb B^T`,
     to account for :ref:`polar_splines` and/or :ref:`feec_bcs`, respectively.
 
     Parameters
@@ -731,9 +743,9 @@ class WeightedMassOperator(LinOpWithTransp):
         Boundary operator that sets essential boundary conditions.
 
     weights_info : NoneType | str | list
-        Information about the weights/block structure of the operator. 
+        Information about the weights/block structure of the operator.
         Three cases are possible:
-        
+
         1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
         2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
         3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
@@ -745,13 +757,13 @@ class WeightedMassOperator(LinOpWithTransp):
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
     """
 
-    def __init__(self, V, W, 
-                 V_extraction_op=None, 
-                 W_extraction_op=None, 
-                 V_boundary_op=None, 
-                 W_boundary_op=None, 
-                 weights_info=None, 
-                 transposed=False, 
+    def __init__(self, V, W,
+                 V_extraction_op=None,
+                 W_extraction_op=None,
+                 V_boundary_op=None,
+                 W_boundary_op=None,
+                 weights_info=None,
+                 transposed=False,
                  matrix_free=False):
 
         # only for M1 Mac users
@@ -1161,7 +1173,7 @@ class WeightedMassOperator(LinOpWithTransp):
     def assemble(self, weights=None, clear=True, verbose=True, name=None):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
-        
+
         .. math::
 
             \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,.
@@ -1171,13 +1183,13 @@ class WeightedMassOperator(LinOpWithTransp):
         Parameters
         ----------
         weights : list | NoneType
-            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to 
-            number of components of domain/codomain. 
-            If ``weights=None``, the weight is taken from the given weights in the 
+            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to
+            number of components of domain/codomain.
+            If ``weights=None``, the weight is taken from the given weights in the
             instanziation of the object, else it will be overriden.
 
         clear : bool
-            Whether to first set all data to zero before assembly. If False, 
+            Whether to first set all data to zero before assembly. If False,
             the new contributions are added to existing ones.
 
         verbose : bool

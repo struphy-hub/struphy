@@ -1,36 +1,38 @@
 'Only FEEC variables are updated.'
 
 
+from copy import deepcopy
+
 import numpy as np
 from numpy import zeros
-
-from struphy.propagators.base import Propagator
-from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.base import Particles
-from struphy.pic.particles import Particles6D, Particles5D
-from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.feec import preconditioner
-from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
-from struphy.feec.variational_utilities import BracketOperator
-from struphy.io.setup import descend_options_dict
-
-from psydac.linalg.solvers import inverse
 from psydac.linalg.basic import IdentityOperator
+from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector, BlockLinearOperator, BlockVectorSpace
-import struphy.feec.utilities as util
 
-from copy import deepcopy
+import struphy.feec.utilities as util
+from struphy.feec import preconditioner
+from struphy.feec.basis_projection_ops import (
+    BasisProjectionOperator,
+    CoordinateProjector,
+)
+from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.variational_utilities import BracketOperator
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.io.setup import descend_options_dict
+from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
+from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.base import Particles
+from struphy.pic.particles import Particles5D, Particles6D
+from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
 
 
 class Maxwell(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf E \in H(\textnormal{curl})` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
@@ -129,7 +131,7 @@ class Maxwell(Propagator):
 
 
 class OhmCold(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf j \in H(\textnormal{curl})` and :math:`\mathbf E \in H(\textnormal{curl})` such that
 
     .. math::
@@ -241,12 +243,12 @@ class OhmCold(Propagator):
 
 
 class JxBCold(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf j \in H(\textnormal{curl})` such that
 
     .. math::
 
-        \int_\Omega \frac{1}{n_0} \frac{\partial \mathbf j}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x 
+        \int_\Omega \frac{1}{n_0} \frac{\partial \mathbf j}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x
         = \frac{1}{\varepsilon} \int_\Omega \frac{1}{n_0} (\mathbf j \times \mathbf B_0) \cdot \mathbf F \,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point), such that
@@ -334,7 +336,7 @@ class JxBCold(Propagator):
 
 
 class ShearAlfven(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
@@ -349,8 +351,8 @@ class ShearAlfven(Propagator):
 
     .. math::
 
-        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
-        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix}
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^\rho_\alpha)^{-1} & 0 \end{bmatrix}
         \begin{bmatrix} {\mathbb M^\rho_\alpha}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
@@ -450,7 +452,7 @@ class ShearAlfven(Propagator):
 
 
 class ShearAlfvenB1(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{curl})` such that
 
     .. math::
@@ -464,12 +466,12 @@ class ShearAlfvenB1(Propagator):
 
     .. math::
 
-        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
-        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathcal {T^2}^\top \mathbb C \mathbb M_1^{-1}\\ - \mathbb M_1^{-1} \mathbb C^\top \mathcal {T^2} (\mathbb M^\rho_2)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix}
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathcal {T^2}^\top \mathbb C \mathbb M_1^{-1}\\ - \mathbb M_1^{-1} \mathbb C^\top \mathcal {T^2} (\mathbb M^\rho_2)^{-1} & 0 \end{bmatrix}
         \begin{bmatrix} {\mathbb M^\rho_2}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_1(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     where :math:`\mathbb M^\rho_2` is a weighted mass matrix in 2-space, the weight being :math:`\rho_0`,
-    the MHD equilibirum density. 
+    the MHD equilibirum density.
     '''
 
     @staticmethod
@@ -580,10 +582,10 @@ class ShearAlfvenB1(Propagator):
 
 
 class Hall(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf B \in H(\textnormal{curl})` such that
 
-    .. math:: 
+    .. math::
 
         \int_\Omega \frac{\partial \tilde{\mathbf{B}}}{\partial t} \cdot \mathbf C\,\textnormal d \mathbf x + \frac{1}{\varepsilon} \int_\Omega \nabla\times \mathbf C \cdot  \left( \frac{\nabla\times \tilde{\mathbf{B}}}{\rho_0}\times \mathbf{B}_0 \right) \textrm d \mathbf x = 0 \qquad \forall \, \mathbf C \in H(\textrm{curl})
 
@@ -591,11 +593,11 @@ class Hall(Propagator):
 
     .. math::
 
-        \mathbf b^{n+1} - \mathbf b^n 
+        \mathbf b^{n+1} - \mathbf b^n
         = \frac{\Delta t}{2} \mathbb M_1^{-1} \mathbb C^\top  \mathbb M^{\mathcal{T},\rho}_2  \mathbb C  (\mathbf b^{n+1} + \mathbf b^n)  ,
 
     where :math:`\mathbb M^{\mathcal{T},\rho}_2` is a weighted mass matrix in 2-space, the weight being :math:`\frac{\mathcal{T}}{\rho_0}`,
-    the MHD equilibirum density :math:`\rho_0` as a 0-form, and rotation matrix :math:`\mathcal{T} \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,`. 
+    the MHD equilibirum density :math:`\rho_0` as a 0-form, and rotation matrix :math:`\mathcal{T} \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,`.
     The solution of the above system is based on the Pre-conditioned Biconjugate Gradient Stabilized algortihm (PBiConjugateGradientStab).
     '''
 
@@ -683,31 +685,31 @@ class Hall(Propagator):
 
 class Magnetosonic(Propagator):
     r'''
-    :ref:`FEEC <gempic>` discretization of the following equations: 
+    :ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
 
     .. math::
-        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
 
         \int \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \mathbf V \,\textrm d \mathbf x
         =\int (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \cdot \mathbf V\,\textrm d \mathbf x
         \qquad \forall \ \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
 
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}})
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
 
     .. math::
 
-        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n \end{bmatrix} 
-        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n \end{bmatrix}
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_\alpha)^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 \end{bmatrix}
         \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^\rho_\alpha)^{-1} \mathbb M^J_\alpha \mathbf b^n \\ 0 \end{bmatrix},
 
-    where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathcal U^2 = \mathbb Id`; moreover, :math:`\mathbb M^\rho_\alpha` and 
-    :math:`\mathbb M^J_\alpha` are weighted mass matrices in :math:`\alpha`-space, 
+    where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathcal U^2 = \mathbb Id`; moreover, :math:`\mathbb M^\rho_\alpha` and
+    :math:`\mathbb M^J_\alpha` are weighted mass matrices in :math:`\alpha`-space,
     the weights being the MHD equilibirum density :math:`\rho_0`
-    and the curl of the MHD equilibrium current density :math:`\mathbf J_0 = \nabla \times \mathbf B_0`. 
+    and the curl of the MHD equilibrium current density :math:`\mathbf J_0 = \nabla \times \mathbf B_0`.
     Density update is decoupled:
 
     .. math::
@@ -844,11 +846,11 @@ class Magnetosonic(Propagator):
 
 
 class MagnetosonicUniform(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
 
     .. math::
-        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,,
 
         \int \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V\,\textrm d \mathbf x  - \int \tilde p\, \nabla \cdot \mathbf V \,\textrm d \mathbf x
         = 0
@@ -861,11 +863,11 @@ class MagnetosonicUniform(Propagator):
 
     .. math::
 
-        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1}_i - \mathbf p^n_i \end{bmatrix} 
-        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathbb D^\top \mathbb M_3 \\ - \gamma \mathcal K^3 \mathbb D & 0 \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1}_i - \mathbf p^n_i \end{bmatrix}
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^\rho_2)^{-1} \mathbb D^\top \mathbb M_3 \\ - \gamma \mathcal K^3 \mathbb D & 0 \end{bmatrix}
         \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1}_i + \mathbf p^n_i) \end{bmatrix} ,
 
-    where :math:`\mathbb M^\rho_2`  is a weighted mass matrix in 2-space, 
+    where :math:`\mathbb M^\rho_2`  is a weighted mass matrix in 2-space,
     the weight being the MHD equilibirum density :math:`\rho_0`. Furthermore, :math:`\mathcal K^3` is the basis projection operator given by :
 
     .. math::
@@ -880,7 +882,7 @@ class MagnetosonicUniform(Propagator):
         \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathcal Q \mathbb D  (\mathbf u^{n+1} + \mathbf u^n) \,.
 
     Parameters
-    ---------- 
+    ----------
     n : psydac.linalg.stencil.StencilVector
         FE coefficients of a discrete 3-form.
 
@@ -1017,7 +1019,7 @@ class FaradayExtended(Propagator):
         \end{align*}
 
     Parameters
-    ---------- 
+    ----------
         a : psydac.linalg.block.BlockVector
             FE coefficients of vector potential.
 
@@ -1131,8 +1133,16 @@ class FaradayExtended(Propagator):
             util.create_weight_weightedmatrix_hybrid(
                 curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain)
             # self._weight = [[None, self._weight_pre[2], -self._weight_pre[1]], [None, None, self._weight_pre[0]], [None, None, None]]
-            self._weight = [[0.0*self._weight_pre[0], 0.0*self._weight_pre[2], 0.0*self._weight_pre[1]], [0.0*self._weight_pre[2], 0.0 *
-                                                                                                          self._weight_pre[1], 0.0*self._weight_pre[0]], [0.0*self._weight_pre[1], 0.0*self._weight_pre[0], 0.0*self._weight_pre[2]]]
+            self._weight = [[0.0 *
+                             self._weight_pre[0], 0.0 *
+                             self._weight_pre[2], 0.0 *
+                             self._weight_pre[1]], [0.0 *
+                                                    self._weight_pre[2], 0.0 *
+                                                    self._weight_pre[1], 0.0 *
+                                                    self._weight_pre[0]], [0.0 *
+                                                                           self._weight_pre[1], 0.0 *
+                                                                           self._weight_pre[0], 0.0 *
+                                                                           self._weight_pre[2]]]
             # self._weight = [[self._weight_pre[0], self._weight_pre[2], self._weight_pre[1]], [self._weight_pre[2], self._weight_pre[1], self._weight_pre[0]], [self._weight_pre[1], self._weight_pre[0], self._weight_pre[2]]]
             HybridM1 = self.mass_ops.assemble_weighted_mass(
                 self._weight, 'Hcurl', 'Hcurl')
@@ -1165,12 +1175,12 @@ class FaradayExtended(Propagator):
 
 
 class CurrentCoupling6DDensity(Propagator):
-    r""":ref:`FEEC <gempic>` discretization of the following equations: 
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\tilde{\mathbf{U}}  \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` such that
 
     .. math::
 
-        &\int_\Omega \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \int_\Omega n_\textnormal{h}\tilde{\mathbf{U}} \times(\mathbf{B}_0+\tilde{\mathbf{B}}) \cdot \mathbf V \,\textrm d \mathbf x 
+        &\int_\Omega \rho_0 \frac{\partial \tilde{\mathbf{U}}}{\partial t} \cdot \mathbf V \,\textrm d \mathbf x = \frac{A_\textnormal{h}}{A_\textnormal{b}} \frac{1}{\varepsilon} \int_\Omega n_\textnormal{h}\tilde{\mathbf{U}} \times(\mathbf{B}_0+\tilde{\mathbf{B}}) \cdot \mathbf V \,\textrm d \mathbf x
         \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
         \\[2mm]
         &n_\textnormal{h}=\int_{\mathbb{R}^3}f_\textnormal{h}\,\textnormal{d}^3 \mathbf v\,.
@@ -1365,13 +1375,13 @@ class CurrentCoupling6DDensity(Propagator):
 
 
 class ShearAlfvenCurrentCoupling5D(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
-        \left\{ 
-            \begin{aligned} 
+        \left\{
+            \begin{aligned}
                 \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \int \left(\tilde{\mathbf B} - \frac{A_\textnormal{h}}{A_b} \iint f^\text{vol} \mu \mathbf{b}_0\textnormal{d} \mu \textnormal{d} v_\parallel \right) \cdot \nabla \times (\mathbf B_0 \times \mathbf V) \, \textnormal{d} \mathbf{x} \quad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,, \,,
                 \\
                 &\frac{\partial \tilde{\mathbf B}}{\partial t} = - \nabla \times (\mathbf B_0 \times \tilde{\mathbf U}) \,.
@@ -1382,20 +1392,20 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
     .. math::
 
-        \begin{bmatrix} 
+        \begin{bmatrix}
             \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n
-        \end{bmatrix} 
+        \end{bmatrix}
         = \frac{\Delta t}{2} \,.
-        \begin{bmatrix} 
-            0 & (\mathbb M^{\alpha,n})^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^{\alpha,n})^{-1} & 0 
-        \end{bmatrix} 
+        \begin{bmatrix}
+            0 & (\mathbb M^{\alpha,n})^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^{\alpha,n})^{-1} & 0
+        \end{bmatrix}
         \begin{bmatrix}
             {\mathbb M^{\alpha,n}}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)
         \end{bmatrix} \,,
 
-    where 
+    where
     :math:`\mathcal{T}^\alpha` is a :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators` and
-    :math:`\mathbb M^{\alpha,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density. 
+    :math:`\mathbb M^{\alpha,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density.
     :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
     Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M`.
     '''
@@ -1411,11 +1421,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1521,7 +1531,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._tmp_acc = self._B2.codomain.zeros()
 
     def __call__(self, dt):
-        
+
         # current variables
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
@@ -1542,28 +1552,26 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                   self._scale_vec, 0.)
 
         self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
-        
-        
+
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
         b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
         byn += b2acc
 
-        #b2acc.copy(out=self._accumulated_magnetization)
+        # b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
-        
-    
+
         # new b coeffs (no tmps created here)
         _u = un.copy(out=self._u_tmp2)
         _u += un1
         bn1 = self._C.dot(_u, out=self._b_tmp1)
         bn1 *= -dt
         bn1 += bn
-        
+
         # write new coeffs into self.feec_vars
         max_du, max_db = self.feec_vars_update(un1, bn1)
-        
+
         if self._info and self._rank == 0:
             print('Status     for ShearAlfven:', info['success'])
             print('Iterations for ShearAlfven:', info['niter'])
@@ -1574,7 +1582,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
 class MagnetosonicCurrentCoupling5D(Propagator):
     r'''
-    :ref:`FEEC <gempic>` discretization of the following equations: 
+    :ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
 
     .. math::
@@ -1586,7 +1594,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                 \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \int (\nabla \times \mathbf B_0) \times \tilde{\mathbf B} \cdot \mathbf V \, \textnormal{d} \mathbf x + \frac{A_\textnormal{h}}{A_b}\iint f^\text{vol} \mu \mathbf b_0 \cdot \nabla \times (\tilde{\mathbf B} \times \mathbf V) \, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu + \int \tilde p \nabla \cdot \mathbf V \, \textnormal{d} \mathbf x \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
                 \\
                 &\frac{\partial \tilde p}{\partial t} = - \nabla \cdot (p_0 \tilde{\mathbf U}) - (\gamma - 1) p_0 \nabla \cdot \tilde{\mathbf U} \,.
-            \end{aligned} 
+            \end{aligned}
         \right.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
@@ -1597,23 +1605,23 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
     .. math::
 
-        \begin{bmatrix} 
-            \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n 
-        \end{bmatrix} 
-        = \frac{\Delta t}{2} 
-        \begin{bmatrix} 
-            0 & (\mathbb M^{\alpha,n})^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 
-        \end{bmatrix} 
-        \begin{bmatrix} 
-            (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) 
-        \end{bmatrix} + 
-        \begin{bmatrix} 
-            \Delta t (\mathbb M^{\alpha,n})^{-1}\left[\mathbb M^{\alpha,J} \mathbf b^n + \frac{A_\textnormal{h}}{A_b}{\mathcal{T}^B}^\top \mathbb{C}^\top \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)\right] \\ 0 
+        \begin{bmatrix}
+            \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n
+        \end{bmatrix}
+        = \frac{\Delta t}{2}
+        \begin{bmatrix}
+            0 & (\mathbb M^{\alpha,n})^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n)
+        \end{bmatrix} +
+        \begin{bmatrix}
+            \Delta t (\mathbb M^{\alpha,n})^{-1}\left[\mathbb M^{\alpha,J} \mathbf b^n + \frac{A_\textnormal{h}}{A_b}{\mathcal{T}^B}^\top \mathbb{C}^\top \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)\right] \\ 0
         \end{bmatrix} \,,
 
-    where 
+    where
     :math:`\mathcal U^\alpha`, :math:`\mathcal S^\alpha`, :math:`\mathcal K^\alpha` and :math:`\mathcal Q^\alpha` are :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators` and
-    :math:`\mathbb M^{\alpha,n}` and :math:`\mathbb M^{\alpha,J}` are :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_0` the MHD equilibrium density. 
+    :math:`\mathbb M^{\alpha,n}` and :math:`\mathbb M^{\alpha,J}` are :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_0` the MHD equilibrium density.
     :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
     Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M` and
     the time-varying projection operator :math:`\mathcal{T}^B` is defined as
@@ -1634,11 +1642,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1839,7 +1847,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         .. math::
 
-            \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}²_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
+            \\mathcal{T}^B_{(\\mu,ijk),(\nu,mno)} := \\hat \\Pi¹_{(\\mu,ijk)} \\left[ \\epsilon_{\\mu \alpha \nu} \frac{\tilde{B}²_\alpha}{\\sqrt{g}} \\Lambda²_{\nu,mno} \right] \\,.
 
         """
 
@@ -1901,7 +1909,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
 
 class CurrentCoupling5DDensity(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
@@ -1928,7 +1936,7 @@ class CurrentCoupling5DDensity(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -2157,9 +2165,9 @@ class ImplicitDiffusion(Propagator):
 
         \int_\Omega \psi\, n_0(\mathbf x)\frac{\partial \phi}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top D_0(\mathbf x) \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
-    where :math:`n_0, \rho_i:\Omega \to \mathbb R` are real-valued functions and 
+    where :math:`n_0, \rho_i:\Omega \to \mathbb R` are real-valued functions and
     :math:`D_0:\Omega \to \mathbb R^{3\times 3}`
-    is a positive diffusion matrix. 
+    is a positive diffusion matrix.
     Boundary terms from integration by parts are assumed to vanish.
     The equation is discretized as
 
@@ -2174,9 +2182,9 @@ class ImplicitDiffusion(Propagator):
     Notes
     -----
 
-    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t`: **Poisson solver** with a given charge density :math:`\sum_i\rho_i`. 
+    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t`: **Poisson solver** with a given charge density :math:`\sum_i\rho_i`.
     * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
-    * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**. 
+    * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**.
 
     Parameters
     ----------
@@ -2195,7 +2203,7 @@ class ImplicitDiffusion(Propagator):
     diffusion_mat : str
         Name of the matrix :math:`M^1_{D_0}`.
 
-    rho : StencilVector or tuple or list 
+    rho : StencilVector or tuple or list
         (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
         Can be either a) StencilVector or b) 2-tuple, or a list of those.
         In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
@@ -2410,19 +2418,19 @@ class ImplicitDiffusion(Propagator):
 
 
 class VariationalMomentumAdvection(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in (H^1)^3` such that
 
     .. math::
 
-        \int_{\Omega} \partial_t ( \rho  \mathbf{u}) \cdot \mathbf{v} \,\textrm d \mathbf x - 
+        \int_{\Omega} \partial_t ( \rho  \mathbf{u}) \cdot \mathbf{v} \,\textrm d \mathbf x -
         \int_{\Omega} \rho \mathbf{u} \cdot  [\mathbf{u}, \mathbf{v}] \, \textrm d \mathbf x = 0 \,.
 
     On the logical domain:
 
     .. math::
 
-        \int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \,\textrm d \boldsymbol \eta - 
+        \int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \,\textrm d \boldsymbol \eta -
         \int_{\hat{\Omega}} \hat{\rho}^3 \hat{\mathbf{u}} \cdot G [\hat{\mathbf{u}}, \hat{\mathbf{v}}] \, \textrm d \boldsymbol \eta = 0 \,,
 
     which is discretized as
@@ -2652,7 +2660,7 @@ class VariationalMomentumAdvection(Propagator):
 
 
 class VariationalDensityEvolve(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\rho \in L^2` and  :math:`\mathbf u \in (H^1)^3` such that
 
     .. math::
@@ -2668,7 +2676,7 @@ class VariationalDensityEvolve(Propagator):
         \begin{align}
         &\partial_t \hat{\rho}^3 + \nabla \cdot ( \hat{\rho}^3 \hat{\mathbf{u}} ) = 0 ~ ,
         \\[4mm]
-        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
         + \int_{\hat{\Omega}} \left( \frac{| DF \hat{\mathbf{u}} |^2}{2} - \frac{\partial (\hat{\rho}^3 \mathcal U)}{\partial \hat{\rho}^3} \right) \nabla \cdot (\hat{\rho}^3 \hat{\mathbf{v}}) \, \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
         \end{align}
@@ -2678,8 +2686,8 @@ class VariationalDensityEvolve(Propagator):
     .. math::
 
         \begin{align}
-        &\frac{\mathbb M^v[\hat{\rho}_h^{n+1}] \mathbf u^{n+1}- \mathbb M^v[\hat{\rho}_h^n] \mathbf u^n}{\Delta t} 
-        + (\mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\left(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2} 
+        &\frac{\mathbb M^v[\hat{\rho}_h^{n+1}] \mathbf u^{n+1}- \mathbb M^v[\hat{\rho}_h^n] \mathbf u^n}{\Delta t}
+        + (\mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\left(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2}
         - \frac{\hat{\rho}_h^{n+1}\mathcal U(\hat{\rho}_h^{n+1})-\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n})}{\hat{\rho}_h^{n+1}-\hat{\rho}_h^n} \right) = 0 ~ ,
         \\[2mm]
         &\frac{\boldsymbol \rho^{n+1}- \boldsymbol \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
@@ -2713,7 +2721,7 @@ class VariationalDensityEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False, 
+                                'info': False,
                                 'implicit_transport': False}
         dct['physics'] = {'gamma': 5/3}
 
@@ -2747,7 +2755,6 @@ class VariationalDensityEvolve(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = self._nonlin_solver['implicit_transport']
-
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -3536,7 +3543,7 @@ class VariationalDensityEvolve(Propagator):
             self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
 
         self._M_un.assemble(
-            [[self._Guf_values[0],   self._Guf_values[1],   self._Guf_values[2]]], verbose=False)
+            [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]], verbose=False)
         self._M_un1.assemble(
             [[self._Guf1_values[0]], [self._Guf1_values[1]], [self._Guf1_values[2]]], verbose=False)
 
@@ -3567,7 +3574,7 @@ class VariationalDensityEvolve(Propagator):
 
 
 class VariationalEntropyEvolve(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in (H^1)^3` and :math:`s \in L^2` such that
 
     .. math::
@@ -3581,7 +3588,7 @@ class VariationalEntropyEvolve(Propagator):
     .. math::
 
         \begin{align}
-        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
         - \int_{\hat{\Omega}} \left(\frac{\partial \hat{\rho}^3 \mathcal U}{\partial \hat{s}} \right) \nabla \cdot (\hat{s} \hat{\mathbf{v}}) \, \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
         &\partial_t \hat{s} + \nabla \cdot ( \hat{s} \hat{\mathbf{u}} ) = 0 ~ ,
@@ -3592,7 +3599,7 @@ class VariationalEntropyEvolve(Propagator):
     .. math::
 
         \begin{align}
-        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t} - 
+        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t} -
         (\mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\left( \frac{\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n+1})-\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n})}{\hat{s}_h^{n+1}-\hat{s}_h^n} \right) = 0 ~ ,
         \\[2mm]
         &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
@@ -3600,7 +3607,7 @@ class VariationalEntropyEvolve(Propagator):
         &\frac{\tilde{\boldsymbol s}^{n+1}- \boldsymbol s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
         \\[2mm]
         &\tilde{\boldsymbol s}^{n+1} = \boldsymbol s^n ~ \text{else},
-        \end{align}        
+        \end{align}
 
     where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
 
@@ -3659,7 +3666,6 @@ class VariationalEntropyEvolve(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = nonlin_solver['implicit_transport']
-
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -4325,7 +4331,7 @@ class VariationalEntropyEvolve(Propagator):
 
 
 class VariationalMagFieldEvolve(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in (H^1)^3` and :math:`s \in L^2` such that
 
     .. math::
@@ -4339,7 +4345,7 @@ class VariationalMagFieldEvolve(Propagator):
     .. math::
 
         \begin{align}
-        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
         - \int_{\hat{\Omega}} \hat{\mathbf{B}}^2 \cdot G \,\nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
         &\partial_t \hat{\mathbf{B}}^2 + \nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{u}}) = 0 ~ .
@@ -4382,7 +4388,6 @@ class VariationalMagFieldEvolve(Propagator):
                                 'type': ['Newton', 'Picard'],
                                 'info': False,
                                 'implicit_transport': False}
-
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -4852,7 +4857,7 @@ class VariationalMagFieldEvolve(Propagator):
 
 
 class VariationalViscosity(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\rho \in L^2` and  :math:`\mathbf u \in (H^1)^3` such that
 
     .. math::
@@ -4868,7 +4873,7 @@ class VariationalViscosity(Propagator):
     .. math::
 
         \begin{align}
-        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta  
+        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
         + \mu \int_{\hat{\Omega}} \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
         &\int_{\hat{\Omega}} \partial_t (\hat{\rho} \hat{e}(\hat{\rho}, \hat{s})) \hat{w} \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta -  \int_{\hat{\Omega}} (\mu + \mu_a(\boldsymbol \eta)) \nabla (DF \hat{\mathbf{u}}) : \nabla (DF \hat{\mathbf{u}}) \hat{w} \, \textrm d \boldsymbol \eta = 0 ~ .
@@ -5030,10 +5035,10 @@ class VariationalViscosity(Propagator):
 
         gu_sq_v *= dt*self._mu_a  # /2
 
-        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0,0], gu_sq_v*self._mass_M1_metric[0,1], gu_sq_v*self._mass_M1_metric[0,2]],
-                             [gu_sq_v*self._mass_M1_metric[1,0], gu_sq_v*self._mass_M1_metric[1,1], gu_sq_v*self._mass_M1_metric[1,2]],
-                             [gu_sq_v*self._mass_M1_metric[2,0], gu_sq_v*self._mass_M1_metric[1,2], gu_sq_v*self._mass_M1_metric[2,2]]], 
-                             verbose=False)
+        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0, 0], gu_sq_v*self._mass_M1_metric[0, 1], gu_sq_v*self._mass_M1_metric[0, 2]],
+                             [gu_sq_v*self._mass_M1_metric[1, 0], gu_sq_v*self._mass_M1_metric[1, 1], gu_sq_v*self._mass_M1_metric[1, 2]],
+                             [gu_sq_v*self._mass_M1_metric[2, 0], gu_sq_v*self._mass_M1_metric[1, 2], gu_sq_v*self._mass_M1_metric[2, 2]]],
+                            verbose=False)
 
         # gu_sq_v *= 2.
         gu_sq_v += dt*self._mu
@@ -5083,10 +5088,9 @@ class VariationalViscosity(Propagator):
         gu_sq_v *= 0.
         for i in range(3):
             for j in range(3):
-                gu_sq_v += gu0_v[i]*self._mass_M1_metric[i,j]*gu120_v[j]
-                gu_sq_v += gu1_v[i]*self._mass_M1_metric[i,j]*gu121_v[j]
-                gu_sq_v += gu2_v[i]*self._mass_M1_metric[i,j]*gu122_v[j]
-
+                gu_sq_v += gu0_v[i]*self._mass_M1_metric[i, j]*gu120_v[j]
+                gu_sq_v += gu1_v[i]*self._mass_M1_metric[i, j]*gu121_v[j]
+                gu_sq_v += gu2_v[i]*self._mass_M1_metric[i, j]*gu122_v[j]
 
         gu_sq_v *= self._gu_init_values
         # 2) Initial energy and linear form
@@ -5355,7 +5359,7 @@ class VariationalViscosity(Propagator):
 
 
 class VariationalResistivity(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r''':ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`s \in L^2` and  :math:`\mathbf B \in H(\textrm{div})` such that
 
     .. math::
@@ -5365,7 +5369,7 @@ class VariationalResistivity(Propagator):
         &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q\,\textrm d \mathbf x - \int_\Omega (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,.
 
     With :math:`\eta_a(\mathbf x) = \eta_a |\nabla \times \mathbf B(\mathbf x)|`
-        
+
     On the logical domain:
 
     .. math::
@@ -5381,7 +5385,7 @@ class VariationalResistivity(Propagator):
     .. math::
 
         \begin{align}
-        &\frac{\mathbf B^{n+1}-\mathbf B^n}{\Delta t} 
+        &\frac{\mathbf B^{n+1}-\mathbf B^n}{\Delta t}
         + \, \mathbb C \mathbb M_1^{-1} (\eta M_1 + \eta_a M_1[|\nabla \times \mathbf B|]) M_1^{-1} \mathbb C^T \mathbb M_2  \mathbf B^{n+1} = 0 ~ ,
         \\[2mm]
         &\frac{P^{3}(\rho e(s^{n+1})- P^{3}(\rho e(s^{n}))}{\Delta t} - P^3((\eta + \eta_a(\mathbf x)) DF^{-T} \tilde{\mathbb C} \frac{ \mathbf B^{n+1}+\mathbf B^n}{2} \cdot DF^{-T} \tilde{\mathbb C} \mathbf B^{n+1}) = 0 ~ ,
@@ -5506,10 +5510,10 @@ class VariationalResistivity(Propagator):
 
         cb_sq_v *= dt*self._eta_a
 
-        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0,0],cb_sq_v*self._sq_term_metric[0,1],cb_sq_v*self._sq_term_metric[0,2]],
-                             [cb_sq_v*self._sq_term_metric[1,0],cb_sq_v*self._sq_term_metric[1,1],cb_sq_v*self._sq_term_metric[1,2]],
-                             [cb_sq_v*self._sq_term_metric[2,0],cb_sq_v*self._sq_term_metric[2,1],cb_sq_v*self._sq_term_metric[2,2]]],
-                             verbose = False)
+        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0, 0], cb_sq_v*self._sq_term_metric[0, 1], cb_sq_v*self._sq_term_metric[0, 2]],
+                             [cb_sq_v*self._sq_term_metric[1, 0], cb_sq_v*self._sq_term_metric[1, 1], cb_sq_v*self._sq_term_metric[1, 2]],
+                             [cb_sq_v*self._sq_term_metric[2, 0], cb_sq_v*self._sq_term_metric[2, 1], cb_sq_v*self._sq_term_metric[2, 2]]],
+                            verbose=False)
 
         cb_sq_v += dt*self._eta
 
@@ -5532,7 +5536,6 @@ class VariationalResistivity(Propagator):
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
-        
         cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
         self.cbf12.vector = cb12
@@ -5807,7 +5810,7 @@ class TimeDependentSource(Propagator):
     -----
 
     * :math:`h(\omega t) = \cos(\omega t)` (default)
-    * :math:`h(\omega t) = \sin(\omega t)` 
+    * :math:`h(\omega t) = \sin(\omega t)`
     '''
 
     @staticmethod
@@ -5875,7 +5878,7 @@ class AdiabaticPhi(Propagator):
         \sigma_1 \mathbb M^0_{n/T} \boldsymbol \phi = (\Lambda^0, n_{e} - n_{e0} )_{L^2}\,,
 
     where :math:`M^0_{n/T}` is a :class:`~struphy.feec.mass.WeightedMassOperator` and :math:`\sigma_1`
-    is a normalization parameter. 
+    is a normalization parameter.
 
     Parameters
     ----------
@@ -6012,7 +6015,7 @@ class AdiabaticPhi(Propagator):
 
         self._rhs *= 0.
         if isinstance(self._rho, tuple):
-            self._rho[0]() # accumulate
+            self._rho[0]()  # accumulate
             self._rhs += self._rho[0].vectors[0]
         else:
             self._rhs += self._rho

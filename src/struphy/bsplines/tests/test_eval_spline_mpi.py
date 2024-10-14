@@ -1,9 +1,9 @@
 from sys import int_info
-import pytest
-
-from mpi4py import MPI
-import numpy as np
 from time import sleep
+
+import numpy as np
+import pytest
+from mpi4py import MPI
 
 
 @pytest.mark.mpi(min_size=2)
@@ -13,12 +13,13 @@ from time import sleep
 def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     '''Compares evaluation_kernel_3d with eval_spline_mpi_kernel.'''
 
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
     from struphy.bsplines import bsplines_kernels as bsp
+    from struphy.bsplines.evaluation_kernels_3d import (
+        eval_spline_mpi_kernel as eval3d_mpi,
+    )
     from struphy.bsplines.evaluation_kernels_3d import evaluation_kernel_3d as eval3d
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_kernel as eval3d_mpi
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -143,12 +144,10 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
 def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
     '''Compares evaluate_3d with eval_spline_mpi.'''
 
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
     from struphy.bsplines import bsplines_kernels as bsp
-    from struphy.bsplines.evaluation_kernels_3d import evaluate_3d
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi
+    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi, evaluate_3d
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -317,7 +316,7 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
 @pytest.mark.parametrize('p', [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
-    '''Compares 
+    '''Compares
 
     evaluate_tensor_product
     eval_spline_mpi_tensor_product
@@ -326,14 +325,15 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     on random tensor product points.
     '''
 
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
-    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fast
-
     import time
+
+    from struphy.bsplines.evaluation_kernels_3d import (
+        eval_spline_mpi_tensor_product,
+        eval_spline_mpi_tensor_product_fast,
+        evaluate_tensor_product,
+    )
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -453,7 +453,7 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
 @pytest.mark.parametrize('p', [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
-    '''Compares 
+    '''Compares
 
     evaluate_tensor_product
     eval_spline_mpi_tensor_product_fixed
@@ -461,14 +461,15 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     on histopolation grid of V3.
     '''
 
-    from struphy.feec.psydac_derham import Derham
-    from struphy.feec.basis_projection_ops import prepare_projection_of_basis
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
-    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
-
     import time
+
+    from struphy.bsplines.evaluation_kernels_3d import (
+        eval_spline_mpi_tensor_product_fixed,
+        evaluate_tensor_product,
+    )
+    from struphy.feec.basis_projection_ops import prepare_projection_of_basis
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -492,7 +493,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     eta1s = ptsG[0].flatten()
     eta2s = ptsG[1].flatten()
     eta3s = ptsG[2].flatten()
-    
+
     spans_f, bns_f, bds_f = derham.prepare_eval_tp_fixed([eta1s, eta2s, eta3s])
 
     # output arrays
@@ -533,23 +534,23 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     t1 = time.time()
     if rank == 0:
         print('v3 eval_spline_mpi_tensor_product_fixed:'.ljust(40), t1 - t0)
-        
+
     assert np.allclose(vals, vals_mpi_fixed)
-    
+
     field = derham.create_field('test', 'L2')
     field.vector = x3_psy
-    
+
     assert np.allclose(field.vector._data, x3_psy._data)
-    
+
     t0 = time.time()
     field.eval_tp_fixed_loc(spans_f, bds_f, out=vals_mpi_fixed)
     t1 = time.time()
     if rank == 0:
         print('v3 field.eval_tp_fixed:'.ljust(40), t1 - t0)
-        
+
     assert np.allclose(vals, vals_mpi_fixed)
 
 
 if __name__ == '__main__':
-    #test_eval_tensor_product([8, 9, 10], [2, 1, 2], [True, False, False], n_markers=10)
+    # test_eval_tensor_product([8, 9, 10], [2, 1, 2], [True, False, False], n_markers=10)
     test_eval_tensor_product_grid([8, 9, 10], [2, 1, 2], [False, True, False], n_markers=10)

@@ -1,5 +1,7 @@
-import pytest
 import inspect
+
+import pytest
+
 from struphy.models.tests.util import call_model
 
 
@@ -25,7 +27,7 @@ def test_fluid(map_and_equil, fast, model=None, Tend=None):
                     print(
                         f'Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.')
                     continue
-                
+
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:
                         print(
@@ -43,9 +45,10 @@ def test_fluid(map_and_equil, fast, model=None, Tend=None):
             exit()
 
         call_model(model, val, map_and_equil, Tend=Tend)
-        
+
+
 if __name__ == '__main__':
-    
+
     test_fluid(('Cuboid', 'HomogenSlab'), False, model='ViscoresistiveMHD')
     test_fluid(('HollowTorus', 'AdhocTorus'), False, model='ViscoresistiveMHD')
     test_fluid(('Tokamak', 'EQDSKequilibrium'), False, model='ViscoresistiveMHD')

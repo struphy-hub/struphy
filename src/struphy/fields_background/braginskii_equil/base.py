@@ -2,6 +2,7 @@
 
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
@@ -10,11 +11,11 @@ from pyevtk.hl import gridToVTK
 class BraginskiiEquilibrium(metaclass=ABCMeta):
     r"""
     Base class for analytical Braginskii ion-fluid equilibria in a given magnetic background.
-    
+
     The equilibria are solutions of:
-    
+
     .. math::
-    
+
         \begin{align}
         \mathbf u \cdot \nabla n + n \nabla \cdot \mathbf u &= 0\,,
         \\[2mm]
@@ -22,11 +23,11 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         \\[2mm]
         \mathbf u \cdot \nabla p + \gamma p \nabla \cdot \mathbf u &= \color{red} - (\gamma - 1) \nabla \cdot \left(  \mathbf q_\wedge + \mathbb P_\wedge \cdot \mathbf u \right)\,,
         \end{align}
-        
-    where the red terms denote the gyro-viscous stress tensor :math:`\mathbb P_\wedge` and heat flux :math:`\mathbf q_\wedge`. 
 
-    The base class provides transformations of callables to different representations or coordinates.   
-    """    
+    where the red terms denote the gyro-viscous stress tensor :math:`\mathbb P_\wedge` and heat flux :math:`\mathbf q_\wedge`.
+
+    The base class provides transformations of callables to different representations or coordinates.
+    """
 
     @property
     def domain(self):
@@ -78,7 +79,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         """
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         return np.sqrt(b[0]**2 + b[1]**2 + b[2]**2)
-    
+
     def b1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
@@ -113,12 +114,12 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         """ Unit vector components of equilibrium magnetic field (2-form) on logical cube [0, 1]^3.
         """
         return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2', squeeze_out=squeeze_out)
-    
+
     def unit_bv(self, *etas, squeeze_out=False):
         """ Unit vector components of  equilibrium magnetic field (contra-variant) on logical cube [0, 1]^3.
         """
         return self.domain.pull(self.unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='v', squeeze_out=squeeze_out)
-    
+
     def unit_b_cart(self, *etas, squeeze_out=False):
         """ Unit vector Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
@@ -205,7 +206,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         n = self.n_xyz(xyz[0], xyz[1], xyz[2])
         s = n * np.log(p/(2/3*np.power(n, 5/3)))
         return self.domain.pull(s, *etas, kind='0', squeeze_out=squeeze_out)
-    
+
     def s3(self, *etas, squeeze_out=False):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
@@ -233,7 +234,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
 
     def b2_3(self, *etas, squeeze_out=False):
         return self.b2(*etas, squeeze_out=squeeze_out)[2]
-    
+
     def bv_1(self, *etas, squeeze_out=False):
         return self.bv(*etas, squeeze_out=squeeze_out)[0]
 
@@ -275,7 +276,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
 
     def u1_2(self, *etas, squeeze_out=False):
         return self.u1(*etas, squeeze_out=squeeze_out)[1]
-    
+
     def u1_3(self, *etas, squeeze_out=False):
         return self.u1(*etas, squeeze_out=squeeze_out)[2]
 
@@ -284,7 +285,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
 
     def u2_2(self, *etas, squeeze_out=False):
         return self.u2(*etas, squeeze_out=squeeze_out)[1]
-    
+
     def u2_3(self, *etas, squeeze_out=False):
         return self.u2(*etas, squeeze_out=squeeze_out)[2]
 
@@ -296,23 +297,23 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
 
     def gradB1_3(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[2]
-    
+
     ##########
     # Plotting
     ##########
 
     def show(self, n1=16, n2=33, n3=21, n_planes=5):
         '''Generate vtk files of equilibirum and do some 2d plots with matplotlib.
-        
+
         Parameters
         ----------
         n1, n2, n3 : int
             Evaluation points of mapping in each direcion.
-            
+
         n_planes : int
             Number of planes to show perpendicular to eta3.'''
 
-        import struphy 
+        import struphy
 
         torus_mappings = ('Tokamak', 'GVECunit', 'DESCunit', 'IGAPolarTorus', 'HollowTorus')
 
@@ -341,7 +342,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         absu = np.sqrt(u_cart[0]**2 + u_cart[1]**2 + u_cart[2]**2)
 
         _path = struphy.__path__[0] + '/fields_background/mhd_equil/gvec/output/'
-        gridToVTK(_path + 'vtk/gvec_equil', x, y, z, pointData = {'det_df': det_df, 'pressure': p, 'absB': absB})
+        gridToVTK(_path + 'vtk/gvec_equil', x, y, z, pointData={'det_df': det_df, 'pressure': p, 'absB': absB})
         print('Generation of vtk files done.')
 
         # show params
@@ -371,7 +372,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
                 pc2 = yp
                 l1 = 'x'
                 l2 = 'y'
-            
+
             ax = fig.add_subplot(int(np.ceil(n_planes/2)), 2, n + 1)
             for i in range(pc1.shape[0]):
                 for j in range(pc1.shape[1] - 1):
@@ -379,19 +380,19 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
                         ax.plot([pc1[i, j], pc1[i + 1, j]], [pc2[i, j], pc2[i + 1, j]], 'b', linewidth=.6)
                     if j < pc1.shape[1] - 1:
                         ax.plot([pc1[i, j], pc1[i, j + 1]], [pc2[i, j], pc2[i, j + 1]], 'b', linewidth=.6)
-                    
-            ax.scatter(pc1[0, 0], pc2[0, 0], 20, 'red', zorder=10)    
-            #ax.scatter(pc1[0, 32], pc2[0, 32], 20, 'red', zorder=10)
-                        
+
+            ax.scatter(pc1[0, 0], pc2[0, 0], 20, 'red', zorder=10)
+            # ax.scatter(pc1[0, 32], pc2[0, 32], 20, 'red', zorder=10)
+
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis('equal')
-            ax.set_title('Poloidal plane at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+            ax.set_title('Poloidal plane at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
 
         # top view
-        e1 = np.linspace(0, 1, n1) # radial coordinate in [0, 1]
-        e2 = np.linspace(0, 1, 3) # poloidal angle in [0, 1]
-        e3 = np.linspace(0, 1, n3) # toroidal angle in [0, 1]
+        e1 = np.linspace(0, 1, n1)  # radial coordinate in [0, 1]
+        e2 = np.linspace(0, 1, 3)  # poloidal angle in [0, 1]
+        e3 = np.linspace(0, 1, n3)  # toroidal angle in [0, 1]
 
         xt, yt, zt = self.domain(e1, e2, e3)
 
@@ -402,7 +403,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
             xp = xt[:, m, :].squeeze()
             yp = yt[:, m, :].squeeze()
             zp = zt[:, m, :].squeeze()
-            
+
             if self.domain.__class__.__name__ in torus_mappings:
                 tc1 = xp
                 tc2 = yp
@@ -454,7 +455,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis('equal')
-            ax.set_title('Jacobian determinant at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+            ax.set_title('Jacobian determinant at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # pressure
@@ -483,7 +484,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis('equal')
-            ax.set_title('Pressure at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+            ax.set_title('Pressure at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # magnetic field strength
@@ -512,7 +513,7 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis('equal')
-            ax.set_title('Magnetic field strength at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+            ax.set_title('Magnetic field strength at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
 
         # ion velocity
@@ -541,6 +542,5 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis('equal')
-            ax.set_title('Ion velocity (abs) at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+            ax.set_title('Ion velocity (abs) at $\\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
             fig.colorbar(map, ax=ax, location='right')
-

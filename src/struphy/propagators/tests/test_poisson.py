@@ -1,19 +1,19 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from mpi4py import MPI
-import numpy as np
-import matplotlib.pyplot as plt
 
-from struphy.geometry import domains
-from struphy.feec.psydac_derham import Derham
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
+from struphy.feec.psydac_derham import Derham
+from struphy.geometry import domains
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
-
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 plt.rcParams.update({'font.size': 22})
+
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('direction', [0, 1, 2])
@@ -53,14 +53,14 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
     Nels = [2**n for n in range(3, 9)]
     p_values = [1, 2]
     for pi in p_values:
-        
+
         errors = []
         h_vec = []
         if show_plot:
             plt.figure(f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16))
             plt.figure(f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16))
             plt.figure(f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16))
-        
+
         for n, Neli in enumerate(Nels):
 
             # boundary conditions (overwritten below)
@@ -170,7 +170,7 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                                                sigma_3=1.,
                                                rho=rho_vec,
                                                solver=solver_params)
-            
+
             # Solve Poisson (call propagator with dt=1.)
             dt = 1.
             poisson_solver(dt)
@@ -179,32 +179,32 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
             sol_val1 = domain.push(_phi, e1, e2, e3, kind='0')
             x, y, z = domain(e1, e2, e3)
             analytic_value1 = sol1_xyz(x, y, z)
-            
+
             if show_plot:
                 plt.figure(f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }')
                 plt.subplot(2, 3, n + 1)
                 if direction == 0:
                     plt.plot(x[:, 0, 0], sol_val1[:, 0, 0], 'ob', label='numerical')
                     plt.plot(x[:, 0, 0], analytic_value1[:, 0, 0], 'r--', label='exact')
-                    plt.xlabel('x')  
+                    plt.xlabel('x')
                 elif direction == 1:
                     plt.plot(y[0, :, 0], sol_val1[0, :, 0], 'ob', label='numerical')
                     plt.plot(y[0, :, 0], analytic_value1[0, :, 0], 'r--', label='exact')
-                    plt.xlabel('y')  
+                    plt.xlabel('y')
                 elif direction == 2:
                     plt.plot(z[0, 0, :], sol_val1[0, 0, :], 'ob', label='numerical')
                     plt.plot(z[0, 0, :], analytic_value1[0, 0, :], 'r--', label='exact')
-                    plt.xlabel('z')  
+                    plt.xlabel('z')
                 plt.title(f'{Nel = }')
                 plt.legend()
-            
+
             error = np.max(np.abs(analytic_value1 - sol_val1))
             print(f'{direction = }, {pi = }, {Neli = }, {error=}')
-            
+
             errors.append(error)
             h = 1/(Neli)
             h_vec.append(h)
-            
+
         m, _ = np.polyfit(np.log(Nels), np.log(errors), deg=1)
         print(f'For {pi = }, solution converges in {direction=} with rate {-m = } ')
         assert -m > (pi + 1 - 0.06)
@@ -214,14 +214,14 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
             plt.figure(f'Convergence for degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(12, 8))
             plt.plot(h_vec, errors, 'o', label=f'p={p[direction]}')
             plt.plot(h_vec, [h**(p[direction]+1)/h_vec[direction]**(p[direction]+1)*errors[direction]
-                            for h in h_vec], 'k--', label='correct rate p+1')
+                             for h in h_vec], 'k--', label='correct rate p+1')
             plt.yscale("log")
             plt.xscale("log")
             plt.xlabel('Grid Spacing h')
             plt.ylabel('Error')
             plt.title(f'Poisson solver')
             plt.legend()
-        
+
     if show_plot and rank == 0:
         plt.show()
 
@@ -411,16 +411,16 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     else:
         assert error1 < 0.0044
         assert error2 < 0.021
-        
+
 
 if __name__ == '__main__':
-    
+
     direction = 0
     bc_type = 'dirichlet'
     mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
-    test_poisson_1d(direction, bc_type, mapping, show_plot=True)  
-      
+    test_poisson_1d(direction, bc_type, mapping, show_plot=True)
+
     # Nel = [64, 64, 1]
     # p = [2, 2, 1]
     # bc_type = 'neumann'
@@ -428,4 +428,3 @@ if __name__ == '__main__':
     # #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
     # mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
     # test_poisson_2d(Nel, p, bc_type, mapping, show_plot=True)
-

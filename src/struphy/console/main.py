@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
-from argparse import HelpFormatter, _SubParsersAction, RawTextHelpFormatter
-import argcomplete
 import importlib.metadata
 import os
+from argparse import HelpFormatter, RawTextHelpFormatter, _SubParsersAction
+
+import argcomplete
 
 __version__ = importlib.metadata.version("struphy")
 
@@ -13,19 +14,20 @@ def struphy():
     Struphy main executable. Performs argument parsing and sub-command call.
     '''
 
-    import pickle
     import argparse
+    import pickle
+
     import yaml
-    from struphy.console.compile import struphy_compile
-    from struphy.console.run import struphy_run
-    from struphy.console.units import struphy_units
-    from struphy.console.params import struphy_params
-    from struphy.console.profile import struphy_profile
-    from struphy.console.pproc import struphy_pproc
-    from struphy.console.test import struphy_test
 
     # struphy path
     import struphy
+    from struphy.console.compile import struphy_compile
+    from struphy.console.params import struphy_params
+    from struphy.console.pproc import struphy_pproc
+    from struphy.console.profile import struphy_profile
+    from struphy.console.run import struphy_run
+    from struphy.console.test import struphy_test
+    from struphy.console.units import struphy_units
     libpath = struphy.__path__[0]
 
     # create argument parser
@@ -96,7 +98,7 @@ def struphy():
         with open(os.path.join(libpath, 'models', 'models_message'), "rb") as fp:
             model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
                 fp)
-    except:
+    except BaseException:
         list_models = []
         model_message = ''
 
@@ -314,11 +316,11 @@ def struphy():
     parser_params.add_argument('-y', '--yes',
                                help='Say yes on prompt to overwrite .yml FILE',
                                action='store_true')
-    
+
     parser_run.add_argument('--likwid',
                             help='run with Likwid',
                             action='store_true',)
-    
+
     parser_run.add_argument('-li', '--likwid-inp',
                             type=str,
                             metavar='FILE',
@@ -518,7 +520,7 @@ def struphy():
             i_path = args.set_i
             try:
                 os.makedirs(i_path)
-            except:
+            except BaseException:
                 pass
 
         i_path = os.path.abspath(i_path)
@@ -540,7 +542,7 @@ def struphy():
             o_path = args.set_o
             try:
                 os.makedirs(o_path)
-            except:
+            except BaseException:
                 pass
 
         o_path = os.path.abspath(o_path)
@@ -563,7 +565,7 @@ def struphy():
             b_path = args.set_b
             try:
                 os.makedirs(b_path)
-            except:
+            except BaseException:
                 pass
 
         b_path = os.path.abspath(b_path)
@@ -595,14 +597,15 @@ def struphy():
         subprocess.run(['struphy', '--set-b', b_path])
 
         exit()
-        
+
     if args.refresh_models:
-        
+
         print('Collecting available models ...')
-        
+
         import inspect
-        from struphy.models import fluid, kinetic, hybrid, toy
         import pickle
+
+        from struphy.models import fluid, hybrid, kinetic, toy
 
         list_fluid = []
         fluid_string = ''
@@ -674,8 +677,8 @@ def struphy():
                          kinetic_message,
                          hybrid_message,
                          toy_message], fp)
-            
-        print('Done.')    
+
+        print('Done.')
         exit()
 
     # load sub-command function (see functions below)

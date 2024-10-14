@@ -1,5 +1,6 @@
-import pytest
 import numpy as np
+import pytest
+
 from struphy.fields_background.mhd_equil.base import LogicalMHDequilibrium
 
 
@@ -16,8 +17,8 @@ def test_transformations(mapping, mhd_equil):
     '''Test whether the class LogicalMHDequilibrium yields the same function values as CartesianMHDequilibrium.
     For this we construct an artificial numerical equilibrium from an analytical proxy.'''
 
-    from struphy.geometry import domains
     from struphy.fields_background.mhd_equil import equils
+    from struphy.geometry import domains
 
     # domain (mapping from logical unit cube to physical domain)
     dom_type = mapping[0]
@@ -146,6 +147,7 @@ class NumEqTest(LogicalMHDequilibrium):
 
     def gradB1(self, *etas, squeeze_out=True):
         return self._equil.gradB1(*etas, squeeze_out=squeeze_out)
+
 
 if __name__ == '__main__':
     test_transformations(

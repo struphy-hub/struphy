@@ -34,12 +34,12 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    from mpi4py import MPI
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
 
     # Set seed
@@ -96,7 +96,7 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
 
     v1_plot = v1_bins[:-1] + dv/2
 
-    ana_res = 1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.) 
+    ana_res = 1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.)
 
     if show_plot:
         plt.plot(v1_plot, ana_res)
@@ -150,7 +150,7 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
+    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot))
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -194,12 +194,12 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    from mpi4py import MPI
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
 
     # Set seed
@@ -252,7 +252,7 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D('energetic_ions', **marker_params,
-                            bckgr_params=bckgr_params, 
+                            bckgr_params=bckgr_params,
                             pert_params=pert_params,
                             derham=derham)
     particles.draw_markers()
@@ -268,7 +268,7 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
+    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot))
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -314,12 +314,12 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    from mpi4py import MPI
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
 
     # Set seed
@@ -381,7 +381,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     v1_plot = v1_bins[:-1] + dv/2
 
-    ana_res = (1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.)) 
+    ana_res = (1. / np.sqrt(2.*np.pi) * np.exp(- v1_plot**2 / 2.))
 
     if show_plot:
         plt.plot(v1_plot, ana_res)
@@ -440,7 +440,7 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
+    ana_res = (1. + amp_n * np.cos(2*np.pi * l_n * e1_plot))
 
     if show_plot:
         plt.plot(e1_plot, ana_res)
@@ -484,12 +484,12 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    from mpi4py import MPI
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
     from struphy.feec.psydac_derham import Derham
+    from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
 
     # Set seed
@@ -563,7 +563,7 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de/2
 
-    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot)) 
+    ana_res = (amp_n * np.cos(2*np.pi * l_n * e1_plot))
 
     if show_plot:
         plt.plot(e1_plot, ana_res)

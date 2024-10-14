@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.parametrize('Nel', [[8, 12, 4]])
-@pytest.mark.parametrize('p',   [[2, 3, 2]])
+@pytest.mark.parametrize('p', [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
@@ -11,26 +11,26 @@ import pytest
 def test_some_basis_ops(Nel, p, spl_kind, mapping):
     '''Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
 
-    Here, PI_ijk is the commuting projector of the output space (codomain), 
-    Lambda_mno are the basis functions of the input space (domain), 
+    Here, PI_ijk is the commuting projector of the output space (codomain),
+    Lambda_mno are the basis functions of the input space (domain),
     and fun is an arbitrary (matrix-valued) function.
     '''
-    from struphy.geometry import domains
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    
-    from struphy.fields_background.mhd_equil.equils import HomogenSlab
-    
-    from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
-
-    from struphy.feec.psydac_derham import Derham
-    from struphy.feec.basis_projection_ops import BasisProjectionOperators
-
-    from psydac.linalg.stencil import StencilVector
-    from psydac.linalg.block import BlockVector
-
-    from mpi4py import MPI
     from time import time
+
     import numpy as np
+    from mpi4py import MPI
+    from psydac.linalg.block import BlockVector
+    from psydac.linalg.stencil import StencilVector
+
+    from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.fields_background.mhd_equil.equils import HomogenSlab
+    from struphy.geometry import domains
 
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
@@ -496,10 +496,10 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[6, 9, 7]])
-@pytest.mark.parametrize('p',   [[2, 2, 3]])
+@pytest.mark.parametrize('p', [[2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [False, True, False]])
-@pytest.mark.parametrize('dirichlet_bc', [None, 
-                                          [[False,  True], [False, False], [False, True]],
+@pytest.mark.parametrize('dirichlet_bc', [None,
+                                          [[False, True], [False, False], [False, True]],
                                           [[False, False], [False, False], [True, False]]])
 @pytest.mark.parametrize('mapping', [
     ['IGAPolarCylinder', {
@@ -507,19 +507,19 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     import numpy as np
-
-    from struphy.geometry import domains
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-
-    from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.feec.basis_projection_ops import BasisProjectionOperators
-    from struphy.fields_background.mhd_equil.equils import ScrewPinch
-    
-    from struphy.polar.basic import PolarVector
-
     from mpi4py import MPI
+
+    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
+    from struphy.eigenvalue_solvers.spline_space import (
+        Spline_space_1d,
+        Tensor_spline_space,
+    )
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
+    from struphy.fields_background.mhd_equil.equils import ScrewPinch
+    from struphy.geometry import domains
+    from struphy.polar.basic import PolarVector
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -538,14 +538,14 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
 
     # load MHD equilibrium
     eq_mhd = ScrewPinch(**{'a': mapping[1]['a'],
-                         'R0': 3.,
-                         'B0': 1.0,
-                         'q0': 1.05,
-                         'q1': 1.80,
-                         'n1': 3.0,
-                         'n2': 4.0,
-                         'na': 0.0,
-                         'beta': .1})
+                           'R0': 3.,
+                           'B0': 1.0,
+                           'q0': 1.05,
+                           'q1': 1.80,
+                           'n1': 3.0,
+                           'n2': 4.0,
+                           'na': 0.0,
+                           'beta': .1})
 
     if show_plots:
         eq_mhd.plot_profiles()
@@ -863,5 +863,5 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 if __name__ == '__main__':
     test_some_basis_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True],
                         mapping=['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}])
-    #test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
+    # test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
     #                    None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

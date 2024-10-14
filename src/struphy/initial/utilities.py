@@ -1,10 +1,11 @@
 import os
-import yaml
-import h5py
-import struphy
 
-from struphy.io.output_handling import DataContainer
+import h5py
+import yaml
+
+import struphy
 from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.io.output_handling import DataContainer
 
 
 class InitFromOutput:
@@ -15,14 +16,14 @@ class InitFromOutput:
     In the parameter .yml, use the following in the section ``fluid/<species>``:: or ``em_fields``::
 
         init :
-            type : InitFromOutput 
+            type : InitFromOutput
             InitFromOutput :
                 path : 'sim_1'
                 path_abs : null
                 comps :
-                    n3 : False               # components to be initialized 
-                    u2 : [True, True, True]  # components to be initialized 
-                    p3 : True                # components to be initialized 
+                    n3 : False               # components to be initialized
+                    u2 : [True, True, True]  # components to be initialized
+                    p3 : True                # components to be initialized
     '''
 
     def __init__(self, derham, name, species, **params):

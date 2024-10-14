@@ -22,12 +22,12 @@ def main(path: str,
     """
 
     import os
-    import shutil
-    import h5py
     import pickle
-    import yaml
+    import shutil
 
+    import h5py
     import numpy as np
+    import yaml
 
     import struphy.post_processing.post_processing_tools as pproc
 
@@ -38,7 +38,7 @@ def main(path: str,
 
     try:
         os.mkdir(path_pproc)
-    except:
+    except BaseException:
         shutil.rmtree(path_pproc)
         os.mkdir(path_pproc)
 
@@ -94,7 +94,7 @@ def main(path: str,
 
         try:
             os.mkdir(path_fields)
-        except:
+        except BaseException:
             shutil.rmtree(path_fields)
             os.mkdir(path_fields)
 
@@ -108,7 +108,7 @@ def main(path: str,
                 new_name = name
                 try:
                     os.mkdir(os.path.join(path_fields, subfolder))
-                except:
+                except BaseException:
                     pass
 
             # is fluid species
@@ -119,7 +119,7 @@ def main(path: str,
                 new_name = aux[-1]
                 try:
                     os.mkdir(os.path.join(path_fields, subfolder))
-                except:
+                except BaseException:
                     pass
 
             print(f'{name = }')
@@ -158,7 +158,7 @@ def main(path: str,
 
         try:
             os.mkdir(path_kinetics)
-        except:
+        except BaseException:
             shutil.rmtree(path_kinetics)
             os.mkdir(path_kinetics)
 
@@ -170,7 +170,7 @@ def main(path: str,
 
             try:
                 os.mkdir(path_kinetics_species)
-            except:
+            except BaseException:
                 shutil.rmtree(path_kinetics_species)
                 os.mkdir(path_kinetics_species)
 
@@ -187,7 +187,7 @@ def main(path: str,
 
                 try:
                     marker_type = params['kinetic'][species]['markers']['type']
-                except:
+                except BaseException:
                     marker_type = 'full_f'
 
                 if marker_type == 'delta_f':
@@ -202,6 +202,7 @@ def main(path: str,
 if __name__ == '__main__':
 
     import argparse
+
     import struphy
 
     libpath = struphy.__path__[0]

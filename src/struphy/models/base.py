@@ -1,14 +1,15 @@
+import inspect
+import operator
 from abc import ABCMeta, abstractmethod
+from functools import reduce
+
 import numpy as np
 import yaml
-from functools import reduce
-import operator
-import inspect
 from mpi4py import MPI
-
-from struphy.propagators.base import Propagator
-from struphy.profiling.profiling import ProfileRegion
 from psydac.linalg.stencil import StencilVector
+
+from struphy.profiling.profiling import ProfileRegion
+from struphy.propagators.base import Propagator
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -26,17 +27,19 @@ class StruphyModel(metaclass=ABCMeta):
     Note
     ----
     All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
-    in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.  
+    in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
     def __init__(self, params, comm=None, inter_comm=None):
 
         # TODO: comm=None does not work yet.
 
-        from struphy.io.setup import setup_domain_and_equil, setup_derham
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
-        from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+        from struphy.fields_background.mhd_equil.projected_equils import (
+            ProjectedMHDequilibrium,
+        )
+        from struphy.io.setup import setup_derham, setup_domain_and_equil
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()
@@ -155,11 +158,11 @@ class StruphyModel(metaclass=ABCMeta):
     def species():
         '''Species dictionary of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.
 
-        The dynamical fields and kinetic species of the model. 
+        The dynamical fields and kinetic species of the model.
 
         Keys of the three sub-dicts are either:
 
-        a) the electromagnetic field/potential names (b_field, e_field) 
+        a) the electromagnetic field/potential names (b_field, e_field)
         b) the fluid species names (e.g. mhd)
         c) the names of the kinetic species (e.g. electrons, energetic_ions)
 
@@ -179,7 +182,7 @@ class StruphyModel(metaclass=ABCMeta):
     @staticmethod
     @abstractmethod
     def velocity_scale():
-        '''String that sets the velocity scale unit of the model. 
+        '''String that sets the velocity scale unit of the model.
         Must be one of "alfvén", "cyclotron" or "light".'''
         pass
 
@@ -238,7 +241,7 @@ class StruphyModel(metaclass=ABCMeta):
     def pointer(self):
         '''Dictionary pointing to the data structures of the species (Stencil/BlockVector or "Particle" class).
 
-        The keys are the keys from the "species" property. 
+        The keys are the keys from the "species" property.
         In case of a fluid species, the keys are like "species_variable".'''
         return self._pointer
 
@@ -395,7 +398,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # make sure that the base keys are top-level keys
         for base_key in ['em_fields', 'fluid', 'kinetic']:
-            if not base_key in dct.keys():
+            if base_key not in dct.keys():
                 dct[base_key] = {}
 
         if isinstance(species, str):
@@ -421,10 +424,10 @@ class StruphyModel(metaclass=ABCMeta):
         species : str, optional
             The species associated with the scalar. Required if compute is 'from_particles'.
         compute : str, optional
-            Type of scalar, determines the compute operations. 
+            Type of scalar, determines the compute operations.
             Options: 'from_particles' or 'from_field'. Default is None.
         summands : list, optional
-            List of other scalar names whose values should be summed 
+            List of other scalar names whose values should be summed
             to compute the value of this scalar. Default is None.
         """
 
@@ -667,7 +670,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def initialize_from_params(self):
         """
-        Set initial conditions for FE coefficients (electromagnetic and fluid) 
+        Set initial conditions for FE coefficients (electromagnetic and fluid)
         and markers according to parameter file.
         """
 
@@ -701,9 +704,9 @@ class StruphyModel(metaclass=ABCMeta):
 
                                 if bckgr_type is None:
                                     pass
-                                elif type(bckgr_type) == str:
+                                elif isinstance(bckgr_type, str):
                                     bckgr_types = [bckgr_type]
-                                elif type(bckgr_type) == list:
+                                elif isinstance(bckgr_type, list):
                                     bckgr_types = bckgr_type
                                 else:
                                     raise NotImplemented(
@@ -723,9 +726,9 @@ class StruphyModel(metaclass=ABCMeta):
 
                                 if pert_type is None:
                                     pass
-                                elif type(pert_type) == str:
+                                elif isinstance(pert_type, str):
                                     pert_types = [pert_type]
-                                elif type(pert_type) == list:
+                                elif isinstance(pert_type, list):
                                     pert_types = pert_type
                                 else:
                                     raise NotImplemented(
@@ -762,9 +765,9 @@ class StruphyModel(metaclass=ABCMeta):
 
                             if bckgr_type is None:
                                 pass
-                            elif type(bckgr_type) == str:
+                            elif isinstance(bckgr_type, str):
                                 bckgr_types = [bckgr_type]
-                            elif type(bckgr_type) == list:
+                            elif isinstance(bckgr_type, list):
                                 bckgr_types = bckgr_type
                             else:
                                 raise NotImplemented(
@@ -784,9 +787,9 @@ class StruphyModel(metaclass=ABCMeta):
 
                             if pert_type is None:
                                 pass
-                            elif type(pert_type) == str:
+                            elif isinstance(pert_type, str):
                                 pert_types = [pert_type]
-                            elif type(pert_type) == list:
+                            elif isinstance(pert_type, list):
                                 pert_types = pert_type
                             else:
                                 raise NotImplemented(
@@ -910,8 +913,9 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         from psydac.linalg.stencil import StencilVector
-        from struphy.io.output_handling import DataContainer
+
         from struphy.feec.psydac_derham import Derham
+        from struphy.io.output_handling import DataContainer
         from struphy.pic.base import Particles
 
         assert isinstance(data, DataContainer)
@@ -1316,9 +1320,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
     @classmethod
     def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
-        import struphy
-        import yaml
         import os
+
+        import yaml
+
+        import struphy
 
         libpath = struphy.__path__[0]
 
@@ -1374,9 +1380,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         -------
         The default parameter dictionary.'''
 
-        import struphy
-        import yaml
         import os
+
+        import yaml
+
+        import struphy
         from struphy.io.setup import descend_options_dict
 
         libpath = struphy.__path__[0]
@@ -1646,12 +1654,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
     def _allocate_variables(self):
         """
-        Allocate memory for model variables. 
+        Allocate memory for model variables.
         Creates FEM fields for em-fields and fluid variables and a particle class for kinetic species.
         """
 
-        from struphy.pic import particles
         from struphy.feec.psydac_derham import Derham
+        from struphy.pic import particles
         from struphy.pic.base import Particles
 
         # allocate memory for FE coeffs of electromagnetic fields/potentials
@@ -1769,8 +1777,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         for i, sli in enumerate(slices):
 
                             assert ((len(sli) - 2)/3).is_integer()
-                            assert len(slices[i].split('_')) == len(ranges[i]) == len(n_bins[i]), \
-                                f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
+                            assert len(
+                                slices[i].split('_')) == len(
+                                ranges[i]) == len(
+                                n_bins[i]), f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
                             val['bin_edges'][sli] = []
                             dims = (len(sli) - 2)//3 + 1
                             for j in range(dims):

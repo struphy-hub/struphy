@@ -1,7 +1,11 @@
 import numpy as np
 
 from struphy.models.base import StruphyModel
-from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+from struphy.propagators import (
+    propagators_coupling,
+    propagators_fields,
+    propagators_markers,
+)
 
 
 class Maxwell(StruphyModel):
@@ -55,10 +59,10 @@ class Maxwell(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         # extract necessary parameters
         solver = params['em_fields']['options']['Maxwell']['solver']
@@ -140,12 +144,12 @@ class Vlasov(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # prelim
         ions_params = self.kinetic['ions']['params']
@@ -168,7 +172,7 @@ class Vlasov(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar('en_f',compute = 'from_particles', species = 'ions')
+        self.add_scalar('en_f', compute='from_particles', species='ions')
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
@@ -250,12 +254,12 @@ class GuidingCenter(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # prelim
         ions_params = self.kinetic['ions']['params']
@@ -288,14 +292,11 @@ class GuidingCenter(StruphyModel):
         # particles' kinetic energy
         self._en_fv[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 3]**2) / (2.*self.pointer['ions'].n_mks)
-        
 
         self._en_tot[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8]) / self.pointer['ions'].n_mks
-        
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
-        
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_fv, op=self._mpi_sum)
@@ -366,10 +367,10 @@ class ShearAlfven(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from struphy.polar.basic import PolarVector
 
@@ -395,11 +396,11 @@ class ShearAlfven(StruphyModel):
         # self.add_scalar('en_B_tot')
         self.add_scalar('en_tot')
 
-        self.add_scalar('en_U', compute = 'from_field')
-        self.add_scalar('en_B', compute = 'from_field')
-        self.add_scalar('en_B_eq', compute = 'from_field')
-        self.add_scalar('en_B_tot', compute = 'from_field')
-        self.add_scalar('en_tot2',summands=['en_U','en_B','en_B_eq'])
+        self.add_scalar('en_U', compute='from_field')
+        self.add_scalar('en_B', compute='from_field')
+        self.add_scalar('en_B_eq', compute='from_field')
+        self.add_scalar('en_B_tot', compute='from_field')
+        self.add_scalar('en_tot2', summands=['en_U', 'en_B', 'en_B_eq'])
 
         # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh['2'].zeros()
@@ -486,14 +487,12 @@ class VariationalPressurelessFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
-
-        
+    def __init__(self, params, comm, inter_comm=None):
 
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
@@ -592,12 +591,12 @@ class VariationalBarotropicFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
-        super().__init__(params, comm, inter_comm = inter_comm)
+        super().__init__(params, comm, inter_comm=inter_comm)
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
@@ -711,13 +710,13 @@ class VariationalCompressibleFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
-        from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
+        from struphy.feec.projectors import L2Projector
 
         # initialize base class
-        super().__init__(params, comm, inter_comm = inter_comm)
+        super().__init__(params, comm, inter_comm=inter_comm)
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
@@ -812,7 +811,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
 
 class Poisson(StruphyModel):
-    r'''Weak discretization of Poisson's equation with diffusion matrix, stabilization 
+    r'''Weak discretization of Poisson's equation with diffusion matrix, stabilization
     and time-depedent right-hand side.
 
     :ref:`normalization`:
@@ -828,7 +827,7 @@ class Poisson(StruphyModel):
         - \nabla \cdot D_0(\mathbf x) \nabla \phi + n_0(\mathbf x) \phi =  \rho(t, \mathbf x)\,,
 
     where :math:`n_0, \rho(t):\Omega \to \mathbb R` are real-valued functions, :math:`\rho(t)` parametrized with time :math:`t`,
-    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix. 
+    and :math:`D_0:\Omega \to \mathbb R^{3\times 3}` is a positive matrix.
     Boundary terms from integration by parts are assumed to vanish.
 
     :ref:`propagators` (called in sequence):
@@ -867,9 +866,9 @@ class Poisson(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
-        super().__init__(params, comm, inter_comm = inter_comm)
+        super().__init__(params, comm, inter_comm=inter_comm)
 
         # extract necessary parameters
         model_params = params['em_fields']['options']['ImplicitDiffusion']['model']
@@ -895,7 +894,7 @@ class Poisson(StruphyModel):
 
 
 class DeterministicParticleDiffusion(StruphyModel):
-    r'''Diffusion equation discretized with a deterministic particle method; 
+    r'''Diffusion equation discretized with a deterministic particle method;
     the solution is :math:`L^2`-projected onto :math:`V^0 \subset H^1` to compute the flux.
 
     :ref:`normalization`:
@@ -908,9 +907,9 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     .. math::
 
-        \frac{\partial u}{\partial t} +  \nabla \cdot\left(\mathbf F(u) u\right) = 0\,, \qquad \mathbf F(u) = -\mathbb D\,\frac{\nabla u}{u}\,, 
+        \frac{\partial u}{\partial t} +  \nabla \cdot\left(\mathbf F(u) u\right) = 0\,, \qquad \mathbf F(u) = -\mathbb D\,\frac{\nabla u}{u}\,,
 
-    where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix. 
+    where :math:`\mathbb D: \Omega\to \mathbb R^{3\times 3 }` is a positive diffusion matrix.
     At the moment only matrices of the form :math:`D*Id` are implemented, where :math:`D > 0` is a positive diffusion coefficient.
 
     :ref:`propagators` (called in sequence):
@@ -946,11 +945,11 @@ class DeterministicParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
-        super().__init__(params, comm, inter_comm = inter_comm)
+        super().__init__(params, comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # prelim
         params = self.kinetic['species1']['params']
@@ -998,7 +997,7 @@ class RandomParticleDiffusion(StruphyModel):
 
         \frac{\partial u}{\partial t} -  D \, \Delta u = 0\,,
 
-    where :math:`D > 0` is a positive diffusion coefficient. 
+    where :math:`D > 0` is a positive diffusion coefficient.
 
     :ref:`propagators` (called in sequence):
 
@@ -1033,11 +1032,11 @@ class RandomParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
-        super().__init__(params, comm, inter_comm = inter_comm)
+        super().__init__(params, comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # prelim
         species1_params = self.kinetic['species1']['params']

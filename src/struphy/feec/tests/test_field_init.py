@@ -10,8 +10,8 @@ import pytest
 def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     '''Test field background initialization of "LogicalConst" with multiple fields in params.'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
 
@@ -79,14 +79,15 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
 def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
     '''Test field background initialization of "MHD" with multiple fields in params.'''
 
-    from mpi4py import MPI
-    import numpy as np
     import inspect
+
+    import numpy as np
     from matplotlib import pyplot as plt
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
     from struphy.fields_background.mhd_equil import equils
+    from struphy.geometry import domains
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -665,12 +666,12 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
 def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     '''Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params.'''
 
-    from mpi4py import MPI
     import numpy as np
     from matplotlib import pyplot as plt
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.initial.perturbations import ModesSin, ModesCos
+    from struphy.initial.perturbations import ModesCos, ModesSin
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -804,8 +805,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
         plt.subplot(2, 1, 1)
         plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
                      [0, :, :], f0_h[0, :, :], levels=levels)
-        plt.xlabel('$\eta_2$')
-        plt.ylabel('$\eta_3$')
+        plt.xlabel('$\\eta_2$')
+        plt.ylabel('$\\eta_3$')
         plt.xlim([0, 1.])
         plt.title('field_0')
         plt.axis('equal')
@@ -813,8 +814,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
         plt.subplot(2, 1, 2)
         plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
                      [0, :, :], fun_0[0, :, :], levels=levels)
-        plt.xlabel('$\eta_2$')
-        plt.ylabel('$\eta_3$')
+        plt.xlabel('$\\eta_2$')
+        plt.ylabel('$\\eta_3$')
         plt.title('reference')
         # plt.figure('1-form', figsize=(24, 16))
         # plt.figure('2-form', figsize=(24, 16))
@@ -829,8 +830,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             plt.subplot(2, 3, 1 + i)
             plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
                          [0, :, :], f_h[0, :, :], levels=levels)
-            plt.xlabel('$\eta_2$')
-            plt.ylabel('$\eta_3$')
+            plt.xlabel('$\\eta_2$')
+            plt.ylabel('$\\eta_3$')
             plt.xlim([0, 1.])
             plt.title(f'field_1, component {i + 1}')
             plt.axis('equal')
@@ -838,8 +839,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             plt.subplot(2, 3, 4 + i)
             plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
                          [0, :, :], fun[0, :, :], levels=levels)
-            plt.xlabel('$\eta_2$')
-            plt.ylabel('$\eta_3$')
+            plt.xlabel('$\\eta_2$')
+            plt.ylabel('$\\eta_3$')
             plt.title('reference')
             # plt.figure('1-form', figsize=(24, 16))
             # plt.figure('2-form', figsize=(24, 16))
@@ -854,8 +855,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             plt.subplot(2, 3, 1 + i)
             plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
                          [0, :, :], f_h[0, :, :], levels=levels)
-            plt.xlabel('$\eta_2$')
-            plt.ylabel('$\eta_3$')
+            plt.xlabel('$\\eta_2$')
+            plt.ylabel('$\\eta_3$')
             plt.xlim([0, 1.])
             plt.title(f'field_2, component {i + 1}')
             plt.axis('equal')
@@ -863,8 +864,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             plt.subplot(2, 3, 4 + i)
             plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
                          [0, :, :], fun[0, :, :], levels=levels)
-            plt.xlabel('$\eta_2$')
-            plt.ylabel('$\eta_3$')
+            plt.xlabel('$\\eta_2$')
+            plt.ylabel('$\\eta_3$')
             plt.title('reference')
             # plt.figure('1-form', figsize=(24, 16))
             # plt.figure('2-form', figsize=(24, 16))
@@ -883,8 +884,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 def test_noise_init(Nel, p, spl_kind, space, direction):
     '''Only tests 1d noise ('e1', 'e2', 'e3') !!'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays

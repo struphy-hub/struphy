@@ -4,23 +4,22 @@
 
 from abc import ABCMeta, abstractmethod
 
-from struphy.geometry import evaluation_kernels, transform_kernels
-from struphy.linear_algebra import linalg_kron
-import struphy.bsplines.bsplines as bsp
-from struphy.pic.pushing.pusher_args_kernels import DomainArguments
-
+import h5py
+import numpy as np
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
-import h5py
-import numpy as np
+import struphy.bsplines.bsplines as bsp
+from struphy.geometry import evaluation_kernels, transform_kernels
+from struphy.linear_algebra import linalg_kron
+from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
 
 class Domain(metaclass=ABCMeta):
     r""" Base class for mapped domains (single patch).
 
     The (physical) domain :math:`\Omega \subset \mathbb R^3` is an open subset of :math:`\mathbb R^3`,
-    defined by a diffeomorphism 
+    defined by a diffeomorphism
 
     .. math::
 
@@ -28,7 +27,7 @@ class Domain(metaclass=ABCMeta):
 
     mapping points :math:`\boldsymbol{\eta} \in (0, 1)^3 = \hat\Omega` of the (logical)
     unit cube to physical points :math:`\mathbf x \in \Omega`.
-    The corresponding Jacobain matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`, 
+    The corresponding Jacobain matrix :math:`DF:\hat\Omega \to \mathbb R^{3\times 3}`,
     its volume element :math:`\sqrt g: \hat\Omega \to \mathbb R`
     and the metric tensor :math:`G:\hat\Omega \to \mathbb R^{3\times 3}` are defined by
 
@@ -137,10 +136,10 @@ class Domain(metaclass=ABCMeta):
     @property
     @abstractmethod
     def kind_map(self):
-        '''Integer defining the mapping: 
+        '''Integer defining the mapping:
             * <=9: spline mappings
             * >=10 and <=19: analytical mappings with cubic domain boundary
-            * >=20 and <=29: analytical cylinder and torus mappings 
+            * >=20 and <=29: analytical cylinder and torus mappings
             * >=30 and <=39: Shafranov mappings (cylinder)'''
         pass
 
@@ -165,7 +164,7 @@ class Domain(metaclass=ABCMeta):
     @property
     @abstractmethod
     def periodic_eta3(self):
-        '''Bool; True if mapping is periodic in :math:`\eta_3` coordinate.'''
+        '''Bool; True if mapping is periodic in :math:`\\eta_3` coordinate.'''
         pass
 
     @property
@@ -226,7 +225,7 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def __call__(self, *etas, change_out_order=False, squeeze_out=False, remove_outside=True, identity_map=False):
         r"""
-        Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`. 
+        Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`.
 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
         The type of evaluation depends on the shape of the input ``etas``.
@@ -266,7 +265,7 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
-        Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`. 
+        Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -275,7 +274,7 @@ class Domain(metaclass=ABCMeta):
             If True, the transposed Jacobian matrix is evaluated.
 
         change_out_order : bool
-            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
 
         squeeze_out : bool
             Whether to remove singleton dimensions in output array.
@@ -294,7 +293,7 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def jacobian_det(self, *etas, squeeze_out=False, remove_outside=True):
         r"""
-        Evaluates the Jacobian determinant :math:`\sqrt g : (0, 1)^3 \to \mathbb R^+` (only right-handed mappings allowed). 
+        Evaluates the Jacobian determinant :math:`\sqrt g : (0, 1)^3 \to \mathbb R^+` (only right-handed mappings allowed).
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -321,7 +320,7 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
-        Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`. 
+        Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -335,7 +334,7 @@ class Domain(metaclass=ABCMeta):
             If True, the transposed Jacobian matrix is evaluated.
 
         change_out_order : bool, optional
-            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
 
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
@@ -354,7 +353,7 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
-        Evaluates the metric tensor :math:`G: (0, 1)^3 \to \mathbb R^{3\times 3}`. 
+        Evaluates the metric tensor :math:`G: (0, 1)^3 \to \mathbb R^{3\times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -368,7 +367,7 @@ class Domain(metaclass=ABCMeta):
             If True, the transposed Jacobian matrix is evaluated.
 
         change_out_order : bool, optional
-            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
 
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
@@ -387,7 +386,7 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
         r"""
-        Evaluates the inverse metric tensor :math:`G^{-1}: (0, 1)^3 \to \mathbb R^{3\times 3}`. 
+        Evaluates the inverse metric tensor :math:`G^{-1}: (0, 1)^3 \to \mathbb R^{3\times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -401,7 +400,7 @@ class Domain(metaclass=ABCMeta):
             If True, the transposed Jacobian matrix is evaluated.
 
         change_out_order : bool, optional
-            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two. 
+            If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
 
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
@@ -440,7 +439,7 @@ class Domain(metaclass=ABCMeta):
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
-            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
 
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
@@ -449,7 +448,7 @@ class Domain(metaclass=ABCMeta):
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
 
         coordinates : str, optional
-            In which coordinates the input "a" is given (in case of callables). "physical" : a = a(x, y, z). 
+            In which coordinates the input "a" is given (in case of callables). "physical" : a = a(x, y, z).
             "logical"  : a = a(eta1, eta2, eta3).
 
         Returns
@@ -458,7 +457,8 @@ class Domain(metaclass=ABCMeta):
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
         """
 
-        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, coordinates=coordinates, a_kwargs=a_kwargs)
+        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out,
+                                         remove_outside=remove_outside, coordinates=coordinates, a_kwargs=a_kwargs)
 
     # ================================
     def push(self, a, *etas, kind='0', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
@@ -483,7 +483,7 @@ class Domain(metaclass=ABCMeta):
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
-            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
 
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
@@ -502,7 +502,7 @@ class Domain(metaclass=ABCMeta):
     # ================================
     def transform(self, a, *etas, kind='0_to_3', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
         """
-        Transformation between different differential p-forms and/or vector fields. 
+        Transformation between different differential p-forms and/or vector fields.
 
         Parameters
         -----------
@@ -522,7 +522,7 @@ class Domain(metaclass=ABCMeta):
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
         change_out_order : bool, optional
-            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two. 
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
 
         squeeze_out : bool, optional
             Whether to remove singleton dimensions in output array.
@@ -1448,12 +1448,12 @@ class Domain(metaclass=ABCMeta):
 
 class Spline(Domain):
     r'''
-    .. math:: 
+    .. math::
 
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
-        x &= \sum_{ijk} c^x_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,, 
+        x &= \sum_{ijk} c^x_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,,
 
-        y &= \sum_{ijk} c^y_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,, 
+        y &= \sum_{ijk} c^y_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,,
 
         z &= \sum_{ijk} c^z_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,.
         \end{aligned}\right.
@@ -1539,10 +1539,10 @@ class PoloidalSpline(Domain):
     Base class for all mappings that use a 2D spline representation :math:`S:(\eta_1, \eta_2) \to (q_1, q_2) \in \mathbb R^2` in the poloidal plane.
     The full map F is obtained by defining :math:`(q_1, q_2, \eta_3) \mapsto (x, y, z)` in the sub-class.
 
-    .. math:: 
+    .. math::
 
         S: (\eta_1, \eta_2) \mapsto (q_1, q_2) \textnormal{ as } \left\{\begin{aligned}
-        q_1 &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+        q_1 &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,,
 
         q_2 &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,.
         \end{aligned}\right.
@@ -1629,12 +1629,12 @@ class PoloidalSpline(Domain):
 
 class PoloidalSplineStraight(PoloidalSpline):
     r'''
-    .. math:: 
+    .. math::
 
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
-        x &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+        x &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,,
 
-        y &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+        y &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,,
 
         z &= L_z\eta_3\,.
         \end{aligned}\right.
@@ -1684,12 +1684,12 @@ class PoloidalSplineStraight(PoloidalSpline):
 
 class PoloidalSplineTorus(PoloidalSpline):
     r'''
-    .. math:: 
+    .. math::
 
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
-        x &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(2\pi\eta_3)  \,, 
+        x &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(2\pi\eta_3)  \,,
 
-        y &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(- 2\pi\eta_3) \,, 
+        y &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(- 2\pi\eta_3) \,,
 
         z &= \sum_{ij} c^{z}_{ij} N_i(\eta_1) N_j(\eta_2) \,.
         \end{aligned}\right.
@@ -1749,7 +1749,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     X, Y : callable
         Either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D.
 
-    Z : callable 
+    Z : callable
         3rd mapping component Z(eta1, eta2, eta3) in 3D.
 
     Returns
@@ -1811,7 +1811,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
 def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.ndarray):
     """
-    n-dimensional tensor-product spline interpolation with discrete input. 
+    n-dimensional tensor-product spline interpolation with discrete input.
 
     The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
     The last element must be g[-1] = 1 for clamped interpolation and g[-1] < 1 for periodic interpolation.

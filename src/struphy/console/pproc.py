@@ -19,10 +19,12 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False):
     physical : bool
         Wether to do post-processing into push-forwarded physical (xyz) components of fields.
     """
-    import subprocess
     import os
-    import struphy
+    import subprocess
+
     import yaml
+
+    import struphy
 
     libpath = struphy.__path__[0]
 
@@ -44,7 +46,7 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False):
                str(step),
                '--celldivide',
                str(celldivide)]
-    
+
     if physical:
         command += ['--physical']
 

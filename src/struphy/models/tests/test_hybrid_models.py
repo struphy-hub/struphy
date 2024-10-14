@@ -1,5 +1,7 @@
-import pytest
 import inspect
+
+import pytest
+
 from struphy.models.tests.util import call_model
 
 
@@ -43,9 +45,10 @@ def test_hybrid(map_and_equil, fast, model=None, Tend=None):
             exit()
 
         call_model(model, val, map_and_equil, Tend=Tend)
-        
+
+
 if __name__ == '__main__':
-    
+
     test_hybrid(True, ('Cuboid', 'HomogenSlab'), model=None)
     test_hybrid(True, ('HollowTorus', 'AdhocTorus'), model=None)
     test_hybrid(True, ('Tokamak', 'EQDSKequilibrium'), model=None)

@@ -1,5 +1,5 @@
-from psydac.linalg.basic import Vector, LinearOperator, IdentityOperator
-from psydac.linalg.block import BlockVector, BlockLinearOperator
+from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.solvers import inverse
 
 
@@ -8,28 +8,28 @@ class SchurSolver:
 
     .. math::
 
-        \left( \matrix{
-            A & \Delta t B \cr
-            \Delta t C & \\text{Id}
+        \\left( \\matrix{
+            A & \\Delta t B \\cr
+            \\Delta t C & \\text{Id}
         } \\right)
-        \left( \matrix{
-            x^{n+1} \cr y^{n+1}
+        \\left( \\matrix{
+            x^{n+1} \\cr y^{n+1}
         } \\right)
         =
-        \left( \matrix{
-            A & - \Delta t B \cr
-            - \Delta t C & \\text{Id}
+        \\left( \\matrix{
+            A & - \\Delta t B \\cr
+            - \\Delta t C & \\text{Id}
         } \\right)
-        \left( \matrix{
-            x^n \cr y^n
+        \\left( \\matrix{
+            x^n \\cr y^n
         } \\right)
 
-    using the Schur complement :math:`S = A - \Delta t^2 BC`, where Id is the identity matrix
+    using the Schur complement :math:`S = A - \\Delta t^2 BC`, where Id is the identity matrix
     and :math:`(x^n, y^n)` is given. The solution is given by
 
     .. math::
 
-        x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t B \, y^n \\right] \,.
+        x^{n+1} = S^{-1} \\left[ (A + \\Delta t^2 BC) \\, x^n - 2 \\Delta t B \\, y^n \\right] \\,.
 
     Parameters
     ----------
@@ -42,12 +42,12 @@ class SchurSolver:
     solver_name : str
         See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
-    **solver_params : 
+    **solver_params :
         Must correspond to the chosen solver.
     '''
 
-    def __init__(self, 
-                 A: LinearOperator, 
+    def __init__(self,
+                 A: LinearOperator,
                  BC: LinearOperator,
                  solver_name: str,
                  **solver_params):
@@ -153,16 +153,16 @@ class SchurSolverFull:
 
     .. math::
 
-        \left( \matrix{
-            A & B \cr
+        \\left( \\matrix{
+            A & B \\cr
             C & \\text{Id}
         } \\right)
-        \left( \matrix{
-            x \cr y
+        \\left( \\matrix{
+            x \\cr y
         } \\right)
         =
-        \left( \matrix{
-            b_x \cr b_y
+        \\left( \\matrix{
+            b_x \\cr b_y
         } \\right)
 
     using the Schur complement :math:`S = A - BC`, where Id is the identity matrix
@@ -170,9 +170,9 @@ class SchurSolverFull:
 
     .. math::
 
-        x &= S^{-1} \, (b_x - B b_y ) \,,
+        x &= S^{-1} \\, (b_x - B b_y ) \\,,
 
-        y &= b_y - C x \,.
+        y &= b_y - C x \\,.
 
     Parameters
     ----------
@@ -182,7 +182,7 @@ class SchurSolverFull:
     solver_name : str
         See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
-    **solver_params : 
+    **solver_params :
         Must correspond to the chosen solver.
     '''
 
