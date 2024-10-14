@@ -227,11 +227,10 @@ def generate_batch_script(model, **kwargs):
     # delete srun command from batch script
     with open(batch_abs_new, 'r') as f:
         lines = f.readlines()
-        if 'srun' in lines[-1]:
+        if len(lines) > 1 and 'srun' in lines[-1]:
             lines = lines[:-2]
 
     with open(batch_abs_new, 'w') as f:
-
         for line in lines:
             f.write(line)
         f.write('# Run command added by Struphy\n')
