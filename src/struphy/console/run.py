@@ -283,7 +283,8 @@ def struphy_run(model,
                     f.write(' '.join(command) + ' > ' + os.path.join(output_abs, f'struphy_likwid_{i:03}.out'))
             else:
                 print('Running with srun')
-                f.write('srun ' + ' '.join(command) + ' > ' + os.path.join(output_abs, 'struphy.out'))
+                command = ['srun'] + command
+                f.write(' '.join(command) + ' > ' + os.path.join(output_abs, 'struphy.out'))
         
         # submit batch script in output folder
         print('\nLaunching main() in batch mode ...')
@@ -291,3 +292,4 @@ def struphy_run(model,
                         'batch_script.sh',
                         ],
                        check=True, cwd=output_abs)
+    return command
