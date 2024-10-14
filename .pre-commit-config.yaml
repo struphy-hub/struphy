@@ -3,7 +3,7 @@ repos:
     rev: v2.0.4  # Use the latest stable version of autopep8
     hooks:
       - id: autopep8
-        args: ["--in-place", "--max-line-length", "120", "-aaa", "--experimental", "--ignore=E221"]
+        args: ["--in-place", "--max-line-length", "180", "-aaa", "--experimental", "--ignore=E221"]
         # E201/E202 – Whitespace after/before (, [ or {
         # E226 – Missing whitespace around arithmetic operators
         # E266 – Too many leading # for block comment
