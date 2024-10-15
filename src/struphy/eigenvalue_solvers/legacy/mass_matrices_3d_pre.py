@@ -21,9 +21,24 @@ def get_M0_PRE(tensor_space_FEM, domain):
     """
 
     # 1d spaces for pre-conditioning with fft:
-    Nel_pre      = [tensor_space_FEM.spaces[0].NbaseN, tensor_space_FEM.spaces[1].NbaseN, tensor_space_FEM.spaces[2].NbaseN]
+    Nel_pre      = [
+        tensor_space_FEM.spaces[0].NbaseN,
+        tensor_space_FEM.spaces[1].NbaseN,
+        tensor_space_FEM.spaces[2].NbaseN]
     spl_kind_pre = [True, True, True]
-    spaces_pre   = [spl.Spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
+    spaces_pre   = [
+        spl.Spline_space_1d(
+            Nel,
+            p,
+            spl_kind,
+            nq_el) for Nel,
+        p,
+        spl_kind,
+        nq_el in zip(
+            Nel_pre,
+            tensor_space_FEM.p,
+            spl_kind_pre,
+            tensor_space_FEM.n_quad)]
 
     # tensor product mass matrices for pre-conditioning
     # spaces_pre[0].set_extraction_operators()
@@ -36,7 +51,15 @@ def get_M0_PRE(tensor_space_FEM, domain):
 
     c_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
-    return spa.linalg.LinearOperator(shape=tensor_space_FEM.M0.shape, matvec=lambda x: (linkron.kron_fftsolve_3d(c_pre, x.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2]))).flatten())
+    return spa.linalg.LinearOperator(
+        shape=tensor_space_FEM.M0.shape,
+        matvec=lambda x: (
+            linkron.kron_fftsolve_3d(
+                c_pre,
+                x.reshape(
+                    Nel_pre[0],
+                    Nel_pre[1],
+                    Nel_pre[2]))).flatten())
 
 
 # ================ inverse mass matrix in V1 ===========================
@@ -46,22 +69,58 @@ def get_M1_PRE(tensor_space_FEM, domain):
     """
 
     # 1d spaces for pre-conditioning with fft:
-    Nel_pre      = [tensor_space_FEM.spaces[0].NbaseN, tensor_space_FEM.spaces[1].NbaseN, tensor_space_FEM.spaces[2].NbaseN]
+    Nel_pre      = [
+        tensor_space_FEM.spaces[0].NbaseN,
+        tensor_space_FEM.spaces[1].NbaseN,
+        tensor_space_FEM.spaces[2].NbaseN]
     spl_kind_pre = [True, True, True]
-    spaces_pre   = [spl.Spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
+    spaces_pre   = [
+        spl.Spline_space_1d(
+            Nel,
+            p,
+            spl_kind,
+            nq_el) for Nel,
+        p,
+        spl_kind,
+        nq_el in zip(
+            Nel_pre,
+            tensor_space_FEM.p,
+            spl_kind_pre,
+            tensor_space_FEM.n_quad)]
 
     # tensor product mass matrices for pre-conditioning of the three diagonal blocks
     # spaces_pre[0].set_extraction_operators()
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(lambda eta : (domain.params_map[1] - domain.params_map[0])*np.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta : (domain.params_map[3] - domain.params_map[2])*np.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta : (domain.params_map[5] - domain.params_map[4])*np.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(
+        lambda eta : (
+            domain.params_map[1] -
+            domain.params_map[0]) *
+        np.ones(
+            eta.shape,
+            dtype=float))
+    spaces_pre[1].assemble_M0(
+        lambda eta : (
+            domain.params_map[3] -
+            domain.params_map[2]) *
+        np.ones(
+            eta.shape,
+            dtype=float))
+    spaces_pre[2].assemble_M0(
+        lambda eta : (
+            domain.params_map[5] -
+            domain.params_map[4]) *
+        np.ones(
+            eta.shape,
+            dtype=float))
 
-    spaces_pre[0].assemble_M1(lambda eta : 1/(domain.params_map[1] - domain.params_map[0])*np.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M1(lambda eta : 1/(domain.params_map[3] - domain.params_map[2])*np.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M1(lambda eta : 1/(domain.params_map[5] - domain.params_map[4])*np.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M1(lambda eta : 1/(domain.params_map[1] - domain.params_map[0])
+                              * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta : 1/(domain.params_map[3] - domain.params_map[2])
+                              * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta : 1/(domain.params_map[5] - domain.params_map[4])
+                              * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
     c22_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
@@ -91,9 +150,24 @@ def get_M2_PRE(tensor_space_FEM, domain):
     """
 
     # 1d spaces for pre-conditioning with fft:
-    Nel_pre      = [tensor_space_FEM.spaces[0].NbaseN, tensor_space_FEM.spaces[1].NbaseN, tensor_space_FEM.spaces[2].NbaseN]
+    Nel_pre      = [
+        tensor_space_FEM.spaces[0].NbaseN,
+        tensor_space_FEM.spaces[1].NbaseN,
+        tensor_space_FEM.spaces[2].NbaseN]
     spl_kind_pre = [True, True, True]
-    spaces_pre   = [spl.Spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
+    spaces_pre   = [
+        spl.Spline_space_1d(
+            Nel,
+            p,
+            spl_kind,
+            nq_el) for Nel,
+        p,
+        spl_kind,
+        nq_el in zip(
+            Nel_pre,
+            tensor_space_FEM.p,
+            spl_kind_pre,
+            tensor_space_FEM.n_quad)]
 
     # tensor product mass matrices for pre-conditioning of the three diagonal blocks
     # spaces_pre[0].set_extraction_operators()
@@ -104,9 +178,12 @@ def get_M2_PRE(tensor_space_FEM, domain):
     spaces_pre[1].assemble_M0(lambda eta : (domain.params_map[3]-domain.params_map[2])*np.ones(eta.shape, dtype=float))
     spaces_pre[2].assemble_M0(lambda eta : (domain.params_map[5]-domain.params_map[4])*np.ones(eta.shape, dtype=float))
 
-    spaces_pre[0].assemble_M1(lambda eta : 1/(domain.params_map[1]-domain.params_map[0])*np.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M1(lambda eta : 1/(domain.params_map[3]-domain.params_map[2])*np.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M1(lambda eta : 1/(domain.params_map[5]-domain.params_map[4])*np.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M1(lambda eta : 1/(domain.params_map[1]-domain.params_map[0])
+                              * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta : 1/(domain.params_map[3]-domain.params_map[2])
+                              * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta : 1/(domain.params_map[5]-domain.params_map[4])
+                              * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
     c22_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
@@ -136,22 +213,48 @@ def get_M3_PRE(tensor_space_FEM, domain):
     """
 
     # 1d spaces for pre-conditioning with fft:
-    Nel_pre      = [tensor_space_FEM.spaces[0].NbaseN, tensor_space_FEM.spaces[1].NbaseN, tensor_space_FEM.spaces[2].NbaseN]
+    Nel_pre      = [
+        tensor_space_FEM.spaces[0].NbaseN,
+        tensor_space_FEM.spaces[1].NbaseN,
+        tensor_space_FEM.spaces[2].NbaseN]
     spl_kind_pre = [True, True, True]
-    spaces_pre   = [spl.Spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
+    spaces_pre   = [
+        spl.Spline_space_1d(
+            Nel,
+            p,
+            spl_kind,
+            nq_el) for Nel,
+        p,
+        spl_kind,
+        nq_el in zip(
+            Nel_pre,
+            tensor_space_FEM.p,
+            spl_kind_pre,
+            tensor_space_FEM.n_quad)]
 
     # tensor product mass matrices for pre-conditioning
     # spaces_pre[0].set_extraction_operators()
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M1(lambda eta : 1/(domain.params_map[1]-domain.params_map[0])*np.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M1(lambda eta : 1/(domain.params_map[3]-domain.params_map[2])*np.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M1(lambda eta : 1/(domain.params_map[5]-domain.params_map[4])*np.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M1(lambda eta : 1/(domain.params_map[1]-domain.params_map[0])
+                              * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta : 1/(domain.params_map[3]-domain.params_map[2])
+                              * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta : 1/(domain.params_map[5]-domain.params_map[4])
+                              * np.ones(eta.shape, dtype=float))
 
     c_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
 
-    return spa.linalg.LinearOperator(shape=tensor_space_FEM.M3.shape, matvec=lambda x: (linkron.kron_fftsolve_3d(c_pre, x.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2]))).flatten())
+    return spa.linalg.LinearOperator(
+        shape=tensor_space_FEM.M3.shape,
+        matvec=lambda x: (
+            linkron.kron_fftsolve_3d(
+                c_pre,
+                x.reshape(
+                    Nel_pre[0],
+                    Nel_pre[1],
+                    Nel_pre[2]))).flatten())
 
 
 # ================ inverse mass matrix in V0^3 ===========================
@@ -161,9 +264,24 @@ def get_Mv_PRE(tensor_space_FEM, domain):
     """
 
     # 1d spaces for pre-conditioning with fft:
-    Nel_pre      = [tensor_space_FEM.spaces[0].NbaseN, tensor_space_FEM.spaces[1].NbaseN, tensor_space_FEM.spaces[2].NbaseN]
+    Nel_pre      = [
+        tensor_space_FEM.spaces[0].NbaseN,
+        tensor_space_FEM.spaces[1].NbaseN,
+        tensor_space_FEM.spaces[2].NbaseN]
     spl_kind_pre = [True, True, True]
-    spaces_pre   = [spl.Spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
+    spaces_pre   = [
+        spl.Spline_space_1d(
+            Nel,
+            p,
+            spl_kind,
+            nq_el) for Nel,
+        p,
+        spl_kind,
+        nq_el in zip(
+            Nel_pre,
+            tensor_space_FEM.p,
+            spl_kind_pre,
+            tensor_space_FEM.n_quad)]
 
     # tensor product mass matrices for pre-conditioning of the three diagonal blocks
     # spaces_pre[0].set_extraction_operators()
@@ -259,8 +377,10 @@ def get_M1_PRE_3(tensor_space_FEM, mats_pol=None):
 
     def solve(x):
 
-        x1 = x[:tensor_space_FEM.E1_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]].reshape(tensor_space_FEM.E1_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
-        x2 = x[tensor_space_FEM.E1_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]:].reshape(tensor_space_FEM.E0_pol_0.shape[0], tensor_space_FEM.NbaseD[2])
+        x1 = x[:tensor_space_FEM.E1_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]
+               ].reshape(tensor_space_FEM.E1_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
+        x2 = x[tensor_space_FEM.E1_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]
+               :].reshape(tensor_space_FEM.E0_pol_0.shape[0], tensor_space_FEM.NbaseD[2])
 
         r1 = linkron.kron_fftsolve_2d(M1_pol_0_11_LU, tor_vec0, x1).flatten()
         r2 = linkron.kron_fftsolve_2d(M1_pol_0_22_LU, tor_vec1, x2).flatten()
@@ -296,8 +416,10 @@ def get_M2_PRE_3(tensor_space_FEM, mats_pol=None):
 
     def solve(x):
 
-        x1 = x[:tensor_space_FEM.E2_pol_0.shape[0]*tensor_space_FEM.NbaseD[2]].reshape(tensor_space_FEM.E2_pol_0.shape[0], tensor_space_FEM.NbaseD[2])
-        x2 = x[tensor_space_FEM.E2_pol_0.shape[0]*tensor_space_FEM.NbaseD[2]:].reshape(tensor_space_FEM.E3_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
+        x1 = x[:tensor_space_FEM.E2_pol_0.shape[0]*tensor_space_FEM.NbaseD[2]
+               ].reshape(tensor_space_FEM.E2_pol_0.shape[0], tensor_space_FEM.NbaseD[2])
+        x2 = x[tensor_space_FEM.E2_pol_0.shape[0]*tensor_space_FEM.NbaseD[2]
+               :].reshape(tensor_space_FEM.E3_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
 
         r1 = linkron.kron_fftsolve_2d(M2_pol_0_11_LU, tor_vec1, x1).flatten()
         r2 = linkron.kron_fftsolve_2d(M2_pol_0_22_LU, tor_vec0, x2).flatten()
@@ -340,7 +462,11 @@ def get_Mv_PRE_3(tensor_space_FEM, mats_pol=None):
     """
 
     if mats_pol == None:
-        mat = [tensor_space_FEM.Bv_pol.dot(tensor_space_FEM.Mv_pol_mat[0].dot(tensor_space_FEM.Bv_pol.T)), tensor_space_FEM.Mv_pol_mat[1]]
+        mat = [
+            tensor_space_FEM.Bv_pol.dot(
+                tensor_space_FEM.Mv_pol_mat[0].dot(
+                    tensor_space_FEM.Bv_pol.T)),
+            tensor_space_FEM.Mv_pol_mat[1]]
     else:
         mat = mats_pol
 
@@ -353,8 +479,10 @@ def get_Mv_PRE_3(tensor_space_FEM, mats_pol=None):
 
     def solve(x):
 
-        x1 = x[:tensor_space_FEM.Ev_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]].reshape(tensor_space_FEM.Ev_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
-        x2 = x[tensor_space_FEM.Ev_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]:].reshape(tensor_space_FEM.E0_pol.shape[0], tensor_space_FEM.NbaseN[2])
+        x1 = x[:tensor_space_FEM.Ev_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]
+               ].reshape(tensor_space_FEM.Ev_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
+        x2 = x[tensor_space_FEM.Ev_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]
+               :].reshape(tensor_space_FEM.E0_pol.shape[0], tensor_space_FEM.NbaseN[2])
 
         r1 = linkron.kron_fftsolve_2d(Mv_pol_0_11_LU, tor_vec0, x1).flatten()
         r2 = linkron.kron_fftsolve_2d(Mv_pol_0_22_LU, tor_vec0, x2).flatten()

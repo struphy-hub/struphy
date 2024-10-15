@@ -4,7 +4,8 @@ import pytest
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
 @pytest.mark.parametrize('p', [[2, 3, 4]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, True], [True, False, True], [True, True, True]])
+@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, True],
+                         [True, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
         'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}],

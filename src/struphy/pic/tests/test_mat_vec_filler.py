@@ -95,7 +95,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     fill_mat = np.reshape(np.arange(9, dtype=float), (3, 3)) + 1.
     fill_vec = np.arange(3, dtype=float) + 1.
 
-    # Random points in domain of process (VERY IMPORTANT to be in the right domain, otherwise NON-TRACKED errors occur in filler_kernels !!)
+    # Random points in domain of process (VERY IMPORTANT to be in the right
+    # domain, otherwise NON-TRACKED errors occur in filler_kernels !!)
     dom = DR.domain_array[rank]
     eta1s = np.random.rand(n_markers)*(dom[1] - dom[0]) + dom[0]
     eta2s = np.random.rand(n_markers)*(dom[4] - dom[3]) + dom[3]

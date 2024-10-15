@@ -52,7 +52,18 @@ class ModesSin:
                 Lz : 1.
     '''
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], theta=None, pfuns=['Id'], pfuns_params=[0.], Lx=1., Ly=1., Lz=1.):
+    def __init__(
+            self,
+            ls=None,
+            ms=None,
+            ns=None,
+            amps=[1e-4],
+            theta=None,
+            pfuns=['Id'],
+            pfuns_params=[0.],
+            Lx=1.,
+            Ly=1.,
+            Lz=1.):
         '''
         Parameters
         ----------

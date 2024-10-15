@@ -1284,9 +1284,10 @@ class CurrentCoupling6DCurrent(Propagator):
 
             self._accumulator.init_control_variate(self.mass_ops)
 
-            # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
-            quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+            # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv)
+            # at quadrature points for control variate
+            quad_pts = [quad_grid[nquad].points.flatten() for quad_grid, nquad in zip(
+                self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
             uh0_cart = self.particles[0].f0.u
 
@@ -1419,7 +1420,8 @@ class CurrentCoupling6DCurrent(Propagator):
         un1, info = self._schur_solver(
             un, -self._accumulator.vectors[0]/2, dt, out=self._u_new)
 
-        # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
+        # call pusher kernel with average field (u_new + u_old)/2 and update ghost
+        # regions because of non-local access in kernel
         _u = un.copy(out=self._u_avg1)
         _u += un1
         _u *= 0.5
@@ -1718,7 +1720,8 @@ class CurrentCoupling5DCurlb(Propagator):
         un1, info = self._schur_solver(
             un, -self._ACC.vectors[0]/2, dt, out=self._u_new)
 
-        # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
+        # call pusher kernel with average field (u_new + u_old)/2 and update ghost
+        # regions because of non-local access in kernel
         _u = un.copy(out=self._u_avg1)
         _u += un1
         _u *= 0.5
@@ -1900,7 +1903,8 @@ class CurrentCoupling5DGradB(Propagator):
 
         #     # evaluate and save n0 at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        # for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids,
+        # self.derham.Vh_fem['0'].nquads)]
 
         #     self._n0_at_quad = self.domain.push(
         #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False)
@@ -2042,7 +2046,8 @@ class CurrentCoupling5DGradB(Propagator):
 
         #     # evaluate grad B_parallel
         #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._tmp3,
-        #                                    out=[self._grad_PBb_at_quad[0], self._grad_PBb_at_quad[1], self._grad_PBb_at_quad[2]])
+        # out=[self._grad_PBb_at_quad[0], self._grad_PBb_at_quad[1],
+        # self._grad_PBb_at_quad[2]])
 
         #     # assemble temp = (B x)(G_inv)(unit_b1 x)(G_inv)
         #     for i in range(3):

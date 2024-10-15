@@ -458,13 +458,15 @@ class MHDOperators:
             e1, e3 = self.core.space.reshape_pol_1(e)
 
             if self.core.basis_u == 0:
-                out1 = self.int_N3.T.dot(self.dofs_EF[0].T.dot(e1).T).T + self.his_N3.T.dot(self.dofs_EF[2].T.dot(e3).T).T
+                out1 = self.int_N3.T.dot(self.dofs_EF[0].T.dot(e1).T).T + \
+                    self.his_N3.T.dot(self.dofs_EF[2].T.dot(e3).T).T
                 out3 = self.int_N3.T.dot(self.dofs_EF[1].T.dot(e1).T).T
 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
-                out1 = self.int_D3.T.dot(self.dofs_EF[0].T.dot(e1).T).T + self.his_D3.T.dot(self.dofs_EF[2].T.dot(e3).T).T
+                out1 = self.int_D3.T.dot(self.dofs_EF[0].T.dot(e1).T).T + \
+                    self.his_D3.T.dot(self.dofs_EF[2].T.dot(e3).T).T
                 out3 = self.int_N3.T.dot(self.dofs_EF[1].T.dot(e1).T).T
 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
@@ -700,9 +702,11 @@ class MHDOperators:
         if self.Mn_as_tensor:
 
             if self.core.basis_u == 0:
-                out = self.core.space.apply_Mv_ten(u, [[self.Mn_mat[0], self.core.space.M0_tor], [self.Mn_mat[1], self.core.space.M0_tor]])
+                out = self.core.space.apply_Mv_ten(u, [[self.Mn_mat[0], self.core.space.M0_tor], [
+                                                   self.Mn_mat[1], self.core.space.M0_tor]])
             elif self.core.basis_u == 2:
-                out = self.core.space.apply_M2_ten(u, [[self.Mn_mat[0], self.core.space.M1_tor], [self.Mn_mat[1], self.core.space.M0_tor]])
+                out = self.core.space.apply_M2_ten(u, [[self.Mn_mat[0], self.core.space.M1_tor], [
+                                                   self.Mn_mat[1], self.core.space.M0_tor]])
 
         else:
             out = self.Mn_mat.dot(u)
@@ -721,7 +725,8 @@ class MHDOperators:
             if self.core.basis_u == 0:
                 out = np.zeros(self.core.space.Ev_0.shape[0], dtype=float)
             elif self.core.basis_u == 2:
-                out = self.core.space.apply_M2_ten(b, [[self.MJ_mat[0], self.core.space.M1_tor], [self.MJ_mat[1], self.core.space.M0_tor]])
+                out = self.core.space.apply_M2_ten(b, [[self.MJ_mat[0], self.core.space.M1_tor], [
+                                                   self.MJ_mat[1], self.core.space.M0_tor]])
 
         else:
 
@@ -740,7 +745,8 @@ class MHDOperators:
         """
 
         if self.core.basis_u == 0:
-            out = -self.core.space.D0.dot(self.__PF(u)) - (self.gamma - 1)*self.__PR(self.core.space.D0.dot(self.__JF(u)))
+            out = -self.core.space.D0.dot(self.__PF(u)) - (self.gamma - 1) * \
+                self.__PR(self.core.space.D0.dot(self.__JF(u)))
         elif self.core.basis_u == 2:
             out = -self.core.space.D0.dot(self.__PF(u)) - (self.gamma - 1)*self.__PR(self.core.space.D0.dot(u))
 
@@ -789,63 +795,109 @@ class MHDOperators:
         if self.core.basis_u == 0:
 
             if hasattr(self, 'dofs_MF'):
-                self.MF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__MF, rmatvec=self.__MF_transposed)
+                self.MF = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0],
+                     self.core.space.Ev_0.shape[0]),
+                    matvec=self.__MF,
+                    rmatvec=self.__MF_transposed)
 
             if hasattr(self, 'dofs_PF'):
-                self.PF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__PF, rmatvec=self.__PF_transposed)
+                self.PF = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0],
+                     self.core.space.Ev_0.shape[0]),
+                    matvec=self.__PF,
+                    rmatvec=self.__PF_transposed)
 
             if hasattr(self, 'dofs_JF'):
-                self.JF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__JF, rmatvec=self.__JF_transposed)
+                self.JF = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0],
+                     self.core.space.Ev_0.shape[0]),
+                    matvec=self.__JF,
+                    rmatvec=self.__JF_transposed)
 
             if hasattr(self, 'dofs_EF'):
-                self.EF = spa.linalg.LinearOperator((self.core.space.E1_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
+                self.EF = spa.linalg.LinearOperator(
+                    (self.core.space.E1_0.shape[0],
+                     self.core.space.Ev_0.shape[0]),
+                    matvec=self.__EF,
+                    rmatvec=self.__EF_transposed)
 
             if hasattr(self, 'dofs_PR'):
-                self.PR = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]), matvec=self.__PR, rmatvec=self.__PR_transposed)
+                self.PR = spa.linalg.LinearOperator(
+                    (self.core.space.E3_0.shape[0],
+                     self.core.space.E3_0.shape[0]),
+                    matvec=self.__PR,
+                    rmatvec=self.__PR_transposed)
 
             if hasattr(self, 'dofs_Mn'):
-                self.Mn = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__Mn)
+                self.Mn = spa.linalg.LinearOperator(
+                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__Mn)
 
             if hasattr(self, 'dofs_MJ'):
-                self.MJ = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
+                self.MJ = spa.linalg.LinearOperator(
+                    (self.core.space.Ev_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
 
             if hasattr(self, 'dofs_PF') and hasattr(self, 'dofs_PR') and hasattr(self, 'dofs_JF'):
-                self.L  = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__L)
+                self.L  = spa.linalg.LinearOperator(
+                    (self.core.space.E3_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__L)
 
             if hasattr(self, 'Mn_mat') and hasattr(self, 'dofs_EF'):
-                self.S2 = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S2)
+                self.S2 = spa.linalg.LinearOperator(
+                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S2)
 
             if hasattr(self, 'Mn_mat') and hasattr(self, 'L'):
-                self.S6 = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S6)
+                self.S6 = spa.linalg.LinearOperator(
+                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S6)
 
         elif self.core.basis_u == 2:
 
             if hasattr(self, 'dofs_MF'):
-                self.MF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MF, rmatvec=self.__MF_transposed)
+                self.MF = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0],
+                     self.core.space.E2_0.shape[0]),
+                    matvec=self.__MF,
+                    rmatvec=self.__MF_transposed)
 
             if hasattr(self, 'dofs_PF'):
-                self.PF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__PF, rmatvec=self.__PF_transposed)
+                self.PF = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0],
+                     self.core.space.E2_0.shape[0]),
+                    matvec=self.__PF,
+                    rmatvec=self.__PF_transposed)
 
             if hasattr(self, 'dofs_EF'):
-                self.EF = spa.linalg.LinearOperator((self.core.space.E1_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
+                self.EF = spa.linalg.LinearOperator(
+                    (self.core.space.E1_0.shape[0],
+                     self.core.space.E2_0.shape[0]),
+                    matvec=self.__EF,
+                    rmatvec=self.__EF_transposed)
 
             if hasattr(self, 'dofs_PR'):
-                self.PR = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]), matvec=self.__PR, rmatvec=self.__PR_transposed)
+                self.PR = spa.linalg.LinearOperator(
+                    (self.core.space.E3_0.shape[0],
+                     self.core.space.E3_0.shape[0]),
+                    matvec=self.__PR,
+                    rmatvec=self.__PR_transposed)
 
             if hasattr(self, 'Mn_mat'):
-                self.Mn = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__Mn)
+                self.Mn = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__Mn)
 
             if hasattr(self, 'MJ_mat'):
-                self.MJ = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
+                self.MJ = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
 
             if hasattr(self, 'dofs_PF') and hasattr(self, 'dofs_PR'):
-                self.L  = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__L)
+                self.L  = spa.linalg.LinearOperator(
+                    (self.core.space.E3_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__L)
 
             if hasattr(self, 'Mn_mat') and hasattr(self, 'dofs_EF'):
-                self.S2 = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S2)
+                self.S2 = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S2)
 
             if hasattr(self, 'Mn_mat') and hasattr(self, 'L'):
-                self.S6 = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S6)
+                self.S6 = spa.linalg.LinearOperator(
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S6)
 
     # ======================================
 
@@ -967,10 +1019,12 @@ class MHDOperators:
             if self.Mn_as_tensor:
 
                 if self.core.basis_u == 0:
-                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M0_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M0_tor), None], [
+                                  None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
 
                 if self.core.basis_u == 2:
-                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M1_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M1_tor), None], [
+                                  None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
 
             else:
 
@@ -1019,7 +1073,8 @@ class MHDOperators:
             M2_0 = self.core.space.B2.dot(M2_0.dot(self.core.space.B2.T)).tocsr()
 
             # assemble approximate S2 matrix
-            S2_approx = Mn + self.dt_2**2/4*EF_approx.T.dot(self.core.space.C0.T.dot(M2_0.dot(self.core.space.C0.dot(EF_approx))))
+            S2_approx = Mn + self.dt_2**2/4 * \
+                EF_approx.T.dot(self.core.space.C0.T.dot(M2_0.dot(self.core.space.C0.dot(EF_approx))))
 
             del Mn, EF_approx, M2_0
 
@@ -1053,10 +1108,12 @@ class MHDOperators:
             if self.Mn_as_tensor:
 
                 if self.core.basis_u == 0:
-                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M0_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M0_tor), None], [
+                                  None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
 
                 if self.core.basis_u == 2:
-                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M1_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M1_tor), None], [
+                                  None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
 
             else:
 
@@ -1115,7 +1172,8 @@ class MHDOperators:
 
             # assemble approximate L matrix
             if self.core.basis_u == 0:
-                L_approx  = -self.core.space.D0.dot(PF_approx) - (self.gamma - 1)*PR_approx.dot(self.core.space.D0.dot(JF_approx))
+                L_approx  = -self.core.space.D0.dot(PF_approx) - (self.gamma - 1) * \
+                    PR_approx.dot(self.core.space.D0.dot(JF_approx))
 
                 del PF_approx, PR_approx
 

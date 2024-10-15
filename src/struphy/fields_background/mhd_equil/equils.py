@@ -454,7 +454,8 @@ class ShearFluid(CartesianMHDequilibrium):
 
     def T_z(self, z):
         """Swap function T(z) = \tanh(z - z_1)/\\delta) - \tanh(z - z_2)/\\delta)"""
-        Tout = (np.tanh((z-self.params['z1'])/self.params['delta']) - np.tanh((z-self.params['z2'])/self.params['delta']))/2.
+        Tout = (np.tanh((z-self.params['z1'])/self.params['delta']) -
+                np.tanh((z-self.params['z2'])/self.params['delta']))/2.
         return Tout
 
     def p_z(self, z):
@@ -997,7 +998,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
             self._psi1 = self.psi(self.params['R0'] + self.params['a'], 0.)
 
             def dp_dr(r):
-                return -(self.params['B0']**2*r)/(self.params['R0']**2*self.q_r(r)**3)*(2*self.q_r(r) - r*self.q_r(r, der=1))
+                return -(self.params['B0']**2*r)/(self.params['R0']**2 *
+                                                  self.q_r(r)**3)*(2*self.q_r(r) - r*self.q_r(r, der=1))
 
             ps = np.zeros_like(r_i)
 
@@ -1846,8 +1848,12 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         smooth_steps = [int(1/(self._params['psi_resolution'][0]*0.01)),
                         int(1/(self._params['psi_resolution'][1]*0.01))]
 
-        self._psi_i = RectBivariateSpline(R[::smooth_steps[0]], Z[::smooth_steps[1]], psi[::smooth_steps[0], ::smooth_steps[1]],
-                                          kx=self._params['p_for_psi'][0], ky=self._params['p_for_psi'][1],
+        self._psi_i = RectBivariateSpline(R[::smooth_steps[0]],
+                                          Z[::smooth_steps[1]],
+                                          psi[::smooth_steps[0],
+                                              ::smooth_steps[1]],
+                                          kx=self._params['p_for_psi'][0],
+                                          ky=self._params['p_for_psi'][1],
                                           s=0.)
 
         # find minimum of interpolated flux function (is not the same as (R_at_axis, Z_at_axis) and psi.min()!)
@@ -2714,10 +2720,12 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta3 = etas[2]
             flat_eval = False
 
-        # Ori 25/06/24 - Add option to set temperature maximum and then set density accordingly, still proportional to pressure
+        # Ori 25/06/24 - Add option to set temperature maximum and then set
+        # density accordingly, still proportional to pressure
         k_Boltzmann = 1.38*1e-23
         p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units['p']  # computes pressure in units of 1 Pa
-        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / self.units['n']  # density in default units, n=1 --> 10^20 m^(-3)
+        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / \
+            self.units['n']  # density in default units, n=1 --> 10^20 m^(-3)
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
@@ -2790,7 +2798,15 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         return out
 
-    def desc_eval(self, var: str, e1: np.ndarray, e2: np.ndarray, e3: np.ndarray, flat_eval: bool = False, nfp: int = 1, verbose: bool = False):
+    def desc_eval(
+            self,
+            var: str,
+            e1: np.ndarray,
+            e2: np.ndarray,
+            e3: np.ndarray,
+            flat_eval: bool = False,
+            nfp: int = 1,
+            verbose: bool = False):
         '''Transform the input grids to conform to desc's .compute method
         and evaluate var.
 

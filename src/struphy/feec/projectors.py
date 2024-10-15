@@ -70,7 +70,12 @@ class CommutingProjector:
         The boundary operator applying essential boundary conditions to a vector. If not given, is set to identity.
     """
 
-    def __init__(self, projector_tensor: GlobalProjector, dofs_extraction_op=None, base_extraction_op=None, boundary_op=None):
+    def __init__(
+            self,
+            projector_tensor: GlobalProjector,
+            dofs_extraction_op=None,
+            base_extraction_op=None,
+            boundary_op=None):
 
         self._projector_tensor = projector_tensor
 
@@ -131,7 +136,8 @@ class CommutingProjector:
 
         B = self._boundary_op
 
-        # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B * P * I * E^T * B^T as ComposedLinearOperator
+        # build inter-/histopolation matrix I = ID * P * I * E^T * ID^T and I0 = B
+        # * P * I * E^T * B^T as ComposedLinearOperator
         self._I = P @ self._imat @ E.T
         self._I0 = B @ self._I @ B.T
 
@@ -616,8 +622,22 @@ class CommutingProjectorLocal:
                     self._index_translationx = []
                     self._original_pts_sizex = np.zeros((3), dtype=int)
 
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
-                    ], self._localptsx, self._original_pts_sizex, self._index_translationx)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        [],
+                        self._localptsx,
+                        self._original_pts_sizex,
+                        self._index_translationx)
                     # meshgrid for x component
                     self._meshgridx = np.meshgrid(
                         *[pt for pt in self._localptsx], indexing='ij')
@@ -627,8 +647,22 @@ class CommutingProjectorLocal:
                     self._index_translationy = []
                     self._original_pts_sizey = np.zeros((3), dtype=int)
 
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
-                    ], self._localptsy, self._original_pts_sizey, self._index_translationy)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        [],
+                        self._localptsy,
+                        self._original_pts_sizey,
+                        self._index_translationy)
 
                     # meshgrid for y component
                     self._meshgridy = np.meshgrid(
@@ -639,8 +673,22 @@ class CommutingProjectorLocal:
                     self._index_translationz = []
                     self._original_pts_sizez = np.zeros((3), dtype=int)
 
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
-                    ], self._localptsz, self._original_pts_sizez, self._index_translationz)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        [],
+                        self._localptsz,
+                        self._original_pts_sizez,
+                        self._index_translationz)
 
                     # meshgrid for z component
                     self._meshgridz = np.meshgrid(
@@ -650,7 +698,9 @@ class CommutingProjectorLocal:
             for n, space in enumerate(fem_space.spaces):
                 if n == 0:
                     self._p = space.degree
-            # We need the degree of the B-Splines, since for the x direction Hcurl has a D-Spline on the x direction we need to add 1 to the degree we read from it.
+            # We need the degree of the B-Splines, since for the x direction Hcurl has
+            # a D-Spline on the x direction we need to add 1 to the degree we read
+            # from it.
             self._p[0] += 1
             BoS = "B"
             npts_split = [self._npts[1][0], self._npts[0][1], self._npts[0][2]]
@@ -679,8 +729,22 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["H", "I", "I"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        self._whij,
+                        self._localptsx,
+                        self._original_pts_sizex,
+                        self._index_translationx)
 
                     # meshgrid for x component
                     self._meshgridx = np.meshgrid(
@@ -709,8 +773,22 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["I", "H", "I"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        self._whij,
+                        self._localptsy,
+                        self._original_pts_sizey,
+                        self._index_translationy)
 
                     # meshgrid for y component
                     self._meshgridy = np.meshgrid(
@@ -739,8 +817,22 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["I", "I", "H"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        self._whij,
+                        self._localptsz,
+                        self._original_pts_sizez,
+                        self._index_translationz)
 
                     # meshgrid for z component
                     self._meshgridz = np.meshgrid(
@@ -750,7 +842,9 @@ class CommutingProjectorLocal:
             for n, space in enumerate(fem_space.spaces):
                 if n == 0:
                     self._p = space.degree
-            # We need the degree of the B-Splines, since for the x direction Hdiv has a D-Spline for the y and z directions we need to add 1 to the degrees we read from it.
+            # We need the degree of the B-Splines, since for the x direction Hdiv has
+            # a D-Spline for the y and z directions we need to add 1 to the degrees we
+            # read from it.
             self._p[1] += 1
             self._p[2] += 1
             BoS = "B"
@@ -784,8 +878,22 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["I", "H", "H"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        self._whij,
+                        self._localptsx,
+                        self._original_pts_sizex,
+                        self._index_translationx)
 
                     # meshgrid for x component
                     self._meshgridx = np.meshgrid(
@@ -819,8 +927,22 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["H", "I", "H"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        self._whij,
+                        self._localptsy,
+                        self._original_pts_sizey,
+                        self._index_translationy)
 
                     # meshgrid for y component
                     self._meshgridy = np.meshgrid(
@@ -853,24 +975,42 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["H", "H", "I"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz)
+                    split_points(
+                        BoS,
+                        IoH,
+                        h,
+                        lenj,
+                        shift,
+                        self._pts,
+                        self._starts,
+                        self._ends,
+                        self._p,
+                        npts_split,
+                        self._periodic,
+                        self._whij,
+                        self._localptsz,
+                        self._original_pts_sizez,
+                        self._index_translationz)
 
                     # meshgrid for z component
                     self._meshgridz = np.meshgrid(
                         *[pt for pt in self._localptsz], indexing='ij')
 
-            # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the x component of the vector function
+            # Tensor product matrix of the Gauss-Legendre quadrature weigths to
+            # evaluate the x component of the vector function
             self._GLweightsx = np.tensordot(wts[0][1][0], wts[0][2][0], axes=0)
-            # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the y component of the vector function
+            # Tensor product matrix of the Gauss-Legendre quadrature weigths to
+            # evaluate the y component of the vector function
             self._GLweightsy = np.tensordot(wts[1][0][0], wts[1][2][0], axes=0)
-            # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the z component of the vector function
+            # Tensor product matrix of the Gauss-Legendre quadrature weigths to
+            # evaluate the z component of the vector function
             self._GLweightsz = np.tensordot(wts[2][0][0], wts[2][1][0], axes=0)
 
         elif space_id == 'L2':
             for space in fem_space.spaces:
                 self._p.append(space.degree)
-            # We need the degree of the B-Splines, since L2 has a D-Spline for the x, y and z directions we need to add 1 to the degrees we read from it.
+            # We need the degree of the B-Splines, since L2 has a D-Spline for the x,
+            # y and z directions we need to add 1 to the degrees we read from it.
             self._p[0] += 1
             self._p[1] += 1
             self._p[2] += 1
@@ -1788,7 +1928,22 @@ def select_quasi_points(i, p, Nbasis, periodic):
 # starts and ends splitting.
 
 
-def split_points(BoS, IoH, h, lenj, shift, pts, starts, ends, p, npts, periodic, whij, localptsout, original_pts_size, index_translation):
+def split_points(
+        BoS,
+        IoH,
+        h,
+        lenj,
+        shift,
+        pts,
+        starts,
+        ends,
+        p,
+        npts,
+        periodic,
+        whij,
+        localptsout,
+        original_pts_size,
+        index_translation):
     '''Splits the interpolaton points and quadrature points between the MPI ranks. Making sure that each rank only gets the points it needs to compute the FE coefficients assignes to it.
 
     Parameters

@@ -34,7 +34,8 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of local non-vanishing basis functions in format (element, global index)
+    # global indices of local non-vanishing basis functions in format (element, global index)
+    indN   = tensor_space_FEM.indN
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -96,8 +97,10 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (N) in format (element, global index)
+    indN   = tensor_space_FEM.indN
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -384,8 +387,10 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (N) in format (element, global index)
+    indN   = tensor_space_FEM.indN
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -672,7 +677,8 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)

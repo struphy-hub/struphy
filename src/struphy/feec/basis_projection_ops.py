@@ -763,7 +763,18 @@ class BasisProjectionOperator(LinOpWithTransp):
         Whether to store some information computed in _assemble_mat for reuse. Set it to true if planned to update the weights later.
     """
 
-    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, P_extraction_op=None, P_boundary_op=None, transposed=False, polar_shift=False, use_cache=False):
+    def __init__(
+            self,
+            P,
+            V,
+            weights,
+            V_extraction_op=None,
+            V_boundary_op=None,
+            P_extraction_op=None,
+            P_boundary_op=None,
+            transposed=False,
+            polar_shift=False,
+            use_cache=False):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -960,9 +971,17 @@ class BasisProjectionOperator(LinOpWithTransp):
         """
         Returns the transposed operator.
         """
-        return BasisProjectionOperator(self._P, self._V, self._weights,
-                                       self._V_extraction_op, self._V_boundary_op, self._P_extraction_op, self._P_boundary_op,
-                                       not self.transposed, self._polar_shift, self._use_cache)
+        return BasisProjectionOperator(
+            self._P,
+            self._V,
+            self._weights,
+            self._V_extraction_op,
+            self._V_boundary_op,
+            self._P_extraction_op,
+            self._P_boundary_op,
+            not self.transposed,
+            self._polar_shift,
+            self._use_cache)
 
     def update_weights(self, weights):
         '''Updates self.weights and computes new DOF matrix.

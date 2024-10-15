@@ -86,20 +86,70 @@ class projectors_L2_3d:
         self.related = np.zeros(3, dtype=int)
         for a in range(3):
             # self.related[a] = int(np.floor(NbaseN[a]/2.0))
-            self.related[a]  = int(np.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a])   / 2.0))
+            self.related[a]  = int(
+                np.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a])   / 2.0))
             if (2 * self.related[a] + 1) > NbaseN[a]:
                 self.related[a] = int(np.floor(NbaseN[a]/2.0))
 
-        self.kernel_0_loc    = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+        self.kernel_0_loc    = np.zeros(
+            (NbaseN[0],
+             NbaseN[1],
+                NbaseN[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1),
+            dtype=float)
 
-        self.kernel_1_11_loc = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
-        self.kernel_1_12_loc = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
-        self.kernel_1_13_loc = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+        self.kernel_1_11_loc = np.zeros(
+            (NbaseD[0],
+             NbaseN[1],
+                NbaseN[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1),
+            dtype=float)
+        self.kernel_1_12_loc = np.zeros(
+            (NbaseD[0],
+             NbaseN[1],
+                NbaseN[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1),
+            dtype=float)
+        self.kernel_1_13_loc = np.zeros(
+            (NbaseD[0],
+             NbaseN[1],
+                NbaseN[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1),
+            dtype=float)
 
-        self.kernel_1_22_loc = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
-        self.kernel_1_23_loc = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+        self.kernel_1_22_loc = np.zeros(
+            (NbaseN[0],
+             NbaseD[1],
+                NbaseN[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1),
+            dtype=float)
+        self.kernel_1_23_loc = np.zeros(
+            (NbaseN[0],
+             NbaseD[1],
+                NbaseN[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1),
+            dtype=float)
 
-        self.kernel_1_33_loc = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+        self.kernel_1_33_loc = np.zeros(
+            (NbaseN[0],
+             NbaseN[1],
+                NbaseD[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1),
+            dtype=float)
 
         self.right_loc_1     = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
         self.right_loc_2     = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
@@ -107,16 +157,65 @@ class projectors_L2_3d:
 
         if self.mpi_rank == 0:
 
-            self.kernel_0    = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+            self.kernel_0    = np.zeros(
+                (NbaseN[0],
+                 NbaseN[1],
+                    NbaseN[2],
+                    2 * self.related[0] + 1,
+                    2 * self.related[1] + 1,
+                    2 * self.related[2] + 1),
+                dtype=float)
 
-            self.kernel_1_11 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
-            self.kernel_1_12 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
-            self.kernel_1_13 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+            self.kernel_1_11 = np.zeros(
+                (NbaseD[0],
+                 NbaseN[1],
+                    NbaseN[2],
+                    2 * self.related[0] + 1,
+                    2 * self.related[1] + 1,
+                    2 * self.related[2] + 1),
+                dtype=float)
+            self.kernel_1_12 = np.zeros(
+                (NbaseN[0],
+                 NbaseD[1],
+                    NbaseN[2],
+                    2 * self.related[0] + 1,
+                    2 * self.related[1] + 1,
+                    2 * self.related[2] + 1),
+                dtype=float)
+            self.kernel_1_13 = np.zeros(
+                (NbaseN[0],
+                 NbaseN[1],
+                    NbaseD[2],
+                    2 * self.related[0] + 1,
+                    2 * self.related[1] + 1,
+                    2 * self.related[2] + 1),
+                dtype=float)
 
-            self.kernel_1_22 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
-            self.kernel_1_23 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+            self.kernel_1_22 = np.zeros(
+                (NbaseN[0],
+                 NbaseD[1],
+                    NbaseN[2],
+                    2 * self.related[0] + 1,
+                    2 * self.related[1] + 1,
+                    2 * self.related[2] + 1),
+                dtype=float)
+            self.kernel_1_23 = np.zeros(
+                (NbaseN[0],
+                 NbaseN[1],
+                    NbaseD[2],
+                    2 * self.related[0] + 1,
+                    2 * self.related[1] + 1,
+                    2 * self.related[2] + 1),
+                dtype=float)
 
-            self.kernel_1_33 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1), dtype=float)
+            self.kernel_1_33 = np.zeros(
+                (NbaseN[0],
+                 NbaseN[1],
+                    NbaseD[2],
+                    2 * self.related[0] + 1,
+                    2 * self.related[1] + 1,
+                    2 * self.related[2] + 1),
+                dtype=float)
 
             self.right_1     = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
             self.right_2     = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
@@ -173,7 +272,8 @@ class projectors_L2_3d:
 
         col     = Nj[1]*Ni[2]*col1 + Ni[2]*col2 + col3
 
-        M       = spa.csr_matrix((self.kernel_0.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M       = spa.csr_matrix((self.kernel_0.flatten(), (row, col.flatten())),
+                                 shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
 
         M.eliminate_zeros()
 
@@ -227,7 +327,8 @@ class projectors_L2_3d:
 
         col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-        M11 = spa.csr_matrix((self.kernel_1_11.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M11 = spa.csr_matrix((self.kernel_1_11.flatten(), (row, col.flatten())),
+                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
         M11.eliminate_zeros()
 
         # === 12 component =====
@@ -249,7 +350,8 @@ class projectors_L2_3d:
 
         col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-        M12 = spa.csr_matrix((self.kernel_1_12.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M12 = spa.csr_matrix((self.kernel_1_12.flatten(), (row, col.flatten())),
+                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
         M12.eliminate_zeros()
 
         # === 13 component =====
@@ -271,7 +373,8 @@ class projectors_L2_3d:
 
         col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-        M13 = spa.csr_matrix((self.kernel_1_13.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M13 = spa.csr_matrix((self.kernel_1_13.flatten(), (row, col.flatten())),
+                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
         M13.eliminate_zeros()
 
         # === 22 component =====
@@ -293,7 +396,8 @@ class projectors_L2_3d:
 
         col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-        M22 = spa.csr_matrix((self.kernel_1_22.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M22 = spa.csr_matrix((self.kernel_1_22.flatten(), (row, col.flatten())),
+                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
         M22.eliminate_zeros()
 
         # === 23 component =====
@@ -315,7 +419,8 @@ class projectors_L2_3d:
 
         col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-        M23 = spa.csr_matrix((self.kernel_1_23.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M23 = spa.csr_matrix((self.kernel_1_23.flatten(), (row, col.flatten())),
+                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
         M23.eliminate_zeros()
 
         # === 33 component =====
@@ -337,7 +442,8 @@ class projectors_L2_3d:
 
         col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-        M33 = spa.csr_matrix((self.kernel_1_33.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M33 = spa.csr_matrix((self.kernel_1_33.flatten(), (row, col.flatten())),
+                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
         M33.eliminate_zeros()
 
         # final block matrix

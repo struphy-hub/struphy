@@ -263,7 +263,8 @@ class Accumulator:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
 
-        # finish matrix: accumulate ghost regions, update ghost regions and copy data for symmetric/antisymmetric block matrices
+        # finish matrix: accumulate ghost regions, update ghost regions and copy
+        # data for symmetric/antisymmetric block matrices
         if not mat_finished:
             for op in self._operators:
                 op.matrix.exchange_assembly_data()

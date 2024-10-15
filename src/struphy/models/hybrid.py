@@ -490,10 +490,11 @@ class LinearMHDVlasovPC(StruphyModel):
         self.update_scalar('en_B_tot', en_Btot)
 
         # particles
-        self._tmp[0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self.pointer['energetic_ions'].markers_wo_holes[:, 6].dot(
-            self.pointer['energetic_ions'].markers_wo_holes[:, 3]**2 +
-            self.pointer['energetic_ions'].markers_wo_holes[:, 4]**2 +
-            self.pointer['energetic_ions'].markers_wo_holes[:, 5]**2)/(2*self.pointer['energetic_ions'].n_mks)
+        self._tmp[0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self.pointer['energetic_ions'].markers_wo_holes[:,
+                                                                                                                               6].dot(self.pointer['energetic_ions'].markers_wo_holes[:,
+                                                                                                                                                                                      3]**2 + self.pointer['energetic_ions'].markers_wo_holes[:,
+                                                                                                                                                                                                                                              4]**2 + self.pointer['energetic_ions'].markers_wo_holes[:,
+                                                                                                                                                                                                                                                                                                      5]**2)/(2*self.pointer['energetic_ions'].n_mks)
 
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -826,8 +827,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # (2*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
 
         # Don't do averaging within each clone
-        self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
+        self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes,
+                                                                5].dot(self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes,
+                                                                                                              3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
 
         # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv, op=self._mpi_sum)
 
@@ -839,8 +841,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # (2.*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
 
         # Don't do averaging within each clone
-        self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
+        self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers,
+                                                                          5].dot(self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers,
+                                                                                                                             3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
         # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv_lost, op=self._mpi_sum)
 
         self.update_scalar('en_fv_lost', self._en_fv_lost[0])
@@ -854,8 +857,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
         # self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes,
         # 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
-        self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-            self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])*self._coupling_params['Ah']/self._coupling_params['Ab']
+        self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes,
+                                                                5].dot(self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes,
+                                                                                                              8])*self._coupling_params['Ah']/self._coupling_params['Ab']
         # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB, op=self._mpi_sum)
 
         self.update_scalar('en_fB', self._en_fB[0])
@@ -864,8 +868,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers,
         # 8]) /
         # self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
-        self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions']  .lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) * self._coupling_params['Ah']/self._coupling_params['Ab']
+        self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers,
+                                                                          5].dot(self.pointer['energetic_ions'] .lost_markers[:self.pointer['energetic_ions'].n_lost_markers,
+                                                                                                                              8]) * self._coupling_params['Ah']/self._coupling_params['Ab']
         # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB_lost, op=self._mpi_sum)
 
         self.update_scalar('en_fB_lost', self._en_fB_lost[0])

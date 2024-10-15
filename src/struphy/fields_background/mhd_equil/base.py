@@ -26,17 +26,41 @@ class MHDequilibrium(metaclass=ABCMeta):
     def absB3(self, *etas, squeeze_out=False):
         """ 3-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.absB0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.absB0(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def b1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.bv(*etas, squeeze_out=False), *etas, kind='v_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.bv(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='v_to_1',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def b2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium magnetic field on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.bv(*etas, squeeze_out=False), *etas, kind='v_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.bv(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='v_to_2',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def bv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium magnetic field on logical cube [0, 1]^3.
@@ -77,17 +101,35 @@ class MHDequilibrium(metaclass=ABCMeta):
     def curl_unit_b1(self, *etas, squeeze_out=False):
         """ 1-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='1', squeeze_out=squeeze_out)
+        return self.domain.pull(
+            self.curl_unit_b_cart(
+                *etas,
+                squeeze_out=False)[0],
+            *etas,
+            kind='1',
+            squeeze_out=squeeze_out)
 
     def curl_unit_b2(self, *etas, squeeze_out=False):
         """ 2-form components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='2', squeeze_out=squeeze_out)
+        return self.domain.pull(
+            self.curl_unit_b_cart(
+                *etas,
+                squeeze_out=False)[0],
+            *etas,
+            kind='2',
+            squeeze_out=squeeze_out)
 
     def curl_unit_bv(self, *etas, squeeze_out=False):
         """ Contra-variant components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.pull(self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind='v', squeeze_out=squeeze_out)
+        return self.domain.pull(
+            self.curl_unit_b_cart(
+                *etas,
+                squeeze_out=False)[0],
+            *etas,
+            kind='v',
+            squeeze_out=squeeze_out)
 
     def curl_unit_b_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of curl of unit equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
@@ -114,7 +156,15 @@ class MHDequilibrium(metaclass=ABCMeta):
         avail_list = ['HomogenSlab']
         assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.__class__.__name__}".'
 
-        return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_1', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.a2(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='2_to_1',
+            a_kwargs={
+                'squeeze_out': False},
+            squeeze_out=squeeze_out)
 
     def a2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium vector potential on logical cube [0, 1]^3.
@@ -131,17 +181,41 @@ class MHDequilibrium(metaclass=ABCMeta):
         avail_list = ['HomogenSlab']
         assert self.__class__.__name__ in avail_list, f'Vector potential currently available only for {avail_list}, but mhd_equil is "{self.__class__.__name__}".'
 
-        return self.domain.transform(self.a2(*etas, squeeze_out=False), *etas, kind='2_to_v', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.a2(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='2_to_v',
+            a_kwargs={
+                'squeeze_out': False},
+            squeeze_out=squeeze_out)
 
     def j1(self, *etas, squeeze_out=False):
         """ 1-form components of equilibrium current on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.jv(*etas, squeeze_out=False), *etas, kind='v_to_1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.jv(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='v_to_1',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def j2(self, *etas, squeeze_out=False):
         """ 2-form components of equilibrium current on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.jv(*etas, squeeze_out=False), *etas, kind='v_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.jv(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='v_to_2',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def jv(self, *etas, squeeze_out=False):
         """ Contra-variant components of equilibrium current on logical cube [0, 1]^3.
@@ -165,12 +239,28 @@ class MHDequilibrium(metaclass=ABCMeta):
     def gradB2(self, *etas, squeeze_out=False):
         """ 2-form components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.gradB1(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='1_to_2',
+            a_kwargs={
+                'squeeze_out': False},
+            squeeze_out=squeeze_out)
 
     def gradBv(self, *etas, squeeze_out=False):
         """ Contra-variant components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_v', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.gradB1(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='1_to_v',
+            a_kwargs={
+                'squeeze_out': False},
+            squeeze_out=squeeze_out)
 
     def gradB_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
@@ -188,7 +278,15 @@ class MHDequilibrium(metaclass=ABCMeta):
     def p3(self, *etas, squeeze_out=False):
         """ 3-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.p0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.p0(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out': False},
+            squeeze_out=squeeze_out)
 
     def n0(self, *etas, squeeze_out=False):
         """ 0-form equilibrium number density on logical cube [0, 1]^3.
@@ -199,7 +297,15 @@ class MHDequilibrium(metaclass=ABCMeta):
     def n3(self, *etas, squeeze_out=False):
         """ 3-form equilibrium number density on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.n0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.n0(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out': False},
+            squeeze_out=squeeze_out)
 
     def s0_monoatomic(self, *etas, squeeze_out=False):
         """ 0-form equilibrium entropy density on logical cube [0, 1]^3.
@@ -215,7 +321,15 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
         """
-        return self.domain.transform(self.s0_monoatomic(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.s0_monoatomic(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def s0_diatomic(self, *etas, squeeze_out=False):
         """ 0-form equilibrium entropy density on logical cube [0, 1]^3.
@@ -231,7 +345,15 @@ class MHDequilibrium(metaclass=ABCMeta):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
         """
-        return self.domain.transform(self.s0_diatomic(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.s0_diatomic(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     ###################
     # Single components

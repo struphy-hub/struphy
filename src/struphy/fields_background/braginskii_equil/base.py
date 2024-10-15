@@ -162,17 +162,41 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
     def gradB2(self, *etas, squeeze_out=False):
         """ 2-form components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_2', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.gradB1(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='1_to_2',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def gradBv(self, *etas, squeeze_out=False):
         """ Contra-variant components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        return self.domain.transform(self.gradB1(*etas, squeeze_out=False), *etas, kind='1_to_v', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.gradB1(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='1_to_v',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def gradB_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        gradB_out = self.domain.push(self.gradB1(*etas, squeeze_out=False), *etas, kind='1', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        gradB_out = self.domain.push(
+            self.gradB1(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='1',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
         return gradB_out, self.domain(*etas)
 
     def p0(self, *etas, squeeze_out=False):
@@ -184,7 +208,15 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
     def p3(self, *etas, squeeze_out=False):
         """ 3-form equilibrium pressure on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.p0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.p0(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def n0(self, *etas, squeeze_out=False):
         """ 0-form equilibrium number density on logical cube [0, 1]^3.
@@ -195,7 +227,15 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
     def n3(self, *etas, squeeze_out=False):
         """ 3-form equilibrium number density on logical cube [0, 1]^3.
         """
-        return self.domain.transform(self.n0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.n0(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     def s0(self, *etas, squeeze_out=False):
         """ 0-form equilibrium entropy density on logical cube [0, 1]^3.
@@ -211,7 +251,15 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
         """
-        return self.domain.transform(self.s0(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
+        return self.domain.transform(
+            self.s0(
+                *etas,
+                squeeze_out=False),
+            *etas,
+            kind='0_to_3',
+            a_kwargs={
+                'squeeze_out' : False},
+            squeeze_out=squeeze_out)
 
     ###################
     # Single components

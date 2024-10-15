@@ -81,7 +81,12 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                 continue
 
             # skip impossible combinations
-            if 'Torus' not in key and (isinstance(domain, domains.HollowTorus) or isinstance(domain, domains.HollowCylinder)):
+            if 'Torus' not in key and (
+                isinstance(
+                    domain,
+                    domains.HollowTorus) or isinstance(
+                    domain,
+                    domains.HollowCylinder)):
                 continue
 
             # functions to compare to

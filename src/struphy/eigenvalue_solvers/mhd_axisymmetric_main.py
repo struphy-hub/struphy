@@ -166,7 +166,8 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', path_out=N
         else:
             n_tor_str = '+' + str(n_tor)
 
-        np.save(os.path.join(path_out, 'spec_n_' + n_tor_str + '.npy'), np.vstack((omega2.reshape(1, omega2.size), U2_eig)))
+        np.save(os.path.join(path_out, 'spec_n_' + n_tor_str + '.npy'),
+                np.vstack((omega2.reshape(1, omega2.size), U2_eig)))
 
     # or return eigenfrequencies, eigenvectors and system matrix
     else:
@@ -183,7 +184,8 @@ if __name__ == '__main__':
     import yaml
 
     # parse arguments
-    parser = argparse.ArgumentParser(description='Computes the complete eigenspectrum for a given axisymmetric MHD equilibrium.')
+    parser = argparse.ArgumentParser(
+        description='Computes the complete eigenspectrum for a given axisymmetric MHD equilibrium.')
 
     parser.add_argument('n_tor',
                         type=int,

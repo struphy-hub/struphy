@@ -67,7 +67,8 @@ def main():
     U2_eig = U2_eig[:, modes_ind]
 
     # save restricted spectrum
-    np.save(os.path.join(input_path, 'spec_' + str(args.lower) + '_' + str(args.upper) + '_n_' + n_tor_str + '.npy'), np.vstack((omega2.reshape(1, omega2.size), U2_eig)))
+    np.save(os.path.join(input_path, 'spec_' + str(args.lower) + '_' + str(args.upper) +
+            '_n_' + n_tor_str + '.npy'), np.vstack((omega2.reshape(1, omega2.size), U2_eig)))
 
 
 if __name__ == '__main__':

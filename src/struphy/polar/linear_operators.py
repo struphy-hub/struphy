@@ -286,7 +286,12 @@ class PolarExtractionOperator(LinOpWithTransp):
         else:
             blocks_ten_to_ten = None
 
-        return PolarExtractionOperator(V, W, blocks_ten_to_pol=blocks_ten_to_pol, blocks_ten_to_ten=blocks_ten_to_ten, transposed=not self.transposed)
+        return PolarExtractionOperator(
+            V,
+            W,
+            blocks_ten_to_pol=blocks_ten_to_pol,
+            blocks_ten_to_ten=blocks_ten_to_ten,
+            transposed=not self.transposed)
 
 
 class PolarLinearOperator(LinOpWithTransp):

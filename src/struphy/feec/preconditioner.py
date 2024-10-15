@@ -105,7 +105,8 @@ class MassMatrixPreconditioner(LinearOperator):
                             s = e.shape[0]
                             newshape = tuple([1 if i != d else s for i in range(n_dims)])
                             f = e.reshape(newshape)
-                            return loc_weights(*[np.array(np.full_like(f, .5)) if i != d else np.array(f) for i in range(n_dims)]).squeeze()
+                            return loc_weights(*[np.array(np.full_like(f, .5)) if i != d else np.array(f)
+                                               for i in range(n_dims)]).squeeze()
                     elif isinstance(loc_weights, np.ndarray):
                         s = loc_weights.shape
                         if d == 0:
@@ -117,7 +118,9 @@ class MassMatrixPreconditioner(LinearOperator):
                     elif loc_weights is None:
                         fun = lambda e: np.ones(e.size, dtype=float)
                     else :
-                        raise TypeError("weights needs to be callable, np.ndarray or None but is{}".format(type(loc_weights)))
+                        raise TypeError(
+                            "weights needs to be callable, np.ndarray or None but is{}".format(
+                                type(loc_weights)))
                     fun = [[fun]]
                 else:
                     fun = [[lambda e: np.ones(e.size, dtype=float)]]
@@ -551,7 +554,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             self._tmp_vector = self._M.codomain.zeros()
 
         # Need to assemble the logical mass matrix to extract the coefficients
-        fun = [[lambda e1, e2, e3 : np.ones_like(e1, dtype=float) if i == j else None for j in range(3)]for i in range(3)]
+        fun = [[lambda e1, e2, e3 : np.ones_like(e1, dtype=float) if i ==
+                j else None for j in range(3)]for i in range(3)]
         log_M = WeightedMassOperator(
             self._femspace, self._femspace, weights_info=fun)
         log_M.assemble(verbose=False)

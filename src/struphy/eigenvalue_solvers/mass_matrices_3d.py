@@ -30,7 +30,8 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of local non-vanishing basis functions in format (element, global index)
+    # global indices of local non-vanishing basis functions in format (element, global index)
+    indN   = tensor_space_FEM.indN
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -123,8 +124,10 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (N) in format (element, global index)
+    indN   = tensor_space_FEM.indN
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -200,7 +203,9 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
             col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-            M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+            M[a][b] = spa.csr_matrix(
+                (M[a][b].flatten(), (row, col.flatten())), shape=(
+                    Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
             M[a][b].eliminate_zeros()
 
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
@@ -236,8 +241,10 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (N) in format (element, global index)
+    indN   = tensor_space_FEM.indN
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -313,7 +320,9 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
             col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-            M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+            M[a][b] = spa.csr_matrix(
+                (M[a][b].flatten(), (row, col.flatten())), shape=(
+                    Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
             M[a][b].eliminate_zeros()
 
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
@@ -349,7 +358,8 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indD   = tensor_space_FEM.indD    # global indices of local non-vanishing basis functions in format (element, global index)
+    # global indices of local non-vanishing basis functions in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -441,8 +451,10 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (N) in format (element, global index)
+    indN   = tensor_space_FEM.indN
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -530,7 +542,9 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
             col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-            M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+            M[a][b] = spa.csr_matrix(
+                (M[a][b].flatten(), (row, col.flatten())), shape=(
+                    Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
             M[a][b].eliminate_zeros()
 
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')

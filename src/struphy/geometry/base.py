@@ -260,7 +260,12 @@ class Domain(metaclass=ABCMeta):
         else:
             which = 0
 
-        return self._evaluate_metric_coefficient(*etas, which=which, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside)
+        return self._evaluate_metric_coefficient(
+            *etas,
+            which=which,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside)
 
     # ========================
     def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
@@ -288,7 +293,13 @@ class Domain(metaclass=ABCMeta):
             The Jacobian matrix evaluated at given logical coordinates.
         """
 
-        return self._evaluate_metric_coefficient(*etas, which=1, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
+        return self._evaluate_metric_coefficient(
+            *etas,
+            which=1,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            transposed=transposed,
+            remove_outside=remove_outside)
 
     # ========================
     def jacobian_det(self, *etas, squeeze_out=False, remove_outside=True):
@@ -348,7 +359,13 @@ class Domain(metaclass=ABCMeta):
             The inverse Jacobian matrix evaluated at given logical coordinates.
         """
 
-        return self._evaluate_metric_coefficient(*etas, which=3, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
+        return self._evaluate_metric_coefficient(
+            *etas,
+            which=3,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            transposed=transposed,
+            remove_outside=remove_outside)
 
     # ========================
     def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
@@ -381,7 +398,13 @@ class Domain(metaclass=ABCMeta):
             The metric tensor evaluated at given logical coordinates.
         """
 
-        return self._evaluate_metric_coefficient(*etas, which=4, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
+        return self._evaluate_metric_coefficient(
+            *etas,
+            which=4,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            transposed=transposed,
+            remove_outside=remove_outside)
 
     # ========================
     def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
@@ -414,10 +437,25 @@ class Domain(metaclass=ABCMeta):
             The inverse metric tensor evaluated at given logical coordinates.
         """
 
-        return self._evaluate_metric_coefficient(*etas, which=5, change_out_order=change_out_order, squeeze_out=squeeze_out, transposed=transposed, remove_outside=remove_outside)
+        return self._evaluate_metric_coefficient(
+            *etas,
+            which=5,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            transposed=transposed,
+            remove_outside=remove_outside)
 
     # ================================
-    def pull(self, a, *etas, kind='0', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True, coordinates='physical'):
+    def pull(
+            self,
+            a,
+            *etas,
+            kind='0',
+            a_kwargs={},
+            change_out_order=False,
+            squeeze_out=False,
+            remove_outside=True,
+            coordinates='physical'):
         """
         Pull-back of a Cartesian scalar/vector field to a differential p-form.
 
@@ -457,8 +495,16 @@ class Domain(metaclass=ABCMeta):
             Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
         """
 
-        return self._pull_push_transform('pull', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out,
-                                         remove_outside=remove_outside, coordinates=coordinates, a_kwargs=a_kwargs)
+        return self._pull_push_transform(
+            'pull',
+            a,
+            kind,
+            *etas,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+            coordinates=coordinates,
+            a_kwargs=a_kwargs)
 
     # ================================
     def push(self, a, *etas, kind='0', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
@@ -497,10 +543,26 @@ class Domain(metaclass=ABCMeta):
             Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
         """
 
-        return self._pull_push_transform('push', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
+        return self._pull_push_transform(
+            'push',
+            a,
+            kind,
+            *etas,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+            a_kwargs=a_kwargs)
 
     # ================================
-    def transform(self, a, *etas, kind='0_to_3', a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
+    def transform(
+            self,
+            a,
+            *etas,
+            kind='0_to_3',
+            a_kwargs={},
+            change_out_order=False,
+            squeeze_out=False,
+            remove_outside=True):
         """
         Transformation between different differential p-forms and/or vector fields.
 
@@ -540,7 +602,15 @@ class Domain(metaclass=ABCMeta):
         Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v' and '2_to_v'.
         """
 
-        return self._pull_push_transform('tran', a, kind, *etas, change_out_order=change_out_order, squeeze_out=squeeze_out, remove_outside=remove_outside, a_kwargs=a_kwargs)
+        return self._pull_push_transform(
+            'tran',
+            a,
+            kind,
+            *etas,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+            a_kwargs=a_kwargs)
 
     # ========================
     # private methods :
@@ -925,7 +995,8 @@ class Domain(metaclass=ABCMeta):
                     arg_y.shape[0] == 1 and arg_y.shape[2] == 1 and
                         arg_z.shape[0] == 1 and arg_z.shape[1] == 1):
                     is_sparse_meshgrid = True
-                # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
+                # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense
+                # meshgrid) Process each point as default.
 
             else:
                 raise ValueError('Argument dimensions not supported')
@@ -1063,7 +1134,8 @@ class Domain(metaclass=ABCMeta):
                     4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!')
 
         else:
-            raise TypeError('Argument a must be either a float OR a list/tuple of 1 or 3 callable(s)/numpy array(s)/float(s) \
+            raise TypeError(
+                'Argument a must be either a float OR a list/tuple of 1 or 3 callable(s)/numpy array(s)/float(s) \
             OR a single numpy array OR a single callable!')
 
         # make sure that output array is 2d and of shape (:, 1) or (:, 3) for flat evaluation
@@ -1128,7 +1200,17 @@ class Domain(metaclass=ABCMeta):
             return params_map
 
     # ================================
-    def show(self, logical=False, grid_info=None, markers=None, marker_coords='logical', show_control_pts=False, figsize=(12, 5), save_dir=None):
+    def show(
+            self,
+            logical=False,
+            grid_info=None,
+            markers=None,
+            marker_coords='logical',
+            show_control_pts=False,
+            figsize=(
+                12,
+                5),
+            save_dir=None):
         """
         Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
         Markers can be plotted as well (optional).

@@ -239,7 +239,8 @@ if __name__ == '__main__':
     import argparse
 
     # get number of MPI processes
-    parser = argparse.ArgumentParser(description='Run a TAE (Toroidal Alfvén eigenmode) example for the model "LinearMHD".')
+    parser = argparse.ArgumentParser(
+        description='Run a TAE (Toroidal Alfvén eigenmode) example for the model "LinearMHD".')
 
     parser.add_argument('--mpi',
                         type=int,

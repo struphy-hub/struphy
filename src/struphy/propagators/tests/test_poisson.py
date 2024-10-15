@@ -211,7 +211,11 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
 
         # Plot convergence in 1D
         if show_plot:
-            plt.figure(f'Convergence for degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(12, 8))
+            plt.figure(
+                f'Convergence for degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }',
+                figsize=(
+                    12,
+                    8))
             plt.plot(h_vec, errors, 'o', label=f'p={p[direction]}')
             plt.plot(h_vec, [h**(p[direction]+1)/h_vec[direction]**(p[direction]+1)*errors[direction]
                              for h in h_vec], 'k--', label='correct rate p+1')

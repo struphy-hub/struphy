@@ -185,28 +185,34 @@ if __name__ == '__main__':
                         help='name of .npy file to analyze',
                         required=True)
 
-    parser.add_argument('-i', '--input',
-                        type=str,
-                        metavar='DIR',
-                        help='directory with eigenspectrum (.npy) and parameter (.yml) file, relative to <install_path>/struphy/io/out/ (default=sim_1)',
-                        default='sim_1')
+    parser.add_argument(
+        '-i',
+        '--input',
+        type=str,
+        metavar='DIR',
+        help='directory with eigenspectrum (.npy) and parameter (.yml) file, relative to <install_path>/struphy/io/out/ (default=sim_1)',
+        default='sim_1')
 
     parser.add_argument('--input-abs',
                         type=str,
                         metavar='DIR',
                         help='directory with eigenspectrum (.npy) and parameter (.yml) file, absolute path')
 
-    parser.add_argument('-t', '--tol',
-                        type=float,
-                        metavar='tol',
-                        help='threshold for the maximum divergence of an eigenmode below which it is considered to be an Alfvénic mode (default=0.05)',
-                        default=0.05)
+    parser.add_argument(
+        '-t',
+        '--tol',
+        type=float,
+        metavar='tol',
+        help='threshold for the maximum divergence of an eigenmode below which it is considered to be an Alfvénic mode (default=0.05)',
+        default=0.05)
 
-    parser.add_argument('-c', '--comp-sound',
-                        type=int,
-                        metavar='n',
-                        help='the component that is used for the slow sound mode analysis (2 : 2nd component or 3 : 3rd component, default=3)',
-                        default=3)
+    parser.add_argument(
+        '-c',
+        '--comp-sound',
+        type=int,
+        metavar='n',
+        help='the component that is used for the slow sound mode analysis (2 : 2nd component or 3 : 3rd component, default=3)',
+        default=3)
 
     args = parser.parse_args()
 
@@ -258,7 +264,8 @@ if __name__ == '__main__':
     fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], dirichlet_bc[0])
     fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], dirichlet_bc[1])
 
-    fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], polar_ck, domain.cx[:, :, 0], domain.cy[:, :, 0], n_tor=n_tor, basis_tor='i')
+    fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], polar_ck, domain.cx[:, :, 0],
+                                 domain.cy[:, :, 0], n_tor=n_tor, basis_tor='i')
 
     # load and analyze spectrum
     omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)

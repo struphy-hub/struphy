@@ -409,7 +409,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
         # get control points
         if params_map['sfl']:
             def theta(eta1, eta2):
-                return 2*np.arctan(np.sqrt((1 + params_map['a'] * eta1 / params_map['R0'])/(1 - params_map['a'] * eta1 / params_map['R0'])) * np.tan(np.pi*eta2))
+                return 2*np.arctan(np.sqrt((1 + params_map['a'] * eta1 / params_map['R0']) /
+                                   (1 - params_map['a'] * eta1 / params_map['R0'])) * np.tan(np.pi*eta2))
         else:
             def theta(eta1, eta2):
                 return 2*np.pi*eta2

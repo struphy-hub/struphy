@@ -67,7 +67,8 @@ class LinOpWithTransp(LinearOperator):
                 assert out.shape[0] == self.codomain.dimension
                 assert out.shape[1] == self.domain.dimension
 
-            # We use this matrix to store the partial results that we shall combine into the final matrix with a reduction at the end
+            # We use this matrix to store the partial results that we shall combine
+            # into the final matrix with a reduction at the end
             result = np.zeros(
                 (self.codomain.dimension, self.domain.dimension), dtype=self.dtype)
         else:
@@ -76,7 +77,8 @@ class LinOpWithTransp(LinearOperator):
                     'If is_sparse is True then out must be set to None.')
             numrows = self.codomain.dimension
             numcols = self.domain.dimension
-            # We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
+            # We define a list to store the non-zero data, a list to sotre the row
+            # index of said data and a list to store the column index.
             data = []
             row = []
             colarr = []
@@ -221,7 +223,8 @@ class LinOpWithTransp(LinearOperator):
                     v.update_ghost_regions()
                 currentrank += 1
         else:
-            # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
+            # I cannot conceive any situation where this error should be thrown, but I
+            # put it here just in case something unexpected happens.
             raise Exception(
                 'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
 

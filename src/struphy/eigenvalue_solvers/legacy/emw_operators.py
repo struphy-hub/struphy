@@ -104,8 +104,10 @@ class EMW_operators:
 
         p      = self.SPACES.p                          # spline degrees
         Nel    = self.SPACES.Nel                        # number of elements
-        indN   = self.SPACES.indN                       # global indices of non-vanishing basis functions (N) in format (element, global index)
-        indD   = self.SPACES.indD                       # global indices of non-vanishing basis functions (D) in format (element, global index)
+        # global indices of non-vanishing basis functions (N) in format (element, global index)
+        indN   = self.SPACES.indN
+        # global indices of non-vanishing basis functions (D) in format (element, global index)
+        indD   = self.SPACES.indD
 
         n_quad = self.SPACES.n_quad                     # number of quadrature points per element
         pts    = self.SPACES.pts                        # global quadrature points
@@ -177,10 +179,13 @@ class EMW_operators:
 
                 col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-                M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+                M[a][b] = spa.csr_matrix(
+                    (M[a][b].flatten(), (row, col.flatten())), shape=(
+                        Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
                 M[a][b].eliminate_zeros()
 
-        M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
+        M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]],
+                     [M[2][0], M[2][1], M[2][2]]], format='csr')
 
         self.R1_mat = -self.SPACES.E1_0.dot(M.dot(self.SPACES.E1_0.T)).tocsr()
 

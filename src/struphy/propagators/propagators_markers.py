@@ -408,23 +408,43 @@ class PushGuidingCenterBxEstar(Propagator):
                                           self._evaluate_e_field),
                                          alpha=(1., 1., 0., 0.))
 
-                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
-                                         first_free_idx + 7,
-                                         (0,),
-                                         (self._epsilon,
-                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
-                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
-                                             self._evaluate_e_field),
-                                         alpha=(1., 0., 0., 0.))
+                    self.add_eval_kernel(
+                        eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                        first_free_idx + 7,
+                        (0,
+                         ),
+                        (self._epsilon,
+                         self._grad_b_full[0]._data,
+                            self._grad_b_full[1]._data,
+                            self._grad_b_full[2]._data,
+                            self._e_field[0]._data,
+                            self._e_field[1]._data,
+                            self._e_field[2]._data,
+                            self._evaluate_e_field),
+                        alpha=(
+                            1.,
+                            0.,
+                            0.,
+                            0.))
 
-                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
-                                         first_free_idx + 8,
-                                         (0, 1),
-                                         (self._epsilon,
-                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
-                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
-                                             self._evaluate_e_field),
-                                         alpha=(1., 1., 0., 0.))
+                    self.add_eval_kernel(
+                        eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                        first_free_idx + 8,
+                        (0,
+                         1),
+                        (self._epsilon,
+                         self._grad_b_full[0]._data,
+                            self._grad_b_full[1]._data,
+                            self._grad_b_full[2]._data,
+                            self._e_field[0]._data,
+                            self._e_field[1]._data,
+                            self._e_field[2]._data,
+                            self._evaluate_e_field),
+                        alpha=(
+                            1.,
+                            1.,
+                            0.,
+                            0.))
 
                     # pusher kernel
                     kernel = pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton
@@ -724,23 +744,43 @@ class PushGuidingCenterParallel(Propagator):
                                           self._evaluate_e_field),
                                          alpha=(1., 1., 0., 0.))
 
-                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
-                                         first_free_idx + 7,
-                                         (0,),
-                                         (self._epsilon,
-                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
-                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
-                                             self._evaluate_e_field),
-                                         alpha=(1., 0., 0., 0.))
+                    self.add_eval_kernel(
+                        eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                        first_free_idx + 7,
+                        (0,
+                         ),
+                        (self._epsilon,
+                         self._grad_b_full[0]._data,
+                            self._grad_b_full[1]._data,
+                            self._grad_b_full[2]._data,
+                            self._e_field[0]._data,
+                            self._e_field[1]._data,
+                            self._e_field[2]._data,
+                            self._evaluate_e_field),
+                        alpha=(
+                            1.,
+                            0.,
+                            0.,
+                            0.))
 
-                    self.add_eval_kernel(eval_kernels_gc.grad_driftkinetic_hamiltonian,
-                                         first_free_idx + 8,
-                                         (0, 1),
-                                         (self._epsilon,
-                                          self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
-                                          self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
-                                          self._evaluate_e_field),
-                                         alpha=(1., 1., 0., 0.))
+                    self.add_eval_kernel(
+                        eval_kernels_gc.grad_driftkinetic_hamiltonian,
+                        first_free_idx + 8,
+                        (0,
+                         1),
+                        (self._epsilon,
+                         self._grad_b_full[0]._data,
+                            self._grad_b_full[1]._data,
+                            self._grad_b_full[2]._data,
+                            self._e_field[0]._data,
+                            self._e_field[1]._data,
+                            self._e_field[2]._data,
+                            self._evaluate_e_field),
+                        alpha=(
+                            1.,
+                            1.,
+                            0.,
+                            0.))
 
                     # pusher kernel
                     kernel = pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton

@@ -4,7 +4,8 @@ import pytest
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
 @pytest.mark.parametrize('p', [[2, 3, 4]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, True], [True, True, False]])
+@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False],
+                         [True, False, True], [True, True, False]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
@@ -66,9 +67,20 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
         print(derham.domain_array)
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
-    params_markers = {'Np': Np, 'eps': .25,
-                      'loading': {'type': 'pseudo_random', 'seed': 1607, 'moments': [0., 0., 0., 1., 2., 3.], 'spatial': 'uniform'}
-                      }
+    params_markers = {
+        'Np': Np,
+        'eps': .25,
+        'loading': {
+            'type': 'pseudo_random',
+            'seed': 1607,
+            'moments': [
+                0.,
+                0.,
+                0.,
+                1.,
+                2.,
+                3.],
+            'spatial': 'uniform'}}
 
     particles = Particles6D(
         'test_particles', **params_markers, derham=derham, bckgr_params=None)

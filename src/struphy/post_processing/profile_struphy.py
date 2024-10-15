@@ -85,7 +85,15 @@ def main():
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    print('simulation'.ljust(20) + '#proc'.ljust(7) + 'pos'.ljust(5) + 'function'.ljust(70) + 'ncalls'.ljust(15) + 'totime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15))
+    print(
+        'simulation'.ljust(20) +
+        '#proc'.ljust(7) +
+        'pos'.ljust(5) +
+        'function'.ljust(70) +
+        'ncalls'.ljust(15) +
+        'totime'.ljust(15) +
+        'percall'.ljust(15) +
+        'cumtime'.ljust(15))
     print('-'*154)
     for position, key in enumerate(dicts[0].keys()):
 

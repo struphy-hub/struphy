@@ -58,13 +58,21 @@ TENSOR_SPACE_FEM : tensor_spline_space-tensor product B-spline space
         self.oneform_temp2_long    = np.empty(TENSOR_SPACE_FEM.Ntot_1form[1], dtype=float)
         self.oneform_temp3_long    = np.empty(TENSOR_SPACE_FEM.Ntot_1form[2], dtype=float)
 
-        self.oneform_temp_long     = np.empty(TENSOR_SPACE_FEM.Ntot_1form[0]+TENSOR_SPACE_FEM.Ntot_1form[1]+TENSOR_SPACE_FEM.Ntot_1form[2], dtype=float)
+        self.oneform_temp_long     = np.empty(
+            TENSOR_SPACE_FEM.Ntot_1form[0] +
+            TENSOR_SPACE_FEM.Ntot_1form[1] +
+            TENSOR_SPACE_FEM.Ntot_1form[2],
+            dtype=float)
 
         self.twoform_temp1_long    = np.empty(TENSOR_SPACE_FEM.Ntot_2form[0], dtype=float)
         self.twoform_temp2_long    = np.empty(TENSOR_SPACE_FEM.Ntot_2form[1], dtype=float)
         self.twoform_temp3_long    = np.empty(TENSOR_SPACE_FEM.Ntot_2form[2], dtype=float)
 
-        self.twoform_temp_long     = np.empty(TENSOR_SPACE_FEM.Ntot_2form[0]+TENSOR_SPACE_FEM.Ntot_2form[1]+TENSOR_SPACE_FEM.Ntot_2form[2], dtype=float)
+        self.twoform_temp_long     = np.empty(
+            TENSOR_SPACE_FEM.Ntot_2form[0] +
+            TENSOR_SPACE_FEM.Ntot_2form[1] +
+            TENSOR_SPACE_FEM.Ntot_2form[2],
+            dtype=float)
 
         self.temp_twoform1         = np.empty(TENSOR_SPACE_FEM.Nbase_2form[0], dtype=float)
         self.temp_twoform2    = np.empty(TENSOR_SPACE_FEM.Nbase_2form[1], dtype=float)
@@ -94,65 +102,394 @@ TENSOR_SPACE_FEM : tensor_spline_space-tensor product B-spline space
             temperature = None
 
         # values of magnetic fields at all quadrature points
-        self.LO_inv = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.LO_inv = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
 
-        self.LO_b1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.LO_b2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.LO_b3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.LO_b1 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.LO_b2 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.LO_b3 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
         # values of weights (used in the linear operators)
-        self.LO_w1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.LO_w2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.LO_w3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.LO_w1 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.LO_w2 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.LO_w3 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
         # values of a function (given its finite element coefficients) at all quadrature points
-        self.LO_r1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.LO_r2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.LO_r3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.LO_r1 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.LO_r2 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.LO_r3 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
         # values of determinant of Jacobi matrix of the map at all quadrature points
-        self.df_det    = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.df_det    = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
         # when using delta f method, the values of current equilibrium at all quadrature points
         if control:
-            self.Jeqx = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-            self.Jeqy = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-            self.Jeqz = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+            self.Jeqx = np.empty(
+                (self.Nel[0],
+                 self.Nel[1],
+                    self.Nel[2],
+                    TENSOR_SPACE_FEM.n_quad[0],
+                    TENSOR_SPACE_FEM.n_quad[1],
+                    TENSOR_SPACE_FEM.n_quad[2]),
+                dtype=float)
+            self.Jeqy = np.empty(
+                (self.Nel[0],
+                 self.Nel[1],
+                    self.Nel[2],
+                    TENSOR_SPACE_FEM.n_quad[0],
+                    TENSOR_SPACE_FEM.n_quad[1],
+                    TENSOR_SPACE_FEM.n_quad[2]),
+                dtype=float)
+            self.Jeqz = np.empty(
+                (self.Nel[0],
+                 self.Nel[1],
+                    self.Nel[2],
+                    TENSOR_SPACE_FEM.n_quad[0],
+                    TENSOR_SPACE_FEM.n_quad[1],
+                    TENSOR_SPACE_FEM.n_quad[2]),
+                dtype=float)
         # values of DF and inverse of DF at all quadrature points
-        self.DF_11   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_12   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_13   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_21   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_22   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_23   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_31   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_32   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DF_33   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.DF_11   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_12   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_13   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_21   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_22   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_23   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_31   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_32   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DF_33   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
 
-        self.DFI_11   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_12   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_13   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_21   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_22   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_23   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_31   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_32   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFI_33   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.DFI_11   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_12   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_13   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_21   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_22   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_23   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_31   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_32   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFI_33   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
 
-        self.DFIT_11   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_12   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_13   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_21   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_22   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_23   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_31   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_32   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.DFIT_33   = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.DFIT_11   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_12   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_13   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_21   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_22   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_23   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_31   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_32   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.DFIT_33   = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
 
-        self.G_inv_11 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.G_inv_12 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.G_inv_13 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.G_inv_11 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.G_inv_12 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.G_inv_13 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
 
-        self.G_inv_22 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
-        self.G_inv_23 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.G_inv_22 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
+        self.G_inv_23 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
 
-        self.G_inv_33 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], TENSOR_SPACE_FEM.n_quad[0], TENSOR_SPACE_FEM.n_quad[1], TENSOR_SPACE_FEM.n_quad[2]), dtype=float)
+        self.G_inv_33 = np.empty(
+            (self.Nel[0],
+             self.Nel[1],
+             self.Nel[2],
+             TENSOR_SPACE_FEM.n_quad[0],
+             TENSOR_SPACE_FEM.n_quad[1],
+             TENSOR_SPACE_FEM.n_quad[2]),
+            dtype=float)
 
         self.temp_particle = np.empty(3, dtype=float)
         # initialization of DF and its inverse
@@ -203,15 +540,43 @@ TENSOR_SPACE_FEM : tensor_spline_space-tensor product B-spline space
                                 span2f = int(TENSOR_SPACE_FEM.pts[1][ie2, q2]*DOMAIN.NbaseN[1]) + pf2
                                 span3f = int(TENSOR_SPACE_FEM.pts[2][ie3, q3]*DOMAIN.NbaseN[2]) + pf3
                                 # evaluate Jacobian matrix
-                                mapping_fast.df_all(
-                                    DOMAIN.kind_map, DOMAIN.params_map, DOMAIN.T[0],
-                                    DOMAIN.T[1],
-                                    DOMAIN.T[2],
-                                    DOMAIN.p, DOMAIN.NbaseN, span1f, span2f, span3f, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f,
-                                    der1f, der2f, der3f, self.TENSOR_SPACE_FEM.pts[0][ie1, q1],
-                                    self.TENSOR_SPACE_FEM.pts[1][ie2, q2],
-                                    self.TENSOR_SPACE_FEM.pts[2][ie3, q3],
-                                    df, fx, 0)
+                                mapping_fast.df_all(DOMAIN.kind_map,
+                                                    DOMAIN.params_map,
+                                                    DOMAIN.T[0],
+                                                    DOMAIN.T[1],
+                                                    DOMAIN.T[2],
+                                                    DOMAIN.p,
+                                                    DOMAIN.NbaseN,
+                                                    span1f,
+                                                    span2f,
+                                                    span3f,
+                                                    DOMAIN.cx,
+                                                    DOMAIN.cy,
+                                                    DOMAIN.cz,
+                                                    l1f,
+                                                    l2f,
+                                                    l3f,
+                                                    r1f,
+                                                    r2f,
+                                                    r3f,
+                                                    b1f,
+                                                    b2f,
+                                                    b3f,
+                                                    d1f,
+                                                    d2f,
+                                                    d3f,
+                                                    der1f,
+                                                    der2f,
+                                                    der3f,
+                                                    self.TENSOR_SPACE_FEM.pts[0][ie1,
+                                                                                 q1],
+                                                    self.TENSOR_SPACE_FEM.pts[1][ie2,
+                                                                                 q2],
+                                                    self.TENSOR_SPACE_FEM.pts[2][ie3,
+                                                                                 q3],
+                                                    df,
+                                                    fx,
+                                                    0)
                                 # evaluate inverse Jacobian matrix
                                 mapping_fast.df_inv_all(df, dfinv)
                                 # evaluate metric tensor

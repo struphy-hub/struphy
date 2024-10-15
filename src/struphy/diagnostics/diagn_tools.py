@@ -282,8 +282,8 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
             if len(inds_exs[0]) >= 2:
                 time_start_idx = np.max(
                     [0, 2*inds_exs[0][start_extremum] - inds_exs[0][start_extremum+1]])
-                time_end_idx = np.min(
-                    [len(time) - 1, 2*inds_exs[0][start_extremum+no_extrema-1] - inds_exs[0][start_extremum+no_extrema-2]])
+                time_end_idx = np.min([len(time) - 1, 2*inds_exs[0][start_extremum +
+                                      no_extrema-1] - inds_exs[0][start_extremum+no_extrema-2]])
                 time_cut = time[time_start_idx:time_end_idx]
             else:
                 time_cut = time

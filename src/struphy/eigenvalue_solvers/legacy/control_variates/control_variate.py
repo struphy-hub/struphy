@@ -42,9 +42,30 @@ class terms_control_variate:
             kind_fun_eq = [11, 12, 13, 14]
 
         # ========= evaluation of DF^(-1) * jh_eq_phys * |det(DF)| at quadrature points =========
-        self.mat_jh1 = np.empty((self.space.Nel[0], self.space.n_quad[0], self.space.Nel[1], self.space.n_quad[1], self.space.Nel[2], self.space.n_quad[2]), dtype=float)
-        self.mat_jh2 = np.empty((self.space.Nel[0], self.space.n_quad[0], self.space.Nel[1], self.space.n_quad[1], self.space.Nel[2], self.space.n_quad[2]), dtype=float)
-        self.mat_jh3 = np.empty((self.space.Nel[0], self.space.n_quad[0], self.space.Nel[1], self.space.n_quad[1], self.space.Nel[2], self.space.n_quad[2]), dtype=float)
+        self.mat_jh1 = np.empty(
+            (self.space.Nel[0],
+             self.space.n_quad[0],
+             self.space.Nel[1],
+             self.space.n_quad[1],
+             self.space.Nel[2],
+             self.space.n_quad[2]),
+            dtype=float)
+        self.mat_jh2 = np.empty(
+            (self.space.Nel[0],
+             self.space.n_quad[0],
+             self.space.Nel[1],
+             self.space.n_quad[1],
+             self.space.Nel[2],
+             self.space.n_quad[2]),
+            dtype=float)
+        self.mat_jh3 = np.empty(
+            (self.space.Nel[0],
+             self.space.n_quad[0],
+             self.space.Nel[1],
+             self.space.n_quad[1],
+             self.space.Nel[2],
+             self.space.n_quad[2]),
+            dtype=float)
 
         ker_cv.kernel_evaluation_quad(
             self.space.Nel,
@@ -102,7 +123,14 @@ class terms_control_variate:
             domain.cz)
 
         # ========= evaluation of nh_eq_phys * |det(DF)| at quadrature points ===================
-        self.mat_nh = np.empty((self.space.Nel[0], self.space.n_quad[0], self.space.Nel[1], self.space.n_quad[1], self.space.Nel[2], self.space.n_quad[2]), dtype=float)
+        self.mat_nh = np.empty(
+            (self.space.Nel[0],
+             self.space.n_quad[0],
+             self.space.Nel[1],
+             self.space.n_quad[1],
+             self.space.Nel[2],
+             self.space.n_quad[2]),
+            dtype=float)
 
         ker_cv.kernel_evaluation_quad(
             self.space.Nel,
@@ -124,9 +152,30 @@ class terms_control_variate:
             domain.cz)
 
         # =========== 2-form magnetic field at quadrature points =================================
-        self.B2_1 = np.empty((self.space.Nel[0], self.space.n_quad[0], self.space.Nel[1], self.space.n_quad[1], self.space.Nel[2], self.space.n_quad[2]), dtype=float)
-        self.B2_2 = np.empty((self.space.Nel[0], self.space.n_quad[0], self.space.Nel[1], self.space.n_quad[1], self.space.Nel[2], self.space.n_quad[2]), dtype=float)
-        self.B2_3 = np.empty((self.space.Nel[0], self.space.n_quad[0], self.space.Nel[1], self.space.n_quad[1], self.space.Nel[2], self.space.n_quad[2]), dtype=float)
+        self.B2_1 = np.empty(
+            (self.space.Nel[0],
+             self.space.n_quad[0],
+             self.space.Nel[1],
+             self.space.n_quad[1],
+             self.space.Nel[2],
+             self.space.n_quad[2]),
+            dtype=float)
+        self.B2_2 = np.empty(
+            (self.space.Nel[0],
+             self.space.n_quad[0],
+             self.space.Nel[1],
+             self.space.n_quad[1],
+             self.space.Nel[2],
+             self.space.n_quad[2]),
+            dtype=float)
+        self.B2_3 = np.empty(
+            (self.space.Nel[0],
+             self.space.n_quad[0],
+             self.space.Nel[1],
+             self.space.n_quad[1],
+             self.space.Nel[2],
+             self.space.n_quad[2]),
+            dtype=float)
 
         # ================== correction matrices in step 1 ========================
         if self.basis_u == 0:

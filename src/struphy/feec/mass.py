@@ -325,8 +325,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M1J'):
 
-            rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+            rot_J = RotationMatrix(self.weights[self.selected_weight].j2_1,
+                                   self.weights[self.selected_weight].j2_2,
+                                   self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -360,8 +361,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M2J'):
 
-            rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+            rot_J = RotationMatrix(self.weights[self.selected_weight].j2_1,
+                                   self.weights[self.selected_weight].j2_2,
+                                   self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -395,8 +397,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_MvJ'):
 
-            rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+            rot_J = RotationMatrix(self.weights[self.selected_weight].j2_1,
+                                   self.weights[self.selected_weight].j2_2,
+                                   self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -446,7 +449,9 @@ class WeightedMassOperators:
             def b02funz(x, y, z): return b02fun(
                 x, y, z, squeeze_output=True, local=True)[2]
             # rot_B = RotationMatrix(
-            # self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
+            # self.weights[self.selected_weight].b2_1,
+            # self.weights[self.selected_weight].b2_2,
+            # self.weights[self.selected_weight].b2_3)
             rot_B = RotationMatrix(
                 b02funx, b02funy, b02funz)
 
@@ -499,15 +504,17 @@ class WeightedMassOperators:
             def b02funz(x, y, z): return b02fun(
                 x, y, z, squeeze_output=True, local=True)[2]
             # rot_B = RotationMatrix(
-            # self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
+            # self.weights[self.selected_weight].b2_1,
+            # self.weights[self.selected_weight].b2_2,
+            # self.weights[self.selected_weight].b2_3)
             rot_B = RotationMatrix(
                 b02funx, b02funy, b02funz)
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / (self.sqrt_g(e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3))]
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / (
+                        self.sqrt_g(e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3))]
 
             self._M2BN = self.assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2Bn')
@@ -534,8 +541,9 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M1Bninv'):
 
-            rot_B = RotationMatrix(
-                self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
+            rot_B = RotationMatrix(self.weights[self.selected_weight].b2_1,
+                                   self.weights[self.selected_weight].b2_2,
+                                   self.weights[self.selected_weight].b2_3)
 
             fun = []
             for m in range(3):
@@ -566,8 +574,8 @@ class WeightedMassOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.DFinv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.DFinv(e1, e2, e3)[:, :, :, n, m]*self.sqrt_g(
-                        e1, e2, e3)]
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.DFinv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.DFinv(e1, e2, e3)[
+                        :, :, :, n, m]*self.sqrt_g(e1, e2, e3)]
 
             self._M1perp = self.assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1perp')
@@ -892,14 +900,24 @@ class WeightedMassOperator(LinOpWithTransp):
             else:
 
                 if weights_info == 'symm':
-                    blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-                               for Vs in V.spaces] for Ws in W.spaces]
+                    blocks = [[StencilMatrix(Vs.vector_space,
+                                             Ws.vector_space,
+                                             backend=PSYDAC_BACKEND_GPYCCEL,
+                                             precompiled=True) for Vs in V.spaces] for Ws in W.spaces]
                 elif weights_info == 'asym':
-                    blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-                               if i != j else None for j, Vs in enumerate(V.spaces)] for i, Ws in enumerate(W.spaces)]
+                    blocks = [[StencilMatrix(Vs.vector_space,
+                                             Ws.vector_space,
+                                             backend=PSYDAC_BACKEND_GPYCCEL,
+                                             precompiled=True) if i != j else None for j,
+                               Vs in enumerate(V.spaces)] for i,
+                              Ws in enumerate(W.spaces)]
                 elif weights_info == 'diag':
-                    blocks = [[StencilMatrix(Vs.vector_space, Ws.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-                               if i == j else None for j, Vs in enumerate(V.spaces)] for i, Ws in enumerate(W.spaces)]
+                    blocks = [[StencilMatrix(Vs.vector_space,
+                                             Ws.vector_space,
+                                             backend=PSYDAC_BACKEND_GPYCCEL,
+                                             precompiled=True) if i == j else None for j,
+                               Vs in enumerate(V.spaces)] for i,
+                              Ws in enumerate(W.spaces)]
                 else:
                     raise NotImplementedError(
                         f'given symmetry {weights_info} is not implemented!')
@@ -939,8 +957,8 @@ class WeightedMassOperator(LinOpWithTransp):
                             blocks[-1] += [
                                 StencilMatrixFreeMassOperator(vspace, wspace)]
                         else:
-                            blocks[-1] += [StencilMatrix(
-                                vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
+                            blocks[-1] += [StencilMatrix(vspace.vector_space, wspace.vector_space,
+                                                         backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
                         self._weights[-1] += [lambda *etas: 0*etas[0]]
 
                     else:
@@ -969,8 +987,10 @@ class WeightedMassOperator(LinOpWithTransp):
                                     blocks[-1] += [StencilMatrixFreeMassOperator(
                                         vspace, wspace, weights=weights_info[a][b])]
                                 else:
-                                    blocks[-1] += [StencilMatrix(
-                                        vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
+                                    blocks[-1] += [StencilMatrix(vspace.vector_space,
+                                                                 wspace.vector_space,
+                                                                 backend=PSYDAC_BACKEND_GPYCCEL,
+                                                                 precompiled=True)]
                                 self._weights[-1] += [weights_info[a][b]]
                             else:
                                 blocks[-1] += [None]
@@ -1273,7 +1293,10 @@ class WeightedMassOperator(LinOpWithTransp):
 
                 # knot span indices of elements of local domain
                 codomain_spans = [
-                    quad_grid[nquad].spans for quad_grid, nquad in zip(codomain_space._quad_grids, codomain_space.nquads)]
+                    quad_grid[nquad].spans for quad_grid,
+                    nquad in zip(
+                        codomain_space._quad_grids,
+                        codomain_space.nquads)]
 
                 # global start spline index on process
                 codomain_starts = [int(start)
@@ -1290,7 +1313,10 @@ class WeightedMassOperator(LinOpWithTransp):
 
                 # evaluated basis functions at quadrature points of codomain space
                 codomain_basis = [
-                    quad_grid[nquad].basis for quad_grid, nquad in zip(codomain_space._quad_grids, codomain_space.nquads)]
+                    quad_grid[nquad].basis for quad_grid,
+                    nquad in zip(
+                        codomain_space._quad_grids,
+                        codomain_space.nquads)]
 
                 # loop over domain spaces (columns)
                 for b, domain_space in enumerate(domain_spaces):
@@ -1325,7 +1351,8 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     # evaluated basis functions at quadrature points of domain space
                     domain_basis = [
-                        quad_grid[nquad].basis for quad_grid, nquad in zip(domain_space._quad_grids, domain_space.nquads)]
+                        quad_grid[nquad].basis for quad_grid, nquad in zip(
+                            domain_space._quad_grids, domain_space.nquads)]
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
@@ -1343,12 +1370,24 @@ class WeightedMassOperator(LinOpWithTransp):
                         if mat is None:
                             # Maybe in a previous iteration we had more zeros
                             # Can only happen in the Block case
-                            self._mat[a, b] = StencilMatrix(
-                                domain_space.vector_space, codomain_space.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                            self._mat[a,
+                                      b] = StencilMatrix(domain_space.vector_space,
+                                                         codomain_space.vector_space,
+                                                         backend=PSYDAC_BACKEND_GPYCCEL,
+                                                         precompiled=True)
                             mat = self._mat[a, b]
 
-                        self._assembly_kernel(*codomain_spans, *codomain_space.degree, *domain_space.degree, *codomain_starts,
-                                              *codomain_pads, *wts, *codomain_basis, *domain_basis, mat_w, mat._data)
+                        self._assembly_kernel(
+                            *codomain_spans,
+                            *codomain_space.degree,
+                            *domain_space.degree,
+                            *codomain_starts,
+                            *codomain_pads,
+                            *wts,
+                            *codomain_basis,
+                            *domain_basis,
+                            mat_w,
+                            mat._data)
 
                     else:
                         if clear:

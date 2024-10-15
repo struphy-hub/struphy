@@ -120,22 +120,30 @@ def struphy():
     parser.add_argument('--refresh-models',
                         help='refresh list of available model names',
                         action='store_true',)
-    parser.add_argument('--set-i',
-                        type=str,
-                        metavar='PATH',
-                        help='make PATH the new default Input folder ("." to use cwd, "d" to use default <install-path>/io/inp/)',)
-    parser.add_argument('--set-o',
-                        type=str,
-                        metavar='PATH',
-                        help='make PATH the new default Output folder ("." to use cwd, "d" to use default <install-path>/io/out/)',)
-    parser.add_argument('--set-b',
-                        type=str,
-                        metavar='PATH',
-                        help='make PATH the new default Batch folder ("." to use cwd, "d" to use default <install-path>/io/batch/)',)
-    parser.add_argument('--set-iob',
-                        type=str,
-                        metavar='PATH',
-                        help='make PATH the new default folder for io/inp/, io/out and io/batch ("." to use cwd, "d" to use default <install-path>)',)
+    parser.add_argument(
+        '--set-i',
+        type=str,
+        metavar='PATH',
+        help='make PATH the new default Input folder ("." to use cwd, "d" to use default <install-path>/io/inp/)',
+    )
+    parser.add_argument(
+        '--set-o',
+        type=str,
+        metavar='PATH',
+        help='make PATH the new default Output folder ("." to use cwd, "d" to use default <install-path>/io/out/)',
+    )
+    parser.add_argument(
+        '--set-b',
+        type=str,
+        metavar='PATH',
+        help='make PATH the new default Batch folder ("." to use cwd, "d" to use default <install-path>/io/batch/)',
+    )
+    parser.add_argument(
+        '--set-iob',
+        type=str,
+        metavar='PATH',
+        help='make PATH the new default folder for io/inp/, io/out and io/batch ("." to use cwd, "d" to use default <install-path>)',
+    )
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(title='available commands',
@@ -143,9 +151,10 @@ def struphy():
                                        dest='command')
 
     # 1. "compile" sub-command
-    parser_compile = subparsers.add_parser('compile',
-                                           help='compile computational kernels, install psydac (on first call only)',
-                                           description='Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.')
+    parser_compile = subparsers.add_parser(
+        'compile',
+        help='compile computational kernels, install psydac (on first call only)',
+        description='Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.')
 
     parser_compile.add_argument('--language',
                                 type=str,
@@ -153,11 +162,12 @@ def struphy():
                                 help='either "c" (default) or "fortran"',
                                 default='c')
 
-    parser_compile.add_argument('--compiler',
-                                type=str,
-                                metavar='COMPILER',
-                                help='either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.',
-                                default='GNU')
+    parser_compile.add_argument(
+        '--compiler',
+        type=str,
+        metavar='COMPILER',
+        help='either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.',
+        default='GNU')
 
     parser_compile.add_argument('--omp-pic',
                                 help='compile PIC kernels with OpenMP',
@@ -179,21 +189,24 @@ def struphy():
                                 help='call pyccel with --verbose compiler option',
                                 action='store_true')
 
-    parser_compile.add_argument('--dependencies',
-                                help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
-                                action='store_true')
+    parser_compile.add_argument(
+        '--dependencies',
+        help='print Struphy kernels to be compiled (.py) and their dependencies (.so) on screen',
+        action='store_true')
 
     parser_compile.add_argument('-y', '--yes',
                                 help='say yes to prompt when changing the language',
                                 action='store_true')
 
     # 2. "run" sub-command
-    parser_run = subparsers.add_parser('run',
-                                       formatter_class=lambda prog: argparse.RawTextHelpFormatter(
-                                           prog, max_help_position=30),
-                                       help='run a Struphy model',
-                                       description='Run a Struphy model.',
-                                       epilog='For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
+    parser_run = subparsers.add_parser(
+        'run',
+        formatter_class=lambda prog: argparse.RawTextHelpFormatter(
+            prog,
+            max_help_position=30),
+        help='run a Struphy model',
+        description='Run a Struphy model.',
+        epilog='For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html')
 
     parser_run.add_argument('model',
                             type=str,
@@ -240,11 +253,14 @@ def struphy():
                             help='maximum wall-clock time of program in minutes (default=300)',
                             default=300,)
 
-    parser_run.add_argument('-s', '--save-step',
-                            type=int,
-                            metavar='N',
-                            help='how often to save data in hdf5 file, i.e. every "save-step" time step (default=1, which is every time step)',
-                            default=1,)
+    parser_run.add_argument(
+        '-s',
+        '--save-step',
+        type=int,
+        metavar='N',
+        help='how often to save data in hdf5 file, i.e. every "save-step" time step (default=1, which is every time step)',
+        default=1,
+    )
 
     parser_run.add_argument('-r', '--restart',
                             help='restart the simulation in the output folder specified under -o',
@@ -256,9 +272,11 @@ def struphy():
                             help='use "mpirun -n N" to launch a parallel Struphy run (default=1)',
                             default=1,)
 
-    parser_run.add_argument('--debug',
-                            help='launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs',
-                            action='store_true',)
+    parser_run.add_argument(
+        '--debug',
+        help='launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs',
+        action='store_true',
+    )
 
     parser_run.add_argument('--cprofile',
                             help='run with Cprofile',
@@ -279,11 +297,14 @@ def struphy():
                               metavar='MODEL',
                               help=model_message,)
 
-    parser_units.add_argument('-i', '--input',
-                              type=str,
-                              choices=params_files,
-                              metavar='FILE',
-                              help='parameter file (.yml) relative to current I/O path. If absent, default parameters are used.',)
+    parser_units.add_argument(
+        '-i',
+        '--input',
+        type=str,
+        choices=params_files,
+        metavar='FILE',
+        help='parameter file (.yml) relative to current I/O path. If absent, default parameters are used.',
+    )
 
     parser_units.add_argument('--input-abs',
                               type=str,
@@ -304,10 +325,13 @@ def struphy():
                                metavar='MODEL',
                                help=model_message,)
 
-    parser_params.add_argument('-f', '--file',
-                               type=str,
-                               metavar='FILE',
-                               help='name of the parameter file (.yml) to be created in the current I/O path (default=params_<model>.yml)',)
+    parser_params.add_argument(
+        '-f',
+        '--file',
+        type=str,
+        metavar='FILE',
+        help='name of the parameter file (.yml) to be created in the current I/O path (default=params_<model>.yml)',
+    )
 
     parser_params.add_argument('-o', '--options',
                                help='show model options',
@@ -350,9 +374,11 @@ def struphy():
                                 help='replace module names with class names for better info',
                                 action='store_true',)
 
-    parser_profile.add_argument('--all',
-                                help='display the 50 most expensive function calls, without applying the predefined filter',
-                                action='store_true',)
+    parser_profile.add_argument(
+        '--all',
+        help='display the 50 most expensive function calls, without applying the predefined filter',
+        action='store_true',
+    )
 
     parser_profile.add_argument('--n-lines',
                                 type=int,
@@ -366,10 +392,12 @@ def struphy():
                                 help='string STR that identifies functions for which to print callers (default=None)',
                                 default=None)
 
-    parser_profile.add_argument('--savefig',
-                                type=str,
-                                metavar='NAME',
-                                help='save (and dont display) the profile figure under NAME, relative to current output path.',)
+    parser_profile.add_argument(
+        '--savefig',
+        type=str,
+        metavar='NAME',
+        help='save (and dont display) the profile figure under NAME, relative to current output path.',
+    )
 
     # 6. "pproc" sub-command
     parser_pproc = subparsers.add_parser(
@@ -377,12 +405,15 @@ def struphy():
         help='post process data of a finished Struphy run',
         description='Post-process data of a finished Struphy run to prepare for diagnostics.')
 
-    parser_pproc.add_argument('-d', '--dirr',
-                              type=str,
-                              choices=out_folders,
-                              metavar='DIR',
-                              help='simulation output folder to post-process relative to current I/O path (default=sim_1)',
-                              default='sim_1',)
+    parser_pproc.add_argument(
+        '-d',
+        '--dirr',
+        type=str,
+        choices=out_folders,
+        metavar='DIR',
+        help='simulation output folder to post-process relative to current I/O path (default=sim_1)',
+        default='sim_1',
+    )
 
     parser_pproc.add_argument('--dir-abs',
                               type=str,
@@ -401,9 +432,10 @@ def struphy():
                               help='divide each grid cell by N for field evaluation (default=1)',
                               default=1)
 
-    parser_pproc.add_argument('--physical',
-                              help='in addition to logical components, evaluates push-forwarded physical (xyz) components',
-                              action='store_true')
+    parser_pproc.add_argument(
+        '--physical',
+        help='in addition to logical components, evaluates push-forwarded physical (xyz) components',
+        action='store_true')
 
     # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',
@@ -412,29 +444,32 @@ def struphy():
                                         help='run Struphy tests',
                                         description='Run available unit tests or test Struphy models or tutorials.')
 
-    parser_test.add_argument('group',
-                             type=str,
-                             choices=list_models +
-                             ['models'] +
-                             ['unit'] +
-                             ['tutorials'] +
-                             ['timings'] +
-                             ['fluid'] +
-                             ['kinetic'] +
-                             ['hybrid'] +
-                             ['toy'],
-                             metavar='GROUP',
-                             help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
+    parser_test.add_argument(
+        'group',
+        type=str,
+        choices=list_models +
+        ['models'] +
+        ['unit'] +
+        ['tutorials'] +
+        ['timings'] +
+        ['fluid'] +
+        ['kinetic'] +
+        ['hybrid'] +
+        ['toy'],
+        metavar='GROUP',
+        help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                 \nc) "unit" for performing unit tests \
                                 \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
-                                \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
+                                \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',
+    )
 
-    parser_test.add_argument('--mpi',
-                             type=int,
-                             metavar='N',
-                             help='set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)',
-                             default=2)
+    parser_test.add_argument(
+        '--mpi',
+        type=int,
+        metavar='N',
+        help='set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)',
+        default=2)
 
     parser_test.add_argument('-f', '--fast',
                              help='test model(s) just in slab geometry (Cuboid)',
@@ -457,10 +492,12 @@ def struphy():
                              help='specific tutorial simulation to run (int, optional)',
                              default=None)
 
-    parser_test.add_argument('-T', '--Tend',
-                             type=float,
-                             help='if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set',
-                             default=None)
+    parser_test.add_argument(
+        '-T',
+        '--Tend',
+        type=float,
+        help='if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set',
+        default=None)
 
     # parse argument
     argcomplete.autocomplete(parser)

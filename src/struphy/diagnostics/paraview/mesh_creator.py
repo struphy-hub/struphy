@@ -38,7 +38,8 @@ def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec: GVEC, s_range
     print('Number of points: {}'.format(num_pts), flush=True)
     point_data = {}
     cell_data = {}
-    vtk_points, suv_points, xyz_points, point_indices = gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data)
+    vtk_points, suv_points, xyz_points, point_indices = gen_vtk_points(
+        gvec, s_range, u_range, v_range, point_data, cell_data)
     print('vtk_points.GetNumberOfPoints()', vtk_points.GetNumberOfPoints(), flush=True)
 
     ugrid = setup_ugrid(vtk_points, num_pts)
@@ -292,7 +293,8 @@ def connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, ce
         for u_idx, u in enumerate(u_range):
             for v_idx, v in enumerate(v_range):
 
-                if (periodic[0] or s_idx + 1 < len_s) and (periodic[1] or u_idx + 1 < len_u) and (periodic[2] or v_idx + 1 < len_v):
+                if (periodic[0] or s_idx + 1 < len_s) and (periodic[1]
+                                                           or u_idx + 1 < len_u) and (periodic[2] or v_idx + 1 < len_v):
 
                     vertex1 = point_indices[s_idx, u_idx         , v_idx]
                     vertex2 = point_indices[s_idx, (u_idx+1) % len_u, v_idx]

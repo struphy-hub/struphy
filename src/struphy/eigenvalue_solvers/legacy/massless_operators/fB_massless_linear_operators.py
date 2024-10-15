@@ -260,8 +260,34 @@ class Massless_linear_operators:
         ACC_VV.coe2[:, :, :] = ACC_VV.one_form2
         ACC_VV.coe3[:, :, :] = ACC_VV.one_form3
 
-    def linearoperator_pre_step_vv(self, tensor_space_FEM, df_det, DFIT_11, DFIT_12, DFIT_13, DFIT_21, DFIT_22, DFIT_23, DFIT_31, DFIT_32, DFIT_33,
-                                   M2_PRE, M2, b1, b2, b3, weight1, weight2, weight3, right_1, right_2, right_3, uvalue, b1value, b2value, b3value):
+    def linearoperator_pre_step_vv(
+            self,
+            tensor_space_FEM,
+            df_det,
+            DFIT_11,
+            DFIT_12,
+            DFIT_13,
+            DFIT_21,
+            DFIT_22,
+            DFIT_23,
+            DFIT_31,
+            DFIT_32,
+            DFIT_33,
+            M2_PRE,
+            M2,
+            b1,
+            b2,
+            b3,
+            weight1,
+            weight2,
+            weight3,
+            right_1,
+            right_2,
+            right_3,
+            uvalue,
+            b1value,
+            b2value,
+            b3value):
         '''
         This function is used in substep vv with L2 projector or local projector.
         '''
@@ -680,7 +706,8 @@ class Massless_linear_operators:
         # ==================================================================
         # ========================= C ===========================
         # time1 = time.time()
-        twoform_temp1_long[:], twoform_temp2_long[:], twoform_temp3_long[:] = np.split(tensor_space_FEM.C.dot(input_vector), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        twoform_temp1_long[:], twoform_temp2_long[:], twoform_temp3_long[:] = np.split(
+            tensor_space_FEM.C.dot(input_vector), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         temp_vector_1[:, :, :] = twoform_temp1_long.reshape(Nbase_2form[0])
         temp_vector_2[:, :, :] = twoform_temp2_long.reshape(Nbase_2form[1])
         temp_vector_3[:, :, :] = twoform_temp3_long.reshape(Nbase_2form[2])
@@ -722,7 +749,22 @@ class Massless_linear_operators:
         time2 = time.time()
         # print('right_hand_time', time2 - time1)
         # time1 = time.time()
-        bb_kernel.weight(Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3)
+        bb_kernel.weight(
+            Nel[0],
+            Nel[1],
+            Nel[2],
+            n_quad[0],
+            n_quad[1],
+            n_quad[2],
+            b1value,
+            b2value,
+            b3value,
+            right_1,
+            right_2,
+            right_3,
+            weight1,
+            weight2,
+            weight3)
         # time2 = time.time()
         # print('weight_time', time2 - time1)
         # time1 = time.time()
@@ -761,8 +803,8 @@ class Massless_linear_operators:
         # print('time_final', time2 - time1)
         # ========================= C.T ===========================
         # time1 = time.time()
-        temp_final = tensor_space_FEM.M1.dot(input_vector)  - dt/2.0 * tensor_space_FEM.C.T .dot(np.concatenate((temp_vector_1.flatten(),
-                                                                                                                 temp_vector_2.flatten(), temp_vector_3.flatten())))
+        temp_final = tensor_space_FEM.M1.dot(input_vector) - dt/2.0 * tensor_space_FEM.C.T .dot(
+            np.concatenate((temp_vector_1.flatten(), temp_vector_2.flatten(), temp_vector_3.flatten())))
         # time2 = time.time()
         # print('second_curl_time', time2 - time1)
         # print('gmres_number', 1)
@@ -860,7 +902,8 @@ class Massless_linear_operators:
 
         # ==================================================================
         # ========================= C ===========================
-        twoform_temp1_long[:], twoform_temp2_long[:], twoform_temp3_long[:] = np.split(tensor_space_FEM.C .dot(input_vector), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        twoform_temp1_long[:], twoform_temp2_long[:], twoform_temp3_long[:] = np.split(
+            tensor_space_FEM.C .dot(input_vector), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         temp_vector_1[:, :, :] = twoform_temp1_long.reshape(Nbase_2form[0])
         temp_vector_2[:, :, :] = twoform_temp2_long.reshape(Nbase_2form[1])
         temp_vector_3[:, :, :] = twoform_temp3_long.reshape(Nbase_2form[2])
@@ -1007,8 +1050,8 @@ class Massless_linear_operators:
         # time2 = time.time()
         # print('final_bb', time2 - time1)
         # ========================= C.T ===========================
-        temp_final = tensor_space_FEM.M1.dot(input_vector) + dt/2.0 * tensor_space_FEM.C.T .dot(np.concatenate((temp_vector_1.flatten(),
-                                                                                                                temp_vector_2.flatten(), temp_vector_3.flatten())))
+        temp_final = tensor_space_FEM.M1.dot(input_vector) + dt/2.0 * tensor_space_FEM.C.T .dot(
+            np.concatenate((temp_vector_1.flatten(), temp_vector_2.flatten(), temp_vector_3.flatten())))
 
         return temp_final
 
@@ -1070,7 +1113,8 @@ class Massless_linear_operators:
         wts    = tensor_space_FEM.wts     # global quadrature weights
 
         # ==========================================
-        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(tensor_space_FEM.C .dot(input), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(
+            tensor_space_FEM.C .dot(input), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         acc.twoform_temp1[:, :, :] = acc.twoform_temp1_long.reshape(Nbase_2form[0])
         acc.twoform_temp2[:, :, :] = acc.twoform_temp2_long.reshape(Nbase_2form[1])
         acc.twoform_temp3[:, :, :] = acc.twoform_temp3_long.reshape(Nbase_2form[2])
@@ -1273,7 +1317,8 @@ class Massless_linear_operators:
             tensor_space_FEM.basisD[1],
             tensor_space_FEM.basisD[2])
 
-        return M1.dot(input) + dt**2/4.0 * tensor_space_FEM.C.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
+        return M1.dot(input) + dt**2/4.0 * tensor_space_FEM.C.T .dot(np.concatenate((acc.twoform_temp1.flatten(),
+                                                                                     acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
 
     # ==========================================================================================================
 
@@ -1335,8 +1380,8 @@ class Massless_linear_operators:
         wts    = tensor_space_FEM.wts     # global quadrature weights
 
         # ==========================================
-        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(
-            CURL .dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(CURL .dot(
+            np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         acc.twoform_temp1[:, :, :] = acc.twoform_temp1_long.reshape(Nbase_2form[0])
         acc.twoform_temp2[:, :, :] = acc.twoform_temp2_long.reshape(Nbase_2form[1])
         acc.twoform_temp3[:, :, :] = acc.twoform_temp3_long.reshape(Nbase_2form[2])
@@ -1536,13 +1581,42 @@ class Massless_linear_operators:
             tensor_space_FEM.basisD[1],
             tensor_space_FEM.basisD[2])
 
-        return M1.dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))
-                      ) - CURL.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
+        return M1.dot(np.concatenate((bb1.flatten(),
+                                      bb2.flatten(),
+                                      bb3.flatten()))) - CURL.T .dot(np.concatenate((acc.twoform_temp1.flatten(),
+                                                                                     acc.twoform_temp2.flatten(),
+                                                                                     acc.twoform_temp3.flatten())))
 
     # ==========================================================================================================
 
-    def substep4_pre(self, df_det, dft, generate_weight1, generate_weight3, G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, N_index_x, N_index_y,
-                     N_index_z, D_index_x, D_index_y, D_index_z, bb1, bb2, bb3, tensor_space_FEM, b1value, b2value, b3value, uvalue, kind_map, params_map):
+    def substep4_pre(
+            self,
+            df_det,
+            dft,
+            generate_weight1,
+            generate_weight3,
+            G_inv_11,
+            G_inv_12,
+            G_inv_13,
+            G_inv_22,
+            G_inv_23,
+            G_inv_33,
+            N_index_x,
+            N_index_y,
+            N_index_z,
+            D_index_x,
+            D_index_y,
+            D_index_z,
+            bb1,
+            bb2,
+            bb3,
+            tensor_space_FEM,
+            b1value,
+            b2value,
+            b3value,
+            uvalue,
+            kind_map,
+            params_map):
         '''
         This function is used in substep bv L2 projector or local projector.
         '''
@@ -1661,8 +1735,8 @@ class Massless_linear_operators:
         wts    = tensor_space_FEM.wts     # global quadrature weights
 
         # ==========================================
-        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(
-            CURL .dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(CURL .dot(
+            np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         acc.twoform_temp1[:, :, :] = acc.twoform_temp1_long.reshape(Nbase_2form[0])
         acc.twoform_temp2[:, :, :] = acc.twoform_temp2_long.reshape(Nbase_2form[1])
         acc.twoform_temp3[:, :, :] = acc.twoform_temp3_long.reshape(Nbase_2form[2])
@@ -1760,7 +1834,12 @@ class Massless_linear_operators:
             tensor_space_FEM.basisD[1],
             tensor_space_FEM.basisD[2])
 
-        return spa.linalg.cg(M1, np.concatenate((acc.oneform_temp1.flatten(), acc.oneform_temp2.flatten(), acc.oneform_temp3.flatten())), tol=10**(-13), M=M1_PRE)[0]
+        return spa.linalg.cg(M1,
+                             np.concatenate((acc.oneform_temp1.flatten(),
+                                             acc.oneform_temp2.flatten(),
+                                             acc.oneform_temp3.flatten())),
+                             tol=10**(-13),
+                             M=M1_PRE)[0]
 
     # ==========================================================================================================
 
@@ -1819,7 +1898,8 @@ class Massless_linear_operators:
         wts    = tensor_space_FEM.wts     # global quadrature weights
 
         # ==========================================
-        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(tensor_space_FEM.C .dot(input), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(
+            tensor_space_FEM.C .dot(input), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         acc.twoform_temp1[:, :, :] = acc.twoform_temp1_long.reshape(Nbase_2form[0])
         acc.twoform_temp2[:, :, :] = acc.twoform_temp2_long.reshape(Nbase_2form[1])
         acc.twoform_temp3[:, :, :] = acc.twoform_temp3_long.reshape(Nbase_2form[2])
@@ -1917,8 +1997,11 @@ class Massless_linear_operators:
             tensor_space_FEM.basisD[1],
             tensor_space_FEM.basisD[2])
 
-        acc.oneform_temp1_long[:], acc.oneform_temp2_long[:], acc.oneform_temp3_long[:] = np.split(mat .dot(np.concatenate(
-            (acc.oneform_temp1.flatten(), acc.oneform_temp2.flatten(), acc.oneform_temp3.flatten()))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+        acc.oneform_temp1_long[:], acc.oneform_temp2_long[:], acc.oneform_temp3_long[:] = np.split(
+            mat .dot(
+                np.concatenate(
+                    (acc.oneform_temp1.flatten(), acc.oneform_temp2.flatten(), acc.oneform_temp3.flatten()))), [
+                Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
 
         acc.oneform_temp1[:, :, :] = acc.oneform_temp1_long.reshape(Nbase_1form[0])
         acc.oneform_temp2[:, :, :] = acc.oneform_temp2_long.reshape(Nbase_1form[1])
@@ -2017,7 +2100,8 @@ class Massless_linear_operators:
             tensor_space_FEM.basisD[1],
             tensor_space_FEM.basisD[2])
 
-        return M1.dot(input) + dt**2/4.0 * tensor_space_FEM.C.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
+        return M1.dot(input) + dt**2/4.0 * tensor_space_FEM.C.T .dot(np.concatenate((acc.twoform_temp1.flatten(),
+                                                                                     acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
 
     # ==========================================================================================================
 
@@ -2079,8 +2163,8 @@ class Massless_linear_operators:
         wts    = tensor_space_FEM.wts     # global quadrature weights
 
         # ==========================================
-        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(
-            CURL .dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(CURL .dot(
+            np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         acc.twoform_temp1[:, :, :] = acc.twoform_temp1_long.reshape(Nbase_2form[0])
         acc.twoform_temp2[:, :, :] = acc.twoform_temp2_long.reshape(Nbase_2form[1])
         acc.twoform_temp3[:, :, :] = acc.twoform_temp3_long.reshape(Nbase_2form[2])
@@ -2178,7 +2262,11 @@ class Massless_linear_operators:
             tensor_space_FEM.basisD[0],
             tensor_space_FEM.basisD[1],
             tensor_space_FEM.basisD[2])
-        acc.oneform_temp_long[:] = mat .dot(np.concatenate((acc.oneform_temp1.flatten(), acc.oneform_temp2.flatten(), acc.oneform_temp3.flatten())))
+        acc.oneform_temp_long[:] = mat .dot(
+            np.concatenate(
+                (acc.oneform_temp1.flatten(),
+                 acc.oneform_temp2.flatten(),
+                 acc.oneform_temp3.flatten())))
 
         acc.oneform_temp1_long[:], acc.oneform_temp2_long[:], acc.oneform_temp3_long[:] = np.split(
             (dt**2.0/4.0*acc.oneform_temp_long + dt * vec), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
@@ -2280,8 +2368,11 @@ class Massless_linear_operators:
             tensor_space_FEM.basisD[1],
             tensor_space_FEM.basisD[2])
 
-        return M1.dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))
-                      ) - CURL.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
+        return M1.dot(np.concatenate((bb1.flatten(),
+                                      bb2.flatten(),
+                                      bb3.flatten()))) - CURL.T .dot(np.concatenate((acc.twoform_temp1.flatten(),
+                                                                                     acc.twoform_temp2.flatten(),
+                                                                                     acc.twoform_temp3.flatten())))
 
     # ==========================================================================================================
 
@@ -2342,8 +2433,8 @@ class Massless_linear_operators:
         wts    = tensor_space_FEM.wts     # global quadrature weights
 
         # ==========================================
-        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(
-            CURL .dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+        acc.twoform_temp1_long[:], acc.twoform_temp2_long[:], acc.twoform_temp3_long[:] = np.split(CURL .dot(
+            np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
         acc.twoform_temp1[:, :, :] = acc.twoform_temp1_long.reshape(Nbase_2form[0])
         acc.twoform_temp2[:, :, :] = acc.twoform_temp2_long.reshape(Nbase_2form[1])
         acc.twoform_temp3[:, :, :] = acc.twoform_temp3_long.reshape(Nbase_2form[2])

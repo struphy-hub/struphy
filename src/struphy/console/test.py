@@ -67,7 +67,8 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
                '--tag',
                f'struphy={importlib.metadata.version("struphy")}',
                '--tag',
-               f'pyccel={pyccel.__version__}',]
+               f'pyccel={pyccel.__version__}',
+               ]
 
         if with_desc:
             subprocess.run(cmd + ['--with-desc'],
@@ -183,7 +184,8 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
                '--tag',
                f'pyccel={pyccel.__version__}',
                'tutorials/',
-               '--no-monitor'*(not monitor),]
+               '--no-monitor'*(not monitor),
+               ]
 
         if fast:
             subprocess.run(cmd + ['--fast'],
@@ -267,16 +269,25 @@ def pymon_html_json(group, verbose=False):
     language = state['last_used_language']
 
     # create html files
-    subprocess.run(['sqlite3',
-                    '_pymon/.pymon_' + group,
-                    '-cmd',
-                    '.mode html',
-                    '-cmd',
-                    '.headers on',
-                    '-cmd',
-                    '.output _pymon/pymon_' + group + '_contexts_' + language + '.html',
-                    'select CPU_COUNT, CPU_FREQUENCY_MHZ, CPU_TYPE, CPU_VENDOR, RAM_TOTAL_MB, MACHINE_TYPE, MACHINE_ARCH, SYSTEM_INFO, PYTHON_INFO from EXECUTION_CONTEXTS',
-                    ], check=True, cwd=libpath)
+    subprocess.run(
+        [
+            'sqlite3',
+            '_pymon/.pymon_' +
+            group,
+            '-cmd',
+            '.mode html',
+            '-cmd',
+            '.headers on',
+            '-cmd',
+            '.output _pymon/pymon_' +
+            group +
+            '_contexts_' +
+            language +
+            '.html',
+            'select CPU_COUNT, CPU_FREQUENCY_MHZ, CPU_TYPE, CPU_VENDOR, RAM_TOTAL_MB, MACHINE_TYPE, MACHINE_ARCH, SYSTEM_INFO, PYTHON_INFO from EXECUTION_CONTEXTS',
+        ],
+        check=True,
+        cwd=libpath)
     subprocess.run(['sqlite3',
                     '_pymon/.pymon_' + group,
                     '-cmd',

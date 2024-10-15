@@ -313,7 +313,8 @@ def evaluate_d_d(td1, td2, pd1, pd2, nbase_d1, nbase_d2, coeff, eta1, eta2):
 
 
 # =============================================================================
-@types('double[:]', 'double[:]', 'int', 'int', 'int', 'int', 'double[:,:]', 'double[:]', 'double[:]', 'double[:,:]', 'int')
+@types('double[:]', 'double[:]', 'int', 'int', 'int', 'int',
+       'double[:,:]', 'double[:]', 'double[:]', 'double[:,:]', 'int')
 def evaluate_tensor_product(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1, eta2, values, kind):
     '''Tensor product evaluation (meshgrid) of tensor product splines (2d).
 
@@ -350,7 +351,8 @@ def evaluate_tensor_product(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1, eta2,
 
 
 # =============================================================================
-@types('double[:]', 'double[:]', 'int', 'int', 'int', 'int', 'double[:,:]', 'double[:,:]', 'double[:,:]', 'int', 'int', 'double[:,:]', 'int')
+@types('double[:]', 'double[:]', 'int', 'int', 'int', 'int', 'double[:,:]',
+       'double[:,:]', 'double[:,:]', 'int', 'int', 'double[:,:]', 'int')
 def evaluate_matrix(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1, eta2, n1, n2, values, kind):
     '''Matrix evaluation of tensor product splines (2d).
 

@@ -132,7 +132,8 @@ def get_M_gen(spline_space, phi_i=0, phi_j=0, fun=None, jac=None):
     pts    = spline_space.pts     # global quadrature points in format (element, local quad_point)
     wts    = spline_space.wts     # global quadrature weights in format (element, local weight)
 
-    # evaluation of basis functions at quadrature points in format (element, local function, derivative, local quad_point)
+    # evaluation of basis functions at quadrature points in format (element,
+    # local function, derivative, local quad_point)
     basis_T = bsp.basis_ders_on_quad_grid(spline_space.T, p, spline_space.pts, 1, normalize=False)
     basis_t = bsp.basis_ders_on_quad_grid(spline_space.t, p - 1, spline_space.pts, 0, normalize=False)
 

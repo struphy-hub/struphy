@@ -80,7 +80,10 @@ def diagnostics():
     Lz = grids_phy[2][0, 0, -1]
 
     # load distriution function
-    f  = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/v3/f_binned.npy'))
+    f  = np.load(
+        os.path.join(
+            out_path,
+            'post_processing/kinetic_data/energetic_ions/distribution_function/v3/f_binned.npy'))
     vz = np.load(os.path.join(out_path, 'post_processing/kinetic_data/energetic_ions/distribution_function/v3/grid_v3.npy'))
 
     fig = plt.figure()

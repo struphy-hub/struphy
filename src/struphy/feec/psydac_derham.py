@@ -402,18 +402,42 @@ class Derham:
                 if local_projectors:
                     fem_space = self.Vh_fem[sp_form]
                     self._Ploc[sp_form] = CommutingProjectorLocal(
-                        sp_id, sp_form, fem_space, self._proj_loc_grid_pts[sp_form], self._proj_loc_grid_wts[sp_form], self._wij, self._whij)
+                        sp_id,
+                        sp_form,
+                        fem_space,
+                        self._proj_loc_grid_pts[sp_form],
+                        self._proj_loc_grid_wts[sp_form],
+                        self._wij,
+                        self._whij)
                 self._P[sp_form] = CommutingProjector(
-                    self._P[sp_form], self._dofs_extraction_ops[sp_form], self._extraction_ops[sp_form], self._boundary_ops[sp_form])
+                    self._P[sp_form],
+                    self._dofs_extraction_ops[sp_form],
+                    self._extraction_ops[sp_form],
+                    self._boundary_ops[sp_form])
 
         # set discrete derivatives with polar linear operators
         if self.polar_ck == 1:
             self._grad = PolarLinearOperator(
-                self._Vh_pol['0'], self._Vh_pol['1'], self._grad, ck_blocks.grad_pol_to_ten, ck_blocks.grad_pol_to_pol, ck_blocks.grad_e3)
+                self._Vh_pol['0'],
+                self._Vh_pol['1'],
+                self._grad,
+                ck_blocks.grad_pol_to_ten,
+                ck_blocks.grad_pol_to_pol,
+                ck_blocks.grad_e3)
             self._curl = PolarLinearOperator(
-                self._Vh_pol['1'], self._Vh_pol['2'], self._curl, ck_blocks.curl_pol_to_ten, ck_blocks.curl_pol_to_pol, ck_blocks.curl_e3)
+                self._Vh_pol['1'],
+                self._Vh_pol['2'],
+                self._curl,
+                ck_blocks.curl_pol_to_ten,
+                ck_blocks.curl_pol_to_pol,
+                ck_blocks.curl_e3)
             self._div = PolarLinearOperator(
-                self._Vh_pol['2'], self._Vh_pol['3'], self._div, ck_blocks.div_pol_to_ten, ck_blocks.div_pol_to_pol, ck_blocks.div_e3)
+                self._Vh_pol['2'],
+                self._Vh_pol['3'],
+                self._div,
+                ck_blocks.div_pol_to_ten,
+                ck_blocks.div_pol_to_pol,
+                ck_blocks.div_e3)
 
         # set discrete derivatives with and without boundary operators
         self._grad_bcfree = self._grad
@@ -956,7 +980,8 @@ class Derham:
         comp = np.array(comp)
         kinds = np.array(kinds)
 
-        # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
+        # if only one process: check if comp is neighbour in non-peridic
+        # directions, if this is not the case then return the rank as neighbour id
         if size == 1:
             if (comp[kinds == False] == 1).all():
                 return rank
@@ -1742,8 +1767,10 @@ class Derham:
 
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil._data, kind,
-                                                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+                    eval_3d.eval_spline_mpi_sparse_meshgrid(
+                        E1, E2, E3, self._vector_stencil._data, kind, np.array(
+                            self.derham.p), T1, T2, T3, np.array(
+                            self.starts), tmp)
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
                     eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind,
@@ -1775,11 +1802,15 @@ class Derham:
                 for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
 
                     if is_sparse_meshgrid:
-                        eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil[n]._data, kind,
-                                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                        eval_3d.eval_spline_mpi_sparse_meshgrid(
+                            E1, E2, E3, self._vector_stencil[n]._data, kind, np.array(
+                                self.derham.p), T1, T2, T3, np.array(
+                                self.starts[n]), tmp)
                     else:
-                        eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind,
-                                                       np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                        eval_3d.eval_spline_mpi_matrix(
+                            E1, E2, E3, self._vector_stencil[n]._data, kind, np.array(
+                                self.derham.p), T1, T2, T3, np.array(
+                                self.starts[n]), tmp)
 
                     if self.derham.comm is not None:
                         if not local:

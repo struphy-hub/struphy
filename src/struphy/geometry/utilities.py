@@ -12,7 +12,23 @@ from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
 
-def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_power=1, xi_param='equal_angle', Nel_pre=[64, 256], p_pre=[3, 3], r0=0.3):
+def field_line_tracing(
+        psi,
+        psi_axis_R,
+        psi_axis_Z,
+        psi0,
+        psi1,
+        Nel,
+        p,
+        psi_power=1,
+        xi_param='equal_angle',
+        Nel_pre=[
+            64,
+            256],
+    p_pre=[
+            3,
+            3],
+        r0=0.3):
     r"""
     Given a poloidal flux function :math:`\psi(R, Z)`, constructs a flux-aligned spline mapping :math:`(R, Z) = F(s(\psi), \xi)`.
 

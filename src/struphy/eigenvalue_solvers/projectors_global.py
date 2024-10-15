@@ -254,7 +254,8 @@ class Projectors_global_1d:
             for b in range(self.space.p):
                 self.basis_x_int_D[i, 0, b] = D_temp[i, b, 0, 0]
 
-        # Values of p + 1 non-zero basis functions at quadrature points points between x_int in format (i, iq, basis function)
+        # Values of p + 1 non-zero basis functions at quadrature points points
+        # between x_int in format (i, iq, basis function)
         self.basis_ptsG_N = np.zeros(
             (*self.ptsG.shape, self.space.p + 1), dtype=float)
         self.basis_ptsG_D = np.zeros(
@@ -283,7 +284,8 @@ class Projectors_global_1d:
 
         self.Q = spa.csr_matrix(self.Q)
 
-        # quadrature matrix for performing integrations as matrix-vector products, ignoring subs (less accurate integration for even degree)
+        # quadrature matrix for performing integrations as matrix-vector products,
+        # ignoring subs (less accurate integration for even degree)
         self.QG = np.zeros(
             (spline_space.NbaseD, self.wtsG.shape[0]*self.n_quad), dtype=float)
 
@@ -1943,7 +1945,8 @@ class ProjectorsGlobal3D:
         if include_bc:
             dofs_11 = dofs_1[:self.P1_pol.shape[0]*self.I_tor.shape[0]
                              ].reshape(self.P1_pol.shape[0], self.I_tor.shape[0])
-            dofs_12 = dofs_1[self.P1_pol.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol.shape[0], self.H_tor.shape[0])
+            dofs_12 = dofs_1[self.P1_pol.shape[0]*self.I_tor.shape[0]
+                             :].reshape(self.P0_pol.shape[0], self.H_tor.shape[0])
 
             coeffs1 = self.I_tor_LU.solve(self.I1_pol_LU.solve(dofs_11).T).T
             coeffs2 = self.H_tor_LU.solve(self.I0_pol_LU.solve(dofs_12).T).T
@@ -1952,7 +1955,8 @@ class ProjectorsGlobal3D:
         else:
             dofs_11 = dofs_1[:self.P1_pol_0.shape[0]*self.I0_tor.shape[0]
                              ].reshape(self.P1_pol_0.shape[0], self.I0_tor.shape[0])
-            dofs_12 = dofs_1[self.P1_pol_0.shape[0]*self.I0_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
+            dofs_12 = dofs_1[self.P1_pol_0.shape[0]*self.I0_tor.shape[0]
+                             :].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
 
             coeffs1 = self.I0_tor_LU.solve(self.I1_pol_0_LU.solve(dofs_11).T).T
             coeffs2 = self.H0_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_12).T).T
@@ -1966,7 +1970,8 @@ class ProjectorsGlobal3D:
         if include_bc:
             dofs_21 = dofs_2[:self.P2_pol.shape[0]*self.H_tor.shape[0]
                              ].reshape(self.P2_pol.shape[0], self.H_tor.shape[0])
-            dofs_22 = dofs_2[self.P2_pol.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol.shape[0], self.I_tor.shape[0])
+            dofs_22 = dofs_2[self.P2_pol.shape[0]*self.H_tor.shape[0]
+                             :].reshape(self.P3_pol.shape[0], self.I_tor.shape[0])
 
             coeffs1 = self.H_tor_LU.solve(self.I2_pol_LU.solve(dofs_21).T).T
             coeffs2 = self.I_tor_LU.solve(self.I3_pol_LU.solve(dofs_22).T).T
@@ -1975,7 +1980,8 @@ class ProjectorsGlobal3D:
         else:
             dofs_21 = dofs_2[:self.P2_pol_0.shape[0]*self.H0_tor.shape[0]
                              ].reshape(self.P2_pol_0.shape[0], self.H0_tor.shape[0])
-            dofs_22 = dofs_2[self.P2_pol_0.shape[0]*self.H0_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
+            dofs_22 = dofs_2[self.P2_pol_0.shape[0]*self.H0_tor.shape[0]
+                             :].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
 
             coeffs1 = self.H0_tor_LU.solve(self.I2_pol_0_LU.solve(dofs_21).T).T
             coeffs2 = self.I0_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_22).T).T
@@ -2042,7 +2048,8 @@ class ProjectorsGlobal3D:
 
             rhs1 = rhs[:self.P1_pol_0.shape[0]*self.I0_tor.shape[0]
                        ].reshape(self.P1_pol_0.shape[0], self.I0_tor.shape[0])
-            rhs2 = rhs[self.P1_pol_0.shape[0]*self.I0_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
+            rhs2 = rhs[self.P1_pol_0.shape[0]*self.I0_tor.shape[0]
+                       :].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
 
             rhs1 = self.I1_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I0_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs2.T).T)
@@ -2073,7 +2080,8 @@ class ProjectorsGlobal3D:
 
             rhs1 = rhs[:self.P2_pol_0.shape[0]*self.H0_tor.shape[0]
                        ].reshape(self.P2_pol_0.shape[0], self.H0_tor.shape[0])
-            rhs2 = rhs[self.P2_pol_0.shape[0]*self.H0_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
+            rhs2 = rhs[self.P2_pol_0.shape[0]*self.H0_tor.shape[0]
+                       :].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
 
             rhs1 = self.I2_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I3_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs2.T).T)

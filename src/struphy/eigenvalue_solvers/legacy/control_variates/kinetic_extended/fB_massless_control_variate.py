@@ -166,13 +166,63 @@ def bv_right(
         wts1,
         wts2,
         wts3)
-    ker_cv.bvfinal(indN[0], indN[1], indN[2], indD[0], indD[1], indD[2], Nel[0], Nel[1], Nel[2], nq1, nq2, nq3, p[0], p[1], p[2], d[0],
-                   d[1], d[2], b1value, b2value, b3value, uvalue, bn1, bn2, bn3, bd1, bd2, bd3, temp_twoform1, temp_twoform2, temp_twoform3)
+    ker_cv.bvfinal(
+        indN[0],
+        indN[1],
+        indN[2],
+        indD[0],
+        indD[1],
+        indD[2],
+        Nel[0],
+        Nel[1],
+        Nel[2],
+        nq1,
+        nq2,
+        nq3,
+        p[0],
+        p[1],
+        p[2],
+        d[0],
+        d[1],
+        d[2],
+        b1value,
+        b2value,
+        b3value,
+        uvalue,
+        bn1,
+        bn2,
+        bn3,
+        bd1,
+        bd2,
+        bd3,
+        temp_twoform1,
+        temp_twoform2,
+        temp_twoform3)
     # ========================= C.T ===========================
-    return tensor_space_FEM.C.T .dot(np.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten())))
+    return tensor_space_FEM.C.T .dot(
+        np.concatenate(
+            (temp_twoform1.flatten(),
+             temp_twoform2.flatten(),
+             temp_twoform3.flatten())))
 
 
-def vv_right(stage_index, tol, Np_loc, LO_inv, domain, acc, NbaseN, NbaseD, temp_particle, p, Nel, tensor_space_FEM, b1, b2, b3, particles_loc):
+def vv_right(
+        stage_index,
+        tol,
+        Np_loc,
+        LO_inv,
+        domain,
+        acc,
+        NbaseN,
+        NbaseD,
+        temp_particle,
+        p,
+        Nel,
+        tensor_space_FEM,
+        b1,
+        b2,
+        b3,
+        particles_loc):
     '''
     Computes the matrix Q4_(ab,ij) = \\int e^{-U} (DF^{-T}B)_{6-a-b} (Lambda^2_(a,i) x Lambda^2_(b,j))_{6-a-b} deta, no summatio over a,b!! a is not equal to b
     2-form space V2 = span(Lambda^2_(a,i)) with a in [1,2,3] and i in [1, N^2_a]

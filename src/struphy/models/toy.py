@@ -266,11 +266,11 @@ class GuidingCenter(StruphyModel):
         epsilon = self.equation_params['ions']['epsilon']
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'epsilon': epsilon,
-                                                                      'algo': ions_params['options']['PushGuidingCenterBxEstar']['algo']}
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
+            'epsilon': epsilon, 'algo': ions_params['options']['PushGuidingCenterBxEstar']['algo']}
 
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'epsilon': epsilon,
-                                                                       'algo': ions_params['options']['PushGuidingCenterParallel']['algo']}
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
+            'epsilon': epsilon, 'algo': ions_params['options']['PushGuidingCenterParallel']['algo']}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()

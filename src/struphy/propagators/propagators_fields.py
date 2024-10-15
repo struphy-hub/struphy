@@ -1235,8 +1235,8 @@ class CurrentCoupling6DDensity(Propagator):
             assert u_space == 'Hdiv'
 
             # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
-            quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+            quad_pts = [quad_grid[nquad].points.flatten() for quad_grid, nquad in zip(
+                self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
             self._nh0_at_quad = self.domain.push(
                 self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
@@ -1478,7 +1478,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        # for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids,
+        # self.derham.Vh_fem['0'].nquads)]
 
         #     n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
@@ -1705,7 +1706,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        # for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids,
+        # self.derham.Vh_fem['0'].nquads)]
 
         #     n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
@@ -1894,15 +1896,28 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
-                                (rot_B(e1, e2, e3) @ self.domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False))[:, :, :, m, n]]
+                    fun[-1] += [lambda e1,
+                                e2,
+                                e3,
+                                m=m,
+                                n=n: (rot_B(e1,
+                                            e2,
+                                            e3) @ self.domain.metric_inv(e1,
+                                                                         e2,
+                                                                         e3,
+                                                                         change_out_order=True,
+                                                                         squeeze_out=False))[:,
+                                                                                             :,
+                                                                                             :,
+                                                                                             m,
+                                                                                             n]]
 
         else:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
-                                rot_B(e1, e2, e3)[:, :, :, m, n] / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))]
+                    fun[-1] += [lambda e1, e2, e3, m=m,
+                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))]
 
         # Initialize BasisProjectionOperator
         self._TB.update_weights(fun)
@@ -1997,7 +2012,8 @@ class CurrentCoupling5DDensity(Propagator):
 
         #     # evaluate and save f0.n / |det(DF)| at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+        # for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids,
+        # self.derham.Vh_fem['0'].nquads)]
 
         #     self._n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
@@ -5035,10 +5051,16 @@ class VariationalViscosity(Propagator):
 
         gu_sq_v *= dt*self._mu_a  # /2
 
-        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0, 0], gu_sq_v*self._mass_M1_metric[0, 1], gu_sq_v*self._mass_M1_metric[0, 2]],
-                             [gu_sq_v*self._mass_M1_metric[1, 0], gu_sq_v*self._mass_M1_metric[1, 1], gu_sq_v*self._mass_M1_metric[1, 2]],
-                             [gu_sq_v*self._mass_M1_metric[2, 0], gu_sq_v*self._mass_M1_metric[1, 2], gu_sq_v*self._mass_M1_metric[2, 2]]],
-                            verbose=False)
+        self.M1_du.assemble([[gu_sq_v *
+                              self._mass_M1_metric[0, 0], gu_sq_v *
+                              self._mass_M1_metric[0, 1], gu_sq_v *
+                              self._mass_M1_metric[0, 2]], [gu_sq_v *
+                                                            self._mass_M1_metric[1, 0], gu_sq_v *
+                                                            self._mass_M1_metric[1, 1], gu_sq_v *
+                                                            self._mass_M1_metric[1, 2]], [gu_sq_v *
+                                                                                          self._mass_M1_metric[2, 0], gu_sq_v *
+                                                                                          self._mass_M1_metric[1, 2], gu_sq_v *
+                                                                                          self._mass_M1_metric[2, 2]]], verbose=False)
 
         # gu_sq_v *= 2.
         gu_sq_v += dt*self._mu
@@ -5266,10 +5288,15 @@ class VariationalViscosity(Propagator):
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
             integration_grid)
 
-        self.integration_grid_gradient = [[self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
-                                          [self.integration_grid_bn[0], self.integration_grid_bd[1],
+        self.integration_grid_gradient = [[self.integration_grid_bd[0],
+                                           self.integration_grid_bn[1],
                                            self.integration_grid_bn[2]],
-                                          [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]]]
+                                          [self.integration_grid_bn[0],
+                                           self.integration_grid_bd[1],
+                                           self.integration_grid_bn[2]],
+                                          [self.integration_grid_bn[0],
+                                           self.integration_grid_bn[1],
+                                           self.integration_grid_bd[2]]]
 
         grid_shape = tuple([len(loc_grid)
                             for loc_grid in integration_grid])
@@ -5510,17 +5537,30 @@ class VariationalResistivity(Propagator):
 
         cb_sq_v *= dt*self._eta_a
 
-        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0, 0], cb_sq_v*self._sq_term_metric[0, 1], cb_sq_v*self._sq_term_metric[0, 2]],
-                             [cb_sq_v*self._sq_term_metric[1, 0], cb_sq_v*self._sq_term_metric[1, 1], cb_sq_v*self._sq_term_metric[1, 2]],
-                             [cb_sq_v*self._sq_term_metric[2, 0], cb_sq_v*self._sq_term_metric[2, 1], cb_sq_v*self._sq_term_metric[2, 2]]],
-                            verbose=False)
+        self.M1_cb.assemble([[cb_sq_v *
+                              self._sq_term_metric[0, 0], cb_sq_v *
+                              self._sq_term_metric[0, 1], cb_sq_v *
+                              self._sq_term_metric[0, 2]], [cb_sq_v *
+                                                            self._sq_term_metric[1, 0], cb_sq_v *
+                                                            self._sq_term_metric[1, 1], cb_sq_v *
+                                                            self._sq_term_metric[1, 2]], [cb_sq_v *
+                                                                                          self._sq_term_metric[2, 0], cb_sq_v *
+                                                                                          self._sq_term_metric[2, 1], cb_sq_v *
+                                                                                          self._sq_term_metric[2, 2]]], verbose=False)
 
         cb_sq_v += dt*self._eta
 
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current :
-            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
+            bn1 = self.evol_op.dot(
+                bn +
+                dt *
+                self._eta *
+                self.derham.curl.dot(
+                    self.Tcurl.dot(
+                        self.projected_mhd_equil.b2)),
+                out=self._tmp_bn1)
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
@@ -5715,10 +5755,15 @@ class VariationalResistivity(Propagator):
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
             integration_grid)
 
-        self.integration_grid_curl = [[self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
-                                      [self.integration_grid_bn[0], self.integration_grid_bd[1],
+        self.integration_grid_curl = [[self.integration_grid_bd[0],
+                                       self.integration_grid_bn[1],
                                        self.integration_grid_bn[2]],
-                                      [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]]]
+                                      [self.integration_grid_bn[0],
+                                       self.integration_grid_bd[1],
+                                       self.integration_grid_bn[2]],
+                                      [self.integration_grid_bn[0],
+                                       self.integration_grid_bn[1],
+                                       self.integration_grid_bd[2]]]
 
         grid_shape = tuple([len(loc_grid)
                             for loc_grid in integration_grid])

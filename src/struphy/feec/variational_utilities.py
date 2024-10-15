@@ -117,10 +117,15 @@ class BracketOperator(LinOpWithTransp):
         self.interpolation_grid_spans, self.interpolation_grid_bn, self.interpolation_grid_bd = derham.prepare_eval_tp_fixed(
             interpolation_grid)
 
-        self.interpolation_grid_gradient = [[self.interpolation_grid_bd[0], self.interpolation_grid_bn[1], self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bd[1],
-                                                self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bn[1], self.interpolation_grid_bd[2]]]
+        self.interpolation_grid_gradient = [[self.interpolation_grid_bd[0],
+                                             self.interpolation_grid_bn[1],
+                                             self.interpolation_grid_bn[2]],
+                                            [self.interpolation_grid_bn[0],
+                                             self.interpolation_grid_bd[1],
+                                             self.interpolation_grid_bn[2]],
+                                            [self.interpolation_grid_bn[0],
+                                             self.interpolation_grid_bn[1],
+                                             self.interpolation_grid_bd[2]]]
 
         # Create tmps for later use in evaluating on the grid
         grid_shape = tuple([len(loc_grid)

@@ -733,7 +733,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         }
 
         # Only add PushVinEfield if e-field is non-zero, otherwise it is more expensive
-        if not np.all(self._e_background[0]._data < 1e-14) or not np.all(self._e_background[1]._data < 1e-14) or not np.all(self._e_background[2]._data < 1e-14):
+        if not np.all(self._e_background[0]._data < 1e-14) or not np.all(self._e_background[1]._data <
+                                                                         1e-14) or not np.all(self._e_background[2]._data < 1e-14):
             self._kwargs[propagators_markers.PushVinEfield] = {
                 'e_field': self._e_background,
                 'kappa': self.kappa

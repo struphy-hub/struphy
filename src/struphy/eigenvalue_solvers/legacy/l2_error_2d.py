@@ -42,7 +42,8 @@ def l2_error_V0(tensor_space_FEM, domain, f0, c0, method='standard'):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of local non-vanishing basis functions in format (element, global index)
+    # global indices of local non-vanishing basis functions in format (element, global index)
+    indN   = tensor_space_FEM.indN
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -123,8 +124,10 @@ def l2_error_V1(tensor_space_FEM, domain, f1, c1, method='standard'):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (N) in format (element, global index)
+    indN   = tensor_space_FEM.indN
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -179,20 +182,144 @@ def l2_error_V1(tensor_space_FEM, domain, f1, c1, method='standard'):
         error = np.zeros(Nel[:2], dtype=float)
 
         # 1 * d_f1 * G^11 * |det(DF)| * d_f1
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [1, 0], [1, 0], basisD[0], basisN[1], basisD[0], basisN[1], indD[0], indN[1], indD[0], indN[1], error, f1_1.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f1_1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c1_1, c1_1, 1*metric_coeffs[0, 0].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [1,
+                               0],
+                           [1,
+                               0],
+                           basisD[0],
+                           basisN[1],
+                           basisD[0],
+                           basisN[1],
+                           indD[0],
+                           indN[1],
+                           indD[0],
+                           indN[1],
+                           error,
+                           f1_1.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f1_1.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c1_1,
+                           c1_1,
+                           1*metric_coeffs[0,
+                                           0].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         # 2 * d_f1 * G^12 * |det(DF)| * d_f2
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [1, 0], [0, 1], basisD[0], basisN[1], basisN[0], basisD[1], indD[0], indN[1], indN[0], indD[1], error, f1_1.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f1_2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c1_1, c1_2, 2*metric_coeffs[0, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [1,
+                               0],
+                           [0,
+                               1],
+                           basisD[0],
+                           basisN[1],
+                           basisN[0],
+                           basisD[1],
+                           indD[0],
+                           indN[1],
+                           indN[0],
+                           indD[1],
+                           error,
+                           f1_1.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f1_2.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c1_1,
+                           c1_2,
+                           2*metric_coeffs[0,
+                                           1].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         # 1 * d_f2 * G^22 * |det(DF)| * d_f2
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [0, 1], [0, 1], basisN[0], basisD[1], basisN[0], basisD[1], indN[0], indD[1], indN[0], indD[1], error, f1_2.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f1_2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c1_2, c1_2, 1*metric_coeffs[1, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [0,
+                               1],
+                           [0,
+                               1],
+                           basisN[0],
+                           basisD[1],
+                           basisN[0],
+                           basisD[1],
+                           indN[0],
+                           indD[1],
+                           indN[0],
+                           indD[1],
+                           error,
+                           f1_2.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f1_2.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c1_2,
+                           c1_2,
+                           1*metric_coeffs[1,
+                                           1].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         # 1 * d_f3 * G^33 * |det(DF)| * d_f3
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [0, 0], [0, 0], basisN[0], basisN[1], basisN[0], basisN[1], indN[0], indN[1], indN[0], indN[1], error, f1_3.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f1_3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c1_3, c1_3, 1*metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [0,
+                               0],
+                           [0,
+                               0],
+                           basisN[0],
+                           basisN[1],
+                           basisN[0],
+                           basisN[1],
+                           indN[0],
+                           indN[1],
+                           indN[0],
+                           indN[1],
+                           error,
+                           f1_3.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f1_3.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c1_3,
+                           c1_3,
+                           1*metric_coeffs[2,
+                                           2].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         error = error.sum()
 
@@ -229,8 +356,10 @@ def l2_error_V2(tensor_space_FEM, domain, f2, c2, method='standard'):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    # global indices of non-vanishing basis functions (N) in format (element, global index)
+    indN   = tensor_space_FEM.indN
+    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -285,20 +414,144 @@ def l2_error_V2(tensor_space_FEM, domain, f2, c2, method='standard'):
         error = np.zeros(Nel[:2], dtype=float)
 
         # 1 * d_f1 * G_11 / |det(DF)| * d_f1
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [0, 1], [0, 1], basisN[0], basisD[1], basisN[0], basisD[1], indN[0], indD[1], indN[0], indD[1], error, f2_1.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f2_1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c2_1, c2_1, 1*metric_coeffs[0, 0].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [0,
+                               1],
+                           [0,
+                               1],
+                           basisN[0],
+                           basisD[1],
+                           basisN[0],
+                           basisD[1],
+                           indN[0],
+                           indD[1],
+                           indN[0],
+                           indD[1],
+                           error,
+                           f2_1.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f2_1.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c2_1,
+                           c2_1,
+                           1*metric_coeffs[0,
+                                           0].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         # 2 * d_f1 * G_12 / |det(DF)| * d_f2
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [0, 1], [1, 0], basisN[0], basisD[1], basisD[0], basisN[1], indN[0], indD[1], indD[0], indN[1], error, f2_1.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f2_2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c2_1, c2_2, 2*metric_coeffs[0, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [0,
+                               1],
+                           [1,
+                               0],
+                           basisN[0],
+                           basisD[1],
+                           basisD[0],
+                           basisN[1],
+                           indN[0],
+                           indD[1],
+                           indD[0],
+                           indN[1],
+                           error,
+                           f2_1.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f2_2.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c2_1,
+                           c2_2,
+                           2*metric_coeffs[0,
+                                           1].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         # 1 * d_f2 * G_22 / |det(DF)| * d_f2
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [1, 0], [1, 0], basisD[0], basisN[1], basisD[0], basisN[1], indD[0], indN[1], indD[0], indN[1], error, f2_2.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f2_2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c2_2, c2_2, 1*metric_coeffs[1, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [1,
+                               0],
+                           [1,
+                               0],
+                           basisD[0],
+                           basisN[1],
+                           basisD[0],
+                           basisN[1],
+                           indD[0],
+                           indN[1],
+                           indD[0],
+                           indN[1],
+                           error,
+                           f2_2.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f2_2.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c2_2,
+                           c2_2,
+                           1*metric_coeffs[1,
+                                           1].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         # 1 * d_f3 * G_33 / |det(DF)| * d_f3
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [1, 1], [1, 1], basisD[0], basisD[1], basisD[0], basisD[1], indD[0], indD[1], indD[0], indD[1], error, f2_3.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f2_3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c2_3, c2_3, 1*metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(Nel,
+                           p,
+                           n_quad,
+                           wts[0],
+                           wts[1],
+                           [1,
+                               1],
+                           [1,
+                               1],
+                           basisD[0],
+                           basisD[1],
+                           basisD[0],
+                           basisD[1],
+                           indD[0],
+                           indD[1],
+                           indD[0],
+                           indD[1],
+                           error,
+                           f2_3.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           f2_3.reshape(Nel[0],
+                                        n_quad[0],
+                                        Nel[1],
+                                        n_quad[1]),
+                           c2_3,
+                           c2_3,
+                           1*metric_coeffs[2,
+                                           2].reshape(Nel[0],
+                                                      n_quad[0],
+                                                      Nel[1],
+                                                      n_quad[1]))
 
         error = error.sum()
 
@@ -335,7 +588,8 @@ def l2_error_V3(tensor_space_FEM, domain, f3, c3, method='standard'):
 
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    indD   = tensor_space_FEM.indD    # global indices of local non-vanishing basis functions in format (element, global index)
+    # global indices of local non-vanishing basis functions in format (element, global index)
+    indD   = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -373,8 +627,13 @@ def l2_error_V3(tensor_space_FEM, domain, f3, c3, method='standard'):
         # compute error in each element
         error = np.zeros(Nel[:2], dtype=float)
 
-        ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], [1, 1], [1, 1], basisD[0], basisD[1], basisD[0], basisD[1], indD[0], indD[1], indD[0], indD[1], error, f3.reshape(
-            Nel[0], n_quad[0], Nel[1], n_quad[1]), f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]), c3, c3, 1/det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1]))
+        ker.kernel_l2error(
+            Nel, p, n_quad, wts[0], wts[1], [
+                1, 1], [
+                1, 1], basisD[0], basisD[1], basisD[0], basisD[1], indD[0], indD[1], indD[0], indD[1], error, f3.reshape(
+                Nel[0], n_quad[0], Nel[1], n_quad[1]), f3.reshape(
+                    Nel[0], n_quad[0], Nel[1], n_quad[1]), c3, c3, 1/det_df.reshape(
+                        Nel[0], n_quad[0], Nel[1], n_quad[1]))
 
         error = error.sum()
 

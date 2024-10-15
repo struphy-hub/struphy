@@ -78,13 +78,41 @@ class Accumulator:
 
                 if self.space.dim == 2:
 
-                    self.blocks_loc[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, self.space.NbaseN[2]), dtype=float)
-                    self.blocks_glo[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, self.space.NbaseN[2]), dtype=float)
+                    self.blocks_loc[a][b] = np.empty(
+                        (Ni[0],
+                         Ni[1],
+                            Ni[2],
+                            2*self.space.p[0] + 1,
+                            2*self.space.p[1] + 1,
+                            self.space.NbaseN[2]),
+                        dtype=float)
+                    self.blocks_glo[a][b] = np.empty(
+                        (Ni[0],
+                         Ni[1],
+                            Ni[2],
+                            2*self.space.p[0] + 1,
+                            2*self.space.p[1] + 1,
+                            self.space.NbaseN[2]),
+                        dtype=float)
 
                 else:
 
-                    self.blocks_loc[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, 2*self.space.p[2] + 1), dtype=float)
-                    self.blocks_glo[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, 2*self.space.p[2] + 1), dtype=float)
+                    self.blocks_loc[a][b] = np.empty(
+                        (Ni[0],
+                         Ni[1],
+                            Ni[2],
+                            2*self.space.p[0] + 1,
+                            2*self.space.p[1] + 1,
+                            2*self.space.p[2] + 1),
+                        dtype=float)
+                    self.blocks_glo[a][b] = np.empty(
+                        (Ni[0],
+                         Ni[1],
+                            Ni[2],
+                            2*self.space.p[0] + 1,
+                            2*self.space.p[1] + 1,
+                            2*self.space.p[2] + 1),
+                        dtype=float)
 
     # ===============================================================
 
@@ -132,11 +160,14 @@ class Accumulator:
 
                 col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-                M[a][b] = spa.csr_matrix((self.blocks_glo[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+                M[a][b] = spa.csr_matrix(
+                    (self.blocks_glo[a][b].flatten(), (row, col.flatten())), shape=(
+                        Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
                 M[a][b].eliminate_zeros()
 
         # final block matrix
-        M = spa.bmat([[None, M[0][1], M[0][2]], [-M[0][1].T, None, M[1][2]], [-M[0][2].T, -M[1][2].T, None]], format='csr')
+        M = spa.bmat([[None, M[0][1], M[0][2]], [-M[0][1].T, None, M[1][2]],
+                     [-M[0][2].T, -M[1][2].T, None]], format='csr')
 
         # apply extraction operator
         if self.basis_u == 0:
@@ -196,11 +227,14 @@ class Accumulator:
 
                 col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
 
-                M[a][b] = spa.csr_matrix((self.blocks_glo[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+                M[a][b] = spa.csr_matrix(
+                    (self.blocks_glo[a][b].flatten(), (row, col.flatten())), shape=(
+                        Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
                 M[a][b].eliminate_zeros()
 
         # final block matrix
-        M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[0][1].T, M[1][1], M[1][2]], [M[0][2].T, M[1][2].T, M[2][2]]], format='csr')
+        M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[0][1].T, M[1][1], M[1][2]],
+                     [M[0][2].T, M[1][2].T, M[2][2]]], format='csr')
 
         # apply extraction operator
         if self.basis_u == 0:
@@ -416,10 +450,13 @@ class Accumulator:
 
         # build global sparse matrix and global vector
         if self.basis_u == 0:
-            return self.to_sparse_step3(), self.space.Ev_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
+            return self.to_sparse_step3(), self.space.Ev_0.dot(np.concatenate(
+                (self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
 
         elif self.basis_u == 1:
-            return self.to_sparse_step3(), self.space.E1_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
+            return self.to_sparse_step3(), self.space.E1_0.dot(np.concatenate(
+                (self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
 
         elif self.basis_u == 2:
-            return self.to_sparse_step3(), self.space.E2_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
+            return self.to_sparse_step3(), self.space.E2_0.dot(np.concatenate(
+                (self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))

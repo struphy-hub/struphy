@@ -102,8 +102,10 @@ class Geqdsk:
 
         self.data['pprime'] = numpy.array(data[3*nw:4*nw]), "P'(psi) in (nt/m2)/(Weber/rad) on uniform flux grid"
 
-        self.data['psirz'] = numpy.reshape(data[4*nw:4*nw+nw*nh], (nh, nw)), "Poloidal flux in Weber / rad on the rectangular grid points"
-        self.data['qpsi']  = numpy.array(data[4*nw+nw*nh:5*nw+nw*nh]), "q values on uniform flux grid from axis to boundary"
+        self.data['psirz'] = numpy.reshape(data[4*nw:4*nw+nw*nh], (nh, nw)
+                                           ), "Poloidal flux in Weber / rad on the rectangular grid points"
+        self.data['qpsi']  = numpy.array(data[4*nw+nw*nh:5*nw+nw*nh]
+                                         ), "q values on uniform flux grid from axis to boundary"
 
         line = lines[counter]
         m = re.search(r'^\s*(\d+)\s+(\d+)', line)

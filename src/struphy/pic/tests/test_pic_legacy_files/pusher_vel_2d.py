@@ -47,8 +47,41 @@ import struphy.pic.tests.test_pic_legacy_files.spline_evaluation_2d as eva2
        'double[:]',
        'double[:]',
        'int')
-def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2, b_eq_3, b_p_1, b_p_2, b_p_3, b_norm,
-                 u1, u2, u3, basis_u, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mu, power, n_tor):
+def pusher_step3(
+        particles,
+        dt,
+        t1,
+        t2,
+        p,
+        nel,
+        nbase_n,
+        nbase_d,
+        np,
+        b_eq_1,
+        b_eq_2,
+        b_eq_3,
+        b_p_1,
+        b_p_2,
+        b_p_3,
+        b_norm,
+        u1,
+        u2,
+        u3,
+        basis_u,
+        kind_map,
+        params_map,
+        tf1,
+        tf2,
+        tf3,
+        pf,
+        nelf,
+        nbasef,
+        cx,
+        cy,
+        cz,
+        mu,
+        power,
+        n_tor):
 
     from numpy import cos, empty, pi, sin, zeros
 
@@ -157,8 +190,41 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
         span3f = int(eta3*nelf[2]) + pf3
 
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f,
-                            l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mapping_fast.df_all(
+            kind_map,
+            params_map,
+            tf1,
+            tf2,
+            tf3,
+            pf,
+            nbasef,
+            span1f,
+            span2f,
+            span3f,
+            cx,
+            cy,
+            cz,
+            l1f,
+            l2f,
+            l3f,
+            r1f,
+            r2f,
+            r3f,
+            b1f,
+            b2f,
+            b3f,
+            d1f,
+            d2f,
+            d3f,
+            der1f,
+            der2f,
+            der3f,
+            eta1,
+            eta2,
+            eta3,
+            df,
+            fx,
+            0)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -196,9 +262,12 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
 
             for i in range(nbase_n[2]):
 
-                u[0] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2, nbase_n[0], nbase_n[1], u1[:, :, i])*cs[i]
-                u[1] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2, nbase_n[0], nbase_n[1], u2[:, :, i])*cs[i]
-                u[2] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2, nbase_n[0], nbase_n[1], u3[:, :, i])*cs[i]
+                u[0] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2,
+                                                  nbase_n[0], nbase_n[1], u1[:, :, i])*cs[i]
+                u[1] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2,
+                                                  nbase_n[0], nbase_n[1], u2[:, :, i])*cs[i]
+                u[2] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2,
+                                                  nbase_n[0], nbase_n[1], u3[:, :, i])*cs[i]
 
             linalg.matrix_vector(df, u, u_cart)
 
@@ -209,9 +278,12 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
 
             for i in range(nbase_n[2]):
 
-                u[0] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], u1[:, :, i])*cs[i]
-                u[1] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], u2[:, :, i])*cs[i]
-                u[2] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1 - 0, span2 - 0, nbase_n[0], nbase_n[1], u3[:, :, i])*cs[i]
+                u[0] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0,
+                                                  nbase_d[0], nbase_n[1], u1[:, :, i])*cs[i]
+                u[1] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1,
+                                                  nbase_n[0], nbase_d[1], u2[:, :, i])*cs[i]
+                u[2] += eva2.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1 - 0, span2 - 0,
+                                                  nbase_n[0], nbase_n[1], u3[:, :, i])*cs[i]
 
             linalg.matrix_vector(dfinv_t, u, u_cart)
 
@@ -222,9 +294,12 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
 
             for i in range(nbase_n[2]):
 
-                u[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], u1[:, :, i])*cs[i]
-                u[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], u2[:, :, i])*cs[i]
-                u[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], u3[:, :, i])*cs[i]
+                u[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1,
+                                                  nbase_n[0], nbase_d[1], u1[:, :, i])*cs[i]
+                u[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0,
+                                                  nbase_d[0], nbase_n[1], u2[:, :, i])*cs[i]
+                u[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1,
+                                                  nbase_d[0], nbase_d[1], u3[:, :, i])*cs[i]
 
             linalg.matrix_vector(df, u, u_cart)
 
@@ -233,16 +308,22 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
             u_cart[2] = u_cart[2]/det_df
 
         # equilibrium magnetic field (2-form)
-        b[0] = eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
-        b[1] = eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
-        b[2] = eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
+        b[0] = eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1,
+                                         nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
+        b[1] = eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0,
+                                         nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
+        b[2] = eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1,
+                                         nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
 
         # perturbed magnetic field (2-form)
         for i in range(nbase_n[2]):
 
-            b[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, i])*cs[i]
-            b[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, i])*cs[i]
-            b[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, i])*cs[i]
+            b[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1,
+                                              nbase_n[0], nbase_d[1], b_p_1[:, :, i])*cs[i]
+            b[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0,
+                                              nbase_d[0], nbase_n[1], b_p_2[:, :, i])*cs[i]
+            b[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1,
+                                              nbase_d[0], nbase_d[1], b_p_3[:, :, i])*cs[i]
 
         # push-forward to physical domain
         linalg.matrix_vector(df, b, b_cart)
@@ -252,8 +333,10 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
         b_cart[2] = b_cart[2]/det_df
 
         # gradient of absolute value of magnetic field (1-form)
-        b_grad[0] = eva2.evaluation_kernel_2d(pn1, pn2, der1, bn2, span1, span2, nbase_n[0], nbase_n[1], b_norm[:, :, 0])
-        b_grad[1] = eva2.evaluation_kernel_2d(pn1, pn2, bn1, der2, span1, span2, nbase_n[0], nbase_n[1], b_norm[:, :, 0])
+        b_grad[0] = eva2.evaluation_kernel_2d(pn1, pn2, der1, bn2, span1, span2,
+                                              nbase_n[0], nbase_n[1], b_norm[:, :, 0])
+        b_grad[1] = eva2.evaluation_kernel_2d(pn1, pn2, bn1, der2, span1, span2,
+                                              nbase_n[0], nbase_n[1], b_norm[:, :, 0])
         b_grad[2] = 0.
 
         # push-forward to physical domain
@@ -439,8 +522,41 @@ def pusher_step5(
         span3f = int(eta3*nelf[2]) + pf3
 
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f,
-                            l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mapping_fast.df_all(
+            kind_map,
+            params_map,
+            tf1,
+            tf2,
+            tf3,
+            pf,
+            nbasef,
+            span1f,
+            span2f,
+            span3f,
+            cx,
+            cy,
+            cz,
+            l1f,
+            l2f,
+            l3f,
+            r1f,
+            r2f,
+            r3f,
+            b1f,
+            b2f,
+            b3f,
+            d1f,
+            d2f,
+            d3f,
+            der1f,
+            der2f,
+            der3f,
+            eta1,
+            eta2,
+            eta3,
+            df,
+            fx,
+            0)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -466,16 +582,22 @@ def pusher_step5(
         cs[1] = sin(2*pi*n_tor*eta3)
 
         # equilibrium magnetic field (2-form)
-        b[0] = eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
-        b[1] = eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
-        b[2] = eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
+        b[0] = eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1,
+                                         nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
+        b[1] = eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0,
+                                         nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
+        b[2] = eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1,
+                                         nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
 
         # perturbed magnetic field (2-form)
         for i in range(nbase_n[2]):
 
-            b[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, i])*cs[i]
-            b[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, i])*cs[i]
-            b[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, i])*cs[i]
+            b[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1,
+                                              nbase_n[0], nbase_d[1], b_p_1[:, :, i])*cs[i]
+            b[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0,
+                                              nbase_d[0], nbase_n[1], b_p_2[:, :, i])*cs[i]
+            b[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1,
+                                              nbase_d[0], nbase_d[1], b_p_3[:, :, i])*cs[i]
 
         # push-forward to physical domain
         linalg.matrix_vector(df, b, b_cart)

@@ -142,7 +142,8 @@ class Particles6D(Particles):
         -------
         """
 
-        return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers,
+                                     kind='3_to_0', remove_outside=remove_holes)
 
 
 class Particles5D(Particles):
@@ -336,7 +337,8 @@ class Particles5D(Particles):
         -------
         """
 
-        return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers,
+                                     kind='3_to_0', remove_outside=remove_holes)
 
     def save_constants_of_motion(self, epsilon, abs_B0=None, f_coords='constants_of_motion', initial=False):
         """
@@ -548,4 +550,5 @@ class Particles3D(Particles):
             The 0-form sampling density.
         -------
         """
-        return self.domain.transform(self.svol(eta1, eta2, eta3), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(self.svol(eta1, eta2, eta3), self.markers,
+                                     kind='3_to_0', remove_outside=remove_holes)

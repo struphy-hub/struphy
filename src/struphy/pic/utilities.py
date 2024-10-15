@@ -20,13 +20,20 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     """
 
     res = np.empty(1, dtype=float)
-    utils.canonical_kinetic_particles(res, particles.markers,
-                                      np.array(derham.p),
-                                      derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                                      np.array(
-                                          derham.V0.vector_space.starts),
-                                      *domain.args_map,
-                                      fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data)
+    utils.canonical_kinetic_particles(
+        res,
+        particles.markers,
+        np.array(
+            derham.p),
+        derham.Vh_fem['0'].knots[0],
+        derham.Vh_fem['0'].knots[1],
+        derham.Vh_fem['0'].knots[2],
+        np.array(
+            derham.V0.vector_space.starts),
+        *domain.args_map,
+        fe_coeffs.blocks[0]._data,
+        fe_coeffs.blocks[1]._data,
+        fe_coeffs.blocks[2]._data)
 
     return res
 

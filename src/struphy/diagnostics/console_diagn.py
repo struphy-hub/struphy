@@ -47,8 +47,12 @@ def main():
                         help='(for plot_scalars --fit) how many extrema should be used for the fit')
     parser.add_argument('-startextr', nargs=1, type=int, default=[0],
                         help='(for plot_scalars --fit) which extremum should be used first for the fit (0 = first)')
-    parser.add_argument('-order', nargs=1, type=int, default=[4],
-                        help='(for plot_scalars --fit) how many neighbouring points should be used for determining the extrema')
+    parser.add_argument(
+        '-order',
+        nargs=1,
+        type=int,
+        default=[4],
+        help='(for plot_scalars --fit) how many neighbouring points should be used for determining the extrema')
     parser.add_argument('-t', nargs=1, type=float, default=[0.],
                         help='(for plot_distr) at which time to plot the distribution function')
     parser.add_argument('-e1', nargs=1, type=float, default=[0.5],
