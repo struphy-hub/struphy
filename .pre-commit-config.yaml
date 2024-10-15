@@ -30,3 +30,10 @@ repos:
       - id: isort
         args: ["--profile", "black"]
         exclude: '.*[kK]ernel[s]?.*\.py$'
+  - repo: https://github.com/pre-commit/mirrors-pylint
+    rev: v3.0.0a5  # or the latest stable version
+    hooks:
+      - id: pylint
+        name: pylint-docstring-check
+        args: ["--disable=all", "--enable=C0111"]
+        exclude: '.*[kK]ernel[s]?.*\.py$'
