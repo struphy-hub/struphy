@@ -3,8 +3,8 @@ repos:
     rev: v2.0.4  # Use the latest stable version of autopep8
     hooks:
       - id: autopep8
-        args: ["--in-place", "--max-line-length", "180", "-aa", "--ignore=E221,E226,E203,E731,E711"]
-        exclude: '.*kernel*.py$'
+        args: ["--in-place", "--max-line-length", "120", "-aa", "--ignore=E221,E226,E203,E731,E711"]
+        exclude: '.*[kK]ernel[s]?.*\.py$'
         # E201/E202 – Whitespace after/before (, [ or {
         # E226 – Missing whitespace around arithmetic operators
         # E266 – Too many leading # for block comment
@@ -16,4 +16,4 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black"]
-        exclude: '.*kernel*.py$'
+        exclude: '.*[kK]ernel[s]?.*\.py$'
