@@ -35,5 +35,5 @@ repos:
     hooks:
       - id: pylint
         name: pylint-docstring-check
-        args: ["--disable=all", "--enable=C0111"]
+        args: ["--disable=all", "--enable=C0199"]
         exclude: '.*[kK]ernel[s]?.*\.py$'
