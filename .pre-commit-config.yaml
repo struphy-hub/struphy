@@ -1,16 +1,22 @@
 repos:
-  - repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v2.0.4  # Use the latest stable version of autopep8
+  # - repo: https://github.com/pre-commit/mirrors-autopep8
+  #   rev: v2.0.4  # Use the latest stable version of autopep8
+  #   hooks:
+  #     - id: autopep8
+  #       args: ["--in-place", "--max-line-length", "120", "-aa", "--ignore=E221,E226,E203,E731,E711"]
+  #       exclude: '.*[kK]ernel[s]?.*\.py$'
+  #       # E201/E202 – Whitespace after/before (, [ or {
+  #       # E226 – Missing whitespace around arithmetic operators
+  #       # E266 – Too many leading # for block comment
+  #       # E731 – Do not assign a lambda expression
+  #       # E203 – Whitespace before : (used in slicing)
+  #       # E711 - Ignore enforcing 'is not None' over '!= None'
+  - repo: https://github.com/psf/black
+    rev: stable  # Use the latest stable version of black
     hooks:
-      - id: autopep8
-        args: ["--in-place", "--max-line-length", "120", "-aa", "--ignore=E221,E226,E203,E731,E711"]
+      - id: black
+        args: ["--line-length", "120"]
         exclude: '.*[kK]ernel[s]?.*\.py$'
-        # E201/E202 – Whitespace after/before (, [ or {
-        # E226 – Missing whitespace around arithmetic operators
-        # E266 – Too many leading # for block comment
-        # E731 – Do not assign a lambda expression
-        # E203 – Whitespace before : (used in slicing)
-        # E711 - Ignore enforcing 'is not None' over '!= None'
   - repo: https://github.com/pre-commit/mirrors-isort
     rev: v5.10.1  # Use the latest stable version of isort
     hooks:
