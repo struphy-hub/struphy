@@ -1,4 +1,4 @@
-'Base classes for kinetic backgrounds.'
+"Base classes for kinetic backgrounds."
 
 
 from abc import ABCMeta, abstractmethod
@@ -24,40 +24,35 @@ class KineticBackground(metaclass=ABCMeta):
     @property
     @abstractmethod
     def coords(self):
-        """ Coordinates of the distribution.
-        """
+        """Coordinates of the distribution."""
         pass
 
     @property
     @abstractmethod
     def vdim(self):
-        """ Dimension of the velocity space (vdim = n).
-        """
+        """Dimension of the velocity space (vdim = n)."""
         pass
 
     @property
     @abstractmethod
     def is_polar(self):
-        """ List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp).
-        """
+        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
         pass
 
     @property
     @abstractmethod
     def volume_form(self):
-        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
-        """
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         pass
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
-        """
+        """Jacobian determinant of the velocity coordinate transformation."""
         pass
 
     @abstractmethod
     def n(self, *etas):
-        """ Number density (0-form).
+        """Number density (0-form).
 
         Parameters
         ----------
@@ -72,7 +67,7 @@ class KineticBackground(metaclass=ABCMeta):
 
     @abstractmethod
     def u(self, *etas):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        """Mean velocities (Cartesian components evaluated at x = F(eta)).
 
         Parameters
         ----------
@@ -87,7 +82,7 @@ class KineticBackground(metaclass=ABCMeta):
 
     @abstractmethod
     def __call__(self, *args):
-        """ Evaluates the background distribution function f0(etas, v1, ..., vn).
+        """Evaluates the background distribution function f0(etas, v1, ..., vn).
 
         There are two use-cases for this function in the code:
 
@@ -121,19 +116,17 @@ class KineticBackground(metaclass=ABCMeta):
         return ScalarMultiplyKineticBackground(self, a)
 
     def __div__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) \
-            or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
         assert a != 0, "Cannot divide by zero!"
-        return ScalarMultiplyKineticBackground(self, 1/a)
+        return ScalarMultiplyKineticBackground(self, 1 / a)
 
     def __rdiv__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) \
-            or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
         assert a != 0, "Cannot divide by zero!"
-        return ScalarMultiplyKineticBackground(self, 1/a)
+        return ScalarMultiplyKineticBackground(self, 1 / a)
 
     def __sub__(self, other_f0):
-        return SumKineticBackground(self, ScalarMultiplyKineticBackground(other_f0, -1.))
+        return SumKineticBackground(self, ScalarMultiplyKineticBackground(other_f0, -1.0))
 
 
 class SumKineticBackground(KineticBackground):
@@ -151,35 +144,30 @@ class SumKineticBackground(KineticBackground):
 
     @property
     def coords(self):
-        """ Coordinates of the distribution.
-        """
+        """Coordinates of the distribution."""
         return self._f1.coords
 
     @property
     def vdim(self):
-        """ Dimension of the velocity space (vdim = n).
-        """
+        """Dimension of the velocity space (vdim = n)."""
         return self._f1.vdim
 
     @property
     def is_polar(self):
-        """ List of booleans. True if the velocity coordinates are polar coordinates.
-        """
+        """List of booleans. True if the velocity coordinates are polar coordinates."""
         return self._f1.is_polar
 
     @property
     def volume_form(self):
-        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
-        """
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         return self._f1.volume_form
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
-        """
+        """Jacobian determinant of the velocity coordinate transformation."""
         return self._f1.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def n(self, *etas):
-        """ Number density (0-form).
+        """Number density (0-form).
 
         Parameters
         ----------
@@ -193,7 +181,7 @@ class SumKineticBackground(KineticBackground):
         return self._f1.n(*etas) + self._f2.n(*etas)
 
     def u(self, *etas):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        """Mean velocities (Cartesian components evaluated at x = F(eta)).
 
         Parameters
         ----------
@@ -208,10 +196,10 @@ class SumKineticBackground(KineticBackground):
         n1 = self._f1.n(*etas)
         n2 = self._f2.n(*etas)
 
-        return [(n1*u1 + n2*u2)/(n1 + n2) for u1, u2 in zip(self._f1.u(*etas), self._f2.u(*etas))]
+        return [(n1 * u1 + n2 * u2) / (n1 + n2) for u1, u2 in zip(self._f1.u(*etas), self._f2.u(*etas))]
 
     def __call__(self, *args):
-        """ Evaluates the background distribution function f0(etas, v1, ..., vn).
+        """Evaluates the background distribution function f0(etas, v1, ..., vn).
 
         There are two use-cases for this function in the code:
 
@@ -241,43 +229,37 @@ class ScalarMultiplyKineticBackground(KineticBackground):
     def __init__(self, f0, a):
 
         assert isinstance(f0, KineticBackground)
-        assert isinstance(a, float) or isinstance(a, int) \
-            or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
 
         self._f = f0
         self._a = a
 
     @property
     def coords(self):
-        """ Coordinates of the distribution.
-        """
+        """Coordinates of the distribution."""
         return self._f.coords
 
     @property
     def vdim(self):
-        """ Dimension of the velocity space (vdim = n).
-        """
+        """Dimension of the velocity space (vdim = n)."""
         return self._f.vdim
 
     @property
     def is_polar(self):
-        """ List of booleans. True if the velocity coordinates are polar coordinates.
-        """
+        """List of booleans. True if the velocity coordinates are polar coordinates."""
         return self._f.is_polar
 
     @property
     def volume_form(self):
-        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
-        """
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         return self._f.volume_form
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
-        """
+        """Jacobian determinant of the velocity coordinate transformation."""
         return self._f.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def n(self, *etas):
-        """ Number density (0-form).
+        """Number density (0-form).
 
         Parameters
         ----------
@@ -291,7 +273,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         return self._a * self._f.n(*etas)
 
     def u(self, *etas):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        """Mean velocities (Cartesian components evaluated at x = F(eta)).
 
         Parameters
         ----------
@@ -305,7 +287,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         return self._f.u(*etas)
 
     def __call__(self, *args):
-        """ Evaluates the background distribution function f0(etas, v1, ..., vn).
+        """Evaluates the background distribution function f0(etas, v1, ..., vn).
 
         There are two use-cases for this function in the code:
 
@@ -331,7 +313,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
 
 
 class Maxwellian(KineticBackground):
-    r""" Base class for a Maxwellian distribution function.
+    r"""Base class for a Maxwellian distribution function.
     It is defined on :math:`[0, 1]^3 \times \mathbb R^n, n \geq 1,`
     with logical position coordinates :math:`\boldsymbol{\eta} \in [0, 1]^3`:
 
@@ -347,7 +329,7 @@ class Maxwellian(KineticBackground):
 
     @abstractmethod
     def vth(self, *etas):
-        """ Thermal velocities (0-forms).
+        """Thermal velocities (0-forms).
 
         Parameters
         ----------
@@ -361,7 +343,7 @@ class Maxwellian(KineticBackground):
         pass
 
     @classmethod
-    def gaussian(self, v, u=0., vth=1., polar=False, volume_form=False):
+    def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
         """1-dim. normal distribution, to which array-valued mean- and thermal velocities can be passed.
 
         Parameters
@@ -387,20 +369,20 @@ class Maxwellian(KineticBackground):
         """
 
         if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
-            assert v.shape == u.shape, f'{v.shape = } but {u.shape = }'
+            assert v.shape == u.shape, f"{v.shape = } but {u.shape = }"
 
         if not polar:
-            out = 1./vth * 1./np.sqrt(2.*np.pi) * np.exp(-(v - u)**2/(2.*vth**2))
+            out = 1.0 / vth * 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-((v - u) ** 2) / (2.0 * vth**2))
         else:
-            assert np.all(v >= 0.)
-            out = 1./vth**2 * np.exp(-(v - u)**2/(2.*vth**2))
+            assert np.all(v >= 0.0)
+            out = 1.0 / vth**2 * np.exp(-((v - u) ** 2) / (2.0 * vth**2))
             if volume_form:
                 out *= v
 
         return out
 
     def __call__(self, *args):
-        """ Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
+        """Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
 
         There are two use-cases for this function in the code:
 
@@ -426,15 +408,15 @@ class Maxwellian(KineticBackground):
         # Check that all args have the same shape
         shape0 = np.shape(args[0])
         for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, \
-                f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
-            assert np.ndim(arg) == 1 or np.ndim(
-                arg) == 3 + self.vdim, f'{np.ndim(arg) = } not allowed for Maxwellian evaluation.'  # flat or meshgrid evaluation
+            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
+            assert (
+                np.ndim(arg) == 1 or np.ndim(arg) == 3 + self.vdim
+            ), f"{np.ndim(arg) = } not allowed for Maxwellian evaluation."  # flat or meshgrid evaluation
 
         # Get result evaluated at eta's
-        res = self.n(*args[:-self.vdim])
-        us = self.u(*args[:-self.vdim])
-        vths = self.vth(*args[:-self.vdim])
+        res = self.n(*args[: -self.vdim])
+        us = self.u(*args[: -self.vdim])
+        vths = self.vth(*args[: -self.vdim])
 
         # take care of correct broadcasting, assuming args come from phase space meshgrid
         if np.ndim(args[0]) > 3:
@@ -444,7 +426,7 @@ class Maxwellian(KineticBackground):
             arg_t = np.moveaxis(arg_t, 0, -1)
 
             # broadcast
-            res_broad = res + 0.*arg_t
+            res_broad = res + 0.0 * arg_t
 
             # move eta axes to the front
             res = np.moveaxis(res_broad, -1, 0)
@@ -452,15 +434,15 @@ class Maxwellian(KineticBackground):
             res = np.moveaxis(res, -1, 0)
 
         # Multiply result with gaussian in v's
-        for i, v in enumerate(args[-self.vdim:]):
+        for i, v in enumerate(args[-self.vdim :]):
             # correct broadcasting
             if np.ndim(args[0]) > 3:
-                u_broad = us[i] + 0.*arg_t
+                u_broad = us[i] + 0.0 * arg_t
                 u = np.moveaxis(u_broad, -1, 0)
                 u = np.moveaxis(u, -1, 0)
                 u = np.moveaxis(u, -1, 0)
 
-                vth_broad = vths[i] + 0.*arg_t
+                vth_broad = vths[i] + 0.0 * arg_t
                 vth = np.moveaxis(vth_broad, -1, 0)
                 vth = np.moveaxis(vth, -1, 0)
                 vth = np.moveaxis(vth, -1, 0)
@@ -468,17 +450,13 @@ class Maxwellian(KineticBackground):
                 u = us[i]
                 vth = vths[i]
 
-            res *= self.gaussian(v,
-                                 u=u,
-                                 vth=vth,
-                                 polar=self.is_polar[i],
-                                 volume_form=self.volume_form)
+            res *= self.gaussian(v, u=u, vth=vth, polar=self.is_polar[i], volume_form=self.volume_form)
 
         return res
 
 
 class CanonicalMaxwellian(metaclass=ABCMeta):
-    r""" Base class for a canonical Maxwellian distribution function.
+    r"""Base class for a canonical Maxwellian distribution function.
     It is defined by three constants of motion in the axissymmetric toroidal system:
 
     - Shifted canonical toroidal momentum
@@ -512,19 +490,17 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
     @property
     @abstractmethod
     def coords(self):
-        """ Coordinates of the distribution.
-        """
+        """Coordinates of the distribution."""
         pass
 
     @abstractmethod
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
-        """
+        """Jacobian determinant of the velocity coordinate transformation."""
         pass
 
     @abstractmethod
     def n(self, psic):
-        """ Number density (0-form).
+        """Number density (0-form).
 
         Parameters
         ----------
@@ -539,7 +515,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
 
     @abstractmethod
     def vth(self, psic):
-        """ Thermal velocities (0-forms).
+        """Thermal velocities (0-forms).
 
         Parameters
         ----------
@@ -553,7 +529,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
         """
         pass
 
-    def gaussian(self, e, vth=1.):
+    def gaussian(self, e, vth=1.0):
         """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
 
         Parameters
@@ -570,12 +546,12 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
         """
 
         if isinstance(vth, np.ndarray):
-            assert e.shape == vth.shape, f'{e.shape = } but {vth.shape = }'
+            assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
 
-        return 2. * np.sqrt(e/np.pi) / vth**3 * np.exp(-e/vth**2)
+        return 2.0 * np.sqrt(e / np.pi) / vth**3 * np.exp(-e / vth**2)
 
     def __call__(self, *args):
-        """ Evaluates the canonical Maxwellian distribution function.
+        """Evaluates the canonical Maxwellian distribution function.
 
         There are two use-cases for this function in the code:
 
@@ -601,10 +577,10 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
         # Check that all args have the same shape
         shape0 = np.shape(args[0])
         for i, arg in enumerate(args):
-            assert np.shape(
-                arg) == shape0, f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
-            assert np.ndim(arg) == 1 or np.ndim(
-                arg) == 3, f'{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation.'  # flat or meshgrid evaluation
+            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
+            assert (
+                np.ndim(arg) == 1 or np.ndim(arg) == 3
+            ), f"{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation."  # flat or meshgrid evaluation
 
         # Get result evaluated with each particles' psic
         res = self.n(args[2])
@@ -618,7 +594,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
             arg_t = np.moveaxis(arg_t, 0, -1)
 
             # broadcast
-            res_broad = res + 0.*arg_t
+            res_broad = res + 0.0 * arg_t
 
             # move eta axes to the front
             res = np.moveaxis(res_broad, -1, 0)
@@ -627,7 +603,7 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
 
         # Multiply result with gaussian in energy
         if np.ndim(args[0]) == 3:
-            vth_broad = vths + 0.*arg_t
+            vth_broad = vths + 0.0 * arg_t
             vth = np.moveaxis(vth_broad, -1, 0)
             vth = np.moveaxis(vth, -1, 0)
             vth = np.moveaxis(vth, -1, 0)

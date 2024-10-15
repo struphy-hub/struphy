@@ -34,8 +34,8 @@ def grad_1d_matrix(spl_kind, NbaseN):
     grad = np.zeros((NbaseD, NbaseN), dtype=float)
 
     for i in range(NbaseD):
-        grad[i, i] = -1.
-        grad[i, (i + 1) % NbaseN] = 1.
+        grad[i, i] = -1.0
+        grad[i, (i + 1) % NbaseN] = 1.0
 
     return grad
 
@@ -76,12 +76,12 @@ def discrete_derivatives_3d(space):
         grad_1d_3 = space.spaces[2].G.copy()
     else:
         if space.n_tor == 0:
-            grad_1d_3 = 0*spa.identity(1, format='csr')
+            grad_1d_3 = 0 * spa.identity(1, format="csr")
         else:
-            if space.basis_tor == 'r':
-                grad_1d_3 = 2*np.pi*space.n_tor*spa.csr_matrix(np.array([[0., 1.], [-1., 0.]]))
+            if space.basis_tor == "r":
+                grad_1d_3 = 2 * np.pi * space.n_tor * spa.csr_matrix(np.array([[0.0, 1.0], [-1.0, 0.0]]))
             else:
-                grad_1d_3 = 1j*2*np.pi*space.n_tor*spa.identity(1, format='csr')
+                grad_1d_3 = 1j * 2 * np.pi * space.n_tor * spa.identity(1, format="csr")
 
     # standard tensor-product derivatives
     if space.ck == -1:
@@ -99,12 +99,12 @@ def discrete_derivatives_3d(space):
         d3 = grad_1d_3.shape[0]
 
         # discrete grad (full space)
-        G1  = spa.kron(spa.kron(grad_1d_1, spa.identity(n2)), spa.identity(n3))
-        G2  = spa.kron(spa.kron(spa.identity(n1), grad_1d_2), spa.identity(n3))
-        G3  = spa.kron(spa.kron(spa.identity(n1), spa.identity(n2)), grad_1d_3)
+        G1 = spa.kron(spa.kron(grad_1d_1, spa.identity(n2)), spa.identity(n3))
+        G2 = spa.kron(spa.kron(spa.identity(n1), grad_1d_2), spa.identity(n3))
+        G3 = spa.kron(spa.kron(spa.identity(n1), spa.identity(n2)), grad_1d_3)
 
-        G   = [[G1], [G2], [G3]]
-        G   = spa.bmat(G, format='csr')
+        G = [[G1], [G2], [G3]]
+        G = spa.bmat(G, format="csr")
 
         # discrete curl (full space)
         C12 = spa.kron(spa.kron(spa.identity(n1), spa.identity(d2)), grad_1d_3)
@@ -116,27 +116,27 @@ def discrete_derivatives_3d(space):
         C31 = spa.kron(spa.kron(spa.identity(d1), grad_1d_2), spa.identity(n3))
         C32 = spa.kron(spa.kron(grad_1d_1, spa.identity(d2)), spa.identity(n3))
 
-        C   = [[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]]
-        C   = spa.bmat(C, format='csr')
+        C = [[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]]
+        C = spa.bmat(C, format="csr")
 
         # discrete div (full space)
-        D1  = spa.kron(spa.kron(grad_1d_1, spa.identity(d2)), spa.identity(d3))
-        D2  = spa.kron(spa.kron(spa.identity(d1), grad_1d_2), spa.identity(d3))
-        D3  = spa.kron(spa.kron(spa.identity(d1), spa.identity(d2)), grad_1d_3)
+        D1 = spa.kron(spa.kron(grad_1d_1, spa.identity(d2)), spa.identity(d3))
+        D2 = spa.kron(spa.kron(spa.identity(d1), grad_1d_2), spa.identity(d3))
+        D3 = spa.kron(spa.kron(spa.identity(d1), spa.identity(d2)), grad_1d_3)
 
-        D   = [[D1, D2, D3]]
-        D   = spa.bmat(D, format='csr')
+        D = [[D1, D2, D3]]
+        D = spa.bmat(D, format="csr")
 
     # C^k polar derivatives
     else:
 
         # discrete grad (full space)
-        G1  = spa.kron(space.polar_splines.G1.copy(), spa.identity(grad_1d_3.shape[1]))
-        G2  = spa.kron(space.polar_splines.G2.copy(), spa.identity(grad_1d_3.shape[1]))
-        G3  = spa.kron(spa.identity(space.polar_splines.Nbase0), grad_1d_3)
+        G1 = spa.kron(space.polar_splines.G1.copy(), spa.identity(grad_1d_3.shape[1]))
+        G2 = spa.kron(space.polar_splines.G2.copy(), spa.identity(grad_1d_3.shape[1]))
+        G3 = spa.kron(spa.identity(space.polar_splines.Nbase0), grad_1d_3)
 
-        G   = [[G1], [G2], [G3]]
-        G   = spa.bmat(G, format='csr')
+        G = [[G1], [G2], [G3]]
+        G = spa.bmat(G, format="csr")
 
         # discrete curl (full space)
         C12 = spa.kron(space.polar_splines.VC.copy(), spa.identity(grad_1d_3.shape[0]))
@@ -147,16 +147,16 @@ def discrete_derivatives_3d(space):
 
         C11 = spa.bmat([[None, C11_12], [C11_21, None]])
 
-        C   = [[C11, C12], [C21, None]]
-        C   = spa.bmat(C, format='csr')
+        C = [[C11, C12], [C21, None]]
+        C = spa.bmat(C, format="csr")
 
         # discrete div (full space)
-        D1  = spa.kron(space.polar_splines.D1.copy(), spa.identity(grad_1d_3.shape[0]))
-        D2  = spa.kron(space.polar_splines.D2.copy(), spa.identity(grad_1d_3.shape[0]))
-        D3  = spa.kron(spa.identity(space.polar_splines.Nbase2), grad_1d_3)
+        D1 = spa.kron(space.polar_splines.D1.copy(), spa.identity(grad_1d_3.shape[0]))
+        D2 = spa.kron(space.polar_splines.D2.copy(), spa.identity(grad_1d_3.shape[0]))
+        D3 = spa.kron(spa.identity(space.polar_splines.Nbase2), grad_1d_3)
 
-        D   = [[D1, D2, D3]]
-        D   = spa.bmat(D, format='csr')
+        D = [[D1, D2, D3]]
+        D = spa.bmat(D, format="csr")
 
     # apply boundary operators
     G0 = space.B1.dot(G.dot(space.B0.T))

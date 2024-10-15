@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-'Analytical perturbations (modes).'
+"Analytical perturbations (modes)."
 
 
 import numpy as np
 
 
 class ModesSin:
-    r'''Sinusoidal function in 3D.
+    r"""Sinusoidal function in 3D.
 
     .. math::
 
@@ -50,21 +50,22 @@ class ModesSin:
                 Lx : 7.853981633974483
                 Ly : 1.
                 Lz : 1.
-    '''
+    """
 
     def __init__(
-            self,
-            ls=None,
-            ms=None,
-            ns=None,
-            amps=[1e-4],
-            theta=None,
-            pfuns=['Id'],
-            pfuns_params=[0.],
-            Lx=1.,
-            Ly=1.,
-            Lz=1.):
-        '''
+        self,
+        ls=None,
+        ms=None,
+        ns=None,
+        amps=[1e-4],
+        theta=None,
+        pfuns=["Id"],
+        pfuns_params=[0.0],
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0,
+    ):
+        """
         Parameters
         ----------
         ls : list
@@ -92,17 +93,17 @@ class ModesSin:
 
         Lx, Ly, Lz : float
             Domain lengths.
-        '''
+        """
 
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
             n_modes = len(ms)
-            ls = [0]*n_modes
+            ls = [0] * n_modes
         elif ns is not None:
             n_modes = len(ns)
-            ls = [0]*n_modes
-            ms = [0]*n_modes
+            ls = [0] * n_modes
+            ms = [0] * n_modes
         else:
             n_modes = 1
             ls = [0]
@@ -110,35 +111,35 @@ class ModesSin:
             ns = [0]
 
         if ms is None:
-            ms = [0]*n_modes
+            ms = [0] * n_modes
         else:
             assert len(ms) == n_modes
 
         if ns is None:
-            ns = [0]*n_modes
+            ns = [0] * n_modes
         else:
             assert len(ns) == n_modes
 
         if len(amps) == 1:
-            amps = [amps[0]]*n_modes
+            amps = [amps[0]] * n_modes
         else:
             assert len(amps) == n_modes
 
         if theta is None:
-            theta = [0]*n_modes
+            theta = [0] * n_modes
 
         if len(theta) == 1:
-            theta = [theta[0]]*n_modes
+            theta = [theta[0]] * n_modes
         else:
             assert len(theta) == n_modes
 
         if len(pfuns) == 1:
-            pfuns = [pfuns[0]]*n_modes
+            pfuns = [pfuns[0]] * n_modes
         else:
             assert len(pfuns) == n_modes
 
         if len(pfuns_params) == 1:
-            pfuns_params = [pfuns_params[0]]*n_modes
+            pfuns_params = [pfuns_params[0]] * n_modes
         else:
             assert len(pfuns_params) == n_modes
 
@@ -153,27 +154,31 @@ class ModesSin:
 
         self._pfuns = []
         for pfun, params in zip(pfuns, pfuns_params):
-            if pfun == 'Id':
-                self._pfuns += [lambda eta3: 1.]
-            elif pfun == 'localize':
-                self._pfuns += [lambda eta3:
-                                np.tanh((eta3 - 0.5)/params)/np.cosh((eta3 - 0.5)/params)]
+            if pfun == "Id":
+                self._pfuns += [lambda eta3: 1.0]
+            elif pfun == "localize":
+                self._pfuns += [lambda eta3: np.tanh((eta3 - 0.5) / params) / np.cosh((eta3 - 0.5) / params)]
             else:
-                raise ValueError(f'Profile function {pfun} is not defined..')
+                raise ValueError(f"Profile function {pfun} is not defined..")
 
     def __call__(self, x, y, z):
 
-        val = 0.
+        val = 0.0
 
         for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
-            val += amp*pfun(z)*np.sin(l*2.*np.pi/self._Lx*x + m*2. *
-                                      np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z + t)
+            val += (
+                amp
+                * pfun(z)
+                * np.sin(
+                    l * 2.0 * np.pi / self._Lx * x + m * 2.0 * np.pi / self._Ly * y + n * 2.0 * np.pi / self._Lz * z + t
+                )
+            )
 
         return val
 
 
 class ModesCos:
-    r'''Cosinusoidal function in 3D.
+    r"""Cosinusoidal function in 3D.
 
     .. math::
 
@@ -198,10 +203,10 @@ class ModesCos:
                 Lx : 7.853981633974483
                 Ly : 1.
                 Lz : 1.
-    '''
+    """
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1., Ly=1., Lz=1.):
-        '''
+    def __init__(self, ls=None, ms=None, ns=None, amps=[1e-4], Lx=1.0, Ly=1.0, Lz=1.0):
+        """
         Parameters
         ----------
         ls : list
@@ -218,17 +223,17 @@ class ModesCos:
 
         Lx, Ly, Lz : float
             Domain lengths.
-        '''
+        """
 
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
             n_modes = len(ms)
-            ls = [0]*n_modes
+            ls = [0] * n_modes
         elif ns is not None:
             n_modes = len(ns)
-            ls = [0]*n_modes
-            ms = [0]*n_modes
+            ls = [0] * n_modes
+            ms = [0] * n_modes
         else:
             n_modes = 1
             ls = [0]
@@ -236,17 +241,17 @@ class ModesCos:
             ns = [0]
 
         if ms is None:
-            ms = [0]*n_modes
+            ms = [0] * n_modes
         else:
             assert len(ms) == n_modes
 
         if ns is None:
-            ns = [0]*n_modes
+            ns = [0] * n_modes
         else:
             assert len(ns) == n_modes
 
         if len(amps) == 1:
-            amps = [amps[0]]*n_modes
+            amps = [amps[0]] * n_modes
         else:
             assert len(amps) == n_modes
 
@@ -260,18 +265,18 @@ class ModesCos:
 
     def __call__(self, x, y, z):
 
-        val = 0.
+        val = 0.0
 
         for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp * np.cos(l * 2.*np.pi / self._Lx * x
-                                + m * 2.*np.pi / self._Ly * y
-                                + n * 2.*np.pi / self._Lz * z)
+            val += amp * np.cos(
+                l * 2.0 * np.pi / self._Lx * x + m * 2.0 * np.pi / self._Ly * y + n * 2.0 * np.pi / self._Lz * z
+            )
 
         return val
 
 
 class TorusModesSin:
-    r'''Sinusoidal function in the periodic coordinates of a Torus.
+    r"""Sinusoidal function in the periodic coordinates of a Torus.
 
     .. math::
 
@@ -324,10 +329,10 @@ class TorusModesSin:
                     n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
                     u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
                     p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
-    '''
+    """
 
-    def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
-        r'''
+    def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=["sin"], pfun_params=None):
+        r"""
         Parameters
         ----------
         ms : list[int]
@@ -344,35 +349,35 @@ class TorusModesSin:
 
         pfun_params : list
             Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
-        '''
+        """
 
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
             n_modes = len(ns)
-            ms = [0]*n_modes
+            ms = [0] * n_modes
         else:
             n_modes = 1
             ms = [1]
             ns = [0]
 
         if ns is None:
-            ns = [0]*n_modes
+            ns = [0] * n_modes
         else:
             assert len(ns) == n_modes
 
         if len(amps) == 1:
-            amps = [amps[0]]*n_modes
+            amps = [amps[0]] * n_modes
         else:
             assert len(amps) == n_modes
 
         if len(pfuns) == 1:
-            pfuns = [pfuns[0]]*n_modes
+            pfuns = [pfuns[0]] * n_modes
         else:
             assert len(pfuns) == n_modes
 
         if pfun_params is None:
-            pfun_params = [None]*n_modes
+            pfun_params = [None] * n_modes
 
         self._ms = ms
         self._ns = ns
@@ -380,33 +385,32 @@ class TorusModesSin:
 
         self._pfuns = []
         for pfun, params in zip(pfuns, pfun_params):
-            if pfun == 'sin':
-                if params is None :
+            if pfun == "sin":
+                if params is None:
                     ls = 1
-                else :
+                else:
                     ls = params
-                self._pfuns += [lambda eta1: np.sin(ls*np.pi*eta1)]
-            elif pfun == 'exp':
-                self._pfuns += [lambda eta1:
-                                np.exp(-(eta1 - params[0])**2/params[1])]
-            elif pfun == 'd_exp':
-                self._pfuns += [lambda eta1:
-                                -2*(eta1 - params[0])/params[1]*np.exp(-(eta1 - params[0])**2/params[1])]
+                self._pfuns += [lambda eta1: np.sin(ls * np.pi * eta1)]
+            elif pfun == "exp":
+                self._pfuns += [lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / params[1])]
+            elif pfun == "d_exp":
+                self._pfuns += [
+                    lambda eta1: -2 * (eta1 - params[0]) / params[1] * np.exp(-((eta1 - params[0]) ** 2) / params[1])
+                ]
             else:
-                raise ValueError(f'Profile function {pfun} is not defined..')
+                raise ValueError(f"Profile function {pfun} is not defined..")
 
     def __call__(self, eta1, eta2, eta3):
 
-        val = 0.
+        val = 0.0
         for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
-            val += amp * pfun(eta1) * np.sin(mi*2.*np.pi *
-                                             eta2 + ni*2.*np.pi*eta3)
+            val += amp * pfun(eta1) * np.sin(mi * 2.0 * np.pi * eta2 + ni * 2.0 * np.pi * eta3)
 
         return val
 
 
 class TorusModesCos:
-    r'''Cosinusoidal function in the periodic coordinates of a Torus.
+    r"""Cosinusoidal function in the periodic coordinates of a Torus.
 
     .. math::
 
@@ -459,10 +463,10 @@ class TorusModesCos:
                     n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
                     u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
                     p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
-    '''
+    """
 
-    def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=['sin'], pfun_params=None):
-        r'''
+    def __init__(self, ms=None, ns=None, amps=[1e-4], pfuns=["sin"], pfun_params=None):
+        r"""
         Parameters
         ----------
         ms : list[int]
@@ -479,35 +483,35 @@ class TorusModesCos:
 
         pfun_params : list
             Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
-        '''
+        """
 
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
             n_modes = len(ns)
-            ms = [0]*n_modes
+            ms = [0] * n_modes
         else:
             n_modes = 1
             ms = [1]
             ns = [0]
 
         if ns is None:
-            ns = [0]*n_modes
+            ns = [0] * n_modes
         else:
             assert len(ns) == n_modes
 
         if len(amps) == 1:
-            amps = [amps[0]]*n_modes
+            amps = [amps[0]] * n_modes
         else:
             assert len(amps) == n_modes
 
         if len(pfuns) == 1:
-            pfuns = [pfuns[0]]*n_modes
+            pfuns = [pfuns[0]] * n_modes
         else:
             assert len(pfuns) == n_modes
 
         if pfun_params is None:
-            pfun_params = [None]*n_modes
+            pfun_params = [None] * n_modes
 
         self._ms = ms
         self._ns = ns
@@ -515,36 +519,34 @@ class TorusModesCos:
 
         self._pfuns = []
         for pfun, params in zip(pfuns, pfun_params):
-            if pfun == 'sin':
-                if params is None :
+            if pfun == "sin":
+                if params is None:
                     ls = 1
-                else :
+                else:
                     ls = params
-                self._pfuns += [lambda eta1: np.sin(ls*np.pi*eta1)]
-            elif pfun == 'cos':
-                self._pfuns += [lambda eta1: np.cos(np.pi*eta1)]
-            elif pfun == 'exp':
-                self._pfuns += [lambda eta1:
-                                np.exp(-(eta1 - params[0])**2/params[1])]
-            elif pfun == 'd_exp':
-                self._pfuns += [lambda eta1:
-                                -2*(eta1 - params[0])/params[1]*np.exp(-(eta1 - params[0])**2/params[1])]
+                self._pfuns += [lambda eta1: np.sin(ls * np.pi * eta1)]
+            elif pfun == "cos":
+                self._pfuns += [lambda eta1: np.cos(np.pi * eta1)]
+            elif pfun == "exp":
+                self._pfuns += [lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / params[1])]
+            elif pfun == "d_exp":
+                self._pfuns += [
+                    lambda eta1: -2 * (eta1 - params[0]) / params[1] * np.exp(-((eta1 - params[0]) ** 2) / params[1])
+                ]
             else:
-                raise ValueError(
-                    'Profile function must be "sin" or "cos" or "exp".')
+                raise ValueError('Profile function must be "sin" or "cos" or "exp".')
 
     def __call__(self, eta1, eta2, eta3):
 
-        val = 0.
+        val = 0.0
         for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
-            val += amp * pfun(eta1) * np.cos(mi*2.*np.pi *
-                                             eta2 + ni*2.*np.pi*eta3)
+            val += amp * pfun(eta1) * np.cos(mi * 2.0 * np.pi * eta2 + ni * 2.0 * np.pi * eta3)
 
         return val
 
 
 class Shear_x:
-    r'''Double shear layer in eta1 (-1 in outer regions, 1 in inner regions).
+    r"""Double shear layer in eta1 (-1 in outer regions, 1 in inner regions).
 
     .. math::
 
@@ -565,10 +567,10 @@ class Shear_x:
                     s3 : H1                       # choices: null, 'physical', '0', '3'
                 amp : 0.001 # amplitudes of each mode
                 delta : 0.03333 # characteristic size of the shear layer
-    '''
+    """
 
-    def __init__(self, amp=1e-4, delta=1/15):
-        '''
+    def __init__(self, amp=1e-4, delta=1 / 15):
+        """
         Parameters
         ----------
         amps : float
@@ -576,21 +578,20 @@ class Shear_x:
 
         delta : float
             Characteristic size of the shear layer
-        '''
+        """
 
         self._amp = amp
         self._delta = delta
 
     def __call__(self, e1, e2, e3):
 
-        val = self._amp*(-np.tanh((e1 - 0.75)/self._delta) +
-                         np.tanh((e1 - 0.25)/self._delta) - 1)
+        val = self._amp * (-np.tanh((e1 - 0.75) / self._delta) + np.tanh((e1 - 0.25) / self._delta) - 1)
 
         return val
 
 
 class Shear_y:
-    r'''Double shear layer in eta2 (-1 in outer regions, 1 in inner regions).
+    r"""Double shear layer in eta2 (-1 in outer regions, 1 in inner regions).
 
     .. math::
 
@@ -611,10 +612,10 @@ class Shear_y:
                     s3 : H1                       # choices: null, 'physical', '0', '3'
                 amp : 0.001 # amplitudes of each mode
                 delta : 0.03333 # characteristic size of the shear layer
-    '''
+    """
 
-    def __init__(self, amp=1e-4, delta=1/15):
-        '''
+    def __init__(self, amp=1e-4, delta=1 / 15):
+        """
         Parameters
         ----------
         amps : float
@@ -622,21 +623,20 @@ class Shear_y:
 
         delta : float
             Characteristic size of the shear layer
-        '''
+        """
 
         self._amp = amp
         self._delta = delta
 
     def __call__(self, e1, e2, e3):
 
-        val = self._amp*(-np.tanh((e2 - 0.75)/self._delta) +
-                         np.tanh((e2 - 0.25)/self._delta) - 1)
+        val = self._amp * (-np.tanh((e2 - 0.75) / self._delta) + np.tanh((e2 - 0.25) / self._delta) - 1)
 
         return val
 
 
 class Shear_z:
-    r'''Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
+    r"""Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
 
     .. math::
 
@@ -657,10 +657,10 @@ class Shear_z:
                     s3 : H1                       # choices: null, 'physical', '0', '3'
                 amp : 0.001 # amplitudes of each mode
                 delta : 0.03333 # characteristic size of the shear layer
-    '''
+    """
 
-    def __init__(self, amp=1e-4, delta=1/15):
-        '''
+    def __init__(self, amp=1e-4, delta=1 / 15):
+        """
         Parameters
         ----------
         amps : float
@@ -668,21 +668,20 @@ class Shear_z:
 
         delta : float
             Characteristic size of the shear layer
-        '''
+        """
 
         self._amp = amp
         self._delta = delta
 
     def __call__(self, e1, e2, e3):
 
-        val = self._amp*(-np.tanh((e3 - 0.75)/self._delta) +
-                         np.tanh((e3 - 0.25)/self._delta) - 1)
+        val = self._amp * (-np.tanh((e3 - 0.75) / self._delta) + np.tanh((e3 - 0.25) / self._delta) - 1)
 
         return val
 
 
 class ITPA_density:
-    r'''ITPA radial density profile in `A. Könies et al. 2018  <https://iopscience.iop.org/article/10.1088/1741-4326/aae4e6>`_
+    r"""ITPA radial density profile in `A. Könies et al. 2018  <https://iopscience.iop.org/article/10.1088/1741-4326/aae4e6>`_
 
     .. math::
 
@@ -701,10 +700,10 @@ class ITPA_density:
                     n : 0.00720655
                 c :
                     n : [0.491230, 0.298228, 0.198739, 0.521298]
-    '''
+    """
 
     def __init__(self, n0=0.00720655, c=[0.491230, 0.298228, 0.198739, 0.521298]):
-        '''
+        """
         Parameters
         ----------
         n0 : float
@@ -712,7 +711,7 @@ class ITPA_density:
 
         c : list
             4 ITPA profile coefficients
-        '''
+        """
 
         assert len(c) == 4
 
@@ -721,20 +720,18 @@ class ITPA_density:
 
     def __call__(self, eta1, eta2=None, eta3=None):
 
-        val = 0.
+        val = 0.0
 
-        if self._c[2] == 0.:
-            val = self._c[3] - 0*eta1
+        if self._c[2] == 0.0:
+            val = self._c[3] - 0 * eta1
         else:
-            val = self._n0 * \
-                self._c[3]*np.exp(-self._c[2]/self._c[1] *
-                                  np.tanh((eta1 - self._c[0])/self._c[2]))
+            val = self._n0 * self._c[3] * np.exp(-self._c[2] / self._c[1] * np.tanh((eta1 - self._c[0]) / self._c[2]))
 
         return val
 
 
 class Erf_z:
-    r'''Shear layer in eta3 (-1 in lower regions, 1 in upper regions).
+    r"""Shear layer in eta3 (-1 in lower regions, 1 in upper regions).
 
     .. math::
 
@@ -755,10 +752,10 @@ class Erf_z:
                 b2 : [0.001] # amplitudes of each mode
             delta :
                 b2 : [0.02] # characteristic size of the shear layer
-    '''
+    """
 
-    def __init__(self, amp=1e-4, delta=1/15):
-        '''
+    def __init__(self, amp=1e-4, delta=1 / 15):
+        """
         Parameters
         ----------
         amp : float
@@ -766,7 +763,7 @@ class Erf_z:
 
         delta : float
             Characteristic size of the shear layer
-        '''
+        """
 
         self._amp = amp
         self._delta = delta
@@ -774,6 +771,7 @@ class Erf_z:
     def __call__(self, e1, e2, e3):
 
         from scipy.special import erf
-        val = self._amp*erf((e3 - 0.5)/self._delta)
+
+        val = self._amp * erf((e3 - 0.5) / self._delta)
 
         return val

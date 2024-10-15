@@ -35,25 +35,25 @@ class projectors_local_3d:
 
     def __init__(self, tensor_space, n_quad, p_shape, p_size, NbaseN, NbaseD, mpi_comm):
 
-        self.kind    = 'local'               # kind of projector
+        self.kind = "local"  # kind of projector
 
-        self.tensor_space = tensor_space     # 3D tensor-product B-splines space
+        self.tensor_space = tensor_space  # 3D tensor-product B-splines space
         self.mpi_rank = mpi_comm.Get_rank()
-        self.T       = tensor_space.T        # knot vector
-        self.p       = tensor_space.p        # spline degree
-        self.bc      = tensor_space.spl_kind  # boundary conditions
-        self.el_b    = tensor_space.el_b     # element boundaries
+        self.T = tensor_space.T  # knot vector
+        self.p = tensor_space.p  # spline degree
+        self.bc = tensor_space.spl_kind  # boundary conditions
+        self.el_b = tensor_space.el_b  # element boundaries
 
-        self.Nel     = tensor_space.Nel      # number of elements
-        self.NbaseN  = tensor_space.NbaseN   # number of basis functions (N)
-        self.NbaseD  = tensor_space.NbaseD   # number of basis functions (D)
+        self.Nel = tensor_space.Nel  # number of elements
+        self.NbaseN = tensor_space.NbaseN  # number of basis functions (N)
+        self.NbaseD = tensor_space.NbaseD  # number of basis functions (D)
 
-        self.n_quad  = n_quad                # number of quadrature point per integration interval
+        self.n_quad = n_quad  # number of quadrature point per integration interval
 
-        self.polar   = False                 # local projectors for polar splines are not implemented yet
+        self.polar = False  # local projectors for polar splines are not implemented yet
 
-        self.lambdas_0    = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
-        self.potential_lambdas_0    = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.lambdas_0 = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.potential_lambdas_0 = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
 
         self.lambdas_1_11 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
         self.lambdas_1_12 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
@@ -79,151 +79,194 @@ class projectors_local_3d:
         self.lambdas_2_32 = np.zeros((NbaseD[0], NbaseN[1], NbaseD[2]), dtype=float)
         self.lambdas_2_33 = np.zeros((NbaseD[0], NbaseD[1], NbaseN[2]), dtype=float)
 
-        self.lambdas_3    = np.zeros((NbaseD[0], NbaseD[1], NbaseD[2]), dtype=float)
+        self.lambdas_3 = np.zeros((NbaseD[0], NbaseD[1], NbaseD[2]), dtype=float)
 
-        self.p_size  = p_size
+        self.p_size = p_size
         self.p_shape = p_shape
 
         self.related = np.zeros(3, dtype=int)
         for a in range(3):
             # self.related[a] = int(np.floor(NbaseN[a]/2.0))
-            self.related[a]  = int(
-                np.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a])   / 2.0))
+            self.related[a] = int(
+                np.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a]) / 2.0)
+            )
             if (2 * self.related[a] + 1) > NbaseN[a]:
-                self.related[a] = int(np.floor(NbaseN[a]/2.0))
+                self.related[a] = int(np.floor(NbaseN[a] / 2.0))
 
-        self.kernel_0_loc    = np.zeros(
-            (NbaseN[0],
-             NbaseN[1],
+        self.kernel_0_loc = np.zeros(
+            (
+                NbaseN[0],
+                NbaseN[1],
                 NbaseN[2],
                 2 * self.related[0] + 1,
                 2 * self.related[1] + 1,
-                2 * self.related[2] + 1),
-            dtype=float)
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
 
         self.kernel_1_11_loc = np.zeros(
-            (NbaseD[0],
-             NbaseN[1],
+            (
+                NbaseD[0],
+                NbaseN[1],
                 NbaseN[2],
                 2 * self.related[0] + 1,
                 2 * self.related[1] + 1,
-                2 * self.related[2] + 1),
-            dtype=float)
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
         self.kernel_1_12_loc = np.zeros(
-            (NbaseD[0],
-             NbaseN[1],
+            (
+                NbaseD[0],
+                NbaseN[1],
                 NbaseN[2],
                 2 * self.related[0] + 1,
                 2 * self.related[1] + 1,
-                2 * self.related[2] + 1),
-            dtype=float)
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
         self.kernel_1_13_loc = np.zeros(
-            (NbaseD[0],
-             NbaseN[1],
+            (
+                NbaseD[0],
+                NbaseN[1],
                 NbaseN[2],
                 2 * self.related[0] + 1,
                 2 * self.related[1] + 1,
-                2 * self.related[2] + 1),
-            dtype=float)
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
 
         self.kernel_1_22_loc = np.zeros(
-            (NbaseN[0],
-             NbaseD[1],
+            (
+                NbaseN[0],
+                NbaseD[1],
                 NbaseN[2],
                 2 * self.related[0] + 1,
                 2 * self.related[1] + 1,
-                2 * self.related[2] + 1),
-            dtype=float)
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
         self.kernel_1_23_loc = np.zeros(
-            (NbaseN[0],
-             NbaseD[1],
+            (
+                NbaseN[0],
+                NbaseD[1],
                 NbaseN[2],
                 2 * self.related[0] + 1,
                 2 * self.related[1] + 1,
-                2 * self.related[2] + 1),
-            dtype=float)
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
 
         self.kernel_1_33_loc = np.zeros(
-            (NbaseN[0],
-             NbaseN[1],
+            (
+                NbaseN[0],
+                NbaseN[1],
                 NbaseD[2],
                 2 * self.related[0] + 1,
                 2 * self.related[1] + 1,
-                2 * self.related[2] + 1),
-            dtype=float)
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
 
-        self.right_loc_1     = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
-        self.right_loc_2     = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
-        self.right_loc_3     = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.right_loc_1 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.right_loc_2 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.right_loc_3 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
 
         if self.mpi_rank == 0:
 
-            self.kernel_0    = np.zeros(
-                (NbaseN[0],
-                 NbaseN[1],
+            self.kernel_0 = np.zeros(
+                (
+                    NbaseN[0],
+                    NbaseN[1],
                     NbaseN[2],
                     2 * self.related[0] + 1,
                     2 * self.related[1] + 1,
-                    2 * self.related[2] + 1),
-                dtype=float)
+                    2 * self.related[2] + 1,
+                ),
+                dtype=float,
+            )
 
             self.kernel_1_11 = np.zeros(
-                (NbaseD[0],
-                 NbaseN[1],
+                (
+                    NbaseD[0],
+                    NbaseN[1],
                     NbaseN[2],
                     2 * self.related[0] + 1,
                     2 * self.related[1] + 1,
-                    2 * self.related[2] + 1),
-                dtype=float)
+                    2 * self.related[2] + 1,
+                ),
+                dtype=float,
+            )
             self.kernel_1_12 = np.zeros(
-                (NbaseN[0],
-                 NbaseD[1],
+                (
+                    NbaseN[0],
+                    NbaseD[1],
                     NbaseN[2],
                     2 * self.related[0] + 1,
                     2 * self.related[1] + 1,
-                    2 * self.related[2] + 1),
-                dtype=float)
+                    2 * self.related[2] + 1,
+                ),
+                dtype=float,
+            )
             self.kernel_1_13 = np.zeros(
-                (NbaseN[0],
-                 NbaseN[1],
+                (
+                    NbaseN[0],
+                    NbaseN[1],
                     NbaseD[2],
                     2 * self.related[0] + 1,
                     2 * self.related[1] + 1,
-                    2 * self.related[2] + 1),
-                dtype=float)
+                    2 * self.related[2] + 1,
+                ),
+                dtype=float,
+            )
 
             self.kernel_1_22 = np.zeros(
-                (NbaseN[0],
-                 NbaseD[1],
+                (
+                    NbaseN[0],
+                    NbaseD[1],
                     NbaseN[2],
                     2 * self.related[0] + 1,
                     2 * self.related[1] + 1,
-                    2 * self.related[2] + 1),
-                dtype=float)
+                    2 * self.related[2] + 1,
+                ),
+                dtype=float,
+            )
             self.kernel_1_23 = np.zeros(
-                (NbaseN[0],
-                 NbaseN[1],
+                (
+                    NbaseN[0],
+                    NbaseN[1],
                     NbaseD[2],
                     2 * self.related[0] + 1,
                     2 * self.related[1] + 1,
-                    2 * self.related[2] + 1),
-                dtype=float)
+                    2 * self.related[2] + 1,
+                ),
+                dtype=float,
+            )
 
             self.kernel_1_33 = np.zeros(
-                (NbaseN[0],
-                 NbaseN[1],
+                (
+                    NbaseN[0],
+                    NbaseN[1],
                     NbaseD[2],
                     2 * self.related[0] + 1,
                     2 * self.related[1] + 1,
-                    2 * self.related[2] + 1),
-                dtype=float)
+                    2 * self.related[2] + 1,
+                ),
+                dtype=float,
+            )
 
-            self.right_1     = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
-            self.right_2     = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
-            self.right_3     = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
+            self.right_1 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
+            self.right_2 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
+            self.right_3 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
 
         else:
-            self.kernel_0    = None
+            self.kernel_0 = None
 
             self.kernel_1_11 = None
             self.kernel_1_12 = None
@@ -234,9 +277,9 @@ class projectors_local_3d:
 
             self.kernel_1_33 = None
 
-            self.right_1     = None
-            self.right_2     = None
-            self.right_3     = None
+            self.right_1 = None
+            self.right_2 = None
+            self.right_3 = None
 
         self.num_cell = np.empty(3, dtype=int)
         for i in range(3):
@@ -252,7 +295,9 @@ class projectors_local_3d:
         self.pts = [0, 0, 0]
         self.wts = [0, 0, 0]
         for a in range(3):
-            self.pts[a], self.wts[a] = bsp.quadrature_grid([0, 1.0/2.0/self.Nel[a]], self.pts_loc[a], self.wts_loc[a])
+            self.pts[a], self.wts[a] = bsp.quadrature_grid(
+                [0, 1.0 / 2.0 / self.Nel[a]], self.pts_loc[a], self.wts_loc[a]
+            )
         # print('check_pts', self.pts[0].shape, self.pts[1].shape, self.pts[2].shape)
         # print('check_pts', self.wts)
         # set interpolation and histopolation coefficients
@@ -260,77 +305,81 @@ class projectors_local_3d:
         self.coeff_h = [0, 0, 0]
         for a in range(3):
             if self.bc[a]:
-                self.coeff_i[a] = np.zeros(2*self.p[a], dtype=float)
-                self.coeff_h[a] = np.zeros(2*self.p[a], dtype=float)
+                self.coeff_i[a] = np.zeros(2 * self.p[a], dtype=float)
+                self.coeff_h[a] = np.zeros(2 * self.p[a], dtype=float)
 
                 if self.p[a] == 1:
-                    self.coeff_i[a][:] = np.array([1., 0.])
-                    self.coeff_h[a][:] = np.array([1., 1.])
+                    self.coeff_i[a][:] = np.array([1.0, 0.0])
+                    self.coeff_h[a][:] = np.array([1.0, 1.0])
 
                 elif self.p[a] == 2:
-                    self.coeff_i[a][:] = 1/2 * np.array([-1., 4., -1., 0.])
-                    self.coeff_h[a][:] = 1/2 * np.array([-1., 3., 3., -1.])
+                    self.coeff_i[a][:] = 1 / 2 * np.array([-1.0, 4.0, -1.0, 0.0])
+                    self.coeff_h[a][:] = 1 / 2 * np.array([-1.0, 3.0, 3.0, -1.0])
 
                 elif self.p[a] == 3:
-                    self.coeff_i[a][:] = 1/6 * np.array([1., -8., 20., -8., 1., 0.])
-                    self.coeff_h[a][:] = 1/6 * np.array([1., -7., 12., 12., -7., 1.])
+                    self.coeff_i[a][:] = 1 / 6 * np.array([1.0, -8.0, 20.0, -8.0, 1.0, 0.0])
+                    self.coeff_h[a][:] = 1 / 6 * np.array([1.0, -7.0, 12.0, 12.0, -7.0, 1.0])
 
                 elif self.p[a] == 4:
-                    self.coeff_i[a][:] = 2/45 * np.array([-1., 16., -295/4, 140., -295/4, 16., -1., 0.])
-                    self.coeff_h[a][:] = 2/45 * np.array([-1., 15., -231/4, 265/4, 265/4, -231/4, 15., -1.])
+                    self.coeff_i[a][:] = 2 / 45 * np.array([-1.0, 16.0, -295 / 4, 140.0, -295 / 4, 16.0, -1.0, 0.0])
+                    self.coeff_h[a][:] = (
+                        2 / 45 * np.array([-1.0, 15.0, -231 / 4, 265 / 4, 265 / 4, -231 / 4, 15.0, -1.0])
+                    )
 
                 else:
-                    print('degree > 4 not implemented!')
+                    print("degree > 4 not implemented!")
 
             else:
-                self.coeff_i[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a] - 1), dtype=float)
-                self.coeff_h[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a]), dtype=float)
+                self.coeff_i[a] = np.zeros((2 * self.p[a] - 1, 2 * self.p[a] - 1), dtype=float)
+                self.coeff_h[a] = np.zeros((2 * self.p[a] - 1, 2 * self.p[a]), dtype=float)
 
                 if self.p[a] == 1:
-                    self.coeff_i[a][0, :] = np.array([1.])
-                    self.coeff_h[a][0, :] = np.array([1., 1.])
+                    self.coeff_i[a][0, :] = np.array([1.0])
+                    self.coeff_h[a][0, :] = np.array([1.0, 1.0])
 
                 elif self.p[a] == 2:
-                    self.coeff_i[a][0, :] = 1/2 * np.array([2., 0., 0.])
-                    self.coeff_i[a][1, :] = 1/2 * np.array([-1., 4., -1.])
-                    self.coeff_i[a][2, :] = 1/2 * np.array([0., 0., 2.])
+                    self.coeff_i[a][0, :] = 1 / 2 * np.array([2.0, 0.0, 0.0])
+                    self.coeff_i[a][1, :] = 1 / 2 * np.array([-1.0, 4.0, -1.0])
+                    self.coeff_i[a][2, :] = 1 / 2 * np.array([0.0, 0.0, 2.0])
 
-                    self.coeff_h[a][0, :] = 1/2 * np.array([3., -1., 0., 0.])
-                    self.coeff_h[a][1, :] = 1/2 * np.array([-1., 3., 3., -1.])
-                    self.coeff_h[a][2, :] = 1/2 * np.array([0., 0., -1., 3.])
+                    self.coeff_h[a][0, :] = 1 / 2 * np.array([3.0, -1.0, 0.0, 0.0])
+                    self.coeff_h[a][1, :] = 1 / 2 * np.array([-1.0, 3.0, 3.0, -1.0])
+                    self.coeff_h[a][2, :] = 1 / 2 * np.array([0.0, 0.0, -1.0, 3.0])
 
                 elif self.p[a] == 3:
-                    self.coeff_i[a][0, :] = 1/18 * np.array([18., 0., 0., 0., 0.])
-                    self.coeff_i[a][1, :] = 1/18 * np.array([-5., 40., -24., 8., -1.])
-                    self.coeff_i[a][2, :] = 1/18 * np.array([3., -24., 60., -24., 3.])
-                    self.coeff_i[a][3, :] = 1/18 * np.array([-1., 8., -24., 40., -5.])
-                    self.coeff_i[a][4, :] = 1/18 * np.array([0., 0., 0., 0., 18.])
+                    self.coeff_i[a][0, :] = 1 / 18 * np.array([18.0, 0.0, 0.0, 0.0, 0.0])
+                    self.coeff_i[a][1, :] = 1 / 18 * np.array([-5.0, 40.0, -24.0, 8.0, -1.0])
+                    self.coeff_i[a][2, :] = 1 / 18 * np.array([3.0, -24.0, 60.0, -24.0, 3.0])
+                    self.coeff_i[a][3, :] = 1 / 18 * np.array([-1.0, 8.0, -24.0, 40.0, -5.0])
+                    self.coeff_i[a][4, :] = 1 / 18 * np.array([0.0, 0.0, 0.0, 0.0, 18.0])
 
-                    self.coeff_h[a][0, :] = 1/18 * np.array([23., -17., 7., -1., 0., 0.])
-                    self.coeff_h[a][1, :] = 1/18 * np.array([-8., 56., -28., 4., 0., 0.])
-                    self.coeff_h[a][2, :] = 1/18 * np.array([3., -21., 36., 36., -21., 3.])
-                    self.coeff_h[a][3, :] = 1/18 * np.array([0., 0., 4., -28., 56., -8.])
-                    self.coeff_h[a][4, :] = 1/18 * np.array([0., 0., -1., 7., -17., 23.])
+                    self.coeff_h[a][0, :] = 1 / 18 * np.array([23.0, -17.0, 7.0, -1.0, 0.0, 0.0])
+                    self.coeff_h[a][1, :] = 1 / 18 * np.array([-8.0, 56.0, -28.0, 4.0, 0.0, 0.0])
+                    self.coeff_h[a][2, :] = 1 / 18 * np.array([3.0, -21.0, 36.0, 36.0, -21.0, 3.0])
+                    self.coeff_h[a][3, :] = 1 / 18 * np.array([0.0, 0.0, 4.0, -28.0, 56.0, -8.0])
+                    self.coeff_h[a][4, :] = 1 / 18 * np.array([0.0, 0.0, -1.0, 7.0, -17.0, 23.0])
 
                 elif self.p[a] == 4:
-                    self.coeff_i[a][0, :] = 1/360 * np.array([360., 0., 0., 0., 0., 0., 0.])
-                    self.coeff_i[a][1, :] = 1/360 * np.array([-59., 944., -1000., 720., -305., 64., -4.])
-                    self.coeff_i[a][2, :] = 1/360 * np.array([23., -368., 1580., -1360., 605., -128., 8.])
-                    self.coeff_i[a][3, :] = 1/360 * np.array([-16., 256., -1180., 2240., -1180., 256., -16.])
-                    self.coeff_i[a][4, :] = 1/360 * np.array([8., -128., 605., -1360., 1580., -368., 23.])
-                    self.coeff_i[a][5, :] = 1/360 * np.array([-4., 64., -305., 720., -1000., 944., -59.])
-                    self.coeff_i[a][6, :] = 1/360 * np.array([0., 0., 0., 0., 0., 0., 360.])
+                    self.coeff_i[a][0, :] = 1 / 360 * np.array([360.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+                    self.coeff_i[a][1, :] = 1 / 360 * np.array([-59.0, 944.0, -1000.0, 720.0, -305.0, 64.0, -4.0])
+                    self.coeff_i[a][2, :] = 1 / 360 * np.array([23.0, -368.0, 1580.0, -1360.0, 605.0, -128.0, 8.0])
+                    self.coeff_i[a][3, :] = 1 / 360 * np.array([-16.0, 256.0, -1180.0, 2240.0, -1180.0, 256.0, -16.0])
+                    self.coeff_i[a][4, :] = 1 / 360 * np.array([8.0, -128.0, 605.0, -1360.0, 1580.0, -368.0, 23.0])
+                    self.coeff_i[a][5, :] = 1 / 360 * np.array([-4.0, 64.0, -305.0, 720.0, -1000.0, 944.0, -59.0])
+                    self.coeff_i[a][6, :] = 1 / 360 * np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 360.0])
 
-                    self.coeff_h[a][0, :] = 1/360 * np.array([419., -525., 475., -245., 60., -4., 0., 0.])
-                    self.coeff_h[a][1, :] = 1/360 * np.array([-82., 1230., -1350., 730., -180., 12., 0., 0.])
-                    self.coeff_h[a][2, :] = 1/360 * np.array([39., -585., 2175., -1425., 360., -24., 0., 0.])
-                    self.coeff_h[a][3, :] = 1/360 * np.array([-16., 240., -924., 1060., 1060., -924., 240., -16.])
-                    self.coeff_h[a][4, :] = 1/360 * np.array([0., 0., -24., 360., -1425., 2175., -585., 39.])
-                    self.coeff_h[a][5, :] = 1/360 * np.array([0., 0., 12., -180., 730., -1350., 1230., -82.])
-                    self.coeff_h[a][6, :] = 1/360 * np.array([0., 0., -4., 60., -245., 475., -525., 419.])
+                    self.coeff_h[a][0, :] = 1 / 360 * np.array([419.0, -525.0, 475.0, -245.0, 60.0, -4.0, 0.0, 0.0])
+                    self.coeff_h[a][1, :] = 1 / 360 * np.array([-82.0, 1230.0, -1350.0, 730.0, -180.0, 12.0, 0.0, 0.0])
+                    self.coeff_h[a][2, :] = 1 / 360 * np.array([39.0, -585.0, 2175.0, -1425.0, 360.0, -24.0, 0.0, 0.0])
+                    self.coeff_h[a][3, :] = (
+                        1 / 360 * np.array([-16.0, 240.0, -924.0, 1060.0, 1060.0, -924.0, 240.0, -16.0])
+                    )
+                    self.coeff_h[a][4, :] = 1 / 360 * np.array([0.0, 0.0, -24.0, 360.0, -1425.0, 2175.0, -585.0, 39.0])
+                    self.coeff_h[a][5, :] = 1 / 360 * np.array([0.0, 0.0, 12.0, -180.0, 730.0, -1350.0, 1230.0, -82.0])
+                    self.coeff_h[a][6, :] = 1 / 360 * np.array([0.0, 0.0, -4.0, 60.0, -245.0, 475.0, -525.0, 419.0])
 
                 else:
-                    print('degree > 4 not implemented!')
+                    print("degree > 4 not implemented!")
 
     def accumulate_0_form(self, mpi_comm):
         # blocks of global mass matrix
@@ -355,20 +404,23 @@ class projectors_local_3d:
         Nj = tensor_space_FEM.Nbase_0form
 
         # conversion to sparse matrix
-        indices = np.indices((Ni[0], Ni[1], Ni[2], 2*self.related[0] + 1, 2*self.related[1] + 1, 2*self.related[2] + 1))
+        indices = np.indices(
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+        )
 
-        shift   = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
-        row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+        row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-        col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-        col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-        col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+        col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+        col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+        col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-        col     = Nj[1]*Ni[2]*col1 + Ni[2]*col2 + col3
+        col = Nj[1] * Ni[2] * col1 + Ni[2] * col2 + col3
 
-        M       = spa.csr_matrix((self.kernel_0.flatten(), (row, col.flatten())),
-                                 shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M = spa.csr_matrix(
+            (self.kernel_0.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+        )
 
         M.eliminate_zeros()
 
@@ -410,20 +462,23 @@ class projectors_local_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices((Ni[0], Ni[1], Ni[2], 2*self.related[0] + 1, 2*self.related[1] + 1, 2*self.related[2] + 1))
+        indices = np.indices(
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+        )
 
-        shift   = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
-        row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+        row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-        col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-        col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-        col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+        col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+        col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+        col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-        col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+        col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
-        M11 = spa.csr_matrix((self.kernel_1_11.flatten(), (row, col.flatten())),
-                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M11 = spa.csr_matrix(
+            (self.kernel_1_11.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+        )
         M11.eliminate_zeros()
 
         # === 12 component =====
@@ -433,20 +488,23 @@ class projectors_local_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices((Ni[0], Ni[1], Ni[2], 2*self.related[0] + 1, 2*self.related[1] + 1, 2*self.related[2] + 1))
+        indices = np.indices(
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+        )
 
-        shift   = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
-        row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+        row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-        col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-        col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-        col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+        col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+        col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+        col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-        col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+        col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
-        M12 = spa.csr_matrix((self.kernel_1_12.flatten(), (row, col.flatten())),
-                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M12 = spa.csr_matrix(
+            (self.kernel_1_12.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+        )
         M12.eliminate_zeros()
 
         # === 13 component =====
@@ -456,20 +514,23 @@ class projectors_local_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices((Ni[0], Ni[1], Ni[2], 2*self.related[0] + 1, 2*self.related[1] + 1, 2*self.related[2] + 1))
+        indices = np.indices(
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+        )
 
-        shift   = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
-        row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+        row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-        col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-        col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-        col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+        col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+        col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+        col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-        col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+        col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
-        M13 = spa.csr_matrix((self.kernel_1_13.flatten(), (row, col.flatten())),
-                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M13 = spa.csr_matrix(
+            (self.kernel_1_13.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+        )
         M13.eliminate_zeros()
 
         # === 22 component =====
@@ -479,20 +540,23 @@ class projectors_local_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices((Ni[0], Ni[1], Ni[2], 2*self.related[0] + 1, 2*self.related[1] + 1, 2*self.related[2] + 1))
+        indices = np.indices(
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+        )
 
-        shift   = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
-        row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+        row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-        col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-        col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-        col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+        col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+        col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+        col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-        col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+        col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
-        M22 = spa.csr_matrix((self.kernel_1_22.flatten(), (row, col.flatten())),
-                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M22 = spa.csr_matrix(
+            (self.kernel_1_22.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+        )
         M22.eliminate_zeros()
 
         # === 23 component =====
@@ -502,20 +566,23 @@ class projectors_local_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices((Ni[0], Ni[1], Ni[2], 2*self.related[0] + 1, 2*self.related[1] + 1, 2*self.related[2] + 1))
+        indices = np.indices(
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+        )
 
-        shift   = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
-        row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+        row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-        col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-        col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-        col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+        col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+        col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+        col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-        col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+        col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
-        M23 = spa.csr_matrix((self.kernel_1_23.flatten(), (row, col.flatten())),
-                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M23 = spa.csr_matrix(
+            (self.kernel_1_23.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+        )
         M23.eliminate_zeros()
 
         # === 33 component =====
@@ -525,24 +592,27 @@ class projectors_local_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices((Ni[0], Ni[1], Ni[2], 2*self.related[0] + 1, 2*self.related[1] + 1, 2*self.related[2] + 1))
+        indices = np.indices(
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+        )
 
-        shift   = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
-        row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+        row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-        col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-        col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-        col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+        col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+        col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+        col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-        col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+        col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
-        M33 = spa.csr_matrix((self.kernel_1_33.flatten(), (row, col.flatten())),
-                             shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+        M33 = spa.csr_matrix(
+            (self.kernel_1_33.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+        )
         M33.eliminate_zeros()
 
         # final block matrix
-        M = spa.bmat([[M11, M12, M13], [M12.T, M22, M23], [M13.T, M23.T, M33]], format='csr')
+        M = spa.bmat([[M11, M12, M13], [M12.T, M22, M23], [M13.T, M23.T, M33]], format="csr")
         # print('insider_check', self.kernel_1_33)
         return (M, np.concatenate((self.right_1.flatten(), self.right_2.flatten(), self.right_3.flatten())))
 
@@ -597,7 +667,8 @@ class projectors_local_3d:
             domain.NbaseN,
             domain.cx,
             domain.cy,
-            domain.cz)
+            domain.cz,
+        )
 
     def potential_pi_0(self, particles_loc, Np, domain, mpi_comm):
         """
@@ -637,9 +708,10 @@ class projectors_local_3d:
                 domain.NbaseN,
                 domain.cx,
                 domain.cy,
-                domain.cz)
+                domain.cz,
+            )
         else:
-            print('non-periodic case not implemented!!!')
+            print("non-periodic case not implemented!!!")
 
         mpi_comm.Reduce(self.lambdas_0, self.potential_lambdas_0, op=MPI.SUM, root=0)
         # print('check_lambdas', self.lambdas_0)
@@ -683,26 +755,27 @@ class projectors_local_3d:
                 domain.NbaseN,
                 domain.cx,
                 domain.cy,
-                domain.cz)
+                domain.cz,
+            )
         else:
-            print('non-periodic case not implemented!!!')
+            print("non-periodic case not implemented!!!")
 
         # print('check_lambdas', self.lambdas_0)
 
     def S_pi_1(self, particles_loc, Np, domain):
         """
-        Local projector on the discrete space V1.
+            Local projector on the discrete space V1.
 
-        Parameters
-        ----------
-        pts : quadrature point in the first half cell
-        wts : quadrature weight in the first half cell
-        quad: shape of pts or wts
+            Parameters
+            ----------
+            pts : quadrature point in the first half cell
+            wts : quadrature weight in the first half cell
+            quad: shape of pts or wts
 
-        Returns
-    -------
-        lambdas : array_like
-            the coefficients in V0 corresponding to the projected function
+            Returns
+        -------
+            lambdas : array_like
+                the coefficients in V0 corresponding to the projected function
         """
         self.kernel_1_11_loc[:, :, :, :, :, :] = 0.0
         self.kernel_1_12_loc[:, :, :, :, :, :] = 0.0
@@ -713,9 +786,9 @@ class projectors_local_3d:
 
         self.kernel_1_33_loc[:, :, :, :, :, :] = 0.0
 
-        self.right_loc_1[:, :, :]           = 0.0
-        self.right_loc_2[:, :, :]           = 0.0
-        self.right_loc_3[:, :, :]           = 0.0
+        self.right_loc_1[:, :, :] = 0.0
+        self.right_loc_2[:, :, :] = 0.0
+        self.right_loc_3[:, :, :] = 0.0
 
         if self.bc[0] and self.bc[1] and self.bc[2]:
             ker_loc.kernel_1_form(
@@ -771,24 +844,25 @@ class projectors_local_3d:
                 domain.NbaseN,
                 domain.cx,
                 domain.cy,
-                domain.cz)
+                domain.cz,
+            )
         else:
-            print('non-periodic case not implemented!!!')
+            print("non-periodic case not implemented!!!")
 
     def S_pi_01(self, particles_loc, Np, domain):
         """
-        Local projector on the discrete space V1.
+            Local projector on the discrete space V1.
 
-        Parameters
-        ----------
-        pts : quadrature point in the first half cell
-        wts : quadrature weight in the first half cell
-        quad: shape of pts or wts
+            Parameters
+            ----------
+            pts : quadrature point in the first half cell
+            wts : quadrature weight in the first half cell
+            quad: shape of pts or wts
 
-        Returns
-    -------
-        lambdas : array_like
-            the coefficients in V0 corresponding to the projected function
+            Returns
+        -------
+            lambdas : array_like
+                the coefficients in V0 corresponding to the projected function
         """
         self.kernel_1_11_loc[:, :, :, :, :, :] = 0.0
         self.kernel_1_12_loc[:, :, :, :, :, :] = 0.0
@@ -799,9 +873,9 @@ class projectors_local_3d:
 
         self.kernel_1_33_loc[:, :, :, :, :, :] = 0.0
 
-        self.right_loc_1[:, :, :]           = 0.0
-        self.right_loc_2[:, :, :]           = 0.0
-        self.right_loc_3[:, :, :]           = 0.0
+        self.right_loc_1[:, :, :] = 0.0
+        self.right_loc_2[:, :, :] = 0.0
+        self.right_loc_3[:, :, :] = 0.0
 
         if self.bc[0] and self.bc[1] and self.bc[2]:
             ker_loc.kernel_01_form(
@@ -848,9 +922,10 @@ class projectors_local_3d:
                 domain.NbaseN,
                 domain.cx,
                 domain.cy,
-                domain.cz)
+                domain.cz,
+            )
         else:
-            print('non-periodic case not implemented!!!')
+            print("non-periodic case not implemented!!!")
 
     def vv_S1(self, particles_loc, Np, domain, index_label, accvv, dt, mpi_comm):
         if self.bc[0] and self.bc[1] and self.bc[2]:
@@ -904,7 +979,8 @@ class projectors_local_3d:
                     domain.NbaseN,
                     domain.cx,
                     domain.cy,
-                    domain.cz)
+                    domain.cz,
+                )
             elif index_label == 2:
                 ker_loc.vv_1_form(
                     self.wts[0][0],
@@ -913,7 +989,7 @@ class projectors_local_3d:
                     self.pts[0][0],
                     self.pts[1][0],
                     self.pts[2][0],
-                    0.5*dt,
+                    0.5 * dt,
                     self.right_loc_1,
                     self.right_loc_2,
                     self.right_loc_3,
@@ -955,7 +1031,8 @@ class projectors_local_3d:
                     domain.NbaseN,
                     domain.cx,
                     domain.cy,
-                    domain.cz)
+                    domain.cz,
+                )
             elif index_label == 3:
                 ker_loc.vv_1_form(
                     self.wts[0][0],
@@ -964,7 +1041,7 @@ class projectors_local_3d:
                     self.pts[0][0],
                     self.pts[1][0],
                     self.pts[2][0],
-                    0.5*dt,
+                    0.5 * dt,
                     self.right_loc_1,
                     self.right_loc_2,
                     self.right_loc_3,
@@ -1006,7 +1083,8 @@ class projectors_local_3d:
                     domain.NbaseN,
                     domain.cx,
                     domain.cy,
-                    domain.cz)
+                    domain.cz,
+                )
             elif index_label == 4:
                 ker_loc.vv_1_form(
                     self.wts[0][0],
@@ -1057,7 +1135,8 @@ class projectors_local_3d:
                     domain.NbaseN,
                     domain.cx,
                     domain.cy,
-                    domain.cz)
+                    domain.cz,
+                )
 
         mpi_comm.Reduce(self.right_loc_1, accvv.vec1, op=MPI.SUM, root=0)
         mpi_comm.Reduce(self.right_loc_2, accvv.vec2, op=MPI.SUM, root=0)

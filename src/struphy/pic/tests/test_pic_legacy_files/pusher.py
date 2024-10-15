@@ -111,7 +111,8 @@ class Pusher:
                 self.domain.cz,
                 mu_0,
                 power,
-                self.fem_space.n_tor)
+                self.fem_space.n_tor,
+            )
 
         else:
 
@@ -146,7 +147,8 @@ class Pusher:
                 self.domain.cy,
                 self.domain.cz,
                 mu_0,
-                power)
+                power,
+            )
 
     # ======================================================
 
@@ -174,7 +176,8 @@ class Pusher:
                 self.domain.cy,
                 self.domain.cz,
                 self.map_pseudo,
-                self.R0_pseudo)
+                self.R0_pseudo,
+            )
 
         # standard pusher in logical coordinates (for domains without a pole)
         else:
@@ -194,7 +197,8 @@ class Pusher:
                 self.domain.cx,
                 self.domain.cy,
                 self.domain.cz,
-                self.bc_pos)
+                self.bc_pos,
+            )
 
     # ======================================================
 
@@ -236,7 +240,8 @@ class Pusher:
                 self.domain.cx,
                 self.domain.cy,
                 self.domain.cz,
-                self.fem_space.n_tor)
+                self.fem_space.n_tor,
+            )
 
         else:
 
@@ -264,7 +269,8 @@ class Pusher:
                 self.domain.NbaseN,
                 self.domain.cx,
                 self.domain.cy,
-                self.domain.cz)
+                self.domain.cz,
+            )
 
     # ======================================================
 
@@ -308,7 +314,8 @@ class Pusher:
             self.domain.cx,
             self.domain.cy,
             self.domain.cz,
-            self.bc_pos)
+            self.bc_pos,
+        )
 
     # ======================================================
 
@@ -354,7 +361,8 @@ class Pusher:
             self.domain.cx,
             self.domain.cy,
             self.domain.cz,
-            self.bc_pos)
+            self.bc_pos,
+        )
 
     # ======================================================
 
@@ -399,7 +407,8 @@ class Pusher:
             self.domain.NbaseN,
             self.domain.cx,
             self.domain.cy,
-            self.domain.cz)
+            self.domain.cz,
+        )
 
     # ======================================================
 
@@ -444,4 +453,5 @@ class Pusher:
             self.domain.NbaseN,
             self.domain.cx,
             self.domain.cy,
-            self.domain.cz)
+            self.domain.cz,
+        )

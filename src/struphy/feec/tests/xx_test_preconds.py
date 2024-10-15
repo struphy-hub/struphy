@@ -1,14 +1,16 @@
 import pytest
 
 
-@pytest.mark.parametrize('Nel', [[8, 12, 4]])
-@pytest.mark.parametrize('p', [[2, 3, 1]])
-@pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, False]])
-@pytest.mark.parametrize('mapping', [
-    ['Cuboid', {
-        'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}],
-    ['HollowCylinder', {
-        'a1': .1, 'a2': 2., 'R0': 0., 'Lz': 3.}]])
+@pytest.mark.parametrize("Nel", [[8, 12, 4]])
+@pytest.mark.parametrize("p", [[2, 3, 1]])
+@pytest.mark.parametrize("spl_kind", [[True, True, True], [False, False, False]])
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 4.0}],
+        ["HollowCylinder", {"a1": 0.1, "a2": 2.0, "R0": 0.0, "Lz": 3.0}],
+    ],
+)
 def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
     import numpy as np
@@ -65,7 +67,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     for n, (M, M_p, vn) in enumerate(zip(derham_M, M_pre, v)):
 
         if n == 4:
-            n = 'v'
+            n = "v"
 
         if domain.kind_map == 10 or domain.kind_map == 11:
             assert np.allclose(M._mat.toarray(), M_p.matrix.toarray())
@@ -75,7 +77,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
         wn = inv_A.dot(vn)
 
         if domain.kind_map == 10 or domain.kind_map == 11:
-            assert inv_A.info['niter'] == 2
+            assert inv_A.info["niter"] == 2
             print(f'Solver assertions for space {n} case "Cuboid/HollowCylinder" passed.')
 
         inv_A_nopc = InverseLinearOperator(M, pc=None, tol=1e-8, maxiter=30000)
@@ -83,14 +85,17 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
         print(f'Inverse of M{n}: w/ pre {inv_A.info["niter"]} and w/o pre {inv_A_nopc.info["niter"]}')
 
-        assert inv_A.info['success']
+        assert inv_A.info["success"]
         assert inv_A.info["niter"] < inv_A_nopc.info["niter"]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_mass_preconditioner(
-        [12, 16, 4], [2, 3, 2], [False, False, False], ['Cuboid', {
-            'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 4.}])
+        [12, 16, 4],
+        [2, 3, 2],
+        [False, False, False],
+        ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 4.0}],
+    )
     # test_mass_preconditioner(
     #    [12, 16, 4], [2, 3, 2], [False, True, False], ['HollowCylinder', {
     #    'a1': .1, 'a2': 2., 'R0': 0., 'Lz': 3.}])

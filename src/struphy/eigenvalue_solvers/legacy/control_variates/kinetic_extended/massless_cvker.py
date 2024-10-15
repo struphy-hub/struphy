@@ -8,87 +8,90 @@ from pyccel.decorators import types
 
 
 # ==========================================================================================
-@types('double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'int[:,:]',
-       'int[:,:]',
-       'int[:,:]',
-       'int[:,:]',
-       'int[:,:]',
-       'int[:,:]',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:]',
-       'double[:,:,:]',
-       'double[:,:,:]',
-       'double[:,:]',
-       'double[:]',
-       'double[:]',
-       'double[:]',
-       'double[:,:,:,:]',
-       'double[:,:,:,:]',
-       'double[:,:,:,:]',
-       'double[:,:,:,:]',
-       'double[:,:,:,:]',
-       'double[:,:,:,:]')
+@types(
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "int[:,:]",
+    "int[:,:]",
+    "int[:,:]",
+    "int[:,:]",
+    "int[:,:]",
+    "int[:,:]",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:]",
+    "double[:,:,:]",
+    "double[:,:,:]",
+    "double[:,:]",
+    "double[:]",
+    "double[:]",
+    "double[:]",
+    "double[:,:,:,:]",
+    "double[:,:,:,:]",
+    "double[:,:,:,:]",
+    "double[:,:,:,:]",
+    "double[:,:,:,:]",
+    "double[:,:,:,:]",
+)
 def bvright1(
-        G_inv_11,
-        G_inv_12,
-        G_inv_13,
-        G_inv_22,
-        G_inv_23,
-        G_inv_33,
-        idnx,
-        idny,
-        idnz,
-        iddx,
-        iddy,
-        iddz,
-        nel1,
-        nel2,
-        nel3,
-        nq1,
-        nq2,
-        nq3,
-        p1,
-        p2,
-        p3,
-        d1,
-        d2,
-        d3,
-        b1value,
-        b2value,
-        b3value,
-        b1,
-        b2,
-        b3,
-        dft,
-        generate_weight1,
-        generate_weight3,
-        Jeq,
-        bn1,
-        bn2,
-        bn3,
-        bd1,
-        bd2,
-        bd3):
+    G_inv_11,
+    G_inv_12,
+    G_inv_13,
+    G_inv_22,
+    G_inv_23,
+    G_inv_33,
+    idnx,
+    idny,
+    idnz,
+    iddx,
+    iddy,
+    iddz,
+    nel1,
+    nel2,
+    nel3,
+    nq1,
+    nq2,
+    nq3,
+    p1,
+    p2,
+    p3,
+    d1,
+    d2,
+    d3,
+    b1value,
+    b2value,
+    b3value,
+    b1,
+    b2,
+    b3,
+    dft,
+    generate_weight1,
+    generate_weight3,
+    Jeq,
+    bn1,
+    bn2,
+    bn3,
+    bd1,
+    bd2,
+    bd3,
+):
 
     # ======================================================================================
 
@@ -103,12 +106,16 @@ def bvright1(
                     for q2 in range(nq2):
                         for q3 in range(nq3):
 
-                            value = 0.
+                            value = 0.0
                             for il1 in range(d1 + 1):
                                 for il2 in range(p2 + 1):
                                     for il3 in range(p3 + 1):
-                                        value += bd1[ie1, il1, 0, q1] * bn2[ie2, il2, 0, q2] * bn3[ie3,
-                                                                                                   il3, 0, q3] * b1[iddx[ie1, il1], idny[ie2, il2], idnz[ie3, il3]]
+                                        value += (
+                                            bd1[ie1, il1, 0, q1]
+                                            * bn2[ie2, il2, 0, q2]
+                                            * bn3[ie3, il3, 0, q3]
+                                            * b1[iddx[ie1, il1], idny[ie2, il2], idnz[ie3, il3]]
+                                        )
 
                             b1value[ie1, ie2, ie3, q1, q2, q3] = value
 
@@ -126,12 +133,16 @@ def bvright1(
                     for q2 in range(nq2):
                         for q3 in range(nq3):
 
-                            value = 0.
+                            value = 0.0
                             for il1 in range(p1 + 1):
                                 for il2 in range(d2 + 1):
                                     for il3 in range(p3 + 1):
-                                        value += bn1[ie1, il1, 0, q1] * bd2[ie2, il2, 0, q2] * bn3[ie3,
-                                                                                                   il3, 0, q3] * b2[idnx[ie1, il1], iddy[ie2, il2], idnz[ie3, il3]]
+                                        value += (
+                                            bn1[ie1, il1, 0, q1]
+                                            * bd2[ie2, il2, 0, q2]
+                                            * bn3[ie3, il3, 0, q3]
+                                            * b2[idnx[ie1, il1], iddy[ie2, il2], idnz[ie3, il3]]
+                                        )
 
                             b2value[ie1, ie2, ie3, q1, q2, q3] = value
     # $ omp end do
@@ -148,12 +159,16 @@ def bvright1(
                     for q2 in range(nq2):
                         for q3 in range(nq3):
 
-                            value = 0.
+                            value = 0.0
                             for il1 in range(p1 + 1):
                                 for il2 in range(p2 + 1):
                                     for il3 in range(d3 + 1):
-                                        value += bn1[ie1, il1, 0, q1] * bn2[ie2, il2, 0, q2] * bd3[ie3,
-                                                                                                   il3, 0, q3] * b3[idnx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]]
+                                        value += (
+                                            bn1[ie1, il1, 0, q1]
+                                            * bn2[ie2, il2, 0, q2]
+                                            * bd3[ie3, il3, 0, q3]
+                                            * b3[idnx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]]
+                                        )
 
                             b3value[ie1, ie2, ie3, q1, q2, q3] = value
     # $ omp end do
@@ -191,85 +206,88 @@ def bvright1(
 
 
 # ==========================================================================================
-@types('double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'int',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:,:,:,:,:]',
-       'double[:,:]',
-       'double[:]',
-       'double[:]',
-       'double[:]',
-       'double[:,:]',
-       'double[:,:]',
-       'double[:,:]',
-       'double[:,:]',
-       'double[:,:]',
-       'double[:,:]')
+@types(
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "int",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:,:,:,:,:]",
+    "double[:,:]",
+    "double[:]",
+    "double[:]",
+    "double[:]",
+    "double[:,:]",
+    "double[:,:]",
+    "double[:,:]",
+    "double[:,:]",
+    "double[:,:]",
+    "double[:,:]",
+)
 def bvright2(
-        DFI_11,
-        DFI_12,
-        DFI_13,
-        DFI_21,
-        DFI_22,
-        DFI_23,
-        DFI_31,
-        DFI_32,
-        DFI_33,
-        df_det,
-        Jeqx,
-        Jeqy,
-        Jeqz,
-        nel1,
-        nel2,
-        nel3,
-        nq1,
-        nq2,
-        nq3,
-        p1,
-        p2,
-        p3,
-        d1,
-        d2,
-        d3,
-        b1value,
-        b2value,
-        b3value,
-        uvalue,
-        dft,
-        generate_weight1,
-        generate_weight3,
-        Jeq,
-        pts1,
-        pts2,
-        pts3,
-        wts1,
-        wts2,
-        wts3):
+    DFI_11,
+    DFI_12,
+    DFI_13,
+    DFI_21,
+    DFI_22,
+    DFI_23,
+    DFI_31,
+    DFI_32,
+    DFI_33,
+    df_det,
+    Jeqx,
+    Jeqy,
+    Jeqz,
+    nel1,
+    nel2,
+    nel3,
+    nq1,
+    nq2,
+    nq3,
+    p1,
+    p2,
+    p3,
+    d1,
+    d2,
+    d3,
+    b1value,
+    b2value,
+    b3value,
+    uvalue,
+    dft,
+    generate_weight1,
+    generate_weight3,
+    Jeq,
+    pts1,
+    pts2,
+    pts3,
+    wts1,
+    wts2,
+    wts3,
+):
 
     # ======================================================================================
 
@@ -295,18 +313,36 @@ def bvright2(
                             dft[2, 0] = DFI_31[ie1, ie2, ie3, q1, q2, q3]
                             dft[2, 1] = DFI_32[ie1, ie2, ie3, q1, q2, q3]
                             dft[2, 2] = DFI_33[ie1, ie2, ie3, q1, q2, q3]
-                            detdet   = df_det[ie1, ie2, ie3, q1, q2, q3] * wts1[ie1, q1] * wts2[ie2, q2] * wts3[ie3, q3]
-                            Jeq[0]   = Jeqx[ie1, ie2, ie3, q1, q2, q3]
-                            Jeq[1]   = Jeqy[ie1, ie2, ie3, q1, q2, q3]
-                            Jeq[2]   = Jeqz[ie1, ie2, ie3, q1, q2, q3]
+                            detdet = df_det[ie1, ie2, ie3, q1, q2, q3] * wts1[ie1, q1] * wts2[ie2, q2] * wts3[ie3, q3]
+                            Jeq[0] = Jeqx[ie1, ie2, ie3, q1, q2, q3]
+                            Jeq[1] = Jeqy[ie1, ie2, ie3, q1, q2, q3]
+                            Jeq[2] = Jeqz[ie1, ie2, ie3, q1, q2, q3]
                             linalg.matrix_vector(dft, Jeq, generate_weight3)
 
-                            b1value[ie1, ie2, ie3, q1, q2, q3] = detdet * uvalue[ie1, ie2, ie3, q1, q2, q3] * \
-                                (generate_weight3[1]*generate_weight1[2] - generate_weight3[2]*generate_weight1[1])
-                            b2value[ie1, ie2, ie3, q1, q2, q3] = detdet * uvalue[ie1, ie2, ie3, q1, q2, q3] * \
-                                (generate_weight3[2]*generate_weight1[0] - generate_weight3[0]*generate_weight1[2])
-                            b3value[ie1, ie2, ie3, q1, q2, q3] = detdet * uvalue[ie1, ie2, ie3, q1, q2, q3] * \
-                                (generate_weight3[0]*generate_weight1[1] - generate_weight3[1]*generate_weight1[0])
+                            b1value[ie1, ie2, ie3, q1, q2, q3] = (
+                                detdet
+                                * uvalue[ie1, ie2, ie3, q1, q2, q3]
+                                * (
+                                    generate_weight3[1] * generate_weight1[2]
+                                    - generate_weight3[2] * generate_weight1[1]
+                                )
+                            )
+                            b2value[ie1, ie2, ie3, q1, q2, q3] = (
+                                detdet
+                                * uvalue[ie1, ie2, ie3, q1, q2, q3]
+                                * (
+                                    generate_weight3[2] * generate_weight1[0]
+                                    - generate_weight3[0] * generate_weight1[2]
+                                )
+                            )
+                            b3value[ie1, ie2, ie3, q1, q2, q3] = (
+                                detdet
+                                * uvalue[ie1, ie2, ie3, q1, q2, q3]
+                                * (
+                                    generate_weight3[0] * generate_weight1[1]
+                                    - generate_weight3[1] * generate_weight1[0]
+                                )
+                            )
 
     # $ omp end do
     # $ omp end parallel

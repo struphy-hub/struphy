@@ -1,4 +1,4 @@
-'Base classes for dispersion relations.'
+"Base classes for dispersion relations."
 
 
 from abc import ABCMeta, abstractmethod
@@ -28,7 +28,7 @@ class DispersionRelations1D(metaclass=ABCMeta):
     :mod:`~struphy.dispersion_relations.analytic`.
     """
 
-    def __init__(self, *branch_names, velocity_scale='alfvén', **params):
+    def __init__(self, *branch_names, velocity_scale="alfvén", **params):
 
         self._branches = {}
         for name in branch_names:
@@ -42,27 +42,24 @@ class DispersionRelations1D(metaclass=ABCMeta):
 
     @property
     def branches(self):
-        """ Dictionary of branch names holding the numpy arrays of :math:`\\omega_i(k) \\in \\mathbb C`.
-        """
+        """Dictionary of branch names holding the numpy arrays of :math:`\\omega_i(k) \\in \\mathbb C`."""
         return self._branches
 
     @property
     def params(self):
-        """ Dictionary of parameters necessary to compute the dispersion relation.
-        """
+        """Dictionary of parameters necessary to compute the dispersion relation."""
         return self._params
 
     @property
     def velocity_scale(self):
-        """ Determines the unit of :math:`\\omega`.
+        """Determines the unit of :math:`\\omega`.
         Must be one of ``alfvén``, ``cyclotron`` or ``light``.
         """
         return self._velocity_scale
 
     @property
     def k_crit(self):
-        """ Dictionary of critical k-values (plotted as vertical lines with self.plot()).
-        """
+        """Dictionary of critical k-values (plotted as vertical lines with self.plot())."""
         return self._k_crit
 
     @abstractmethod
@@ -85,24 +82,24 @@ class DispersionRelations1D(metaclass=ABCMeta):
 
         self(k)
 
-        if self.velocity_scale == 'alfvén':
-            unit_om = '$v_A / \\hat x$'
-        elif self.velocity_scale == 'light':
-            unit_om = '$c / \\hat x$'
-        elif self.velocity_scale == 'cyclotron':
-            unit_om = '$\\Omega_c$'
-        elif self.velocity_scale == 'thermal':
-            unit_om = '$v_{th} / \\hat x$'
+        if self.velocity_scale == "alfvén":
+            unit_om = "$v_A / \\hat x$"
+        elif self.velocity_scale == "light":
+            unit_om = "$c / \\hat x$"
+        elif self.velocity_scale == "cyclotron":
+            unit_om = "$\\Omega_c$"
+        elif self.velocity_scale == "thermal":
+            unit_om = "$v_{th} / \\hat x$"
 
         plt.figure(figsize=(5, 8))
         plt.subplot(2, 1, 1)
         # plt.title('Real part')
-        plt.xlabel('k [$1 / \\hat x$]')
-        plt.ylabel(f'Re($\\omega$) [{unit_om}]')
+        plt.xlabel("k [$1 / \\hat x$]")
+        plt.ylabel(f"Re($\\omega$) [{unit_om}]")
         plt.subplot(2, 1, 2)
         # plt.title('Imaginary part')
-        plt.xlabel('k [$1 / \\hat x$]')
-        plt.ylabel(f'Im($\\omega$) [{unit_om}]')
+        plt.xlabel("k [$1 / \\hat x$]")
+        plt.ylabel(f"Im($\\omega$) [{unit_om}]")
         for name, omega in self.branches.items():
             plt.subplot(2, 1, 1)
             plt.plot(k, np.real(omega), label=name)
@@ -112,12 +109,12 @@ class DispersionRelations1D(metaclass=ABCMeta):
         plt.subplot(2, 1, 1)
         for lab, kc in self.k_crit.items():
             if kc > np.min(k) and kc < np.max(k):
-                plt.axvline(kc, color='k', linestyle='--', linewidth=.5, label=lab)
+                plt.axvline(kc, color="k", linestyle="--", linewidth=0.5, label=lab)
         plt.legend()
         plt.subplot(2, 1, 2)
         for lab, kc in self.k_crit.items():
             if kc > np.min(k) and kc < np.max(k):
-                plt.axvline(kc, color='k', linestyle='--', linewidth=.5, label=lab)
+                plt.axvline(kc, color="k", linestyle="--", linewidth=0.5, label=lab)
 
 
 class ContinuousSpectra1D(metaclass=ABCMeta):
@@ -141,20 +138,17 @@ class ContinuousSpectra1D(metaclass=ABCMeta):
 
     @property
     def branches(self):
-        """ List of branch names in the spectrum.
-        """
+        """List of branch names in the spectrum."""
         return self._branches
 
     @property
     def nbranches(self):
-        """ Integer : number of branches.
-        """
+        """Integer : number of branches."""
         return self._nbranches
 
     @property
     def params(self):
-        """ Dictionary of parameters necessary to compute the continuous spectra.
-        """
+        """Dictionary of parameters necessary to compute the continuous spectra."""
         return self._params
 
     @abstractmethod

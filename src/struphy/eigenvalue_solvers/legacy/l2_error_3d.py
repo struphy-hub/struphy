@@ -32,14 +32,14 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
         the FEM coefficients of the discrete 0-form
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of local non-vanishing basis functions in format (element, global index)
-    indN   = tensor_space_FEM.indN
+    indN = tensor_space_FEM.indN
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
-    wts    = tensor_space_FEM.wts     # global quadrature weights in format (element, local weight)
+    pts = tensor_space_FEM.pts  # global quadrature points in format (element, local quad_point)
+    wts = tensor_space_FEM.wts  # global quadrature weights in format (element, local weight)
 
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
 
@@ -56,7 +56,7 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
     mat_f = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
     else:
         mat_f[:, :, :] = fun
@@ -65,12 +65,33 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
     error = np.zeros(Nel, dtype=float)
 
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0], wts[1], wts[2], [
-            0, 0, 0], [
-            0, 0, 0], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], indN[0], indN[1], indN[2], indN[0], indN[1], indN[2], error, mat_f.reshape(
-                Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), mat_f.reshape(
-                    Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]), coeff, coeff, det_df.reshape(
-                        Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]))
+        Nel,
+        p,
+        n_quad,
+        wts[0],
+        wts[1],
+        wts[2],
+        [0, 0, 0],
+        [0, 0, 0],
+        basisN[0],
+        basisN[1],
+        basisN[2],
+        basisN[0],
+        basisN[1],
+        basisN[2],
+        indN[0],
+        indN[1],
+        indN[2],
+        indN[0],
+        indN[1],
+        indN[2],
+        error,
+        mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff,
+        coeff,
+        det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     return np.sqrt(error.sum())
 
@@ -95,16 +116,16 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         the FEM coefficients of the discrete components
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indN   = tensor_space_FEM.indN
+    indN = tensor_space_FEM.indN
     # global indices of non-vanishing basis functions (D) in format (element, global index)
-    indD   = tensor_space_FEM.indD
+    indD = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points
-    wts    = tensor_space_FEM.wts     # global quadrature weights
+    pts = tensor_space_FEM.pts  # global quadrature points
+    wts = tensor_space_FEM.wts  # global quadrature weights
 
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
@@ -122,7 +143,7 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
     mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
@@ -136,7 +157,10 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
 
     # 1 * f1 * G^11 * |det(DF)| * f1
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [1, 0, 0],
@@ -147,34 +171,22 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         basisD[0],
         basisN[1],
         basisN[2],
-        [indD[0],
-         indN[1],
-         indN[2]],
-        [indD[0],
-         indN[1],
-         indN[2]],
-        error, mat_f1.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f1.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff1, coeff1, 1 * metric_coeffs[0, 0].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indD[0], indN[1], indN[2]],
+        [indD[0], indN[1], indN[2]],
+        error,
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff1,
+        coeff1,
+        1 * metric_coeffs[0, 0].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 2 * f1 * G^12 * |det(DF)| * f2
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [1, 0, 0],
@@ -185,34 +197,22 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         basisN[0],
         basisD[1],
         basisN[2],
-        [indD[0],
-         indN[1],
-         indN[2]],
-        [indN[0],
-         indD[1],
-         indN[2]],
-        error, mat_f1.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f2.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff1, coeff2, 2 * metric_coeffs[0, 1].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indD[0], indN[1], indN[2]],
+        [indN[0], indD[1], indN[2]],
+        error,
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff1,
+        coeff2,
+        2 * metric_coeffs[0, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 2 * f1 * G^13 * |det(DF)| * f3
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [1, 0, 0],
@@ -223,34 +223,22 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         basisN[0],
         basisN[1],
         basisD[2],
-        [indD[0],
-         indN[1],
-         indN[2]],
-        [indN[0],
-         indN[1],
-         indD[2]],
-        error, mat_f1.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f3.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff1, coeff3, 2 * metric_coeffs[0, 2].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indD[0], indN[1], indN[2]],
+        [indN[0], indN[1], indD[2]],
+        error,
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff1,
+        coeff3,
+        2 * metric_coeffs[0, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 1 * f2 * G^22 * |det(DF)| * f2
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [0, 1, 0],
@@ -261,34 +249,22 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         basisN[0],
         basisD[1],
         basisN[2],
-        [indN[0],
-         indD[1],
-         indN[2]],
-        [indN[0],
-         indD[1],
-         indN[2]],
-        error, mat_f2.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f2.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff2, coeff2, 1 * metric_coeffs[1, 1].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indN[0], indD[1], indN[2]],
+        [indN[0], indD[1], indN[2]],
+        error,
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff2,
+        coeff2,
+        1 * metric_coeffs[1, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 2 * f2 * G^23 * |det(DF)| * f3
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [0, 1, 0],
@@ -299,34 +275,22 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         basisN[0],
         basisN[1],
         basisD[2],
-        [indN[0],
-         indD[1],
-         indN[2]],
-        [indN[0],
-         indN[1],
-         indD[2]],
-        error, mat_f2.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f3.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff2, coeff3, 2 * metric_coeffs[1, 2].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indN[0], indD[1], indN[2]],
+        [indN[0], indN[1], indD[2]],
+        error,
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff2,
+        coeff3,
+        2 * metric_coeffs[1, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 1 * f3 * G^33 * |det(DF)| * f3
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [0, 0, 1],
@@ -337,30 +301,15 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         basisN[0],
         basisN[1],
         basisD[2],
-        [indN[0],
-         indN[1],
-         indD[2]],
-        [indN[0],
-         indN[1],
-         indD[2]],
-        error, mat_f3.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f3.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff3, coeff3, 1 * metric_coeffs[2, 2].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indN[0], indN[1], indD[2]],
+        [indN[0], indN[1], indD[2]],
+        error,
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff3,
+        coeff3,
+        1 * metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     return np.sqrt(error.sum())
 
@@ -385,16 +334,16 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         the FEM coefficients of the discrete components
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indN   = tensor_space_FEM.indN
+    indN = tensor_space_FEM.indN
     # global indices of non-vanishing basis functions (D) in format (element, global index)
-    indD   = tensor_space_FEM.indD
+    indD = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points
-    wts    = tensor_space_FEM.wts     # global quadrature weights
+    pts = tensor_space_FEM.pts  # global quadrature points
+    wts = tensor_space_FEM.wts  # global quadrature weights
 
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
@@ -412,7 +361,7 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
     mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
@@ -426,7 +375,10 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
 
     # 1 * f1 * G_11 / |det(DF)| * f1
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [0, 1, 1],
@@ -437,34 +389,22 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         basisN[0],
         basisD[1],
         basisD[2],
-        [indN[0],
-         indD[1],
-         indD[2]],
-        [indN[0],
-         indD[1],
-         indD[2]],
-        error, mat_f1.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f1.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff1, coeff1, 1 * metric_coeffs[0, 0].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indN[0], indD[1], indD[2]],
+        [indN[0], indD[1], indD[2]],
+        error,
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff1,
+        coeff1,
+        1 * metric_coeffs[0, 0].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 2 * f1 * G_12 / |det(DF)| * f2
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [0, 1, 1],
@@ -475,34 +415,22 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         basisD[0],
         basisN[1],
         basisD[2],
-        [indN[0],
-         indD[1],
-         indD[2]],
-        [indD[0],
-         indN[1],
-         indD[2]],
-        error, mat_f1.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f2.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff1, coeff2, 2 * metric_coeffs[0, 1].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indN[0], indD[1], indD[2]],
+        [indD[0], indN[1], indD[2]],
+        error,
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff1,
+        coeff2,
+        2 * metric_coeffs[0, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 2 * f1 * G_13 / |det(DF)| * f3
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [0, 1, 1],
@@ -513,34 +441,22 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         basisD[0],
         basisD[1],
         basisN[2],
-        [indN[0],
-         indD[1],
-         indD[2]],
-        [indD[0],
-         indD[1],
-         indN[2]],
-        error, mat_f1.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f3.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff1, coeff3, 2 * metric_coeffs[0, 2].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indN[0], indD[1], indD[2]],
+        [indD[0], indD[1], indN[2]],
+        error,
+        mat_f1.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff1,
+        coeff3,
+        2 * metric_coeffs[0, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 1 * f2 * G_22 / |det(DF)| * f2
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [1, 0, 1],
@@ -551,34 +467,22 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         basisD[0],
         basisN[1],
         basisD[2],
-        [indD[0],
-         indN[1],
-         indD[2]],
-        [indD[0],
-         indN[1],
-         indD[2]],
-        error, mat_f2.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f2.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff2, coeff2, 1 * metric_coeffs[1, 1].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indD[0], indN[1], indD[2]],
+        [indD[0], indN[1], indD[2]],
+        error,
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff2,
+        coeff2,
+        1 * metric_coeffs[1, 1].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 2 * f2 * G_23 / |det(DF)| * f3
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [1, 0, 1],
@@ -589,34 +493,22 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         basisD[0],
         basisD[1],
         basisN[2],
-        [indD[0],
-         indN[1],
-         indD[2]],
-        [indD[0],
-         indD[1],
-         indN[2]],
-        error, mat_f2.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f3.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff2, coeff3, 2 * metric_coeffs[1, 2].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indD[0], indN[1], indD[2]],
+        [indD[0], indD[1], indN[2]],
+        error,
+        mat_f2.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff2,
+        coeff3,
+        2 * metric_coeffs[1, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     # 1 * f3 * G_33 / |det(DF)| * f3
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [1, 1, 0],
@@ -627,30 +519,15 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         basisD[0],
         basisD[1],
         basisN[2],
-        [indD[0],
-         indD[1],
-         indN[2]],
-        [indD[0],
-         indD[1],
-         indN[2]],
-        error, mat_f3.reshape(Nel[0],
-                              n_quad[0],
-                              Nel[1],
-                              n_quad[1],
-                              Nel[2],
-                              n_quad[2]),
-        mat_f3.reshape(Nel[0],
-                       n_quad[0],
-                       Nel[1],
-                       n_quad[1],
-                       Nel[2],
-                       n_quad[2]),
-        coeff3, coeff3, 1 * metric_coeffs[2, 2].reshape(Nel[0],
-                                                        n_quad[0],
-                                                        Nel[1],
-                                                        n_quad[1],
-                                                        Nel[2],
-                                                        n_quad[2]))
+        [indD[0], indD[1], indN[2]],
+        [indD[0], indD[1], indN[2]],
+        error,
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f3.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff3,
+        coeff3,
+        1 * metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     return np.sqrt(error.sum())
 
@@ -675,14 +552,14 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
         the FEM coefficients of the discrete function
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of non-vanishing basis functions (D) in format (element, global index)
-    indD   = tensor_space_FEM.indD
+    indD = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
-    wts    = tensor_space_FEM.wts     # global quadrature weights in format (element, local weight)
+    pts = tensor_space_FEM.pts  # global quadrature points in format (element, local quad_point)
+    wts = tensor_space_FEM.wts  # global quadrature weights in format (element, local weight)
 
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
 
@@ -699,7 +576,7 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
     mat_f = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
     else:
         mat_f[:, :, :] = fun
@@ -708,7 +585,10 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
     error = np.zeros(Nel, dtype=float)
 
     ker.kernel_l2error(
-        Nel, p, n_quad, wts[0],
+        Nel,
+        p,
+        n_quad,
+        wts[0],
         wts[1],
         wts[2],
         [1, 1, 1],
@@ -725,23 +605,12 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
         indD[0],
         indD[1],
         indD[2],
-        error, mat_f.reshape(Nel[0],
-                             n_quad[0],
-                             Nel[1],
-                             n_quad[1],
-                             Nel[2],
-                             n_quad[2]),
-        mat_f.reshape(Nel[0],
-                      n_quad[0],
-                      Nel[1],
-                      n_quad[1],
-                      Nel[2],
-                      n_quad[2]),
-        coeff, coeff, 1 / det_df.reshape(Nel[0],
-                                         n_quad[0],
-                                         Nel[1],
-                                         n_quad[1],
-                                         Nel[2],
-                                         n_quad[2]))
+        error,
+        mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+        coeff,
+        coeff,
+        1 / det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
+    )
 
     return np.sqrt(error.sum())

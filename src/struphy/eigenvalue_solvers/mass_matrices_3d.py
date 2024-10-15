@@ -28,14 +28,14 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         optional additional weight function
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of local non-vanishing basis functions in format (element, global index)
-    indN   = tensor_space_FEM.indN
+    indN = tensor_space_FEM.indN
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
-    wts    = tensor_space_FEM.wts     # global quadrature weights in format (element, local weight)
+    pts = tensor_space_FEM.pts  # global quadrature points in format (element, local quad_point)
+    wts = tensor_space_FEM.wts  # global quadrature weights in format (element, local weight)
 
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
 
@@ -54,7 +54,7 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     Ni = tensor_space_FEM.Nbase_0form
     Nj = tensor_space_FEM.Nbase_0form
 
-    M  = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+    M = np.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
 
     ker.kernel_mass(
         np.array(Nel),
@@ -74,22 +74,24 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         indN[0],
         indN[1],
         indN[2],
-        M, mat_w * det_df)
+        M,
+        mat_w * det_df,
+    )
 
     # conversion to sparse matrix
-    indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+    indices = np.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
 
-    shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+    shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
-    row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+    row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-    col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-    col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-    col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+    col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+    col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+    col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-    col     = Nj[1]*Ni[2]*col1 + Ni[2]*col2 + col3
+    col = Nj[1] * Ni[2] * col1 + Ni[2] * col2 + col3
 
-    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+    M = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]))
     M.eliminate_zeros()
 
     # apply spline extraction operator and return
@@ -122,24 +124,24 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         optional additional weight functions
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indN   = tensor_space_FEM.indN
+    indN = tensor_space_FEM.indN
     # global indices of non-vanishing basis functions (D) in format (element, global index)
-    indD   = tensor_space_FEM.indD
+    indD = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points
-    wts    = tensor_space_FEM.wts     # global quadrature weights
+    pts = tensor_space_FEM.pts  # global quadrature points
+    wts = tensor_space_FEM.wts  # global quadrature weights
 
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
 
     # indices and basis functions of components of a 2-form
-    ind   = [[indD[0], indN[1], indN[2]], [indN[0], indD[1], indN[2]], [indN[0], indN[1], indD[2]]]
+    ind = [[indD[0], indN[1], indN[2]], [indN[0], indD[1], indN[2]], [indN[0], indN[1], indD[2]]]
     basis = [[basisD[0], basisN[1], basisN[2]], [basisN[0], basisD[1], basisN[2]], [basisN[0], basisN[1], basisD[2]]]
-    ns    = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    ns = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
     det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
@@ -157,7 +159,7 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             Ni = tensor_space_FEM.Nbase_1form[a]
             Nj = tensor_space_FEM.Nbase_1form[b]
 
-            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
 
             # evaluate metric tensor at quadrature points
             if weight == None:
@@ -188,27 +190,28 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
                     ind[a][1],
                     ind[a][2],
                     M[a][b],
-                    mat_w * det_df)
+                    mat_w * det_df,
+                )
 
             # convert to sparse matrix
-            indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+            indices = np.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
 
-            shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
-            row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+            row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-            col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-            col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-            col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+            col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+            col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+            col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-            col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+            col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
             M[a][b] = spa.csr_matrix(
-                (M[a][b].flatten(), (row, col.flatten())), shape=(
-                    Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+                (M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            )
             M[a][b].eliminate_zeros()
 
-    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
+    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format="csr")
 
     # apply spline extraction operator and return
     if apply_boundary_ops:
@@ -239,24 +242,24 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         optional additional weight functions
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indN   = tensor_space_FEM.indN
+    indN = tensor_space_FEM.indN
     # global indices of non-vanishing basis functions (D) in format (element, global index)
-    indD   = tensor_space_FEM.indD
+    indD = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points
-    wts    = tensor_space_FEM.wts     # global quadrature weights
+    pts = tensor_space_FEM.pts  # global quadrature points
+    wts = tensor_space_FEM.wts  # global quadrature weights
 
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
 
     # indices and basis functions of components of a 2-form
-    ind   = [[indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]]]
+    ind = [[indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]]]
     basis = [[basisN[0], basisD[1], basisD[2]], [basisD[0], basisN[1], basisD[2]], [basisD[0], basisD[1], basisN[2]]]
-    ns    = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
+    ns = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
 
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
     det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
@@ -274,7 +277,7 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             Ni = tensor_space_FEM.Nbase_2form[a]
             Nj = tensor_space_FEM.Nbase_2form[b]
 
-            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
 
             # evaluate metric tensor at quadrature points
             if weight == None:
@@ -305,27 +308,28 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
                     ind[a][1],
                     ind[a][2],
                     M[a][b],
-                    mat_w / det_df)
+                    mat_w / det_df,
+                )
 
             # convert to sparse matrix
-            indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+            indices = np.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
 
-            shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
-            row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+            row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-            col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-            col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-            col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+            col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+            col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+            col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-            col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+            col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
             M[a][b] = spa.csr_matrix(
-                (M[a][b].flatten(), (row, col.flatten())), shape=(
-                    Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+                (M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            )
             M[a][b].eliminate_zeros()
 
-    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
+    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format="csr")
 
     # apply spline extraction operator and return
     if apply_boundary_ops:
@@ -356,14 +360,14 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         optional additional weight function
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of local non-vanishing basis functions in format (element, global index)
-    indD   = tensor_space_FEM.indD
+    indD = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
-    wts    = tensor_space_FEM.wts     # global quadrature weights in format (element, local weight)
+    pts = tensor_space_FEM.pts  # global quadrature points in format (element, local quad_point)
+    wts = tensor_space_FEM.wts  # global quadrature weights in format (element, local weight)
 
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
 
@@ -382,7 +386,7 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     Ni = tensor_space_FEM.Nbase_3form
     Nj = tensor_space_FEM.Nbase_3form
 
-    M  = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+    M = np.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
 
     ker.kernel_mass(
         np.array(Nel),
@@ -402,22 +406,24 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         indD[0],
         indD[1],
         indD[2],
-        M, mat_w / det_df)
+        M,
+        mat_w / det_df,
+    )
 
     # conversion to sparse matrix
-    indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+    indices = np.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
 
-    shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+    shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
-    row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+    row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-    col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-    col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-    col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+    col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+    col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+    col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-    col     = Nj[1]*Ni[2]*col1 + Ni[2]*col2 + col3
+    col = Nj[1] * Ni[2] * col1 + Ni[2] * col2 + col3
 
-    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+    M = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]))
     M.eliminate_zeros()
 
     # apply spline extraction operator and return
@@ -449,16 +455,16 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
         optional additional weight functions
     """
 
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
+    p = tensor_space_FEM.p  # spline degrees
+    Nel = tensor_space_FEM.Nel  # number of elements
     # global indices of non-vanishing basis functions (N) in format (element, global index)
-    indN   = tensor_space_FEM.indN
+    indN = tensor_space_FEM.indN
     # global indices of non-vanishing basis functions (D) in format (element, global index)
-    indD   = tensor_space_FEM.indD
+    indD = tensor_space_FEM.indD
 
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points
-    wts    = tensor_space_FEM.wts     # global quadrature weights
+    pts = tensor_space_FEM.pts  # global quadrature points
+    wts = tensor_space_FEM.wts  # global quadrature weights
 
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
@@ -467,14 +473,22 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     # indices and basis functions of components of a 2-form
     if bs == 0:
-        ind   = [[indN[0], indN[1], indN[2]], [indN[0], indN[1], indN[2]], [indN[0], indN[1], indN[2]]]
-        basis = [[basisN[0], basisN[1], basisN[2]], [basisN[0], basisN[1], basisN[2]], [basisN[0], basisN[1], basisN[2]]]
-        ns    = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        ind = [[indN[0], indN[1], indN[2]], [indN[0], indN[1], indN[2]], [indN[0], indN[1], indN[2]]]
+        basis = [
+            [basisN[0], basisN[1], basisN[2]],
+            [basisN[0], basisN[1], basisN[2]],
+            [basisN[0], basisN[1], basisN[2]],
+        ]
+        ns = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
     elif bs == 2:
-        ind   = [[indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]]]
-        basis = [[basisN[0], basisD[1], basisD[2]], [basisD[0], basisN[1], basisD[2]], [basisD[0], basisD[1], basisN[2]]]
-        ns    = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
+        ind = [[indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]]]
+        basis = [
+            [basisN[0], basisD[1], basisD[2]],
+            [basisD[0], basisN[1], basisD[2]],
+            [basisD[0], basisD[1], basisN[2]],
+        ]
+        ns = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
 
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
     det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
@@ -496,7 +510,7 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
                 Ni = tensor_space_FEM.Nbase_2form[a]
                 Nj = tensor_space_FEM.Nbase_2form[b]
 
-            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
 
             # evaluate metric tensor at quadrature points
             if weight == None:
@@ -527,27 +541,28 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
                     ind[a][1],
                     ind[a][2],
                     M[a][b],
-                    mat_w * det_df)
+                    mat_w * det_df,
+                )
 
             # convert to sparse matrix
-            indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+            indices = np.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
 
-            shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
-            row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+            row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-            col1    = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
-            col2    = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
-            col3    = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
+            col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
+            col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
+            col3 = (indices[5] + shift[2][None, None, :, None, None, None]) % Nj[2]
 
-            col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+            col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
             M[a][b] = spa.csr_matrix(
-                (M[a][b].flatten(), (row, col.flatten())), shape=(
-                    Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+                (M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            )
             M[a][b].eliminate_zeros()
 
-    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
+    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format="csr")
 
     # apply spline extraction operator and return
     if apply_boundary_ops:

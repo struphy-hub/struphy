@@ -34,20 +34,21 @@ import struphy.pic.tests.test_pic_legacy_files.spline_evaluation_3d as eva_3d
 
 # =======================================================================
 def f(
-        eta1 : 'float',
-        eta2 : 'float',
-        eta3 : 'float',
-        component : 'int',
-        kind_map : 'int',
-        params_map : 'float[:]',
-        tn1 : 'float[:]',
-        tn2 : 'float[:]',
-        tn3 : 'float[:]',
-        pn : 'int[:]',
-        nbase_n : 'int[:]',
-        cx : 'float[:,:,:]',
-        cy : 'float[:,:,:]',
-        cz : 'float[:,:,:]') -> 'float':
+    eta1: "float",
+    eta2: "float",
+    eta3: "float",
+    component: "int",
+    kind_map: "int",
+    params_map: "float[:]",
+    tn1: "float[:]",
+    tn2: "float[:]",
+    tn3: "float[:]",
+    pn: "int[:]",
+    nbase_n: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
+) -> "float":
     """Point-wise evaluation of Cartesian coordinate x_i = f_i(eta1, eta2, eta3), i=1,2,3.
 
     Parameters:
@@ -67,58 +68,25 @@ def f(
             Cartesian coordinate x_i = f_i(eta1, eta2, eta3)
     """
 
-    value = 0.
+    value = 0.0
 
     # =========== 3d spline ========================
     if kind_map == 0:
 
         if component == 1:
             value = eva_3d.evaluate_n_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
+            )
 
         elif component == 2:
             value = eva_3d.evaluate_n_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
+            )
 
         elif component == 3:
             value = eva_3d.evaluate_n_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
+            )
 
     # ==== 2d spline (straight in 3rd direction) ===
     elif kind_map == 1:
@@ -128,13 +96,13 @@ def f(
         if component == 1:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
 
-            if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
+            if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
                 value = cx[0, 0, 0]
 
         elif component == 2:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
 
-            if eta1 == 0. and cy[0, 0, 0] == cy[0, 1, 0]:
+            if eta1 == 0.0 and cy[0, 0, 0] == cy[0, 1, 0]:
                 value = cy[0, 0, 0]
 
         elif component == 3:
@@ -144,24 +112,26 @@ def f(
     elif kind_map == 2:
 
         if component == 1:
-            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                        nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3)
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(
+                2 * pi * eta3
+            )
 
-            if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
-                value = cx[0, 0, 0]*cos(2*pi*eta3)
+            if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
+                value = cx[0, 0, 0] * cos(2 * pi * eta3)
 
         elif component == 2:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
 
-            if eta1 == 0. and cy[0, 0, 0] == cy[0, 1, 0]:
+            if eta1 == 0.0 and cy[0, 0, 0] == cy[0, 1, 0]:
                 value = cy[0, 0, 0]
 
         elif component == 3:
-            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                        nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3)
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(
+                2 * pi * eta3
+            )
 
-            if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
-                value = cx[0, 0, 0]*sin(2*pi*eta3)
+            if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
+                value = cx[0, 0, 0] * sin(2 * pi * eta3)
 
     # ============== cuboid =========================
     elif kind_map == 10:
@@ -191,39 +161,39 @@ def f(
         da = a2 - a1
 
         if component == 1:
-            value = (a1 + eta1 * da) * cos(2*pi*eta2)
+            value = (a1 + eta1 * da) * cos(2 * pi * eta2)
         elif component == 2:
-            value = (a1 + eta1 * da) * sin(2*pi*eta2)
+            value = (a1 + eta1 * da) * sin(2 * pi * eta2)
         elif component == 3:
             value = lz * eta3
 
     # ============ colella ==========================
     elif kind_map == 12:
 
-        Lx    = params_map[0]
-        Ly    = params_map[1]
+        Lx = params_map[0]
+        Ly = params_map[1]
         alpha = params_map[2]
-        Lz    = params_map[3]
+        Lz = params_map[3]
 
         if component == 1:
-            value = Lx * (eta1 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
+            value = Lx * (eta1 + alpha * sin(2 * pi * eta1) * sin(2 * pi * eta2))
         elif component == 2:
-            value = Ly * (eta2 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
+            value = Ly * (eta2 + alpha * sin(2 * pi * eta1) * sin(2 * pi * eta2))
         elif component == 3:
             value = Lz * eta3
 
     # =========== orthogonal ========================
     elif kind_map == 11:
 
-        Lx    = params_map[0]
-        Ly    = params_map[1]
+        Lx = params_map[0]
+        Ly = params_map[1]
         alpha = params_map[2]
-        Lz    = params_map[3]
+        Lz = params_map[3]
 
         if component == 1:
-            value = Lx * (eta1 + alpha * sin(2*pi*eta1))
+            value = Lx * (eta1 + alpha * sin(2 * pi * eta1))
         elif component == 2:
-            value = Ly * (eta2 + alpha * sin(2*pi*eta2))
+            value = Ly * (eta2 + alpha * sin(2 * pi * eta2))
         elif component == 3:
             value = Lz * eta3
 
@@ -237,11 +207,11 @@ def f(
         da = a2 - a1
 
         if component == 1:
-            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3)
+            value = ((a1 + eta1 * da) * cos(2 * pi * eta2) + r0) * cos(2 * pi * eta3)
         elif component == 2:
-            value = (a1 + eta1 * da) * sin(2*pi*eta2)
+            value = (a1 + eta1 * da) * sin(2 * pi * eta2)
         elif component == 3:
-            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
+            value = ((a1 + eta1 * da) * cos(2 * pi * eta2) + r0) * sin(2 * pi * eta3)
 
     # ========= shafranov shift =====================
     elif kind_map == 30:
@@ -252,11 +222,11 @@ def f(
         de = params_map[3]  # Domain: [0,0.1]
 
         if component == 1:
-            value = (eta1 * rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * de
+            value = (eta1 * rx) * cos(2 * pi * eta2) + (1 - eta1**2) * rx * de
         elif component == 2:
-            value = (eta1 * ry) * sin(2*pi*eta2)
+            value = (eta1 * ry) * sin(2 * pi * eta2)
         elif component == 3:
-            value = (eta3 * Lz)
+            value = eta3 * Lz
 
     # ========= shafranov sqrt =====================
     elif kind_map == 31:
@@ -267,11 +237,11 @@ def f(
         de = params_map[3]  # Domain: [0,0.1]
 
         if component == 1:
-            value = (eta1 * rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * de
+            value = (eta1 * rx) * cos(2 * pi * eta2) + (1 - sqrt(eta1)) * rx * de
         elif component == 2:
-            value = (eta1 * ry) * sin(2*pi*eta2)
+            value = (eta1 * ry) * sin(2 * pi * eta2)
         elif component == 3:
-            value = (eta3 * Lz)
+            value = eta3 * Lz
 
     # ========= shafranov D-shaped =====================
     elif kind_map == 32:
@@ -285,31 +255,34 @@ def f(
         kg = params_map[6]  # Kappa: Ellipticity (elongation).
 
         if component == 1:
-            value = r0 * (1 + (1 - eta1**2) * dx + eg * eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
+            value = r0 * (
+                1 + (1 - eta1**2) * dx + eg * eta1 * cos(2 * pi * eta2 + arcsin(dg) * eta1 * sin(2 * pi * eta2))
+            )
         elif component == 2:
-            value = r0 * ((1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
+            value = r0 * ((1 - eta1**2) * dy + eg * kg * eta1 * sin(2 * pi * eta2))
         elif component == 3:
-            value = (eta3 * Lz)
+            value = eta3 * Lz
 
     return value
 
 
 # =======================================================================
 def df(
-        eta1 : 'float',
-        eta2 : 'float',
-        eta3 : 'float',
-        component : 'int',
-        kind_map : 'int',
-        params_map : 'float[:]',
-        tn1 : 'float[:]',
-        tn2 : 'float[:]',
-        tn3 : 'float[:]',
-        pn : 'int[:]',
-        nbase_n : 'int[:]',
-        cx : 'float[:,:,:]',
-        cy : 'float[:,:,:]',
-        cz : 'float[:,:,:]') -> 'float':
+    eta1: "float",
+    eta2: "float",
+    eta3: "float",
+    component: "int",
+    kind_map: "int",
+    params_map: "float[:]",
+    tn1: "float[:]",
+    tn2: "float[:]",
+    tn3: "float[:]",
+    pn: "int[:]",
+    nbase_n: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
+) -> "float":
     """Point-wise evaluation of ij-th component of the Jacobian matrix df_ij = df_i/deta_j (i,j=1,2,3).
 
     Parameters:
@@ -331,176 +304,77 @@ def df(
             point value df_ij(eta1, eta2, eta3)
     """
 
-    value = 0.
+    value = 0.0
 
     # =========== 3d spline ========================
     if kind_map == 0:
 
         if component == 11:
             value = eva_3d.evaluate_diffn_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
+            )
         elif component == 12:
             value = eva_3d.evaluate_n_diffn_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
+            )
         elif component == 13:
             value = eva_3d.evaluate_n_n_diffn(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
+            )
         elif component == 21:
             value = eva_3d.evaluate_diffn_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
+            )
         elif component == 22:
             value = eva_3d.evaluate_n_diffn_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
+            )
         elif component == 23:
             value = eva_3d.evaluate_n_n_diffn(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
+            )
         elif component == 31:
             value = eva_3d.evaluate_diffn_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
+            )
         elif component == 32:
             value = eva_3d.evaluate_n_diffn_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
+            )
         elif component == 33:
             value = eva_3d.evaluate_n_n_diffn(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3)
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
+            )
 
     # ==== 2d spline (straight in 3rd direction) ===
     elif kind_map == 1:
 
-        Lz = 2*pi*cx[0, 0, 0]
+        Lz = 2 * pi * cx[0, 0, 0]
 
         if component == 11:
             value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
         elif component == 12:
             value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
 
-            if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
-                value = 0.
+            if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
+                value = 0.0
 
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
             value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
         elif component == 22:
             value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
 
-            if eta1 == 0. and cy[0, 0, 0] == cy[0, 1, 0]:
-                value = 0.
+            if eta1 == 0.0 and cy[0, 0, 0] == cy[0, 1, 0]:
+                value = 0.0
 
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = Lz
 
@@ -508,41 +382,52 @@ def df(
     elif kind_map == 2:
 
         if component == 11:
-            value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                            nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3)
+            value = eva_2d.evaluate_diffn_n(
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
+            ) * cos(2 * pi * eta3)
         elif component == 12:
-            value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                            nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3)
+            value = eva_2d.evaluate_n_diffn(
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
+            ) * cos(2 * pi * eta3)
 
-            if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
-                value = 0.
+            if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
+                value = 0.0
 
         elif component == 13:
-            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                        nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3) * (-2*pi)
+            value = (
+                eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
+                * sin(2 * pi * eta3)
+                * (-2 * pi)
+            )
         elif component == 21:
             value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
         elif component == 22:
             value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
 
-            if eta1 == 0. and cy[0, 0, 0] == cy[0, 1, 0]:
-                value = 0.
+            if eta1 == 0.0 and cy[0, 0, 0] == cy[0, 1, 0]:
+                value = 0.0
 
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                            nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3)
+            value = eva_2d.evaluate_diffn_n(
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
+            ) * sin(2 * pi * eta3)
         elif component == 32:
-            value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                            nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3)
+            value = eva_2d.evaluate_n_diffn(
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
+            ) * sin(2 * pi * eta3)
 
-            if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
-                value = 0.
+            if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
+                value = 0.0
 
         elif component == 33:
-            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0],
-                                        nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3) * 2*pi
+            value = (
+                eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
+                * cos(2 * pi * eta3)
+                * 2
+                * pi
+            )
 
     # ============== cuboid ===================
     elif kind_map == 10:
@@ -557,19 +442,19 @@ def df(
         if component == 11:
             value = e1 - b1
         elif component == 12:
-            value = 0.
+            value = 0.0
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
-            value = 0.
+            value = 0.0
         elif component == 22:
             value = e2 - b2
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = e3 - b3
 
@@ -583,75 +468,75 @@ def df(
         da = a2 - a1
 
         if component == 11:
-            value = da * cos(2*pi*eta2)
+            value = da * cos(2 * pi * eta2)
         elif component == 12:
-            value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2)
+            value = -2 * pi * (a1 + eta1 * da) * sin(2 * pi * eta2)
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
-            value = da * sin(2*pi*eta2)
+            value = da * sin(2 * pi * eta2)
         elif component == 22:
-            value = 2*pi * (a1 + eta1 * da) * cos(2*pi*eta2)
+            value = 2 * pi * (a1 + eta1 * da) * cos(2 * pi * eta2)
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = lz
 
     # ============ colella =================
     elif kind_map == 12:
 
-        Lx    = params_map[0]
-        Ly    = params_map[1]
+        Lx = params_map[0]
+        Ly = params_map[1]
         alpha = params_map[2]
-        Lz    = params_map[3]
+        Lz = params_map[3]
 
         if component == 11:
-            value = Lx * (1 + alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi)
+            value = Lx * (1 + alpha * cos(2 * pi * eta1) * sin(2 * pi * eta2) * 2 * pi)
         elif component == 12:
-            value = Lx * alpha * sin(2*pi*eta1) * cos(2*pi*eta2) * 2*pi
+            value = Lx * alpha * sin(2 * pi * eta1) * cos(2 * pi * eta2) * 2 * pi
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
-            value = Ly * alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi
+            value = Ly * alpha * cos(2 * pi * eta1) * sin(2 * pi * eta2) * 2 * pi
         elif component == 22:
-            value = Ly * (1 + alpha * sin(2*pi*eta1) * cos(2*pi*eta2) * 2*pi)
+            value = Ly * (1 + alpha * sin(2 * pi * eta1) * cos(2 * pi * eta2) * 2 * pi)
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = Lz
 
     # =========== orthogonal ================
     elif kind_map == 11:
 
-        Lx    = params_map[0]
-        Ly    = params_map[1]
+        Lx = params_map[0]
+        Ly = params_map[1]
         alpha = params_map[2]
-        Lz    = params_map[3]
+        Lz = params_map[3]
 
         if component == 11:
-            value = Lx * (1 + alpha * cos(2*pi*eta1) * 2*pi)
+            value = Lx * (1 + alpha * cos(2 * pi * eta1) * 2 * pi)
         elif component == 12:
-            value = 0.
+            value = 0.0
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
-            value = 0.
+            value = 0.0
         elif component == 22:
-            value = Ly * (1 + alpha * cos(2*pi*eta2) * 2*pi)
+            value = Ly * (1 + alpha * cos(2 * pi * eta2) * 2 * pi)
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = Lz
 
@@ -665,23 +550,23 @@ def df(
         da = a2 - a1
 
         if component == 11:
-            value = da * cos(2*pi*eta2) * cos(2*pi*eta3)
+            value = da * cos(2 * pi * eta2) * cos(2 * pi * eta3)
         elif component == 12:
-            value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * cos(2*pi*eta3)
+            value = -2 * pi * (a1 + eta1 * da) * sin(2 * pi * eta2) * cos(2 * pi * eta3)
         elif component == 13:
-            value = -2*pi * ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
+            value = -2 * pi * ((a1 + eta1 * da) * cos(2 * pi * eta2) + r0) * sin(2 * pi * eta3)
         elif component == 21:
-            value = da * sin(2*pi*eta2)
+            value = da * sin(2 * pi * eta2)
         elif component == 22:
-            value = (a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
+            value = (a1 + eta1 * da) * cos(2 * pi * eta2) * 2 * pi
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = da * cos(2*pi*eta2) * sin(2*pi*eta3)
+            value = da * cos(2 * pi * eta2) * sin(2 * pi * eta3)
         elif component == 32:
-            value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3)
+            value = -2 * pi * (a1 + eta1 * da) * sin(2 * pi * eta2) * sin(2 * pi * eta3)
         elif component == 33:
-            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
+            value = ((a1 + eta1 * da) * cos(2 * pi * eta2) + r0) * cos(2 * pi * eta3) * 2 * pi
 
     # ========= shafranov shift =====================
     elif kind_map == 30:
@@ -692,21 +577,21 @@ def df(
         de = params_map[3]  # Domain: [0,0.1]
 
         if component == 11:
-            value = rx * cos(2*pi*eta2) - 2 * eta1 * rx * de
+            value = rx * cos(2 * pi * eta2) - 2 * eta1 * rx * de
         elif component == 12:
-            value = -2*pi * (eta1 * rx) * sin(2*pi*eta2)
+            value = -2 * pi * (eta1 * rx) * sin(2 * pi * eta2)
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
-            value = ry * sin(2*pi*eta2)
+            value = ry * sin(2 * pi * eta2)
         elif component == 22:
-            value = 2*pi * (eta1 * ry) * cos(2*pi*eta2)
+            value = 2 * pi * (eta1 * ry) * cos(2 * pi * eta2)
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = Lz
 
@@ -719,21 +604,21 @@ def df(
         de = params_map[3]  # Domain: [0,0.1]
 
         if component == 11:
-            value = rx * cos(2*pi*eta2) - 0.5 / sqrt(eta1) * rx * de
+            value = rx * cos(2 * pi * eta2) - 0.5 / sqrt(eta1) * rx * de
         elif component == 12:
-            value = -2*pi * (eta1 * rx) * sin(2*pi*eta2)
+            value = -2 * pi * (eta1 * rx) * sin(2 * pi * eta2)
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
-            value = ry * sin(2*pi*eta2)
+            value = ry * sin(2 * pi * eta2)
         elif component == 22:
-            value = 2*pi * (eta1 * ry) * cos(2*pi*eta2)
+            value = 2 * pi * (eta1 * ry) * cos(2 * pi * eta2)
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = Lz
 
@@ -749,23 +634,35 @@ def df(
         kg = params_map[6]  # Kappa: Ellipticity (elongation).
 
         if component == 11:
-            value = r0 * (- 2 * dx * eta1 - eg * eta1 * sin(2*pi*eta2) * arcsin(dg) * sin(eta1 * sin(2*pi*eta2)
-                          * arcsin(dg) + 2*pi*eta2) + eg * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2))
+            value = r0 * (
+                -2 * dx * eta1
+                - eg
+                * eta1
+                * sin(2 * pi * eta2)
+                * arcsin(dg)
+                * sin(eta1 * sin(2 * pi * eta2) * arcsin(dg) + 2 * pi * eta2)
+                + eg * cos(eta1 * sin(2 * pi * eta2) * arcsin(dg) + 2 * pi * eta2)
+            )
         elif component == 12:
-            value = - r0 * eg * eta1 * (2*pi*eta1 * cos(2*pi*eta2) * arcsin(dg) + 2*pi) * \
-                sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2)
+            value = (
+                -r0
+                * eg
+                * eta1
+                * (2 * pi * eta1 * cos(2 * pi * eta2) * arcsin(dg) + 2 * pi)
+                * sin(eta1 * sin(2 * pi * eta2) * arcsin(dg) + 2 * pi * eta2)
+            )
         elif component == 13:
-            value = 0.
+            value = 0.0
         elif component == 21:
-            value = r0 * (- 2 * dy * eta1 + eg * kg * sin(2*pi*eta2))
+            value = r0 * (-2 * dy * eta1 + eg * kg * sin(2 * pi * eta2))
         elif component == 22:
-            value = 2 * pi * r0 * eg * eta1 * kg * cos(2*pi*eta2)
+            value = 2 * pi * r0 * eg * eta1 * kg * cos(2 * pi * eta2)
         elif component == 23:
-            value = 0.
+            value = 0.0
         elif component == 31:
-            value = 0.
+            value = 0.0
         elif component == 32:
-            value = 0.
+            value = 0.0
         elif component == 33:
             value = Lz
 

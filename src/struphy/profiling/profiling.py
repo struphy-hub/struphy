@@ -18,6 +18,7 @@ from functools import lru_cache
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports
 def _import_pylikwid():
     import pylikwid
+
     return pylikwid
 
 
@@ -25,16 +26,17 @@ class ProfilingConfig:
     """
     Singleton class for managing global profiling configuration.
     """
+
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.likwid = False  # Default value (profiling disabled)
-            cls._instance.simulation_label = ''
+            cls._instance.simulation_label = ""
         return cls._instance
 
-    def set_likwid(self, value, simulation_label=''):
+    def set_likwid(self, value, simulation_label=""):
         """
         Set the profiling flag to enable or disable profiling.
 

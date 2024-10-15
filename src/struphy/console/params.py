@@ -1,5 +1,5 @@
 def struphy_params(model, file, yes=False, options=False):
-    '''Create a model's default parameter file and save in current input path.
+    """Create a model's default parameter file and save in current input path.
 
     Parameters
     ----------
@@ -14,7 +14,7 @@ def struphy_params(model, file, yes=False, options=False):
 
     show_options : bool
         Whether to print to screen all possible options for the model.
-    '''
+    """
 
     from struphy.models import fluid, hybrid, kinetic, toy
 

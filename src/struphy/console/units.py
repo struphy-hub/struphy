@@ -32,10 +32,10 @@ def struphy_units(model, input, input_abs=None):
     # input path
     libpath = struphy.__path__[0]
 
-    with open(os.path.join(libpath, 'state.yml')) as f:
+    with open(os.path.join(libpath, "state.yml")) as f:
         state = yaml.load(f, Loader=yaml.FullLoader)
 
-    i_path = state['i_path']
+    i_path = state["i_path"]
 
     # create absolute i/o paths
     if input_abs is None:
