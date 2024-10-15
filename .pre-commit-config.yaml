@@ -4,7 +4,7 @@ repos:
     hooks:
       - id: autopep8
         args: ["--in-place", "--max-line-length", "180", "-aa", "--ignore=E221,E226,E203,E731,E711"]
-        exclude: '.*_kernels\.py$'
+        exclude: '.*kernel*.py$'
         # E201/E202 – Whitespace after/before (, [ or {
         # E226 – Missing whitespace around arithmetic operators
         # E266 – Too many leading # for block comment
@@ -16,4 +16,4 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black"]
-        exclude: '.*_kernels\.py$'
+        exclude: '.*kernel*.py$'
