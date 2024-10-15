@@ -19,30 +19,36 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False):
     physical : bool
         Wether to do post-processing into push-forwarded physical (xyz) components of fields.
     """
-    import os
     import subprocess
-
-    import yaml
-
+    import os
     import struphy
+    import yaml
 
     libpath = struphy.__path__[0]
 
-    with open(os.path.join(libpath, "state.yml")) as f:
+    with open(os.path.join(libpath, 'state.yml')) as f:
         state = yaml.load(f, Loader=yaml.FullLoader)
 
-    o_path = state["o_path"]
+    o_path = state['o_path']
 
     # create absolute path
     if dir_abs is None:
         dir_abs = os.path.join(o_path, dirr)
 
-    print(f"Post processing data in {dir_abs}")
+    print(f'Post processing data in {dir_abs}')
 
-    command = ["python3", "post_processing/pproc_struphy.py", dir_abs, "-s", str(step), "--celldivide", str(celldivide)]
-
+    command = ['python3',
+               'post_processing/pproc_struphy.py',
+               dir_abs,
+               '-s',
+               str(step),
+               '--celldivide',
+               str(celldivide)]
+    
     if physical:
-        command += ["--physical"]
+        command += ['--physical']
 
     # loop over output folders and call post-processing .py file
-    subprocess.run(command, cwd=libpath, check=True)
+    subprocess.run(command,
+                   cwd=libpath,
+                   check=True)

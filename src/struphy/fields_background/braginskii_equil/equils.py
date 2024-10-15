@@ -1,9 +1,8 @@
-"Braginskii equilibria."
+'Braginskii equilibria.'
 
-
-import warnings
 
 import numpy as np
+import warnings
 
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -25,15 +24,15 @@ class HomogenSlabITG(BraginskiiEquilibrium):
 
     Parameters
     ----------
-    B0z : float
+    B0z : float  
         z-component of magnetic field (default: 1.).
     Lx : float
         Domain length in x; 1/Lx is the temperature scale length.
-    p0 : float
+    p0 : float 
         Constant pressure coefficient (default: 1.).
     pmin : float
         Minimum pressure at x = Lx.
-    n0 : float
+    n0 : float 
         Ion number density (default: 1.).
     eps : float
         The unit factor :math:`1/(\hat\Omega_i \hat t)`.
@@ -45,23 +44,29 @@ class HomogenSlabITG(BraginskiiEquilibrium):
         braginskii_equilibrium :
             type : HomogenSlabITG
             HomogenSlabITG :
-                B0z  : 1.
-                Lx   : 1.
+                B0z  : 1. 
+                Lx   : 1. 
                 p0   : 1.
                 pmin : .1
-                n0   : 1.
+                n0   : 1. 
                 eps  : .1
     """
 
     def __init__(self, **params):
 
-        params_default = {"B0z": 1.0, "Lx": 1.0, "p0": 1.0, "pmin": 0.1, "n0": 1.0, "eps": 0.1}
+        params_default = {'B0z': 1.,
+                          'Lx': 1.,
+                          'p0': 1.,
+                          'pmin': .1,
+                          'n0': 1.,
+                          'eps': .1}
 
         self._params = set_defaults(params, params_default)
 
     @property
     def params(self):
-        """Parameters dictionary."""
+        """ Parameters dictionary.
+        """
         return self._params
 
     # ===============================================================
@@ -70,41 +75,46 @@ class HomogenSlabITG(BraginskiiEquilibrium):
 
     # equilibrium magnetic field (curl of equilibrium vector potential)
     def b_xyz(self, x, y, z):
-        """Magnetic field."""
-        bx = 0 * x
-        by = 0 * x
-        bz = self.params["B0z"] - 0 * x
+        """ Magnetic field.
+        """
+        bx = 0*x
+        by = 0*x
+        bz = self.params['B0z'] - 0*x
 
         return bx, by, bz
 
-    # equilibrium ion velocity
+    # equilibrium ion velocity 
     def u_xyz(self, x, y, z):
-        """Ion velocity."""
-        ux = 0 * x
-        uy = -self.params["eps"] * self.params["p0"] / self.params["Lx"] - 0 * x
-        uz = 0 * x
+        """ Ion velocity.
+        """
+        ux = 0*x
+        uy = - self.params['eps']*self.params['p0']/self.params['Lx'] - 0*x
+        uz = 0*x
 
         return ux, uy, uz
 
     # equilibrium pressure
     def p_xyz(self, x, y, z):
-        """Plasma pressure."""
-        pp = self.params["p0"] * (1.0 - x / self.params["Lx"]) + self.params["pmin"]
+        """ Plasma pressure.
+        """
+        pp = self.params['p0']*(1. - x/self.params['Lx']) + self.params['pmin']
 
         return pp
 
     # equilibrium number density
     def n_xyz(self, x, y, z):
-        """Number density."""
-        nn = self.params["n0"] - 0 * x
+        """ Number density.
+        """
+        nn = self.params['n0'] - 0*x
 
         return nn
 
     # equilibrium current (curl of equilibrium magnetic field)
     def gradB_xyz(self, x, y, z):
-        """Field strength gradient."""
-        gradBx = 0 * x
-        gradBy = 0 * x
-        gradBz = 0 * x
+        """ Field strength gradient.
+        """
+        gradBx = 0*x
+        gradBy = 0*x
+        gradBz = 0*x
 
         return gradBx, gradBy, gradBz

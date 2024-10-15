@@ -1,20 +1,14 @@
-"Mapped domains (single patch)."
+'Mapped domains (single patch).'
 
 
-import numpy as np
-
-from struphy.geometry.base import (
-    Domain,
-    PoloidalSplineStraight,
-    PoloidalSplineTorus,
-    Spline,
-)
+from struphy.geometry.base import Domain, Spline, PoloidalSplineStraight, PoloidalSplineTorus
 from struphy.geometry.utilities import field_line_tracing
+import numpy as np
 
 
 class Tokamak(PoloidalSplineTorus):
     """
-    Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\\psi`.
+    Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\psi`.
 
     .. image:: ../../pics/mappings/tokamak.png
 
@@ -27,7 +21,7 @@ class Tokamak(PoloidalSplineTorus):
     p : list[int]
         Spline degrees in (radial, angular) direction to be used in spline mapping (default: [2, 3]).
     psi_power : float
-        Parametrization of radial flux coordinate :math:`\\eta_1=\\psi_{\\mathrm{norm}}^p`, where :math:`\\psi_{\\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
+        Parametrization of radial flux coordinate :math:`\eta_1=\psi_{\mathrm{norm}}^p`, where :math:`\psi_{\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
     psi_shifts : list[float]
         Start and end shifts of polidal flux in % --> cuts away regions at the axis and edge (default: [2., 2.])
     xi_param : str
@@ -39,7 +33,7 @@ class Tokamak(PoloidalSplineTorus):
     p : list[int]
         Spline degrees in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [3, 3]).
     tor_period : int
-        Toroidal periodicity built into the mapping: :math:`\\phi=2\\pi\\,\\eta_3/\\mathrm{torperiod}` (default: 1 --> full torus).
+        Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1 --> full torus).
 
     Note
     ----
@@ -67,89 +61,79 @@ class Tokamak(PoloidalSplineTorus):
         # set default
         eq_default = EQDSKequilibrium()
 
-        params_default = {
-            "equilibrium": eq_default,
-            "Nel": [8, 32],
-            "p": [2, 3],
-            "psi_power": 0.75,
-            "psi_shifts": [0.01, 2.0],
-            "xi_param": "equal_angle",
-            "r0": 0.3,
-            "Nel_pre": [64, 256],
-            "p_pre": [3, 3],
-            "tor_period": 1,
-        }
+        params_default = {'equilibrium': eq_default,
+                          'Nel': [8, 32],
+                          'p': [2, 3],
+                          'psi_power': 0.75,
+                          'psi_shifts': [0.01, 2.],
+                          'xi_param': 'equal_angle',
+                          'r0': 0.3,
+                          'Nel_pre': [64, 256],
+                          'p_pre': [3, 3],
+                          'tor_period': 1}
 
         # check for compatibility of given MHD equilibrium
-        if "equilibrium" in params:
-            assert isinstance(params["equilibrium"], AxisymmMHDequilibrium)
+        if 'equilibrium' in params:
+            assert isinstance(params['equilibrium'], AxisymmMHDequilibrium)
 
-        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        params_map = Domain.prepare_params_map(
+            params, params_default, return_numpy=False)
 
         # get control points via field tracing beetwenn fluxes [psi_s, psi_e)]
 
         # flux boundaries of mapping
-        eq_mhd = params_map["equilibrium"]
+        eq_mhd = params_map['equilibrium']
 
         psi0, psi1 = eq_mhd.psi_range[0], eq_mhd.psi_range[1]
 
-        psi_s = psi0 + params_map["psi_shifts"][0] * 0.01 * (psi1 - psi0)
-        psi_e = psi1 - params_map["psi_shifts"][1] * 0.01 * (psi1 - psi0)
+        psi_s = psi0 + params_map['psi_shifts'][0]*0.01*(psi1 - psi0)
+        psi_e = psi1 - params_map['psi_shifts'][1]*0.01*(psi1 - psi0)
 
-        cx, cy = field_line_tracing(
-            eq_mhd.psi,
-            eq_mhd.psi_axis_RZ[0],
-            eq_mhd.psi_axis_RZ[1],
-            psi_s,
-            psi_e,
-            params_map["Nel"],
-            params_map["p"],
-            psi_power=params_map["psi_power"],
-            xi_param=params_map["xi_param"],
-            Nel_pre=params_map["Nel_pre"],
-            p_pre=params_map["p_pre"],
-            r0=params_map["r0"],
-        )
+        cx, cy = field_line_tracing(eq_mhd.psi, eq_mhd.psi_axis_RZ[0], eq_mhd.psi_axis_RZ[1],
+                                    psi_s, psi_e,
+                                    params_map['Nel'], params_map['p'],
+                                    psi_power=params_map['psi_power'], xi_param=params_map['xi_param'],
+                                    Nel_pre=params_map['Nel_pre'], p_pre=params_map['p_pre'], r0=params_map['r0'])
 
         # add control points to parameters dictionary
-        params_map["cx"] = cx
-        params_map["cy"] = cy
+        params_map['cx'] = cx
+        params_map['cy'] = cy
 
         # add spline types to parameters dictionary
-        params_map["spl_kind"] = [False, True]
+        params_map['spl_kind'] = [False, True]
 
         # remove temporarily parameters from params_map dictionary which are not parameters of PoloidalSplineTorus
-        equilibrium = params_map["equilibrium"]
-        psi_power = params_map["psi_power"]
-        psi_shifts = params_map["psi_shifts"]
-        xi_param = params_map["xi_param"]
-        r0 = params_map["r0"]
-        Nel_pre = params_map["Nel_pre"]
-        p_pre = params_map["p_pre"]
+        equilibrium = params_map['equilibrium']
+        psi_power = params_map['psi_power']
+        psi_shifts = params_map['psi_shifts']
+        xi_param = params_map['xi_param']
+        r0 = params_map['r0']
+        Nel_pre = params_map['Nel_pre']
+        p_pre = params_map['p_pre']
 
-        params_map.pop("equilibrium")
-        params_map.pop("psi_power")
-        params_map.pop("psi_shifts")
-        params_map.pop("xi_param")
-        params_map.pop("r0")
-        params_map.pop("Nel_pre")
-        params_map.pop("p_pre")
+        params_map.pop('equilibrium')
+        params_map.pop('psi_power')
+        params_map.pop('psi_shifts')
+        params_map.pop('xi_param')
+        params_map.pop('r0')
+        params_map.pop('Nel_pre')
+        params_map.pop('p_pre')
 
         # init base class
         super().__init__(**params_map)
 
-        self._params_map["equilibrium"] = equilibrium
-        self._params_map["psi_power"] = psi_power
-        self._params_map["psi_shifts"] = psi_shifts
-        self._params_map["xi_param"] = xi_param
-        self._params_map["r0"] = r0
-        self._params_map["Nel_pre"] = Nel_pre
-        self._params_map["p_pre"] = p_pre
+        self._params_map['equilibrium'] = equilibrium
+        self._params_map['psi_power'] = psi_power
+        self._params_map['psi_shifts'] = psi_shifts
+        self._params_map['xi_param'] = xi_param
+        self._params_map['r0'] = r0
+        self._params_map['Nel_pre'] = Nel_pre
+        self._params_map['p_pre'] = p_pre
 
 
 class GVECunit(Spline):
     """
-    The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_,
+    The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_, 
     computed by the GVEC MHD equilibrium code.
 
     .. image:: ../../pics/mappings/gvec.png
@@ -177,44 +161,44 @@ class GVECunit(Spline):
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
 
-        params_map = {
-            "Nel": gvec_equil.params["Nel"],
-            "p": gvec_equil.params["p"],
-        }
+        params_map = {'Nel': gvec_equil.params['Nel'],
+                      'p': gvec_equil.params['p'],
+                      }
 
-        if gvec_equil.params["use_nfp"]:
-            params_map["spl_kind"] = (False, True, False)
+        if gvec_equil.params['use_nfp']:
+            params_map['spl_kind'] = (False, True, False)
         else:
-            params_map["spl_kind"] = (False, True, True)
+            params_map['spl_kind'] = (False, True, True)
 
         # project mapping to splines
-        _rmin = gvec_equil.params["rmin"]
+        _rmin = gvec_equil.params['rmin']
 
         def X(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[0]
+            return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[0]
 
         def Y(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[1]
+            return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[1]
 
         def Z(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[2]
+            return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[2]
 
-        cx, cy, cz = interp_mapping(params_map["Nel"], params_map["p"], params_map["spl_kind"], X, Y, Z)
+        cx, cy, cz = interp_mapping(
+            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)
 
-        params_map["cx"] = cx
-        params_map["cy"] = cy
-        params_map["cz"] = cz
+        params_map['cx'] = cx
+        params_map['cy'] = cy
+        params_map['cz'] = cz
 
         super().__init__(**params_map)
 
-        self._params_map["rmin"] = _rmin
-        self._params_map["equilibrium"] = gvec_equil
+        self._params_map['rmin'] = _rmin
+        self._params_map['equilibrium'] = gvec_equil
 
 
 class DESCunit(Spline):
     r"""
-    The mapping :math:`(\rho, \theta,\zeta) \mapsto (X, Y, Z)` to
-    Cartesian coordinates computed by the
+    The mapping :math:`(\rho, \theta,\zeta) \mapsto (X, Y, Z)` to 
+    Cartesian coordinates computed by the 
     `DESC MHD equilibrium code <https://desc-docs.readthedocs.io/en/latest/theory_general.html#flux-coordinates>`_.
 
     .. image:: ../../pics/mappings/desc.png
@@ -245,17 +229,16 @@ class DESCunit(Spline):
         # expose to methods
         self._desc_equil = desc_equil
 
-        params_map = {
-            "Nel": desc_equil.params["Nel"],
-            "p": desc_equil.params["p"],
-        }
+        params_map = {'Nel': desc_equil.params['Nel'],
+                      'p': desc_equil.params['p'],
+                      }
 
         if desc_equil.eq.NFP > 1 and desc_equil.use_nfp:
-            params_map["spl_kind"] = (False, True, False)
+            params_map['spl_kind'] = (False, True, False)
         else:
-            params_map["spl_kind"] = (False, True, True)
+            params_map['spl_kind'] = (False, True, True)
 
-        _rmin = desc_equil.params["rmin"]
+        _rmin = desc_equil.params['rmin']
 
         nfp = desc_equil.eq.NFP
         if not desc_equil.use_nfp:
@@ -263,31 +246,32 @@ class DESCunit(Spline):
 
         # project mapping to splines
         def X(e1, e2, e3):
-            return desc_equil.desc_eval("X", e1, e2, e3, nfp=nfp)
+            return desc_equil.desc_eval('X', e1, e2, e3, nfp=nfp)
 
         def Y(e1, e2, e3):
-            return desc_equil.desc_eval("Y", e1, e2, e3, nfp=nfp)
+            return desc_equil.desc_eval('Y', e1, e2, e3, nfp=nfp)
 
         def Z(e1, e2, e3):
-            return desc_equil.desc_eval("Z", e1, e2, e3, nfp=nfp)
+            return desc_equil.desc_eval('Z', e1, e2, e3, nfp=nfp)
 
-        cx, cy, cz = interp_mapping(params_map["Nel"], params_map["p"], params_map["spl_kind"], X, Y, Z)
+        cx, cy, cz = interp_mapping(
+            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)
 
-        params_map["cx"] = cx
-        params_map["cy"] = cy
-        params_map["cz"] = cz
+        params_map['cx'] = cx
+        params_map['cy'] = cy
+        params_map['cz'] = cz
 
         super().__init__(**params_map)
 
-        self._params_map["rmin"] = _rmin
-        self._params_map["equilibrium"] = desc_equil
+        self._params_map['rmin'] = _rmin
+        self._params_map['equilibrium'] = desc_equil
 
 
 class IGAPolarCylinder(PoloidalSplineStraight):
     r"""
     A cylinder with the cross section approximated by a spline mapping.
 
-    .. math::
+    .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &\sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2)\approx a\,\eta_1\cos(2\pi\eta_2)\,\,\\
@@ -301,7 +285,7 @@ class IGAPolarCylinder(PoloidalSplineStraight):
     Nel : list[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
     p : list[int]
-        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).
+        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
     a : float
         Radius of cylinder (default: 1.).
     Lz : float
@@ -325,38 +309,39 @@ class IGAPolarCylinder(PoloidalSplineStraight):
         from struphy.geometry.base import interp_mapping
 
         # set default
-        params_default = {"Nel": [8, 24], "p": [2, 3], "a": 1.0, "Lz": 4.0}
+        params_default = {'Nel': [8, 24], 'p': [2, 3], 'a': 1., 'Lz': 4.}
 
-        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        params_map = Domain.prepare_params_map(
+            params, params_default, return_numpy=False)
 
         # get control points
-        def X(eta1, eta2):
-            return params_map["a"] * eta1 * np.cos(2 * np.pi * eta2)
+        def X(eta1, eta2): return params_map['a'] * \
+            eta1 * np.cos(2*np.pi * eta2)
+        def Y(eta1, eta2): return params_map['a'] * \
+            eta1 * np.sin(2*np.pi * eta2)
 
-        def Y(eta1, eta2):
-            return params_map["a"] * eta1 * np.sin(2 * np.pi * eta2)
-
-        cx, cy = interp_mapping(params_map["Nel"], params_map["p"], [False, True], X, Y)
+        cx, cy = interp_mapping(
+            params_map['Nel'], params_map['p'], [False, True], X, Y)
 
         # make sure that control points at pole are all the same (eta1=0 there)
-        cx[0] = 0.0
-        cy[0] = 0.0
+        cx[0] = 0.
+        cy[0] = 0.
 
         # add control points to parameters dictionary
-        params_map["cx"] = cx
-        params_map["cy"] = cy
+        params_map['cx'] = cx
+        params_map['cy'] = cy
 
         # add spline types to parameters dictionary
-        params_map["spl_kind"] = [False, True]
+        params_map['spl_kind'] = [False, True]
 
         # remove "a" temporarily from params_map dictionary (is not a parameter of PoloidalSplineStraight)
-        a = params_map["a"]
-        params_map.pop("a")
+        a = params_map['a']
+        params_map.pop('a')
 
         # init base class
         super().__init__(**params_map)
 
-        self._params_map["a"] = a
+        self._params_map['a'] = a
 
 
 class IGAPolarTorus(PoloidalSplineTorus):
@@ -379,7 +364,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
     Nel : list[int]
         Number of cells in (radial, angular) direction used for spline mapping (default: [8, 24]).
     p : list[int]
-        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).
+        Splines degrees in (radial, angular) direction used for spline mapping (default: [2, 3]).   
     a : float
         Minor radius of torus (default: 1.).
     R0 : float
@@ -401,7 +386,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
                 a          : 1. # minor radius
                 R0         : 3. # major radius
                 tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
-                sfl        : False # whether to use straight field line coordinates (particular theta parametrization)
+                sfl        : False # whether to use straight field line coordinates (particular theta parametrization) 
     """
 
     def __init__(self, **params):
@@ -409,61 +394,54 @@ class IGAPolarTorus(PoloidalSplineTorus):
         from struphy.geometry.base import interp_mapping
 
         # set default
-        params_default = {"Nel": [8, 24], "p": [2, 3], "a": 1.0, "R0": 3.0, "sfl": False, "tor_period": 3}
+        params_default = {'Nel': [8, 24], 'p': [
+            2, 3], 'a': 1., 'R0': 3., 'sfl': False, 'tor_period': 3}
 
-        params_map = Domain.prepare_params_map(params, params_default, return_numpy=False)
+        params_map = Domain.prepare_params_map(
+            params, params_default, return_numpy=False)
 
         # get control points
-        if params_map["sfl"]:
-
+        if params_map['sfl']:
             def theta(eta1, eta2):
-                return 2 * np.arctan(
-                    np.sqrt(
-                        (1 + params_map["a"] * eta1 / params_map["R0"])
-                        / (1 - params_map["a"] * eta1 / params_map["R0"])
-                    )
-                    * np.tan(np.pi * eta2)
-                )
-
+                return 2*np.arctan(np.sqrt((1 + params_map['a'] * eta1 / params_map['R0'])/(1 - params_map['a'] * eta1 / params_map['R0'])) * np.tan(np.pi*eta2))
         else:
-
             def theta(eta1, eta2):
-                return 2 * np.pi * eta2
+                return 2*np.pi*eta2
 
-        def R(eta1, eta2):
-            return params_map["a"] * eta1 * np.cos(theta(eta1, eta2)) + params_map["R0"]
+        def R(eta1, eta2): return params_map['a'] * eta1 * \
+            np.cos(theta(eta1, eta2)) + params_map['R0']
+        def Z(eta1, eta2): return params_map['a'] * \
+            eta1 * np.sin(theta(eta1, eta2))
 
-        def Z(eta1, eta2):
-            return params_map["a"] * eta1 * np.sin(theta(eta1, eta2))
-
-        cx, cy = interp_mapping(params_map["Nel"], params_map["p"], [False, True], R, Z)
+        cx, cy = interp_mapping(
+            params_map['Nel'], params_map['p'], [False, True], R, Z)
 
         # make sure that control points at pole are all the same (eta1=0 there)
-        cx[0] = params_map["R0"]
-        cy[0] = 0.0
+        cx[0] = params_map['R0']
+        cy[0] = 0.
 
         # add control points to parameters dictionary
-        params_map["cx"] = cx
-        params_map["cy"] = cy
+        params_map['cx'] = cx
+        params_map['cy'] = cy
 
         # add spline types to parameters dictionary
-        params_map["spl_kind"] = [False, True]
+        params_map['spl_kind'] = [False, True]
 
         # remove "a", "R0" and "sfl" temporarily from params_map dictionary (is not a parameter of PoloidalSplineTorus)
-        a = params_map["a"]
-        R0 = params_map["R0"]
-        sfl = params_map["sfl"]
+        a = params_map['a']
+        R0 = params_map['R0']
+        sfl = params_map['sfl']
 
-        params_map.pop("a")
-        params_map.pop("R0")
-        params_map.pop("sfl")
+        params_map.pop('a')
+        params_map.pop('R0')
+        params_map.pop('sfl')
 
         # init base class
         super().__init__(**params_map)
 
-        self._params_map["a"] = a
-        self._params_map["R0"] = R0
-        self._params_map["sfl"] = sfl
+        self._params_map['a'] = a
+        self._params_map['R0'] = R0
+        self._params_map['sfl'] = sfl
 
 
 class Cuboid(Domain):
@@ -514,9 +492,11 @@ class Cuboid(Domain):
         self._kind_map = 10
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}
+        params_default = {'l1': 0., 'r1': 2., 'l2': 0.,
+                          'r2': 3., 'l3': 0., 'r3': 6.}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -549,7 +529,7 @@ class Orthogonal(Domain):
     r"""
     Slab geometry with orthogonal mesh distortion.
 
-    .. math::
+    .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\right]\,\,\\
@@ -587,9 +567,10 @@ class Orthogonal(Domain):
         self._kind_map = 11
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"Lx": 2.0, "Ly": 3.0, "alpha": 0.1, "Lz": 6.0}
+        params_default = {'Lx': 2., 'Ly': 3., 'alpha': 0.1, 'Lz': 6.}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -619,7 +600,7 @@ class Orthogonal(Domain):
 
 
 class Colella(Domain):
-    r"""
+    r'''
     Slab geometry with Colella mesh distortion.
 
     .. math::
@@ -653,16 +634,17 @@ class Colella(Domain):
                 Ly    : 2. # length in y-direction
                 alpha : .1 # distortion factor
                 Lz    : 1. # length in third direction
-    """
+    '''
 
     def __init__(self, **params):
 
         self._kind_map = 12
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"Lx": 2.0, "Ly": 3.0, "alpha": 0.1, "Lz": 6.0}
+        params_default = {'Lx': 2., 'Ly': 3., 'alpha': 0.1, 'Lz': 6.}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -730,14 +712,15 @@ class HollowCylinder(Domain):
         self._kind_map = 20
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"a1": 0.2, "a2": 1.0, "Lz": 4.0}
+        params_default = {'a1': 0.2, 'a2': 1., 'Lz': 4.}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
 
-        if self.params_map["a1"] == 0.0:
+        if self.params_map['a1'] == 0.:
             self._pole = True
         else:
             self._pole = False
@@ -807,9 +790,10 @@ class PoweredEllipticCylinder(Domain):
         self._kind_map = 21
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"rx": 1.0, "ry": 2.0, "Lz": 6.0, "s": 0.5}
+        params_default = {'rx': 1., 'ry': 2., 'Lz': 6., 's': 0.5}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -853,7 +837,7 @@ class HollowTorus(Domain):
 
     .. math::
 
-        &\theta(\eta_1,\eta_2) = \left\{\begin{aligned}
+        &\theta(\eta_1,\eta_2) = \left\{\begin{aligned} 
 
         & 2\pi\,\eta_2\,, \quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{False}\,,
 
@@ -896,14 +880,16 @@ class HollowTorus(Domain):
         self._kind_map = 22
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"a1": 0.1, "a2": 1.0, "R0": 3.0, "sfl": False, "tor_period": 3}
+        params_default = {'a1': 0.1, 'a2': 1.,
+                          'R0': 3., 'sfl': False, 'tor_period': 3}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = True
 
-        if self.params_map["a1"] == 0.0:
+        if self.params_map['a1'] == 0.:
             self._pole = True
         else:
             self._pole = False
@@ -935,7 +921,7 @@ class ShafranovShiftCylinder(Domain):
     r"""
     Cylinder with quadratic Shafranov shift.
 
-    .. math::
+    .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\eta_1^2)\,r_x\Delta\,\,\\
@@ -973,9 +959,10 @@ class ShafranovShiftCylinder(Domain):
         self._kind_map = 30
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"rx": 1.0, "ry": 1.0, "Lz": 4.0, "delta": 0.2}
+        params_default = {'rx': 1., 'ry': 1., 'Lz': 4., 'delta': 0.2}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -1008,7 +995,7 @@ class ShafranovSqrtCylinder(Domain):
     r"""
     Cylinder with square-root Shafranov shift.
 
-    .. math::
+    .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\sqrt \eta_1)r_x\Delta\,\,\\
@@ -1046,9 +1033,10 @@ class ShafranovSqrtCylinder(Domain):
         self._kind_map = 31
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {"rx": 1.0, "ry": 1.0, "Lz": 4.0, "delta": 0.2}
+        params_default = {'rx': 1., 'ry': 1., 'Lz': 4., 'delta': 0.2}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -1080,7 +1068,7 @@ class ShafranovSqrtCylinder(Domain):
 class ShafranovDshapedCylinder(Domain):
     r"""
     Cylinder with D-shaped cross section and quadratic Shafranov shift.
-    .. math::
+    .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
         \,\,x= &R_0\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \right]\,\,\\
@@ -1091,19 +1079,19 @@ class ShafranovDshapedCylinder(Domain):
 
     Parameters
     ----------
-    R0 : float
+    R0 : float 
         Base radius (default: 2.).
-    Lz : float
+    Lz : float 
         Length in z-direction (default: 4.).
-    delta_x : float
+    delta_x : float 
         Shafranov shift in x-direction (default: 0.05).
-    delta_y : float
+    delta_y : float 
         Shafranov shift in y-direction (default: 0.025).
-    delta_gs : float
+    delta_gs : float 
         Delta = sin(alpha): triangularity, shift of high point  (default: 0.05).
     epsilon_gs : float
         Epsilon: inverse aspect ratio a/r0 (default: 0.5).
-    kappa_gs : float
+    kappa_gs : float 
         Kappa: ellipticity (elongation) (default: 2.).
 
     Note
@@ -1127,17 +1115,11 @@ class ShafranovDshapedCylinder(Domain):
         self._kind_map = 32
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {
-            "R0": 2.0,
-            "Lz": 3.0,
-            "delta_x": 0.1,
-            "delta_y": 0.0,
-            "delta_gs": 0.33,
-            "epsilon_gs": 0.32,
-            "kappa_gs": 1.7,
-        }
+        params_default = {'R0': 2., 'Lz': 3., 'delta_x': 0.1, 'delta_y': 0.,
+                          'delta_gs': 0.33, 'epsilon_gs': 0.32, 'kappa_gs': 1.7}
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map(
+            params, params_default)
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False

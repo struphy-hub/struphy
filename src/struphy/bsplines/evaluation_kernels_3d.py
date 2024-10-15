@@ -18,10 +18,12 @@ Possible combinations for tensor product (BBB):
 * (N dN/deta N)
 * (N N dN/deta)
 """
-from numpy import empty, zeros
 from pyccel.decorators import stack_array
 
+from numpy import empty, zeros
+
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
+
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
@@ -30,33 +32,23 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 #################################
 
 
-def evaluation_kernel_3d(
-        p1: int,
-        p2: int,
-        p3: int,
-        basis1: 'float[:]',
-        basis2: 'float[:]',
-        basis3: 'float[:]',
-        ind1: 'int[:]',
-        ind2: 'int[:]',
-        ind3: 'int[:]',
-        coeff: 'float[:,:,:]') -> float:
+def evaluation_kernel_3d(p1: int, p2: int, p3: int, basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', ind1: 'int[:]', ind2: 'int[:]', ind3: 'int[:]', coeff: 'float[:,:,:]') -> float:
     """
     Summing non-zero contributions of a spline function (serial, needs global arrays).
 
     Parameters
     ----------
-        p1, p2, p3 : int
+        p1, p2, p3 : int                 
             Degrees of the univariate splines in each direction.
 
-        basis1, basis2, basis3 : array[float]
+        basis1, basis2, basis3 : array[float]           
             The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
 
-        ind1, ind2, ind3 : array[int]
+        ind1, ind2, ind3 : array[int]                 
             Global indices of non-vanishing splines in the element of the considered point.
 
         coeff : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
     Returns
     -------
@@ -80,25 +72,9 @@ def evaluation_kernel_3d(
 
 
 @stack_array('b1', 'b2', 'b3', 'bl1', 'bl2', 'bl3', 'br1', 'br2', 'br3', 'tmp1', 'tmp2', 'tmp3')
-def evaluate_3d(
-        kind1: int,
-        kind2: int,
-        kind3: int,
-        t1: 'float[:]',
-        t2: 'float[:]',
-        t3: 'float[:]',
-        p1: int,
-        p2: int,
-        p3: int,
-        ind1: 'int[:,:]',
-        ind2: 'int[:,:]',
-        ind3: 'int[:,:]',
-        coeff: 'float[:,:,:]',
-        eta1: float,
-        eta2: float,
-        eta3: float) -> float:
+def evaluate_3d(kind1: int, kind2: int, kind3: int, t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2: int, p3: int, ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', coeff: 'float[:,:,:]', eta1: float, eta2: float, eta3: float) -> float:
     """
-    Point-wise evaluation of a tensor-product spline (serial, needs global arrays).
+    Point-wise evaluation of a tensor-product spline (serial, needs global arrays). 
 
     Parameters
     ----------
@@ -108,16 +84,16 @@ def evaluate_3d(
         t1, t2, t3 : array[float]
             Knot vectors of univariate splines.
 
-        p1, p2, p3 : int
+        p1, p2, p3 : int                 
             Degrees of univariate splines.
 
-        ind1, ind2, ind3 : array[int]
+        ind1, ind2, ind3 : array[int]                 
             Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
         coeff : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
-        eta1, eta2, eta3 : float
+        eta1, eta2, eta3 : float              
             Point of evaluation.
 
     Returns
@@ -185,40 +161,25 @@ def evaluate_3d(
     return spline_value
 
 
-def evaluate_tensor_product(
-        t1: 'float[:]',
-        t2: 'float[:]',
-        t3: 'float[:]',
-        p1: int,
-        p2: int,
-        p3: int,
-        ind1: 'int[:,:]',
-        ind2: 'int[:,:]',
-        ind3: 'int[:,:]',
-        coeff: 'float[:,:,:]',
-        eta1: 'float[:]',
-        eta2: 'float[:]',
-        eta3: 'float[:]',
-        spline_values: 'float[:,:,:]',
-        kind: int):
+def evaluate_tensor_product(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2: int, p3: int, ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', coeff: 'float[:,:,:]', eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]', spline_values: 'float[:,:,:]', kind: int):
     """
-    Tensor-product evaluation of a tensor-product spline (serial, needs global arrays).
+    Tensor-product evaluation of a tensor-product spline (serial, needs global arrays). 
 
     Parameters
     ----------
         t1, t2, t3 : array[float]
             Knot vectors of univariate splines.
 
-        p1, p2, p3 : int
+        p1, p2, p3 : int                 
             Degrees of univariate splines.
 
-        ind1, ind2, ind3 : array[int]
+        ind1, ind2, ind3 : array[int]                 
             Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
         coeff : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
-        eta1, eta2, eta3 : array[float]
+        eta1, eta2, eta3 : array[float]              
             Points of evaluation in 1d arrays.
 
         spline_values : array[float]
@@ -278,40 +239,25 @@ def evaluate_tensor_product(
                         1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
 
 
-def evaluate_matrix(
-        t1: 'float[:]',
-        t2: 'float[:]',
-        t3: 'float[:]',
-        p1: int,
-        p2: int,
-        p3: int,
-        ind1: 'int[:,:]',
-        ind2: 'int[:,:]',
-        ind3: 'int[:,:]',
-        coeff: 'float[:,:,:]',
-        eta1: 'float[:,:,:]',
-        eta2: 'float[:,:,:]',
-        eta3: 'float[:,:,:]',
-        spline_values: 'float[:,:,:]',
-        kind: int):
+def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int,  p2: int, p3: int, ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', coeff: 'float[:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', spline_values: 'float[:,:,:]', kind: int):
     """
-    General evaluation of a tensor-product spline (serial, needs global arrays).
+    General evaluation of a tensor-product spline (serial, needs global arrays). 
 
     Parameters
     ----------
         t1, t2, t3 : array[float]
             Knot vectors of univariate splines.
 
-        p1, p2, p3 : int
+        p1, p2, p3 : int                 
             Degrees of univariate splines.
 
-        ind1, ind2, ind3 : array[int]
+        ind1, ind2, ind3 : array[int]                 
             Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
         coeff : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
-        eta1, eta2, eta3 : array[float]
+        eta1, eta2, eta3 : array[float]              
             Points of evaluation in 3d arrays such that shape(eta1) == shape(eta2) == shape(eta3).
 
         spline_values : array[float]
@@ -377,40 +323,25 @@ def evaluate_matrix(
                         1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
 
 
-def evaluate_sparse(
-        t1: 'float[:]',
-        t2: 'float[:]',
-        t3: 'float[:]',
-        p1: int,
-        p2: int,
-        p3: int,
-        ind1: 'int[:,:]',
-        ind2: 'int[:,:]',
-        ind3: 'int[:,:]',
-        coeff: 'float[:,:,:]',
-        eta1: 'float[:,:,:]',
-        eta2: 'float[:,:,:]',
-        eta3: 'float[:,:,:]',
-        spline_values: 'float[:,:,:]',
-        kind: int):
+def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2: int, p3: int, ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', coeff: 'float[:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', spline_values: 'float[:,:,:]', kind: int):
     """
-    Evaluation of a tensor-product spline using sparse meshgrids (serial, needs global arrays).
+    Evaluation of a tensor-product spline using sparse meshgrids (serial, needs global arrays). 
 
     Parameters
     ----------
         t1, t2, t3 : array[float]
             Knot vectors of univariate splines.
 
-        p1, p2, p3 : int
+        p1, p2, p3 : int                 
             Degrees of univariate splines.
 
-        ind1, ind2, ind3 : array[int]
+        ind1, ind2, ind3 : array[int]                 
             Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
         coeff : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
-        eta1, eta2, eta3 : array[float]
+        eta1, eta2, eta3 : array[float]              
             Points of evaluation in 3d arrays such that shape(eta1) = (:,1,1), shape(eta2) = (1,:,1), shape(eta3) = (1,1,:).
 
         spline_values : array[float]
@@ -496,17 +427,17 @@ def eval_spline_mpi_kernel(p1: 'int',
 
     Parameters
     ----------
-        p1, p2, p3 : int
+        p1, p2, p3 : int                 
             Degrees of the univariate splines in each direction.
 
-        basis1, basis2, basis3 : array[float]
+        basis1, basis2, basis3 : array[float]           
             The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
 
         span1, span2, span3: int
             Knot span index in each direction.
 
         _data : array[float]
-            The spline coefficients c_ijk of the current process, ie. the _data attribute of a StencilVector.
+            The spline coefficients c_ijk of the current process, ie. the _data attribute of a StencilVector.  
 
         starts : array[int]
             Starting indices of current process.
@@ -532,35 +463,23 @@ def eval_spline_mpi_kernel(p1: 'int',
     return spline_value
 
 
-def eval_spline_derivative_mpi_kernel(
-        p1: 'int',
-        p2: 'int',
-        p3: 'int',
-        basis1: 'float[:]',
-        basis2: 'float[:]',
-        basis3: 'float[:]',
-        span1: 'int',
-        span2: 'int',
-        span3: 'int',
-        _data: 'float[:,:,:]',
-        starts: 'int[:]',
-        direction: 'int') -> float:
+def eval_spline_derivative_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]', direction: 'int') -> float:
     """
     Kernel for the derivative of a spline in one direction (distributed, domain decomp.).
 
     Parameters
     ----------
-        p1, p2, p3 : int
+        p1, p2, p3 : int                 
             Degrees of the univariate splines in each direction.
 
-        basis1, basis2, basis3 : array[float]
+        basis1, basis2, basis3 : array[float]           
             The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
 
         span1, span2, span3: int
             Knot span index in each direction.
 
         _data : array[float]
-            The spline coefficients c_ijk in current process, ie. the _data attribute of a StencilVector.
+            The spline coefficients c_ijk in current process, ie. the _data attribute of a StencilVector.  
 
         starts : array[int]
             Starting indices of current process.
@@ -615,7 +534,7 @@ def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts: 'int[:]') -> float:
     """
-    Point-wise evaluation of a tensor-product spline, distributed.
+    Point-wise evaluation of a tensor-product spline, distributed. 
 
     Parameters
     ----------
@@ -623,7 +542,7 @@ def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
             Evaluation point in [0, 1]^3.
 
         _data : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
         kind : array[int]
             Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
@@ -687,16 +606,16 @@ def eval_spline_mpi_tensor_product(eta1: 'float[:]', eta2: 'float[:]', eta3: 'fl
                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                    starts: 'int[:]', values: 'float[:,:,:]'):
     """
-    Tensor-product evaluation of a tensor-product spline, distributed.
+    Tensor-product evaluation of a tensor-product spline, distributed. 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : array[float]
+        eta1, eta2, eta3 : array[float]              
             Evaluation points as 1d arrays; points not on local process domain must be flagged as -1.
             The out array is global and contains the spline values as S_ijk = S(eta1[i], eta2[j], eta3[k]).
 
         _data : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
         kind : array[int]
             Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
@@ -734,17 +653,17 @@ def eval_spline_mpi_tensor_product_fast(eta1: 'float[:]', eta2: 'float[:]', eta3
                                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                         starts: 'int[:]', values: 'float[:,:,:]'):
     """
-    Tensor-product evaluation of a tensor-product spline, distributed,
-    and optimized by computing spans and spline values only once.
+    Tensor-product evaluation of a tensor-product spline, distributed, 
+    and optimized by computing spans and spline values only once. 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : array[float]
+        eta1, eta2, eta3 : array[float]              
             Evaluation points as 1d arrays; points not on local process domain must be flagged as -1.
             Spline values are obtained as S_ijk = S(eta1[i], eta2[j], eta3[k]).
 
         _data : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
         kind : array[int]
             Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
@@ -820,19 +739,19 @@ def eval_spline_mpi_tensor_product_fixed(span1s: 'int[:]', span2s: 'int[:]', spa
                                          _data: 'float[:,:,:]', kind: 'int[:]', pn: 'int[:]',
                                          starts: 'int[:]', values: 'float[:,:,:]'):
     """
-    Tensor-product evaluation of a tensor-product spline, distributed,
-    and optimized for a fixed grid (spans and spline values have been pre-evaluated).
+    Tensor-product evaluation of a tensor-product spline, distributed, 
+    and optimized for a fixed grid (spans and spline values have been pre-evaluated). 
 
     Parameters
     ----------
-        span1s, span2s, span3s : array[int]
+        span1s, span2s, span3s : array[int]              
             Knot span indices.
 
         b1s, b2s, b3s : array[float]
             Values of p+1 non-zero basis functions at evaluation points.
 
         _data : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
         kind : array[int]
             Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
@@ -880,16 +799,16 @@ def eval_spline_mpi_matrix(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'fl
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts: 'int[:]', values: 'float[:,:,:]'):
     """
-    3d array evaluation of a tensor-product spline, distributed.
+    3d array evaluation of a tensor-product spline, distributed. 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : array[float]
+        eta1, eta2, eta3 : array[float]              
             Evaluation points as 3d arrays; points not on local process domain must be flagged as -1.
             Spline values are obtained as S_ijk = S(eta1[i,j,k], eta2[i,j,k], eta3[i,j,k]).
 
         _data : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
         kind : array[int]
             Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
@@ -930,16 +849,16 @@ def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', 
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                     starts: 'int[:]', values: 'float[:,:,:]'):
     """
-    Sparse meshgrid evaluation of a tensor-product spline, distributed.
+    Sparse meshgrid evaluation of a tensor-product spline, distributed. 
 
     Parameters
     ----------
-        eta1, eta2, eta3 : array[float]
-            Evaluation points as 3d arrays obtained from sparse meshgrid; points not on local process domain must be flagged as -1.
+        eta1, eta2, eta3 : array[float]              
+            Evaluation points as 3d arrays obtained from sparse meshgrid; points not on local process domain must be flagged as -1. 
             Spline values are obtained as S_ijk = S(eta1[i,0,0], eta2[0,j,0], eta3[0,0,k]).
 
         _data : array[float]
-            The spline coefficients c_ijk.
+            The spline coefficients c_ijk. 
 
         kind : array[int]
             Kind of 1d basis in each direction: 0 = N-spline, 1 = D-spline.
@@ -985,8 +904,8 @@ def get_spans(eta1: float,
               eta2: float,
               eta3: float,
               args_derham: 'DerhamArguments'):
-    '''Compute the knot span index,
-    the N-spline values (in bn) and the D-spline values (in bd)
+    '''Compute the knot span index, 
+    the N-spline values (in bn) and the D-spline values (in bd) 
     at (eta1, eta2, eta3).'''
 
     # find spans

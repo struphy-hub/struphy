@@ -1,54 +1,44 @@
 'Initialization routines (initial guess, evaluations) for 5D gyro-center pusher kernels.'
 
 
-from numpy import abs, empty, log, mod, shape, size, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-
+import struphy.geometry.evaluation_kernels as evaluation_kernels
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-from struphy.bsplines.evaluation_kernels_3d import (
-    eval_0form_spline_mpi,
-    eval_1form_spline_mpi,
-    eval_2form_spline_mpi,
-    eval_3form_spline_mpi,
-    eval_vectorfield_spline_mpi,
-    get_spans,
-)
-from struphy.pic.pushing.pusher_args_kernels import (
-    DerhamArguments,
-    DomainArguments,
-    MarkerArguments,
-)
+
+from struphy.pic.pushing.pusher_args_kernels import MarkerArguments, DerhamArguments, DomainArguments
+from struphy.bsplines.evaluation_kernels_3d import get_spans, eval_0form_spline_mpi, eval_1form_spline_mpi, eval_2form_spline_mpi, eval_3form_spline_mpi, eval_vectorfield_spline_mpi
+
+from numpy import empty, shape, size, zeros, sqrt, log, abs, mod
 
 
 @stack_array('eta_k', 'eta_n', 'eta')
 def driftkinetic_hamiltonian(alpha: 'float[:]',
-                             column_nr: int,
-                             comps: 'int[:]',
-                             args_markers: 'MarkerArguments',
-                             args_derham: 'DerhamArguments',
-                             args_domain: 'DomainArguments',
-                             epsilon: float,
-                             B_dot_b_coeffs: 'float[:,:, :]',
-                             phi_coeffs: 'float[:,:, :]',
-                             evaluate_e_field: bool):
+                                  column_nr: int,
+                                  comps: 'int[:]',
+                                  args_markers: 'MarkerArguments',
+                                  args_derham: 'DerhamArguments',
+                                  args_domain: 'DomainArguments',
+                                  epsilon: float,
+                                  B_dot_b_coeffs: 'float[:,:, :]',
+                                  phi_coeffs: 'float[:,:, :]',
+                                  evaluate_e_field: bool):
     r"""Evaluate the Hamiltonian
-
+    
     .. math::
-
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
+    
+        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2} 
         + \varepsilon\mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
-
+        
     where the evaluation point is the weighted average
     :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
+    :math:`\boldsymbol \eta_p` beforehand.   
+    
     The result is saved at ``column_nr`` in markers array for each particle.
     """
 
@@ -72,14 +62,14 @@ def driftkinetic_hamiltonian(alpha: 'float[:]',
 
         eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
         eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
-
+        
         eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
         eta[:] = mod(eta, 1.)
 
         v_k = markers[ip, 3]
         v_n = markers[ip, buffer_idx + 3]
         v = alpha[3]*v_k + (1. - alpha[3])*v_n
-
+        
         mu = markers[ip, mu_idx]
 
         # spline evaluation
@@ -91,7 +81,7 @@ def driftkinetic_hamiltonian(alpha: 'float[:]',
                                         phi_coeffs)
         else:
             phi = 0.
-
+        
         B_dot_b = eval_0form_spline_mpi(span1, span2, span3,
                                         args_derham,
                                         B_dot_b_coeffs)
@@ -102,35 +92,35 @@ def driftkinetic_hamiltonian(alpha: 'float[:]',
 
 @stack_array('eta_k', 'eta_n', 'eta', 'grad_H', 'e_field')
 def grad_driftkinetic_hamiltonian(alpha: 'float[:]',
-                                  column_nr: int,
-                                  comps: 'int[:]',
-                                  args_markers: 'MarkerArguments',
-                                  args_derham: 'DerhamArguments',
-                                  args_domain: 'DomainArguments',
-                                  epsilon: float,
-                                  grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]',
-                                  e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
-                                  evaluate_e_field: bool):
+                                       column_nr: int,
+                                       comps: 'int[:]',
+                                       args_markers: 'MarkerArguments',
+                                       args_derham: 'DerhamArguments',
+                                       args_domain: 'DomainArguments',
+                                       epsilon: float,
+                                       grad_b_full_1: 'float[:,:,:]', grad_b_full_2: 'float[:,:,:]', grad_b_full_3: 'float[:,:,:]', 
+                                       e_field_1: 'float[:,:,:]', e_field_2: 'float[:,:,:]', e_field_3: 'float[:,:,:]',
+                                       evaluate_e_field: bool):
     r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
-
+    
     .. math::
-
-        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
+    
+        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2} 
         + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
-
+        
     that is
-
+    
     .. math::
-
-        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
+    
+        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p) 
         + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
-
+        
     where the evaluation point is the weighted average
     :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
+    :math:`\boldsymbol \eta_p` beforehand. 
+    
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)`` 
     in markers array for each particle.
     """
 
@@ -147,7 +137,7 @@ def grad_driftkinetic_hamiltonian(alpha: 'float[:]',
     mu_idx = args_markers.mu_idx
     buffer_idx = args_markers.buffer_idx
     shift_idx = args_markers.shift_idx
-
+    
     # for saving
     n_comps = size(comps)
 
@@ -159,10 +149,10 @@ def grad_driftkinetic_hamiltonian(alpha: 'float[:]',
 
         eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
         eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
-
+        
         eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
         eta[:] = mod(eta, 1.)
-
+        
         mu = markers[ip, mu_idx]
 
         # spline evaluation
@@ -176,7 +166,7 @@ def grad_driftkinetic_hamiltonian(alpha: 'float[:]',
                               grad_H)
 
         grad_H *= epsilon*mu
-
+        
         if evaluate_e_field:
             eval_1form_spline_mpi(span1, span2, span3,
                                   args_derham,
@@ -184,36 +174,36 @@ def grad_driftkinetic_hamiltonian(alpha: 'float[:]',
                                   e_field_2,
                                   e_field_3,
                                   e_field)
-
+            
             e_field *= -1.
             grad_H += e_field
 
-        # save
+        # save 
         for j in range(n_comps):
             markers[ip, column_nr + j] = grad_H[comps[j]]
 
 
 @stack_array('eta_k', 'eta_n', 'eta', 'dfm')
 def bstar_parallel_3form(alpha: 'float[:]',
-                         column_nr: int,
-                         comps: 'int[:]',
-                         args_markers: 'MarkerArguments',
-                         args_derham: 'DerhamArguments',
-                         args_domain: 'DomainArguments',
-                         epsilon: float,
-                         B_dot_b_coeffs: 'float[:,:,:]',
-                         curl_unit_b_dot_b0: 'float[:,:,:]'):
+                              column_nr: int,
+                              comps: 'int[:]',
+                              args_markers: 'MarkerArguments',
+                              args_derham: 'DerhamArguments',
+                              args_domain: 'DomainArguments',
+                              epsilon: float,
+                              B_dot_b_coeffs: 'float[:,:,:]',
+                              curl_unit_b_dot_b0: 'float[:,:,:]'):
     r'''Evaluate
-
+    
     .. math::
-
+    
         \hat B^{*3}_\parallel(\mathbf Z_p) = \sqrt g \left(\hat B + \varepsilon v_{\parallel,p} \widehat{\left[(\nabla \times \mathbf b_0) \cdot \mathbf b_0\right]}(\boldsymbol \eta_p) \right)\,,
-
+        
     where the evaluation point is the weighted average
     :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
+    :math:`\boldsymbol \eta_p` beforehand. 
+        
     The result is saved at ``column_nr``  in markers array for each particle.
     '''
 
@@ -238,10 +228,10 @@ def bstar_parallel_3form(alpha: 'float[:]',
 
         eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
         eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
-
+        
         eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
         eta[:] = mod(eta, 1.)
-
+        
         v_k = markers[ip, 3]
         v_n = markers[ip, buffer_idx + 3]
         v = alpha[3]*v_k + (1. - alpha[3])*v_n
@@ -267,34 +257,34 @@ def bstar_parallel_3form(alpha: 'float[:]',
 
         b_star_parallel *= epsilon * v
         b_star_parallel += B_dot_b
-        b_star_parallel *= det_df
+        b_star_parallel *= det_df 
 
         markers[ip, column_nr] = b_star_parallel
 
 
 @stack_array('eta_k', 'eta_n', 'eta', 'b2', 'b_star')
 def bstar_2form(alpha: 'float[:]',
-                column_nr: int,
-                comps: 'int[:]',
-                args_markers: 'MarkerArguments',
-                args_derham: 'DerhamArguments',
-                args_domain: 'DomainArguments',
-                epsilon: float,
-                b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
-                curl_unit_b2_1: 'float[:,:,:]', curl_unit_b2_2: 'float[:,:,:]', curl_unit_b2_3: 'float[:,:,:]'):
+                     column_nr: int,
+                     comps: 'int[:]',
+                     args_markers: 'MarkerArguments',
+                     args_derham: 'DerhamArguments',
+                     args_domain: 'DomainArguments',
+                     epsilon: float,
+                     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+                     curl_unit_b2_1: 'float[:,:,:]', curl_unit_b2_2: 'float[:,:,:]', curl_unit_b2_3: 'float[:,:,:]'):
     r'''Evaluate
-
+    
     .. math::
-
+    
         \hat{\mathbf B}^{*2}(\mathbf Z_p) = \hat{\mathbf B}^2(\boldsymbol \eta_p)
         + \varepsilon v_{\parallel,p} \hat \nabla \times \hat{\mathbf b}^1_0 (\boldsymbol \eta_p)\,,
-
+        
     where the evaluation point is the weighted average
     :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
     for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
+    :math:`\boldsymbol \eta_p` beforehand.   
+        
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)`` 
     in markers array for each particle.
     '''
 
@@ -311,7 +301,7 @@ def bstar_2form(alpha: 'float[:]',
     mu_idx = args_markers.mu_idx
     buffer_idx = args_markers.buffer_idx
     shift_idx = args_markers.shift_idx
-
+    
     # for saving
     n_comps = size(comps)
 
@@ -323,10 +313,10 @@ def bstar_2form(alpha: 'float[:]',
 
         eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
         eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
-
+        
         eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
         eta[:] = mod(eta, 1.)
-
+        
         v_k = markers[ip, 3]
         v_n = markers[ip, buffer_idx + 3]
         v = alpha[3]*v_k + (1. - alpha[3])*v_n
@@ -341,7 +331,7 @@ def bstar_2form(alpha: 'float[:]',
                               b2_2,
                               b2_3,
                               b2)
-
+        
         eval_2form_spline_mpi(span1, span2, span3,
                               args_derham,
                               curl_unit_b2_1,
@@ -352,26 +342,26 @@ def bstar_2form(alpha: 'float[:]',
         b_star *= epsilon * v
         b_star += b2
 
-        # save
+        # save 
         for j in range(n_comps):
             markers[ip, column_nr + j] = b_star[comps[j]]
-
+        
 
 @stack_array('eta_k', 'eta_n', 'eta', 'unit_b1')
 def unit_b_1form(alpha: 'float[:]',
-                 column_nr: int,
-                 comps: 'int[:]',
-                 args_markers: 'MarkerArguments',
-                 args_derham: 'DerhamArguments',
-                 args_domain: 'DomainArguments',
-                 unit_b1_1: 'float[:,:,:]', unit_b1_2: 'float[:,:,:]', unit_b1_3: 'float[:,:,:]'):
+                      column_nr: int,
+                      comps: 'int[:]',
+                      args_markers: 'MarkerArguments',
+                      args_derham: 'DerhamArguments',
+                      args_domain: 'DomainArguments',
+                      unit_b1_1: 'float[:,:,:]', unit_b1_2: 'float[:,:,:]', unit_b1_3: 'float[:,:,:]'):
     r'''Evaluate :math:`\hat{\mathbf b}^1_0(\boldsymbol \eta_p)`,
     where the evaluation point is the weighted average
     :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`,
     for :math:`i=1,2,3`. Markers must be sorted according to the evaluation point
-    :math:`\boldsymbol \eta_p` beforehand.
-
-    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
+    :math:`\boldsymbol \eta_p` beforehand. 
+    
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)`` 
     in markers array for each particle.
     '''
 
@@ -399,7 +389,7 @@ def unit_b_1form(alpha: 'float[:]',
 
         eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
         eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
-
+        
         eta[:] = alpha[:3]*eta_k + (1. - alpha[:3])*eta_n
         eta[:] = mod(eta, 1.)
 
@@ -412,7 +402,7 @@ def unit_b_1form(alpha: 'float[:]',
                               unit_b1_2,
                               unit_b1_3,
                               unit_b1)
-
-        # save
+        
+        # save 
         for j in range(n_comps):
             markers[ip, column_nr + j] = unit_b1[comps[j]]

@@ -1,7 +1,6 @@
+import h5py
 import ctypes
 import os
-
-import h5py
 import numpy as np
 
 
@@ -25,27 +24,27 @@ class DataContainer:
         # set name of hdf5 file
         if comm is None:
             self._rank = None
-            _affix = ""
+            _affix = ''
         else:
             self._rank = comm.Get_rank()
-            _affix = "_proc" + str(self._rank)
+            _affix = '_proc' + str(self._rank)
 
         if file_name is None:
-            self._file_name = "data" + _affix + ".hdf5"
+            self._file_name = 'data' + _affix + '.hdf5'
         else:
             if file_name.find(".hdf5") == -1:
-                self._file_name = file_name + ".hdf5"
+                self._file_name = file_name + '.hdf5'
             else:
                 self._file_name = file_name
 
         # file path
-        file_path = os.path.join(path_out, "data/", self._file_name)
+        file_path = os.path.join(path_out, 'data/', self._file_name)
 
         # check if file already exists
         file_exists = os.path.exists(file_path)
 
         # open/create file
-        self._file = h5py.File(file_path, "a")
+        self._file = h5py.File(file_path, 'a')
 
         # dictionary with pairs (dataset key : object ID)
         self._dset_dict = {}
@@ -54,26 +53,28 @@ class DataContainer:
         if file_exists:
             dataset_keys = []
 
-            self._file.visit(
-                lambda key: dataset_keys.append(key) if isinstance(self._file[key], h5py.Dataset) else None
-            )
+            self._file.visit(lambda key: dataset_keys.append(
+                key) if isinstance(self._file[key], h5py.Dataset) else None)
 
             for key in dataset_keys:
                 self._dset_dict[key] = None
 
     @property
     def file_name(self):
-        """The hdf5 file name."""
+        """ The hdf5 file name.
+        """
         return self._file_name
 
     @property
     def file(self):
-        """The hdf5 file."""
+        """ The hdf5 file.
+        """
         return self._file
 
     @property
     def dset_dict(self):
-        """Dictionary with dataset keys and object IDs."""
+        """ Dictionary with dataset keys and object IDs.
+        """
         return self._dset_dict
 
     def add_data(self, data_dict):
@@ -97,8 +98,8 @@ class DataContainer:
 
                 # scalar values are saved as 1d arrays of size 1
                 if len(dataset_shape) == 1:
-                    assert val.ndim == 1, "for scalar quantities, a 1d array with a single entry must used!"
-                    assert val.size == 1, "for scalar quantities, a 1d array with a single entry must used!"
+                    assert val.ndim == 1, 'for scalar quantities, a 1d array with a single entry must used!'
+                    assert val.size == 1, 'for scalar quantities, a 1d array with a single entry must used!'
 
                 # other values
                 else:
@@ -110,12 +111,12 @@ class DataContainer:
                 # scalar values are saved as 1d arrays of size 1
                 if val.size == 1:
                     assert val.ndim == 1
-                    self._file.create_dataset(key, (1,), maxshape=(None,), dtype=val.dtype, chunks=True)
+                    self._file.create_dataset(
+                        key, (1,), maxshape=(None,), dtype=val.dtype, chunks=True)
                     self._file[key][0] = val[0]
                 else:
                     self._file.create_dataset(
-                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=val.dtype, chunks=True
-                    )
+                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=val.dtype, chunks=True)
                     self._file[key][0] = val
 
             # set object ID
@@ -137,7 +138,8 @@ class DataContainer:
             for key in self._dset_dict:
 
                 self._file[key].resize(self._file[key].shape[0] + 1, axis=0)
-                self._file[key][-1] = ctypes.cast(self._dset_dict[key], ctypes.py_object).value
+                self._file[key][-1] = ctypes.cast(
+                    self._dset_dict[key], ctypes.py_object).value
 
         # only loop over given keys
         else:
@@ -145,14 +147,16 @@ class DataContainer:
             for key in keys:
 
                 self._file[key].resize(self._file[key].shape[0] + 1, axis=0)
-                self._file[key][-1] = ctypes.cast(self._dset_dict[key], ctypes.py_object).value
+                self._file[key][-1] = ctypes.cast(
+                    self._dset_dict[key], ctypes.py_object).value
 
     def info(self):
-        """Print info of data sets to screen."""
+        """ Print info of data sets to screen.  
+        """
 
         for key in self._dset_dict:
-            print(f"\nData set name: {key}")
-            print("Shape:", self._file[key].shape)
-            print("Attributes:")
+            print(f'\nData set name: {key}')
+            print('Shape:', self._file[key].shape)
+            print('Attributes:')
             for attr, val in self._file[key].attrs.items():
                 print(attr, val)

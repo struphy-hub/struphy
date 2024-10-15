@@ -2,17 +2,19 @@
 
 
 import numpy as np
-from mpi4py import MPI
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilMatrix, StencilVector
 
+from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.block import BlockVector
+
+from struphy.feec.psydac_derham import Derham
+from struphy.feec.mass import WeightedMassOperator
+from struphy.pic.base import Particles
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 import struphy.pic.accumulation.filter_kernels as filters
-from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.psydac_derham import Derham
-from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+
+from mpi4py import MPI
 
 
 class Accumulator:
@@ -73,7 +75,8 @@ class Accumulator:
         *,
         add_vector: bool = False,
         symmetry: str = None,
-        filter_params: dict = {"use_filter": None, "modes": None, "repeat": None, "alpha": None},
+        filter_params: dict = {"use_filter": None,
+                               "modes": None, "repeat": None, "alpha": None},
     ):
 
         self._particles = particles
@@ -140,20 +143,28 @@ class Accumulator:
 
         # initialize vectors
         self._vectors = []
+        self._vectors_temp = []
+        self._vectors_out = []
 
         if add_vector:
             # special treatment in model LinearMHDVlasovPC (symmetry=pressure, three BlockVectors are needed)
             if symmetry == "pressure":
-                for i in range(3):
+                for _ in range(3):
                     self._vectors += [BlockVector(derham.Vh[self.form])]
+                    self._vectors_temp += [BlockVector(derham.Vh[self.form])]
+                    self._vectors_out += [BlockVector(derham.Vh[self.form])]
 
             # normal treatment (just one vector)
             else:
                 for op in self._operators:
                     if isinstance(op.matrix, StencilMatrix):
                         self._vectors += [StencilVector(op.matrix.domain)]
+                        self._vectors_temp += [StencilVector(op.matrix.domain)]
+                        self._vectors_out += [StencilVector(op.matrix.domain)]
                     else:
                         self._vectors += [BlockVector(op.matrix.domain)]
+                        self._vectors_temp += [BlockVector(op.matrix.domain)]
+                        self._vectors_out += [BlockVector(op.matrix.domain)]
 
             for vec in self._vectors:
                 if isinstance(vec, StencilVector):
@@ -190,14 +201,12 @@ class Accumulator:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        self.kernel(
-            self.particles.markers,
-            self.particles.n_mks,
-            self.derham.args_derham,
-            self.args_domain,
-            *self._args_data,
-            *optional_args,
-        )
+        self.kernel(self.particles.markers,
+                    self.particles.n_mks,
+                    self.derham.args_derham,
+                    self.args_domain,
+                    *self._args_data,
+                    *optional_args)
 
         # apply filter
         if self.filter_params["use_filter"] is not None:
@@ -206,13 +215,13 @@ class Accumulator:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
 
-                if self.filter_params["use_filter"] == "fourier":
+                if self.filter_params["use_filter"] == 'fourier':
 
                     modes = self.filter_params["modes"]
 
                     self.apply_toroidal_fourier_filter(vec, modes)
 
-                elif self.filter_params["use_filter"] == "three_point":
+                elif self.filter_params["use_filter"] == 'three_point':
 
                     repeat = self.filter_params["repeat"]
                     alpha = self.filter_params["alpha"]
@@ -232,25 +241,31 @@ class Accumulator:
                         vec.update_ghost_regions()
 
                 else:
-                    raise NotImplemented("The type of filter must be fourier or three_point.")
+                    raise NotImplemented(
+                        'The type of filter must be fourier or three_point.')
 
             vec_finished = True
 
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
 
-                self.derham.inter_comm.Allreduce(MPI.IN_PLACE, data_array, op=MPI.SUM)
+                self.derham.inter_comm.Allreduce(
+                    MPI.IN_PLACE, data_array, op=MPI.SUM)
 
                 data_array /= self.derham.Nclones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(args_control["control_vec"], dofs=self._vectors[0], clear=False)
+            self._get_L2dofs(
+                args_control["control_vec"], dofs=self._vectors[0], clear=False
+            )
             vec_finished = True
 
         # add analytical contribution (control variate) to matrix and finish
         if "control_mat" in args_control:
-            self._operators[0].assemble(weights=args_control["control_mat"], clear=False, verbose=False)
+            self._operators[0].assemble(
+                weights=args_control["control_mat"], clear=False, verbose=False
+            )
             mat_finished = True
 
         # finish vector: accumulate ghost regions and update ghost regions
@@ -259,8 +274,7 @@ class Accumulator:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
 
-        # finish matrix: accumulate ghost regions, update ghost regions and copy
-        # data for symmetric/antisymmetric block matrices
+        # finish matrix: accumulate ghost regions, update ghost regions and copy data for symmetric/antisymmetric block matrices
         if not mat_finished:
             for op in self._operators:
                 op.matrix.exchange_assembly_data()
@@ -268,21 +282,42 @@ class Accumulator:
 
             if self.symmetry == "symm":
 
-                self._operators[0].matrix[1, 0]._data[:] = self._operators[0].matrix[0, 1].T._data
-                self._operators[0].matrix[2, 0]._data[:] = self._operators[0].matrix[0, 2].T._data
-                self._operators[0].matrix[2, 1]._data[:] = self._operators[0].matrix[1, 2].T._data
+                self._operators[0].matrix[0, 1].transpose(
+                    out=self._operators[0].matrix[1, 0]
+                )
+                self._operators[0].matrix[0, 2].transpose(
+                    out=self._operators[0].matrix[2, 0]
+                )
+                self._operators[0].matrix[1, 2].transpose(
+                    out=self._operators[0].matrix[2, 1]
+                )
 
             elif self.symmetry == "asym":
 
-                self._operators[0].matrix[1, 0]._data[:] = -self._operators[0].matrix[0, 1].T._data
-                self._operators[0].matrix[2, 0]._data[:] = -self._operators[0].matrix[0, 2].T._data
-                self._operators[0].matrix[2, 1]._data[:] = -self._operators[0].matrix[1, 2].T._data
+                self._operators[0].matrix[0, 1].transpose(
+                    out=self._operators[0].matrix[1, 0]
+                )
+                self._operators[0].matrix[1, 0] *= (-1)
+                self._operators[0].matrix[0, 2].transpose(
+                    out=self._operators[0].matrix[2, 0]
+                )
+                self._operators[0].matrix[2, 0] *= (-1)
+                self._operators[0].matrix[1, 2].transpose(
+                    out=self._operators[0].matrix[2, 1]
+                )
+                self._operators[0].matrix[2, 1] *= (-1)
 
             elif self.symmetry == "pressure":
                 for i in range(6):
-                    self._operators[i].matrix[1, 0]._data[:] = self._operators[i].matrix[0, 1].T._data
-                    self._operators[i].matrix[2, 0]._data[:] = self._operators[i].matrix[0, 2].T._data
-                    self._operators[i].matrix[2, 1]._data[:] = self._operators[i].matrix[1, 2].T._data
+                    self._operators[i].matrix[0, 1].transpose(
+                        out=self._operators[i].matrix[1, 0]
+                    )
+                    self._operators[i].matrix[0, 2].transpose(
+                        out=self._operators[i].matrix[2, 0]
+                    )
+                    self._operators[i].matrix[1, 2].transpose(
+                        out=self._operators[i].matrix[2, 1]
+                    )
 
     @property
     def particles(self):
@@ -328,8 +363,10 @@ class Accumulator:
     def vectors(self):
         """List of Stencil-/Block-/PolarVectors of the accumulator."""
         out = []
-        for vec in self._vectors:
-            out += [self._derham.boundary_ops[self.form].dot(self._derham.extraction_ops[self.form].dot(vec))]
+        for vec, vec_temp, vec_out in zip(self._vectors, self._vectors_temp, self._vectors_out):
+            self._derham.extraction_ops[self.form].dot(vec, out=vec_temp)
+            self._derham.boundary_ops[self.form].dot(vec_temp, out=vec_out)
+            out += [vec_out]
 
         return out
 
@@ -363,20 +400,20 @@ class Accumulator:
             Mode numbers which are not filtered out.
         """
 
-        from scipy.fft import irfft, rfft
+        from scipy.fft import rfft, irfft
 
         tor_Nel = self.derham.Nel[2]
 
         # Nel along the toroidal direction must be equal or bigger than 2*maximum mode
-        assert tor_Nel >= 2 * max(modes)
+        assert tor_Nel >= 2*max(modes)
 
         pn = self.derham.p
         ir = np.empty(3, dtype=int)
 
         if (tor_Nel % 2) == 0:
-            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
+            vec_temp = np.zeros(int(tor_Nel/2) + 1, dtype=complex)
         else:
-            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
+            vec_temp = np.zeros(int((tor_Nel-1)/2) + 1, dtype=complex)
 
         # no domain decomposition along the toroidal direction
         assert self.derham.domain_decomposition.nprocs[2] == 1
@@ -395,8 +432,9 @@ class Accumulator:
                 for j in range(ir[1]):
 
                     vec_temp[:] = 0
-                    vec_temp[modes] = rfft(vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]])[modes]
-                    vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
+                    vec_temp[modes] = rfft(
+                        vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]])[modes]
+                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]                                    :pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
 
             vec.update_ghost_regions()
 
@@ -451,15 +489,27 @@ class AccumulatorVector:
 
         # initialize vectors
         self._vectors = []
+        self._vectors_temp = []
+        self._vectors_out = []
 
         # collect all _data attributes needed in accumulation kernel
         self._args_data = ()
 
         if space_id in ("H1", "L2"):
-            self._vectors += [StencilVector(derham.Vh_fem[self.form].vector_space)]
+            self._vectors += [
+                StencilVector(derham.Vh_fem[self.form].vector_space)
+            ]
+            self._vectors_temp += [
+                StencilVector(derham.Vh_fem[self.form].vector_space)
+            ]
+            self._vectors_out += [
+                StencilVector(derham.Vh_fem[self.form].vector_space)
+            ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
             self._vectors += [BlockVector(derham.Vh_fem[self.form].vector_space)]
+            self._vectors_temp += [BlockVector(derham.Vh_fem[self.form].vector_space)]
+            self._vectors_out += [BlockVector(derham.Vh_fem[self.form].vector_space)]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):
@@ -507,13 +557,16 @@ class AccumulatorVector:
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
 
-                self.derham.inter_comm.Allreduce(MPI.IN_PLACE, data_array, op=MPI.SUM)
+                self.derham.inter_comm.Allreduce(
+                    MPI.IN_PLACE, data_array, op=MPI.SUM)
 
                 data_array /= self.derham.Nclones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(args_control["control_vec"], dofs=self._vectors[0], clear=False)
+            self._get_L2dofs(
+                args_control["control_vec"], dofs=self._vectors[0], clear=False
+            )
             vec_finished = True
 
         # finish vector: accumulate ghost regions and update ghost regions
@@ -556,8 +609,10 @@ class AccumulatorVector:
     def vectors(self):
         """List of Stencil-/Block-/PolarVectors of the accumulator."""
         out = []
-        for vec in self._vectors:
-            out += [self._derham.boundary_ops[self.form].dot(self._derham.extraction_ops[self.form].dot(vec))]
+        for vec, vec_temp, vec_out in zip(self._vectors, self._vectors_temp, self._vectors_out):
+            self._derham.extraction_ops[self.form].dot(vec, out=vec_temp)
+            self._derham.boundary_ops[self.form].dot(vec_temp, out=vec_out)
+            out += [vec_out]
 
         return out
 
@@ -579,9 +634,8 @@ class AccumulatorVector:
 
         The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
         """
-        from matplotlib import pyplot as plt
-
         from struphy.feec.projectors import L2Projector
+        from matplotlib import pyplot as plt
 
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
@@ -601,7 +655,8 @@ class AccumulatorVector:
             args = (0.5, 0.5, eta)
 
         plt.plot(eta, field(*args, squeeze_output=True))
-        plt.title(f'Spline field accumulated with the kernel "{self.kernel_name}"')
-        plt.xlabel(f"$\\eta_{eta_direction + 1}$")
+        plt.title(
+            f'Spline field accumulated with the kernel "{self.kernel_name}"')
+        plt.xlabel(f"$\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()
