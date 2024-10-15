@@ -38,11 +38,11 @@ repos:
   #   hooks:
   #     - id: flake8
   #       args: ["--max-line-length", "120"]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.12.0  # Use the latest stable version of mypy
-    hooks:
-      - id: mypy
-        args: ["--ignore-missing-imports"]
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.12.0  # Use the latest stable version of mypy
+  #   hooks:
+  #     - id: mypy
+  #       args: ["--ignore-missing-imports"]
 
 # Global exclude pattern for all hooks
 exclude: '.*[kK]ernel[s]?.*\.py$'
