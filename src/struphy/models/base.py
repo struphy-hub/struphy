@@ -1327,6 +1327,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             state = yaml.load(f, Loader=yaml.FullLoader)
 
         i_path = state['i_path']
+        assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
 
         if file is None:
             file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
