@@ -337,16 +337,16 @@ $$
 \end{align}
 $$
 
-Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particel index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#module-struphy.pic.pushing.pusher_kernels) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel, see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html), to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#module-struphy.pic.pushing.pusher) that provides some syntactic sugar for calling the kernels. When writing a pusher kernel, please refer to [a_documentation](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.pic.pushing.pusher_kernels.a_documentation) for the correct passing of arguments to the kernel.
+Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particel index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads) (or [pusher_kernels_gc](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels_gc.py?ref_type=heads) for guiding center models) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/pic_base.html#pusher-modules) that provides some syntactic sugar for calling the kernels. 
 
 In a **pusher kernel** there are usually one of two tasks to perform, sometimes even both:
 
 1. evaluation of metric coeffcients at the particle position $\boldsymbol \eta_p$,
 2. evaluation of FEEC spline fields at the particle position $\boldsymbol \eta_p$.
 
-Let us take the kernel [push_v_with_efield](https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators.html#struphy.pic.pushing.pusher_kernels.push_v_with_efield) as an example (see [source code](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py#L72)), which is needed in our model example. By the way, this brings us to a next good pratice in Struphy:
+Let us take the kernel [push_v_with_efield](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py#L72)), which is needed in our model example. By the way, this brings us to a next good pratice in Struphy:
 
-**Before implementing a kernel, check the documentation if this kernel or a similar one already exists. You might be able to take existing kernels as templates for your own.**
+**Before implementing a kernel, check [the documentation](https://struphy.pages.mpcdf.de/struphy/sections/pic_classes.html#particle-modules) if this kernel or a similar one already exists. You might be able to take existing kernels as templates for your own.**
 
 Within a kernel the metric coefficients are available through the following module, imported at the top of [pusher_kernels.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads) and [pusher_kernels_gc](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels_gc.py?ref_type=heads):
 
@@ -356,12 +356,18 @@ which [provides callables to all things mapping](https://gitlab.mpcdf.mpg.de/str
 
     import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
-which provides [products, transpose, inverse, etc.](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/linear_algebra/linalg_kernels.py?ref_type=heads). Finally, the evaluation of FEEC spline fields is managed through the following two modules:
+which provides [products, transpose, inverse, etc.](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/linear_algebra/linalg_kernels.py?ref_type=heads). 
 
-    import struphy.bsplines.bsplines_kernels as bsplines_kernels 
-    import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+The evaluation of FEEC spline fields is managed through the following functions:
 
-Given a spline space of degree $d$, at each particle position $\boldsymbol \eta_p$ there are $d+1$ non-zero B-spline basis functions. The $d+1$ indices of these basis functions are given by $[s(\boldsymbol \eta_p)-d, \ldots, s(\boldsymbol \eta_p)]$, where $s(\boldsymbol \eta_p) \in \mathbb N$ is the so-called **knot span index** at position $\boldsymbol \eta_p$. The knot span index can be computed with the function [bsplines_kernels.find_span()](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/bsplines/bsplines_kernels.py#L37) in each of the three $\eta$-directions. Once the knot span index (and thus the indices of the non-vanishing splines) at $\boldsymbol \eta_p$ are known, we can compute the values of these splines with [bsplines_kernels.b_d_splines_slim()](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/bsplines/bsplines_kernels.py#L384), which actually computes the $d+1$ non-vanishing B-spline values as well as the $d$ non-vanishing D-spline values (see {ref}`uni_variate_spaces`). Finally, the correct summation of the so-obtained spline values is done with the kernel [evaluation_kernels_3d.eval_spline_mpi_kernel()](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/bsplines/evaluation_kernels_3d.py?ref_type=heads#L407), which takes into account the MPI distribution of the particles.
+    get_spans
+    eval_0form_spline_mpi
+    eval_1form_spline_mpi
+    eval_2form_spline_mpi
+    eval_3form_spline_mpi
+    eval_vectorfield_spline_mpi
+
+Given a spline space of degree $d$, at each particle position $\boldsymbol \eta_p$ there are $d+1$ non-zero B-spline basis functions. The $d+1$ indices of these basis functions are given by $[s(\boldsymbol \eta_p)-d, \ldots, s(\boldsymbol \eta_p)]$, where $s(\boldsymbol \eta_p) \in \mathbb N$ is the so-called **knot span index** at position $\boldsymbol \eta_p$. See [here](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads#L85) for an example of evaluating a 1-form within a particle kernel.
 
 Now that we know how to discretize the kinetic equation by means of a Lagrangian particle method, it remains to tackle the right-hand sides of Ampère's law and of Poisson's equation in {eq}`eq:compact`. In the latter, there is the source term
 
@@ -617,7 +623,7 @@ $$
  \mathbf Z(t + \Delta t) = (\Phi_{\Delta t/2}^{4} \circ \Phi_{\Delta t/2}^{3} \circ \Phi_{\Delta t/2}^{2} \circ \Phi_{\Delta t}^{1} \circ \Phi_{\Delta t/2}^{2} \circ \Phi_{\Delta t/2}^{3} \circ \Phi_{\Delta t/2}^{4}) \mathbf Z(t)\,.
 $$
 
-Once the propagators have been defined and added to a {ref}`struphy_model` via the method {meth}`add_propagator() <struphy.models.base.StruphyModel.add_propagator>`, Struphy performs the compositions automatically; the user can choose the splitting algorithm in the {ref}`parameter file <time>`. 
+Once the propagators have been defined and added to a {ref}`struphy_model`, Struphy performs the compositions automatically; the user can choose the splitting algorithm in the {ref}`parameter file <time>`. 
 
 
 For our example model {class}`~struphy.models.kinetic.VlasovMaxwellOneSpecies`, the four substeps defined by {eq}`eq:Js` are imlemented in the following propagators:

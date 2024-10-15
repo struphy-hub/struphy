@@ -292,7 +292,7 @@ class TorusModesSin:
                 comps :
                     n3 : null                     # choices: null, 'physical', '0', '3'
                     u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    p3 : H1                       # choices: null, 'physical', '0', '3'
+                    p3 : '0'                      # choices: null, 'physical', '0', '3'
                 ms : 
                     n3: null            # poloidal mode numbers
                     u2: [[0], [0], [0]] # poloidal mode numbers

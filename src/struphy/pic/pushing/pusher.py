@@ -14,11 +14,11 @@ class Pusher:
 
     .. math::
 
-        \dot{\mathbf Z}_p(t) = h(\mathbf Z_p(t),t)\,,
+        \dot{\mathbf Z}_p(t) = \mathbf U(t, \mathbf Z_p(t))\,,
 
     for each marker :math:`p` in :class:`~struphy.pic.base.Particles` class,
-    where :math:`\mathbf Z_p` are (phase space) coordinates and
-    the vector field :math:`h` can contain discrete :class:`~struphy.feec.psydac_derham.Derham` splines
+    where :math:`\mathbf Z_p` are the marker coordinates and
+    the vector field :math:`\mathbf U` can contain discrete :class:`~struphy.feec.psydac_derham.Derham` splines
     and metric coefficients from accelerated :mod:`~struphy.geometry.evaluation_kernels`.
 
     The solve is MPI distributed and can handle multi-stage Runge-Kutta methods

@@ -32,7 +32,6 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 from struphy.bsplines.evaluation_kernels_3d import get_spans
 
 
-@pure
 def mat_fill_b_v1_diag(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -96,7 +95,6 @@ def mat_fill_b_v1_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v1_diag(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -166,7 +164,6 @@ def m_v_fill_b_v1_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_b_v2_diag(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -230,7 +227,6 @@ def mat_fill_b_v2_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v2_diag(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -300,7 +296,6 @@ def m_v_fill_b_v2_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_b_v1_asym(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -364,7 +359,6 @@ def mat_fill_b_v1_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_b_v1_asym(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -440,7 +434,6 @@ def m_v_fill_b_v1_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_b_v2_asym(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -504,7 +497,6 @@ def mat_fill_b_v2_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_b_v2_asym(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -580,7 +572,6 @@ def m_v_fill_b_v2_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_b_v1_symm(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -665,7 +656,6 @@ def mat_fill_b_v1_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v1_symm(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -756,7 +746,6 @@ def m_v_fill_b_v1_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_b_v2_symm(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -841,7 +830,6 @@ def mat_fill_b_v2_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v2_symm(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -932,7 +920,6 @@ def m_v_fill_b_v2_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_b_v1_full(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -1038,7 +1025,6 @@ def mat_fill_b_v1_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v1_full(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -1150,7 +1136,6 @@ def m_v_fill_b_v1_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def mat_fill_b_v2_full(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -1262,7 +1247,6 @@ def mat_fill_b_v2_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v2_full(args_derham: 'DerhamArguments',
                        eta1: float, eta2: float, eta3: float,
                        mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]',  fill1: float, fill2: float, fill3: float):
@@ -1374,7 +1358,6 @@ def m_v_fill_b_v2_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def mat_fill_v1_diag(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -1437,7 +1420,6 @@ def mat_fill_v1_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v1_diag(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -1506,7 +1488,6 @@ def m_v_fill_v1_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_v2_diag(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -1569,7 +1550,6 @@ def mat_fill_v2_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v2_diag(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -1638,7 +1618,6 @@ def m_v_fill_v2_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_v1_asym(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -1701,7 +1680,6 @@ def mat_fill_v1_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_v1_asym(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -1776,7 +1754,6 @@ def m_v_fill_v1_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_v2_asym(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -1839,7 +1816,6 @@ def mat_fill_v2_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_v2_asym(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -1914,7 +1890,6 @@ def m_v_fill_v2_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_v1_symm(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -1998,7 +1973,6 @@ def mat_fill_v1_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v1_symm(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -2088,7 +2062,6 @@ def m_v_fill_v1_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_v2_symm(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -2172,7 +2145,6 @@ def mat_fill_v2_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v2_symm(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -2262,7 +2234,6 @@ def m_v_fill_v2_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_v1_full(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -2367,7 +2338,6 @@ def mat_fill_v1_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v1_full(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]',  fill1: float, fill2: float, fill3: float):
@@ -2478,7 +2448,6 @@ def m_v_fill_v1_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def mat_fill_v2_full(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -2583,7 +2552,6 @@ def mat_fill_v2_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v2_full(args_derham: 'DerhamArguments',
                      span1: int, span2: int, span3: int,
                      mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]',  fill1: float, fill2: float, fill3: float):
@@ -2694,7 +2662,6 @@ def m_v_fill_v2_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def mat_fill_b_v0(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   mat: 'float[:,:,:,:,:,:]', fill: float):
@@ -2740,7 +2707,6 @@ def mat_fill_b_v0(args_derham: 'DerhamArguments',
                             mat, fill)
 
 
-@pure
 def m_v_fill_b_v0(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   mat: 'float[:,:,:,:,:,:]', fill_m: float, vec: 'float[:,:,:]', fill_v: float):
@@ -2792,7 +2758,6 @@ def m_v_fill_b_v0(args_derham: 'DerhamArguments',
                                 mat, fill_m, vec, fill_v)
 
 
-@pure
 def mat_fill_b_v3(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   mat: 'float[:,:,:,:,:,:]', fill: float):
@@ -2842,7 +2807,6 @@ def mat_fill_b_v3(args_derham: 'DerhamArguments',
                             mat, fill)
 
 
-@pure
 def m_v_fill_b_v3(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   mat: 'float[:,:,:,:,:,:]', fill_m: float, vec: 'float[:,:,:]', fill_v: float):
@@ -2898,7 +2862,6 @@ def m_v_fill_b_v3(args_derham: 'DerhamArguments',
                                 mat, fill_m, vec, fill_v)
 
 
-@pure
 def mat_fill_v0(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 mat: 'float[:,:,:,:,:,:]', fill: float):
@@ -2940,7 +2903,6 @@ def mat_fill_v0(args_derham: 'DerhamArguments',
                             mat, fill)
 
 
-@pure
 def m_v_fill_v0(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 mat: 'float[:,:,:,:,:,:]', fill_m: float, vec: 'float[:,:,:]', fill_v: float):
@@ -2988,7 +2950,6 @@ def m_v_fill_v0(args_derham: 'DerhamArguments',
                                 mat, fill_m, vec, fill_v)
 
 
-@pure
 def mat_fill_v3(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 mat: 'float[:,:,:,:,:,:]', fill: float):
@@ -3034,7 +2995,6 @@ def mat_fill_v3(args_derham: 'DerhamArguments',
                             mat, fill)
 
 
-@pure
 def m_v_fill_v3(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 mat: 'float[:,:,:,:,:,:]', fill_m: float, vec: 'float[:,:,:]', fill_v: float):
@@ -3086,7 +3046,6 @@ def m_v_fill_v3(args_derham: 'DerhamArguments',
                                 mat, fill_m, vec, fill_v)
 
 
-@pure
 def mat_fill_b_v0vec_diag(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -3146,7 +3105,6 @@ def mat_fill_b_v0vec_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v0vec_diag(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -3212,7 +3170,6 @@ def m_v_fill_b_v0vec_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_b_v3vec_diag(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -3276,7 +3233,6 @@ def mat_fill_b_v3vec_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v3vec_diag(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -3346,7 +3302,6 @@ def m_v_fill_b_v3vec_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_b_v0vec_asym(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -3406,7 +3361,6 @@ def mat_fill_b_v0vec_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_b_v0vec_asym(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -3478,7 +3432,6 @@ def m_v_fill_b_v0vec_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_b_v3vec_asym(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -3542,7 +3495,6 @@ def mat_fill_b_v3vec_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_b_v3vec_asym(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -3618,7 +3570,6 @@ def m_v_fill_b_v3vec_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_b_v0vec_symm(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -3699,7 +3650,6 @@ def mat_fill_b_v0vec_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v0vec_symm(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -3786,7 +3736,6 @@ def m_v_fill_b_v0vec_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_b_v3vec_symm(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -3871,7 +3820,6 @@ def mat_fill_b_v3vec_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v3vec_symm(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -3962,7 +3910,6 @@ def m_v_fill_b_v3vec_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_b_v0vec_full(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -4064,7 +4011,6 @@ def mat_fill_b_v0vec_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v0vec_full(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]',  fill1: float, fill2: float, fill3: float):
@@ -4172,7 +4118,6 @@ def m_v_fill_b_v0vec_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def mat_fill_b_v3vec_full(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -4284,7 +4229,6 @@ def mat_fill_b_v3vec_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_b_v3vec_full(args_derham: 'DerhamArguments',
                           eta1: float, eta2: float, eta3: float,
                           mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]',  fill1: float, fill2: float, fill3: float):
@@ -4396,7 +4340,6 @@ def m_v_fill_b_v3vec_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def mat_fill_v0vec_diag(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -4452,7 +4395,6 @@ def mat_fill_v0vec_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v0vec_diag(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -4514,7 +4456,6 @@ def m_v_fill_v0vec_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_v3vec_diag(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float):
@@ -4574,7 +4515,6 @@ def mat_fill_v3vec_diag(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v3vec_diag(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill22: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -4640,7 +4580,6 @@ def m_v_fill_v3vec_diag(args_derham: 'DerhamArguments',
                                 mat33, fill33, vec3, fill3)
 
 
-@pure
 def mat_fill_v0vec_asym(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -4696,7 +4635,6 @@ def mat_fill_v0vec_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_v0vec_asym(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -4764,7 +4702,6 @@ def m_v_fill_v0vec_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_v3vec_asym(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float):
@@ -4824,7 +4761,6 @@ def mat_fill_v3vec_asym(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def m_v_fill_v3vec_asym(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', fill12: float, fill13: float, fill23: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -4896,7 +4832,6 @@ def m_v_fill_v3vec_asym(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def mat_fill_v0vec_symm(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -4973,7 +4908,6 @@ def mat_fill_v0vec_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v0vec_symm(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -5056,7 +4990,6 @@ def m_v_fill_v0vec_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_v3vec_symm(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float):
@@ -5137,7 +5070,6 @@ def mat_fill_v3vec_symm(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v3vec_symm(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -5224,7 +5156,6 @@ def m_v_fill_v3vec_symm(args_derham: 'DerhamArguments',
                             mat23, fill23)
 
 
-@pure
 def mat_fill_v0vec_full(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -5322,7 +5253,6 @@ def mat_fill_v0vec_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v0vec_full(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]',  fill1: float, fill2: float, fill3: float):
@@ -5426,7 +5356,6 @@ def m_v_fill_v0vec_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def mat_fill_v3vec_full(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float):
@@ -5534,7 +5463,6 @@ def mat_fill_v3vec_full(args_derham: 'DerhamArguments',
                             mat33, fill33)
 
 
-@pure
 def m_v_fill_v3vec_full(args_derham: 'DerhamArguments',
                         span1: int, span2: int, span3: int,
                         mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill21: float, fill22: float, fill23: float, fill31: float, fill32: float, fill33: float, vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]',  fill1: float, fill2: float, fill3: float):
@@ -5642,7 +5570,6 @@ def m_v_fill_v3vec_full(args_derham: 'DerhamArguments',
                             mat32, fill32)
 
 
-@pure
 def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
                               span1: int, span2: int, span3: int,
                               mat11_11: 'float[:,:,:,:,:,:]', mat12_11: 'float[:,:,:,:,:,:]', mat13_11: 'float[:,:,:,:,:,:]', mat22_11: 'float[:,:,:,:,:,:]', mat23_11: 'float[:,:,:,:,:,:]', mat33_11: 'float[:,:,:,:,:,:]', mat11_12: 'float[:,:,:,:,:,:]', mat12_12: 'float[:,:,:,:,:,:]', mat13_12: 'float[:,:,:,:,:,:]', mat22_12: 'float[:,:,:,:,:,:]', mat23_12: 'float[:,:,:,:,:,:]', mat33_12: 'float[:,:,:,:,:,:]', mat11_13: 'float[:,:,:,:,:,:]', mat12_13: 'float[:,:,:,:,:,:]', mat13_13: 'float[:,:,:,:,:,:]', mat22_13: 'float[:,:,:,:,:,:]', mat23_13: 'float[:,:,:,:,:,:]', mat33_13: 'float[:,:,:,:,:,:]', mat11_22: 'float[:,:,:,:,:,:]', mat12_22: 'float[:,:,:,:,:,:]', mat13_22: 'float[:,:,:,:,:,:]', mat22_22: 'float[:,:,:,:,:,:]', mat23_22: 'float[:,:,:,:,:,:]', mat33_22: 'float[:,:,:,:,:,:]', mat11_23: 'float[:,:,:,:,:,:]', mat12_23: 'float[:,:,:,:,:,:]', mat13_23: 'float[:,:,:,:,:,:]', mat22_23: 'float[:,:,:,:,:,:]', mat23_23: 'float[:,:,:,:,:,:]', mat33_23: 'float[:,:,:,:,:,:]', mat11_33: 'float[:,:,:,:,:,:]', mat12_33: 'float[:,:,:,:,:,:]', mat13_33: 'float[:,:,:,:,:,:]', mat22_33: 'float[:,:,:,:,:,:]', mat23_33: 'float[:,:,:,:,:,:]', mat33_33: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1_1: 'float[:,:,:]', vec2_1: 'float[:,:,:]',  vec3_1: 'float[:,:,:]', vec1_2: 'float[:,:,:]', vec2_2: 'float[:,:,:]',  vec3_2: 'float[:,:,:]', vec1_3: 'float[:,:,:]', vec2_3: 'float[:,:,:]',  vec3_3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float, vx: float, vy: float, vz: float):
@@ -5745,7 +5672,6 @@ def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
                                           vx, vy, vz)
 
 
-@pure
 def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
                          span1: int, span2: int, span3: int,
                          mat11_11: 'float[:,:,:,:,:,:]', mat12_11: 'float[:,:,:,:,:,:]', mat13_11: 'float[:,:,:,:,:,:]', mat22_11: 'float[:,:,:,:,:,:]', mat23_11: 'float[:,:,:,:,:,:]', mat33_11: 'float[:,:,:,:,:,:]', mat11_12: 'float[:,:,:,:,:,:]', mat12_12: 'float[:,:,:,:,:,:]', mat13_12: 'float[:,:,:,:,:,:]', mat22_12: 'float[:,:,:,:,:,:]', mat23_12: 'float[:,:,:,:,:,:]', mat33_12: 'float[:,:,:,:,:,:]', mat11_22: 'float[:,:,:,:,:,:]', mat12_22: 'float[:,:,:,:,:,:]', mat13_22: 'float[:,:,:,:,:,:]', mat22_22: 'float[:,:,:,:,:,:]', mat23_22: 'float[:,:,:,:,:,:]', mat33_22: 'float[:,:,:,:,:,:]', fill11: float, fill12: float, fill13: float, fill22: float, fill23: float, fill33: float, vec1_1: 'float[:,:,:]', vec2_1: 'float[:,:,:]',  vec3_1: 'float[:,:,:]', vec1_2: 'float[:,:,:]', vec2_2: 'float[:,:,:]',  vec3_2: 'float[:,:,:]', fill1: float, fill2: float, fill3: float, vx: float, vy: float):
@@ -5848,7 +5774,6 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
                                      vx, vy)
 
 
-@pure
 def hybrid_density(Nel: 'int[:]', args_derham: 'DerhamArguments', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
 
     filler_kernels.hy_density(Nel, args_derham.pn, cell_left, cell_number, span1, span2, span3, args_derham.starts, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
@@ -5859,7 +5784,6 @@ def hybrid_density(Nel: 'int[:]', args_derham: 'DerhamArguments', cell_left: 'in
 #####################################
 
 
-@pure
 def vec_fill_v0(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 vec: 'float[:,:,:]', fill: float):
@@ -5879,7 +5803,6 @@ def vec_fill_v0(args_derham: 'DerhamArguments',
                             vec, fill)
 
 
-@pure
 def vec_fill_v1(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -5915,7 +5838,6 @@ def vec_fill_v1(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def vec_fill_v2(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -5951,7 +5873,6 @@ def vec_fill_v2(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def vec_fill_v3(args_derham: 'DerhamArguments',
                 span1: int, span2: int, span3: int,
                 vec: 'float[:,:,:]', fill: float):
@@ -5971,7 +5892,6 @@ def vec_fill_v3(args_derham: 'DerhamArguments',
                             vec, fill)
 
 
-@pure
 def vec_fill_v0vec(args_derham: 'DerhamArguments',
                    span1: int, span2: int, span3: int,
                    vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -6003,7 +5923,6 @@ def vec_fill_v0vec(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def vec_fill_b_v0(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   vec: 'float[:,:,:]', fill: float):
@@ -6023,7 +5942,6 @@ def vec_fill_b_v0(args_derham: 'DerhamArguments',
                             span2, span3, args_derham.starts, vec, fill)
 
 
-@pure
 def vec_fill_b_v1(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -6063,7 +5981,6 @@ def vec_fill_b_v1(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def vec_fill_b_v2(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):
@@ -6103,7 +6020,6 @@ def vec_fill_b_v2(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-@pure
 def vec_fill_b_v3(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,
                   vec: 'float[:,:,:]', fill: float):
@@ -6127,7 +6043,6 @@ def vec_fill_b_v3(args_derham: 'DerhamArguments',
                             span2, span3, args_derham.starts, vec, fill)
 
 
-@pure
 def vec_fill_b_v0vec(args_derham: 'DerhamArguments',
                      eta1: float, eta2: float, eta3: float,
                      vec1: 'float[:,:,:]', vec2: 'float[:,:,:]',  vec3: 'float[:,:,:]', fill1: float, fill2: float, fill3: float):

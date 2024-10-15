@@ -19,15 +19,10 @@ The ``master`` branch holds the current release of the code.
 Open development
 ^^^^^^^^^^^^^^^^
 
-When adding code to struphy it is important that other developers can follow your plans.
+When adding code to Struphy it is important that other developers can follow your plans.
 For this we use the `Issue tracker <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues>`_.
-There, you can add a short description of your plans and choose one of the following ``labels``:
-
-* Bug
-* Discussion
-* Documentation
-* Feature Request
-* ToDo
+When creating an issue, please use the Struphy issue template and add a short description of your plans.
+You can also choose one of the available ``labels`` to make issue processing easier.
 
 For coding, create :ref:`feature_branches` to work an an issue or a group of issues. 
 
@@ -35,8 +30,6 @@ For coding, create :ref:`feature_branches` to work an an issue or a group of iss
 Otherwise the deviation from ``devel`` will become too large and :ref:`merge_requests` will be increasingly difficult.
 
 It is good practice to junk up a new feature into its "atomic" parts and to keep a log of your work via informative **commit messages**. 
-
-.. _main_branches:
 
 
 .. _forking:
@@ -65,9 +58,9 @@ Feature branches
 When implementing changes to ``devel`` (can be in your fork) you must do this via a **feature branch** in the following way::
 
     git checkout devel
-    git checkout -b feature
+    git checkout -b <feature>
 
-This creates locally on your machine the new feature branch `feature` and checks it out.
+This creates locally on your machine the new feature branch `<feature>` and checks it out.
 Work on your new feature and commit changes in a timely manner::
 
     git commit -m 'I made this and that.'
@@ -81,7 +74,7 @@ From time to time, it is important to check whether the main branch has changed
     git checkout devel
     git status
 
-See :ref:`here <forking>` what to do in a forked repo.
+See :ref:`forking` for what to do in a forked repo.
 
 In case the main branch has changed you must perform either :ref:`rebasing` or :ref:`merging` (see `here <https://www.atlassian.com/de/git/tutorials/merging-vs-rebasing>`_ for a comparison of the two concepts). 
 Merging must be done instead of rebasing if
@@ -94,7 +87,7 @@ Merging must be done instead of rebasing if
 
 When you are done coding the new feature, create a new remote branch and push your changes::
 
-    git push -u origin feature
+    git push -u origin <feature>
 
 You can continue working locally on your feature, then use ``git push`` to update the new remote branch.
 
@@ -133,10 +126,10 @@ In this case it is advised to **rebase your feature branch** as follows
 
     git checkout devel
     git pull
-    git checkout feature
+    git checkout <feature>
     git rebase devel
 
-This will add your ``feature`` commits on top of the main branch's current state.
+This will add your ``<feature>`` commits on top of the main branch's current state.
 
 **The golden rule of rebasing: only rebase a private branch!** 
 This means you rebase **before** publishing your feature branch to the repository.
@@ -152,7 +145,7 @@ This means you rebase **before** publishing your feature branch to the repositor
 .. image:: ../pics/vscode_rebase.png
 
 **HEAD (current state)** is the ``devel`` branch (!) in green, and blue is from your feature commit. 
-The merge conflict is resolved by clicking either "Accept Current Change" (``devel``) or "Accept Incoming Change" (``feature``).
+The merge conflict is resolved by clicking either "Accept Current Change" (``devel``) or "Accept Incoming Change" (``<feature>``).
 You have to do this for each conflict in the file (indicated by a blue region in the rightmost scrolling bar), and for each file "both modified".
 
 Save the changes in the files.
@@ -180,7 +173,7 @@ Merging is easy::
 
     git checkout devel
     git pull
-    git checkout feature
+    git checkout <feature>
     git merge devel
 
 Merging will create a meaningless merge commit in your ``git log``. 
@@ -192,15 +185,11 @@ Continuous integration
 ^^^^^^^^^^^^^^^^^^^^^^
 
 `Continuous integration (CI) <https://gitlab.mpcdf.mpg.de/help/ci/index.md>`_ stands for the automatic building and testing of the code.
-On gitlab this is done through the ``.gitlab-ci.yml`` file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
+On gitlab this is done through the `.gitlab-ci.yml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L82>`_ 
+file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
 
 In struphy, testing is done with Python's ``pytest`` package. 
 All Struphy models (classes in the modules ``models/fluid.py``, ``models/kinetic.py``, ``models/hybrid.py`` and ``models/toy.py``)
-are tested automatically (every Monday morning) for all available options and on three different mappings.
+are tested automatically for all available options and on different mappings.
 
-New tests have to be added in the folder ``struphy/tests``. 
-The files therein have to start with ``test_`` 
-and contain ONLY functions that also start with ``test_``. 
-In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``.
-
-Please consult existing tests as templates.
+See `here <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/tests/test_binning.py?ref_type=heads>`_ for a template of a unit test.

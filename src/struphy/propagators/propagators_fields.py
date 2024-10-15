@@ -1131,8 +1131,11 @@ class FaradayExtended(Propagator):
             util.create_weight_weightedmatrix_hybrid(
                 curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain)
             # self._weight = [[None, self._weight_pre[2], -self._weight_pre[1]], [None, None, self._weight_pre[0]], [None, None, None]]
-            self._weight = [[0.0*self._weight_pre[0], 0.0*self._weight_pre[2], 0.0*self._weight_pre[1]], [0.0*self._weight_pre[2], 0.0 *
-                                                                                                          self._weight_pre[1], 0.0*self._weight_pre[0]], [0.0*self._weight_pre[1], 0.0*self._weight_pre[0], 0.0*self._weight_pre[2]]]
+            self._weight = [
+                [0.*self._weight_pre[k] for k in range(3)],
+                [0.*self._weight_pre[k] for k in range(3)],
+                [0.*self._weight_pre[k] for k in range(3)],
+            ]
             # self._weight = [[self._weight_pre[0], self._weight_pre[2], self._weight_pre[1]], [self._weight_pre[2], self._weight_pre[1], self._weight_pre[0]], [self._weight_pre[1], self._weight_pre[0], self._weight_pre[2]]]
             HybridM1 = self.mass_ops.assemble_weighted_mass(
                 self._weight, 'Hcurl', 'Hcurl')
@@ -1141,6 +1144,7 @@ class FaradayExtended(Propagator):
             _LHS = self._M1 + HybridM1 @ self._L2
             _RHS2 = HybridM1.dot(self._RHS) + self._rhs
 
+            # TODO: unknown function 'pcg', use new solver API
             a_new, info = pcg(_LHS, _RHS2, self._pc, x0=self._a, tol=self._solver_params['tol'],
                               maxiter=self._solver_params['maxiter'], verbose=self._solver_params['verbose'])
 
@@ -1411,11 +1415,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1521,7 +1525,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._tmp_acc = self._B2.codomain.zeros()
 
     def __call__(self, dt):
-        
+
         # current variables
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
@@ -1542,28 +1546,26 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                   self._scale_vec, 0.)
 
         self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
-        
-        
+
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
         b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
         byn += b2acc
 
-        #b2acc.copy(out=self._accumulated_magnetization)
+        # b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
-        
-    
+
         # new b coeffs (no tmps created here)
         _u = un.copy(out=self._u_tmp2)
         _u += un1
         bn1 = self._C.dot(_u, out=self._b_tmp1)
         bn1 *= -dt
         bn1 += bn
-        
+
         # write new coeffs into self.feec_vars
         max_du, max_db = self.feec_vars_update(un1, bn1)
-        
+
         if self._info and self._rank == 0:
             print('Status     for ShearAlfven:', info['success'])
             print('Iterations for ShearAlfven:', info['niter'])
@@ -1634,11 +1636,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1928,7 +1930,7 @@ class CurrentCoupling5DDensity(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -2713,7 +2715,7 @@ class VariationalDensityEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False, 
+                                'info': False,
                                 'implicit_transport': False}
         dct['physics'] = {'gamma': 5/3}
 
@@ -2747,7 +2749,6 @@ class VariationalDensityEvolve(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = self._nonlin_solver['implicit_transport']
-
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -3660,7 +3661,6 @@ class VariationalEntropyEvolve(Propagator):
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = nonlin_solver['implicit_transport']
 
-
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
         else:
@@ -4383,7 +4383,6 @@ class VariationalMagFieldEvolve(Propagator):
                                 'info': False,
                                 'implicit_transport': False}
 
-
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -5030,10 +5029,11 @@ class VariationalViscosity(Propagator):
 
         gu_sq_v *= dt*self._mu_a  # /2
 
-        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0,0], gu_sq_v*self._mass_M1_metric[0,1], gu_sq_v*self._mass_M1_metric[0,2]],
-                             [gu_sq_v*self._mass_M1_metric[1,0], gu_sq_v*self._mass_M1_metric[1,1], gu_sq_v*self._mass_M1_metric[1,2]],
-                             [gu_sq_v*self._mass_M1_metric[2,0], gu_sq_v*self._mass_M1_metric[1,2], gu_sq_v*self._mass_M1_metric[2,2]]], 
-                             verbose=False)
+        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0, 0], gu_sq_v*self._mass_M1_metric[0, 1], gu_sq_v*self._mass_M1_metric[0, 2]],
+                             [gu_sq_v*self._mass_M1_metric[1, 0], gu_sq_v *
+                                 self._mass_M1_metric[1, 1], gu_sq_v*self._mass_M1_metric[1, 2]],
+                             [gu_sq_v*self._mass_M1_metric[2, 0], gu_sq_v*self._mass_M1_metric[1, 2], gu_sq_v*self._mass_M1_metric[2, 2]]],
+                            verbose=False)
 
         # gu_sq_v *= 2.
         gu_sq_v += dt*self._mu
@@ -5083,10 +5083,9 @@ class VariationalViscosity(Propagator):
         gu_sq_v *= 0.
         for i in range(3):
             for j in range(3):
-                gu_sq_v += gu0_v[i]*self._mass_M1_metric[i,j]*gu120_v[j]
-                gu_sq_v += gu1_v[i]*self._mass_M1_metric[i,j]*gu121_v[j]
-                gu_sq_v += gu2_v[i]*self._mass_M1_metric[i,j]*gu122_v[j]
-
+                gu_sq_v += gu0_v[i]*self._mass_M1_metric[i, j]*gu120_v[j]
+                gu_sq_v += gu1_v[i]*self._mass_M1_metric[i, j]*gu121_v[j]
+                gu_sq_v += gu2_v[i]*self._mass_M1_metric[i, j]*gu122_v[j]
 
         gu_sq_v *= self._gu_init_values
         # 2) Initial energy and linear form
@@ -5365,7 +5364,7 @@ class VariationalResistivity(Propagator):
         &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q\,\textrm d \mathbf x - \int_\Omega (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,.
 
     With :math:`\eta_a(\mathbf x) = \eta_a |\nabla \times \mathbf B(\mathbf x)|`
-        
+
     On the logical domain:
 
     .. math::
@@ -5506,17 +5505,19 @@ class VariationalResistivity(Propagator):
 
         cb_sq_v *= dt*self._eta_a
 
-        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0,0],cb_sq_v*self._sq_term_metric[0,1],cb_sq_v*self._sq_term_metric[0,2]],
-                             [cb_sq_v*self._sq_term_metric[1,0],cb_sq_v*self._sq_term_metric[1,1],cb_sq_v*self._sq_term_metric[1,2]],
-                             [cb_sq_v*self._sq_term_metric[2,0],cb_sq_v*self._sq_term_metric[2,1],cb_sq_v*self._sq_term_metric[2,2]]],
-                             verbose = False)
+        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0, 0], cb_sq_v*self._sq_term_metric[0, 1], cb_sq_v*self._sq_term_metric[0, 2]],
+                             [cb_sq_v*self._sq_term_metric[1, 0], cb_sq_v *
+                                 self._sq_term_metric[1, 1], cb_sq_v*self._sq_term_metric[1, 2]],
+                             [cb_sq_v*self._sq_term_metric[2, 0], cb_sq_v*self._sq_term_metric[2, 1], cb_sq_v*self._sq_term_metric[2, 2]]],
+                            verbose=False)
 
         cb_sq_v += dt*self._eta
 
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
-        if self._linearize_current :
-            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
+        if self._linearize_current:
+            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(
+                self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
@@ -5527,12 +5528,12 @@ class VariationalResistivity(Propagator):
         bn12 = bn.copy(out=self._tmp_bn12)
         bn12 += bn1
         bn12 /= 2.
-        if self._linearize_current :
-            cb1 = self.Tcurl.dot(bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
+        if self._linearize_current:
+            cb1 = self.Tcurl.dot(
+                bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
-        
         cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
         self.cbf12.vector = cb12
@@ -6012,7 +6013,7 @@ class AdiabaticPhi(Propagator):
 
         self._rhs *= 0.
         if isinstance(self._rho, tuple):
-            self._rho[0]() # accumulate
+            self._rho[0]()  # accumulate
             self._rhs += self._rho[0].vectors[0]
         else:
             self._rhs += self._rho
