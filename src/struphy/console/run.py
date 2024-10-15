@@ -88,6 +88,10 @@ def struphy_run(model,
     o_path = state['o_path']
     b_path = state['b_path']
 
+    assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
+    if batch is not None or batch_abs is not None:
+        assert os.path.exists(b_path), f"The path '{b_path}' does not exist. Set path with `struphy --set-b PATH`"
+
     # create absolute i/o paths
     if input_abs is None:
         if inp is None:
