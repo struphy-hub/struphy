@@ -98,7 +98,9 @@ class MassMatrixPreconditioner(LinearOperator):
                             s = e.shape[0]
                             newshape = tuple([1 if i!=d else s for i in range(n_dims)])
                             f = e.reshape(newshape)
-                            return loc_weights(*[np.array(np.full_like(f, .5)) if i!=d else np.array(f) for i in range(n_dims)]).squeeze()
+                            return np.atleast_1d(
+                                loc_weights(*[np.array(np.full_like(f, .5)) if i!=d else np.array(f) for i in range(n_dims)]).squeeze()
+                                )
                     elif isinstance(loc_weights, np.ndarray):
                         s = loc_weights.shape
                         if d == 0:
