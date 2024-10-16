@@ -2148,6 +2148,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           'Nel': (16, 16, 16),
                           'p': (3, 3, 3),
                           'density_profile': 'pressure',
+                          'p0': 1.,
                           'n0': .2,
                           'n1': 0. }
 
@@ -2355,7 +2356,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        return self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/(self.units['B']**2 / self.units['mu0'])
+        return self._params['p0']+self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/(self.units['B']**2 / self.units['mu0'])
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
