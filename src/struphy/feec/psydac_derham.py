@@ -121,9 +121,9 @@ class Derham:
 
         self._dirichlet_bc = dirichlet_bc
 
-        # default p: exact integration of degree 2p-1 polynomials
+        # default p: exact integration of degree 2p+1 polynomials
         if nquads is None:
-            self._nquads = [pi for pi in p]
+            self._nquads = [pi + 1 for pi in p]
         else:
             assert len(nquads) == 3
             self._nquads = nquads
