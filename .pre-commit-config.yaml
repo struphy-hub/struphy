@@ -21,16 +21,16 @@ repos:
         # E731 – Do not assign a lambda expression
         # E203 – Whitespace before : (used in slicing)
         # E711 - Ignore enforcing 'is not None' over '!= None'
-  # - repo: https://github.com/psf/black
-  #   rev: 24.10.0  # Use the latest stable version of black
-  #   hooks:
-  #     - id: black
-  #       args: ["--line-length", "120"]
   - repo: https://github.com/pre-commit/mirrors-isort
     rev: v5.10.1  # Use the latest stable version of isort
     hooks:
       - id: isort
         args: ["--profile", "black"]
+  # - repo: https://github.com/psf/black
+  #   rev: 24.10.0  # Use the latest stable version of black
+  #   hooks:
+  #     - id: black
+  #       args: ["--line-length", "120"]
   # - repo: https://github.com/pre-commit/mirrors-pylint
   #   rev: v3.0.0a5  # or the latest stable version
   #   hooks:
