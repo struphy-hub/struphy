@@ -442,12 +442,12 @@ class WeightedMassOperators:
             b02fun.vector = tmp_a2
 
             def b02funx(x, y, z): return b02fun(
-                x, y, z, squeeze_output=True, local=True)[0]
+                x, y, z, squeeze_output=False, local=True)[0]
 
             def b02funy(x, y, z): return b02fun(
-                x, y, z, squeeze_output=True, local=True)[1]
+                x, y, z, squeeze_output=False, local=True)[1]
             def b02funz(x, y, z): return b02fun(
-                x, y, z, squeeze_output=True, local=True)[2]
+                x, y, z, squeeze_output=False, local=True)[2]
             # rot_B = RotationMatrix(
             # self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
             rot_B = RotationMatrix(
@@ -495,12 +495,12 @@ class WeightedMassOperators:
             b02fun.vector = tmp_a2
 
             def b02funx(x, y, z): return b02fun(
-                x, y, z, squeeze_output=True, local=True)[0]
+                x, y, z, squeeze_output=False, local=True)[0]
 
             def b02funy(x, y, z): return b02fun(
-                x, y, z, squeeze_output=True, local=True)[1]
+                x, y, z, squeeze_output=False, local=True)[1]
             def b02funz(x, y, z): return b02fun(
-                x, y, z, squeeze_output=True, local=True)[2]
+                x, y, z, squeeze_output=False, local=True)[2]
             # rot_B = RotationMatrix(
             # self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
             rot_B = RotationMatrix(
