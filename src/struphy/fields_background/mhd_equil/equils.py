@@ -2382,6 +2382,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
             return self._params['n0'] * self.p0(*etas)
         elif self._params['density_profile'] == 'parabolic':
             return self._params['n1']+(1.-r**2)*(self._params['n0']-self._params['n1'])
+        elif self._params['density_profile'] == 'linear':
+            return self._params['n1']+(1.-r)*(self._params['n0']-self._params['n1'])
         else:
             raise ValueError('wrong type of density profile for GVEC equilibrium')
 
