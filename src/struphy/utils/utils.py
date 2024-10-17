@@ -23,16 +23,15 @@ def read_state():
     LIB_PATH = struphy.__path__[0]
     
     state_file = os.path.join(LIB_PATH, 'state.yml')
-    
+    state = {}
     try:
         with open(state_file, 'r') as f:
             state = yaml.load(f, Loader=yaml.FullLoader)
     except FileNotFoundError as e:
         print(f"Error: The file '{state_file}' was not found.")
-        raise e
     except yaml.YAMLError as e:
         print(f"Error parsing the YAML file: {e}")
-        raise e
+
     
     return state
 
