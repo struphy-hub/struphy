@@ -10,13 +10,8 @@ def read_state():
     --------
     dict
         A dictionary containing the parsed YAML content of the 'state.yml' file.
-    
-    Raises:
-    -------
-    FileNotFoundError
-        If the 'state.yml' file is not found.
-    YAMLError
-        If there is an error while parsing the YAML file.
+        If the file is not found or there is an error parsing the YAML file,
+        an empty dictionary is returned.
     """
 
     # Get the path to the Struphy library
