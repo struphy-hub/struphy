@@ -73,16 +73,19 @@ stages:
     - ls
     - pwd
     - module avail
-    - module load gcc/10 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2
-    - LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
-    - export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
-    - LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_10-10.3.0/5.2.1/lib/:$LD_LIBRARY_PATH
+    - module purge
+    - module load gcc/12 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2
+    - module list
     - if [ ! -d "env_struphy" ]; then python3 -m venv env_struphy; fi
     - source env_struphy/bin/activate
+    - LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
+    - export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
+    - export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH
     - pip install --upgrade pip
     - pip install pylikwid
     - pip install . # Install struphy
     - struphy
+    - python -c "import pylikwid"
     - pyccel --version
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
