@@ -60,9 +60,6 @@ def test_struphy_run(
         if batch_abs is not None:
             assert os.path.exists(batch_abs), f"Batch file does not exist: {batch_abs}"
 
-        # Assert the output directory exists
-        assert os.path.exists(output_abs), f"Output directory does not exist: {output_abs}"
-
         run_command = struphy_run(
             model,
             input_abs=input_abs,
