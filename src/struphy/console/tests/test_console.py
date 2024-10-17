@@ -1,11 +1,14 @@
+from unittest.mock import patch, mock_open
 import pytest
 import os
-from unittest.mock import patch, mock_open
 import struphy
 from struphy.console.run import struphy_run
 
-libpath = struphy.__path__[0]
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 
+libpath = struphy.__path__[0]
 
 def is_sublist(main_list, sub_list):
     """
@@ -52,8 +55,75 @@ def test_struphy_run(
         likwid,
         mpi):
 
-    run_command = struphy_run(
-        model,
+    if rank == 0:
+        # Assert the batch file exists (if provided)
+        if batch_abs is not None:
+            assert os.path.exists(batch_abs), f"Batch file does not exist: {batch_abs}"
+
+        run_command = struphy_run(
+            model,
+            input_abs=input_abs,
+            output_abs=output_abs,
+            batch_abs=batch_abs,
+            runtime=runtime,
+            save_step=save_step,
+            restart=restart,
+            cprofile=cprofile,
+            likwid=likwid,
+            mpi=mpi)
+
+        # Assert that the batch script was copied if batch_abs was not None
+        batch_abs_new = os.path.join(output_abs, 'batch_script.sh')
+        if batch_abs is not None:
+            assert os.path.isfile(batch_abs_new), f"Batch script was not created: {batch_abs_new}"
+
+        mock_run.assert_called_once()
+        subprocess_call = mock_run.call_args[0][0]
+
+        if batch_abs is not None:
+            assert subprocess_call == ['sbatch', 'batch_script.sh']
+
+            # This is only true if likwid == False, but is taken care of below
+            mpirun_command = ['srun', 'python3']
+            main = os.path.join(libpath, 'main.py')
+        else:
+            mpirun_command = ['mpirun', '-n', str(mpi), 'python3']
+            main = 'main.py'
+
+        run_command = split_command(run_command)
+
+        assert is_sublist(run_command, ['--runtime', str(runtime)])
+        assert is_sublist(run_command, ['-s', str(save_step)])
+        if likwid:
+            assert is_sublist(
+                run_command, [
+                    'likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats'])
+            assert os.path.join(libpath, 'main.py') in run_command
+        else:
+            assert is_sublist(run_command, mpirun_command)
+            assert is_sublist(run_command, [main, model])
+        if restart:
+            assert is_sublist(run_command, ['-r'])
+        if cprofile:
+            assert is_sublist(run_command, ['python3', '-m', 'cProfile'])
+    else:
+        print(f"Skipping test on MPI rank {rank}")
+
+if __name__ == '__main__':
+    # Set test parameters
+    model = 'Maxwell'
+    input_abs = os.path.join(libpath, 'io/inp/parameters.yml')
+    output_abs = os.path.join(libpath, 'io/out/sim_1')
+    batch_abs = os.path.join(libpath, 'io/batch/batch_cobra.sh')
+    runtime = 300
+    save_step = 300
+    restart = True
+    cprofile = False
+    likwid = False
+    mpi = 2
+
+    test_struphy_run(
+        model=model,
         input_abs=input_abs,
         output_abs=output_abs,
         batch_abs=batch_abs,
@@ -63,33 +133,4 @@ def test_struphy_run(
         cprofile=cprofile,
         likwid=likwid,
         mpi=mpi)
-
-    mock_run.assert_called_once()
-    subprocess_call = mock_run.call_args[0][0]
-
-    if batch_abs is not None:
-        assert subprocess_call == ['sbatch', 'batch_script.sh']
-
-        # This is only true if likwid == False, but is taken care of below
-        mpirun_command = ['srun', 'python3']
-        main = os.path.join(libpath, 'main.py')
-    else:
-        mpirun_command = ['mpirun', '-n', str(mpi), 'python3']
-        main = 'main.py'
-
-    run_command = split_command(run_command)
-
-    assert is_sublist(run_command, ['--runtime', str(runtime)])
-    assert is_sublist(run_command, ['-s', str(save_step)])
-    if likwid:
-        assert is_sublist(
-            run_command, [
-                'likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats'])
-        assert os.path.join(libpath, 'main.py') in run_command
-    else:
-        assert is_sublist(run_command, mpirun_command)
-        assert is_sublist(run_command, [main, model])
-    if restart:
-        assert is_sublist(run_command, ['-r'])
-    if cprofile:
-        assert is_sublist(run_command, ['python3', '-m', 'cProfile'])
+    print('Test passed')
