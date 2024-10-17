@@ -1,6 +1,8 @@
 import os
 import yaml
 import struphy
+# Get the path to the Struphy library
+libpath = struphy.__path__[0]
 
 def read_state():
     """
@@ -13,9 +15,6 @@ def read_state():
         If the file is not found or there is an error parsing the YAML file,
         an empty dictionary is returned.
     """
-
-    # Get the path to the Struphy library
-    libpath = struphy.__path__[0]
     
     state_file = os.path.join(libpath, 'state.yml')
     try:
@@ -30,7 +29,7 @@ def read_state():
 
     return state
 
-def get_paths(state, libpath):
+def get_paths(state):
     """Get input, output, and batch paths from the state or set defaults."""
     i_path = state.get('i_path', os.path.join(libpath, 'io/inp'))
     o_path = state.get('o_path', os.path.join(libpath, 'io/out'))
@@ -41,18 +40,17 @@ def get_paths(state, libpath):
     state['b_path'] = b_path
     return i_path, o_path, b_path
 
-def save_state(state, libpath):
+def save_state(state):
     """Save the state to the state.yml file."""
     state_file = os.path.join(libpath, 'state.yml')
     with open(state_file, 'w') as f:
         yaml.dump(state, f)
 
 if __name__ == '__main__':
-    libpath = struphy.__path__[0]
     state = read_state()
     for k,val in state.items():
         print(k,val)
-    i_path, o_path, b_path = get_paths(state, libpath)
+    i_path, o_path, b_path = get_paths(state)
     print(f'{i_path = }')
     print(f'{o_path = }')
     print(f'{b_path = }')
