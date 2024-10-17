@@ -77,18 +77,29 @@ def struphy():
     path_message += f'current batch scripts:     {b_path}'
 
     # check parameter file in current input path:
-    params_files = recursive_get_files(i_path)
+    if os.path.exists(i_path) and os.path.isdir(i_path):
+        params_files = recursive_get_files(i_path)
+    else:
+        print('Path to input files missing! Set it with `struphy --set-i PATH`')
+        params_files = []
 
     # check output folders in current output path:
-    all_folders = os.listdir(o_path)
     out_folders = []
-    for name in all_folders:
-        if '.' not in name:
-            out_folders += [name]
+    if os.path.exists(o_path) and os.path.isdir(o_path):
+        all_folders = os.listdir(o_path)
+        for name in all_folders:
+            if '.' not in name:
+                out_folders += [name]
+    else:
+        print('Path to outputs directory missing! Set it with `struphy --set-o PATH`')
 
     # check batch scripts in current batch path:
-    batch_files = recursive_get_files(
-        b_path, contains=('.sh'), out=[], prefix=[])
+    if os.path.exists(b_path) and os.path.isdir(b_path):
+        batch_files = recursive_get_files(
+            b_path, contains=('.sh'), out=[], prefix=[])
+    else:
+        print('Path to batch files missing! Set it with `struphy --set-b PATH`')
+        batch_files = []
 
     try:
         with open(os.path.join(libpath, 'models', 'models_list'), "rb") as fp:
