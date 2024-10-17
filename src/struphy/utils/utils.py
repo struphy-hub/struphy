@@ -15,23 +15,44 @@ def read_state():
     """
 
     # Get the path to the Struphy library
-    LIB_PATH = struphy.__path__[0]
+    libpath = struphy.__path__[0]
     
-    state_file = os.path.join(LIB_PATH, 'state.yml')
-    state = {}
+    state_file = os.path.join(libpath, 'state.yml')
     try:
         with open(state_file, 'r') as f:
             state = yaml.load(f, Loader=yaml.FullLoader)
     except FileNotFoundError as e:
-        print(f"Error: The file '{state_file}' was not found.")
+        print(f"Error {e}: The file '{state_file}' was not found.")
+        state = {}
     except yaml.YAMLError as e:
-        print(f"Error parsing the YAML file: {e}")
+        print(f"Error {e}: parsing the YAML file")
+        state = {}
 
-    
     return state
 
+def get_paths(state, libpath):
+    """Get input, output, and batch paths from the state or set defaults."""
+    i_path = state.get('i_path', os.path.join(libpath, 'io/inp'))
+    o_path = state.get('o_path', os.path.join(libpath, 'io/out'))
+    b_path = state.get('b_path', os.path.join(libpath, 'io/batch'))
+    # Update state if defaults were used
+    state['i_path'] = i_path
+    state['o_path'] = o_path
+    state['b_path'] = b_path
+    return i_path, o_path, b_path
+
+def save_state(state, libpath):
+    """Save the state to the state.yml file."""
+    state_file = os.path.join(libpath, 'state.yml')
+    with open(state_file, 'w') as f:
+        yaml.dump(state, f)
 
 if __name__ == '__main__':
+    libpath = struphy.__path__[0]
     state = read_state()
     for k,val in state.items():
         print(k,val)
+    i_path, o_path, b_path = get_paths(state, libpath)
+    print(f'{i_path = }')
+    print(f'{o_path = }')
+    print(f'{b_path = }')
