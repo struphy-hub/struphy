@@ -1,14 +1,20 @@
-from unittest.mock import patch, mock_open
-import pytest
 import os
-import struphy
-from struphy.console.run import struphy_run
+from unittest import mock
+from unittest.mock import mock_open, patch
 
+import pytest
+import yaml
 from mpi4py import MPI
+
+import struphy as struphy_lib
+from struphy.console.main import struphy
+from struphy.console.run import struphy_run
+import sys
+
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-libpath = struphy.__path__[0]
+libpath = struphy_lib.__path__[0]
 
 def is_sublist(main_list, sub_list):
     """
@@ -108,6 +114,36 @@ def test_struphy_run(
             assert is_sublist(run_command, ['python3', '-m', 'cProfile'])
     else:
         print(f"Skipping test on MPI rank {rank}")
+
+def run_struphy(args):
+    with mock.patch.object(sys, 'argv', ['struphy'] + args):
+        struphy()
+
+@pytest.mark.parametrize("args_expected", [
+    [['--version'],['']],
+    [['--path'],['Struphy installation path']],
+    [['--short-help'],['available commands']],
+    [['--fluid'],['Fluid models']],
+    [['--kinetic'],['Kinetic models']],
+    [['--hybrid'],['Hybrid models']],
+    [['--toy'],['Toy models']],
+    [['--refresh-models'],['Collecting available models']],
+])
+def test_main_options(args_expected, capsys):
+    args = args_expected[0]
+    
+    
+    with pytest.raises(SystemExit):
+        run_struphy(args)
+    
+    # Capture the output
+    captured = capsys.readouterr()
+    
+    # Assert that output was printed
+    assert captured.out != ''
+    
+    for expected in args_expected[1]:
+        assert expected in captured.out
 
 if __name__ == '__main__':
     # Set test parameters
