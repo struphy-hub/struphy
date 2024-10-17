@@ -260,10 +260,19 @@ def struphy_run(model,
         shutil.copy2(batch_abs, batch_abs_new)
 
         # delete srun command from batch script
-        with open(batch_abs_new, 'r') as f:
-            lines = f.readlines()
-            if 'srun' in lines[-1]:
-                lines = lines[:-2]
+        # TODO: Find a better solution, this is a very fragile solution
+        try:
+            with open(batch_abs_new, 'r') as f:
+                lines = f.readlines()
+                # Check if the file has more than 2 lines and the last line contains 'srun'
+                if len(lines) > 1 and 'srun' in lines[-1]:
+                    lines = lines[:-2]
+        except FileNotFoundError as e:
+            print(f"Error: The file '{batch_abs_new}' was not found. {e}")
+        except IOError as e:
+            print(f"Error reading the file '{batch_abs_new}'. {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
 
         with open(batch_abs_new, 'w') as f:
 
