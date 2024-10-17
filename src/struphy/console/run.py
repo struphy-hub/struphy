@@ -263,7 +263,6 @@ def struphy_run(model,
         # TODO: Find a better solution, this is a very fragile solution
         with open(batch_abs_new, 'r') as f:
             lines = f.readlines()
-            # Check if the file has more than 2 lines and the last line contains 'srun'
             if 'srun' in lines[-1]:
                 lines = lines[:-2]
 
