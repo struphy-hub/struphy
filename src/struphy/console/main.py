@@ -429,6 +429,11 @@ def struphy():
                                 \nc) "unit" for performing unit tests \
                                 \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
                                 \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
+    parser_test.add_argument('-b', '--batch',
+                            type=str,
+                            choices=batch_files,
+                            metavar='FILE',
+                            help='batch script in current I/O path', )
 
     parser_test.add_argument('--mpi',
                              type=int,

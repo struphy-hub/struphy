@@ -6,7 +6,7 @@ import struphy
 import pyccel
 
 
-def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monitor=False, n=None, Tend=None):
+def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monitor=False, n=None, Tend=None, batch=False):
     """
     Run Struphy unit and/or code tests.
 
@@ -213,9 +213,15 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             if os.path.isfile(_file):
                 pymon_html_json(gr, verbose=verbose)
     elif 'performance' in group:
-        likwid_cmd = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker'] # ['']
-        cmd = likwid_cmd + ['python3', f'{libpath}/models/tests/test_performance.py']
-        subprocess.run(cmd, check=True)
+        if batch:
+            batch_abs = os.path.join(state['b_path'], batch)
+            # TODO: After refactoring struphy_run, we can build the output directory with one line
+            command = ['sbatch', batch_abs]
+            subprocess.run(command, check=True)
+        else:
+            likwid_cmd = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker'] # ['']
+            command = likwid_cmd + ['python3', f'{libpath}/models/tests/test_performance.py']
+            subprocess.run(command, check=True)
     else:
         from struphy.models.tests import test_toy_models, test_fluid_models, test_kinetic_models, test_hybrid_models
         from struphy.models.tests.test_xxpproc import test_pproc_codes
