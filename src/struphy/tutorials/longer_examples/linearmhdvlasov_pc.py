@@ -43,13 +43,10 @@ def diagnostics():
     
     import numpy as np
     import matplotlib.pyplot as plt
-    
-    import struphy
+    import struphy.utils.utils as utils
 
-    libpath = struphy.__path__[0]
-    
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
     o_path = state['o_path']
     
