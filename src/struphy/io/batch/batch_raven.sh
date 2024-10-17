@@ -9,6 +9,11 @@
 ##SBATCH --mail-user=
 #SBATCH --time=00:10:00
 
+# Load modules
+module purge
+module load gcc/12 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2
+
+# Set up environment
 if [ ! -d "env_struphy" ]; then python3 -m venv env_struphy; fi
 source env_struphy/bin/activate
 LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
