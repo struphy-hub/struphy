@@ -23,7 +23,7 @@ def load_yaml_files(file_paths):
 
 
 standard_params_dir = os.path.join(
-    libpath, "profiling/generate_params/standard_parameters"
+    libpath, "io/inp/standard_parameters"
 )
 
 yaml_files = [
