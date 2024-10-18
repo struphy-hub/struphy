@@ -104,6 +104,7 @@ login_private_runner:
   extends: .raven
   script:
     - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
+    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output . --dir src/struphy/io/out/Vlasov_mpi*
     - echo "Done"
 
 # # python virtual environments into cache
