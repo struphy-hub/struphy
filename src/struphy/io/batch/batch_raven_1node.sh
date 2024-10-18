@@ -1,8 +1,8 @@
 #!/bin/bash -l
-#SBATCH -o ./job_struphy_%j.out
-#SBATCH -e ./job_struphy_%j.err
+#SBATCH -o ./str_performance_%j.out
+#SBATCH -e ./str_performance_%j.err
 #SBATCH -D ./
-#SBATCH -J job_struphy
+#SBATCH -J str_performance
 #SBATCH --nodes=1                # number of compute nodes
 #SBATCH --ntasks-per-node=72     # number of MPI processes (max 144 on raven with hyperthreading)
 ##SBATCH --mail-type=
