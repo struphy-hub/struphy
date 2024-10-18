@@ -218,11 +218,6 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             # TODO: After refactoring struphy_run, we can build the output directory with one line
             command = ['sbatch', batch_abs]
             subprocess.run(command, check=True)
-        else:
-            # Run all the models
-            likwid_cmd = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker'] # ['']
-            command = likwid_cmd + ['python3', f'{libpath}/models/tests/test_performance.py']
-            subprocess.run(command, check=True)
 
             # Run Vlasov MPI scaling
             ## Generate command
@@ -233,6 +228,12 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             subprocess.run(command, check=True)
             ## Submit simulations to be tested
             command = ['python3', f'{libpath}/profiling/generate_params/run_simulations.py', 'run']
+            subprocess.run(command, check=True)
+            
+        else:
+            # Run all the models
+            likwid_cmd = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker'] # ['']
+            command = likwid_cmd + ['python3', f'{libpath}/models/tests/test_performance.py']
             subprocess.run(command, check=True)
             
     else:
