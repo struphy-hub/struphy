@@ -27,10 +27,15 @@ export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/
 #export OMP_PLACES=cores
 KMP_AFFINITY=scatter
 
-struphy test performance --mpi 1  > struphy_0001.out
-struphy test performance --mpi 2  > struphy_0002.out
-struphy test performance --mpi 4  > struphy_0004.out
-struphy test performance --mpi 8  > struphy_0008.out
-struphy test performance --mpi 16 > struphy_0016.out
-struphy test performance --mpi 32 > struphy_0032.out
-struphy test performance --mpi 64 > struphy_0064.out
+# Array of MPI process counts
+mpi_procs=(1 2 4 8 16 32 64)
+
+# Loop through the process counts and run the performance tests
+for procs in "${mpi_procs[@]}"; do
+    # Create a directory for the simulation
+    dir="sim_$(printf "%04d" $procs)/"
+    mkdir -p "$dir"
+    
+    # Run the performance test and output to respective files
+    struphy test performance --mpi "$procs" > "${dir}struphy_$(printf "%04d" $procs).out"
+done
