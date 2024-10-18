@@ -96,7 +96,7 @@ cache:
     - struphy compile -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
     - struphy -p
-    - struphy --set-iob .
+    - struphy --set-iob src/struphy/
     - struphy -p
 
 login_private_runner:
