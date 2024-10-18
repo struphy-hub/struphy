@@ -1,0 +1,41 @@
+grid:
+    Nel: [160, 160, 8]               # number of grid cells, >p
+    p: [3, 3, 3]                     # spline degree
+    spl_kind: [true, true, true]     # spline type: True=periodic, False=clamped
+    dirichlet_bc: null               # hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
+    dims_mask: [true, true, false]   # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el: null                      # quadrature points per grid cell
+    nq_pr: null                      # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck: -1                     # # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+
+time: {dt: 0.05, Tend: 5, split_algo: LieTrotter}
+
+units: {x: 1.0, B: 1.0, n: 1.0}
+
+geometry:
+    type: Cuboid
+    Cuboid:
+        l1: 0.0
+        r1: 20.0
+        l2: 0.0
+        r2: 20.0
+        l3: 0.0
+        r3: 1.0
+
+em_fields:
+    perturbation:
+        type: noise
+        noise:
+            comps:
+                e1: [False, False, True]
+                b2: [False, False, False]
+            direction: e1e2
+            amp: 0.1
+            seed: 1234
+    options:
+        solver:
+            type: [pcg, MassMatrixPreconditioner]
+            tol: 1.0e-08
+            maxiter: 3000
+            info: false
+            verbose: false

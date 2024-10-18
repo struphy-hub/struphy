@@ -1,0 +1,81 @@
+grid:
+    Nel: [32, 72, 1]
+    p: [3, 3, 1]
+    spl_kind: [false, true, true]
+    dirichlet_bc: null
+    dims_mask: [true, true, true]
+    nq_el: [6, 6, 1]
+    nq_pr: [4, 4, 1]
+    polar_ck: -1
+    Nclones: 1
+
+time: {dt: 0.1, Tend: 10.0, split_algo: LieTrotter}
+
+units: {x: 1.0, B: 1.0, n: 1.0}
+
+geometry:
+  type: Tokamak
+  Tokamak:
+    Nel: [28, 72]
+    p: [3, 3]
+    psi_power: 0.6
+    psi_shifts: [1.0e-06, 1.0]
+    xi_param: equal_angle
+    r0: 0.3
+    Nel_pre: [64, 256]
+    p_pre: [3, 3]
+    tor_period: 1
+
+mhd_equilibrium :
+    type : EQDSKequilibrium
+    EQDSKequilibrium :
+        rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or the absolute path
+        file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+        data_type       : 0 # 0: there is no space between data, 1: there is space between data
+        p_for_psi       : [3, 3]      # spline degrees used in interpolation of poloidal flux function grid data
+        psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
+        p_for_flux      : 3   # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
+        flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
+        n1              : 0.  # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        n2              : 0.  # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+        na              : 1.  # number density at last closed flux surface
+
+
+kinetic:
+    ions:
+        phys_params: {A: 1, Z: 1}
+        markers:
+            type: full_f
+            ppc: null
+            Np: 10000
+            eps: 2.0
+            bc:
+                type: [remove, periodic, periodic]
+                remove:
+                    save: False
+                    boundary_transfer: False
+                    particle_refilling: False
+            loading:
+                type: sobol_standard
+                seed: 1608
+                moments: [0.0, 0.0, 1.0, 1.0]
+                spatial: uniform
+                initial: [[0.501, 0.001, 0.001, -1.935, -1.72],[0.501, 0.001, 0.001, 1.935, -1.72],[0.501, 0.001, 0.001, -0.6665, -1.72],[0.501, 0.001, 0.001, 0.4515, -1.72]]
+        save_data:
+            n_markers: 10
+        options:
+            push_bxEstar:
+                method: discrete_gradient
+                maxiter: 20
+                tol: 1.0e-07
+                mpi_sort: each
+                verbose: false
+            push_Bstar:
+                method: discrete_gradient
+                maxiter: 20
+                tol: 1.0e-07
+                mpi_sort: each
+                verbose: false
+        background:
+            type: Maxwellian5D
+            Maxwellian5D: {n: 0.05}
