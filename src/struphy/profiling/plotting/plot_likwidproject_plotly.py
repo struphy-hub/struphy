@@ -941,9 +941,9 @@ if __name__ == "__main__":
         title=title,
         plots=[
             # 'plot_socket_cores',
-            # "plot_speedup",
+            "plot_speedup",
             # 'plot_bars',
-            # 'plot_loadbalance',
+            'plot_loadbalance',
             "plot_roofline_data",
         ],
     )
