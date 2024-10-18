@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
-import os
-import sys
-import re
-import glob
 import argparse
+import glob
+import os
+import re
 import subprocess
-import struphy
+import sys
+
 import yaml
+
+import struphy
 
 libpath = struphy.__path__[0]
 with open(os.path.join(libpath, "state.yml")) as f:
@@ -23,6 +25,7 @@ NC = "\033[0m"  # No Color
 
 
 def main():
+
     # Command-line argument parsing
     parser = argparse.ArgumentParser(description="Run or check simulations.")
     parser.add_argument(
@@ -95,6 +98,7 @@ def main():
                         "-lr",
                         "1",
                     ]
+                    print(" ".join(command))
                     subprocess.run(command)
                     print(f"{GREEN}Running:\t{projectname} ({param_filename}){NC}")
                 elif action == "check":

@@ -230,8 +230,8 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             subprocess.run(command, check=True)
 
             # Run all models
-            command = ['sbatch', batch_abs]
-            subprocess.run(command, check=True)
+            # command = ['sbatch', batch_abs]
+            # subprocess.run(command, check=True)
 
         else:
             # Run all the models
