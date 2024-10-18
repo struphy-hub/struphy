@@ -95,6 +95,7 @@ cache:
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
+    - struphy -p
     - struphy --set-iob .
     - struphy -p
 
