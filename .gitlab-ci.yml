@@ -69,7 +69,7 @@ stages:
     - struphy
     - private
   before_script:
-    - echo "Running on Raven private runner"
+    - echo "Running on Raven private runner with .raven template"
     - ls
     - pwd
     - module avail
@@ -90,13 +90,12 @@ stages:
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
-    - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
 
 login_private_runner:
   stage: private-runner-testing
   extends: .raven
   script:
-    - echo "Running with .raven template"
+    - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
     - echo "Done"
 
 # # python virtual environments into cache
