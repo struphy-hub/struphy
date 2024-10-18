@@ -27,15 +27,49 @@ export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/
 #export OMP_PLACES=cores
 KMP_AFFINITY=scatter
 
-# Array of MPI process counts
+# Get the current date in YYYYMMDD format
+current_date=$(date +"%Y%m%d")
+
+# Define the base output path, incorporating the current date
+output_path="output/${current_date}"
+
+# Create the base output directory
+mkdir -p "$output_path"
+
+# Save environment variables to a file
+env > "${output_path}/environment_variables.txt"
+
+# Copy the current SLURM script (this script itself)
+cp "$0" "${output_path}/slurm_script.sh"
+
+# Save LIKWID topology information to files
+likwid-topology > "${output_path}/likwid-topology.txt"
+likwid-topology -g > "${output_path}/likwid-topology-g.txt"
+
+# Save a list of loaded modules
+module list > "${output_path}/module_list.txt"
+
+# Save a list of all environment variables
+printenv > "${output_path}/printenv.txt"
+
+# Save SLURM-specific environment variables to a separate file
+for var in $(env | grep ^SLURM_ | cut -d= -f1); do
+    echo "$var=${!var}" >> "${output_path}/SLURM_VARIABLES.txt"
+done
+
+# Array of MPI process counts to test
 mpi_procs=(1 2 4 8 16 32 64)
 
-# Loop through the process counts and run the performance tests
+# Loop through the MPI process counts and run performance tests
 for procs in "${mpi_procs[@]}"; do
-    # Create a directory for the simulation
-    dir="sim_$(printf "%04d" $procs)/"
+    # Create a directory for the specific MPI process count
+    dir="${output_path}/sim_$(printf "%04d" $procs)/"
     mkdir -p "$dir"
     
-    # Run the performance test and output to respective files
+    # Run the Struphy performance test with the specified MPI processes
+    # Save the output to a file named based on the process count
     struphy test performance --mpi "$procs" > "${dir}struphy_$(printf "%04d" $procs).out"
 done
+
+# Summary message to indicate the script has finished running
+echo "Performance tests completed. Output saved to ${output_path}"
