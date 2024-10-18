@@ -104,9 +104,19 @@ login_private_runner:
   extends: .raven
   script:
     - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
+    - echo "Submitted SLURM jobs"
+    - while squeue -u $USER | grep str_per; do
+        echo "Waiting for struphy job(s) to finish...";
+        squeue -u $USER;
+        sleep 30;
+      done
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output . --dir src/struphy/io/out/Vlasov_mpi*
     - echo "Done"
-
+  artifacts:
+    paths:
+      - "*.html"
+      - "*.pdf"
+    expire_in: 1 day
 # # python virtual environments into cache
 # default_venv:
 #   stage: startup 
