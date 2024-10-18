@@ -8,6 +8,7 @@ def pad_numbers(s, pad_length=5):
     # This function replaces all numbers in the input string with zero-padded numbers
     return re.sub(r"\d+", lambda match: str(int(match.group(0))).zfill(pad_length), s)
 
+
 def csvtable2dict(table_str):
 
     table_arrays = table_str.split("\n")
@@ -18,7 +19,7 @@ def csvtable2dict(table_str):
 
     # Create dict
     ddict = {"header": header}
-    for irow,rowdata in enumerate(data):
+    for irow, rowdata in enumerate(data):
         metric = data[irow][0]
         ddict[metric] = {}
 
@@ -54,11 +55,10 @@ def asciitable2dict(table):
                 ddict[metric][header[icol]] = data[irow][icol]
     return ddict
 
+
 def read_likwid_output(
-    filename, 
-    likwid_markers=True, 
-    finish_line="struphy run finished"
-    ):
+    filename, likwid_markers=True, finish_line="struphy run finished"
+):
     """
     Read and process LIKWID output from a specified file.
 
@@ -70,27 +70,27 @@ def read_likwid_output(
     Returns:
     dict: A dictionary containing processed LIKWID output data.
     """
-    
+
     with open(filename, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     csv_format = "TABLE,Region" in "".join(lines)
     table_dict = {
-        'filename': filename,
-        'raw_file_lines': lines,
-        'struphy_ended': False,
+        "filename": filename,
+        "raw_file_lines": lines,
+        "struphy_ended": False,
     }
     if csv_format:
         tables = []
         struphy_ended = False
         region_dict = {"likwid_output": True}
-        
+
         for iline, line in enumerate(lines):
 
             # TODO get this from likwid directly
-            if 'MPI processes:' in line:
-                table_dict['mpi_procs'] = int(line.split(':')[-1])
-            
+            if "MPI processes:" in line:
+                table_dict["mpi_procs"] = int(line.split(":")[-1])
+
             if finish_line in line:
                 struphy_ended = True
                 table_dict["struphy_ended"] = True
@@ -101,7 +101,7 @@ def read_likwid_output(
                 table_type = table_info.split(",")[2].replace("Group 1 ", "")
                 group = table_info.split(",")[3]
                 tab_length = int(table_info.split(",")[4])
-                tab_str = "".join(lines[iline + 1: iline + 1 + tab_length])
+                tab_str = "".join(lines[iline + 1 : iline + 1 + tab_length])
                 _tb = csvtable2dict(tab_str)
 
                 _tb["table_type"] = table_type
@@ -121,12 +121,19 @@ def read_likwid_output(
 
                     tasks = [task for task in tables[0]["header"][2:] if task]
                     nodes = set(task.split(":")[0] for task in tasks)
-                    table_dict[region]["nodes"] = {node: {"processor_ids": [], "processor_order": []} for node in nodes}
+                    table_dict[region]["nodes"] = {
+                        node: {"processor_ids": [], "processor_order": []}
+                        for node in nodes
+                    }
 
                     for task in tasks:
                         node, task_id, processor_id = task.split(":")
-                        table_dict[region]["nodes"][node]["processor_ids"].append(processor_id)
-                        table_dict[region]["nodes"][node]["processor_order"].append([task_id, processor_id])
+                        table_dict[region]["nodes"][node]["processor_ids"].append(
+                            processor_id
+                        )
+                        table_dict[region]["nodes"][node]["processor_order"].append(
+                            [task_id, processor_id]
+                        )
 
                     tables = []
     else:
@@ -138,8 +145,8 @@ def read_likwid_output(
         for iline, line in enumerate(lines):
 
             # TODO get this from likwid directly
-            if 'MPI processes:' in line:
-                table_dict['mpi_procs'] = int(line.split(':')[-1])
+            if "MPI processes:" in line:
+                table_dict["mpi_procs"] = int(line.split(":")[-1])
 
             if finish_line in line:
                 struphy_ended = True
@@ -149,13 +156,13 @@ def read_likwid_output(
 
                 if likwid_markers and "Region:" in line:
                     region = line[8:].strip()
-                    #print('region',region)
+                    # print('region',region)
                 # elif "Group:" in line:
                 #     region = line[7:].strip()
                 #     print('region group',region)
 
                 if len(tables) == 4:
-                    #print('TABLES = 4', region)
+                    # print('TABLES = 4', region)
                     table_dict[region] = {
                         "dicts": {
                             "likwid_output": True,
@@ -168,12 +175,19 @@ def read_likwid_output(
 
                     tasks = tables[0]["header"][2:]
                     nodes = set(task.split(":")[0] for task in tasks)
-                    table_dict[region]["nodes"] = {node: {"processor_ids": [], "processor_order": []} for node in nodes}
+                    table_dict[region]["nodes"] = {
+                        node: {"processor_ids": [], "processor_order": []}
+                        for node in nodes
+                    }
 
                     for task in tasks:
                         node, task_id, processor_id = task.split(":")
-                        table_dict[region]["nodes"][node]["processor_ids"].append(processor_id)
-                        table_dict[region]["nodes"][node]["processor_order"].append([task_id, processor_id])
+                        table_dict[region]["nodes"][node]["processor_ids"].append(
+                            processor_id
+                        )
+                        table_dict[region]["nodes"][node]["processor_order"].append(
+                            [task_id, processor_id]
+                        )
 
                     tables = []
 
@@ -184,33 +198,35 @@ def read_likwid_output(
                     if table_horizontal_lines == 3:
                         table_endline = iline
                         table_horizontal_lines = 0
-                        table = "".join(lines[table_startline: table_endline + 1])
+                        table = "".join(lines[table_startline : table_endline + 1])
                         tables.append(asciitable2dict(table))
-    #print(table_dict['raw_file_lines'])
-    #print(table_dict.keys())
+    # print(table_dict['raw_file_lines'])
+    # print(table_dict.keys())
 
-    #exit()
+    # exit()
     return table_dict
+
 
 def expand_node_range(range_str):
     nodes = []
-    parts = range_str.split(',')
+    parts = range_str.split(",")
     for part in parts:
-        if '-' in part:
-            start, end = map(int, part.split('-'))
+        if "-" in part:
+            start, end = map(int, part.split("-"))
             nodes.extend(range(start, end + 1))
         else:
             nodes.append(int(part))
     return nodes
 
+
 def parse_nodelist(nodelist_str):
-    match = re.search(r'SLURM_NODELIST=(\w+)(\[(.+)\])?', nodelist_str)
+    match = re.search(r"SLURM_NODELIST=(\w+)(\[(.+)\])?", nodelist_str)
     if not match:
         return []
 
     prefix = match.group(1)
     range_str = match.group(3)
-    
+
     if range_str:  # Case with range
         node_numbers = expand_node_range(range_str)
         node_names = [f"{prefix}{num}" for num in node_numbers]
@@ -218,6 +234,7 @@ def parse_nodelist(nodelist_str):
         node_names = [prefix]
 
     return node_names
+
 
 class Project:
     def __init__(
@@ -278,18 +295,21 @@ class Project:
                     self.nodelist = parse_nodelist(line)
                     break
         self.read_project_folder()
+
     def get_mpi_configuration(self):
         if self.num_mpi == 1:
             return f"{self.num_mpi} proc"
         else:
             return f"{self.num_mpi} proc(s)"
+
     def get_node_configuration(self):
         num_nodes = len(self.nodelist)
-        #rint( len(self.nodelist),self.nodelist )
+        # rint( len(self.nodelist),self.nodelist )
         if num_nodes == 1:
             return f"{num_nodes} node"
         else:
             return f"{num_nodes} nodes"
+
     def get_clone_configuration(self):
         """Get the configuration of clones and processors per clone.
 
@@ -305,7 +325,7 @@ class Project:
         """Read project folder to gather LIKWID output data."""
         for likwid_output_path in glob.glob(f"{self.path}/{self.likwid_out_naming}"):
             lw_output = read_likwid_output(likwid_output_path)
-            
+
             self.simulation_finished = lw_output["struphy_ended"]
             thread_list = None
             if self.nodelist:
@@ -323,12 +343,10 @@ class Project:
                 self.threads = lw_output[self.get_likwid_groups()[0]]["dicts"]["Raw"][
                     "header"
                 ][2:]
-                
+
                 # TODO get this from likwid directly
-                self.num_mpi = lw_output['mpi_procs']
-                
-            
-            
+                self.num_mpi = lw_output["mpi_procs"]
+
     def get_likwid_groups(self):
         """Get list of LIKWID groups from the last output.
 
@@ -339,7 +357,13 @@ class Project:
             group
             for group in self.likwid_outputs[-1]
             if group
-            not in ["filename", "raw_file_lines", "struphy_ended", "thread_list", "mpi_procs"]
+            not in [
+                "filename",
+                "raw_file_lines",
+                "struphy_ended",
+                "thread_list",
+                "mpi_procs",
+            ]
         ]
         return likwid_groups
 

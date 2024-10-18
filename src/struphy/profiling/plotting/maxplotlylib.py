@@ -2,7 +2,7 @@
 font_dict = dict(family="Arial, sans-serif", size=18, color="black")
 
 
-def format_size(fig, width=1000,height=600):
+def format_size(fig, width=1000, height=600):
     """
     Adjust the size of a figure.
 

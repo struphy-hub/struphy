@@ -1,24 +1,26 @@
 # Standard modules
 import argparse
-import math
 import glob
-import numpy as np
-import matplotlib.pyplot as plt
+import math
 import os
+import random
+import re
+
+import hardware_dicts as hwd
+import likwid_parser as lp
+import matplotlib.pyplot as plt
+import maxplotlylib as mply
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import re
-import random
-
 # My modules
 import roofline_plotter as rp
-import likwid_parser as lp
-import hardware_dicts as hwd
-import maxplotlylib as mply
+
 
 def clean_string(string_in):
     return re.sub(r"[^\w\s-]", "", string_in.replace(" ", "_"))
+
 
 def pad_numbers(input_string):
     # Split the string into parts
@@ -38,19 +40,21 @@ def pad_numbers(input_string):
 
     return output_string
 
+
 def get_job_name(project, simulation_name_type):
-    if simulation_name_type == 'simulation_name':
+    if simulation_name_type == "simulation_name":
         job_name = project.name
-    elif simulation_name_type == 'clone_configuration':
+    elif simulation_name_type == "clone_configuration":
         job_name = project.get_clone_configuration()
-    elif simulation_name_type == 'mpi_configuration':
+    elif simulation_name_type == "mpi_configuration":
         job_name = project.get_mpi_configuration()
-    elif simulation_name_type == 'node_configuration':
+    elif simulation_name_type == "node_configuration":
         job_name = project.get_node_configuration()
     else:
-        print('Incorrect simulation_name_type',simulation_name_type)
+        print("Incorrect simulation_name_type", simulation_name_type)
         exit()
     return job_name
+
 
 def skip_group(group):
     if group in [
@@ -80,18 +84,20 @@ def skip_group(group):
 
 
 def plot_roofline_data(
-    projects,output_path,
+    projects,
+    output_path,
     group=None,
     column_name="Sum",
     xmin=0.001,
     xmax=100,
     ymin=100,
     ymax=10_000_000,
-    title='',
+    title="",
     theoretical_max_bandwidth_GBps=200,
     theoretical_max_gflops=5530,
-    ):
-    
+    sorting_key="group",  # options: 'simulation_name', 'group'
+):
+
     fig = go.Figure()
 
     x0 = 1e-10
@@ -152,7 +158,7 @@ def plot_roofline_data(
         if group is None:
             groups = project.get_likwid_groups()
         for group in groups:
-            
+
             imax = project.get_maximum_id(
                 "DP [MFLOP/s] STAT",
                 group=group,
@@ -160,7 +166,7 @@ def plot_roofline_data(
                 column=column_name,
             )
             if imax == None:
-                print('Result missing')
+                print("Result missing")
                 continue
 
             runtime = project.get_value(
@@ -171,8 +177,13 @@ def plot_roofline_data(
                 column="Avg",
             )
 
+            # if split_by_simulation_label:
+            #     group_data["job_name"] = group.split("_")[0]
+            # else:
+            #     group_data["job_name"] = job_name
+            # print(project.num_mpi)
             point_dict = {
-                "simulation_name": project.name + '_' + group,  #
+                "simulation_name": project.name + "_" + group,  #
                 # "simulation_collection": lp.pad_numbers(
                 #     data_path.split("/")[-1]
                 # ),  # "MPI scan"
@@ -192,25 +203,27 @@ def plot_roofline_data(
                     table="Metric STAT",
                     column=column_name,
                 ),
+                "num_mpi": project.num_mpi,
+                "group": group,
             }
             point_dict["operational_intensity_FLOPpB"] = (
                 1e3 * point_dict["dp_GFLOPps"]
             ) / point_dict["bandwidth_MBps"]
             data.append(point_dict)
 
-    data = sorted(data, key=lambda x: x["simulation_name"])
+    data = sorted(data, key=lambda x: x[sorting_key])
     df = pd.DataFrame(data)
-    #print(df)
-    # Group data by color and add line plots
-    for simulation_name, group in df.groupby("simulation_name"):
 
+    for simulation_name, group in df.groupby(sorting_key):
+        # print('group')
+        # print(group)
         # Sort data to ensure the lines connect correctly
         sorted_group = group.sort_values("simulation_name")
         fig.add_trace(
             go.Scatter(
                 x=sorted_group["operational_intensity_FLOPpB"],
                 y=sorted_group["dp_GFLOPps"],
-                mode="markers",#+lines",
+                mode="markers+lines",
                 text=sorted_group["description"],  # Custom text for each point
                 name=f"{simulation_name}",  # Name displayed in the legend
             )
@@ -242,15 +255,16 @@ def plot_roofline_data(
     fig.update_traces(marker=dict(size=8))
     fig.update_layout(title=f"{title}")
     #
-    
-    file_path_html = f"{output_path}/roofline.html"
-    file_path_pdf  = f"{output_path}/roofline.pdf"
+
+    file_path_html = f"{output_path}/{project.name}_roofline.html"
+    file_path_pdf = f"{output_path}/{project.name}_roofline.pdf"
 
     # Save the figure as an HTML file
     fig.write_html(file_path_html, include_mathjax="cdn")
-    mply.format_size(fig)#,width=2000,height=800)
+    mply.format_size(fig)  # ,width=2000,height=800)
     fig.write_image(file_path_pdf)
     print(f"open {file_path_html}")
+
 
 def plot_bars(
     metric,
@@ -263,39 +277,34 @@ def plot_bars(
     procs_per_clone="any",
     xvalname="job_name",
     skip_groups=True,
-    simulation_name_type = 'simulation_name', # simulation_name | clone_configuration | mpi_tasks
-    title = '',
-    split_by_simulation_label = True,
-    ):
-    
-    
+    simulation_name_type="simulation_name",  # simulation_name | clone_configuration | mpi_tasks
+    title="",
+    split_by_simulation_label=True,
+):
+
     if groups == None:
         groupname = "all_groups"
     else:
         groupname = "_".join(groups)
 
-    
-    
     data = []
     for project in projects:
         if groups is None:
             groups = project.get_likwid_groups()
-        
-        job_name = get_job_name(project,simulation_name_type)
+
+        job_name = get_job_name(project, simulation_name_type)
         for group in groups:
             group_data = {
-                    "project_name": project.name,
-                    # "job_name":group.split('_')[0],
-                    # "job_name": job_name, #project.get_clone_configuration(),  # project.name,
-                    "group": group,
-                    "val": project.get_maximum(
-                        metric, group=group, column=column_name
-                    ),
-                }
+                "project_name": project.name,
+                # "job_name":group.split('_')[0],
+                # "job_name": job_name, #project.get_clone_configuration(),  # project.name,
+                "group": group,
+                "val": project.get_maximum(metric, group=group, column=column_name),
+            }
             if split_by_simulation_label:
-                group_data['job_name'] = group.split('_')[0]
+                group_data["job_name"] = group.split("_")[0]
             else:
-                group_data['job_name'] = job_name
+                group_data["job_name"] = job_name
             data.append(group_data)
 
     data = sorted(data, key=lambda x: x["project_name"])
@@ -313,7 +322,6 @@ def plot_bars(
     random.shuffle(colors)
     # Create a color map for each group
     group_color_map = {group: colors[i] for i, group in enumerate(unique_groups)}
-    
 
     # Convert RGBA to Plotly color format
     df["color"] = df["group"].map(
@@ -322,7 +330,7 @@ def plot_bars(
         f"{int(group_color_map[group][2] * 255)}, "
         f"{group_color_map[group][3]})"
     )
-    #print(df)
+    # print(df)
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
@@ -347,44 +355,47 @@ def plot_bars(
     # print(groups)
 
     sanitized_metric = clean_string(metric)
-    sanitized_metric = sanitized_metric.replace('/','p').replace(' ','_')
+    sanitized_metric = sanitized_metric.replace("/", "p").replace(" ", "_")
     column_name = clean_string(column_name)
-    #fig_dir = f"{output_path}/barplots/{groupname}/{column_name}"
-    
-    file_path_html = f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.html"
-    file_path_pdf  = f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.pdf"
+    # fig_dir = f"{output_path}/barplots/{groupname}/{column_name}"
+
+    file_path_html = f"{output_path}/{project.name}_barplot_{sanitized_metric}_{column_name}_{groupname}.html"
+    file_path_pdf = f"{output_path}/{project.name}_barplot_{sanitized_metric}_{column_name}_{groupname}.pdf"
 
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
     print(f"open {file_path_html}")
+
 
 def plot_correlation(
     metric1,
     metric2,
     projects,
     output_path,
+    invert_y=False,
     group="model.integrate",
-    column_name="Sum",
+    column_name="Avg",
     procs_per_clone="any",
-    title='',
-    simulation_name_type='project_name',
-    ):
+    title="",
+    simulation_name_type="project_name",
+):
 
     data = []
 
     for project in projects:
         groups = project.get_likwid_groups()
         for group in groups:
-            print('group',group)
-            if not 'model.inte' in group:
-                print('skip')
-                continue
+            # print('group',group)
+            # if not 'model.inte' in group:
+            #     #print('skip')
+            #     continue
 
             if metric1 == "mpi":
                 val1 = project.num_mpi
             else:
                 val1 = project.get_maximum(metric1, group=group, column=column_name)
-            
+            # print('column_name',column_name, metric2)
+
             val2 = project.get_maximum(metric2, group=group, column=column_name)
             runtime = project.get_maximum(
                 "Runtime (RDTSC) [s] STAT", group=group, column=column_name
@@ -413,10 +424,14 @@ def plot_correlation(
     for simulation_collection, group in df.groupby("group"):
         # Sort data to ensure the lines connect correctly
         sorted_group = group.sort_values("simulation_name")
+
         sorted_group["metric2_relative"] = sorted_group.groupby("group")[
             "metric2"
         ].transform(lambda x: x / x.iloc[0])
-        sorted_group["metric2_speedup"] = 1.0 / sorted_group["metric2_relative"]
+
+        if invert_y:
+            # Plot the speedup
+            sorted_group["metric2_relative"] = 1.0 / sorted_group["metric2_relative"]
 
         xmin = min(xmin, min(sorted_group["metric1"]))
         xmax = max(xmax, max(sorted_group["metric1"]))
@@ -424,7 +439,7 @@ def plot_correlation(
         fig.add_trace(
             go.Scatter(
                 x=sorted_group["metric1"],
-                y=sorted_group["metric2_speedup"],
+                y=sorted_group["metric2_relative"],
                 mode="markers+lines",
                 text=sorted_group["description"],  # Custom text for each point
                 name=f"{simulation_collection}",  # Name displayed in the legend
@@ -435,7 +450,7 @@ def plot_correlation(
     ymin = 1
     ymax = ymin + (xmax - xmin) / xmin
     y_data = [ymin, ymax]
-    if metric1 == 'mpi':
+    if metric1 == "mpi":
         fig.add_trace(
             go.Scatter(
                 x=x_data,
@@ -448,7 +463,7 @@ def plot_correlation(
 
     mply.format_axes(fig)
     mply.format_font(fig)
-    mply.format_size(fig)
+    # mply.format_size(fig)
     fig.update_traces(marker=dict(size=8))
     fig.update_layout(title=f"{title}")
 
@@ -461,26 +476,21 @@ def plot_correlation(
         yaxis_tickformat=".1f",
     )
 
-    
-    fig_name = f"{clean_string(metric1)}_{clean_string(metric2)}_{clean_string(column_name)}".replace(
+    fig_name = f"{project.name}_{clean_string(metric1)}_{clean_string(metric2)}_{clean_string(column_name)}".replace(
         "/", "p"
     ).replace(
         " ", "_"
     )
 
     file_path_html = f"{output_path}/{fig_name}.html"
-    file_path_pdf  = f"{output_path}/{fig_name}.pdf"
+    file_path_pdf = f"{output_path}/{fig_name}.pdf"
 
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
     print(f"open {file_path_html}")
 
 
-def plot_loadbalance(
-    project,
-    metric,
-    output_path):
-
+def plot_loadbalance(project, metric, output_path):
 
     data = []
 
@@ -539,23 +549,26 @@ def plot_loadbalance(
     mply.format_axes(fig)
     mply.format_font(fig)
 
-    file_path_html = f"{output_path}/loadbalance_{project.name}_{sanitized_metric}.html"
-    file_path_pdf  = f"{output_path}/loadbalance_{project.name}_{sanitized_metric}.pdf"
+    file_path_html = f"{output_path}/{project.name}_loadbalance_{sanitized_metric}.html"
+    file_path_pdf = f"{output_path}/{project.name}_loadbalance_{sanitized_metric}.pdf"
 
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
 
     print(f"open {file_path_html}")
 
+
 def plot_socket_cores(
-    projects,output_path,
+    projects,
+    output_path,
     node_name="raven_login",
     split_char=None,
     # project_name="_temp_project",
     # collection_name="_temp_collection",
     title=None,
     # save_path="figures/pinned_cores.html",
-    procs_per_clone="any",):
+    procs_per_clone="any",
+):
 
     for project in projects:
 
@@ -746,7 +759,7 @@ def plot_socket_cores(
 
         file_path_html = f"{output_path}/{project.name}_pinning.html"
         file_path_pdf = f"{output_path}/{project.name}_pinning.pdf"
-        
+
         fig.write_html(file_path_html, include_mathjax="cdn")
         fig.write_image(file_path_pdf)
         print(f"open {file_path_html}")
@@ -757,15 +770,15 @@ def plot_files(
     output_path,
     title="Collection",
     procs_per_clone="any",
-    simulation_name_type='simulation_name',
-    plots = [
-            'plot_socket_cores',
-            'plot_speedup',
-            'plot_bars',
-            'plot_loadbalance',
-            'plot_roofline_data',
-            ],
-    ):
+    simulation_name_type="simulation_name",
+    plots=[
+        "plot_socket_cores",
+        "plot_speedup",
+        "plot_bars",
+        "plot_loadbalance",
+        "plot_roofline_data",
+    ],
+):
     metrics = [  #
         "Runtime (RDTSC) [s] STAT",
         # "Runtime unhalted [s] STAT",
@@ -789,7 +802,7 @@ def plot_files(
         # "Operational intensity STAT",
         # "Vectorization ratio [%] STAT",
     ]
-    if 'plot_socket_cores' in plots:
+    if "plot_socket_cores" in plots:
         plot_socket_cores(
             projects=projects,
             output_path=output_path,
@@ -798,18 +811,19 @@ def plot_files(
         )
     # Plot loadbalance
     for project in projects:
-        
+
         for metric in [
             "Runtime (RDTSC) [s]",
             "DP [MFLOP/s]",
             # 'Memory bandwidth [MBytes/s]',
         ]:
-            if 'plot_loadbalance' in plots:
-                plot_loadbalance(project=project, metric=metric, output_path=output_path)
+            if "plot_loadbalance" in plots:
+                plot_loadbalance(
+                    project=project, metric=metric, output_path=output_path
+                )
                 pass
-    
 
-    if 'plot_bars' in plots:
+    if "plot_bars" in plots:
         for metric in metrics:
             for column_name in [
                 # 'Sum',
@@ -827,11 +841,11 @@ def plot_files(
                     column_name=column_name,
                     procs_per_clone=procs_per_clone,
                     skip_groups=True,
-                    title=title, 
+                    title=title,
                     simulation_name_type=simulation_name_type,
                 )
-    
-    if 'plot_roofline_data' in plots:
+
+    if "plot_roofline_data" in plots:
         plot_roofline_data(
             projects,
             output_path=output_path,
@@ -842,73 +856,95 @@ def plot_files(
             ymax=1e4,
             title=title,
         )
-    if 'plot_speedup' in plots:
-        metric1 = 'mpi'
-        metric2 = 'Runtime (RDTSC) [s] STAT'
+    if "plot_speedup" in plots:
+        metric1 = "mpi"
+        metric2 = "Runtime (RDTSC) [s] STAT"
         plot_correlation(
             metric1=metric1,
             metric2=metric2,
             projects=projects,
             output_path=output_path,
+            invert_y=True,
             group="model.integrate",
-            column_name="Sum",
+            column_name="Avg",
             procs_per_clone="any",
-            title='',
-            )
+            title="",
+        )
 
 
-def load_projects(data_paths,procs_per_clone='any'):
+def load_projects(data_paths, procs_per_clone="any"):
     projects = []
     for data_path in data_paths:
         for path in glob.glob(data_path):
-            print(f'Reading {path}')
-            if path[-1] == '/':
-                sim = path.split('/')[-2]
+            print(f"Reading {path}")
+            if path[-1] == "/":
+                sim = path.split("/")[-2]
             else:
-                sim = path.split('/')[-1]
-            project = lp.Project(name=lp.pad_numbers(sim),
+                sim = path.split("/")[-1]
+            project = lp.Project(
+                name=lp.pad_numbers(sim),
                 path=path,
                 likwid_out_naming="struphy*.out",
-                read_project=True)
-            if (procs_per_clone != "any") and (procs_per_clone != project.procs_per_clone):
+                read_project=True,
+            )
+            if (procs_per_clone != "any") and (
+                procs_per_clone != project.procs_per_clone
+            ):
+                print(
+                    f"Incorrect number of procs_per_clone: {project.procs_per_clone = } {procs_per_clone = }"
+                )
                 continue
             project.read_project()
             if not project.simulation_finished:
+                print("Project not finished")
                 continue
             projects.append(project)
     return projects
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run the plot files script with a given directory.")
-    parser.add_argument("--dir", type=str, nargs='+', required=True,
-                        help="Paths to the data directories (space-separated)")
-    parser.add_argument("--project_name", type=str,
-                        default="Testing", help="Name of the project")
-    parser.add_argument("--output", type=str,
-                        default='.', help="Output directory")
+        description="Run the plot files script with a given directory."
+    )
+    parser.add_argument(
+        "--dir",
+        type=str,
+        nargs="+",
+        required=True,
+        help="Paths to the data directories (space-separated, supports wildcards)",
+    )
+    parser.add_argument(
+        "--project_name", type=str, default="Testing", help="Name of the project"
+    )
+    parser.add_argument("--output", type=str, default=".", help="Output directory")
     args = parser.parse_args()
 
-    print(f"Directory: {args.dir}, Project Name: {args.project_name}")
+    os.makedirs(args.output, exist_ok=True)
 
-    projects = load_projects(args.dir)
-    
+    # Expand wildcard directories
+    expanded_dirs = []
+    for d in args.dir:
+        expanded_dirs.extend(glob.glob(d))
+
+    print(f"Expanded Directory: {expanded_dirs}, Project Name: {args.project_name}")
+
+    # Pass the expanded directories to load_projects
+    projects = load_projects(expanded_dirs)
+
     procs_per_clone = "any"
-    
-    print(f"# Plotting simulation: {args.dir}")
-    title = 'Standard likwid profiling'
+
+    print(f"# Plotting simulation: {args.project_name}")
+    title = "Standard likwid profiling"
     plot_files(
         projects=projects,
         output_path=args.output,
         title=title,
-        plots = [
+        plots=[
             # 'plot_socket_cores',
-            'plot_speedup',
+            # "plot_speedup",
             # 'plot_bars',
             # 'plot_loadbalance',
-            # 'plot_roofline_data',
-            ],
+            "plot_roofline_data",
+        ],
     )
     print("done")
