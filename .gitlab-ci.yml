@@ -61,6 +61,11 @@ stages:
   - pages
   - release 
 
+cache:
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - env_struphy/     # Cache the virtual environment
+
 # Raven private runner
 .raven:
   tags:
