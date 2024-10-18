@@ -90,7 +90,6 @@ stages:
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
-    - struphy test performance # Test performance in private runner
     - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
 
 login_private_runner:
