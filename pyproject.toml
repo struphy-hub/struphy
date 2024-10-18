@@ -47,6 +47,7 @@ dependencies = [
     'gvec-to-python',
     'desc-opt',
     'netcdf4<1.7.0'
+    'kaleido',
 ]
 
 [project.urls]
