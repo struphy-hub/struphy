@@ -29,6 +29,9 @@ def call_model(key, val, map_and_equil, Tend=None):
 
     parameters = val.generate_default_parameter_file(save=False)
 
+    # TODO: Temporary! Remove this later
+    parameters['grid']['Nel'] = [Nel * 4 for Nel in parameters['grid']['Nel']]
+
     # set mapping and mhd equilibirum
     parameters['geometry']['type'] = map_and_equil[0]
     parameters['geometry'][map_and_equil[0]] = {}
