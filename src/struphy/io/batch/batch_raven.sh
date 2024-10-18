@@ -68,7 +68,7 @@ for procs in "${mpi_procs[@]}"; do
     
     # Run the Struphy performance test with the specified MPI processes
     # Save the output to a file named based on the process count
-    struphy test performance --mpi "$procs" > "${dir}struphy_$(printf "%04d" $procs).out"
+    struphy test performance --mpi "$procs" > "${dir}struphy.out"
 done
 
 # Summary message to indicate the script has finished running
