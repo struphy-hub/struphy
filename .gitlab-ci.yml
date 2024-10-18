@@ -95,7 +95,7 @@ cache:
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
-    - struphy --set-o output_CI
+    - struphy --set-iob .
 
 login_private_runner:
   stage: private-runner-testing
