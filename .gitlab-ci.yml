@@ -111,12 +111,15 @@ login_private_runner:
         squeue -u $USER;
         sleep 30;
       done
-    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output . --dir src/struphy/io/out/Vlasov_mpi*
-    - echo "Done"
+    - echo "All str_performance jobs finished."
+    - echo $datetime
+    - datetime=$(date +"%Y%m%d_%H%M%S")
+    - mkdir -p outputs/$datetime
+    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime --dir src/struphy/io/out/Vlasov_mpi*
+    - echo "Output saved in outputs/$datetime"
   artifacts:
     paths:
-      - "*.html"
-      - "*.pdf"
+      - "outputs/"
     expire_in: 1 day
 # # python virtual environments into cache
 # default_venv:
