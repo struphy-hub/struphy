@@ -7,7 +7,7 @@
 #SBATCH --ntasks-per-node=72     # number of MPI processes (max 144 on raven with hyperthreading)
 ##SBATCH --mail-type=
 ##SBATCH --mail-user=
-#SBATCH --time=00:10:00
+#SBATCH --time=00:30:00
 
 # Load modules
 module purge
