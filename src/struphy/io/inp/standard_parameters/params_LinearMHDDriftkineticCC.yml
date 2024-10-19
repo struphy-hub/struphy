@@ -1,6 +1,6 @@
 grid :
     Nel      : [24, 24, 1]
-    p        : [1, 1, 1]  # spline degree
+    p        : [2, 3, 1]  # spline degree
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
     dirichlet_bc : [[true, true], [false, false], [false, false]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
     dims_mask : [True, True, False] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
@@ -13,7 +13,7 @@ units: {x: 1.0, B: 1.0, n: 0.2}
 time :
     dt         : 0.05   # time step
     Tend       : 1.0    # simulation time interval is [0, Tend]
-    split_algo : Strang # LieTrotter | Strang
+    split_algo : LieTrotter # LieTrotter | Strang
 
 geometry :
     type : HollowTorus
