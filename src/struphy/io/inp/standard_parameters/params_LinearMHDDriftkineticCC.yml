@@ -1,5 +1,5 @@
 grid :
-    Nel      : [24, 24, 4]
+    Nel      : [24, 24, 1]
     p        : [1, 1, 1]  # spline degree
     spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
     dirichlet_bc : [[true, true], [false, false], [false, false]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
@@ -11,7 +11,7 @@ grid :
 units: {x: 1.0, B: 1.0, n: 0.2}
 
 time :
-    dt         : 0.25   # time step
+    dt         : 0.05   # time step
     Tend       : 1.0    # simulation time interval is [0, Tend]
     split_algo : Strang # LieTrotter | Strang
 

@@ -103,6 +103,14 @@ login_private_runner:
   stage: private-runner-testing
   extends: .raven
   script:
+    - echo $datetime
+    - datetime=$(date +"%Y%m%d_%H%M%S")
+    - mkdir -p outputs/$datetime/simulations
+    - mkdir -p outputs/$datetime/figures
+    - mkdir -p outputs/$datetime/figures/Vlasov
+    - mkdir -p outputs/$datetime/figures/Maxwell
+    - mkdir -p outputs/$datetime/figures/LinearMHDDriftkineticCC
+    - struphy --set-o outputs/$datetime/simulations
     - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
     - echo "Submitted SLURM jobs"
     - squeue -u $USER
@@ -112,14 +120,9 @@ login_private_runner:
         sleep 30;
       done
     - echo "All str_performance jobs finished."
-    - echo $datetime
-    - datetime=$(date +"%Y%m%d_%H%M%S")
-    - mkdir -p outputs/$datetime/Vlasov
-    - mkdir -p outputs/$datetime/Maxwell
-    - mkdir -p outputs/$datetime/LinearMHDDriftkineticCC
-    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/Vlasov --dir src/struphy/io/out/Vlasov_mpi*
-    # - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/Maxwell --dir src/struphy/io/out/Maxwell_mpi*
-    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/LinearMHDDriftkineticCC --dir src/struphy/io/out/LinearMHDDriftkineticCC_mpi*
+    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Vlasov --dir outputs/$datetime/simulations/Vlasov_mpi*
+    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Maxwell --dir outputs/$datetime/simulations/Maxwell_mpi*
+    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/LinearMHDDriftkineticCC --dir outputs/$datetime/simulations/LinearMHDDriftkineticCC_mpi*
     - echo "Output saved in outputs/$datetime"
   artifacts:
     paths:
