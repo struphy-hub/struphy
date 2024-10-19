@@ -120,6 +120,8 @@ login_private_runner:
         sleep 30;
       done
     - echo "All str_performance jobs finished."
+    - echo "Cleaning up output data"
+    - rm -rf outputs/$datetime/simulations/*/data/
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Vlasov --dir outputs/$datetime/simulations/Vlasov_mpi*
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Maxwell --dir outputs/$datetime/simulations/Maxwell_mpi*
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/LinearMHDDriftkineticCC --dir outputs/$datetime/simulations/LinearMHDDriftkineticCC_mpi*
