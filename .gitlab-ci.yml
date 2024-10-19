@@ -116,8 +116,10 @@ login_private_runner:
     - datetime=$(date +"%Y%m%d_%H%M%S")
     - mkdir -p outputs/$datetime/Vlasov
     - mkdir -p outputs/$datetime/Maxwell
+    - mkdir -p outputs/$datetime/LinearMHDDriftkineticCC
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/Vlasov --dir src/struphy/io/out/Vlasov_mpi*
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/Maxwell --dir src/struphy/io/out/Maxwell_mpi*
+    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/LinearMHDDriftkineticCC --dir src/struphy/io/out/LinearMHDDriftkineticCC_mpi*
     - echo "Output saved in outputs/$datetime"
   artifacts:
     paths:
