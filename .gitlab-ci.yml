@@ -75,7 +75,9 @@ cache:
     - private
   before_script:
     - echo "Running on Raven private runner with .raven template"
+    - echo $USER
     - ls
+    - ls ~
     - pwd
     - module avail
     - module purge
@@ -111,6 +113,7 @@ login_private_runner:
     - mkdir -p outputs/$datetime/figures/Maxwell
     - mkdir -p outputs/$datetime/figures/LinearMHDDriftkineticCC
     - struphy --set-o outputs/$datetime/simulations
+    - struphy -p
     - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
     - echo "Submitted SLURM jobs"
     - squeue -u $USER
