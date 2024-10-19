@@ -1,5 +1,5 @@
 grid:
-    Nel: [32, 32, 8]                 # number of grid cells, >p
+    Nel: [32, 32, 32]                 # number of grid cells, >p
     p: [3, 3, 3]                     # spline degree
     spl_kind: [true, true, true]     # spline type: True=periodic, False=clamped
     dirichlet_bc: null               # hom. Dirichlet boundary conditions for N-splines (spl_kind must be False)
@@ -8,7 +8,7 @@ grid:
     nq_pr: null                      # quadrature points per histopolation cell (for commuting projectors)
     polar_ck: -1                     # # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
 
-time: {dt: 0.05, Tend: 1, split_algo: LieTrotter}
+time: {dt: 0.01, Tend: 1, split_algo: LieTrotter}
 
 units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
 

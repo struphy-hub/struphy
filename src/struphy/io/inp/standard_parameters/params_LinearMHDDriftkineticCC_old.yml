@@ -1,0 +1,234 @@
+grid :
+    Nel      : [24, 24, 1]
+    p        : [2, 3, 1]  # spline degree
+    spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+    dirichlet_bc : [[true, true], [false, false], [false, false]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+    dims_mask : [True, True, False] # True if the dimension is to be used in the mpi domain decomposition (=default for each dimension).
+    nq_el    : [6, 6, 6] # quadrature points per grid cell
+    nq_pr    : [6, 6, 6] # quadrature points per histopolation cell (for commuting projectors)
+    polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    Nclones  : 1 
+units: {x: 1.0, B: 1.0, n: 0.2}
+
+time :
+    dt         : 0.05   # time step
+    Tend       : 1.0    # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
+
+geometry :
+    type : HollowTorus
+    HollowTorus :
+        a1  : 0.1   # inner radius
+        a2  : 1.    # minor radius
+        R0  : 10.   # major radius
+        sfl : False # straight field line coordinates?
+        tor_period : 6 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+
+mhd_equilibrium : 
+    type : AdhocTorus # (possible choices seen below)
+    # ITPA benchmark case
+    AdhocTorus :
+        a       : 1. # minor radius
+        R0      : 10. # major radius
+        B0      : 3. # on-axis toroidal magnetic field
+        q_kind  : 0 # which profile (0 : parabolic, 1 : other, see documentation)
+        q0      : 1.71 # safety factor at r=0
+        q1      : 1.87 # safety factor at r=a
+        n1      : 0. # shape factor for number density profile 
+        n2      : 0. # shape factor for number density profile 
+        na      : 1. # number density at r=a
+        p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+        p1      : 0.95 # shape factor for ad hoc pressure profile
+        p2      : 0.05 # shape factor for ad hoc pressure profile
+        beta    : .0018 # plasma beta for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+
+electric_equilibrium:
+    type: HomogenSlab
+    HomogenSlab: {phi0: 1.0}
+
+em_fields:
+    init:
+        type: null
+    save_data :
+        comps :
+            # b2 : true
+            b_field: true
+
+fluid:
+    mhd:
+        phys_params: {A: 1, Z: 1}
+        mhd_u_space: Hdiv
+        perturbation:
+            type: [TorusModesSin,TorusModesCos]
+            TorusModesSin:
+                comps:
+                    u2: ['2', null, null]
+                ms: 
+                    u2: [[10,11], null, null]
+                ns: 
+                    u2: [[-1,-1], null, null]
+                amps:
+                    u2: [[0.1,0.1], null, null]
+                pfuns:
+                    u2: [['exp','exp'], null, null]
+                pfun_params:
+                    u2: [[[0.44444444,0.01],[0.44444444,0.01]], null, null]
+            TorusModesCos:
+                comps:
+                    u2: [null, '2', null]
+                ms: 
+                    u2: [null, [10,11], null]
+                ns: 
+                    u2: [null, [-1,-1], null]
+                amps:
+                    u2: [null, [0.0015915494309189535, 0.0014468631190172303], null]
+                pfuns:
+                    u2: [null, ['d_exp','d_exp'], null]
+                pfun_params:
+                    u2: [null, [[0.44444444,0.01],[0.44444444,0.01]], null]
+        options:
+            #solvers:
+            # shear_alfven:
+            #     type: [pcg, MassMatrixPreconditioner]
+            #     tol: 1.0e-08
+            #     maxiter: 5000
+            #     info: false
+            #     verbose: false
+            # magnetosonic:
+            #     type: [pbicgstab, MassMatrixPreconditioner]
+            #     tol: 1.0e-08
+            #     maxiter: 5000
+            #     info: false
+            #     verbose: false
+            
+            CurrentCoupling5DDensity:
+                solver:
+                    type: [pbicgstab, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                    recycle: true
+                turn_off: false
+            ShearAlfvenCurrentCoupling5D:
+                solver:
+                    type: [pcg, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 5000
+                    info: false
+                    verbose: false
+                    recycle: true
+                filter: {use_filter: false, repeat: 3, alpha: 0.5}
+                turn_off: false
+            MagnetosonicCurrentCoupling5D:
+                solver:
+                    type: [pbicgstab, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 5000
+                    info: false
+                    verbose: false
+                    recycle: true
+                filter: {use_filter: false, repeat: 3, alpha: 0.5}
+                turn_off: false
+            u_space: Hdiv
+
+
+kinetic:
+    energetic_ions:
+        phys_params: {A: 2, Z: 1}
+        markers:
+            type: full_f
+            ppc: 800
+            Np: null
+            eps: 3.
+            bc:
+                type: [remove, periodic, periodic]
+                remove  :
+                    save              : False
+                    boundary_transfer : True
+                    particle_refilling : True
+            loading:
+                type: pseudo_random
+                seed: 7777
+                spatial: uniform
+                dir_particles: path_to_particles
+                moments: [0.0, 0.0, 1., 1.]
+        save_data:
+            n_markers: 1
+            f :
+                pforms : ['0', 'vol'] # in which differential forms (0- or vol-form) of the distribution function in [domain-space, velocity-space] to bin.
+                slices : [e1, v1] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
+                n_bins : [[64], [64]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])
+                ranges : [[[0., 1.]], [[-2.5, 2.5]]] # bin range in each direction
+        options:
+            # solvers:
+            #     density:
+            #         type: [pbicgstab, MassMatrixPreconditioner]
+            #         tol: 1.0e-08
+            #         maxiter: 3000
+            #         info: false
+            #         verbose: false
+            #     cc1:
+            #         type: [pcg, MassMatrixPreconditioner]
+            #         tol: 1.0e-08
+            #         maxiter: 3000
+            #         info: false
+            #         verbose: false
+            #     cc2:
+            #         type: [pcg, MassMatrixPreconditioner]
+            #         tol: 1.0e-08
+            #         maxiter: 3000
+            #         info: false
+            #         verbose: false
+            # algos:
+            #     push_bxgradb: {method: rk4, maxiter: 10, tol: 1.0e-06, mpi_sort: each,
+            #         verbose: false}
+            #     push_bstar: {method: rk4, maxiter: 10, tol: 1.0e-06, mpi_sort: each,
+            #         verbose: false}
+            #     push_cc2: rk4
+            PushDriftKineticbxGradB:
+                algo: {method: rk4, maxiter: 10, tol: 1.0e-06, mpi_sort: each,
+                    verbose: false}
+            PushDriftKineticParallelZeroEfield:
+                algo: {method: rk4, maxiter: 10, tol: 1.0e-06, mpi_sort: each,
+                    verbose: false}
+            PushGuidingCenterBxEstar:
+                algo: {method: discrete_gradient_2nd_order, maxiter: 20, tol: 1.0e-07,
+                    mpi_sort: each, verbose: false}
+            PushGuidingCenterParallel:
+                algo: {method: discrete_gradient_2nd_order, maxiter: 20, tol: 1.0e-07,
+                    mpi_sort: each, verbose: false}
+            CurrentCoupling5DGradB:
+                solver:
+                    type: [pcg, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                    recycle: true
+                filter: {use_filter: false, repeat: 3, alpha: 0.5}
+                turn_off: false
+                algo: rk4
+            CurrentCoupling5DCurlb:
+                solver:
+                    type: [pcg, MassMatrixPreconditioner]
+                    tol: 1.0e-08
+                    maxiter: 3000
+                    info: false
+                    verbose: false
+                    recycle: true
+                filter: {use_filter: false, repeat: 3, alpha: 0.5}
+                turn_off: false
+        background:
+            pforms: ['0', 'vol']
+            type: CanonicalMaxwellian
+            CanonicalMaxwellian:
+                n: 
+                    type: ITPA_density
+                    ITPA_density: 
+                        n0: 0.00720652
+                        c: [0.46623, 0.17042, 0.11357, 0.521298]
+                vth: 1.
+
+diagnostics:
+    accumulated_magnetization: {save_data: true}
