@@ -129,6 +129,7 @@ login_private_runner:
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Maxwell --dir outputs/$datetime/simulations/Maxwell_mpi*
     - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/LinearMHDDriftkineticCC --dir outputs/$datetime/simulations/LinearMHDDriftkineticCC_mpi*
     - echo "Output saved in outputs/$datetime"
+    - find outputs/ -type f -name ".*" -exec rm -f {} \;
     - find outputs/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
   artifacts:
     paths:
