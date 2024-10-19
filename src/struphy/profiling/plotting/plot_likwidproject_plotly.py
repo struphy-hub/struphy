@@ -930,6 +930,9 @@ if __name__ == "__main__":
 
     # Pass the expanded directories to load_projects
     projects = load_projects(expanded_dirs)
+    if len(projects) == 0:
+        print('projs not s´done')
+        exit()
 
     procs_per_clone = "any"
 
