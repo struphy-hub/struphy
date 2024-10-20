@@ -27,11 +27,11 @@ export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/
 #export OMP_PLACES=cores
 KMP_AFFINITY=scatter
 
-# Get the current date in YYYYMMDD format
-current_date=$(date +"%Y%m%d")
+# Get the current datetime
+datetime=$(date +"%Y%m%d_%H%M%S")
 
 # Define the base output path, incorporating the current date
-output_path="output/${current_date}_all_models"
+output_path="output/${datetime}_all_models"
 
 # Create the base output directory
 mkdir -p "$output_path"
