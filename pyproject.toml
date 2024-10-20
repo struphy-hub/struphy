@@ -48,8 +48,6 @@ dependencies = [
     'desc-opt',
     'netcdf4<1.7.0',
     'pre-commit',
-    'autopep8',
-    'isort'
 ]
 
 [project.urls]
