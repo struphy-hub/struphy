@@ -31,7 +31,7 @@ KMP_AFFINITY=scatter
 datetime=$(date +"%Y%m%d_%H%M%S")
 
 # Define the base output path, incorporating the current date
-output_path="output/${datetime}_all_models"
+output_path="output/${datetime}_all_models/simulations"
 
 # Create the base output directory
 mkdir -p "$output_path"
