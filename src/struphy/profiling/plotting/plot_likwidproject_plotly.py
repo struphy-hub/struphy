@@ -57,7 +57,7 @@ def get_job_name(project, simulation_name_type):
     return job_name
 
 
-def plot_roofline_data(
+def plot_roofline(
     projects,
     output_path,
     groups_include=["*"],
@@ -70,7 +70,7 @@ def plot_roofline_data(
     title="",
     theoretical_max_bandwidth_GBps=200,
     theoretical_max_gflops=5530,
-    sorting_key="group",  # options: 'simulation_name', 'group'
+    sorting_key="group",
 ):
 
     fig = go.Figure()
@@ -144,26 +144,12 @@ def plot_roofline_data(
             if imax == None:
                 print("Result missing")
                 continue
-
-            runtime = project.get_value(
-                "Runtime (RDTSC) [s] STAT",
-                likwid_output_id=imax,
-                group=group,
-                table="Metric STAT",
-                column="Avg",
-            )
-
-            # if split_by_simulation_label:
-            #     group_data["job_name"] = group.split("_")[0]
-            # else:
-            #     group_data["job_name"] = job_name
-            # print(project.num_mpi)
             point_dict = {
                 "simulation_name": project.name + "_" + group,  #
                 # "simulation_collection": lp.pad_numbers(
                 #     data_path.split("/")[-1]
                 # ),  # "MPI scan"
-                "description": f"<b>{project.name}</b><br>{group}<br>Runtime: {runtime} s",  # + project.parameters.replace('\n','<br>')
+                "description": project.get_description(group),
                 "dp_GFLOPps": project.get_value(
                     "DP [MFLOP/s] STAT",
                     likwid_output_id=imax,
@@ -247,14 +233,10 @@ def plot_bars(
     metric,
     projects,
     output_path,
-    data_path=None,
-    data_paths=None,
     groups_include=["*"],
     groups_skip=[],
     column_name="Sum",
-    procs_per_clone="any",
     xvalname="job_name",
-    skip_groups=True,
     simulation_name_type="simulation_name",  # simulation_name | clone_configuration | mpi_tasks
     title="",
     split_by_simulation_label=True,
@@ -278,6 +260,7 @@ def plot_bars(
                 # "job_name": job_name, #project.get_clone_configuration(),  # project.name,
                 "group": group,
                 "val": project.get_maximum(metric, group=group, column=column_name),
+                "description": project.get_description(group),
             }
             if split_by_simulation_label:
                 group_data["job_name"] = group.split("_")[0]
@@ -301,21 +284,23 @@ def plot_bars(
                 y=group_data["val"],
                 name=group,  # Group name used for the legend
                 text=group_data["group"],
+                hovertext=group_data["description"],
+                hoverinfo="text",
                 textposition="auto",
+                textangle=0,
             )
         )
 
     fig.update_layout(barmode="stack")
 
     # Update layout to show the legend with colors for each group
-    fig.update_layout(showlegend=True, legend=dict(title="Group"))
-
     fig.update_layout(
+        showlegend=True,
+        legend=dict(title="Group"),
         # xaxis_title='Job name',
         yaxis_title=f"{metric.replace(' STAT','')} ({column_name})",
-        showlegend=True,
+        title=title,
     )
-    fig.update_layout(title=f"{title}")
     mply.format_axes(fig)
     mply.format_font(fig)
     # mply.format_size(fig)
@@ -371,7 +356,7 @@ def plot_correlation(
             data.append(
                 {
                     "simulation_name": project.name,  #
-                    "description": f"<b>{group}</b><br><b>{project.name}</b><br>Runtime: {runtime} s",
+                    "description": project.get_description(group),
                     "job_name": project.get_clone_configuration(),  # project.name,
                     "metric1": val1,
                     "metric2": val2,
@@ -479,6 +464,7 @@ def plot_loadbalance(
                 {
                     "node_name": pad_numbers(node_name),
                     "group": group,
+                    "description": project.get_description(group),
                     "val": project.get_maximum(
                         metric, group=group, column=node_name, table="Metric"
                     ),
@@ -496,7 +482,10 @@ def plot_loadbalance(
                 x=group_data["node_name"],
                 y=group_data["val"],
                 text=group_data["group"],
+                hovertext=group_data["description"],
+                hoverinfo="text",
                 textposition="auto",
+                textangle=0,
                 name=group,  # Group name used for the legend
             )
         )
@@ -527,7 +516,7 @@ def plot_loadbalance(
     print(f"open {file_path_html}")
 
 
-def plot_socket_cores(
+def plot_pinning(
     projects,
     output_path,
     node_name="raven_login",
@@ -742,11 +731,11 @@ def plot_files(
     procs_per_clone="any",
     simulation_name_type="simulation_name",
     plots=[
-        "plot_socket_cores",
-        "plot_speedup",
-        "plot_bars",
-        "plot_loadbalance",
-        "plot_roofline_data",
+        "pinning",
+        "speedup",
+        "barplots",
+        "loadbalance",
+        "roofline",
     ],
     groups_include=["*"],
     groups_skip=[],
@@ -775,8 +764,8 @@ def plot_files(
         # "Operational intensity STAT",
         # "Vectorization ratio [%] STAT",
     ]
-    if "plot_socket_cores" in plots:
-        plot_socket_cores(
+    if "pinning" in plots:
+        plot_pinning(
             projects=projects,
             output_path=f"{output_path}/pinning",
             node_name="raven_login",
@@ -790,15 +779,17 @@ def plot_files(
             "DP [MFLOP/s]",
             # 'Memory bandwidth [MBytes/s]',
         ]:
-            if "plot_loadbalance" in plots:
+            if "loadbalance" in plots:
                 plot_loadbalance(
                     project=project,
                     metric=metric,
                     output_path=f"{output_path}/loadbalance",
+                    groups_include=groups_include,
+                    groups_skip=groups_skip,
                     title=title,
                 )
 
-    if "plot_bars" in plots:
+    if "barplots" in plots:
         for metric in metrics:
             for column_name in [
                 # 'Sum',
@@ -809,19 +800,17 @@ def plot_files(
                 plot_bars(
                     metric=metric,
                     projects=projects,
-                    output_path=f"{output_path}/barplots",
+                    output_path=f"{output_path}/barplots/{column_name}",
                     groups_include=groups_include,
                     groups_skip=groups_skip,
                     column_name=column_name,
-                    procs_per_clone=procs_per_clone,
-                    skip_groups=True,
                     title=title,
                     simulation_name_type=simulation_name_type,
                     split_by_simulation_label=False,
                 )
 
-    if "plot_roofline_data" in plots:
-        plot_roofline_data(
+    if "roofline" in plots:
+        plot_roofline(
             projects,
             output_path=f"{output_path}/roofline",
             groups_include=groups_include,
@@ -832,7 +821,7 @@ def plot_files(
             ymax=1e4,
             title=title,
         )
-    if "plot_speedup" in plots:
+    if "speedup" in plots:
         metric1 = "mpi"
         metric2 = "Runtime (RDTSC) [s] STAT"
         plot_correlation(
@@ -914,7 +903,20 @@ if __name__ == "__main__":
         required=False,
         help="Likwid groups to skip",
     )
-
+    parser.add_argument(
+        "--plots",
+        type=str,
+        default=[
+            "pinning",
+            "speedup",
+            "barplots",
+            "loadbalance",
+            "roofline",
+        ],
+        nargs="+",
+        required=False,
+        help="Types of plots to plot",
+    )
     args = parser.parse_args()
     os.makedirs(args.output, exist_ok=True)
 
@@ -922,8 +924,6 @@ if __name__ == "__main__":
     expanded_dirs = []
     for d in args.dir:
         expanded_dirs.extend(glob.glob(d))
-
-    print(f"Expanded Directory: {expanded_dirs}, Project Name: {args.title}")
 
     # Pass the expanded directories to load_projects
     projects = load_projects(expanded_dirs)
@@ -939,13 +939,7 @@ if __name__ == "__main__":
         projects=projects,
         output_path=args.output,
         title=args.title,
-        plots=[
-            # 'plot_socket_cores',
-            "plot_speedup",
-            "plot_bars",
-            "plot_loadbalance",
-            "plot_roofline_data",
-        ],
+        plots=args.plots,
         groups_include=args.groups,
         groups_skip=args.skip,
     )

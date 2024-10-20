@@ -509,6 +509,35 @@ class Project:
                 count += 1
         return total / count if count > 0 else 0
 
+    def get_description(self, group):
+        imax = self.get_maximum_id(
+            "DP [MFLOP/s] STAT",
+            group=group,
+            table="Metric STAT",
+            column="Sum",
+        )
+
+        metrics = [
+            "Runtime (RDTSC) [s] STAT",
+            "DP [MFLOP/s] STAT",
+            "Memory bandwidth [MBytes/s] STAT",
+            "Memory data volume [GBytes] STAT",
+        ]
+        description = f"<b>{self.name}</b><br>"
+        description += f"<b>Group</b>: {group}<br>"
+        description += f"<b>MPI procs</b>: {self.num_mpi}<br>"
+        for metric in metrics:
+            data = self.get_value(
+                metric,
+                likwid_output_id=imax,
+                group=group,
+                table="Metric STAT",
+                column="Avg",
+            )
+            description += f"<b>{metric}</b>: {data}<br>"
+
+        return description
+
     def __str__(self):
         """String representation of the Project instance."""
         return (
