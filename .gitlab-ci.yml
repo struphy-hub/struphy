@@ -130,10 +130,10 @@ login_private_runner:
     # - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Vlasov --dir outputs/$datetime/simulations/Vlasov_mpi* --skip main model.integrate --title 'MPI scaling'
     # - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Maxwell --dir outputs/$datetime/simulations/Maxwell_mpi* --skip main model.integrate --title 'MPI scaling'
     - for model in "Vlasov" "Maxwell"; do
-        python src/struphy/profiling/plotting/plot_likwidproject_plotly.py \
-          --output outputs/$datetime/figures/$model \
-          --dir outputs/$datetime/simulations/${model}_mpi* \
-          --skip main model.integrate \
+        python src/struphy/profiling/plotting/plot_likwidproject_plotly.py 
+          --output outputs/$datetime/figures/$model 
+          --dir outputs/$datetime/simulations/${model}_mpi* 
+          --skip main model.integrate 
           --title "MPI scaling, model:${model}";
       done
     - echo "Output saved in outputs/$datetime"
