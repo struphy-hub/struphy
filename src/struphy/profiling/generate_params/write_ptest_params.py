@@ -85,16 +85,22 @@ def mpi_scan(base_parameters, mpi_values, filename_template, extra_modifications
     generate_parameter_files(base_parameters, modifications_list, filename_template)
 
 
+mpi_values = [8, 16, 32, 48, 64, 72]
 # Save LIKWID configuration
-parameter_file = f"{i_path}/likwid_config.yml"
-save_parameter_file(yaml_data["likwid_config"], parameter_file)
-
+for mpi_val in mpi_values:
+    parameter_file = f"{i_path}/likwid_config_mpi{mpi_val}.yml"
+    nperdomain = min(int(mpi_val / 2), 36)
+    for param in yaml_data["likwid_config"]['likwid-mpirun']['options']:
+        if type(param) == dict:
+            if '-nperdomain' in param.keys():
+                param['-nperdomain'] = nperdomain
+    save_parameter_file(yaml_data["likwid_config"], parameter_file)
 # Define models and their parameters
 for model in ["Vlasov", 'Maxwell', 'LinearMHDDriftkineticCC']:
     base_params = yaml_data[f"params_{model}"]
 
     # MPI values to scan
-    mpi_values = [8, 16, 32, 48, 64, 72]
+    
     filename_template = f"{i_path}/params_{model}_mpi{{mpi}}.yml"
     extra_modifications = None  # model_info.get('extra_modifications', None)
     mpi_scan(base_params, mpi_values, filename_template, extra_modifications)

@@ -75,8 +75,7 @@ def main():
             else:
                 nodes = (nmpi + 71) // 72  # Calculate the number of nodes required
                 submit_file = f"batch_raven_{nodes}node.sh"
-                if action == "run":
-                    command = [
+                command = [
                         "struphy",
                         "run",
                         model,
@@ -94,11 +93,12 @@ def main():
                         "90",
                         "--likwid",
                         "-li",
-                        "likwid_config.yml",
+                        f"likwid_config_mpi{nmpi}.yml",
                         "-lr",
                         "1",
                     ]
-                    print(" ".join(command))
+                print(" ".join(command))
+                if action == "run":
                     subprocess.run(command)
                     print(f"{GREEN}Running:\t{projectname} ({param_filename}){NC}")
                 elif action == "check":
