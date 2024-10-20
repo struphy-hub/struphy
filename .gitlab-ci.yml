@@ -111,11 +111,13 @@ login_private_runner:
     - mkdir -p outputs/$datetime/simulations
     - struphy --set-o outputs/$datetime/simulations
     - struphy -p
-    # Run simulations
-    - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
+    # Run strong scaling simulations (same problem size, increasing number of processes)
+    - python3 src/struphy/profiling/generate_params/write_ptest_params.py      # Write parameter files
+    - python3 src/struphy/profiling/generate_params/run_simulations.py check   # Check which simulation to run
+    - python3 src/struphy/profiling/generate_params/run_simulations.py run     # Run the simulations
+    - struphy test performance --batch batch_raven.sh                          # Submit a job that tests performance of all models
     - echo "Submitted SLURM jobs"
     # Wait for the SLURM jobs to finish
-    - squeue -u $USER
     - while squeue -u $USER | grep str_per; do
         echo "Waiting for struphy job(s) to finish...";
         squeue -u $USER;
