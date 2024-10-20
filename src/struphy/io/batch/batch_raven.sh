@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH -o ./str_performance%j.out
-#SBATCH -e ./str_performance%j.err
+#SBATCH -o ./str_performance_%j.out
+#SBATCH -e ./str_performance_%j.err
 #SBATCH -D ./
 #SBATCH -J str_performance
 #SBATCH --nodes=1                # number of compute nodes
