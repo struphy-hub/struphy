@@ -140,7 +140,7 @@ kinetic:
             type: full_f
             ppc: 800
             Np: null
-            eps: 3.
+            eps: 10.
             bc:
                 type: [remove, periodic, periodic]
                 remove  :

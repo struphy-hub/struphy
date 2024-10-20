@@ -9,17 +9,43 @@ grid:
     polar_ck: -1
     Nclones: 1
 
-time: {dt: 0.005, Tend: 0.015, split_algo: LieTrotter}
-
 units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
 
-geometry:
-    type: Cuboid
-    Cuboid: {}
+time :
+    dt         : 0.05   # time step
+    Tend       : 1.0    # simulation time interval is [0, Tend]
+    split_algo : LieTrotter # LieTrotter | Strang
 
-mhd_equilibrium:
+geometry :
+    type : HollowTorus
+    HollowTorus :
+        a1  : 0.1   # inner radius
+        a2  : 1.    # minor radius
+        R0  : 10.   # major radius
+        sfl : False # straight field line coordinates?
+        tor_period : 6 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
+
+mhd_equilibrium : 
+    type : AdhocTorus # (possible choices seen below)
+    # ITPA benchmark case
+    AdhocTorus :
+        a       : 1. # minor radius
+        R0      : 10. # major radius
+        B0      : 3. # on-axis toroidal magnetic field
+        q_kind  : 0 # which profile (0 : parabolic, 1 : other, see documentation)
+        q0      : 1.71 # safety factor at r=0
+        q1      : 1.87 # safety factor at r=a
+        n1      : 0. # shape factor for number density profile 
+        n2      : 0. # shape factor for number density profile 
+        na      : 1. # number density at r=a
+        p_kind  : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+        p1      : 0.95 # shape factor for ad hoc pressure profile
+        p2      : 0.05 # shape factor for ad hoc pressure profile
+        beta    : .0018 # plasma beta for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+
+electric_equilibrium:
     type: HomogenSlab
-    HomogenSlab: {}
+    HomogenSlab: {phi0: 1.0}
 
 braginskii_equilibrium:
     type: HomogenSlabITG
@@ -113,7 +139,7 @@ kinetic:
             type: full_f
             ppc: null
             Np: 1000
-            eps: 0.25
+            eps: 10.
             bc:
                 type: [periodic, periodic, periodic]
             loading:
