@@ -96,7 +96,7 @@ for mpi_val in mpi_values:
                 param['-nperdomain'] = nperdomain
     save_parameter_file(yaml_data["likwid_config"], parameter_file)
 # Define models and their parameters
-for model in ["Vlasov", 'Maxwell', 'LinearMHDDriftkineticCC']:
+for model in ["Vlasov", 'Maxwell']: #, 'LinearMHDDriftkineticCC']:
     base_params = yaml_data[f"params_{model}"]
 
     # MPI values to scan
