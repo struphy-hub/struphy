@@ -217,21 +217,9 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             batch_abs = os.path.join(state['b_path'], batch)
 
             # TODO: After refactoring struphy_run, we can build the output directory with one line
-            
-            # Run Vlasov MPI scaling
-            ## Generate command
-            command = ['python3', f'{libpath}/profiling/generate_params/write_ptest_params.py']
-            subprocess.run(command, check=True)
-            ## Check simulations to be tested
-            command = ['python3', f'{libpath}/profiling/generate_params/run_simulations.py', 'check']
-            subprocess.run(command, check=True)
-            ## Submit simulations to be tested
-            command = ['python3', f'{libpath}/profiling/generate_params/run_simulations.py', 'run']
-            subprocess.run(command, check=True)
-
             # Run all models
-            # command = ['sbatch', batch_abs]
-            # subprocess.run(command, check=True)
+            command = ['sbatch', batch_abs]
+            subprocess.run(command, check=True)
 
         else:
             # Run all the models
