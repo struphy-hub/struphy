@@ -8,7 +8,7 @@ grid:
     nq_el: [2, 2, 1]
     nq_pr: [2, 2, 1]
     polar_ck: -1
-    Nclones: 2
+    Nclones: 1
 
 time: {dt: 0.005, Tend: 0.05, split_algo: LieTrotter}
 

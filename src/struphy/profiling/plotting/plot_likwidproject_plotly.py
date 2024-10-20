@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+
 # My modules
 import roofline_plotter as rp
 
@@ -56,37 +57,11 @@ def get_job_name(project, simulation_name_type):
     return job_name
 
 
-def skip_group(group):
-    if group in [
-        "model.integrate",
-        "self.derham.clone_comm.allreduce",
-        "self._pusher",
-        "self.derham.clone_comm.Barrier",
-    ]:  # or '_' in group:
-        return True
-    if "pusher_" in group:
-        return True
-    if "_pusher" in group:
-        return True
-    if "self._pusher" in group:
-        return True
-    if group[0] == "_":
-        return True
-    if "_barrier" in group:
-        return True
-    if "initialize_" in group:
-        return True
-    if "derham" in group:
-        return True
-    if "model_class" in group:
-        return True
-    return False
-
-
 def plot_roofline_data(
     projects,
     output_path,
-    group=None,
+    groups_include=["*"],
+    groups_skip=[],
     column_name="Sum",
     xmin=0.001,
     xmax=100,
@@ -154,11 +129,12 @@ def plot_roofline_data(
 
     # Read the data paths and add the data to the point in the roofline plot
     data = []
+    # Convert wildcard '*' to regex '.*' in groups_include
     for project in projects:
-        if group is None:
-            groups = project.get_likwid_groups()
+        groups = project.get_likwid_groups(
+            groups_include=groups_include, groups_skip=groups_skip
+        )
         for group in groups:
-
             imax = project.get_maximum_id(
                 "DP [MFLOP/s] STAT",
                 group=group,
@@ -256,12 +232,13 @@ def plot_roofline_data(
     fig.update_layout(title=f"{title}")
     #
 
+    os.makedirs(f"{output_path}", exist_ok=True)
     file_path_html = f"{output_path}/{project.name}_roofline.html"
     file_path_pdf = f"{output_path}/{project.name}_roofline.pdf"
 
     # Save the figure as an HTML file
     fig.write_html(file_path_html, include_mathjax="cdn")
-    mply.format_size(fig)  # ,width=2000,height=800)
+    # mply.format_size(fig)  # ,width=2000,height=800)
     fig.write_image(file_path_pdf)
     print(f"open {file_path_html}")
 
@@ -272,7 +249,8 @@ def plot_bars(
     output_path,
     data_path=None,
     data_paths=None,
-    groups=None,
+    groups_include=["*"],
+    groups_skip=[],
     column_name="Sum",
     procs_per_clone="any",
     xvalname="job_name",
@@ -282,16 +260,16 @@ def plot_bars(
     split_by_simulation_label=True,
 ):
 
-    if groups == None:
+    if groups_include == ["*"]:
         groupname = "all_groups"
     else:
-        groupname = "_".join(groups)
+        groupname = "_".join(groups_include)
 
     data = []
     for project in projects:
-        if groups is None:
-            groups = project.get_likwid_groups()
-
+        groups = project.get_likwid_groups(
+            groups_include=groups_include, groups_skip=groups_skip
+        )
         job_name = get_job_name(project, simulation_name_type)
         for group in groups:
             group_data = {
@@ -313,44 +291,34 @@ def plot_bars(
     df["relative_val"] = df.groupby("group")["val"].transform(lambda x: x / x.iloc[0])
     unique_groups = df["group"].unique()
 
-    # tab20 colormap
-    # colormap = plt.colormaps.get_cmap("tab20")
-    # group_color_map = {group: colormap(i) for i, group in enumerate(unique_groups)}
-    # Generate a color for each group
-    n_colors = len(unique_groups)
-    colors = plt.cm.turbo(np.linspace(0, 1, n_colors))
-    random.shuffle(colors)
-    # Create a color map for each group
-    group_color_map = {group: colors[i] for i, group in enumerate(unique_groups)}
-
-    # Convert RGBA to Plotly color format
-    df["color"] = df["group"].map(
-        lambda group: f"rgba({int(group_color_map[group][0] * 255)}, "
-        f"{int(group_color_map[group][1] * 255)}, "
-        f"{int(group_color_map[group][2] * 255)}, "
-        f"{group_color_map[group][3]})"
-    )
-    # print(df)
     fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=df[xvalname],
-            y=df["val"],
-            text=df["group"],
-            textposition="auto",
-            marker=dict(color=df["color"]),
+    # Loop through each group and add bars for that group
+    for group in unique_groups:
+        group_data = df[df["group"] == group]  # Filter data by group
+        fig.add_trace(
+            go.Bar(
+                x=group_data[xvalname],
+                y=group_data["val"],
+                name=group,  # Group name used for the legend
+                text=group_data["group"],
+                textposition="auto",
+            )
         )
-    )
+
+    fig.update_layout(barmode="stack")
+
+    # Update layout to show the legend with colors for each group
+    fig.update_layout(showlegend=True, legend=dict(title="Group"))
 
     fig.update_layout(
         # xaxis_title='Job name',
         yaxis_title=f"{metric.replace(' STAT','')} ({column_name})",
-        showlegend=False,
+        showlegend=True,
     )
     fig.update_layout(title=f"{title}")
     mply.format_axes(fig)
     mply.format_font(fig)
-    mply.format_size(fig)
+    # mply.format_size(fig)
 
     # print(groups)
 
@@ -359,6 +327,7 @@ def plot_bars(
     column_name = clean_string(column_name)
     # fig_dir = f"{output_path}/barplots/{groupname}/{column_name}"
 
+    os.makedirs(f"{output_path}", exist_ok=True)
     file_path_html = f"{output_path}/{project.name}_barplot_{sanitized_metric}_{column_name}_{groupname}.html"
     file_path_pdf = f"{output_path}/{project.name}_barplot_{sanitized_metric}_{column_name}_{groupname}.pdf"
 
@@ -372,10 +341,10 @@ def plot_correlation(
     metric2,
     projects,
     output_path,
+    groups_include=["*"],
+    groups_skip=[],
     invert_y=False,
-    group="model.integrate",
     column_name="Avg",
-    procs_per_clone="any",
     title="",
     simulation_name_type="project_name",
 ):
@@ -383,12 +352,10 @@ def plot_correlation(
     data = []
 
     for project in projects:
-        groups = project.get_likwid_groups()
+        groups = project.get_likwid_groups(
+            groups_include=groups_include, groups_skip=groups_skip
+        )
         for group in groups:
-            # print('group',group)
-            # if not 'model.inte' in group:
-            #     #print('skip')
-            #     continue
 
             if metric1 == "mpi":
                 val1 = project.num_mpi
@@ -482,6 +449,7 @@ def plot_correlation(
         " ", "_"
     )
 
+    os.makedirs(f"{output_path}", exist_ok=True)
     file_path_html = f"{output_path}/{fig_name}.html"
     file_path_pdf = f"{output_path}/{fig_name}.pdf"
 
@@ -490,11 +458,20 @@ def plot_correlation(
     print(f"open {file_path_html}")
 
 
-def plot_loadbalance(project, metric, output_path):
+def plot_loadbalance(
+    project,
+    metric,
+    output_path,
+    groups_include=["*"],
+    groups_skip=[],
+    title="",
+):
 
     data = []
 
-    groups = project.get_likwid_groups()
+    groups = project.get_likwid_groups(
+        groups_include=groups_include, groups_skip=groups_skip
+    )
 
     for group in groups:
         for node_name in project.get_columns(table="Metric", group=group):
@@ -510,45 +487,37 @@ def plot_loadbalance(project, metric, output_path):
 
     data = sorted(data, key=lambda x: x["node_name"])
     df = pd.DataFrame(data)
-
-    colormap = plt.colormaps.get_cmap("tab20")
-    # print(df['group'].unique())
-    # Generate a color for each group
     unique_groups = df["group"].unique()
-    group_color_map = {group: colormap(i) for i, group in enumerate(unique_groups)}
-
-    # Convert RGBA to Plotly color format
-    df["color"] = df["group"].map(
-        lambda group: f"rgba({int(group_color_map[group][0] * 255)}, "
-        f"{int(group_color_map[group][1] * 255)}, "
-        f"{int(group_color_map[group][2] * 255)}, "
-        f"{group_color_map[group][3]})"
-    )
-
     fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=df["node_name"],
-            y=df["val"],
-            text=df["group"],
-            textposition="auto",
-            marker=dict(color=df["color"]),
+    for group in unique_groups:
+        group_data = df[df["group"] == group]  # Filter data by group
+        fig.add_trace(
+            go.Bar(
+                x=group_data["node_name"],
+                y=group_data["val"],
+                text=group_data["group"],
+                textposition="auto",
+                name=group,  # Group name used for the legend
+            )
         )
-    )
 
     # Sanitize the file path to remove non-standard characters
     sanitized_metric = clean_string(metric)
 
-    title = f"{project.name}, {project.get_clone_configuration()}"
+    # title = f"{project.name}, {project.get_clone_configuration()}"
+
     fig.update_layout(
         yaxis_title=f"{metric.replace(' STAT','')}",
-        showlegend=False,
         title=title,
+        showlegend=True,
+        legend=dict(title="Group"),
+        barmode="stack",
     )
 
     mply.format_axes(fig)
     mply.format_font(fig)
 
+    os.makedirs(f"{output_path}", exist_ok=True)
     file_path_html = f"{output_path}/{project.name}_loadbalance_{sanitized_metric}.html"
     file_path_pdf = f"{output_path}/{project.name}_loadbalance_{sanitized_metric}.pdf"
 
@@ -757,6 +726,7 @@ def plot_socket_cores(
         fig.update_layout(shapes=shapes, annotations=annotations)
         fig.update_layout(dragmode="pan")
 
+        os.makedirs(f"{output_path}", exist_ok=True)
         file_path_html = f"{output_path}/{project.name}_pinning.html"
         file_path_pdf = f"{output_path}/{project.name}_pinning.pdf"
 
@@ -768,7 +738,7 @@ def plot_socket_cores(
 def plot_files(
     projects,
     output_path,
-    title="Collection",
+    title="",
     procs_per_clone="any",
     simulation_name_type="simulation_name",
     plots=[
@@ -778,7 +748,10 @@ def plot_files(
         "plot_loadbalance",
         "plot_roofline_data",
     ],
+    groups_include=["*"],
+    groups_skip=[],
 ):
+
     metrics = [  #
         "Runtime (RDTSC) [s] STAT",
         # "Runtime unhalted [s] STAT",
@@ -788,15 +761,15 @@ def plot_files(
         # "Power [W] STAT",
         # "Energy DRAM [J] STAT",
         # "Power DRAM [W] STAT",
-        # "DP [MFLOP/s] STAT",
-        # "AVX DP [MFLOP/s] STAT",
+        "DP [MFLOP/s] STAT",
+        "AVX DP [MFLOP/s] STAT",
         # "Packed [MUOPS/s] STAT",
         # "Scalar [MUOPS/s] STAT",
         # "Memory read bandwidth [MBytes/s] STAT",
         # "Memory read data volume [GBytes] STAT",
         # "Memory write bandwidth [MBytes/s] STAT",
         # "Memory write data volume [GBytes] STAT",
-        # "Memory bandwidth [MBytes/s] STAT",
+        "Memory bandwidth [MBytes/s] STAT",
         # "Memory data volume [GBytes] STAT",
         # "Operational intensity [FLOP/Byte] STAT",
         # "Operational intensity STAT",
@@ -805,9 +778,9 @@ def plot_files(
     if "plot_socket_cores" in plots:
         plot_socket_cores(
             projects=projects,
-            output_path=output_path,
+            output_path=f"{output_path}/pinning",
             node_name="raven_login",
-            title=None,
+            title=title,
         )
     # Plot loadbalance
     for project in projects:
@@ -819,9 +792,11 @@ def plot_files(
         ]:
             if "plot_loadbalance" in plots:
                 plot_loadbalance(
-                    project=project, metric=metric, output_path=output_path
+                    project=project,
+                    metric=metric,
+                    output_path=f"{output_path}/loadbalance",
+                    title=title,
                 )
-                pass
 
     if "plot_bars" in plots:
         for metric in metrics:
@@ -834,22 +809,23 @@ def plot_files(
                 plot_bars(
                     metric=metric,
                     projects=projects,
-                    output_path=output_path,
-                    groups=None,
-                    # project_name=project_name,
-                    # collection_name=collection_name,
+                    output_path=f"{output_path}/barplots",
+                    groups_include=groups_include,
+                    groups_skip=groups_skip,
                     column_name=column_name,
                     procs_per_clone=procs_per_clone,
                     skip_groups=True,
                     title=title,
                     simulation_name_type=simulation_name_type,
+                    split_by_simulation_label=False,
                 )
 
     if "plot_roofline_data" in plots:
         plot_roofline_data(
             projects,
-            output_path=output_path,
-            group=None,
+            output_path=f"{output_path}/roofline",
+            groups_include=groups_include,
+            groups_skip=groups_skip,
             xmin=0.01,
             xmax=100,
             ymin=0.1,
@@ -863,12 +839,12 @@ def plot_files(
             metric1=metric1,
             metric2=metric2,
             projects=projects,
-            output_path=output_path,
+            output_path=f"{output_path}/speedup",
+            groups_include=groups_include,
+            groups_skip=groups_skip,
             invert_y=True,
-            group="model.integrate",
             column_name="Avg",
-            procs_per_clone="any",
-            title="",
+            title=title,
         )
 
 
@@ -914,11 +890,32 @@ if __name__ == "__main__":
         help="Paths to the data directories (space-separated, supports wildcards)",
     )
     parser.add_argument(
-        "--project_name", type=str, default="Testing", help="Name of the project"
+        "--title", type=str, default="Testing", help="Name of the project"
     )
-    parser.add_argument("--output", type=str, default=".", help="Output directory")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=".",
+        help="Output directory",
+    )
+    parser.add_argument(
+        "--groups",
+        type=str,
+        default=["*"],
+        nargs="+",
+        required=False,
+        help="Likwid groups to include",
+    )
+    parser.add_argument(
+        "--skip",
+        type=str,
+        default=[],
+        nargs="+",
+        required=False,
+        help="Likwid groups to skip",
+    )
 
+    args = parser.parse_args()
     os.makedirs(args.output, exist_ok=True)
 
     # Expand wildcard directories
@@ -926,28 +923,30 @@ if __name__ == "__main__":
     for d in args.dir:
         expanded_dirs.extend(glob.glob(d))
 
-    print(f"Expanded Directory: {expanded_dirs}, Project Name: {args.project_name}")
+    print(f"Expanded Directory: {expanded_dirs}, Project Name: {args.title}")
 
     # Pass the expanded directories to load_projects
     projects = load_projects(expanded_dirs)
     if len(projects) == 0:
-        print('projects not finished')
+        print("projects not finished")
         exit()
 
     procs_per_clone = "any"
 
-    print(f"# Plotting simulation: {args.project_name}")
+    print(f"# Plotting simulation: {args.title}")
     title = "Standard likwid profiling"
     plot_files(
         projects=projects,
         output_path=args.output,
-        title=title,
+        title=args.title,
         plots=[
             # 'plot_socket_cores',
             "plot_speedup",
-            # 'plot_bars',
-            'plot_loadbalance',
+            "plot_bars",
+            "plot_loadbalance",
             "plot_roofline_data",
         ],
+        groups_include=args.groups,
+        groups_skip=args.skip,
     )
     print("done")

@@ -105,17 +105,16 @@ login_private_runner:
   stage: private-runner-testing
   extends: .raven
   script:
+    # Set output directory 
     - echo $datetime
     - datetime=$(date +"%Y%m%d_%H%M%S")
     - mkdir -p outputs/$datetime/simulations
-    - mkdir -p outputs/$datetime/figures
-    - mkdir -p outputs/$datetime/figures/Vlasov
-    - mkdir -p outputs/$datetime/figures/Maxwell
-    - mkdir -p outputs/$datetime/figures/LinearMHDDriftkineticCC
     - struphy --set-o outputs/$datetime/simulations
     - struphy -p
+    # Run simulations
     - struphy test performance --batch batch_raven.sh # Submit a job that tests performance
     - echo "Submitted SLURM jobs"
+    # Wait for the SLURM jobs to finish
     - squeue -u $USER
     - while squeue -u $USER | grep str_per; do
         echo "Waiting for struphy job(s) to finish...";
@@ -123,13 +122,22 @@ login_private_runner:
         sleep 30;
       done
     - echo "All str_performance jobs finished."
+    # Clean up data
     - echo "Cleaning up output data"
-    - rm -rf outputs/$datetime/simulations/*/data/
-    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Vlasov --dir outputs/$datetime/simulations/Vlasov_mpi*
-    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Maxwell --dir outputs/$datetime/simulations/Maxwell_mpi*
-    - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/LinearMHDDriftkineticCC --dir outputs/$datetime/simulations/LinearMHDDriftkineticCC_mpi*
+    - rm -rf outputs/$datetime/simulations/*/data/        # Remove data files
+    - find outputs/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
+    # Plot results
+    # - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Vlasov --dir outputs/$datetime/simulations/Vlasov_mpi* --skip main model.integrate --title 'MPI scaling'
+    # - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Maxwell --dir outputs/$datetime/simulations/Maxwell_mpi* --skip main model.integrate --title 'MPI scaling'
+    - for model in "Vlasov" "Maxwell"; do
+        python src/struphy/profiling/plotting/plot_likwidproject_plotly.py \
+          --output outputs/$datetime/figures/$model \
+          --dir outputs/$datetime/simulations/${model}_mpi* \
+          --skip main model.integrate \
+          --title "MPI scaling, model:${model}";
+      done
     - echo "Output saved in outputs/$datetime"
-    - find outputs/ -type f -name ".*" -exec rm -f {} \;
+    # Print the files in the output directory
     - find outputs/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
   artifacts:
     paths:

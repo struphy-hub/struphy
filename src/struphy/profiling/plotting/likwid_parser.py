@@ -347,8 +347,12 @@ class Project:
                 # TODO get this from likwid directly
                 self.num_mpi = lw_output["mpi_procs"]
 
-    def get_likwid_groups(self):
+    def get_likwid_groups(self, groups_include=["*"], groups_skip=[]):
         """Get list of LIKWID groups from the last output.
+
+        Args:
+            groups_include (list): List of patterns to include (default: ['*']).
+            groups_skip (list): List of patterns to skip (default: []).
 
         Returns:
             list: List of LIKWID groups.
@@ -365,7 +369,35 @@ class Project:
                 "mpi_procs",
             ]
         ]
-        return likwid_groups
+
+        # Convert '*' to a regex that matches any string, as users won't write '.*'
+        groups_include = [pattern.replace("*", ".*") for pattern in groups_include]
+        groups_skip = [pattern.replace("*", ".*") for pattern in groups_skip]
+
+        # Compile include and skip patterns
+        try:
+            include_patterns = [
+                re.compile(pattern) for pattern in groups_include if pattern
+            ]
+        except re.error as e:
+            raise ValueError(f"Invalid pattern in groups_include: {e}")
+
+        try:
+            skip_patterns = [re.compile(pattern) for pattern in groups_skip if pattern]
+        except re.error as e:
+            raise ValueError(f"Invalid pattern in groups_skip: {e}")
+
+        groups = []
+        for group in likwid_groups:
+            # Check if the group matches any pattern in groups_include
+            if not any(pattern.match(group) for pattern in include_patterns):
+                continue
+            # Skip groups if they match any of the patterns in groups_skip
+            if any(pattern.match(group) for pattern in skip_patterns):
+                continue
+            groups.append(group)
+
+        return groups
 
     def get_value(
         self,
