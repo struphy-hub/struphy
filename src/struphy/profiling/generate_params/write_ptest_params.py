@@ -93,7 +93,7 @@ for mpi_val in mpi_values:
     for param in yaml_data["likwid_config"]['likwid-mpirun']['options']:
         if type(param) == dict:
             if '-nperdomain' in param.keys():
-                param['-nperdomain'] = nperdomain
+                param['-nperdomain'] = f"S:{nperdomain}"
     save_parameter_file(yaml_data["likwid_config"], parameter_file)
 # Define models and their parameters
 for model in ["Vlasov", 'Maxwell']: #, 'LinearMHDDriftkineticCC']:
