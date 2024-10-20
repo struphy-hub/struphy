@@ -483,6 +483,8 @@ class Project:
         Returns:
             float: The maximum value.
         """
+        if metric == "mpi":
+            return self.num_mpi
         i_max = self.get_maximum_id(metric, group, table, column)
         return self.get_value(metric, i_max, group, table, column)
 

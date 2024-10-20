@@ -57,6 +57,38 @@ def get_job_name(project, simulation_name_type):
     return job_name
 
 
+def get_data(
+    projects,
+    metrics,
+    column_name="Avg",
+    groups_include=["*"],
+    groups_skip=[],
+    split_by_simulation_label="",
+):
+    data = []
+    for project in projects:
+        groups = project.get_likwid_groups(
+            groups_include=groups_include, groups_skip=groups_skip
+        )
+        for group in groups:
+            group_dict = {
+                "simulation_name": project.name,  #
+                "description": project.get_description(group),
+                "job_name": project.get_clone_configuration(),  # project.name,
+                "group": group,
+            }
+
+            if split_by_simulation_label:
+                group_dict["simulation_name"] = group.split("_")[0]
+
+            for imetric, metric in enumerate(metrics):
+                group_dict[metric] = project.get_maximum(
+                    metric, group=group, column=column_name
+                )
+            data.append(group_dict)
+    return data
+
+
 def plot_roofline(
     projects,
     output_path,
@@ -129,62 +161,29 @@ def plot_roofline(
 
     # Read the data paths and add the data to the point in the roofline plot
     data = []
-    # Convert wildcard '*' to regex '.*' in groups_include
-    for project in projects:
-        groups = project.get_likwid_groups(
-            groups_include=groups_include, groups_skip=groups_skip
-        )
-        for group in groups:
-            imax = project.get_maximum_id(
-                "DP [MFLOP/s] STAT",
-                group=group,
-                table="Metric STAT",
-                column=column_name,
-            )
-            if imax == None:
-                print("Result missing")
-                continue
-            point_dict = {
-                "simulation_name": project.name + "_" + group,  #
-                # "simulation_collection": lp.pad_numbers(
-                #     data_path.split("/")[-1]
-                # ),  # "MPI scan"
-                "description": project.get_description(group),
-                "dp_GFLOPps": project.get_value(
-                    "DP [MFLOP/s] STAT",
-                    likwid_output_id=imax,
-                    group=group,
-                    table="Metric STAT",
-                    column=column_name,
-                )
-                * 1e-3,
-                "bandwidth_MBps": project.get_value(
-                    "Memory bandwidth [MBytes/s] STAT",
-                    likwid_output_id=imax,
-                    group=group,
-                    table="Metric STAT",
-                    column=column_name,
-                ),
-                "num_mpi": project.num_mpi,
-                "group": group,
-            }
-            point_dict["operational_intensity_FLOPpB"] = (
-                1e3 * point_dict["dp_GFLOPps"]
-            ) / point_dict["bandwidth_MBps"]
-            data.append(point_dict)
+    data = get_data(
+        projects=projects,
+        metrics=["DP [MFLOP/s] STAT", "Memory bandwidth [MBytes/s] STAT"],
+        column_name=column_name,
+        groups_include=groups_include,
+        groups_skip=groups_skip,
+    )
+    print(data[0].keys())
+    for d in data:
+        d['DP_GFLOPps'] = d['DP [MFLOP/s] STAT'] * 1e-3
+        d['bandwidth_MBps'] = d['Memory bandwidth [MBytes/s] STAT']
+        d["operational_intensity_FLOPpB"] = 1e3 * d["DP_GFLOPps"] / d["bandwidth_MBps"]
 
     data = sorted(data, key=lambda x: x[sorting_key])
     df = pd.DataFrame(data)
 
     for simulation_name, group in df.groupby(sorting_key):
-        # print('group')
-        # print(group)
         # Sort data to ensure the lines connect correctly
         sorted_group = group.sort_values("simulation_name")
         fig.add_trace(
             go.Scatter(
                 x=sorted_group["operational_intensity_FLOPpB"],
-                y=sorted_group["dp_GFLOPps"],
+                y=sorted_group["DP_GFLOPps"],
                 mode="markers+lines",
                 text=sorted_group["description"],  # Custom text for each point
                 name=f"{simulation_name}",  # Name displayed in the legend
@@ -206,7 +205,7 @@ def plot_roofline(
     fig.update_yaxes(
         type="log",  # Ensure the x-axis is logarithmic
         range=[np.log10(ymin), np.log10(ymax)],
-        title="Performance (GFLOP/s)",
+        title="Performance [GFLOP/s]",
         tickvals=ytick_values,  # Set where ticks appear
         ticktext=[str(t) for t in ytick_values],
     )
@@ -219,8 +218,8 @@ def plot_roofline(
     #
 
     os.makedirs(f"{output_path}", exist_ok=True)
-    file_path_html = f"{output_path}/{project.name}_roofline.html"
-    file_path_pdf = f"{output_path}/{project.name}_roofline.pdf"
+    file_path_html = f"{output_path}/roofline.html"
+    file_path_pdf = f"{output_path}/roofline.pdf"
 
     # Save the figure as an HTML file
     fig.write_html(file_path_html, include_mathjax="cdn")
@@ -247,31 +246,21 @@ def plot_bars(
     else:
         groupname = "_".join(groups_include)
 
-    data = []
-    for project in projects:
-        groups = project.get_likwid_groups(
-            groups_include=groups_include, groups_skip=groups_skip
-        )
-        job_name = get_job_name(project, simulation_name_type)
-        for group in groups:
-            group_data = {
-                "project_name": project.name,
-                # "job_name":group.split('_')[0],
-                # "job_name": job_name, #project.get_clone_configuration(),  # project.name,
-                "group": group,
-                "val": project.get_maximum(metric, group=group, column=column_name),
-                "description": project.get_description(group),
-            }
-            if split_by_simulation_label:
-                group_data["job_name"] = group.split("_")[0]
-            else:
-                group_data["job_name"] = job_name
-            data.append(group_data)
-
-    data = sorted(data, key=lambda x: x["project_name"])
+    data = get_data(
+        projects=projects,
+        metrics=[metric],
+        column_name=column_name,
+        groups_include=groups_include,
+        groups_skip=groups_skip,
+        split_by_simulation_label=split_by_simulation_label,
+    )
+    data = sorted(data, key=lambda x: x["simulation_name"])
     df = pd.DataFrame(data)
+    
     # Add the relative value column
-    df["relative_val"] = df.groupby("group")["val"].transform(lambda x: x / x.iloc[0])
+    df["relative_val"] = df.groupby("group")[metric].transform(
+        lambda x: x / x.iloc[0]
+    )
     unique_groups = df["group"].unique()
 
     fig = go.Figure()
@@ -281,7 +270,7 @@ def plot_bars(
         fig.add_trace(
             go.Bar(
                 x=group_data[xvalname],
-                y=group_data["val"],
+                y=group_data[metric],
                 name=group,  # Group name used for the legend
                 text=group_data["group"],
                 hovertext=group_data["description"],
@@ -303,9 +292,6 @@ def plot_bars(
     )
     mply.format_axes(fig)
     mply.format_font(fig)
-    # mply.format_size(fig)
-
-    # print(groups)
 
     sanitized_metric = clean_string(metric)
     sanitized_metric = sanitized_metric.replace("/", "p").replace(" ", "_")
@@ -313,15 +299,19 @@ def plot_bars(
     # fig_dir = f"{output_path}/barplots/{groupname}/{column_name}"
 
     os.makedirs(f"{output_path}", exist_ok=True)
-    file_path_html = f"{output_path}/{project.name}_barplot_{sanitized_metric}_{column_name}_{groupname}.html"
-    file_path_pdf = f"{output_path}/{project.name}_barplot_{sanitized_metric}_{column_name}_{groupname}.pdf"
+    file_path_html = (
+        f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.html"
+    )
+    file_path_pdf = (
+        f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.pdf"
+    )
 
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
     print(f"open {file_path_html}")
 
 
-def plot_correlation(
+def plot_speedup(
     metric1,
     metric2,
     projects,
@@ -334,35 +324,13 @@ def plot_correlation(
     simulation_name_type="project_name",
 ):
 
-    data = []
-
-    for project in projects:
-        groups = project.get_likwid_groups(
-            groups_include=groups_include, groups_skip=groups_skip
-        )
-        for group in groups:
-
-            if metric1 == "mpi":
-                val1 = project.num_mpi
-            else:
-                val1 = project.get_maximum(metric1, group=group, column=column_name)
-            # print('column_name',column_name, metric2)
-
-            val2 = project.get_maximum(metric2, group=group, column=column_name)
-            runtime = project.get_maximum(
-                "Runtime (RDTSC) [s] STAT", group=group, column=column_name
-            )
-
-            data.append(
-                {
-                    "simulation_name": project.name,  #
-                    "description": project.get_description(group),
-                    "job_name": project.get_clone_configuration(),  # project.name,
-                    "metric1": val1,
-                    "metric2": val2,
-                    "group": group,
-                }
-            )
+    data = get_data(
+        projects=projects,
+        metrics=[metric1, metric2],
+        column_name=column_name,
+        groups_include=groups_include,
+        groups_skip=groups_skip,
+    )
 
     fig = go.Figure()
     data = sorted(data, key=lambda x: x["simulation_name"])
@@ -377,21 +345,19 @@ def plot_correlation(
         # Sort data to ensure the lines connect correctly
         sorted_group = group.sort_values("simulation_name")
 
-        sorted_group["metric2_relative"] = sorted_group.groupby("group")[
-            "metric2"
-        ].transform(lambda x: x / x.iloc[0])
+        sorted_group[f"{metric2}_relative"] = sorted_group.groupby("group")[metric2].transform(lambda x: x / x.iloc[0])
 
         if invert_y:
             # Plot the speedup
-            sorted_group["metric2_relative"] = 1.0 / sorted_group["metric2_relative"]
+            sorted_group[f"{metric2}_relative"] = 1.0 / sorted_group[f"{metric2}_relative"]
 
-        xmin = min(xmin, min(sorted_group["metric1"]))
-        xmax = max(xmax, max(sorted_group["metric1"]))
-        # ymax = max(xmax, max(sorted_group['metric2_speedup']))
+        xmin = min(xmin, min(sorted_group[metric1]))
+        xmax = max(xmax, max(sorted_group[metric1]))
+        
         fig.add_trace(
             go.Scatter(
-                x=sorted_group["metric1"],
-                y=sorted_group["metric2_relative"],
+                x=sorted_group[metric1],
+                y=sorted_group[f"{metric2}_relative"],
                 mode="markers+lines",
                 text=sorted_group["description"],  # Custom text for each point
                 name=f"{simulation_collection}",  # Name displayed in the legend
@@ -422,13 +388,13 @@ def plot_correlation(
     fig.update_layout(
         # xaxis_title='Job name',
         xaxis_title=f"MPI tasks (#)",
-        yaxis_title=f"Speedup (relative)",
+        yaxis_title=re.sub(r"\[.*?\]", "[relative]", metric2),
         showlegend=True,
         xaxis_tickformat=".1f",
         yaxis_tickformat=".1f",
     )
 
-    fig_name = f"{project.name}_{clean_string(metric1)}_{clean_string(metric2)}_{clean_string(column_name)}".replace(
+    fig_name = f"speedup_{clean_string(metric1)}_vs_{clean_string(metric2)}_{clean_string(column_name)}".replace(
         "/", "p"
     ).replace(
         " ", "_"
@@ -824,7 +790,7 @@ def plot_files(
     if "speedup" in plots:
         metric1 = "mpi"
         metric2 = "Runtime (RDTSC) [s] STAT"
-        plot_correlation(
+        plot_speedup(
             metric1=metric1,
             metric2=metric2,
             projects=projects,
