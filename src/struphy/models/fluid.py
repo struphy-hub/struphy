@@ -748,6 +748,7 @@ class ViscoresistiveMHD(StruphyModel):
         self._gamma = params['fluid']['mhd']['options']['VariationalDensityEvolve']['physics']['gamma']
         self._mu = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu']
         self._mu_a = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['mu_a']
+        self._alpha = params['fluid']['mhd']['options']['VariationalViscosity']['physics']['alpha']
         self._eta = params['fluid']['mhd']['options']['VariationalResistivity']['physics']['eta']
         self._eta_a = params['fluid']['mhd']['options']['VariationalResistivity']['physics']['eta_a']
         model = 'full'
@@ -780,6 +781,7 @@ class ViscoresistiveMHD(StruphyModel):
                                                                  'gamma': self._gamma,
                                                                  'mu': self._mu,
                                                                  'mu_a': self._mu_a,
+                                                                 'alpha': self._alpha,
                                                                  'mass_ops': self.WMM,
                                                                  'lin_solver': lin_solver_viscosity,
                                                                  'nonlin_solver': nonlin_solver_viscosity}

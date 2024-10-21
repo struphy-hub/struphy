@@ -1411,11 +1411,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1521,7 +1521,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._tmp_acc = self._B2.codomain.zeros()
 
     def __call__(self, dt):
-        
+
         # current variables
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
@@ -1542,28 +1542,26 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                   self._scale_vec, 0.)
 
         self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
-        
-        
+
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
         b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
         byn += b2acc
 
-        #b2acc.copy(out=self._accumulated_magnetization)
+        # b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
-        
-    
+
         # new b coeffs (no tmps created here)
         _u = un.copy(out=self._u_tmp2)
         _u += un1
         bn1 = self._C.dot(_u, out=self._b_tmp1)
         bn1 *= -dt
         bn1 += bn
-        
+
         # write new coeffs into self.feec_vars
         max_du, max_db = self.feec_vars_update(un1, bn1)
-        
+
         if self._info and self._rank == 0:
             print('Status     for ShearAlfven:', info['success'])
             print('Iterations for ShearAlfven:', info['niter'])
@@ -1634,11 +1632,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['filter'] = {'use_filter': None,
-                         'modes': (0,1),
+                         'modes': (0, 1),
                          'repeat': 3,
                          'alpha': 0.5}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1928,7 +1926,7 @@ class CurrentCoupling5DDensity(Propagator):
                          'verbose': False,
                          'recycle': True}
         dct['turn_off'] = False
-        
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -2713,7 +2711,7 @@ class VariationalDensityEvolve(Propagator):
         dct['nonlin_solver'] = {'tol': 1e-8,
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
-                                'info': False, 
+                                'info': False,
                                 'implicit_transport': False}
         dct['physics'] = {'gamma': 5/3}
 
@@ -2747,7 +2745,6 @@ class VariationalDensityEvolve(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = self._nonlin_solver['implicit_transport']
-
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -3661,7 +3658,6 @@ class VariationalEntropyEvolve(Propagator):
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = nonlin_solver['implicit_transport']
 
-
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
         else:
@@ -4385,7 +4381,6 @@ class VariationalMagFieldEvolve(Propagator):
                                 'info': False,
                                 'implicit_transport': False}
 
-
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -4908,7 +4903,7 @@ class VariationalViscosity(Propagator):
                                 'type': ['Newton'],
                                 'info': False}
         dct['physics'] = {'gamma': 1.66666666667,
-                          'mu': 0., 'mu_a': 0.}
+                          'mu': 0., 'mu_a': 0., 'alpha': 0.}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -4924,6 +4919,7 @@ class VariationalViscosity(Propagator):
                  rho: StencilVector,
                  mu: float = options()['physics']['mu'],
                  mu_a: float = options()['physics']['mu_a'],
+                 alpha: float = options()['physics']['alpha'],
                  mass_ops: WeightedMassOperator,
                  lin_solver: dict = options(default=True)['lin_solver'],
                  nonlin_solver: dict = options(default=True)['nonlin_solver']):
@@ -4938,6 +4934,7 @@ class VariationalViscosity(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._mu_a = mu_a
+        self._alpha = alpha
         self._mu = mu
         self._rho = rho
 
@@ -4954,8 +4951,8 @@ class VariationalViscosity(Propagator):
         self.rhof = self.derham.create_field("rhof", "L2")
         self.sf = self.derham.create_field("sf", "L2")
         self.sf1 = self.derham.create_field("sf1", "L2")
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
+        self.uf1 = self.derham.create_field("uf", "H1vec")
+        self.uf12 = self.derham.create_field("uf1", "H1vec")
         self.gu0f = self.derham.create_field("gu0", "Hcurl")
         self.gu1f = self.derham.create_field("gu1", "Hcurl")
         self.gu2f = self.derham.create_field("gu2", "Hcurl")
@@ -4995,7 +4992,7 @@ class VariationalViscosity(Propagator):
         self.pc.update_mass_operator(self._Mrho)
         sn = self.feec_vars[0]
         un = self.feec_vars[1]
-        if self._mu < 1.e-15 and self._mu_a < 1.e-15:
+        if self._mu < 1.e-15 and self._mu_a < 1.e-15 and self._alpha < 1.e-15:
             self.feec_vars_update(sn, un)
             return
 
@@ -5033,15 +5030,17 @@ class VariationalViscosity(Propagator):
 
         gu_sq_v *= dt*self._mu_a  # /2
 
-        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0,0], gu_sq_v*self._mass_M1_metric[0,1], gu_sq_v*self._mass_M1_metric[0,2]],
-                             [gu_sq_v*self._mass_M1_metric[1,0], gu_sq_v*self._mass_M1_metric[1,1], gu_sq_v*self._mass_M1_metric[1,2]],
-                             [gu_sq_v*self._mass_M1_metric[2,0], gu_sq_v*self._mass_M1_metric[1,2], gu_sq_v*self._mass_M1_metric[2,2]]], 
-                             verbose=False)
+        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0, 0], gu_sq_v*self._mass_M1_metric[0, 1], gu_sq_v*self._mass_M1_metric[0, 2]],
+                             [gu_sq_v*self._mass_M1_metric[1, 0], gu_sq_v *
+                                 self._mass_M1_metric[1, 1], gu_sq_v*self._mass_M1_metric[1, 2]],
+                             [gu_sq_v*self._mass_M1_metric[2, 0], gu_sq_v*self._mass_M1_metric[2, 1], gu_sq_v*self._mass_M1_metric[2, 2]]],
+                            verbose=False)
 
         # gu_sq_v *= 2.
         gu_sq_v += dt*self._mu
 
         self._scaled_stiffness._scalar = dt*self._mu  # /2.
+        self._scaled_Mv._scalar = dt*self._alpha
         # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
         un1 = self.evol_op.dot(un, out=self._tmp_un1)
         if self._info:
@@ -5068,6 +5067,9 @@ class VariationalViscosity(Propagator):
         self.gu121f.vector = gu112
         self.gu122f.vector = gu212
 
+        self.uf1.vector = un1
+        self.uf12.vector = un12
+
         gu0_v = self.gu0f.eval_tp_fixed_loc(
             self.integration_grid_spans, self.integration_grid_gradient, out=self._guf0_values)
         gu1_v = self.gu1f.eval_tp_fixed_loc(
@@ -5082,16 +5084,25 @@ class VariationalViscosity(Propagator):
         gu122_v = self.gu122f.eval_tp_fixed_loc(
             self.integration_grid_spans, self.integration_grid_gradient, out=self._guf122_values)
 
+        u1_v = self.uf1.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_u, out=self._uf1_values)
+        u12_v = self.uf12.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_u, out=self._uf12_values)
+
         gu_sq_v = self._gu_sq_values
+        u_sq_v = self._u_sq_values
         gu_sq_v *= 0.
+        u_sq_v *= 0.
         for i in range(3):
             for j in range(3):
-                gu_sq_v += gu0_v[i]*self._mass_M1_metric[i,j]*gu120_v[j]
-                gu_sq_v += gu1_v[i]*self._mass_M1_metric[i,j]*gu121_v[j]
-                gu_sq_v += gu2_v[i]*self._mass_M1_metric[i,j]*gu122_v[j]
-
+                gu_sq_v += gu0_v[i]*self._mass_M1_metric[i, j]*gu120_v[j]
+                gu_sq_v += gu1_v[i]*self._mass_M1_metric[i, j]*gu121_v[j]
+                gu_sq_v += gu2_v[i]*self._mass_M1_metric[i, j]*gu122_v[j]
+                u_sq_v += u1_v[i]*self._mass_Mv_metric[i, j]*u12_v[j]
 
         gu_sq_v *= self._gu_init_values
+        u_sq_v *= dt*self._alpha
+        gu_sq_v += u_sq_v
         # 2) Initial energy and linear form
         rho = self._rho
         self.rhof.vector = rho
@@ -5236,8 +5247,11 @@ class VariationalViscosity(Propagator):
 
         self._scaled_stiffness = .00001 * self.phy_stiffness
 
+        self._scaled_Mv = 0.1*self.mass_ops.Mv
+
         self.r_op = self._Mrho  # - self._scaled_stiffness - self.du_phy_stiffness
-        self.l_op = self._Mrho + self._scaled_stiffness + self.du_phy_stiffness
+        self.l_op = self._Mrho + self._scaled_Mv + \
+            self._scaled_stiffness + self.du_phy_stiffness
 
         self.grad_0 = grad@Pcoord0@Xv
         self.grad_1 = grad@Pcoord1@Xv
@@ -5270,6 +5284,11 @@ class VariationalViscosity(Propagator):
                                            self.integration_grid_bn[2]],
                                           [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]]]
 
+        self.integration_grid_u = [[self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+                                   [self.integration_grid_bn[0], self.integration_grid_bn[1],
+                                    self.integration_grid_bn[2]],
+                                   [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bn[2]]]
+
         grid_shape = tuple([len(loc_grid)
                             for loc_grid in integration_grid])
 
@@ -5287,7 +5306,13 @@ class VariationalViscosity(Propagator):
         self._guf122_values = [
             np.zeros(grid_shape, dtype=float)for i in range(3)]
 
+        self._uf1_values = [np.zeros(grid_shape, dtype=float)
+                            for i in range(3)]
+        self._uf12_values = [np.zeros(grid_shape, dtype=float)
+                             for i in range(3)]
+
         self._gu_sq_values = np.zeros(grid_shape, dtype=float)
+        self._u_sq_values = np.zeros(grid_shape, dtype=float)
         self._gu_init_values = np.zeros(grid_shape, dtype=float)
 
         self._sf_values = np.zeros(grid_shape, dtype=float)
@@ -5318,6 +5343,10 @@ class VariationalViscosity(Propagator):
         metric = self.domain.metric_inv(
             *integration_grid)*self.domain.jacobian_det(*integration_grid)
         self._mass_M1_metric = deepcopy(metric)
+
+        metric = self.domain.metric(
+            *integration_grid)*self.domain.jacobian_det(*integration_grid)
+        self._mass_Mv_metric = deepcopy(metric)
 
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
 
@@ -5368,7 +5397,7 @@ class VariationalResistivity(Propagator):
         &\int_\Omega \frac{\partial \mathcal U}{\partial s} \partial_t s \, q\,\textrm d \mathbf x - \int_\Omega (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2 \, q \,\textrm d \mathbf x = 0 \qquad \forall \, q \in L^2\,.
 
     With :math:`\eta_a(\mathbf x) = \eta_a |\nabla \times \mathbf B(\mathbf x)|`
-        
+
     On the logical domain:
 
     .. math::
@@ -5509,17 +5538,19 @@ class VariationalResistivity(Propagator):
 
         cb_sq_v *= dt*self._eta_a
 
-        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0,0],cb_sq_v*self._sq_term_metric[0,1],cb_sq_v*self._sq_term_metric[0,2]],
-                             [cb_sq_v*self._sq_term_metric[1,0],cb_sq_v*self._sq_term_metric[1,1],cb_sq_v*self._sq_term_metric[1,2]],
-                             [cb_sq_v*self._sq_term_metric[2,0],cb_sq_v*self._sq_term_metric[2,1],cb_sq_v*self._sq_term_metric[2,2]]],
-                             verbose = False)
+        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0, 0], cb_sq_v*self._sq_term_metric[0, 1], cb_sq_v*self._sq_term_metric[0, 2]],
+                             [cb_sq_v*self._sq_term_metric[1, 0], cb_sq_v *
+                                 self._sq_term_metric[1, 1], cb_sq_v*self._sq_term_metric[1, 2]],
+                             [cb_sq_v*self._sq_term_metric[2, 0], cb_sq_v*self._sq_term_metric[2, 1], cb_sq_v*self._sq_term_metric[2, 2]]],
+                            verbose=False)
 
         cb_sq_v += dt*self._eta
 
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
-        if self._linearize_current :
-            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
+        if self._linearize_current:
+            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(
+                self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
@@ -5530,12 +5561,12 @@ class VariationalResistivity(Propagator):
         bn12 = bn.copy(out=self._tmp_bn12)
         bn12 += bn1
         bn12 /= 2.
-        if self._linearize_current :
-            cb1 = self.Tcurl.dot(bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
+        if self._linearize_current:
+            cb1 = self.Tcurl.dot(
+                bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
-        
         cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
         self.cbf12.vector = cb12
@@ -5663,9 +5694,9 @@ class VariationalResistivity(Propagator):
             self.derham.Vh_fem['1'],
             V_extraction_op=self.derham.extraction_ops['1'],
             W_extraction_op=self.derham.extraction_ops['1'],
-            V_boundary_op  =self.derham.boundary_ops['1'],
-            W_boundary_op  =self.derham.boundary_ops['1']
-            )
+            V_boundary_op=self.derham.boundary_ops['1'],
+            W_boundary_op=self.derham.boundary_ops['1']
+        )
 
         if self._lin_solver['type'][1] is None:
             self.pc = None
@@ -6015,7 +6046,7 @@ class AdiabaticPhi(Propagator):
 
         self._rhs *= 0.
         if isinstance(self._rho, tuple):
-            self._rho[0]() # accumulate
+            self._rho[0]()  # accumulate
             self._rhs += self._rho[0].vectors[0]
         else:
             self._rhs += self._rho
