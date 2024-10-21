@@ -120,7 +120,7 @@ login_private_runner:
     # Wait for the SLURM jobs to finish
     - while squeue -u $USER | grep str_per; do
         echo "Waiting for struphy job(s) to finish...";
-        squeue -u $USER;
+        squeue -u $USER -o "%.18i %.9P %.50j %.8u %.2t %.10M %.6D %R";
         sleep 30;
       done
     - echo "All str_performance jobs finished."
