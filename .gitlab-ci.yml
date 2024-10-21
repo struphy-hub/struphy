@@ -142,7 +142,7 @@ login_private_runner:
   artifacts:
     paths:
       - "outputs/"
-    expire_in: 1 day
+    expire_in: 30 days
 # # python virtual environments into cache
 # default_venv:
 #   stage: startup 
