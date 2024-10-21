@@ -756,9 +756,9 @@ def plot_files(
     if "barplots" in plots:
         for metric in metrics:
             for column_name in [
-                # 'Sum',
-                # 'Max',
-                # 'Min',
+                'Sum',
+                'Max',
+                'Min',
                 "Avg"
             ]:
                 plot_bars(
