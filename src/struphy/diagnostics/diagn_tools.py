@@ -304,7 +304,7 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
                     f"\na={np.round(np.exp(coeffs[1]), 3)} m={np.round(coeffs[0], 3)}"
                 )
         else:
-            plt.plot(time, quantity[:], '.', label=key, markersize=2)
+            plt.plot(time, plot_quantity[:], '.', label=key, markersize=2)
 
             if inds_exs is not None:
                 # do the fitting
