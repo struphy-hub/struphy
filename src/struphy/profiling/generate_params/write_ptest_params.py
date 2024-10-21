@@ -39,13 +39,10 @@ yaml_files = [
 
 yaml_data = load_yaml_files(yaml_files)
 
-
-# Utility functions
 def save_parameter_file(parameters, filename):
     with open(filename, "w") as file:
         yaml.safe_dump(parameters, file, default_flow_style=False)
     print(f"Updated '{filename}'")
-
 
 def apply_modifications(parameters, modifications):
     for key, value in modifications.items():
@@ -60,12 +57,19 @@ def generate_parameter_files(base_parameters, modifications_list, filename_templ
     for modifications in modifications_list:
         parameters = copy.deepcopy(base_parameters)
         apply_modifications(parameters, modifications)
-        filename_vars = {k.replace(".", "_"): v for k, v in modifications.items()}
+        
+        # Prepare filename variables
+        filename_vars = {}
+        for k, v in modifications.items():
+            if isinstance(v, list):
+                for i, vi in enumerate(v):
+                    filename_vars[f"{k.replace('.', '_')}_{i}"] = vi
+            else:
+                filename_vars[k.replace(".", "_")] = v
+
         filename = filename_template.format(**filename_vars)
         save_parameter_file(parameters, filename)
 
-
-# New function for MPI scan
 def mpi_scan(base_parameters, mpi_values, filename_template, extra_modifications=None):
     """
     Generate parameter files for different MPI values.
@@ -102,5 +106,24 @@ for model in ["Vlasov", 'Maxwell']: #, 'LinearMHDDriftkineticCC']:
     # MPI values to scan
     
     filename_template = f"{i_path}/params_{model}_mpi{{mpi}}.yml"
-    extra_modifications = None  # model_info.get('extra_modifications', None)
+    extra_modifications = None
     mpi_scan(base_params, mpi_values, filename_template, extra_modifications)
+
+# grid value scan
+mpi_values = [72]
+grid_values = [
+    [16, 16, 16],
+    [32, 32, 32],
+    [64, 64, 64]
+]
+
+# Define models and their parameters
+for model in ["Vlasov", 'Maxwell']:
+    base_params = yaml_data[f"params_{model}"]
+    
+    # Filename template including mpi and grid values
+    filename_template = f"{i_path}/params_{model}_grid{{grid_Nel_0}}x{{grid_Nel_1}}x{{grid_Nel_2}}_mpi{{mpi}}.yml"
+    
+    for grid in grid_values:
+        extra_modifications = {'grid.Nel': grid}
+        mpi_scan(base_params, mpi_values, filename_template, extra_modifications)
