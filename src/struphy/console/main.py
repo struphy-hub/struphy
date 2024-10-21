@@ -23,6 +23,7 @@ def struphy():
     from struphy.console.profile import struphy_profile
     from struphy.console.pproc import struphy_pproc
     from struphy.console.test import struphy_test
+    from struphy.console.likwid import struphy_likwid_profile
 
     # struphy path
     import struphy
@@ -380,6 +381,58 @@ def struphy():
                                 type=str,
                                 metavar='NAME',
                                 help='save (and dont display) the profile figure under NAME, relative to current output path.',)
+
+    parser_likwid_profile = subparsers.add_parser(
+        'likwid_profile',
+        help='Profile finished Struphy runs with likwid',
+        description='Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.')
+
+    parser_likwid_profile.add_argument(
+        "--dir",
+        type=str,
+        nargs="+",
+        required=True,
+        help="Paths to the data directories (space-separated, supports wildcards)",
+    )
+    parser_likwid_profile.add_argument(
+        "--title", type=str, default="Testing", help="Name of the project"
+    )
+    parser_likwid_profile.add_argument(
+        "--output",
+        type=str,
+        default=".",
+        help="Output directory",
+    )
+    parser_likwid_profile.add_argument(
+        "--groups",
+        type=str,
+        default=["*"],
+        nargs="+",
+        required=False,
+        help="Likwid groups to include",
+    )
+    parser_likwid_profile.add_argument(
+        "--skip",
+        type=str,
+        default=[],
+        nargs="+",
+        required=False,
+        help="Likwid groups to skip",
+    )
+    parser_likwid_profile.add_argument(
+        "--plots",
+        type=str,
+        default=[
+            "pinning",
+            "speedup",
+            "barplots",
+            "loadbalance",
+            "roofline",
+        ],
+        nargs="+",
+        required=False,
+        help="Types of plots to plot",
+    )
 
     # 6. "pproc" sub-command
     parser_pproc = subparsers.add_parser(

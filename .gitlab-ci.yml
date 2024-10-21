@@ -129,10 +129,8 @@ login_private_runner:
     - rm -rf outputs/$datetime/simulations/*/data/        # Remove data files
     - find outputs/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
     # Plot results
-    # - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Vlasov --dir outputs/$datetime/simulations/Vlasov_mpi* --skip main model.integrate --title 'MPI scaling'
-    # - python src/struphy/profiling/plotting/plot_likwidproject_plotly.py --output outputs/$datetime/figures/Maxwell --dir outputs/$datetime/simulations/Maxwell_mpi* --skip main model.integrate --title 'MPI scaling'
     - for model in "Vlasov" "Maxwell"; do
-        python src/struphy/profiling/plotting/plot_likwidproject_plotly.py 
+        struphy likwid_profile
           --output outputs/$datetime/figures/$model 
           --dir outputs/$datetime/simulations/${model}_mpi* 
           --skip main model.integrate 

@@ -6,18 +6,16 @@ import os
 import random
 import re
 
-import hardware_dicts as hwd
-import likwid_parser as lp
+import struphy.post_processing.likwid.hardware_dicts as hwd
+import struphy.post_processing.likwid.likwid_parser as lp
+import struphy.post_processing.likwid.maxplotlylib as mply
+import struphy.post_processing.likwid.roofline_plotter as rp
+
 import matplotlib.pyplot as plt
-import maxplotlylib as mply
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-
-# My modules
-import roofline_plotter as rp
-
 
 def clean_string(string_in):
     return re.sub(r"[^\w\s-]", "", string_in.replace(" ", "_"))
