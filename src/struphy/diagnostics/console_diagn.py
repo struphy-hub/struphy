@@ -140,49 +140,47 @@ def main():
 
             # Get default background parameters
             from struphy.kinetic_background import maxwellians
-            default_bckgr_params = getattr(
-                maxwellians, default_bckgr_type).default_maxw_params()
 
-            marker_type = params['kinetic'][species]['markers']['type']
-            # Set velocity point of evaluation to v_shift of background params if not given by input
-            if marker_type == 'full_f':
-                for k in range(1, 4):
+            keys_given = []
 
-                    if grid_slices['v' + str(k)] is None:
-                        key = 'u' + str(k)
-                        bckgr_type = params['kinetic'][species]['background']['type']
+            bckgr_fun = None
+            if "background" in params['kinetic'][species].keys():
+                bckgr_type = params['kinetic'][species]["background"]["type"]
 
-                        if key not in params['kinetic'][species]['background'][bckgr_type].keys():
-                            bckgr_param = default_bckgr_params[key]
-                        else:
-                            bckgr_param = params['kinetic'][species]['background'][bckgr_type][key]
+                for fi in bckgr_type:
+                    if fi[-2] == '_':
+                        fi_type = fi[:-2]
+                    else:
+                        fi_type = fi
 
-                        if isinstance(bckgr_param, dict):
-                            grid_slices['v' + str(k)] = \
-                                bckgr_param['u0' + str(k)]
-                        else:
-                            grid_slices['v' + str(k)] = bckgr_param
-            elif marker_type in ['delta_f', 'control_variate']:
-                for k in range(1, 4):
+                    bckgr_params = params['kinetic'][species]["background"][fi]
+                    keys_given += bckgr_params.keys()
 
-                    if grid_slices['v' + str(k)] is None:
-                        key = 'u' + str(k)
-                        bckgr_type = params['kinetic'][species]['background']['type']
-
-                        if key not in params['kinetic'][species]['background'][bckgr_type].keys():
-                            bckgr_param = default_bckgr_params[key]
-                        else:
-                            bckgr_param = params['kinetic'][species]['background'][bckgr_type][key]
-
-                        if isinstance(bckgr_param, dict):
-                            grid_slices['v' + str(k)] = \
-                                bckgr_param['u0' + str(k)]
-                        else:
-                            grid_slices['v' + str(k)] = bckgr_param
+                    if bckgr_fun is None:
+                        bckgr_fun = getattr(maxwellians, fi_type)(
+                            maxw_params=bckgr_params
+                        )
+                    else:
+                        bckgr_fun = bckgr_fun + getattr(maxwellians, fi_type)(
+                            maxw_params=bckgr_params
+                        )
             else:
-                raise NotImplementedError(
-                    f"Diagnostics for markers of type {marker_type} are not implemented!")
+                bckgr_fun = getattr(maxwellians, default_bckgr_type)()
 
+            # Get values of background shifts in velocity space
+            positions = [np.array([grid_slices['e' + str(k)]])
+                         for k in range(1, 4)]
+            u = bckgr_fun.u(*positions)
+            eval_params = {'u' + str(k+1): u[k][0] for k in range(3)}
+
+            # Set velocity point of evaluation to velocity shift if not given by input
+            for k in range(1, 4):
+                if grid_slices['v' + str(k)] is None:
+                    key = 'u' + str(k)
+                    if key in keys_given:
+                        grid_slices['v' + str(k)] = eval_params[key]
+
+            # Plot the distribution function
             if 'plot_distr' in actions:
                 # Get index of where to plot in time
                 time_idx = np.argmin(np.abs(time - saved_time))
@@ -196,6 +194,7 @@ def main():
                     save_plot=True, savepath=path,
                 )
 
+            # Create a video of the phase space
             if 'phase_space' in actions:
                 for slice_name in os.listdir(os.path.join(
                     path, 'post_processing', 'kinetic_data', species, 'distribution_function'
