@@ -139,6 +139,10 @@ login_private_runner:
     - echo "Output saved in outputs/$datetime"
     # Print the files in the output directory
     - find outputs/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
+    # Make tar.gz files and upload it to datashare
+    - tar -czf outputs_$datetime.tar.gz outputs/$datetime
+    - |
+      curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
   artifacts:
     paths:
       - "outputs/"
