@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import yaml
 import importlib
@@ -213,6 +214,24 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             if os.path.isfile(_file):
                 pymon_html_json(gr, verbose=verbose)
     elif 'performance' in group:
+
+        # Make sure likwid-mpirun and pylikwid works
+        if shutil.which('likwid-mpirun') is None:
+            message = """
+Error: 'likwid-mpirun' not found. Please ensure LIKWID is installed and in your PATH."
+
+On Raven/Viper:
+module load gcc/14 likwid/5.3
+LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
+export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
+"""
+            raise RuntimeError(message)
+
+        try:
+            import pylikwid
+        except ImportError:
+            raise ImportError("Error: 'pylikwid' is not installed.\nPlease install it via pip:\npip install pylikwid\n")
+
         if batch:
             batch_abs = os.path.join(state['b_path'], batch)
 
