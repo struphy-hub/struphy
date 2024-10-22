@@ -1,4 +1,4 @@
-def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False):
+def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False, guiding_center=False, classify=False):
     """
     Post process data from finished Struphy runs.
 
@@ -18,6 +18,12 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False):
 
     physical : bool
         Wether to do post-processing into push-forwarded physical (xyz) components of fields.
+        
+    guiding_center : bool
+        Compute guiding-center coordinates (only from Particles6D).
+        
+    classify : bool
+        Classify guiding-center trajectories (passing, trapped or lost).
     """
     import subprocess
     import os
@@ -44,9 +50,15 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False):
                str(step),
                '--celldivide',
                str(celldivide)]
-    
+
     if physical:
         command += ['--physical']
+        
+    if guiding_center:
+        command += ['--guiding-center']
+        
+    if classify:
+        command += ['--classify']
 
     # loop over output folders and call post-processing .py file
     subprocess.run(command,

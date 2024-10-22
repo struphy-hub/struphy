@@ -415,6 +415,14 @@ def struphy():
                               help='in addition to logical components, evaluates push-forwarded physical (xyz) components',
                               action='store_true')
 
+    parser_pproc.add_argument('--guiding-center',
+                              help='compute guiding-center coordinates (only from Particles6D)',
+                              action='store_true')
+    
+    parser_pproc.add_argument('--classify',
+                              help='classify guiding-center trajectories (passing, trapped or lost)',
+                              action='store_true')
+
     # 7. "test" sub-command
     parser_test = subparsers.add_parser('test',
                                         formatter_class=lambda prog: argparse.RawTextHelpFormatter(

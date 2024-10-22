@@ -1516,7 +1516,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if len(cls.species()['kinetic']) > 0:
             parameters['kinetic'] = {}
 
-            for name, space in cls.species()['kinetic'].items():
+            for name, kind in cls.species()['kinetic'].items():
 
                 parameters['kinetic'][name] = kinetic_params
 
@@ -1532,7 +1532,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     parameters['kinetic'][name]['options'] = d_default
 
                 # set the correct names in the parameter file
-                dim = space[-2:]
+                dim = kind[-2:]
                 parameters['kinetic'][name]['background'] = {'type': maxw_name[dim],
                                                              maxw_name[dim]: {'n': 0.05}}
                 parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
