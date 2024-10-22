@@ -941,9 +941,9 @@ class WeightedMassOperator(LinOpWithTransp):
                             self._weights[-1] += [None]
 
                         else:
-                            # path =  find_attribute_path_of_type_derham(self)
-                            # print(path)
-                            # test weight function at quadrature points to identify zero blocks
+                            print(f"{self.derham.nquads = }")
+                            print(f"{wspace.ldim = }")
+                            quad_grids = self.derham.get_quad_grids(wspace)
                             pts = [quad_grid[nquad].points.flatten()
                                    for quad_grid, nquad in zip(wspace.quad_grids, self.derham.nquads)]
                                    

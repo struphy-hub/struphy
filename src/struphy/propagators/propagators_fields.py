@@ -5197,7 +5197,7 @@ class VariationalViscosity(Propagator):
                                maxiter=1000,
                                verbose=False)
 
-        self.M_de_ds = 
+        self.M_de_ds = WeightedMassOperator(
             self.derham,
             self.derham.Vh_fem['3'],
             self.derham.Vh_fem['3'],
