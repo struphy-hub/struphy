@@ -2067,6 +2067,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
         \ &n_0 p(r) \quad &&\textnormal{if density_profile = 'pressure'}\,,
 
         \ &n_1+\left(1-\left(\frac{r}{a}\right)^2\right) (n_0-n_1) \quad &&\textnormal{if density_profile = 'parabolic'}\,, 
+
+        \ &n_1+\left(1-\frac{r}{a}\right) (n_0-n_1) \quad &&\textnormal{if density_profile = 'linear'}\,, 
         \end{aligned}\right. \,.
         
     Parameters
@@ -2090,11 +2092,13 @@ class GVECequilibrium(LogicalMHDequilibrium):
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
     density_profile : str
-        'parabolic' for a parabolic density profile or 'pressure' for a density profile proportional to pressure
+        'parabolic' for a parabolic density profile, 'linear' for a linear density profile or 'pressure' for a density profile proportional to pressure
     n0 : float
         shape factor for ion number density profile (default: 0.2).
     n1 : float
         shape factor for ion number density profile (default: 0.).
+    p0 : float 
+        constant added to the pressure (default: 0.)
     Note
     ----
     In the parameter .yml, use the following in the section `mhd_equilibrium`::
@@ -2113,6 +2117,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
                 density_profile : 'pressure'
                 n0 : 0.2
                 n1 : 0.
+                p0 : 1.
     """
 
     def __init__(self, units=None, **params):
@@ -2151,6 +2156,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           'Nel': (16, 16, 16),
                           'p': (3, 3, 3),
                           'density_profile': 'pressure',
+                          'p0': 0.,
                           'n0': .2,
                           'n1': 0. }
 
@@ -2358,7 +2364,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        return self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/self.units['p']
+        return self._params['p0']+ self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/self.units['p']
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
@@ -2384,6 +2390,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
             return self._params['n0'] * self.p0(*etas)
         elif self._params['density_profile'] == 'parabolic':
             return self._params['n1']+(1.-r**2)*(self._params['n0']-self._params['n1'])
+        elif self._params['density_profile'] == 'linear':
+            return self._params['n1']+(1.-r)*(self._params['n0']-self._params['n1'])
         else:
             raise ValueError('wrong type of density profile for GVEC equilibrium')
 
