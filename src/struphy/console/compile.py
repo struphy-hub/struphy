@@ -39,6 +39,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
     import pyccel
     import yaml
     import sysconfig
+    import struphy.utils.utils as utils
     import struphy.dependencies as depmod
 
     libpath = struphy.__path__[0]
@@ -49,9 +50,8 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         raise NameError(
             f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".')
 
-    # struphy state
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
     # collect kernels
     if 'kernels' not in state:

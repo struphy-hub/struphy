@@ -717,10 +717,10 @@ class Particles(metaclass=ABCMeta):
         # load markers from restart .hdf5 file
         elif self.marker_params['loading']['type'] == 'restart':
 
-            libpath = struphy.__path__[0]
+            import struphy.utils.utils as utils
 
-            with open(os.path.join(libpath, 'state.yml')) as f:
-                state = yaml.load(f, Loader=yaml.FullLoader)
+            # Read struphy state file
+            state = utils.read_state()
 
             o_path = state['o_path']
 

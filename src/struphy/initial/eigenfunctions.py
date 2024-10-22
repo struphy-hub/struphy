@@ -32,11 +32,10 @@ class InitialMHDAxisymHdivEigFun:
 
     def __init__(self, derham, **params):
 
-        import struphy
-        libpath = struphy.__path__[0]
+        import struphy.utils.utils as utils
 
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
+        # Read struphy state file
+        state = utils.read_state()
 
         o_path = state['o_path']
 

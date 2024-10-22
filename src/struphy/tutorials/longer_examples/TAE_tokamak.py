@@ -11,12 +11,13 @@ def run(n_procs):
     import os
     import subprocess
     import struphy
+    import struphy.utils.utils as utils
     import yaml
 
     libpath = struphy.__path__[0]
-    
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+
+    # Read struphy state file
+    state = utils.read_state()
 
     o_path = state['o_path']
 
@@ -75,7 +76,7 @@ def diagnostics():
     
     import numpy as np
     import matplotlib.pyplot as plt
-
+    import struphy.utils.utils as utils
     from struphy.io.setup import setup_domain_and_equil
     from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
     from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
@@ -83,10 +84,10 @@ def diagnostics():
     
     import struphy
 
-    libpath = struphy.__path__[0]
-    
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    libpath = struphy.__path__[0]    
+
+    # Read struphy state file
+    state = utils.read_state()
 
     o_path = state['o_path']
     

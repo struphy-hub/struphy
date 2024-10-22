@@ -1320,11 +1320,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         import yaml
         import os
 
-        libpath = struphy.__path__[0]
+        import struphy.utils.utils as utils
 
-        # write to current input path
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
+        # Read struphy state file
+        state = utils.read_state()
 
         i_path = state['i_path']
         assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"

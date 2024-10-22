@@ -16,7 +16,7 @@ def struphy_units(model, input, input_abs=None):
 
     import os
     import yaml
-    import struphy
+    import struphy.utils.utils as utils
     from struphy.models import fluid, kinetic, hybrid, toy
 
     # load model class
@@ -27,11 +27,10 @@ def struphy_units(model, input, input_abs=None):
         except AttributeError:
             pass
 
-    # input path
-    libpath = struphy.__path__[0]
+    
 
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
         
     i_path = state['i_path']
 
