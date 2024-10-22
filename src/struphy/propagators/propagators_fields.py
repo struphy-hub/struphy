@@ -1230,7 +1230,7 @@ class CurrentCoupling6DDensity(Propagator):
 
             # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
             quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.nquads)]
 
             self._nh0_at_quad = self.domain.push(
                 self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
@@ -1472,7 +1472,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.nquads)]
 
         #     n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
@@ -1699,7 +1699,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         #     # evaluate and save f0.n at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.nquads)]
 
         #     n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
@@ -1991,7 +1991,7 @@ class CurrentCoupling5DDensity(Propagator):
 
         #     # evaluate and save f0.n / |det(DF)| at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.nquads)]
 
         #     self._n0_at_quad = self.domain.push(
         #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
@@ -3130,6 +3130,7 @@ class VariationalDensityEvolve(Propagator):
 
         # Other mass matrices for newton solve
         self._M_un = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['v'],
             self.derham.Vh_fem['3'],
             V_extraction_op=self.derham.extraction_ops['v'],
@@ -3138,6 +3139,7 @@ class VariationalDensityEvolve(Propagator):
             W_boundary_op=self.derham.boundary_ops['3'])
 
         self._M_un1 = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['3'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['3'],
@@ -3146,6 +3148,7 @@ class VariationalDensityEvolve(Propagator):
             W_boundary_op=self.derham.boundary_ops['v'])
 
         self._M_drho = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['3'],
             self.derham.Vh_fem['3'],
             V_extraction_op=self.derham.extraction_ops['3'],
@@ -4009,6 +4012,7 @@ class VariationalEntropyEvolve(Propagator):
 
         # For Newton solve
         self._M_ds = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['3'], self.derham.Vh_fem['3'],
             V_extraction_op=self.derham.extraction_ops['3'],
             W_extraction_op=self.derham.extraction_ops['3'],
@@ -5178,6 +5182,7 @@ class VariationalViscosity(Propagator):
         M1 = self.mass_ops.M1
 
         self.M1_du = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['1'],
             self.derham.Vh_fem['1'],
             V_extraction_op=self.derham.extraction_ops['1'],
@@ -5192,7 +5197,8 @@ class VariationalViscosity(Propagator):
                                maxiter=1000,
                                verbose=False)
 
-        self.M_de_ds = WeightedMassOperator(
+        self.M_de_ds = 
+            self.derham,
             self.derham.Vh_fem['3'],
             self.derham.Vh_fem['3'],
             V_extraction_op=self.derham.extraction_ops['3'],
@@ -5649,6 +5655,7 @@ class VariationalResistivity(Propagator):
         M2 = self.mass_ops.M2
 
         self.M_de_ds = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['3'],
             self.derham.Vh_fem['3'],
             V_extraction_op=self.derham.extraction_ops['3'],
@@ -5657,6 +5664,7 @@ class VariationalResistivity(Propagator):
         g = self.mass_ops.sqrt_g
 
         self.M1_cb = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['1'],
             self.derham.Vh_fem['1'],
             V_extraction_op=self.derham.extraction_ops['1'],

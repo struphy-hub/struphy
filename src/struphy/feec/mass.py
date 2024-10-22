@@ -671,7 +671,8 @@ class WeightedMassOperators:
         V_id = self.derham.space_to_form[V_id]
         W_id = self.derham.space_to_form[W_id]
 
-        out = WeightedMassOperator(self.derham.Vh_fem[V_id],
+        out = WeightedMassOperator(self.derham,
+                                   self.derham.Vh_fem[V_id],
                                    self.derham.Vh_fem[W_id],
                                    V_extraction_op=self.derham.extraction_ops[V_id],
                                    W_extraction_op=self.derham.extraction_ops[W_id],
@@ -745,7 +746,7 @@ class WeightedMassOperator(LinOpWithTransp):
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
     """
 
-    def __init__(self, V, W,
+    def __init__(self, derham, V, W,
                  V_extraction_op=None,
                  W_extraction_op=None,
                  V_boundary_op=None,
@@ -760,6 +761,7 @@ class WeightedMassOperator(LinOpWithTransp):
         assert isinstance(V, (TensorFemSpace, VectorFemSpace))
         assert isinstance(W, (TensorFemSpace, VectorFemSpace))
 
+        self._derham = derham
         self._V = V
         self._W = W
 
@@ -939,10 +941,12 @@ class WeightedMassOperator(LinOpWithTransp):
                             self._weights[-1] += [None]
 
                         else:
-
+                            # path =  find_attribute_path_of_type_derham(self)
+                            # print(path)
                             # test weight function at quadrature points to identify zero blocks
                             pts = [quad_grid[nquad].points.flatten()
-                                   for quad_grid, nquad in zip(wspace.quad_grids, wspace.nquads)]
+                                   for quad_grid, nquad in zip(wspace.quad_grids, self.derham.nquads)]
+                                   
 
                             if callable(weights_info[a][b]):
                                 PTS = np.meshgrid(*pts, indexing='ij')
@@ -1028,6 +1032,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if not self._matrix_free:
             self._assembly_kernel = getattr(
                 mass_kernels, 'kernel_' + str(self._V.ldim) + 'd_mat')
+
+    @property
+    def derham(self):
+        return self._derham
 
     @property
     def domain(self):
@@ -1156,7 +1164,8 @@ class WeightedMassOperator(LinOpWithTransp):
 
         if self._symmetry is None:
 
-            M = WeightedMassOperator(self._V, self._W,
+            M = WeightedMassOperator(self.derham,
+                                     self._V, self._W,
                                      self._V_extraction_op, self._W_extraction_op,
                                      self._V_boundary_op, self._W_boundary_op,
                                      weights, not self._transposed, self._matrix_free)
@@ -1165,7 +1174,8 @@ class WeightedMassOperator(LinOpWithTransp):
 
         else:
 
-            M = WeightedMassOperator(self._V, self._W,
+            M = WeightedMassOperator(self.derham,
+                                     self._V, self._W,
                                      self._V_extraction_op, self._W_extraction_op,
                                      self._V_boundary_op, self._W_boundary_op,
                                      self._symmetry, not self._transposed, self._matrix_free)
@@ -1277,7 +1287,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
                 # knot span indices of elements of local domain
                 codomain_spans = [
-                    quad_grid[nquad].spans for quad_grid, nquad in zip(codomain_space.quad_grids, codomain_space.nquads)]
+                    quad_grid[nquad].spans for quad_grid, nquad in zip(codomain_space.quad_grids, self.derham.nquads)]
 
                 # global start spline index on process
                 codomain_starts = [int(start)
@@ -1288,13 +1298,13 @@ class WeightedMassOperator(LinOpWithTransp):
 
                 # global quadrature points (flattened) and weights in format (local element, local weight)
                 pts = [quad_grid[nquad].points.flatten()
-                       for quad_grid, nquad in zip(codomain_space.quad_grids, codomain_space.nquads)]
+                       for quad_grid, nquad in zip(codomain_space.quad_grids, self.derham.nquads)]
                 wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(
-                    codomain_space.quad_grids, codomain_space.nquads)]
+                    codomain_space.quad_grids, self.derham.nquads)]
 
                 # evaluated basis functions at quadrature points of codomain space
                 codomain_basis = [
-                    quad_grid[nquad].basis for quad_grid, nquad in zip(codomain_space.quad_grids, codomain_space.nquads)]
+                    quad_grid[nquad].basis for quad_grid, nquad in zip(codomain_space.quad_grids, self.derham.nquads)]
 
                 # loop over domain spaces (columns)
                 for b, domain_space in enumerate(domain_spaces):
@@ -1329,7 +1339,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     # evaluated basis functions at quadrature points of domain space
                     domain_basis = [
-                        quad_grid[nquad].basis for quad_grid, nquad in zip(domain_space.quad_grids, domain_space.nquads)]
+                        quad_grid[nquad].basis for quad_grid, nquad in zip(domain_space.quad_grids, self.derham.nquads)]
 
                     # assemble matrix (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
                     if not_weight_zero or self._is_scalar:
@@ -1398,6 +1408,7 @@ class WeightedMassOperator(LinOpWithTransp):
             assert out.codomain is self.codomain
         else:
             out = WeightedMassOperator(
+                self.derham,
                 V=self._V,
                 W=self._W,
                 V_extraction_op=self._V_extraction_op,
@@ -1483,11 +1494,11 @@ class WeightedMassOperator(LinOpWithTransp):
             out = ()
             if isinstance(W, TensorFemSpace):
                 out += (np.zeros([q_grid[nquad].points.size for q_grid,
-                        nquad in zip(W.quad_grids, W.nquads)], dtype=float),)
+                        nquad in zip(W.quad_grids, self.derham.nquads)], dtype=float),)
             else:
                 for space in W.spaces:
                     out += (np.zeros([q_grid[nquad].points.size for q_grid,
-                            nquad in zip(space.quad_grids, space.nquads)], dtype=float),)
+                            nquad in zip(space.quad_grids, self.derham.nquads)], dtype=float),)
 
         else:
             if isinstance(W, TensorFemSpace):
@@ -1501,11 +1512,11 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
-
+            
             # knot span indices of elements of local domain
             spans = [quad_grid[nquad].spans for quad_grid,
-                     nquad in zip(wspace.quad_grids, wspace.nquads)]
-
+                     nquad in zip(wspace.quad_grids, self.derham.nquads)]
+            
             # global start spline index on process
             starts = [int(start) for start in wspace.vector_space.starts]
 
@@ -1514,13 +1525,13 @@ class WeightedMassOperator(LinOpWithTransp):
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
             pts = [quad_grid[nquad].points.flatten()
-                   for quad_grid, nquad in zip(wspace.quad_grids, wspace.nquads)]
+                   for quad_grid, nquad in zip(wspace.quad_grids, self.derham.nquads)]
             wts = [quad_grid[nquad].weights for quad_grid,
-                   nquad in zip(wspace.quad_grids, wspace.nquads)]
+                   nquad in zip(wspace.quad_grids, self.derham.nquads)]
 
             # evaluated basis functions at quadrature points of codomain space
             basis = [quad_grid[nquad].basis for quad_grid,
-                     nquad in zip(wspace.quad_grids, wspace.nquads)]
+                     nquad in zip(wspace.quad_grids, self.derham.nquads)]
 
             if isinstance(coeffs, StencilVector):
                 kernel(*spans, *wspace.degree, *starts, *
@@ -1579,7 +1590,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
-            quad_grid[nquad].spans for quad_grid, nquad in zip(self._W.quad_grids, self._W.nquads)]
+            quad_grid[nquad].spans for quad_grid, nquad in zip(self._W.quad_grids, sself.derham.nquads)]
 
         # global start spline index on process
         self._codomain_starts = [int(start)
@@ -1589,11 +1600,11 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluated basis functions at quadrature points of codomain space
         self._codomain_basis = [
-            quad_grid[nquad].basis for quad_grid, nquad in zip(self._W.quad_grids, self._W.nquads)]
+            quad_grid[nquad].basis for quad_grid, nquad in zip(self._W.quad_grids, self.derham.nquads)]
 
         # knot span indices of elements of local domain
         self._domain_spans = [
-            quad_grid[nquad].spans for quad_grid, nquad in zip(self._V.quad_grids, self._V.nquads)]
+            quad_grid[nquad].spans for quad_grid, nquad in zip(self._V.quad_grids, self.derham.nquads)]
 
         # global start spline index on process
         self._domain_starts = [int(start)
@@ -1604,13 +1615,13 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluated basis functions at quadrature points of domain space
         self._domain_basis = [
-            quad_grid[nquad].basis for quad_grid, nquad in zip(self._V.quad_grids, self._V.nquads)]
+            quad_grid[nquad].basis for quad_grid, nquad in zip(self._V.quad_grids, self.derham.nquads)]
 
         # global quadrature points (flattened) and weights in format (local element, local weight)
         self._pts = [quad_grid[nquad].points.flatten()
-                     for quad_grid, nquad in zip(self._W.quad_grids, self._W.nquads)]
+                     for quad_grid, nquad in zip(self._W.quad_grids, self.derham.nquads)]
         self._wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(
-            self._W.quad_grids, self._W.nquads)]
+            self._W.quad_grids, self.derham.nquads)]
 
     @property
     def domain(self):

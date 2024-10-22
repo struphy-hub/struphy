@@ -99,6 +99,7 @@ class Accumulator:
             for _ in range(6):
                 self._operators += [
                     WeightedMassOperator(
+                        self.derham,
                         derham.Vh_fem[self.form],
                         derham.Vh_fem[self.form],
                         V_extraction_op=derham.extraction_ops[self.form],
@@ -114,6 +115,7 @@ class Accumulator:
         else:
             self._operators += [
                 WeightedMassOperator(
+                    self.derham,
                     derham.Vh_fem[self.form],
                     derham.Vh_fem[self.form],
                     V_extraction_op=derham.extraction_ops[self.form],

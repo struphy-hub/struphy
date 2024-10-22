@@ -497,6 +497,7 @@ class VariationalPressurelessFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
@@ -601,6 +602,7 @@ class VariationalBarotropicFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
@@ -721,6 +723,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],

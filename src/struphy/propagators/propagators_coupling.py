@@ -1300,7 +1300,7 @@ class CurrentCoupling6DCurrent(Propagator):
 
             # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
             quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.nquads)]
 
             uh0_cart = self.particles[0].f0.u
 
@@ -1913,7 +1913,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         #     # evaluate and save n0 at quadrature points
         #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.Vh_fem['0'].nquads)]
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0'].quad_grids, self.derham.nquads)]
 
         #     self._n0_at_quad = self.domain.push(
         #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False)

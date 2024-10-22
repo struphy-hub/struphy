@@ -1076,7 +1076,7 @@ class Derham:
 
     def get_quad_grids( self, space ):
         assert self._nquads, "nquads has to be set with self._nquads = nquads"
-        print(self.nquads, space.ldim)
+        #print(self.nquads, space.ldim)
         # return space.quad_grids
         return tuple({q: gag} for q, gag in zip(self.nquads, space.get_assembly_grids(*self.nquads)))
 

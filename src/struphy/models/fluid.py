@@ -520,6 +520,7 @@ class VariationalMHD(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
@@ -721,6 +722,7 @@ class ViscoresistiveMHD(StruphyModel):
 
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
@@ -944,6 +946,7 @@ class ViscousFluid(StruphyModel):
         
         # Initialize mass matrix
         self.WMM = WeightedMassOperator(
+            self.derham,
             self.derham.Vh_fem['v'],
             self.derham.Vh_fem['v'],
             V_extraction_op=self.derham.extraction_ops['v'],
