@@ -267,7 +267,7 @@ class Derham:
                     for d, (space, s, e, quad_grid, nquad) in enumerate(zip(comp_space.spaces,
                                                                             comp_space.vector_space.starts,
                                                                             comp_space.vector_space.ends,
-                                                                            comp_space.quad_grids,
+                                                                            self.get_quad_grids(comp_space),
                                                                             self.nquads)):
 
                         self._nbasis[sp_form][-1] += [space.nbasis]
@@ -306,7 +306,7 @@ class Derham:
                 for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
                                                                         fem_space.vector_space.starts,
                                                                         fem_space.vector_space.ends,
-                                                                        fem_space.quad_grids,
+                                                                        self.get_quad_grids(fem_space),
                                                                         self.nquads)):
 
                     self._nbasis[sp_form] += [space.nbasis]
@@ -1073,6 +1073,13 @@ class Derham:
             bds[n] = bd
 
         return spans, bns, bds
+
+    def get_quad_grids( self, space ):
+        assert self._nquads, "nquads has to be set with self._nquads = nquads"
+        print(self.nquads, space.ldim)
+        # return space.quad_grids
+        return tuple({q: gag} for q, gag in zip(self.nquads, space.get_assembly_grids(*self.nquads)))
+
     # --------------------------
     # Inner classes
     # --------------------------
