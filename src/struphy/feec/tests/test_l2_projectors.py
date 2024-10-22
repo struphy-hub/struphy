@@ -259,6 +259,6 @@ if __name__ == '__main__':
     p = [2, 1, 1]
     spl_kind = [False, True, True]
     array_input = True
-    # test_l2_projectors_mappings(Nel, p, spl_kind, array_input, do_plot=False)
+    # test_l2_projectors_mappings(Nel, p, spl_kind, array_input, do_plot=False, with_desc=False)
     test_l2_projectors_convergence(0, 1, True, do_plot=False)
     # test_l2_projectors_convergence(1, 1, False, do_plot=True)
