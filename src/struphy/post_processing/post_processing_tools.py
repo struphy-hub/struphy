@@ -7,17 +7,18 @@ import yaml
 
 from struphy.feec.psydac_derham import Derham
 from struphy.kinetic_background import maxwellians
+from struphy.models import fluid, kinetic, hybrid, toy
 from struphy.io.setup import setup_domain_and_equil
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 
 
-def create_femfields(path: str, 
+def create_femfields(path: str,
                      *,
                      step: int = 1):
     """
-    Creates instances of struphy.feec.Derham.Field from distributed Struphy data.
+    Creates instances of :class:`~struphy.feec.psydac_derham.Derham.Field` from distributed Struphy data.
 
     Parameters
     ----------
@@ -138,10 +139,10 @@ def eval_femfields(path: str,
                    fields: dict,
                    space_ids: dict,
                    *,
-                   celldivide: list = [1, 1, 1], 
+                   celldivide: list = [1, 1, 1],
                    physical: bool = False):
     """
-    Evaluate FEM fields obtained from create_femfields. 
+    Evaluate FEM fields obtained from :meth:`struphy.post_processing.post_processing_tools.create_femfields`. 
 
     Parameters
     ----------
@@ -257,8 +258,8 @@ def eval_femfields(path: str,
     return point_data, grids_log, grids_phy
 
 
-def create_vtk(path: str, 
-               grids_phy: list, 
+def create_vtk(path: str,
+               grids_phy: list,
                point_data: dict,
                *,
                physical: bool = False):
@@ -275,7 +276,7 @@ def create_vtk(path: str,
 
     point_data : dict
         Field data obtained from struphy.diagnostics.post_processing.eval_femfields.
-        
+
     physical : bool
         Wether to create vtk for push-forwarded physical (xyz) components of fields.
     """
@@ -322,11 +323,45 @@ def create_vtk(path: str,
                   *grids_phy, pointData=point_data_n)
 
 
-def post_process_markers(path_in, path_out, species, step=1):
+def post_process_markers(path_in, path_out, species, kind, step=1):
     """
-    Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them
-    to a .npy files and to .txt files that can be imported to e.g. Paraview (one text file for each time step saved as
-    "<name_of_species>_<time_step>.txt" in a directory "kinetic_data/<name_of_species>/orbits/").
+    Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them to a .npy files and to .txt files.
+
+    * ``.npy`` files:
+
+      * Particles6D:
+                                
+        ===== ===== ============== ============= 
+        index | 0 | | 1 | 2 | 3 |  | 4 | 5 | 6 | 
+        ===== ===== ============== ============= 
+        value  ID   position (xyz)  velocities  
+        ===== ===== ============== ============= 
+            
+      * Particles5D:
+                                        
+        ===== ===== ================ ========== ====== ============
+        index | 0 | | 1 | 2 | | 3 |     4        5         6        
+        ===== ===== ================ ========== ====== ============ 
+        value  ID   guiding_center   v_parallel v_perp magn. moment
+        ===== ===== ================ ========== ====== ============
+        
+      * Particles3D:
+        
+        ===== ===== ============== 
+        index | 0 | | 1 | 2 | 3 | 
+        ===== ===== ============== 
+        value  ID   position (xyz)
+        ===== ===== ============== 
+
+    * ``.txt`` files :
+
+      ===== ===== ==============
+      index | 0 | | 1 | 2 | 3 |
+      ===== ===== ==============
+      value  ID   position (xyz)
+      ===== ===== ==============
+
+    ``.txt`` files can be imported to e.g. Paraview, see `Tutorial 02 - Kinetic data <file:///home/spossann/git_repos/struphy/doc/_build/html/tutorials/tutorial_02_postproc_standard_plotting.html#Kinetic-data>`_ for details.
 
     Parameters
     ----------
@@ -339,6 +374,9 @@ def post_process_markers(path_in, path_out, species, step=1):
     species : str
         Name of the species for which the post processing should be performed.
 
+    kind : str
+        Name of the kinetic kind (Particles6D, Particles5D or Particles3D).
+
     step : int, optional
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc. 
     """
@@ -349,10 +387,10 @@ def post_process_markers(path_in, path_out, species, step=1):
 
     nproc = lines[4].split()[-1]
 
-    # create domain for calculating markers' physical coordinates
     with open(os.path.join(path_in, 'parameters.yml'), 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
+    # create domain for calculating markers' physical coordinates
     domain = setup_domain_and_equil(params)[0]
 
     # open hdf5 files and get names and number of saved markers of kinetic species
@@ -362,10 +400,20 @@ def post_process_markers(path_in, path_out, species, step=1):
     # get number of time steps and markers
     nt, n_markers, n_cols = files[0]['kinetic/' + species + '/markers'].shape
 
-    log_nt = int(np.log10(nt - 1)) + 1
+    log_nt = int(np.log10(int(((nt-1)/step)))) + 1
 
-    # directory for .txt files
-    path_orbits = os.path.join(path_out, 'orbits')
+    # directory for .txt files and marker index which will be saved
+    if kind == 'Particles5D':
+        path_orbits = os.path.join(path_out, 'guiding_center')
+        save_index = list(range(0, 5)) + [10] + [-1]
+
+    elif kind == 'Particles6D':
+        path_orbits = os.path.join(path_out, 'orbits')
+        save_index = list(range(0, 6)) + [-1]
+
+    else:
+        path_orbits = os.path.join(path_out, 'orbits')
+        save_index = list(range(0, 3)) + [-1]
 
     try:
         os.mkdir(path_orbits)
@@ -373,13 +421,17 @@ def post_process_markers(path_in, path_out, species, step=1):
         shutil.rmtree(path_orbits)
         os.mkdir(path_orbits)
 
-    # temporary marker array
-    temp = np.zeros((n_markers, n_cols), order='C')
+    # temporary array
+    temp = np.empty((n_markers, len(save_index)), order='C')
+    lost_particles_mask = np.empty(n_markers, dtype=bool)
 
     print('Evaluation of marker orbits for ' + str(species))
 
     # loop over time grid
-    for n in tqdm(range(nt)):
+    for n in tqdm(range(int((nt-1)/step)+1)):
+
+        # clear buffer
+        temp[:, :] = 0
 
         # create text file for this time step and this species
         file_npy = os.path.join(path_orbits, species +
@@ -389,43 +441,32 @@ def post_process_markers(path_in, path_out, species, step=1):
 
         for file in files:
             markers = file['kinetic/' + species + '/markers']
-            ids = markers[n*step, :, -1]
-            ids = ids[ids > -.5]  # exclude holes
-            ids = ids.astype('int')
-            temp[ids] = markers[n*step, :ids.size, :]
-
-        # test if all markers have been collected in temp
-        ids = temp[:, -1]
-        ids = ids.astype('int')
+            ids = markers[n*step, :, -1].astype('int')
+            ids = ids[ids != -1]  # exclude holes
+            temp[ids] = markers[n*step, :ids.size, save_index]
 
         # sorting out lost particles
-        ids_lost_particles = np.setdiff1d(np.arange(n_markers), ids)
+        ids_lost_particles= np.setdiff1d(np.arange(n_markers), ids)
+        lost_particles_mask[:] = False
+        lost_particles_mask[ids_lost_particles] = True
 
         if len(ids_lost_particles) > 0:
 
-            ind_lost_particles = [False]*n_markers
-
-            for d in ids_lost_particles:
-                ind_lost_particles[d] = True
-
             # lost markers are saved as [0, ..., 0, ids]
-            temp[ind_lost_particles, -1] = ids_lost_particles
-
+            temp[lost_particles_mask, -1] = ids_lost_particles
             ids = np.unique(np.append(ids, ids_lost_particles))
-
-        assert np.all(ids == np.arange(n_markers))
+        
+        assert np.all(sorted(ids) == np.arange(n_markers))
 
         # compute physical positions (x, y, z)
-        temp[:, :3] = domain(np.array(temp[:, :3]), change_out_order=True)
+        temp[~lost_particles_mask, :3] = domain(
+            np.array(temp[~lost_particles_mask, :3]), change_out_order=True)
 
         # move ids to first column and save
         temp = np.roll(temp, 1, axis=1)
 
-        np.save(file_npy, temp[:, :7])
+        np.save(file_npy, temp[:, :len(save_index)])
         np.savetxt(file_txt, temp[:, :4], fmt='%12.6f', delimiter=', ')
-
-        # clear buffer
-        temp[:, :] = 0
 
     # close hdf5 files
     for file in files:

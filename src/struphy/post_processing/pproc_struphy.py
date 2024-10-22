@@ -2,7 +2,9 @@ def main(path: str,
          *,
          step: int = 1,
          celldivide: int = 1,
-         physical: bool = False):
+         physical: bool = False,
+         guiding_center: bool = False,
+         classify: bool = False):
     """
     Post-processing of finished Struphy runs.
 
@@ -19,6 +21,12 @@ def main(path: str,
 
     physical : bool
         Wether to do post-processing into push-forwarded physical (xyz) components of fields.
+
+    guiding_center : bool
+        Compute guiding-center coordinates (only from Particles6D).
+
+    classify : bool
+        Classify guiding-center trajectories (passing, trapped or lost).
     """
 
     import os
@@ -29,7 +37,9 @@ def main(path: str,
 
     import numpy as np
 
+    from struphy.models import fluid, kinetic, hybrid, toy
     import struphy.post_processing.post_processing_tools as pproc
+    import struphy.post_processing.orbits.orbits_tools as orbits_pproc
 
     print('')
 
@@ -49,17 +59,37 @@ def main(path: str,
     np.save(os.path.join(path_pproc, 't_grid.npy'),
             file['time/value'][::step].copy())
 
+    # load parameters.yml
+    with open(os.path.join(path, 'parameters.yml'), 'r') as f:
+        params = yaml.load(f, Loader=yaml.FullLoader)
+
+    # get model class from meta.txt file
+    with open(os.path.join(path, 'meta.txt'), 'r') as f:
+        lines = f.readlines()
+    model_name = lines[3].split()[-1]
+
+    objs = [fluid, kinetic, hybrid, toy]
+
+    for obj in objs:
+        try:
+            model_class = getattr(obj, model_name)
+        except AttributeError:
+            pass
+
     if 'feec' in file.keys():
         exist_fields = True
     else:
         exist_fields = False
 
-    kinetic_species = []
     if 'kinetic' in file.keys():
         exist_kinetic = {'markers': False, 'f': False}
 
+        kinetic_species = []
+        kinetic_kinds = []
+
         for name in file['kinetic'].keys():
             kinetic_species += [name]
+            kinetic_kinds += [model_class.species()['kinetic'][name]]
 
             # check for saved markers
             if 'markers' in file['kinetic'][name]:
@@ -177,13 +207,19 @@ def main(path: str,
             # markers
             if exist_kinetic['markers']:
                 pproc.post_process_markers(
-                    path, path_kinetics_species, species, step)
+                    path, path_kinetics_species, species, kinetic_kinds[n], step)
+
+                if guiding_center:
+                    assert kinetic_kinds[n] == 'Particles6D'
+                    orbits_pproc.post_process_orbit_guiding_center(
+                        path, path_kinetics_species, species)
+
+                if classify:
+                    orbits_pproc.post_process_orbit_classification(
+                        path_kinetics_species, species)
 
             # distribution function
             if exist_kinetic['f']:
-
-                with open(os.path.join(path, 'parameters.yml'), 'r') as f:
-                    params = yaml.load(f, Loader=yaml.FullLoader)
 
                 try:
                     marker_type = params['kinetic'][species]['markers']['type']
@@ -231,9 +267,19 @@ if __name__ == '__main__':
                         help='do post-processing into push-forwarded physical (xyz) components',
                         action='store_true',)
 
+    parser.add_argument('--guiding-center',
+                        help='compute guiding-center coordinates (only from Particles6D)',
+                        action='store_true')
+
+    parser.add_argument('--classify',
+                        help='classify guiding-center trajectories (passing, trapped or lost)',
+                        action='store_true')
+
     args = parser.parse_args()
 
     main(args.dir,
          step=args.step,
          celldivide=args.celldivide,
-         physical=args.physical)
+         physical=args.physical,
+         guiding_center=args.guiding_center,
+         classify=args.classify)
