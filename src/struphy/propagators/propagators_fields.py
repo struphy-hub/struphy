@@ -5228,7 +5228,7 @@ class VariationalViscosity(Propagator):
                                verbose=False,
                                recycle=True)
 
-        grad = self.derham.grad
+        grad = self.derham.grad_bcfree
         self.scalar_stiffness = grad.T@M1@grad
         self.log_stiffness = Pcoord0.T@self.scalar_stiffness@Pcoord0 \
             + Pcoord1.T@self.scalar_stiffness@Pcoord1 \
@@ -5713,7 +5713,7 @@ class VariationalResistivity(Propagator):
                                verbose=False,
                                recycle=True)
 
-        curl = self.derham.curl
+        curl = self.derham.curl_bcfree
         self.Tcurl = inv_M1@curl.T@M2
 
         self.phy_stiffness = M2@curl@inv_M1@curl.T@M2
