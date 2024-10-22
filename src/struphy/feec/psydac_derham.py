@@ -1074,11 +1074,13 @@ class Derham:
 
         return spans, bns, bds
 
-    def get_quad_grids( self, space ):
-        assert self._nquads, "nquads has to be set with self._nquads = nquads"
+    def get_quad_grids( self, space, nquads = None ):
+        # assert self._nquads, "nquads has to be set with self._nquads = nquads"
         #print(self.nquads, space.ldim)
         # return space.quad_grids
-        return tuple({q: gag} for q, gag in zip(self.nquads, space.get_assembly_grids(*self.nquads)))
+        if nquads is None:
+            nquads = self.nquads
+        return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
 
     # --------------------------
     # Inner classes

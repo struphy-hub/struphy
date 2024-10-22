@@ -125,10 +125,10 @@ class MassMatrixPreconditioner(LinearOperator):
                 domain_decompos_1d = DomainDecomposition(
                     [femspace_1d.ncells], [femspace_1d.periodic])
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
-                femspace_1d_tensor.nquads = [qu_order_1d]
+                femspace_1d_tensor.nquads = [qu_order_1d] # TODO: This should not be here!
 
                 M = WeightedMassOperator(
-                    mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun)
+                    mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun, nquads = [qu_order_1d])
                 M.assemble(verbose=False)
                 M = M.matrix
 
@@ -437,7 +437,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 # get 1D FEM space (serial, not distributed) and quadrature order
                 femspace_1d = femspaces[c].spaces[d]
-                qu_order_1d = femspaces[c].nquads[d]
+                qu_order_1d = femspaces[c].nquads[d] # TODO: Do not update the non existing attribute
 
                 # assemble 1d weighted mass matrix
                 domain_decompos_1d = DomainDecomposition(
@@ -446,7 +446,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 femspace_1d_tensor.nquads = [qu_order_1d]
 
                 M = WeightedMassOperator(
-                    self.mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun)
+                    self.mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun, nquads = [qu_order_1d])
                 M.assemble(verbose=False)
                 M = M.matrix
 

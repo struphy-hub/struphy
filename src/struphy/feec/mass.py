@@ -753,7 +753,8 @@ class WeightedMassOperator(LinOpWithTransp):
                  W_boundary_op=None,
                  weights_info=None,
                  transposed=False,
-                 matrix_free=False):
+                 matrix_free=False,
+                 nquads = None):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -765,6 +766,7 @@ class WeightedMassOperator(LinOpWithTransp):
         self._V = V
         self._W = W
 
+        self._nquads = nquads
         # set basis extraction operators
         if V_extraction_op is not None:
             assert V_extraction_op.domain == V.vector_space
@@ -943,10 +945,14 @@ class WeightedMassOperator(LinOpWithTransp):
                         else:
                             print(f"{self.derham.nquads = }")
                             print(f"{wspace.ldim = }")
-                            quad_grids = self.derham.get_quad_grids(wspace)
+                            print(type(wspace))
+                            print(wspace.spaces)
+                            quad_grids = self.derham.get_quad_grids(wspace, nquads = self._nquads)
+
                             pts = [quad_grid[nquad].points.flatten()
                                    for quad_grid, nquad in zip(wspace.quad_grids, self.derham.nquads)]
                                    
+
 
                             if callable(weights_info[a][b]):
                                 PTS = np.meshgrid(*pts, indexing='ij')
