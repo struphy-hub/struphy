@@ -69,13 +69,13 @@ class Particles(metaclass=ABCMeta):
         if domain is None:
             from struphy.geometry.domains import Cuboid
             domain = Cuboid()
-        
+
         self._name = name
         self._derham = derham
         self._domain = domain
         self._mhd_equil = mhd_equil
         self._braginskii_equil = braginskii_equil
-        
+
         self._mpi_comm = derham.comm
         self._mpi_size = derham.comm.Get_size()
         self._mpi_rank = derham.comm.Get_rank()
@@ -390,7 +390,7 @@ class Particles(metaclass=ABCMeta):
         out['vel'] = slice(3, 3 + self.vdim)  # velocities
         out['coords'] = slice(0, 3 + self.vdim)  # phasespace_coords
         out['com'] = slice(8, 11)  # constants of motion
-        out['pos+energy'] = list(range(0, 3)) + [8] # positions + energy
+        out['pos+energy'] = list(range(0, 3)) + [8]  # positions + energy
         out['weights'] = 3 + self.vdim  # weights
         out['s0'] = 4 + self.vdim  # sampling_density
         out['w0'] = 5 + self.vdim  # weights0
@@ -534,7 +534,7 @@ class Particles(metaclass=ABCMeta):
         '''Collection of mandatory arguments for pusher kernels.
         '''
         return self._args_markers
-    
+
     @property
     def f_jacobian_coords(self):
         """ Coordinates of the velocity jacobian determinant of the distribution fuction.
@@ -548,7 +548,8 @@ class Particles(metaclass=ABCMeta):
     def f_jacobian_coords(self, new):
         assert isinstance(new, np.ndarray)
         if isinstance(self.f_jacobian_coords_index, list):
-            self.markers[np.ix_(~self.holes, self.f_jacobian_coords_index)] = new
+            self.markers[np.ix_(
+                ~self.holes, self.f_jacobian_coords_index)] = new
         else:
             self.markers[~self.holes, self.f_jacobian_coords_index] = new
 
@@ -716,10 +717,10 @@ class Particles(metaclass=ABCMeta):
         # load markers from restart .hdf5 file
         elif self.marker_params['loading']['type'] == 'restart':
 
-            libpath = struphy.__path__[0]
+            import struphy.utils.utils as utils
 
-            with open(os.path.join(libpath, 'state.yml')) as f:
-                state = yaml.load(f, Loader=yaml.FullLoader)
+            # Read struphy state file
+            state = utils.read_state()
 
             o_path = state['o_path']
 
@@ -744,7 +745,7 @@ class Particles(metaclass=ABCMeta):
 
             # 1. standard random number generator (pseudo-random)
             if self.marker_params['loading']['type'] == 'pseudo_random':
-                
+
                 # Set seed
                 _seed = self.marker_params['loading']['seed']
                 if _seed is not None:
@@ -755,20 +756,21 @@ class Particles(metaclass=ABCMeta):
                 # for the first domain in each clone has the same markers independent
                 # of the number of clones
                 for i in range(self._mpi_size):
-                    for iclone in range(self.derham.Nclones):  
-                        temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim) 
+                    for iclone in range(self.derham.Nclones):
+                        temp = np.random.rand(
+                            self.n_mks_load[i], 3 + self.vdim)
                         if i == self._mpi_rank:
                             if self.derham.Nclones == 1:
                                 self.phasespace_coords = temp
                                 break_outer_loop = True
-                                #print(iclone,self._mpi_rank)
+                                # print(iclone,self._mpi_rank)
                                 break
                             else:
                                 if iclone == self.derham.inter_comm.Get_rank():
                                     self.phasespace_coords = temp
                                     break_outer_loop = True
 
-                                    #print('b',iclone,self._mpi_rank)
+                                    # print('b',iclone,self._mpi_rank)
                                     break
                     # Check the flag variable to break the outer loop
                     if break_outer_loop:
@@ -955,14 +957,31 @@ class Particles(metaclass=ABCMeta):
         if not isinstance(bckgr_type, list):
             bckgr_type = [bckgr_type]
 
-        # For delta-f set markers only as perturbation
+        # Prepare delta-f perturbation parameters
         if self.marker_params['type'] == 'delta_f':
             for fi in bckgr_type:
-                # Take out background by setting its density to zero
-                if fi in bp_copy:
-                    bp_copy[fi]['n'] = 0.
+                if fi[-2] == '_':
+                    fi_type = fi[:-2]
                 else:
-                    bp_copy[fi] = {'n': 0.}
+                    fi_type = fi
+
+                if pp_copy is not None:
+                    # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
+                    if fi in pp_copy.keys():
+                        if "use_background_n" in pp_copy[fi].keys():
+                            if not pp_copy[fi]["use_background_n"]:
+                                if fi in bp_copy:
+                                    bp_copy[fi]['n'] = 0.
+                                else:
+                                    bp_copy[fi] = {'n': 0.}
+                        else:
+                            bp_copy[fi]['n'] = 0.
+
+                    else:
+                        if fi in bp_copy:
+                            bp_copy[fi]['n'] = 0.
+                        else:
+                            bp_copy[fi] = {'n': 0.}
 
         # Get the initialization function and pass the correct arguments
         self._f_init = None
@@ -972,21 +991,25 @@ class Particles(metaclass=ABCMeta):
             else:
                 fi_type = fi
 
+            pert_params = pp_copy
+            if pp_copy is not None:
+                if fi in pp_copy.keys():
+                    pert_params = pp_copy[fi]
+
             if self._f_init is None:
                 self._f_init = getattr(maxwellians, fi_type)(
                     maxw_params=bp_copy[fi],
-                    pert_params=pp_copy,
+                    pert_params=pert_params,
                     mhd_equil=self.mhd_equil,
                     braginskii_equil=self.braginskii_equil
                 )
             else:
                 self._f_init = self._f_init + getattr(maxwellians, fi_type)(
                     maxw_params=bp_copy[fi],
-                    pert_params=pp_copy,
+                    pert_params=pert_params,
                     mhd_equil=self.mhd_equil,
                     braginskii_equil=self.braginskii_equil
                 )
-        # TODO: allow for different perturbations for different backgrounds
 
         # evaluate initial distribution function
         f_init = self.f_init(*self.f_coords.T)
@@ -996,7 +1019,8 @@ class Particles(metaclass=ABCMeta):
             f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-            f_init /= self.f_init.velocity_jacobian_det(*self.f_jacobian_coords.T)
+            f_init /= self.f_init.velocity_jacobian_det(
+                *self.f_jacobian_coords.T)
 
         # compute w0 and save at vdim + 5
         self.weights0 = f_init / self.sampling_density
@@ -1170,15 +1194,16 @@ class Particles(metaclass=ABCMeta):
                 outside_left_inds = np.nonzero(self._is_outside_left)[0]
                 if newton:
                     self.markers[outside_right_inds,
-                                self.bufferindex + 3 + self.vdim + axis] += 1.
+                                 self.bufferindex + 3 + self.vdim + axis] += 1.
                     self.markers[outside_left_inds,
-                                self.bufferindex + 3 + self.vdim + axis] += -1.
+                                 self.bufferindex + 3 + self.vdim + axis] += -1.
                 else:
-                    self.markers[:, self.bufferindex + 3 + self.vdim + axis] = 0.
+                    self.markers[:, self.bufferindex + 3 + self.vdim +
+                                 axis] = 0.
                     self.markers[outside_right_inds,
-                                self.bufferindex + 3 + self.vdim + axis] = 1.
+                                 self.bufferindex + 3 + self.vdim + axis] = 1.
                     self.markers[outside_left_inds,
-                                self.bufferindex + 3 + self.vdim + axis] = -1.
+                                 self.bufferindex + 3 + self.vdim + axis] = -1.
 
             elif bc == 'reflect':
                 reflect(self.markers, self.domain.args_domain,

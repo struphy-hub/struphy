@@ -76,14 +76,15 @@ def struphy_run(model,
     import shutil
     import os
     import struphy
+    import struphy.utils.utils as utils
     import yaml
 
     libpath = struphy.__path__[0]
 
-    # Struphy paths
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
+    # Struphy paths
     i_path = state['i_path']
     o_path = state['o_path']
     b_path = state['b_path']

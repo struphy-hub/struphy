@@ -24,6 +24,7 @@ def struphy():
     from struphy.console.pproc import struphy_pproc
     from struphy.console.test import struphy_test
     from struphy.console.likwid import struphy_likwid_profile
+    import struphy.utils.utils as utils
 
     # struphy path
     import struphy
@@ -43,12 +44,8 @@ def struphy():
     version_message += 'Copyright 2019-2024 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
     version_message += 'MIT license\n'
 
-    # state dictionary
-    try:
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
-    except FileNotFoundError:
-        state = {}
+    # Read struphy state file
+    state = utils.read_state()
 
     if 'i_path' in state:
         i_path = state['i_path']
