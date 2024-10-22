@@ -4,7 +4,7 @@ import yaml
 import importlib
 import struphy
 import pyccel
-
+import struphy.utils.utils as utils
 
 def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monitor=False, n=None, Tend=None):
     """
@@ -40,8 +40,8 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
     if not os.path.exists(pymon_abs):
         os.mkdir(pymon_abs)
 
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
     if 'unit' in group:
         pymon_file = os.path.join(pymon_abs, '.pymon_unit')
@@ -253,8 +253,8 @@ def pymon_html_json(group, verbose=False):
     if not os.path.exists(pymon_abs):
         os.mkdir(pymon_abs)
 
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
     # identify the comiled language
     language = state['last_used_language']
