@@ -521,7 +521,7 @@ def pre_processing(
 
         # create output folder if it does not exit
         if not os.path.exists(path_out):
-            os.mkdir(path_out)
+            os.makedirs(path_out, exist_ok=True)
             print("Created folder " + path_out)
 
         # create data folder in output folder if it does not exist

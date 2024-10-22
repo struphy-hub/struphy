@@ -1,18 +1,21 @@
 import pytest
 from struphy.main import main
 from struphy.post_processing import pproc_struphy
+import struphy.utils.utils as utils
 
 import os
 import struphy
 from mpi4py import MPI
+import yaml
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-libpath = struphy.__path__[0]
-i_path = os.path.join(libpath, 'io', 'inp')
-o_path = os.path.join(libpath, 'io', 'out')
+# Read struphy state file
+state = utils.read_state()
 
+i_path = state['i_path']
+o_path = state['o_path']
 
 @pytest.mark.mpi(min_size=2)
 def test_tutorial_02():

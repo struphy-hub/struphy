@@ -47,13 +47,10 @@ def diagnostics():
     import pickle
 
     from struphy.diagnostics.diagn_tools import power_spectrum_2d
+    import struphy.utils.utils as utils
 
-    import struphy
-
-    libpath = struphy.__path__[0]
-
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
     o_path = state['o_path']
 

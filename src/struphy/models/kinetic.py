@@ -665,16 +665,27 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from mpi4py.MPI import SUM, IN_PLACE
+        from struphy.kinetic_background import maxwellians
 
         # prelim
         self._electron_params = params['kinetic']['species1']
+        # kinetic background params
+        bckgr_params = self._electron_params['background']
+        bckgr_type = bckgr_params['type']
 
-        # Assert Maxwellian background
-        assert self._electron_params['background']['type'] == 'Maxwellian3D', \
-            "The background distribution function must be a uniform Maxwellian!"
+        # Assert Maxwellian background (if list, the first entry is taken)
+        if isinstance(bckgr_type, list):
+            assert bckgr_type[0][:-2] == 'Maxwellian3D', \
+                "The background distribution function must be a uniform Maxwellian!"
+            self._f0 = getattr(maxwellians, bckgr_type[0][:-2])(
+                    maxw_params=bckgr_params[bckgr_type[0]]
+                )
+        else:
+            assert self._electron_params['background']['type'] == 'Maxwellian3D', \
+                "The background distribution function must be a uniform Maxwellian!"
+            self._f0 = self.pointer['species1'].f0
 
         # Assert uniformity of the Maxwellian background
-        self._f0 = self.pointer['species1'].f0
         assert self._f0.maxw_params['u1'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
         assert self._f0.maxw_params['u2'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
         assert self._f0.maxw_params['u3'] == 0., "The background Maxwellian cannot have shifts in velocity space!"

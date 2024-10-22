@@ -1320,13 +1320,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         import yaml
         import os
 
-        libpath = struphy.__path__[0]
+        import struphy.utils.utils as utils
 
-        # write to current input path
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
+        # Read struphy state file
+        state = utils.read_state()
 
         i_path = state['i_path']
+        assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
 
         if file is None:
             file = os.path.join(i_path, 'params_' + cls.__name__ + '.yml')
@@ -1515,7 +1515,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if len(cls.species()['kinetic']) > 0:
             parameters['kinetic'] = {}
 
-            for name, space in cls.species()['kinetic'].items():
+            for name, kind in cls.species()['kinetic'].items():
 
                 parameters['kinetic'][name] = kinetic_params
 
@@ -1531,7 +1531,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     parameters['kinetic'][name]['options'] = d_default
 
                 # set the correct names in the parameter file
-                dim = space[-2:]
+                dim = kind[-2:]
                 parameters['kinetic'][name]['background'] = {'type': maxw_name[dim],
                                                              maxw_name[dim]: {'n': 0.05}}
                 parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
