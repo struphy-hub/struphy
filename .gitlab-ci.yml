@@ -107,10 +107,10 @@ private_runner_install:
     - struphy compile -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
     - struphy -p
-  artifacts:
-    paths:
-      - "env_struphy/"
-    expire_in: 1 day
+  # artifacts:
+  #   paths:
+  #     - "env_struphy/"
+  #   expire_in: 1 day
 
 mpi_scaling_setup:
   stage: performance-tests
