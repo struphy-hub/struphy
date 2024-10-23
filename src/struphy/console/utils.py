@@ -1,3 +1,6 @@
+import struphy.utils.utils as utils
+import os
+
 def add_line(script, line, comment='', chars_until_comment=80):
     if len(line) > chars_until_comment:
         script += f"{line} # {comment}\n"
@@ -97,3 +100,13 @@ def generate_batch_script(**kwargs):
         script += "\n"
 
     return script
+
+def save_batch_script(batch_script, filename, path = None):
+    if path is None:
+        state = utils.read_state()
+        path = state['b_path']
+    batch_path = os.path.join(path, filename)
+    with open(batch_path, 'w') as f:
+        f.write(batch_script)
+    # print(batch_script)
+    # print(batch_path)
