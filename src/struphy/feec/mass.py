@@ -763,10 +763,11 @@ class WeightedMassOperator(LinOpWithTransp):
         assert isinstance(W, (TensorFemSpace, VectorFemSpace))
 
         self._derham = derham
+        self._nquads = nquads
+
         self._V = V
         self._W = W
 
-        self._nquads = nquads
         # set basis extraction operators
         if V_extraction_op is not None:
             assert V_extraction_op.domain == V.vector_space
@@ -870,13 +871,13 @@ class WeightedMassOperator(LinOpWithTransp):
 
             if self._matrix_free:
                 if weights_info == 'symm':
-                    blocks = [[StencilMatrixFreeMassOperator(Vs, Ws)
+                    blocks = [[StencilMatrixFreeMassOperator(self.derham, Vs, Ws, nquads = self.nquads)
                                for Vs in V.spaces] for Ws in W.spaces]
                 elif weights_info == 'asym':
-                    blocks = [[StencilMatrixFreeMassOperator(Vs, Ws)
+                    blocks = [[StencilMatrixFreeMassOperator(self.derham, Vs, Ws, nquads = self.nquads)
                                if i != j else None for j, Vs in enumerate(V.spaces)] for i, Ws in enumerate(W.spaces)]
                 elif weights_info == 'diag':
-                    blocks = [[StencilMatrixFreeMassOperator(Vs, Ws)
+                    blocks = [[StencilMatrixFreeMassOperator(self.derham, Vs, Ws, nquads = self.nquads)
                                if i == j else None for j, Vs in enumerate(V.spaces)] for i, Ws in enumerate(W.spaces)]
                 else:
                     raise NotImplementedError(
@@ -930,7 +931,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     if weights_info is None:
                         if self._matrix_free:
                             blocks[-1] += [
-                                StencilMatrixFreeMassOperator(vspace, wspace)]
+                                StencilMatrixFreeMassOperator(self.derham, vspace, wspace, self.nquads)]
                         else:
                             blocks[-1] += [StencilMatrix(
                                 vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
@@ -958,7 +959,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             if np.any(np.abs(mat_w) > 1e-14):
                                 if self._matrix_free:
                                     blocks[-1] += [StencilMatrixFreeMassOperator(
-                                        vspace, wspace, weights=weights_info[a][b])]
+                                        self.derham, vspace, wspace, weights=weights_info[a][b], nquads = self.nquads)]
                                 else:
                                     blocks[-1] += [StencilMatrix(
                                         vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)]
@@ -972,7 +973,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     if self._matrix_free:
 
                         self._mat = StencilMatrixFreeMassOperator(
-                            vspace, wspace)
+                            self.derham, vspace, wspace, nquads = self.nquads)
                     else:
                         self._mat = StencilMatrix(
                             vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
@@ -1575,13 +1576,16 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         The weights of the mass operator
     """
 
-    def __init__(self, V, W, weights=None,nquads=None,):
+    def __init__(self, derham, V, W, weights=None,nquads=None,):
         self._V = V
         self._W = W
         self._domain = V.vector_space
         self._codomain = W.vector_space
         self._weights = weights
+
+        self._derham = derham
         self._nquads = nquads
+
         self._dtype = V.vector_space.dtype
         self._dot_kernel = getattr(
             mass_kernels, 'kernel_' + str(self._V.ldim) + 'd_matrixfree')
@@ -1646,7 +1650,12 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             return self.derham.nquads
         else:
             return self._nquads
-    
+    @property
+    def derham(self):
+        """ Discrete de Rham sequence on the logical unit cube. 
+        """
+        return self._derham
+
     @property
     def tosparse(self):
         raise NotImplementedError()
@@ -1656,7 +1665,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return StencilMatrixFreeMassOperator(self._codomain, self._domain, self._weights)
+        return StencilMatrixFreeMassOperator(self._derham, self._codomain, self._domain, self._weights, nquads = self._nquads)
 
     @property
     def weights(self):
