@@ -30,41 +30,36 @@
 
 # The doc can be built via the commit message "make-pages".
 
-# default:
-#   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
+default:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
 
-#   before_script:
-#     - date
-#     - ls -a
-#     - uname -a
-#     - module list
-#     - module avail
-#     - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
-#     - module list
-#     - make -v
-#     - python3 --version
-#     - source env_$CI_PIPELINE_ID/bin/activate
-#     - pip list
+  before_script:
+    - date
+    - ls -a
+    - uname -a
+    - module list
+    - module avail
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
+    - module list
+    - make -v
+    - python3 --version
+    - source env_$CI_PIPELINE_ID/bin/activate
+    - pip list
 
-#   # tags:
-#   #   - distributedcache
+  # tags:
+  #   - distributedcache
 
-#   artifacts:
-#     expire_in: 1 day
+  artifacts:
+    expire_in: 1 day
 
 stages:
-  - performance-tests
   - startup
   - build
   - install
   - test
+  - performance-tests
   - pages
   - release 
-
-cache:
-  key: $CI_COMMIT_REF_SLUG
-  paths:
-    - env_struphy/     # Cache the virtual environment
 
 # Raven private runner
 .raven_private_runner:
@@ -81,24 +76,37 @@ cache:
     - echo "Running on Raven private runner with .raven template"
     - echo $USER
     - ls
-    - touch "$CI_PIPELINE_ID was here\n" >> ~/private_runner.log
+    - echo "$CI_PIPELINE_ID was here\n" >> ~/private_runner.log
     - pwd
     - module avail
     - module purge
     - module load gcc/12 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2
     - module list
+    - LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
+    - export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
+    - export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH
 
-private_runner_install:
-  stage: performance-tests
+private_runner_venv:
+  stage: startup
   extends: .raven_private_runner
   script:
     - if [ ! -d "env_struphy" ]; then python3 -m venv env_struphy; fi
     - source env_struphy/bin/activate
-    - LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
-    - export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
-    - export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH
-    - pip install --upgrade pip
+    - python3 -m pip install --upgrade pip
     - pip install pylikwid
+    - pip list
+  artifacts:
+    paths:
+      - "env_struphy/"
+    expire_in: 1 day
+
+private_runner_install:
+  stage: install
+  extends: .raven_private_runner
+  dependencies:
+    - private_runner_venv
+  script:
+    - source env_struphy/bin/activate
     - pip install . # Install struphy
     - struphy
     - python -c "import pylikwid"
@@ -107,14 +115,15 @@ private_runner_install:
     - struphy compile -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
     - struphy -p
-  # artifacts:
-  #   paths:
-  #     - "env_struphy/"
-  #   expire_in: 1 day
+  artifacts:
+    paths:
+      - "env_struphy/"
+    expire_in: 1 day
 
-mpi_scaling_setup:
+run_jobs_sbatch:
   stage: performance-tests
-  needs: ["private_runner_install"]
+  dependencies:
+    - private_runner_install
   extends: .raven_private_runner
   script:
     - source env_struphy/bin/activate
@@ -126,7 +135,7 @@ mpi_scaling_setup:
     # Run strong scaling simulations (same problem size, increasing number of processes)
     - python3 src/struphy/profiling/generate_params/write_ptest_params.py      # Write parameter files
     - python3 src/struphy/profiling/generate_params/run_simulations.py check   # Check which simulation to run
-    - python3 src/struphy/profiling/generate_params/run_simulations.py run     # Run the simulations
+    # - python3 src/struphy/profiling/generate_params/run_simulations.py run     # Run the simulations
     # - struphy test performance --batch batch_raven.sh                          # Submit a job that tests performance of all models
     - echo "Submitted SLURM jobs"
     # Wait for the SLURM jobs to finish
@@ -139,86 +148,55 @@ mpi_scaling_setup:
     - echo "Cleaning up output data"
     - rm -rf outputs/$datetime/simulations/*/data/        # Remove data files
     - find outputs/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
-  # artifacts:
-  #   paths:
-  #     - "outputs/"
-  #   expire_in: 30 days
+  artifacts:
+    paths:
+      - "outputs/"
+    expire_in: 30 days
 
 mpi_scaling_plot:
   stage: performance-tests
-  needs: ["private_runner_install", "mpi_scaling_setup"]
+  dependencies:
+    - private_runner_install
+    - run_jobs_sbatch
   extends: .raven_private_runner
   script:
     - source env_struphy/bin/activate
-    - datetime=$(ls outputs/ | tail -n 1) # Use the latest datetime folder
-    # Plot results
-    - for model in "Vlasov" "Maxwell"; do
-        struphy likwid_profile
-          --output outputs/$datetime/figures/$model 
-          --dir outputs/$datetime/simulations/${model}_mpi* 
-          --skip main model.integrate 
-          --title "MPI scaling, model:${model}";
-      done
+    # - datetime=$(ls outputs/ | tail -n 1) # Use the latest datetime folder
+    # # Plot results
+    # - for model in "Vlasov" "Maxwell"; do
+    #     struphy likwid_profile
+    #       --output outputs/$datetime/figures/$model 
+    #       --dir outputs/$datetime/simulations/${model}_mpi* 
+    #       --skip main model.integrate 
+    #       --title "MPI scaling, model:${model}";
+    #   done
     - echo "Output saved in outputs/$datetime"
+  artifacts:
+    paths:
+      - "outputs/"
+    expire_in: 30 days
+
+upload_outputs:
+  stage: performance-tests
+  dependencies:
+    - run_jobs_sbatch
+    - mpi_scaling_plot
+  script:
     # Print the files in the output directory
     - find outputs/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
     # Make tar.gz files and upload it to datashare
     - tar -czf outputs_$datetime.tar.gz outputs/$datetime
     - |
-      curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
-  # artifacts:
-  #   paths:
-  #     - "outputs/"
-  #   expire_in: 30 days
+      curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: \
+        -H 'X-Requested-With: XMLHttpRequest' \
+        -H 'X-Method-Override: PUT' \
+        https://datashare.mpcdf.mpg.de/public.php/webdav/
+    - echo "Uploading output artifacts..."
+  artifacts:
+    paths:
+      - "outputs/"
+    expire_in: 30 days
 
-
-
-# mpi_scaling:
-#   stage: performance-tests
-#   extends: .raven_private_runner
-#   script:
-#     # Set output directory 
-#     - echo $datetime
-#     - datetime=$(date +"%Y%m%d_%H%M%S")
-#     - mkdir -p outputs/$datetime/simulations
-#     - struphy --set-o outputs/$datetime/simulations
-#     - struphy -p
-#     # Run strong scaling simulations (same problem size, increasing number of processes)
-#     - python3 src/struphy/profiling/generate_params/write_ptest_params.py      # Write parameter files
-#     - python3 src/struphy/profiling/generate_params/run_simulations.py check   # Check which simulation to run
-#     - python3 src/struphy/profiling/generate_params/run_simulations.py run     # Run the simulations
-#     - struphy test performance --batch batch_raven.sh                          # Submit a job that tests performance of all models
-#     - echo "Submitted SLURM jobs"
-#     # Wait for the SLURM jobs to finish
-#     - while squeue -u $USER | grep str_per; do
-#         echo "Waiting for struphy job(s) to finish...";
-#         squeue -u $USER -o "%.18i %.9P %.50j %.8u %.2t %.10M %.6D %R";
-#         sleep 30;
-#       done
-#     - echo "All str_performance jobs finished."
-#     # Clean up data
-#     - echo "Cleaning up output data"
-#     - rm -rf outputs/$datetime/simulations/*/data/        # Remove data files
-#     - find outputs/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
-#     # Plot results
-#     - for model in "Vlasov" "Maxwell"; do
-#         struphy likwid_profile
-#           --output outputs/$datetime/figures/$model 
-#           --dir outputs/$datetime/simulations/${model}_mpi* 
-#           --skip main model.integrate 
-#           --title "MPI scaling, model:${model}";
-#       done
-#     - echo "Output saved in outputs/$datetime"
-#     # Print the files in the output directory
-#     - find outputs/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
-#     # Make tar.gz files and upload it to datashare
-#     - tar -czf outputs_$datetime.tar.gz outputs/$datetime
-#     - |
-#       curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
-#   artifacts:
-#     paths:
-#       - "outputs/"
-#     expire_in: 30 days
 # # python virtual environments into cache
 # default_venv:
 #   stage: startup 
@@ -255,23 +233,23 @@ mpi_scaling_plot:
 #       - env_$CI_PIPELINE_ID/
 #     expire_in: 1 day
 
-# # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
-# ci_vars:
-#   stage: startup
-#   rules:
-#     - if: $CI_COMMIT_TAG
-#       when: never
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_PIPELINE_SOURCE == "push"
-#   dependencies: []
-#   before_script:
-#     - date
-#     - ls -a
-#     - module list
-#   script:
-#     - echo "All environment variables:"
-#     - env
+# Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
+ci_vars:
+  stage: startup
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push"
+  dependencies: []
+  before_script:
+    - date
+    - ls -a
+    - module list
+  script:
+    - echo "All environment variables:"
+    - env
 
 # # build on mpcdf server
 # default_build:
