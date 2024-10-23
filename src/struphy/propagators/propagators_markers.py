@@ -19,6 +19,8 @@ from struphy.io.setup import descend_options_dict
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc, eval_kernels_gc
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 
+from struphy.feec.mass import WeightedMassOperators
+
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
@@ -1060,11 +1062,11 @@ class PushDeterministicDiffusion(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
-
+    
         self._u_on_grid = AccumulatorVector(particles,
                                             'H1',
                                             accum_kernels.charge_density_0form,
-                                            self.derham,
+                                            self.mass_ops,
                                             self.domain.args_domain)
 
         self._pusher = Pusher(particles,

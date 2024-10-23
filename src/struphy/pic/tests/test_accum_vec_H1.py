@@ -32,6 +32,8 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.accumulation import accum_kernels
     from struphy.io.setup import setup_domain_cloning
+    
+    from struphy.feec.mass import WeightedMassOperators
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -85,12 +87,15 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
 
     assert np.isclose(np.min(_w0), _sqrtg)
     assert np.isclose(np.max(_w0), _sqrtg)
+    
+     # mass operators
+    mass_ops = WeightedMassOperators(derham, domain)
 
     # instance of the accumulator
     acc = AccumulatorVector(particles,
                             'H1',
                             accum_kernels.charge_density_0form,
-                            derham,
+                            mass_ops,
                             domain.args_domain)
 
     acc(particles.vdim)
