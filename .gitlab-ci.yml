@@ -136,6 +136,9 @@ mpi_scaling_setup:
         sleep 30;
       done
     - echo "All str_performance jobs finished."
+    - echo "Cleaning up output data"
+    - rm -rf outputs/$datetime/simulations/*/data/        # Remove data files
+    - find outputs/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
   artifacts:
     paths:
       - "outputs/"
@@ -148,10 +151,6 @@ mpi_scaling_plot:
   script:
     - source env_struphy/bin/activate
     - datetime=$(ls outputs/ | tail -n 1) # Use the latest datetime folder
-    # Clean up data
-    - echo "Cleaning up output data"
-    - rm -rf outputs/$datetime/simulations/*/data/        # Remove data files
-    - find outputs/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
     # Plot results
     - for model in "Vlasov" "Maxwell"; do
         struphy likwid_profile
