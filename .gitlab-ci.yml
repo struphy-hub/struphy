@@ -110,7 +110,7 @@ private_runner_install:
   artifacts:
     paths:
       - "env_struphy/"
-    expire_in: 30 days
+    expire_in: 1 day
 
 mpi_scaling_setup:
   stage: performance-tests
