@@ -74,9 +74,9 @@ stages:
     - private
   before_script:
     - echo "Running on Raven private runner with .raven template"
+    - echo $datetime
     - echo $USER
     - ls
-    - echo "$CI_PIPELINE_ID was here\n" >> ~/private_runner.log
     - pwd
     - module avail
     - module purge
@@ -85,117 +85,126 @@ stages:
     - LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
     - export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
     - export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH
+    - export PIPELINE_NAME="pipeline_${CI_PIPELINE_ID}"
+    - export SLURM_JOBNAME_PREFIX="struphy_${CI_PIPELINE_ID}"
+    - export CI_JOBS_DIR=/ptmp/maxlin/struphy/CI_jobs/$PIPELINE_NAME
+    - export IOB_DIR=$CI_JOBS_DIR
+    - export FIGURE_DIR=$CI_JOBS_DIR/figures
+    - export VENV_DIR=/ptmp/maxlin/struphy/virtual_envs
+    - export ARTIFACT_DIR=${CI_PROJECT_DIR}/artifacts
+    - echo $PIPELINE_NAME
+    - echo $CI_JOBS_DIR
+    - echo $IOB_DIR
+    - echo $FIGURE_DIR
+    - echo $VENV_DIR
+    - echo $ARTIFACT_DIR
+    - mkdir -p $CI_JOBS_DIR
+    - mkdir -p $IOB_DIR
+    - mkdir -p $FIGURE_DIR
+    - mkdir -p $VENV_DIR
+    - mkdir -p $ARTIFACT_DIR
+    - echo "$CI_PIPELINE_ID was here on $(date)" >> $CI_JOBS_DIR/private_runner.log
 
 private_runner_venv:
   stage: startup
   extends: .raven_private_runner
   script:
-    - if [ ! -d "env_struphy" ]; then python3 -m venv env_struphy; fi
-    - source env_struphy/bin/activate
+    - if [ ! -d "$VENV_DIR/env_struphy_CI" ]; then python3 -m venv $VENV_DIR/env_struphy_CI; fi
+    - source $VENV_DIR/env_struphy_CI/bin/activate
     - python3 -m pip install --upgrade pip
     - pip install pylikwid
     - pip list
-  artifacts:
-    paths:
-      - "env_struphy/"
-    expire_in: 1 day
 
 private_runner_install:
   stage: install
   extends: .raven_private_runner
-  dependencies:
+  needs:
     - private_runner_venv
   script:
-    - source env_struphy/bin/activate
+    - source $VENV_DIR/env_struphy_CI/bin/activate
     - pip install . # Install struphy
     - struphy
     - python -c "import pylikwid"
     - pyccel --version
     - struphy compile --status
-    - struphy compile -y # compiles struphy, psydac with language c 
+    # - struphy compile -y
     - struphy --refresh-models
     - struphy -p
-  artifacts:
-    paths:
-      - "env_struphy/"
-    expire_in: 1 day
+    - struphy --set-iob $IOB_DIR
+    - struphy -p
 
 run_jobs_sbatch:
   stage: performance-tests
-  dependencies:
+  needs:
     - private_runner_install
   extends: .raven_private_runner
   script:
-    - source env_struphy/bin/activate
-    # Set output directory 
-    - datetime=$(date +"%Y%m%d_%H%M%S")
-    - mkdir -p outputs/$datetime/simulations
-    - struphy --set-o outputs/$datetime/simulations
-    - struphy -p
+    - source $VENV_DIR/env_struphy_CI/bin/activate
+    - pip list
+    - pip show struphy
     # Run strong scaling simulations (same problem size, increasing number of processes)
-    - python3 src/struphy/profiling/generate_params/write_ptest_params.py      # Write parameter files
-    - python3 src/struphy/profiling/generate_params/run_simulations.py check   # Check which simulation to run
-    # - python3 src/struphy/profiling/generate_params/run_simulations.py run     # Run the simulations
-    # - struphy test performance --batch batch_raven.sh                          # Submit a job that tests performance of all models
+    - python3 src/struphy/profiling/generate_params/write_ptest_params.py
+    # Check which simulation to run
+    - python3 src/struphy/profiling/generate_params/run_simulations.py check --jobname-prefix $SLURM_JOBNAME_PREFIX --venv $VENV_DIR/env_struphy_CI
+    - python3 src/struphy/profiling/generate_params/run_simulations.py run   --jobname-prefix $SLURM_JOBNAME_PREFIX --venv $VENV_DIR/env_struphy_CI
+    # Not finished: - struphy test performance --batch batch_raven.sh
+    # Submit a job that tests performance of all models
     - echo "Submitted SLURM jobs"
-    # Wait for the SLURM jobs to finish
-    - while squeue -u $USER | grep str_per; do
+    # Wait for the SLURM jobs with $CI_PIPELINE_ID in the job name to finish
+    - while squeue -u $USER | grep struphy; do
         echo "Waiting for struphy job(s) to finish...";
         squeue -u $USER -o "%.18i %.9P %.50j %.8u %.2t %.10M %.6D %R";
         sleep 30;
       done
     - echo "All str_performance jobs finished."
     - echo "Cleaning up output data"
-    - rm -rf outputs/$datetime/simulations/*/data/        # Remove data files
-    - find outputs/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
-  artifacts:
-    paths:
-      - "outputs/"
-    expire_in: 30 days
+    - rm -rf $IOB_DIR/io/out/*/data/        # Remove data files
+    - find $IOB_DIR/ -type f -name ".*" -exec rm -f {} \;  # Remove hidden files
 
 mpi_scaling_plot:
   stage: performance-tests
-  dependencies:
+  needs:
     - private_runner_install
     - run_jobs_sbatch
   extends: .raven_private_runner
   script:
-    - source env_struphy/bin/activate
-    # - datetime=$(ls outputs/ | tail -n 1) # Use the latest datetime folder
-    # # Plot results
-    # - for model in "Vlasov" "Maxwell"; do
-    #     struphy likwid_profile
-    #       --output outputs/$datetime/figures/$model 
-    #       --dir outputs/$datetime/simulations/${model}_mpi* 
-    #       --skip main model.integrate 
-    #       --title "MPI scaling, model:${model}";
-    #   done
-    - echo "Output saved in outputs/$datetime"
-  artifacts:
-    paths:
-      - "outputs/"
-    expire_in: 30 days
+    - source $VENV_DIR/env_struphy_CI/bin/activate
+    # Plot results
+    - for model in "Vlasov" "Maxwell"; do
+        struphy likwid_profile
+          --output $FIGURE_DIR/$model 
+          --dir $IOB_DIR/io/out/*${model}_mpi* 
+          --skip main model.integrate 
+          --title "MPI scaling, model:${model}";
+      done
+    - echo "Output saved in $FIGURE_DIR/"
 
 upload_outputs:
   stage: performance-tests
-  dependencies:
+  needs:
     - run_jobs_sbatch
     - mpi_scaling_plot
+  extends: .raven_private_runner
   script:
     # Print the files in the output directory
-    - find outputs/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
+    - find $CI_JOBS_DIR/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
     # Make tar.gz files and upload it to datashare
-    - tar -czf outputs_$datetime.tar.gz outputs/$datetime
-    - |
-      curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: \
-        -H 'X-Requested-With: XMLHttpRequest' \
-        -H 'X-Method-Override: PUT' \
-        https://datashare.mpcdf.mpg.de/public.php/webdav/
+    # - tar -czf outputs_$datetime.tar.gz $CI_JOBS_DIR/
+    # - |
+    #   curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: \
+    #     -H 'X-Requested-With: XMLHttpRequest' \
+    #     -H 'X-Method-Override: PUT' \
+    #     https://datashare.mpcdf.mpg.de/public.php/webdav/
+    - ls $CI_JOBS_DIR/
+    - datetime=$(date +"%Y%m%d_%H%M%S")
+    - mkdir -p $ARTIFACT_DIR/$datetime
+    - cp -r $CI_JOBS_DIR/ $ARTIFACT_DIR/$datetime
+    - ls -R artifacts/
     - echo "Uploading output artifacts..."
   artifacts:
     paths:
-      - "outputs/"
-    expire_in: 30 days
+      - artifacts/
+    expire_in: 1 day
 
 # # python virtual environments into cache
 # default_venv:
@@ -234,22 +243,22 @@ upload_outputs:
 #     expire_in: 1 day
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
-ci_vars:
-  stage: startup
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-  dependencies: []
-  before_script:
-    - date
-    - ls -a
-    - module list
-  script:
-    - echo "All environment variables:"
-    - env
+# ci_vars:
+#   stage: startup
+#   rules:
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#       when: never
+#     - if: $CI_PIPELINE_SOURCE == "push"
+#   dependencies: []
+#   before_script:
+#     - date
+#     - ls -a
+#     - module list
+#   script:
+#     - echo "All environment variables:"
+#     - env
 
 # # build on mpcdf server
 # default_build:

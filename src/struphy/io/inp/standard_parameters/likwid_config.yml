@@ -4,6 +4,7 @@ likwid-mpirun:
   options:
     - -g: MEM_DP        # Measure over the MEM_DP group
     - -nperdomain: S:36 # 36 cores/socket
+    - -mpi slurm        # Use slurm version of MPI
     - -stats            # Print likwid statistics
     - -O                # Output tables in csv format
     - -marker           # activate likwid marker API

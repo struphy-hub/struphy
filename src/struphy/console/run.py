@@ -78,7 +78,7 @@ def struphy_run(model,
     import os
     import struphy
     import struphy.utils.utils as utils
-    from struphy.console.utils import generate_batch_script
+    from struphy.console.utils import generate_batch_script, save_batch_script
     import yaml
 
     libpath = struphy.__path__[0]
@@ -281,7 +281,7 @@ def struphy_run(model,
             }
 
             batch_script = generate_batch_script(**sbatch_params[batch_auto])
-            print(batch_script); exit()
+            save_batch_script(batch_script, 'test_script.sh'); exit()
             with open(batch_abs_new,'w') as f:
                 f.write(batch_script)
         else:   

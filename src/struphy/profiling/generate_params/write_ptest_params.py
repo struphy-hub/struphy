@@ -3,13 +3,14 @@ import copy
 import yaml
 import os
 
+import struphy.utils.utils as utils
 import standard_geometries as standard_geometries
 import standard_mhd_equilibrium as standard_mhd_equils
 
 # Parameters
 libpath = struphy.__path__[0]
-with open(os.path.join(libpath, "state.yml")) as f:
-    state = yaml.load(f, Loader=yaml.FullLoader)
+
+state = utils.read_state()
 i_path = state["i_path"]
 o_path = state["o_path"]
 
@@ -89,7 +90,8 @@ def mpi_scan(base_parameters, mpi_values, filename_template, extra_modifications
     generate_parameter_files(base_parameters, modifications_list, filename_template)
 
 
-mpi_values = [8, 16, 32, 48, 64, 72]
+# mpi_values = [8, 16, 32, 48, 64, 72]
+mpi_values = [8,16]
 # Save LIKWID configuration
 for mpi_val in mpi_values:
     parameter_file = f"{i_path}/likwid_config_mpi{mpi_val}.yml"
@@ -100,7 +102,7 @@ for mpi_val in mpi_values:
                 param['-nperdomain'] = f"S:{nperdomain}"
     save_parameter_file(yaml_data["likwid_config"], parameter_file)
 # Define models and their parameters
-for model in ["Vlasov", 'Maxwell']: #, 'LinearMHDDriftkineticCC']:
+for model in ['Maxwell']: #, "Vlasov"]: #, 'LinearMHDDriftkineticCC']:
     base_params = yaml_data[f"params_{model}"]
 
     # MPI values to scan
@@ -118,12 +120,12 @@ grid_values = [
 ]
 
 # Define models and their parameters
-for model in ["Vlasov", 'Maxwell']:
-    base_params = yaml_data[f"params_{model}"]
+# for model in ["Vlasov", 'Maxwell']:
+#     base_params = yaml_data[f"params_{model}"]
     
-    # Filename template including mpi and grid values
-    filename_template = f"{i_path}/params_{model}_grid{{grid_Nel_0}}x{{grid_Nel_1}}x{{grid_Nel_2}}_mpi{{mpi}}.yml"
+#     # Filename template including mpi and grid values
+#     filename_template = f"{i_path}/params_{model}_grid{{grid_Nel_0}}x{{grid_Nel_1}}x{{grid_Nel_2}}_mpi{{mpi}}.yml"
     
-    for grid in grid_values:
-        extra_modifications = {'grid.Nel': grid}
-        mpi_scan(base_params, mpi_values, filename_template, extra_modifications)
+#     for grid in grid_values:
+#         extra_modifications = {'grid.Nel': grid}
+#         mpi_scan(base_params, mpi_values, filename_template, extra_modifications)

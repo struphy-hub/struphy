@@ -10,10 +10,10 @@ import sys
 import yaml
 
 import struphy
+import struphy.utils.utils as utils
+from struphy.console.utils import generate_batch_script, save_batch_script
 
-libpath = struphy.__path__[0]
-with open(os.path.join(libpath, "state.yml")) as f:
-    state = yaml.load(f, Loader=yaml.FullLoader)
+state = utils.read_state()
 i_path = state["i_path"]
 o_path = state["o_path"]
 
@@ -31,8 +31,22 @@ def main():
     parser.add_argument(
         "action", choices=["run", "check"], help="Action to perform: run or check"
     )
+
+    parser.add_argument('--venv',
+                        type=str,
+                        default='/ptmp/maxlin/struphy/virtual_envs/env_struphy_CI',
+                        help='Path to virtual environment', )
+
+    parser.add_argument('--jobname-prefix',
+                        default='',
+                        help='Slurm jobname prefix ("struphy_$CI_PIPELINE_ID", for example)', )
+    
     args = parser.parse_args()
     action = args.action
+    if args.jobname_prefix.isdigit():
+        args.jobname_prefix = str(int(args.jobname_prefix))
+    jobname_prefix = args.jobname_prefix
+    venv_path = args.venv
 
     i = 0  # Set project index to 0
     pattern = r"mpi(\d+)\.yml"  # Regex pattern to find the number before .yml
@@ -74,7 +88,19 @@ def main():
                 print(f"{YELLOW}Skipping:\t{NC}{projectname}")
             else:
                 nodes = (nmpi + 71) // 72  # Calculate the number of nodes required
-                submit_file = f"batch_raven_{nodes}node.sh"
+                job_name = f'{jobname_prefix}_{projectname}'
+                submit_file = f'submit_{projectname}.sh'
+
+                script_params = {
+                        'job_name': job_name,
+                        'ntasks_per_node': nmpi % 72,
+                        'module_setup': "module load gcc/12 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2",
+                        'likwid': True,
+                        'venv_path':venv_path,
+                        'memory':'25GB',
+                    }
+                save_batch_script(generate_batch_script(**script_params), submit_file)
+                
                 command = [
                         "struphy",
                         "run",
