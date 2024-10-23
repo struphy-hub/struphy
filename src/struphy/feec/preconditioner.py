@@ -446,7 +446,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 femspace_1d_tensor.nquads = [qu_order_1d]
 
                 M = WeightedMassOperator(
-                    self.mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun, nquads = [qu_order_1d])
+                    self._mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun, nquads = [qu_order_1d])
                 M.assemble(verbose=False)
                 M = M.matrix
 
@@ -560,7 +560,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         # Need to assemble the logical mass matrix to extract the coefficients
         fun = [[lambda e1, e2, e3 : np.ones_like(e1, dtype=float) if i==j else None for j in range(3)]for i in range(3)]
         log_M = WeightedMassOperator(
-                self.mass_operator.derham, self._femspace, self._femspace, weights_info=fun)
+                self._mass_operator.derham, self._femspace, self._femspace, weights_info=fun)
         log_M.assemble(verbose=False)
         self._logM_srqt_diag = log_M.matrix.diagonal(sqrt = True)
         self._M_invsrqt_diag = self._mass_operator.matrix.diagonal(inverse = True, sqrt = True)
