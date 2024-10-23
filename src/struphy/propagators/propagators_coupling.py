@@ -109,7 +109,7 @@ class VlasovAmpere(Propagator):
         self._accum = Accumulator(particles,
                                   'Hcurl',
                                   accum_kernels.vlasov_maxwell,
-                                  self.derham,
+                                  self.mass_ops,
                                   self.domain.args_domain,
                                   add_vector=True,
                                   symmetry='symm')
@@ -299,12 +299,13 @@ class EfieldWeights(Propagator):
         self._vth = self._f0.maxw_params['vth1']
 
         self._info = solver['info']
+        
 
         # Initialize Accumulator object
         self._accum = Accumulator(particles,
                                   'Hcurl',
                                   accum_kernels.linear_vlasov_ampere,
-                                  self.derham,
+                                  self.mass_ops,
                                   self.domain.args_domain,
                                   add_vector=True,
                                   symmetry='symm')
@@ -506,13 +507,13 @@ class EfieldWeightsImplicit(Propagator):
         self._model = params['model']
 
         self._info = params['info']
-
+       
         # Initialize Accumulator object
         if params['model'] == 'linear_vlasov_maxwell':
-            self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'linear_vlasov_maxwell',
+            self._accum = Accumulator(self.mass_ops, self.domain, 'Hcurl', 'linear_vlasov_maxwell',
                                       add_vector=True, symmetry='symm')
         elif params['model'] == 'delta_f_vlasov_maxwell':
-            self._accum = Accumulator(self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell_scn',
+            self._accum = Accumulator(self.mass_ops, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell_scn',
                                       add_vector=True, symmetry='symm')
         else:
             raise NotImplementedError(f"Unknown model : {params['model']}")
@@ -705,7 +706,7 @@ class EfieldWeightsDiscreteGradient(Propagator):
 
         # Initialize Accumulator object
         self._accum = AccumulatorVector(
-            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
+            self.mass_ops, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
 
         # Create buffers to temporarily store _e and its sum with old e
         self._m1_acc_vec = e.space.zeros()
@@ -851,7 +852,7 @@ class EfieldWeightsAnalytic(Propagator):
 
         # Initialize Accumulator object
         self._accum = AccumulatorVector(
-            self.derham, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
+            self.mass_ops, self.domain, 'Hcurl', 'delta_f_vlasov_maxwell')
 
         # Create buffers to temporarily store _e and its sum with old e
         self._m1_acc_vec = e.space.zeros()
@@ -1038,11 +1039,11 @@ class PressureCoupling6D(Propagator):
         self._coupling_mat = coupling_params['Ah'] / coupling_params['Ab']
         self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
         self._scale_push = 1
-
+        
         self._ACC = Accumulator(particles,
                                 'Hcurl',
                                 accum_ker,
-                                self.derham,
+                                self.mass_ops,
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='pressure')
@@ -1281,12 +1282,12 @@ class CurrentCoupling6DCurrent(Propagator):
         self._coupling_mat = Ah / Ab / epsilon**2
         self._coupling_vec = Ah / Ab / epsilon
         self._scale_push = 1./epsilon
-
+        
         # load accumulator
         self._accumulator = Accumulator(particles,
                                         u_space,
                                         accum_kernels.cc_lin_mhd_6d_2,
-                                        self.derham,
+                                        self.mass_ops,
                                         self.domain.args_domain,
                                         add_vector=True,
                                         symmetry='symm')
@@ -1584,12 +1585,12 @@ class CurrentCoupling5DCurlb(Propagator):
         self._u_new = u.space.zeros()
         self._u_avg1 = u.space.zeros()
         self._u_avg2 = self._EuT.codomain.zeros()
-
+        
         # Call the accumulation and Pusher class
         self._ACC = Accumulator(particles,
                                 u_space,
                                 accum_kernels_gc.cc_lin_mhd_5d_J1,
-                                self.derham,
+                                self.mass_ops,
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',
@@ -1892,12 +1893,12 @@ class CurrentCoupling5DGradB(Propagator):
                                tol=solver['tol'],
                                maxiter=solver['maxiter'],
                                verbose=solver['verbose'])
-
+        
         # Call the accumulation and Pusher class
         self._ACC = Accumulator(particles,
                                 u_space,
                                 accum_kernels_gc.cc_lin_mhd_5d_J2,
-                                self.derham,
+                                self.mass_ops,
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',

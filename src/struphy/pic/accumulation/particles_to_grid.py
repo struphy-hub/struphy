@@ -7,7 +7,7 @@ from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector
 
 from struphy.feec.psydac_derham import Derham
-from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.mass import WeightedMassOperators
 from struphy.pic.base import Particles
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
@@ -70,7 +70,7 @@ class Accumulator:
         particles: Particles,
         space_id: str,
         kernel,
-        derham: Derham,
+        mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
         add_vector: bool = False,
@@ -82,14 +82,14 @@ class Accumulator:
         self._particles = particles
         self._space_id = space_id
         self._kernel = kernel
-        self._derham = derham
+        self._derham = mass_ops.derham
         self._args_domain = args_domain
 
         self._symmetry = symmetry
 
         self._filter_params = filter_params
 
-        self._form = derham.space_to_form[space_id]
+        self._form = self.derham.space_to_form[space_id]
 
         # initialize matrices (instances of WeightedMassOperator)
         self._operators = []
@@ -97,33 +97,19 @@ class Accumulator:
         # special treatment in model LinearMHDVlasovPC (symmetry=pressure, six symmetric BlockMatrices are needed)
         if symmetry == "pressure":
             for _ in range(6):
-                self._operators += [
-                    WeightedMassOperator(
-                        derham.Vh_fem[self.form],
-                        derham.Vh_fem[self.form],
-                        V_extraction_op=derham.extraction_ops[self.form],
-                        W_extraction_op=derham.extraction_ops[self.form],
-                        V_boundary_op=derham.boundary_ops[self.form],
-                        W_boundary_op=derham.boundary_ops[self.form],
-                        weights_info="symm",
-                        transposed=False,
-                    )
-                ]
+                operator = mass_ops.create_weighted_mass(
+                    space_id, 
+                    space_id, 
+                    weights="symm")
+                self._operators.append(operator)
 
         # "normal" treatment (just one matrix)
         else:
-            self._operators += [
-                WeightedMassOperator(
-                    derham.Vh_fem[self.form],
-                    derham.Vh_fem[self.form],
-                    V_extraction_op=derham.extraction_ops[self.form],
-                    W_extraction_op=derham.extraction_ops[self.form],
-                    V_boundary_op=derham.boundary_ops[self.form],
-                    W_boundary_op=derham.boundary_ops[self.form],
-                    weights_info=symmetry,
-                    transposed=False,
-                )
-            ]
+            operator = mass_ops.create_weighted_mass(
+                space_id, 
+                space_id, 
+                weights=symmetry)
+            self._operators.append(operator)
 
         # collect all _data attributes needed in accumulation kernel
         self._args_data = ()
@@ -150,9 +136,11 @@ class Accumulator:
             # special treatment in model LinearMHDVlasovPC (symmetry=pressure, three BlockVectors are needed)
             if symmetry == "pressure":
                 for _ in range(3):
-                    self._vectors += [BlockVector(derham.Vh[self.form])]
-                    self._vectors_temp += [BlockVector(derham.Vh[self.form])]
-                    self._vectors_out += [BlockVector(derham.Vh[self.form])]
+                    self._vectors += [BlockVector(self.derham.Vh[self.form])]
+                    self._vectors_temp += [
+                        BlockVector(self.derham.Vh[self.form])]
+                    self._vectors_out += [
+                        BlockVector(self.derham.Vh[self.form])]
 
             # normal treatment (just one vector)
             else:
@@ -434,7 +422,7 @@ class Accumulator:
                     vec_temp[:] = 0
                     vec_temp[modes] = rfft(
                         vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]])[modes]
-                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]                                    :pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
+                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
 
             vec.update_ghost_regions()
 
@@ -475,17 +463,17 @@ class AccumulatorVector:
         particles: Particles,
         space_id: str,
         kernel,
-        derham: Derham,
+        mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
     ):
 
         self._particles = particles
         self._space_id = space_id
         self._kernel = kernel
-        self._derham = derham
+        self._derham = mass_ops.derham
         self._args_domain = args_domain
 
-        self._form = derham.space_to_form[space_id]
+        self._form = self.derham.space_to_form[space_id]
 
         # initialize vectors
         self._vectors = []
@@ -497,19 +485,22 @@ class AccumulatorVector:
 
         if space_id in ("H1", "L2"):
             self._vectors += [
-                StencilVector(derham.Vh_fem[self.form].vector_space)
+                StencilVector(self.derham.Vh_fem[self.form].vector_space)
             ]
             self._vectors_temp += [
-                StencilVector(derham.Vh_fem[self.form].vector_space)
+                StencilVector(self.derham.Vh_fem[self.form].vector_space)
             ]
             self._vectors_out += [
-                StencilVector(derham.Vh_fem[self.form].vector_space)
+                StencilVector(self.derham.Vh_fem[self.form].vector_space)
             ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
-            self._vectors += [BlockVector(derham.Vh_fem[self.form].vector_space)]
-            self._vectors_temp += [BlockVector(derham.Vh_fem[self.form].vector_space)]
-            self._vectors_out += [BlockVector(derham.Vh_fem[self.form].vector_space)]
+            self._vectors += [BlockVector(
+                self.derham.Vh_fem[self.form].vector_space)]
+            self._vectors_temp += [BlockVector(
+                self.derham.Vh_fem[self.form].vector_space)]
+            self._vectors_out += [BlockVector(
+                self.derham.Vh_fem[self.form].vector_space)]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):
