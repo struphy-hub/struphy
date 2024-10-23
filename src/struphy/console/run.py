@@ -78,6 +78,7 @@ def struphy_run(model,
     import os
     import struphy
     import struphy.utils.utils as utils
+    from struphy.console.utils import generate_batch_script
     import yaml
 
     libpath = struphy.__path__[0]
@@ -280,7 +281,7 @@ def struphy_run(model,
             }
 
             batch_script = generate_batch_script(**sbatch_params[batch_auto])
-            #print(batch_script); exit()
+            print(batch_script); exit()
             with open(batch_abs_new,'w') as f:
                 f.write(batch_script)
         else:   
@@ -322,129 +323,3 @@ def struphy_run(model,
                         'batch_script.sh',
                         ],
                        check=True, cwd=output_abs)
-
-
-
-def add_line(script, line, comment='', chars_until_comment=80):
-    if len(line) > chars_until_comment:
-        script += f"{line} # {comment}\n"
-    else:
-        script += f"{line} {' ' * (chars_until_comment - len(line))}# {comment}\n"
-    return script
-
-def generate_batch_script(**kwargs):
-    """
-    Generate a batch script for submitting jobs with SLURM.
-
-    Parameters:
-    **kwargs : dict
-        Keyword arguments that override the default SLURM job parameters. Examples include:
-        - output_file (str): Path for the job output file.
-        - error_file (str): Path for the job error file.
-        - nodes (int): Number of compute nodes.
-        - ntasks_per_node (int): Number of MPI processes per node.
-        - mail_user (str): Email address for notifications.
-        - time (str): Maximum runtime for the job in HH:MM:SS format.
-        - activate_env (str): Path to the environment activation script.
-        - partition (str): Partition name.
-        - ntasks_per_core (int): Number of tasks per core.
-        - cpus_per_task (int): Number of CPUs per task.
-        - memory (str): Memory allocation for the job.
-        - module_setup (str): Modules to be loaded before running the job.
-        - likwid (bool): If True, include LIKWID-related commands in the script.
-
-    Returns:
-    str
-        The generated batch script as a string.
-    """
-
-    # Default parameters for the batch script
-    params = {
-        'output_file': "./job_struphy_%j.out",
-        'error_file': "./job_struphy_%j.err",
-        'nodes': 1,
-        'ntasks_per_node': 72,
-        'mail_user': "",
-        'time': "00:10:00",
-        'activate_env': "~/git_repos/env_struphy_devel/bin/activate",
-        'partition': None,
-        'ntasks_per_core': None,
-        'cpus_per_task': None,
-        'memory': '2GB',
-        'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
-        'likwid': False
-    }
-
-    # Update params with any provided keyword arguments
-    params.update(kwargs)
-
-    # Start generating the SLURM batch script
-    script = "#!/bin/bash\n"
-    script = add_line(script, f"#SBATCH -o {params['output_file']}", "Standard output file")
-    script = add_line(script, f"#SBATCH -e {params['error_file']}", "Standard error file")
-    script = add_line(script, "#SBATCH -D ./", "Working directory")
-    script = add_line(script, "#SBATCH -J job_struphy", "Job name")
-
-    if params['partition']:
-        script = add_line(script, f"#SBATCH --partition={params['partition']}", "Partition")
-    script = add_line(script, f"#SBATCH --nodes={params['nodes']}", "Number of compute nodes")
-
-    if params['ntasks_per_core']:
-        script = add_line(script, f"#SBATCH --ntasks-per-core={params['ntasks_per_core']}", "Number of tasks per core")
-    script = add_line(script, f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}", "Number of MPI processes per node")
-
-    if params['cpus_per_task']:
-        script = add_line(script, f"#SBATCH --cpus-per-task={params['cpus_per_task']}", "Number of CPUs per task")
-    if params['memory']:
-        script = add_line(script, f"#SBATCH --mem={params['memory']}", "Memory allocation")
-    script = add_line(script, "#SBATCH --mail-type=all", "Send email notifications for all events")
-    script = add_line(script, f"#SBATCH --mail-user={params['mail_user']}", "Email address for notifications")
-    script = add_line(script, f"#SBATCH --time={params['time']}", "Maximum runtime")
-    script += "\n"
-
-    # Activate environment
-    script += "# Activate environment\n"
-    script = add_line(script, f"source {params['activate_env']}", "Activate the virtual environment")
-    script = add_line(script, "module purge", "Purge modules")
-    script = add_line(script, params['module_setup'], "Load necessary modules")
-    script = add_line(script, "export PATH={params['activate_env']}/../:$PATH", "Export path")
-    
-    script += "\n"
-
-    # Set up environment variables
-    script +=  "# Set up environment variables\n"
-    script = add_line(script, "# Set the number of OMP threads *per process* to avoid overloading of the node!", "")
-    script = add_line(script, "#export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK", "")
-    script = add_line(script, "# For pinning threads correctly", "")
-    script = add_line(script, "#export OMP_PLACES=cores", "")
-    script = add_line(script, "KMP_AFFINITY=scatter", "")
-    script += "\n"
-
-    # Save hardware information
-    script +=  "# Save hardware information\n"
-    script = add_line(script, "misc=\"misc_$SLURM_JOB_ID\"", "")
-    script = add_line(script, "mkdir -p $misc", "")
-    script = add_line(script, "module list > \"$misc/module_list.txt\"", "Save loaded modules")
-    script = add_line(script, "echo $OMP_NUM_THREADS > \"$misc/OMP_NUM_THREADS.txt\"", "Save OMP_NUM_THREADS value")
-    script = add_line(script, "printenv > \"$misc/printenv.txt\"", "Save environment variables")
-    script = add_line(script, "cp $0 $misc/", "Save a copy of the batch script")
-    script += "\n"
-
-    # Save SLURM-specific environment variables
-    script +=  "# Save SLURM-specific environment variables\n"
-    script = add_line(script, "for var in $(env | grep ^SLURM_ | cut -d= -f1); do", "Loop through SLURM variables")
-    script = add_line(script, "    echo \"$var=${!var}\" >> \"$misc/SLURM_VARIABLES.txt\"", "Save SLURM variable")
-    script = add_line(script, "done", "End of SLURM variable loop")
-    script += "\n"
-
-    # Add LIKWID-related commands if requested
-    if params['likwid']:
-        likwid_section = "# Add LIKWID-related commands\n"
-        likwid_section = add_line(likwid_section, "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)", "Set LIKWID prefix")
-        likwid_section = add_line(likwid_section, "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib", "Update LD_LIBRARY_PATH for LIKWID")
-        likwid_section = add_line(likwid_section, "likwid-topology > \"$misc/likwid-topology.txt\"", "Save LIKWID topology information")
-        likwid_section = add_line(likwid_section, "likwid-topology -g > \"$misc/likwid-topology-g.txt\"", "Save extended LIKWID topology information")
-        script += likwid_section
-        script += "\n"
-
-    return script
