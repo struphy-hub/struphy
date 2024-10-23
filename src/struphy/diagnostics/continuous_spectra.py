@@ -206,12 +206,11 @@ if __name__ == '__main__':
                         default=3)
 
     args = parser.parse_args()
-    
-    import struphy
-    libpath = struphy.__path__[0]
-    
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+
+    import struphy.utils.utils as utils
+
+    # Read struphy state file
+    state = utils.read_state()
 
     o_path = state['o_path']
     

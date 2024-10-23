@@ -9,21 +9,25 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not r
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.bsplines.evaluation_kernels_3d import get_spans, eval_0form_spline_mpi, eval_1form_spline_mpi, eval_2form_spline_mpi, eval_3form_spline_mpi, eval_vectorfield_spline_mpi
 
-from numpy import empty, shape, zeros, sqrt, log, abs, sign
+from numpy import empty, shape, zeros, sqrt, log, abs, sign, pi
 
 
-@stack_array('b_cart', 'norm_b_cart', 'v', 'temp', 'v_perp')
+@stack_array('dfm', 'dfinv', 'norm_b2', 'norm_b_cart', 'v', 'temp', 'v_perp')
 def eval_magnetic_moment_6d(markers: 'float[:,:]',
                             args_derham: 'DerhamArguments',
-                            b_cart_1: 'float[:,:,:]',
-                            b_cart_2: 'float[:,:,:]',
-                            b_cart_3: 'float[:,:,:]'):
+                            args_domain: 'DomainArguments',
+                            norm_b21: 'float[:,:,:]',
+                            norm_b22: 'float[:,:,:]',
+                            norm_b23: 'float[:,:,:]',
+                            abs_B0: 'float[:,:,:]'):
     """
     Evaluate parallel velocity and magnetic moment of each particles 
     and assign it into markers[ip, 3] and markers[ip, 4], respectively. 
     """
 
-    b_cart = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    norm_b2 = empty(3, dtype=float)
     norm_b_cart = empty(3, dtype=float)
     v = empty(3, dtype=float)
     temp = empty(3, dtype=float)
@@ -43,24 +47,40 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
 
         v[:] = markers[ip, 3:6]
 
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(eta1, eta2, eta3,
+                              args_domain,
+                              dfm)
+
+        # metric coeffs
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv(dfm, dfinv)
+
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        # b_cart, TODO: why vector-field?
-        eval_vectorfield_spline_mpi(span1, span2, span3,
-                                    args_derham,
-                                    b_cart_1,
-                                    b_cart_2,
-                                    b_cart_3,
-                                    b_cart)
+        # magnitude of magnetic field; 0form
+        absB0 = eval_0form_spline_mpi(span1, span2, span3,
+                                      args_derham,
+                                      abs_B0)
 
-        # calculate absB
-        absB = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
+        # normalized magnetic field; 2form
+        eval_2form_spline_mpi(span1, span2, span3,
+                              args_derham,
+                              norm_b21,
+                              norm_b22,
+                              norm_b23,
+                              norm_b2)
 
-        if absB != 0.:
-            norm_b_cart[:] = b_cart/absB
-        else:
-            norm_b_cart[:] = b_cart
+        # calculate normalized magnetic filed; cartesian
+        linalg_kernels.matrix_vector(dfm, norm_b2, norm_b_cart)
+        norm_b_cart /= det_df
+
+        # extract perpendicular velocity
+        linalg_kernels.cross(v, norm_b_cart, temp)
+        linalg_kernels.cross(norm_b_cart, temp, v_perp)
+
+        v_perp_square = (v_perp[0]**2 + v_perp[1]**2 + v_perp[2]**2)
 
         # calculate parallel velocity
         v_parallel = linalg_kernels.scalar_dot(norm_b_cart, v)
@@ -74,9 +94,7 @@ def eval_magnetic_moment_6d(markers: 'float[:,:]',
         # parallel velocity
         markers[ip, 3] = v_parallel
         # magnetic moment
-        markers[ip, 4] = 1/2 * v_perp_square / absB
-        # empty leftovers
-        markers[ip, 5] = 0.
+        markers[ip, 4] = 1/2 * v_perp_square / absB0
 
 
 def eval_magnetic_moment_5d(markers: 'float[:,:]',

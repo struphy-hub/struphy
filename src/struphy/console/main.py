@@ -23,6 +23,7 @@ def struphy():
     from struphy.console.profile import struphy_profile
     from struphy.console.pproc import struphy_pproc
     from struphy.console.test import struphy_test
+    import struphy.utils.utils as utils
 
     # struphy path
     import struphy
@@ -42,12 +43,8 @@ def struphy():
     version_message += 'Copyright 2019-2024 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n'
     version_message += 'MIT license\n'
 
-    # state dictionary
-    try:
-        with open(os.path.join(libpath, 'state.yml')) as f:
-            state = yaml.load(f, Loader=yaml.FullLoader)
-    except FileNotFoundError:
-        state = {}
+    # Read struphy state file
+    state = utils.read_state()
 
     if 'i_path' in state:
         i_path = state['i_path']
@@ -77,18 +74,29 @@ def struphy():
     path_message += f'current batch scripts:     {b_path}'
 
     # check parameter file in current input path:
-    params_files = recursive_get_files(i_path)
+    if os.path.exists(i_path) and os.path.isdir(i_path):
+        params_files = recursive_get_files(i_path)
+    else:
+        print('Path to input files missing! Set it with `struphy --set-i PATH`')
+        params_files = []
 
     # check output folders in current output path:
-    all_folders = os.listdir(o_path)
     out_folders = []
-    for name in all_folders:
-        if '.' not in name:
-            out_folders += [name]
+    if os.path.exists(o_path) and os.path.isdir(o_path):
+        all_folders = os.listdir(o_path)
+        for name in all_folders:
+            if '.' not in name:
+                out_folders += [name]
+    else:
+        print('Path to outputs directory missing! Set it with `struphy --set-o PATH`')
 
     # check batch scripts in current batch path:
-    batch_files = recursive_get_files(
-        b_path, contains=('.sh'), out=[], prefix=[])
+    if os.path.exists(b_path) and os.path.isdir(b_path):
+        batch_files = recursive_get_files(
+            b_path, contains=('.sh'), out=[], prefix=[])
+    else:
+        print('Path to batch files missing! Set it with `struphy --set-b PATH`')
+        batch_files = []
 
     try:
         with open(os.path.join(libpath, 'models', 'models_list'), "rb") as fp:
@@ -407,6 +415,14 @@ def struphy():
 
     parser_pproc.add_argument('--physical',
                               help='in addition to logical components, evaluates push-forwarded physical (xyz) components',
+                              action='store_true')
+
+    parser_pproc.add_argument('--guiding-center',
+                              help='compute guiding-center coordinates (only from Particles6D)',
+                              action='store_true')
+    
+    parser_pproc.add_argument('--classify',
+                              help='classify guiding-center trajectories (passing, trapped or lost)',
                               action='store_true')
 
     # 7. "test" sub-command
