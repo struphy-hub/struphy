@@ -517,15 +517,8 @@ class VariationalMHD(StruphyModel):
 
         # initialize base class
         super().__init__(params, comm = comm, inter_comm = inter_comm)
-
-        # Initialize mass matrix
-        self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'],
-            self.derham.Vh_fem['v'],
-            V_extraction_op=self.derham.extraction_ops['v'],
-            W_extraction_op=self.derham.extraction_ops['v'],
-            V_boundary_op=self.derham.boundary_ops['v'],
-            W_boundary_op=self.derham.boundary_ops['v'])
+        
+        self.WMM = self.mass_ops.create_weighted_mass('H1vec', 'H1vec')
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params['fluid']['mhd']['options']['VariationalMomentumAdvection']['lin_solver']
@@ -718,15 +711,8 @@ class ViscoresistiveMHD(StruphyModel):
 
         # initialize base class
         super().__init__(params, comm = comm, inter_comm = inter_comm)
-
-        # Initialize mass matrix
-        self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'],
-            self.derham.Vh_fem['v'],
-            V_extraction_op=self.derham.extraction_ops['v'],
-            W_extraction_op=self.derham.extraction_ops['v'],
-            V_boundary_op=self.derham.boundary_ops['v'],
-            W_boundary_op=self.derham.boundary_ops['v'])
+    
+        self.WMM = self.mass_ops.create_weighted_mass('H1vec', 'H1vec')
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params['fluid']['mhd']['options']['VariationalMomentumAdvection']['lin_solver']
@@ -830,7 +816,7 @@ class ViscoresistiveMHD(StruphyModel):
         WMM = self.WMM
         m1 = WMM.dot(self.pointer['mhd_uv'], out=self._tmp_m1)
 
-        en_U = self.pointer['mhd_uv'] .dot(m1)/2
+        en_U = self.pointer['mhd_uv'].dot(m1)/2
         self.update_scalar('en_U', en_U)
 
         wb2 = self._mass_ops.M2.dot(self.pointer['b2'])
@@ -941,15 +927,8 @@ class ViscousFluid(StruphyModel):
 
         # initialize base class
         super().__init__(params, comm = comm, inter_comm = inter_comm)
-        
-        # Initialize mass matrix
-        self.WMM = WeightedMassOperator(
-            self.derham.Vh_fem['v'],
-            self.derham.Vh_fem['v'],
-            V_extraction_op=self.derham.extraction_ops['v'],
-            W_extraction_op=self.derham.extraction_ops['v'],
-            V_boundary_op=self.derham.boundary_ops['v'],
-            W_boundary_op=self.derham.boundary_ops['v'])
+   
+        self.WMM = self.mass_ops.create_weighted_mass('H1vec', 'H1vec')
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params['fluid']['fluid']['options']['VariationalMomentumAdvection']['lin_solver']

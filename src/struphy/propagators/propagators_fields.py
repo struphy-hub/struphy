@@ -1083,10 +1083,10 @@ class FaradayExtended(Propagator):
         self._p_shape = params['shape_degree']
         self._p_size = params['shape_size']
         self._accum_density = params['accumulate_density']
-
+        
         # Initialize Accumulator object for getting the matrix and vector related with vector potential
         self._accum_potential = Accumulator(
-            self.derham, self.domain, self._a_space, 'hybrid_fA_Arelated', add_vector=True, symmetry='symm')
+            self.mass_ops, self.domain, self._a_space, 'hybrid_fA_Arelated', add_vector=True, symmetry='symm')
 
         self._solver_params = params['solver_params']
         # preconditioner
@@ -1137,8 +1137,7 @@ class FaradayExtended(Propagator):
                 [0.*self._weight_pre[k] for k in range(3)],
             ]
             # self._weight = [[self._weight_pre[0], self._weight_pre[2], self._weight_pre[1]], [self._weight_pre[2], self._weight_pre[1], self._weight_pre[0]], [self._weight_pre[1], self._weight_pre[0], self._weight_pre[2]]]
-            HybridM1 = self.mass_ops.assemble_weighted_mass(
-                self._weight, 'Hcurl', 'Hcurl')
+            HybridM1 = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', weights=self._weight, assemble=True)
 
             # next prepare for solving linear system
             _LHS = self._M1 + HybridM1 @ self._L2
@@ -1257,11 +1256,12 @@ class CurrentCoupling6DDensity(Propagator):
         self._rank = self.derham.comm.Get_rank()
 
         self._coupling_const = Ah / Ab / epsilon
+        
         # load accumulator
         self._accumulator = Accumulator(particles,
                                         u_space,
                                         accum_kernels.cc_lin_mhd_6d_1,
-                                        self.derham,
+                                        self.mass_ops,
                                         self.domain.args_domain,
                                         add_vector=False,
                                         symmetry='asym')
@@ -1453,11 +1453,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         self._accumulated_magnetization = accumulated_magnetization
-
+       
         self._ACC = Accumulator(particles,
                                 u_space,
                                 accum_kernels_gc.cc_lin_mhd_5d_M,
-                                self.derham,
+                                self.mass_ops,
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',
@@ -1680,11 +1680,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(self._u_id)
-
+        
         self._ACC = Accumulator(particles,
                                 u_space,
                                 accum_kernels_gc.cc_lin_mhd_5d_M,
-                                self.derham,
+                                self.mass_ops,
                                 self.domain.args_domain,
                                 add_vector=True,
                                 symmetry='symm',
@@ -1974,11 +1974,11 @@ class CurrentCoupling5DDensity(Propagator):
 
         self._scale_mat = coupling_params['Ah'] / \
             coupling_params['Ab'] / self._epsilon
-
+        
         self._accumulator = Accumulator(particles,
                                         u_space,
                                         accum_kernels_gc.cc_lin_mhd_5d_D,
-                                        self.derham,
+                                        self.mass_ops,
                                         self.domain.args_domain,
                                         add_vector=False,
                                         symmetry='asym')
@@ -3129,29 +3129,9 @@ class VariationalDensityEvolve(Propagator):
                                     recycle=True)
 
         # Other mass matrices for newton solve
-        self._M_un = WeightedMassOperator(
-            self.derham.Vh_fem['v'],
-            self.derham.Vh_fem['3'],
-            V_extraction_op=self.derham.extraction_ops['v'],
-            W_extraction_op=self.derham.extraction_ops['3'],
-            V_boundary_op=self.derham.boundary_ops['v'],
-            W_boundary_op=self.derham.boundary_ops['3'])
-
-        self._M_un1 = WeightedMassOperator(
-            self.derham.Vh_fem['3'],
-            self.derham.Vh_fem['v'],
-            V_extraction_op=self.derham.extraction_ops['3'],
-            W_extraction_op=self.derham.extraction_ops['v'],
-            V_boundary_op=self.derham.boundary_ops['3'],
-            W_boundary_op=self.derham.boundary_ops['v'])
-
-        self._M_drho = WeightedMassOperator(
-            self.derham.Vh_fem['3'],
-            self.derham.Vh_fem['3'],
-            V_extraction_op=self.derham.extraction_ops['3'],
-            W_extraction_op=self.derham.extraction_ops['3'],
-            V_boundary_op=self.derham.boundary_ops['3'],
-            W_boundary_op=self.derham.boundary_ops['3'])
+        self._M_un = self.mass_ops.create_weighted_mass('H1vec', 'L2')        
+        self._M_un1 = self.mass_ops.create_weighted_mass('L2', 'H1vec')
+        self._M_drho = self.mass_ops.create_weighted_mass('L2', 'L2')
 
         grid_shape = tuple([len(loc_grid)
                            for loc_grid in integration_grid])
@@ -4008,12 +3988,7 @@ class VariationalEntropyEvolve(Propagator):
                                     recycle=True)
 
         # For Newton solve
-        self._M_ds = WeightedMassOperator(
-            self.derham.Vh_fem['3'], self.derham.Vh_fem['3'],
-            V_extraction_op=self.derham.extraction_ops['3'],
-            W_extraction_op=self.derham.extraction_ops['3'],
-            V_boundary_op=self.derham.boundary_ops['3'],
-            W_boundary_op=self.derham.boundary_ops['3'])
+        self._M_ds = self.mass_ops.create_weighted_mass('L2', 'L2')
 
         Jacs = BlockVectorSpace(
             self.derham.Vh_pol['v'], self.derham.Vh_pol['3'])
@@ -5173,15 +5148,9 @@ class VariationalViscosity(Propagator):
         Pcoord2 = CoordinateProjector(
             2, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'])
 
-        g = self.mass_ops.sqrt_g
 
-        M1 = self.mass_ops.M1
-
-        self.M1_du = WeightedMassOperator(
-            self.derham.Vh_fem['1'],
-            self.derham.Vh_fem['1'],
-            V_extraction_op=self.derham.extraction_ops['1'],
-            W_extraction_op=self.derham.extraction_ops['1'])
+        M1 = self.mass_ops.M1        
+        self.M1_du = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl')
 
         self.pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
             self.mass_ops.M3)
@@ -5192,11 +5161,7 @@ class VariationalViscosity(Propagator):
                                maxiter=1000,
                                verbose=False)
 
-        self.M_de_ds = WeightedMassOperator(
-            self.derham.Vh_fem['3'],
-            self.derham.Vh_fem['3'],
-            V_extraction_op=self.derham.extraction_ops['3'],
-            W_extraction_op=self.derham.extraction_ops['3'])
+        self.M_de_ds = self.mass_ops.create_weighted_mass('L2', 'L2')
 
         if self._lin_solver['type'][1] is None:
             self.pc = None
@@ -5646,24 +5611,12 @@ class VariationalResistivity(Propagator):
                                maxiter=1000,
                                verbose=False)
 
-        M2 = self.mass_ops.M2
-
-        self.M_de_ds = WeightedMassOperator(
-            self.derham.Vh_fem['3'],
-            self.derham.Vh_fem['3'],
-            V_extraction_op=self.derham.extraction_ops['3'],
-            W_extraction_op=self.derham.extraction_ops['3'])
-
-        g = self.mass_ops.sqrt_g
-
-        self.M1_cb = WeightedMassOperator(
-            self.derham.Vh_fem['1'],
-            self.derham.Vh_fem['1'],
-            V_extraction_op=self.derham.extraction_ops['1'],
-            W_extraction_op=self.derham.extraction_ops['1'],
-            weights_info=[[g, None, None],
-                          [None, g, None],
-                          [None, None, g]])
+        M2 = self.mass_ops.M2 
+        self.M_de_ds = self.mass_ops.create_weighted_mass('L2', 'L2')
+        
+        D = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]        
+        self.M1_cb = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', weights = [D, 'sqrt_g'])
+        
 
         if self._lin_solver['type'][1] is None:
             self.pc = None

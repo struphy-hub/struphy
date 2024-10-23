@@ -5,6 +5,7 @@ from struphy.propagators import propagators_fields, propagators_coupling, propag
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 
 
+
 class VlasovAmpereOneSpecies(StruphyModel):
     r'''Vlasov-Ampère equations for one species.
 
@@ -205,12 +206,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # sanity check
         # self.pointer['species1'].show_distribution_function(
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
+        
 
         # accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['species1'],
                                          'H1',
                                          accum_kernels.charge_density_0form,
-                                         self.derham,
+                                         self.mass_ops,
                                          self.domain.args_domain)
 
         charge_accum(self.pointer['species1'].vdim)
@@ -484,12 +486,14 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # sanity check
         # self.pointer['species1'].show_distribution_function(
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
+        
+        
 
         # accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['species1'],
                                          "H1",
                                          accum_kernels.charge_density_0form,
-                                         self.derham,
+                                         self.mass_ops,
                                          self.domain.args_domain)
 
         charge_accum(self.pointer['species1'].vdim)
@@ -789,12 +793,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Initialize fields and particles
         super().initialize_from_params()
+        
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['species1'],
                                          "H1",
                                          accum_kernels.charge_density_0form,
-                                         self.derham,
+                                         self.mass_ops,
                                          self.domain.args_domain)
 
         charge_accum(self.pointer['species1'].vdim)
@@ -961,12 +966,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             self.mass_ops.selected_weight = 'eq_braginskii'
         else:
             magn_bckgr = self.mhd_equil
+            
 
         # Poisson right-hand side
         charge_accum = AccumulatorVector(self.pointer['ions'],
                                          "H1",
                                          accum_kernels_gc.gc_density_0form,
-                                         self.derham,
+                                         self.mass_ops,
                                          self.domain.args_domain)
 
         rho = (charge_accum, self.pointer['ions'])
