@@ -127,7 +127,7 @@ mpi_scaling_setup:
     - python3 src/struphy/profiling/generate_params/write_ptest_params.py      # Write parameter files
     - python3 src/struphy/profiling/generate_params/run_simulations.py check   # Check which simulation to run
     - python3 src/struphy/profiling/generate_params/run_simulations.py run     # Run the simulations
-    - struphy test performance --batch batch_raven.sh                          # Submit a job that tests performance of all models
+    # - struphy test performance --batch batch_raven.sh                          # Submit a job that tests performance of all models
     - echo "Submitted SLURM jobs"
     # Wait for the SLURM jobs to finish
     - while squeue -u $USER | grep str_per; do
