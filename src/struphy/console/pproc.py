@@ -32,7 +32,8 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False, guid
     import struphy.utils.utils as utils
 
     # Read struphy state file
-    state = utils.read_state()
+    libpath = struphy.__path__[0]
+    state = utils.read_state(libpath)
 
     o_path = state['o_path']
 
