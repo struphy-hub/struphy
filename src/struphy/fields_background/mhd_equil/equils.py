@@ -2194,6 +2194,19 @@ class GVECequilibrium(LogicalMHDequilibrium):
         # gvec object
         self._gvec = GVEC(json_file, mapping=mapping,
                           unit_tor_domain=unit_tor_domain, use_pyccel=True)
+        
+        self._R0 = (self.gvec.f(1.,0,0)[0]+self.gvec.f(1.,0.5,0)[0])/2
+        
+        print()
+        print()
+        print(self._R0)
+        print()
+        print()
+        print(self.gvec.f(0.,0,0))
+        print(self.gvec.f(1.,0,0))
+        print(self.gvec.f(1.,0.5,0))
+        print()
+        print()
 
         # struphy domain object
         self._domain = GVECunit(self)
@@ -2201,6 +2214,13 @@ class GVECequilibrium(LogicalMHDequilibrium):
         # create cache
         self._cache = {'bv': {'grids': [], 'outs': []},
                        'jv': {'grids': [], 'outs': []}}
+        
+    def _r(self, eta1, eta2):
+        """ Get the radial coordinate (only for very simple (torus) geometry)
+        """
+        eta3 = np.zeros_like(eta1)
+        X,Y,Z = self.gvec.f(eta1,eta2,eta3)
+        return np.sqrt((X-self._R0)**2+Z**2)
 
     @property
     def domain(self):
@@ -2377,7 +2397,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        r = rmin + eta1*(1. - rmin)
+        r_loc = rmin + eta1*(1. - rmin)
+        r = self._r(r_loc, eta2)
         if self._params['density_profile'] == 'pressure':
             return self._params['n0'] * self.p0(*etas)
         elif self._params['density_profile'] == 'parabolic':
