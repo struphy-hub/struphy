@@ -46,7 +46,7 @@ def test_hybrid(map_and_equil, fast, model=None, Tend=None):
 
 
 if __name__ == '__main__':
-
-    test_hybrid(True, ('Cuboid', 'HomogenSlab'), model=None)
-    test_hybrid(True, ('HollowTorus', 'AdhocTorus'), model=None)
-    test_hybrid(True, ('Tokamak', 'EQDSKequilibrium'), model=None)
+    
+    test_hybrid(('Cuboid', 'HomogenSlab'), True, model=None)
+    test_hybrid(('HollowTorus', 'AdhocTorus'), True, model=None)
+    test_hybrid(('Tokamak', 'EQDSKequilibrium'), True, model=None)
