@@ -91,7 +91,7 @@ stages:
     - export IOB_DIR=$CI_JOBS_DIR
     - export FIGURE_DIR=$CI_JOBS_DIR/figures
     - export VENV_DIR=/ptmp/maxlin/struphy/virtual_envs
-    - export ARTIFACT_DIR=${CI_PROJECT_DIR}/artifacts
+    - export ARTIFACT_DIR=artifacts
     - echo $PIPELINE_NAME
     - echo $CI_JOBS_DIR
     - echo $IOB_DIR
