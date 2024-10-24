@@ -204,7 +204,7 @@ upload_outputs:
   artifacts:
     paths:
       - artifacts/
-    expire_in: 1 day
+    expire_in: 30 days
 
 # # python virtual environments into cache
 # default_venv:
