@@ -189,15 +189,16 @@ upload_outputs:
     # Print the files in the output directory
     - find $CI_JOBS_DIR/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
     # Make tar.gz files and upload it to datashare
-    - tar -czf artifacts_$datetime.tar.gz artifacts/
-    - |
-      curl -T "artifacts_$datetime.tar.gz" -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
     - ls $CI_JOBS_DIR/
     - datetime=$(date +"%Y%m%d_%H%M%S")
     - mkdir -p $ARTIFACT_DIR/$datetime
     - cp -r $CI_JOBS_DIR/ $ARTIFACT_DIR/$datetime
     - ls -R artifacts/
-    - echo "Uploading output artifacts..."
+    - echo "Uploading output artifacts to datashare..."
+    - tar -czf artifacts_${datetime}.tar.gz artifacts/
+    - |
+      curl -T artifacts_${datetime}.tar.gz -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
+    - echo "Uploading output artifacts to Gitlab..."
   artifacts:
     paths:
       - artifacts/
