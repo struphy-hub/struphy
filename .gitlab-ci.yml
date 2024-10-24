@@ -190,11 +190,8 @@ upload_outputs:
     - find $CI_JOBS_DIR/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
     # Make tar.gz files and upload it to datashare
     # - tar -czf outputs_$datetime.tar.gz $CI_JOBS_DIR/
-    # - |
-    #   curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: \
-    #     -H 'X-Requested-With: XMLHttpRequest' \
-    #     -H 'X-Method-Override: PUT' \
-    #     https://datashare.mpcdf.mpg.de/public.php/webdav/
+    - |
+      curl -T outputs_"$datetime.tar.gz" -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
     - ls $CI_JOBS_DIR/
     - datetime=$(date +"%Y%m%d_%H%M%S")
     - mkdir -p $ARTIFACT_DIR/$datetime
