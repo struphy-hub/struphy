@@ -193,7 +193,7 @@ upload_outputs:
     - datetime=$(date +"%Y%m%d_%H%M%S")
     - mkdir -p $ARTIFACT_DIR/$datetime
     - cp -r $CI_JOBS_DIR/ $ARTIFACT_DIR/$datetime
-    - ls -R artifacts/
+    - ls -R $ARTIFACT_DIR/
     - echo "Uploading output artifacts to datashare..."
     - tar -czf artifacts_${datetime}.tar.gz $ARTIFACT_DIR/$datetime
     - |
