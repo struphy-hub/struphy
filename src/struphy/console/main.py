@@ -252,6 +252,12 @@ def struphy():
                             help='how often to save data in hdf5 file, i.e. every "save-step" time step (default=1, which is every time step)',
                             default=1,)
 
+    parser_run.add_argument('--sort-step',
+                            type=int,
+                            metavar='N',
+                            help='sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)',
+                            default=0,)
+
     parser_run.add_argument('-r', '--restart',
                             help='restart the simulation in the output folder specified under -o',
                             action='store_true',)
@@ -322,11 +328,11 @@ def struphy():
     parser_params.add_argument('-y', '--yes',
                                help='Say yes on prompt to overwrite .yml FILE',
                                action='store_true')
-    
+
     parser_run.add_argument('--likwid',
                             help='run with Likwid',
                             action='store_true',)
-    
+
     parser_run.add_argument('-li', '--likwid-inp',
                             type=str,
                             metavar='FILE',
@@ -612,11 +618,11 @@ def struphy():
         subprocess.run(['struphy', '--set-b', b_path])
 
         exit()
-        
+
     if args.refresh_models:
-        
+
         print('Collecting available models ...')
-        
+
         import inspect
         from struphy.models import fluid, kinetic, hybrid, toy
         import pickle
@@ -691,8 +697,8 @@ def struphy():
                          kinetic_message,
                          hybrid_message,
                          toy_message], fp)
-            
-        print('Done.')    
+
+        print('Done.')
         exit()
 
     # load sub-command function (see functions below)

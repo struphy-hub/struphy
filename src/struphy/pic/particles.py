@@ -45,6 +45,7 @@ class Particles6D(Particles):
                  braginskii_equil: BraginskiiEquilibrium = None,
                  bckgr_params: dict = None,
                  pert_params: dict = None,
+                 sorting_params: dict = None,
                  **marker_params):
 
         if bckgr_params is None:
@@ -57,13 +58,14 @@ class Particles6D(Particles):
                          braginskii_equil=braginskii_equil,
                          bckgr_params=bckgr_params,
                          pert_params=pert_params,
+                         sorting_params=sorting_params,
                          **marker_params)
 
     @property
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 23
+        return 24
 
     @property
     def vdim(self):
@@ -180,6 +182,7 @@ class Particles5D(Particles):
                  braginskii_equil: BraginskiiEquilibrium = None,
                  bckgr_params: dict = None,
                  pert_params: dict = None,
+                 sorting_params: dict = None,
                  **marker_params):
 
         if bckgr_params is None:
@@ -192,7 +195,8 @@ class Particles5D(Particles):
                          braginskii_equil=braginskii_equil,
                          bckgr_params=bckgr_params,
                          pert_params=pert_params,
-                         **marker_params)
+                         sorting_params=sorting_params,
+                         ** marker_params)
 
         # magnetic background
         if self.mhd_equil is not None:
@@ -217,7 +221,7 @@ class Particles5D(Particles):
     def n_cols(self):
         """Number of columns in markers array, i.e. the attributes of each marker.
         """
-        return 31
+        return 32
 
     @property
     def vdim(self):
@@ -462,6 +466,7 @@ class Particles3D(Particles):
                  braginskii_equil: BraginskiiEquilibrium = None,
                  bckgr_params: dict = None,
                  pert_params: dict = None,
+                 sorting_params: dict = None,
                  **marker_params):
 
         if bckgr_params is None:
@@ -474,13 +479,14 @@ class Particles3D(Particles):
                          braginskii_equil=braginskii_equil,
                          bckgr_params=bckgr_params,
                          pert_params=pert_params,
+                         sorting_params=sorting_params,
                          **marker_params)
 
     @property
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 17
+        return 18
 
     @property
     def vdim(self):

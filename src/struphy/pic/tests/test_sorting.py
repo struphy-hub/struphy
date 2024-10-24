@@ -1,0 +1,58 @@
+from struphy.geometry import domains
+import numpy as np
+from mpi4py import MPI
+from time import time
+from struphy.feec.psydac_derham import Derham
+from struphy.pic.particles import Particles6D
+
+import pytest
+
+
+@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize('Nel', [[8, 9, 10]])
+@pytest.mark.parametrize('p', [[2, 3, 4]])
+@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, True], [True, True, False]])
+@pytest.mark.parametrize('mapping', [
+    ['Cuboid', {
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
+@pytest.mark.parametrize('Np', [10000])
+def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
+
+    mpi_comm = MPI.COMM_WORLD
+    # assert mpi_comm.size >= 2
+    rank = mpi_comm.Get_rank()
+    mpi_size = mpi_comm.Get_size()
+
+    # DOMAIN object
+    dom_type = mapping[0]
+    dom_params = mapping[1]
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    # DeRham object
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
+    params_markers = {'Np': Np, 'eps': .25,
+                      'loading': {'type': 'pseudo_random', 'seed': 1607, 'moments': [0., 0., 0., 1., 2., 3.], 'spatial': 'uniform'}
+                      }
+    params_sorting = {'nx': 3, 'ny': 3, 'nz': 3, 'eps': 0.25}
+
+    particles = Particles6D(
+        'test_particles', **params_markers, derham=derham, bckgr_params=None, sorting_params=params_sorting)
+    particles.draw_markers(sort=False)
+    particles.mpi_sort_markers()
+
+    time_start = time()
+    particles.do_sort()
+    time_end = time()
+    time_sorting = time_end-time_start
+
+    print("Rank : {0} | Sorting time : {1:8.6f}".format(rank, time_sorting))
+
+    box_markers = particles.markers[:, -2]
+    assert (all(box_markers[i] <= box_markers[i + 1]
+            for i in range(len(box_markers)-1)))
+
+
+if __name__ == '__main__':
+    test_sorting([8, 9, 10], [2, 3, 4], [False, True, False], ['Cuboid', {
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], 1000000)
