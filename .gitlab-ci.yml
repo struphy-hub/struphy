@@ -195,13 +195,13 @@ upload_outputs:
     - cp -r $CI_JOBS_DIR/ $ARTIFACT_DIR/$datetime
     - ls -R artifacts/
     - echo "Uploading output artifacts to datashare..."
-    - tar -czf artifacts_${datetime}.tar.gz artifacts/
+    - tar -czf artifacts_${datetime}.tar.gz $ARTIFACT_DIR/$datetime
     - |
       curl -T artifacts_${datetime}.tar.gz -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
     - echo "Uploading output artifacts to Gitlab..."
   artifacts:
     paths:
-      - artifacts/
+      - $ARTIFACT_DIR/$datetime
     expire_in: 30 days
 
 # # python virtual environments into cache
