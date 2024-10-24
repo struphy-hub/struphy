@@ -1049,3 +1049,62 @@ class RandomParticleDiffusion(StruphyModel):
 
     def update_scalar_quantities(self):
         pass
+
+
+class PressureLessSPH(StruphyModel):
+    r'''Pressureless fluid with smoothed particle hydrodynamics
+    '''
+
+    @staticmethod
+    def species():
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+
+        dct['kinetic']['fluid_p'] = 'Particles6D'
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return 'fluid_p'
+
+    @staticmethod
+    def velocity_scale():
+        return None
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_markers.PushEta: ['fluid_p']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    def __init__(self, params, comm, inter_comm = None):
+
+        super().__init__(params, comm, inter_comm = inter_comm)
+
+        from mpi4py.MPI import SUM, IN_PLACE
+
+        # prelim
+        fluid_p_params = self.kinetic['fluid_p']['params']
+        algo_eta = params['kinetic']['fluid_p']['options']['PushEta']['algo']
+
+        # # project magnetic background
+        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
+        #                                  self.mhd_equil.b2_2,
+        #                                  self.mhd_equil.b2_3])
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
+                                                     'bc_type': fluid_p_params['markers']['bc']['type']}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar('en_kin')
+
+    def update_scalar_quantities(self):
+        pass
