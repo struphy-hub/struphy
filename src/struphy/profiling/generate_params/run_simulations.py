@@ -93,7 +93,7 @@ def main():
 
                 script_params = {
                         'job_name': job_name,
-                        'ntasks_per_node': nmpi % 72,
+                        'ntasks_per_node': 72,
                         'module_setup': "module load gcc/12 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2",
                         'likwid': True,
                         'venv_path':venv_path,
