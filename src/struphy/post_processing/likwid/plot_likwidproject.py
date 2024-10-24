@@ -898,7 +898,6 @@ if __name__ == "__main__":
     procs_per_clone = "any"
 
     print(f"# Plotting simulation: {args.title}")
-    title = "Standard likwid profiling"
     plot_files(
         projects=projects,
         output_path=args.output,

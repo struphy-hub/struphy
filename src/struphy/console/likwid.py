@@ -19,7 +19,6 @@ def struphy_likwid_profile(dir, title, output, groups, skip, plots):
     procs_per_clone = "any"
 
     print(f"# Plotting simulation: {title}")
-    title = "Standard likwid profiling"
     plot_files(
         projects=projects,
         output_path=output,
