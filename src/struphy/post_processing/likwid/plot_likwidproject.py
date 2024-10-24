@@ -72,7 +72,7 @@ def get_data(
             group_dict = {
                 "simulation_name": project.name,  #
                 "description": project.get_description(group),
-                "job_name": project.get_clone_configuration(),  # project.name,
+                "job_name": project.name,
                 "group": group,
             }
 
