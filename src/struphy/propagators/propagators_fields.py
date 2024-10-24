@@ -5713,7 +5713,7 @@ class VariationalResistivity(Propagator):
                                verbose=False,
                                recycle=True)
 
-        curl = self.derham.curl_bcfree
+        curl = self.derham.curl
         self.Tcurl = inv_M1@curl.T@M2
 
         self.phy_stiffness = M2@curl@inv_M1@curl.T@M2
