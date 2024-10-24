@@ -9,7 +9,7 @@ grid:
     polar_ck: -1
     Nclones: 1
 
-time: {dt: 0.005, Tend: 1.0, split_algo: LieTrotter}
+time: {dt: 0.1, Tend: 1.0, split_algo: LieTrotter}
 
 units: {x: 1.0, B: 1.0, n: 1.0}
 

@@ -8,7 +8,7 @@ grid:
     nq_pr: null
     polar_ck: -1
 
-time: {dt: 0.05, Tend: 1.0, split_algo: LieTrotter}
+time: {dt: 0.1, Tend: 1.0, split_algo: LieTrotter}
 
 units: {x: 1.0, B: 1.0, n: 1.0}
 
