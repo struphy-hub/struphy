@@ -98,7 +98,8 @@ def generate_batch_script(**kwargs):
         likwid_section = add_line(likwid_section, "likwid-topology -g > \"$misc/likwid-topology-g.txt\"", "Save extended LIKWID topology information")
         script += likwid_section
         script += "\n"
-
+    
+    script += "\n"
     return script
 
 def save_batch_script(batch_script, filename, path = None):
