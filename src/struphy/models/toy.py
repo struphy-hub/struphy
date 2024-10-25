@@ -1059,7 +1059,7 @@ class PressureLessSPH(StruphyModel):
     def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['kinetic']['p_fluid'] = 'Particles6D'
+        dct['kinetic']['p_fluid'] = 'HydroParticles'
         return dct
 
     @staticmethod

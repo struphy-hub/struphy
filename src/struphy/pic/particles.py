@@ -580,8 +580,8 @@ class HydroParticles(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'Maxwellian3D',
-                'Maxwellian3D': {}}
+        return {'type': 'Constant6D',
+                'Constant6D': {}}
 
     def __init__(self,
                  name: str,
@@ -649,38 +649,16 @@ class HydroParticles(Particles):
             The volume-form sampling density.
         -------
         """
-        # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {'n': 1.,
-                       'u1': self.marker_params['loading']['moments'][0],
-                       'u2': self.marker_params['loading']['moments'][1],
-                       'u3': self.marker_params['loading']['moments'][2],
-                       'vth1': self.marker_params['loading']['moments'][3],
-                       'vth2': self.marker_params['loading']['moments'][4],
-                       'vth3': self.marker_params['loading']['moments'][5]}
 
-        fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
+        if self.spatial == 'uniform':
+            return 0*eta1+1.
 
-        # fluid case, singular distribution in v-space
-        if maxw_params['vth1']<1e-16:
-            assert maxw_params['vth2']<1e-16 and maxw_params['vth3']<1e-16, \
-                'Sampling distribution cannot be singular in only one velocity direction'
-            if self.spatial == 'uniform':
-                return 0*eta1+1.
+        elif self.spatial == 'disc':
+            return 2*eta1
 
-            elif self.spatial == 'disc':
-                return 2*eta1
         else:
-            assert maxw_params['vth2']>1e-16 and maxw_params['vth3']>1e-16, \
-                'Sampling distribution cannot be singular in only one velocity direction'
-            if self.spatial == 'uniform':
-                return fun(eta1, eta2, eta3, *v)
-
-            elif self.spatial == 'disc':
-                return fun(eta1, eta2, eta3, *v)*2*eta1
-
-            else:
-                raise NotImplementedError(
-                    f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+            raise NotImplementedError(
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
         """ Sampling density function as 0 form.

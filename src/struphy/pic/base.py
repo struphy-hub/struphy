@@ -12,7 +12,7 @@ from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles
-from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background import maxwellians, sph_backgrounds
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
 
@@ -154,15 +154,20 @@ class Particles(metaclass=ABCMeta):
 
                 print(
                     f'\n{fi} is not in bckgr_params; default background parameters are used.')
+            if self.marker_params['loading']['moments']=='degenerate':
+                module = sph_backgrounds
+            else :
+                module = maxwellians
 
+            #Kinetic case
             if self._f0 is None:
-                self._f0 = getattr(maxwellians, fi_type)(
+                self._f0 = getattr(module, fi_type)(
                     maxw_params=maxw_params,
                     mhd_equil=pass_mhd_equil,
                     braginskii_equil=pass_braginskii_equil
                 )
             else:
-                self._f0 = self._f0 + getattr(maxwellians, fi_type)(
+                self._f0 = self._f0 + getattr(module, fi_type)(
                     maxw_params=maxw_params,
                     mhd_equil=pass_mhd_equil,
                     braginskii_equil=pass_braginskii_equil
@@ -826,28 +831,67 @@ class Particles(metaclass=ABCMeta):
                 raise ValueError(
                     'Specified particle loading method does not exist!')
 
-            # inverse transform sampling in velocity space
-            u_mean = np.array(
-                self.marker_params['loading']['moments'][:self.vdim])
-            v_th = np.array(
-                self.marker_params['loading']['moments'][self.vdim:])
 
-            # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
-            if self.vdim == 3:
-                self.velocities = sp.erfinv(
-                    2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
-            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
-            elif self.vdim == 2:
-                self._markers[:n_mks_load_loc, 3] = sp.erfinv(
-                    2*self.velocities[:, 0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
+            if self.marker_params['loading']['moments']=='degenerate':
 
-                self._markers[:n_mks_load_loc, 4] = np.sqrt(
-                    -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
-            elif self.vdim == 0:
-                pass
+                bckgr_type = self.bckgr_params['type']
+                bp_copy = copy.deepcopy(self.bckgr_params)
+                pp_copy = copy.deepcopy(self.pert_params)
+
+                if not isinstance(bckgr_type, list):
+                    bckgr_type = [bckgr_type]
+                self._f_init = None
+                for fi in bckgr_type:
+                    if fi[-2] == '_':
+                        fi_type = fi[:-2]
+                    else:
+                        fi_type = fi
+
+                    pert_params = pp_copy
+                    if pp_copy is not None:
+                        if fi in pp_copy.keys():
+                            pert_params = pp_copy[fi]
+
+                    if self._f_init is None:
+                        self._f_init = getattr(sph_backgrounds, fi_type)(
+                            maxw_params=bp_copy[fi],
+                            pert_params=pert_params,
+                            mhd_equil=self.mhd_equil,
+                            braginskii_equil=self.braginskii_equil
+                        )
+                    else:
+                        self._f_init = self._f_init + getattr(sph_backgrounds, fi_type)(
+                            maxw_params=bp_copy[fi],
+                            pert_params=pert_params,
+                            mhd_equil=self.mhd_equil,
+                            braginskii_equil=self.braginskii_equil
+                        )
+
+                self.velocities = self._f_init.u(*self.phasespace_coords[:, 0:3].T).T
+
             else:
-                raise NotImplementedError(
-                    'Inverse transform sampling of given vdim is not implemented!')
+                # inverse transform sampling in velocity space
+                u_mean = np.array(
+                    self.marker_params['loading']['moments'][:self.vdim])
+                v_th = np.array(
+                    self.marker_params['loading']['moments'][self.vdim:])
+
+                # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
+                if self.vdim == 3:
+                    self.velocities = sp.erfinv(
+                        2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
+                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
+                elif self.vdim == 2:
+                    self._markers[:n_mks_load_loc, 3] = sp.erfinv(
+                        2*self.velocities[:, 0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
+
+                    self._markers[:n_mks_load_loc, 4] = np.sqrt(
+                        -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
+                elif self.vdim == 0:
+                    pass
+                else:
+                    raise NotImplementedError(
+                        'Inverse transform sampling of given vdim is not implemented!')
 
             # inversion method for drawing uniformly on the disc
             self._spatial = self.marker_params['loading']['spatial']
@@ -1013,32 +1057,35 @@ class Particles(metaclass=ABCMeta):
                             bp_copy[fi] = {'n': 0.}
 
         # Get the initialization function and pass the correct arguments
-        self._f_init = None
-        for fi in bckgr_type:
-            if fi[-2] == '_':
-                fi_type = fi[:-2]
-            else:
-                fi_type = fi
+        if self.marker_params['loading']['moments']!='degenerate':
+            # In SPH case f_init is set in draw_markers
+            self._f_init = None
+            for fi in bckgr_type:
+                if fi[-2] == '_':
+                    fi_type = fi[:-2]
+                else:
+                    fi_type = fi
 
-            pert_params = pp_copy
-            if pp_copy is not None:
-                if fi in pp_copy.keys():
-                    pert_params = pp_copy[fi]
+                pert_params = pp_copy
+                if pp_copy is not None:
+                    if fi in pp_copy.keys():
+                        pert_params = pp_copy[fi]
 
-            if self._f_init is None:
-                self._f_init = getattr(maxwellians, fi_type)(
-                    maxw_params=bp_copy[fi],
-                    pert_params=pert_params,
-                    mhd_equil=self.mhd_equil,
-                    braginskii_equil=self.braginskii_equil
-                )
-            else:
-                self._f_init = self._f_init + getattr(maxwellians, fi_type)(
-                    maxw_params=bp_copy[fi],
-                    pert_params=pert_params,
-                    mhd_equil=self.mhd_equil,
-                    braginskii_equil=self.braginskii_equil
-                )
+                if self._f_init is None:
+                    self._f_init = getattr(maxwellians, fi_type)(
+                        maxw_params=bp_copy[fi],
+                        pert_params=pert_params,
+                        mhd_equil=self.mhd_equil,
+                        braginskii_equil=self.braginskii_equil
+                    )
+                else:
+                    self._f_init = self._f_init + getattr(maxwellians, fi_type)(
+                        maxw_params=bp_copy[fi],
+                        pert_params=pert_params,
+                        mhd_equil=self.mhd_equil,
+                        braginskii_equil=self.braginskii_equil
+                    )
+
 
         # evaluate initial distribution function
         f_init = self.f_init(*self.f_coords.T)
