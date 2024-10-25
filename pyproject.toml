@@ -48,6 +48,7 @@ dependencies = [
     'desc-opt',
     'netcdf4<1.7.0',
     'kaleido',
+    'pre-commit',
 ]
 
 [project.urls]
