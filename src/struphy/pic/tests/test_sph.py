@@ -37,7 +37,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     params_sorting = {'nx': 3, 'ny': 3, 'nz': 3, 'eps': 0.25}
 
     bckgr_params = {'type': 'Constant6D',
-                'Constant6D': {'n' : 1.}}
+                'Constant6D': {'n' : .1}}
 
     particles = HydroParticles(
         'test_particles', 

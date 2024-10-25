@@ -701,4 +701,5 @@ class HydroParticles(Particles):
             out=np.zeros_like(eta1)
 
         naive_evaluation(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], out)
+        out /= self.n_mks
         return out
