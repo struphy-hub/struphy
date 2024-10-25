@@ -201,7 +201,7 @@ upload_outputs:
     - echo "Uploading output artifacts to Gitlab..."
   artifacts:
     paths:
-      - $ARTIFACT_DIR/$datetime
+      - $ARTIFACT_DIR
     expire_in: 30 days
 
 # # python virtual environments into cache
