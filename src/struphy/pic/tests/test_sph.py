@@ -30,7 +30,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     domain = domain_class(**dom_params)
 
     # DeRham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, domain=domain)
     params_markers = {'Np': Np, 'eps': .25,
                       'loading': {'type': 'pseudo_random', 'seed': 1607, 'moments': 'degenerate', 'spatial': 'uniform'}
                       }
