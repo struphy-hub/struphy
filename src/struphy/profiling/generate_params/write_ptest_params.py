@@ -1,11 +1,13 @@
-import struphy
+import argparse
 import copy
-import yaml
 import os
 
-import struphy.utils.utils as utils
 import standard_geometries as standard_geometries
 import standard_mhd_equilibrium as standard_mhd_equils
+import yaml
+
+import struphy
+import struphy.utils.utils as utils
 
 # Parameters
 libpath = struphy.__path__[0]
@@ -23,9 +25,7 @@ def load_yaml_files(file_paths):
     }
 
 
-standard_params_dir = os.path.join(
-    libpath, "io/inp/standard_parameters"
-)
+standard_params_dir = os.path.join(libpath, "io/inp/standard_parameters")
 
 yaml_files = [
     f"{standard_params_dir}/likwid_config.yml",
@@ -40,10 +40,12 @@ yaml_files = [
 
 yaml_data = load_yaml_files(yaml_files)
 
+
 def save_parameter_file(parameters, filename):
     with open(filename, "w") as file:
         yaml.safe_dump(parameters, file, default_flow_style=False)
     print(f"Updated '{filename}'")
+
 
 def apply_modifications(parameters, modifications):
     for key, value in modifications.items():
@@ -54,11 +56,13 @@ def apply_modifications(parameters, modifications):
         current_dict[keys[-1]] = value
 
 
-def generate_parameter_files(base_parameters, modifications_list, filename_template):
+def generate_parameter_files(
+    base_parameters, modifications_list, filename_template, params_prefix="params_",
+):
     for modifications in modifications_list:
         parameters = copy.deepcopy(base_parameters)
         apply_modifications(parameters, modifications)
-        
+
         # Prepare filename variables
         filename_vars = {}
         for k, v in modifications.items():
@@ -69,9 +73,23 @@ def generate_parameter_files(base_parameters, modifications_list, filename_templ
                 filename_vars[k.replace(".", "_")] = v
 
         filename = filename_template.format(**filename_vars)
+
+        # Set the projectname in the parameter file
+        param_filename = os.path.basename(filename)
+        projectname = param_filename.replace(params_prefix, "").replace(".yml", "")
+        parameters["setup"]["projectname"] = projectname
+
+        # Save the simulation name
         save_parameter_file(parameters, filename)
 
-def mpi_scan(base_parameters, mpi_values, filename_template, extra_modifications=None):
+
+def mpi_scan(
+    base_parameters,
+    mpi_values,
+    filename_template,
+    extra_modifications=None,
+    params_prefix="params_",
+):
     """
     Generate parameter files for different MPI values.
 
@@ -83,48 +101,76 @@ def mpi_scan(base_parameters, mpi_values, filename_template, extra_modifications
     """
     modifications_list = []
     for mpi in mpi_values:
-        modifications = {"mpi": mpi}
+        modifications = {"setup.mpi": mpi}
         if extra_modifications:
             modifications.update(extra_modifications)
         modifications_list.append(modifications)
-    generate_parameter_files(base_parameters, modifications_list, filename_template)
+    generate_parameter_files(
+        base_parameters, modifications_list, filename_template, params_prefix,
+    )
 
 
-mpi_values = [8, 16, 32, 48, 64, 72]
-# Save LIKWID configuration
-for mpi_val in mpi_values:
-    parameter_file = f"{i_path}/likwid_config_mpi{mpi_val}.yml"
-    nperdomain = min(int(mpi_val / 2), 36)
-    for param in yaml_data["likwid_config"]['likwid-mpirun']['options']:
-        if type(param) == dict:
-            if '-nperdomain' in param.keys():
-                param['-nperdomain'] = f"S:{nperdomain}"
-    save_parameter_file(yaml_data["likwid_config"], parameter_file)
-# Define models and their parameters
-for model in ['Maxwell', 'Vlasov']: #, 'LinearMHDDriftkineticCC']:
-    base_params = yaml_data[f"params_{model}"]
+def generate_ptest_params():
 
-    # MPI values to scan
-    
-    filename_template = f"{i_path}/params_{model}_mpi{{mpi}}.yml"
-    extra_modifications = None
-    mpi_scan(base_params, mpi_values, filename_template, extra_modifications)
+    parser = argparse.ArgumentParser(
+        description="Generate parameters for performance testing simulations.",
+    )
 
-# grid value scan
-mpi_values = [72]
-grid_values = [
-    [16, 16, 16],
-    [32, 32, 32],
-    [64, 64, 64]
-]
+    parser.add_argument(
+        "--prefix",
+        type=str,
+        default="params_CI_",
+        help="Path matching the params to run",
+    )
 
-# Define models and their parameters
-# for model in ["Vlasov", 'Maxwell']:
-#     base_params = yaml_data[f"params_{model}"]
-    
-#     # Filename template including mpi and grid values
-#     filename_template = f"{i_path}/params_{model}_grid{{grid_Nel_0}}x{{grid_Nel_1}}x{{grid_Nel_2}}_mpi{{mpi}}.yml"
-    
-#     for grid in grid_values:
-#         extra_modifications = {'grid.Nel': grid}
-#         mpi_scan(base_params, mpi_values, filename_template, extra_modifications)
+    args = parser.parse_args()
+
+    params_prefix = args.prefix
+
+    mpi_values = [8, 16, 32, 48, 64, 72]
+    # Save LIKWID configuration
+    for mpi_val in mpi_values:
+        parameter_file = f"{i_path}/likwid_config_mpi{mpi_val}.yml"
+        nperdomain = min(int(mpi_val / 2), 36)
+        for param in yaml_data["likwid_config"]["likwid-mpirun"]["options"]:
+            if type(param) == dict:
+                if "-nperdomain" in param.keys():
+                    param["-nperdomain"] = f"S:{nperdomain}"
+        save_parameter_file(yaml_data["likwid_config"], parameter_file)
+
+    # Define models and their parameters
+    for model in ["Maxwell", "Vlasov"]:  # , 'LinearMHDDriftkineticCC']:
+        # base_params = yaml_data[f"params_{model}"]
+        base_params = copy.deepcopy(yaml_data[f"params_{model}"])
+        base_params["setup"] = {}
+        base_params["setup"]["model"] = model
+        # MPI values to scan
+
+        filename_template = f"{i_path}/{params_prefix}{model}_mpi{{setup_mpi}}.yml"
+        extra_modifications = None
+        mpi_scan(
+            base_params,
+            mpi_values,
+            filename_template,
+            extra_modifications,
+            params_prefix,
+        )
+
+    # grid value scan
+    mpi_values = [72]
+    grid_values = [[16, 16, 16], [32, 32, 32], [64, 64, 64]]
+
+    # Define models and their parameters
+    # for model in ["Vlasov", 'Maxwell']:
+    #     base_params = yaml_data[f"params_{model}"]
+
+    #     # Filename template including mpi and grid values
+    #     filename_template = f"{i_path}/params_{model}_grid{{grid_Nel_0}}x{{grid_Nel_1}}x{{grid_Nel_2}}_mpi{{mpi}}.yml"
+
+    #     for grid in grid_values:
+    #         extra_modifications = {'grid.Nel': grid}
+    #         mpi_scan(base_params, mpi_values, filename_template, extra_modifications)
+
+
+if __name__ == "__main__":
+    generate_ptest_params()

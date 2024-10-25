@@ -143,10 +143,10 @@ run_jobs_sbatch:
     - pip list
     - pip show struphy
     # Run strong scaling simulations (same problem size, increasing number of processes)
-    - python3 src/struphy/profiling/generate_params/write_ptest_params.py
+    - python3 src/struphy/profiling/generate_params/write_ptest_params.py --prefix params_CI_
     # Check which simulation to run
-    - python3 src/struphy/profiling/generate_params/run_simulations.py check --jobname-prefix $SLURM_JOBNAME_PREFIX --venv $VENV_DIR/env_struphy_CI
-    - python3 src/struphy/profiling/generate_params/run_simulations.py run   --jobname-prefix $SLURM_JOBNAME_PREFIX --venv $VENV_DIR/env_struphy_CI
+    - python3 src/struphy/profiling/generate_params/run_simulations.py check --inp params_CI* --jobname-prefix $SLURM_JOBNAME_PREFIX --venv $VENV_DIR/env_struphy_CI
+    - python3 src/struphy/profiling/generate_params/run_simulations.py run   --inp params_CI* --jobname-prefix $SLURM_JOBNAME_PREFIX --venv $VENV_DIR/env_struphy_CI
     # Not finished: - struphy test performance --batch batch_raven.sh
     # Submit a job that tests performance of all models
     - echo "Submitted SLURM jobs"
