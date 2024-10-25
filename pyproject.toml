@@ -46,7 +46,8 @@ dependencies = [
     'pyccel>=1.11.1',
     'gvec-to-python',
     'desc-opt',
-    'netcdf4<1.7.0'
+    'netcdf4<1.7.0',
+    'pre-commit',
 ]
 
 [project.urls]
