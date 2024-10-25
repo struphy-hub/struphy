@@ -160,5 +160,4 @@ class Constant6D(KineticBackground):
                 **n_pert_params)
 
             res += perturbation(eta1, eta2, eta3)
-        print(res)
         return res + 0.*eta1

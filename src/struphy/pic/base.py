@@ -1089,6 +1089,7 @@ class Particles(metaclass=ABCMeta):
 
         # evaluate initial distribution function
         f_init = self.f_init(*self.f_coords.T)
+        print(self.sampling_density)
 
         # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
