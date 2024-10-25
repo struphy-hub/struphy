@@ -1059,12 +1059,12 @@ class PressureLessSPH(StruphyModel):
     def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['kinetic']['fluid_p'] = 'Particles6D'
+        dct['kinetic']['p_fluid'] = 'Particles6D'
         return dct
 
     @staticmethod
     def bulk_species():
-        return 'fluid_p'
+        return 'p_fluid'
 
     @staticmethod
     def velocity_scale():
@@ -1072,7 +1072,7 @@ class PressureLessSPH(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushEta: ['fluid_p']}
+        return {propagators_markers.PushEta: ['p_fluid']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -1088,8 +1088,8 @@ class PressureLessSPH(StruphyModel):
         from mpi4py.MPI import SUM, IN_PLACE
 
         # prelim
-        fluid_p_params = self.kinetic['fluid_p']['params']
-        algo_eta = params['kinetic']['fluid_p']['options']['PushEta']['algo']
+        p_fluid_params = self.kinetic['p_fluid']['params']
+        algo_eta = params['kinetic']['p_fluid']['options']['PushEta']['algo']
 
         # # project magnetic background
         # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
@@ -1098,7 +1098,7 @@ class PressureLessSPH(StruphyModel):
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
-                                                     'bc_type': fluid_p_params['markers']['bc']['type']}
+                                                     'bc_type': p_fluid_params['markers']['bc']['type']}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -1106,5 +1106,16 @@ class PressureLessSPH(StruphyModel):
         # Scalar variables to be saved during simulation
         self.add_scalar('en_kin')
 
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+        self._en_kin = np.empty(1, dtype=float)
+
     def update_scalar_quantities(self):
-        pass
+        self._en_kin[0] = self.pointer['p_fluid'].markers_wo_holes[:, 6].dot(
+            self.pointer['p_fluid'].markers_wo_holes[:, 3]**2+self.pointer['p_fluid'].markers_wo_holes[:, 4]**2+self.pointer['p_fluid'].markers_wo_holes[:, 5]**2) / (2.*self.pointer['p_fluid'].n_mks)
+        
+        self.derham.comm.Allreduce(
+            self._mpi_in_place, self._en_kin, op=self._mpi_sum)
+        
+        self.update_scalar('en_kin', self._en_kin[0])
+        
