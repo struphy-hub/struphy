@@ -1354,4 +1354,3 @@ class Constant(KineticBackground):
             res += perturbation(eta1, eta2, eta3)
 
         return res + 0.*eta1
-    

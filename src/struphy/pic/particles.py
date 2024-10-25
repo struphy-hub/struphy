@@ -1,6 +1,7 @@
 import numpy as np
 from struphy.pic.base import Particles
 from struphy.pic import utilities_kernels
+from struphy.pic.sph_eval_kernels import naive_evaluation
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
@@ -682,3 +683,22 @@ class HydroParticles(Particles):
         """
 
         return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
+
+    def density(self, eta1, eta2, eta3, out=None):
+        """ Evaluate the density at points given by eta1, eta2, eta3.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+        """
+
+        assert len(eta1)==len(eta2)
+        assert len(eta1)==len(eta3)
+        if out is not None :
+            assert len(eta1)==len(out)
+        else:
+            out=np.zeros_like(eta1)
+
+        naive_evaluation(eta1, eta2, eta3, self._markers, out)
+        return out
