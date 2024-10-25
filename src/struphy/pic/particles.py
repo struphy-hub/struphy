@@ -684,7 +684,7 @@ class HydroParticles(Particles):
 
         return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
-    def density(self, eta1, eta2, eta3, out=None):
+    def eval_density(self, eta1, eta2, eta3, out=None):
         """ Evaluate the density at points given by eta1, eta2, eta3.
 
         Parameters
@@ -700,5 +700,5 @@ class HydroParticles(Particles):
         else:
             out=np.zeros_like(eta1)
 
-        naive_evaluation(eta1, eta2, eta3, self._markers, out)
+        naive_evaluation(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], out)
         return out
