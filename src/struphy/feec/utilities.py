@@ -359,42 +359,42 @@ def apply_essential_bc_to_array(space_id, vector, bc):
         # eta1-direction
         if bc[0][0]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=0, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[1], axis=0, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[2], axis=0, ext=-1, order=0)
         if bc[0][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=0, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=0, ext=+1, order=0)
+            # apply_essential_bc_stencil(vec_tp[1], axis=0, ext=+1, order=0)
+            # apply_essential_bc_stencil(vec_tp[2], axis=0, ext=+1, order=0)
 
         # eta2-direction
         if bc[1][0]:
-            apply_essential_bc_stencil(vec_tp[0], axis=1, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[0], axis=1, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=1, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[2], axis=1, ext=-1, order=0)
         if bc[1][1]:
-            apply_essential_bc_stencil(vec_tp[0], axis=1, ext=+1, order=0)
+            # apply_essential_bc_stencil(vec_tp[0], axis=1, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=1, ext=+1, order=0)
+            # apply_essential_bc_stencil(vec_tp[2], axis=1, ext=+1, order=0)
 
         # eta3-direction
         if bc[2][0]:
-            apply_essential_bc_stencil(vec_tp[0], axis=2, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[0], axis=2, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:,  0] = 0.
-                vector.pol[1][:,  0] = 0.
+                # vector.pol[0][:,  0] = 0.
+                # vector.pol[1][:,  0] = 0.
                 vector.pol[2][:,  0] = 0.
 
         if bc[2][1]:
-            apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=2, ext=+1, order=0)
+            # apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
+            # apply_essential_bc_stencil(vec_tp[1], axis=2, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:, -1] = 0.
-                vector.pol[1][:, -1] = 0.
+                # vector.pol[0][:, -1] = 0.
+                # vector.pol[1][:, -1] = 0.
                 vector.pol[2][:, -1] = 0.
 
 
