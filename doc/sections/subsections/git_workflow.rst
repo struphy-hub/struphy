@@ -67,6 +67,8 @@ Work on your new feature and commit changes in a timely manner::
 
 You can make as many commits as you like in your feature branch.
 
+Developers are encouraged to use [pre-commit](https://pre-commit.com) hooks prevent the inclusion of large or improperly formatted files and avoid committing unresolved merge conflicts. When committing, these hooks will automatically check your code to ensure it meets the project's standards. After installing struphy, the pre-commit hooks can be installed with `pre-commit install`.
+
 From time to time, it is important to check whether the main branch has changed
 (make sure your working directory is clean for this, e.g. with ``git stash``)::
 
