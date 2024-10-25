@@ -94,6 +94,7 @@ def main():
                 "likwid": True,
                 "venv_path": venv_path,
                 "memory": "25GB",
+                "time": "00:15:00",
             }
             save_batch_script(generate_batch_script(**script_params), submit_file)
 
