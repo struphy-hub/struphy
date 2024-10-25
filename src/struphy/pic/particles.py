@@ -555,3 +555,152 @@ class Particles3D(Particles):
         -------
         """
         return self.domain.transform(self.svol(eta1, eta2, eta3), self.markers, kind='3_to_0', remove_outside=remove_holes)
+
+
+class HydroParticles(Particles):
+    """
+    A class for initializing particles in SPH models.
+
+    The numpy marker array is as follows:
+
+    ===== ============== ======================= ======= ====== ====== ==========
+    index  | 0 | 1 | 2 | | 3 | 4 | 5           |  6       7       8    >=9
+    ===== ============== ======================= ======= ====== ====== ==========
+    value position (eta)    velocities           weight   s0     w0    buffer
+    ===== ============== ======================= ======= ====== ====== ==========
+
+    Parameters
+    ----------
+    name : str
+        Name of the particle species.
+
+    **params : dict
+        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
+    """
+
+    @classmethod
+    def default_bckgr_params(cls):
+        return {'type': 'Maxwellian3D',
+                'Maxwellian3D': {}}
+
+    def __init__(self,
+                 name: str,
+                 derham: Derham,
+                 *,
+                 domain: Domain = None,
+                 mhd_equil: MHDequilibrium = None,
+                 braginskii_equil: BraginskiiEquilibrium = None,
+                 bckgr_params: dict = None,
+                 pert_params: dict = None,
+                 sorting_params: dict = None,
+                 **marker_params):
+
+        if bckgr_params is None:
+            bckgr_params = self.default_bckgr_params()
+
+        super().__init__(name,
+                         derham,
+                         domain=domain,
+                         mhd_equil=mhd_equil,
+                         braginskii_equil=braginskii_equil,
+                         bckgr_params=bckgr_params,
+                         pert_params=pert_params,
+                         sorting_params=sorting_params,
+                         **marker_params)
+
+    @property
+    def n_cols(self):
+        """ Number of the columns at each markers.
+        """
+        return 24
+
+    @property
+    def vdim(self):
+        """ Dimension of the velocity space.
+        """
+        return 3
+
+    @property
+    def bufferindex(self):
+        """Starting buffer marker index number
+        """
+        return 9
+
+    @property
+    def coords(self):
+        """ Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`.
+        """
+        return 'cartesian'
+
+    def svol(self, eta1, eta2, eta3, *v):
+        """ Sampling density function as volume form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The volume-form sampling density.
+        -------
+        """
+        # load sampling density svol (normalized to 1 in logical space)
+        maxw_params = {'n': 1.,
+                       'u1': self.marker_params['loading']['moments'][0],
+                       'u2': self.marker_params['loading']['moments'][1],
+                       'u3': self.marker_params['loading']['moments'][2],
+                       'vth1': self.marker_params['loading']['moments'][3],
+                       'vth2': self.marker_params['loading']['moments'][4],
+                       'vth3': self.marker_params['loading']['moments'][5]}
+
+        fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
+
+        # fluid case, singular distribution in v-space
+        if maxw_params['vth1']<1e-16:
+            assert maxw_params['vth2']<1e-16 and maxw_params['vth3']<1e-16, \
+                'Sampling distribution cannot be singular in only one velocity direction'
+            if self.spatial == 'uniform':
+                return 0*eta1+1.
+
+            elif self.spatial == 'disc':
+                return 2*eta1
+        else:
+            assert maxw_params['vth2']>1e-16 and maxw_params['vth3']>1e-16, \
+                'Sampling distribution cannot be singular in only one velocity direction'
+            if self.spatial == 'uniform':
+                return fun(eta1, eta2, eta3, *v)
+
+            elif self.spatial == 'disc':
+                return fun(eta1, eta2, eta3, *v)*2*eta1
+
+            else:
+                raise NotImplementedError(
+                    f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+
+    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+        """ Sampling density function as 0 form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        remove_holes : bool
+            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
+
+        Returns
+        -------
+        out : array-like
+            The 0-form sampling density.
+        -------
+        """
+
+        return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
