@@ -225,8 +225,34 @@ e.g. for checking concervation properties. This can be done via the methods
 * :meth:`struphy.models.base.StruphyModel.add_scalar`
 * :meth:`struphy.models.base.StruphyModel.update_scalar_quantities`
 
-Check out existing models for templates.
+- `name`: Defines the key for the scalar in `_scalar_quantities`.
+- `species` (optional): Required if `compute` is set to `from_particles`.
+- `compute`: Specifies the computation type. Options are `from_particles` or `from_field`.
+- `summands`: If provided, `update_scalar` will sum the values of these specified scalars.
 
+**Adding scalars**:
+
+```
+self.add_scalar('en_U', compute = 'from_field')
+self.add_scalar('en_B', compute = 'from_field')
+self.add_scalar('en_fv', compute = 'from_particles', species='energetic_ions')
+self.add_scalar('en_fB', compute = 'from_particles', species='energetic_ions')
+self.add_scalar('en_tot',summands = ['en_U','en_B','en_fv','en_fB'])
+```
+
+**Updating scalars**:
+
+```
+self.update_scalar('en_U', en_U)
+self.update_scalar('en_p', en_p)
+self.update_scalar('en_fv', en_fv)
+self.update_scalar('en_fB', en_fB)
+self.update_scalar('en_tot')
+```
+
+Note here that since `en_tot` is a sum of all the other scalars, passing a value to `update_scalar()` is not needed. Instead `update_scalar()` will update `en_tot` by summing all of its summands.
+
+Check out `LineadMHDDriftkineticCC` for a template.
 
 8. Add options
 ^^^^^^^^^^^^^^
