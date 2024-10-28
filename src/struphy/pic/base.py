@@ -1453,21 +1453,24 @@ class Particles(metaclass=ABCMeta):
         )
         self._markers[:, :] = self._markers[self._argsort_array]
 
-    def do_sort(self):
-        """Assign the particles to boxes and then sort them."""
-        nx = self._sorting_boxes.nx
-        ny = self._sorting_boxes.ny
-        nz = self._sorting_boxes.nz
-        nboxes = nx*ny*nz
-        domain_array_loc = self.derham.domain_array[self.mpi_rank]
-
+    def put_particles_in_boxes(self):
         put_particles_in_boxes(self._markers,
                                self.holes,
                                self._sorting_boxes.nx,
                                self._sorting_boxes.ny,
                                self._sorting_boxes.nz,
                                self._sorting_boxes._boxes,
-                               self._sorting_boxes._next_index, domain_array_loc)
+                               self._sorting_boxes._next_index, 
+                               self.derham.domain_array[self.mpi_rank])
+
+    def do_sort(self):
+        """Assign the particles to boxes and then sort them."""
+        nx = self._sorting_boxes.nx
+        ny = self._sorting_boxes.ny
+        nz = self._sorting_boxes.nz
+        nboxes = nx*ny*nz
+
+        self.put_particles_in_boxes()
 
         # We could either use numpy routine or kernel to sort
         # Kernel seems to be 3x faster

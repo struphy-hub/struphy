@@ -6,13 +6,18 @@ def flatten_index(n1 : 'int',
                   nx : 'int',
                   ny : 'int',
                   nz : 'int',):
-    
+    """Find the global index of a box based on its index in all 3 direction.
+    At the moment this is simply sorted according to x then y then z but in the future 
+    more evolved indexing could be implemented.
+    """
     return n1 + n2*nx + n3*nx*ny
 
 def initialize_neighbours(neighbour : 'int[:,:]',
                           nx : 'int',
                           ny : 'int',
                           nz : 'int',):
+    """Initialize the list of neighbours of boxes (find the index of the 
+    neighbours and put the in the right line of the neighbouring array)."""
     for k in range(nz):
         for j in range(ny):
             for i in range(nx):
@@ -36,6 +41,7 @@ def find_box(eta1 : float,
              nz : 'int',
              domain_array : 'float[:]', 
              ):
+    """Return the number of the box in which the point (eta1, eta2, eta3) is located."""
     x_l = domain_array[0]
     x_r = domain_array[1]
     y_l = domain_array[3]
@@ -77,7 +83,7 @@ def put_particles_in_boxes(markers : 'float[:,:]',
 def get_next_index(box_nb : 'float',
                    next_index : 'int[:]',
                    cumul_next_index : 'int[:]'):
-    """utilities for sorting """
+    """Utilities for sorting """
     int_bnb = int(box_nb)
     index = cumul_next_index[int_bnb]+next_index[int_bnb]
     next_index[int_bnb] +=1
