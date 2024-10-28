@@ -13,7 +13,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
-from struphy.pic.particles import Particles6D, Particles5D, Particles3D, HydroParticles
+from struphy.pic.particles import Particles6D, Particles5D, Particles3D
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
