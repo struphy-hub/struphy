@@ -702,10 +702,10 @@ class HydroParticles(Particles):
 
         
         if len(np.shape(eta1))==1:
-            naive_evaluation(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], 0.5, out)
+            naive_evaluation(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], 0.3, out)
         
         elif len(np.shape(eta1))==3:
             #meshgrid format
-            naive_evaluation_3d(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], 0.5, out)
+            naive_evaluation_3d(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], 0.3, out)
         out /= self.n_mks
         return out

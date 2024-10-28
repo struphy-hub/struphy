@@ -52,10 +52,9 @@ def naive_evaluation_3d(eta1 : 'float[:,:,:]',
             for k in range(n_eval_3):
                 for p in range(n_particles):
                     if not holes[p]:
-                        periodic_distance(eta1[i,j,k],markers[p,0])
                         r = sqrt(periodic_distance(eta1[i,j,k],markers[p,0])**2 \
                                  +periodic_distance(eta2[i,j,k],markers[p,1])**2 \
                                  +periodic_distance(eta3[i,j,k],markers[p,2])**2)
                         #print(r, smoothing_kernel(r), markers[p,index]) 
-                        out[i] += markers[p,index]*smoothing_kernel(r, h)
+                        out[i,j,k] += markers[p,index]*smoothing_kernel(r, h)
 
