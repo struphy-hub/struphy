@@ -832,7 +832,7 @@ class Particles(metaclass=ABCMeta):
                 raise ValueError(
                     'Specified particle loading method does not exist!')
 
-
+            # initial velocities:
             if self.marker_params['loading']['moments']=='degenerate':
 
                 bckgr_type = self.bckgr_params['type']
@@ -1486,12 +1486,27 @@ class Particles(metaclass=ABCMeta):
                              )
         
     def __call__(self, eta1, eta2, eta3, index, out=None, fast=True, h=0.2):
-        """ Evaluate the density at points given by eta1, eta2, eta3.
+        """ Evaluate the function defined at the `index` of the particles 
+        at points given by eta1, eta2, eta3. This is done evaluating smoothed version of the 
+        sum of Dirac delta-functions given by the values at the particle position 
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
             Logical evaluation points.
+
+        index : int
+            At which index of the markers array are located the value of the function to evaluate.
+
+        out : array_like
+            Output will be store in this array. A new array is created if not provided.
+
+        fast : bool
+            If true, uses an optimized evaluation algorithm taking advantage of the box structure.
+            This assume that the boxes are bigger then the radius used for the smoothing kernel.
+
+        h : float
+            Radius of the smoothing kernel to use.
         """
 
         assert np.shape(eta1) == np.shape(eta2)
