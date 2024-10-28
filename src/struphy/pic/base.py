@@ -12,6 +12,7 @@ from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles, initialize_neighbours
+from struphy.pic.sph_eval_kernels import naive_evaluation, naive_evaluation_3d, box_based_evaluation, box_based_evaluation_3d
 from struphy.kinetic_background import maxwellians, sph_backgrounds
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
@@ -1483,6 +1484,70 @@ class Particles(metaclass=ABCMeta):
                              self._sorting_boxes._next_index,
                              self._sorting_boxes._cumul_next_index,
                              )
+        
+    def __call__(self, eta1, eta2, eta3, index, out=None, fast=True, h=0.2):
+        """ Evaluate the density at points given by eta1, eta2, eta3.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+        """
+
+        assert np.shape(eta1) == np.shape(eta2)
+        assert np.shape(eta1) == np.shape(eta3)
+        if out is not None:
+            assert np.shape(eta1) == np.shape(out)
+        else:
+            out = np.zeros_like(eta1)
+
+        if fast:
+            self.put_particles_in_boxes()
+            if len(np.shape(eta1)) == 1:
+                box_based_evaluation(eta1,
+                                     eta2,
+                                     eta3,
+                                     self._markers,
+                                     self._sorting_boxes.nx,
+                                     self._sorting_boxes.ny,
+                                     self._sorting_boxes.nz,
+                                     self._sorting_boxes._boxes,
+                                     self._sorting_boxes._neighbours,
+                                     self.derham.domain_array[self.mpi_rank],
+                                     self.holes,
+                                     index,
+                                     h,
+                                     out,
+                                     )
+
+            elif len(np.shape(eta1)) == 3:
+                # meshgrid format
+                box_based_evaluation_3d(eta1,
+                                        eta2,
+                                        eta3,
+                                        self._markers,
+                                        self._sorting_boxes.nx,
+                                        self._sorting_boxes.ny,
+                                        self._sorting_boxes.nz,
+                                        self._sorting_boxes._boxes,
+                                        self._sorting_boxes._neighbours,
+                                        self.derham.domain_array[self.mpi_rank],
+                                        self.holes,
+                                        index,
+                                        h,
+                                        out)
+            out /= self.n_mks
+        else:
+            if len(np.shape(eta1)) == 1:
+                naive_evaluation(eta1, eta2, eta3, self._markers,
+                                 self.holes, index, h, out)
+
+            elif len(np.shape(eta1)) == 3:
+                # meshgrid format
+                naive_evaluation_3d(
+                    eta1, eta2, eta3, self._markers, self.holes, index, h, out)
+            out /= self.n_mks
+        return out
 
 
 def sendrecv_determine_mtbs(markers,

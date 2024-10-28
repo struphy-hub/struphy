@@ -2188,5 +2188,6 @@ class ProjectDensity(Propagator):
         self._particles = particles
 
     def __call__(self, dt):
-        rho1 = self.derham.P['3'](self._particles.eval_density)
+        eval_density = lambda eta1, eta2, eta3 : self._particles(eta1, eta2, eta3, index = self._particles.index['weights'])
+        rho1 = self.derham.P['3'](eval_density)
         self.feec_vars_update(rho1)

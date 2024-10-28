@@ -1126,5 +1126,5 @@ class PressureLessSPH(StruphyModel):
         eta1 = np.array([.5])
         eta2 = np.array([.5])
         eta3 = np.array([.5])
-        self.update_scalar('density_middle', self.pointer['p_fluid'].eval_density(eta1,eta2,eta3)[0])
+        self.update_scalar('density_middle', self.pointer['p_fluid'](eta1,eta2,eta3,index = self.pointer['p_fluid'].index['weights'])[0])
         
