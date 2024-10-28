@@ -1089,15 +1089,12 @@ class Particles(metaclass=ABCMeta):
 
         # evaluate initial distribution function
         f_init = self.f_init(*self.f_coords.T)
-        print(self.sampling_density)
 
         # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
-            print('self.pforms[0] == vol')
             f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-            print('self.pforms[1] == vol')
             f_init /= self.f_init.velocity_jacobian_det(
                 *self.f_jacobian_coords.T)
 

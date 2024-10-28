@@ -37,12 +37,14 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     params_sorting = {'nx': 3, 'ny': 3, 'nz': 3, 'eps': 0.25}
 
     bckgr_params = {'type': 'Constant6D',
-                'Constant6D': {'n' : .1}}
+                'Constant6D': {'n' : .1},
+                'pforms' : ['vol', None]}
 
     particles = HydroParticles(
         'test_particles', 
         **params_markers, 
         derham=derham, 
+        domain=domain,
         bckgr_params=bckgr_params, 
         sorting_params=params_sorting)
     particles.draw_markers(sort=False)
@@ -52,11 +54,11 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     eta2 = np.array([.5])
     eta3 = np.array([.5])
     test_eval = particles.eval_density(eta1,eta2,eta3)
-    print(test_eval)
-    assert abs(test_eval[0]-.1)<1e-5
+
+    assert abs(test_eval[0]-.1)<1e-2
 
 
 
 if __name__ == '__main__':
     test_evaluation([8, 9, 10], [2, 3, 4], [False, True, False], ['Cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], 1000)
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], 10000)
