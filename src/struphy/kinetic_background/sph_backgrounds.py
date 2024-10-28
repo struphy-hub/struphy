@@ -20,7 +20,9 @@ class Constant6D(KineticBackground):
         """ Default parameters dictionary defining the constant value of the constant background.
         """
         return {
-            'n': 5.,
+            'density_profile' : 'constant',
+            'n0': 5.,
+            'n1': 0.,
             'u1': 0.,
             'u2': 0.,
             'u3': 0.,
@@ -35,6 +37,8 @@ class Constant6D(KineticBackground):
             assert isinstance(maxw_params, dict)
             self._maxw_params = set_defaults(
                 maxw_params, self.default_maxw_params())
+
+        assert self._maxw_params['density_profile'] in ['constant', 'affine']
 
         # Set parameters for perturbation
         self._pert_params = pert_params
@@ -100,7 +104,10 @@ class Constant6D(KineticBackground):
         -------
         A numpy.array with the density evaluated at evaluation points (same shape as etas).
         """
-        return self.maxw_params['n'] + 0 * etas[0]
+        if self._maxw_params['density_profile']=='constant':
+            return self.maxw_params['n0'] + 0 * etas[0]
+        elif self._maxw_params['density_profile']=='affine':
+            return self.maxw_params['n0'] + self.maxw_params['n1'] * etas[0]
 
     def u(self, *etas):
         """ Mean velocities (Cartesian components evaluated at x = F(eta)).
@@ -143,7 +150,7 @@ class Constant6D(KineticBackground):
         assert np.shape(eta1) == np.shape(eta2) == np.shape(eta3)
 
         # set background density
-        res = self.maxw_params['n']
+        res = self.n(eta1, eta2, eta3)
 
         assert np.all(res > 0.), 'Number density must be positive!'
 

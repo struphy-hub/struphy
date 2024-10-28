@@ -1060,6 +1060,7 @@ class PressureLessSPH(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['kinetic']['p_fluid'] = 'HydroParticles'
+        dct['fluid']['fluid'] = {'projected_density' : 'L2'}
         return dct
 
     @staticmethod
@@ -1072,7 +1073,8 @@ class PressureLessSPH(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushEta: ['p_fluid']}
+        return {propagators_markers.PushEta: ['p_fluid'],
+                propagators_coupling.ProjectDensity: ['fluid_projected_density']}
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -1100,11 +1102,14 @@ class PressureLessSPH(StruphyModel):
         self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
                                                      'bc_type': p_fluid_params['markers']['bc']['type']}
 
+        self._kwargs[propagators_coupling.ProjectDensity] = {'particles': self.pointer['p_fluid']}
+
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_kin')
+        self.add_scalar('density_middle')
 
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
@@ -1118,4 +1123,8 @@ class PressureLessSPH(StruphyModel):
             self._mpi_in_place, self._en_kin, op=self._mpi_sum)
         
         self.update_scalar('en_kin', self._en_kin[0])
+        eta1 = np.array([.5])
+        eta2 = np.array([.5])
+        eta3 = np.array([.5])
+        self.update_scalar('density_middle', self.pointer['p_fluid'].eval_density(eta1,eta2,eta3)[0])
         

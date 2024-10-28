@@ -13,7 +13,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
-from struphy.pic.particles import Particles6D, Particles5D, Particles3D
+from struphy.pic.particles import Particles6D, Particles5D, Particles3D, HydroParticles
 from struphy.polar.basic import PolarVector
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
@@ -2165,3 +2165,28 @@ class CurrentCoupling5DGradB(Propagator):
         if self._info and self._rank == 0:
             print('Maxdiff up for CurrentCoupling5DGradB:', max_du)
             print()
+
+class ProjectDensity(Propagator):
+    """Project the density of HydroParticles to a grid -- only usefull for post-processing"""
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(self,
+                 rho: StencilVector,
+                 *,
+                 particles: HydroParticles,
+                 ):
+
+        super().__init__(rho)
+        self._particles = particles
+
+    def __call__(self, dt):
+        rho1 = self.derham.P['3'](self._particles.eval_density)
+        self.feec_vars_update(rho1)

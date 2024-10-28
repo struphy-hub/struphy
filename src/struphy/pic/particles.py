@@ -1,7 +1,7 @@
 import numpy as np
 from struphy.pic.base import Particles
 from struphy.pic import utilities_kernels
-from struphy.pic.sph_eval_kernels import naive_evaluation
+from struphy.pic.sph_eval_kernels import naive_evaluation, naive_evaluation_3d
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
@@ -693,13 +693,19 @@ class HydroParticles(Particles):
             Logical evaluation points.
         """
 
-        assert len(eta1)==len(eta2)
-        assert len(eta1)==len(eta3)
+        assert np.shape(eta1)==np.shape(eta2)
+        assert np.shape(eta1)==np.shape(eta3)
         if out is not None :
-            assert len(eta1)==len(out)
+            assert np.shape(eta1)==np.shape(out)
         else:
             out=np.zeros_like(eta1)
 
-        naive_evaluation(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], out)
+        
+        if len(np.shape(eta1))==1:
+            naive_evaluation(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], 0.5, out)
+        
+        elif len(np.shape(eta1))==3:
+            #meshgrid format
+            naive_evaluation_3d(eta1, eta2, eta3, self._markers, self.holes, self.index['weights'], 0.5, out)
         out /= self.n_mks
         return out

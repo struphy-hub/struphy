@@ -37,7 +37,9 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     params_sorting = {'nx': 3, 'ny': 3, 'nz': 3, 'eps': 0.25}
 
     bckgr_params = {'type': 'Constant6D',
-                'Constant6D': {'n' : .1},
+                'Constant6D': {'density_profile' : 'affine',
+                               'n0' : 1.,
+                               'n1' : 0.1},
                 'pforms' : ['vol', None]}
 
     particles = HydroParticles(
@@ -55,7 +57,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     eta3 = np.array([.5])
     test_eval = particles.eval_density(eta1,eta2,eta3)
 
-    assert abs(test_eval[0]-.1)<1e-2
+    assert abs(test_eval[0]-1.05)<3.e-2
 
 
 
