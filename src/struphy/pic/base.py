@@ -11,7 +11,7 @@ import copy
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
-from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles
+from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles, initialize_neighbours
 from struphy.kinetic_background import maxwellians, sph_backgrounds
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
@@ -1434,6 +1434,10 @@ class Particles(metaclass=ABCMeta):
             self._boxes = np.zeros((self._n_boxes, n_rows), dtype=int)
             self._next_index = np.zeros((self._n_boxes+1), dtype=int)
             self._cumul_next_index = np.zeros((self._n_boxes+2), dtype=int)
+            self._neighbours = np.zeros((self._n_boxes, 27), dtype=int)
+            initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
+            # A particle on box i only sees particles in boxes that belong to neighbours[i]
+            print(self._neighbours)
             self._swap_line_1 = np.zeros(self._markers.shape[1])
             self._swap_line_2 = np.zeros(self._markers.shape[1])
 

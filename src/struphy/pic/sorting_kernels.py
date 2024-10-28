@@ -1,5 +1,52 @@
 from numpy import floor
 
+def flatten_index(n1 : 'int', 
+                  n2 : 'int',
+                  n3 : 'int', 
+                  nx : 'int',
+                  ny : 'int',
+                  nz : 'int',):
+    
+    return n1 + n2*nx + n3*nx*ny
+
+def initialize_neighbours(neighbour : 'int[:,:]',
+                          nx : 'int',
+                          ny : 'int',
+                          nz : 'int',):
+    for k in range(nz):
+        for j in range(ny):
+            for i in range(nx):
+                counter = 0
+                loc_box = flatten_index(i, j, k, nx, ny, nz)
+                for kk in range(k-1, k+2):
+                    k_box = kk%nz
+                    for jj in range(j-1, j+2):
+                        j_box = jj%ny
+                        for ii in range(i-1, i+2):
+                            i_box = ii%nx
+                            neig_box = flatten_index(i_box, j_box, k_box, nx, ny, nz)
+                            neighbour[loc_box, counter] = neig_box
+                            counter +=1
+
+def find_box(eta1 : float,
+             eta2 : float,
+             eta3 : float,
+             nx : 'int', 
+             ny : 'int', 
+             nz : 'int',
+             domain_array : 'float[:]', 
+             ):
+    x_l = domain_array[0]
+    x_r = domain_array[1]
+    y_l = domain_array[3]
+    y_r = domain_array[4]
+    z_l = domain_array[6]
+    z_r = domain_array[7]
+    n1 = int(floor((eta1-x_l)/(x_r-x_l)*nx))
+    n2 = int(floor((eta2-y_l)/(y_r-y_l)*ny))
+    n3 = int(floor((eta3-z_l)/(z_r-z_l)*nz))
+    return flatten_index(n1, n2 ,n3, nx, ny, nz)
+
 def put_particles_in_boxes(markers : 'float[:,:]', 
                            holes : 'bool[:]', 
                            nx : 'int', 
@@ -9,29 +56,23 @@ def put_particles_in_boxes(markers : 'float[:,:]',
                            next_index : 'int[:]',
                            domain_array : 'float[:]', 
                            box_index : 'int' =-2):
-        """Assign the right box to all particles."""
-        x_l = domain_array[0]
-        x_r = domain_array[1]
-        y_l = domain_array[3]
-        y_r = domain_array[4]
-        z_l = domain_array[6]
-        z_r = domain_array[7]
-        boxes[:,:] = -1
-        next_index[:] = 0  
-        l = markers.shape[1]
-        for p in range(markers.shape[0]):
-            if holes[p]:
+    """Assign the right box to all particles."""
+    boxes[:,:] = -1
+    next_index[:] = 0  
+    l = markers.shape[1]
+    for p in range(markers.shape[0]):
+        if holes[p]:
+            n_box = nx*ny*nz
+        else:
+            a = find_box(markers[p, 0],markers[p, 1],markers[p, 2],nx,ny,nz,domain_array)
+            if a>=nx*ny*nz:
                 n_box = nx*ny*nz
             else:
-                a = floor((markers[p, 0]-x_l)/(x_r-x_l)*nx) + floor((markers[p, 1]-y_l)/(y_r-y_l)*ny)*nx + floor((markers[p, 2]-z_l)/(z_r-z_l)*nz)*ny*nx
-                if a>=nx*ny*nz:
-                    n_box = nx*ny*nz
-                else:
-                    n_box = int(a)
-                    boxes[n_box, next_index[n_box]] = p
-            next_index[n_box] += 1
-            a = float(n_box)
-            markers[p, l+box_index] = a
+                n_box = a
+                boxes[n_box, next_index[n_box]] = p
+        next_index[n_box] += 1
+        b = float(n_box)
+        markers[p, l+box_index] = b
 
 def get_next_index(box_nb : 'float',
                    next_index : 'int[:]',
