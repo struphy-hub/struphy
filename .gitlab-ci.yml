@@ -241,7 +241,7 @@ default_venv:
       - env_$CI_PIPELINE_ID/
     expire_in: 1 day
 
-Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
+# Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
   stage: startup
   rules:
