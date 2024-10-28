@@ -2165,29 +2165,3 @@ class CurrentCoupling5DGradB(Propagator):
         if self._info and self._rank == 0:
             print('Maxdiff up for CurrentCoupling5DGradB:', max_du)
             print()
-
-class ProjectDensity(Propagator):
-    """Project the density of HydroParticles to a grid -- only usefull for post-processing"""
-
-    @staticmethod
-    def options(default=False):
-        dct = {}
-
-        if default:
-            dct = descend_options_dict(dct, [])
-
-        return dct
-
-    def __init__(self,
-                 rho: StencilVector,
-                 *,
-                 particles: HydroParticles,
-                 ):
-
-        super().__init__(rho)
-        self._particles = particles
-
-    def __call__(self, dt):
-        eval_density = lambda eta1, eta2, eta3 : self._particles(eta1, eta2, eta3, index = self._particles.index['weights'])
-        rho1 = self.derham.P['3'](eval_density)
-        self.feec_vars_update(rho1)

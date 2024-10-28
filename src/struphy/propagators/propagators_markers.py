@@ -52,7 +52,8 @@ class PushEta(Propagator):
                  particles: Particles,
                  *,
                  algo: str = options(default=True)['algo'],
-                 bc_type: list = ['reflect', 'periodic', 'periodic']):
+                 bc_type: list = ['reflect', 'periodic', 'periodic'],
+                 density_field : StencilVector | None = None):
 
         # base class constructor call
         super().__init__(particles)
@@ -77,6 +78,11 @@ class PushEta(Propagator):
                               alpha_in_kernel=1.,
                               n_stages=butcher.n_stages,
                               mpi_sort='last')
+        
+        self._eval_density = False
+        if density_field is not None:
+            self._eval_density = True
+            self._density_field = density_field
 
     def __call__(self, dt):
         # push markers
@@ -85,6 +91,10 @@ class PushEta(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
+
+        if self._eval_density:
+            eval_density = lambda eta1, eta2, eta3 : self._particles[0](eta1, eta2, eta3, index = self._particles[0].index['weights'])
+            self._density_field = self.derham.P['3'](eval_density)
 
 
 class PushVxB(Propagator):
