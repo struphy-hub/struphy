@@ -1,6 +1,6 @@
 
 import inspect
-
+import pytest
 from struphy.models import toy
 from struphy.models.tests.util import call_model
 from struphy.profiling.profiling import (  # ProfileRegion,
@@ -10,7 +10,7 @@ from struphy.profiling.profiling import (  # ProfileRegion,
     set_simulation_label,
 )
 
-
+@pytest.mark.performance
 def test_performance():
     map_and_equil = ('Cuboid', 'HomogenSlab')
     fast = True

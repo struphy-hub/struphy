@@ -71,6 +71,8 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
             f'struphy={importlib.metadata.version("struphy")}',
             '--tag',
             f'pyccel={pyccel.__version__}',
+            '-m',
+            'not performance',
         ]
 
         if with_desc:
