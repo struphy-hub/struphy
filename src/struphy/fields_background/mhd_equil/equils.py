@@ -2196,17 +2196,6 @@ class GVECequilibrium(LogicalMHDequilibrium):
                           unit_tor_domain=unit_tor_domain, use_pyccel=True)
         
         self._R0 = (self.gvec.f(1.,0,0)[0]+self.gvec.f(1.,0.5,0)[0])/2
-        
-        print()
-        print()
-        print(self._R0)
-        print()
-        print()
-        print(self.gvec.f(0.,0,0))
-        print(self.gvec.f(1.,0,0))
-        print(self.gvec.f(1.,0.5,0))
-        print()
-        print()
 
         # struphy domain object
         self._domain = GVECunit(self)
