@@ -40,7 +40,8 @@ geometries = {
                 2.0,
                 2.0,
             ],  # start and end shifts of polidal flux in % --> cuts away regions at the axis and edge
-            "xi_param": "equal_angle",  # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
+            # parametrization of angular coordinate (equal_angle, equal_arc_length or sfl (straight field line))
+            "xi_param": "equal_angle",
             "r0": 0.3,  # initial guess for radial distance from axis used in Newton root-finding method for flux surfaces
             "Nel_pre": [
                 64,

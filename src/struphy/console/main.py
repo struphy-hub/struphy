@@ -18,6 +18,7 @@ def struphy():
 
     import argparse
     import pickle
+
     import yaml
 
     # struphy path
@@ -25,14 +26,13 @@ def struphy():
     import struphy.utils.utils as utils
     from struphy.console.compile import struphy_compile
     from struphy.console.format import struphy_format, struphy_lint
+    from struphy.console.likwid import struphy_likwid_profile
     from struphy.console.params import struphy_params
     from struphy.console.pproc import struphy_pproc
     from struphy.console.profile import struphy_profile
     from struphy.console.run import struphy_run
     from struphy.console.test import struphy_test
     from struphy.console.units import struphy_units
-    from struphy.console.likwid import struphy_likwid_profile
-    import struphy.utils.utils as utils
     libpath = struphy.__path__[0]
 
     # create argument parser
@@ -305,15 +305,18 @@ def struphy():
         metavar='FILE',
         help='batch script in current I/O path', )
 
-    parser_run.add_argument('--batch-abs',
-                            type=str,
-                            metavar='FILE',
-                            help='batch script, absolute path',)
-    
-    parser_run.add_argument('-ba', '--batch-auto',
-                            type=str,
-                            choices=['raven', 'cobra', 'viper'],
-                            help='Auto batch script', )
+    parser_run.add_argument(
+        '--batch-abs',
+        type=str,
+        metavar='FILE',
+        help='batch script, absolute path',
+    )
+
+    parser_run.add_argument(
+        '-ba', '--batch-auto',
+        type=str,
+        choices=['raven', 'cobra', 'viper'],
+        help='Auto batch script', )
 
     parser_run.add_argument(
         '--runtime',
@@ -515,7 +518,8 @@ def struphy():
     parser_likwid_profile = subparsers.add_parser(
         'likwid_profile',
         help='Profile finished Struphy runs with likwid',
-        description='Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.')
+        description='Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.',
+    )
 
     parser_likwid_profile.add_argument(
         "--dir",
@@ -525,7 +529,7 @@ def struphy():
         help="Paths to the data directories (space-separated, supports wildcards)",
     )
     parser_likwid_profile.add_argument(
-        "--title", type=str, default="Testing", help="Name of the project"
+        "--title", type=str, default="Testing", help="Name of the project",
     )
     parser_likwid_profile.add_argument(
         "--output",
@@ -631,29 +635,32 @@ def struphy():
         description='Run available unit tests or test Struphy models or tutorials.',
     )
 
-    parser_test.add_argument('group',
-                             type=str,
-                             choices=list_models +
-                             ['models'] +
-                             ['unit'] +
-                             ['tutorials'] +
-                             ['timings'] +
-                             ['fluid'] +
-                             ['kinetic'] +
-                             ['hybrid'] +
-                             ['toy'] +
-                             ['performance'],
-                             metavar='GROUP',
-                             help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
+    parser_test.add_argument(
+        'group',
+        type=str,
+        choices=list_models +
+        ['models'] +
+        ['unit'] +
+        ['tutorials'] +
+        ['timings'] +
+        ['fluid'] +
+        ['kinetic'] +
+        ['hybrid'] +
+        ['toy'] +
+        ['performance'],
+        metavar='GROUP',
+        help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                 \nc) "unit" for performing unit tests \
                                 \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
-                                \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',)
-    parser_test.add_argument('-b', '--batch',
-                            type=str,
-                            choices=batch_files,
-                            metavar='FILE',
-                            help='batch script in current I/O path', )
+                                \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',
+    )
+    parser_test.add_argument(
+        '-b', '--batch',
+        type=str,
+        choices=batch_files,
+        metavar='FILE',
+        help='batch script in current I/O path', )
 
     parser_test.add_argument(
         '--mpi',

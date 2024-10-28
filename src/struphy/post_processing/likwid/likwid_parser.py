@@ -57,7 +57,7 @@ def asciitable2dict(table):
 
 
 def read_likwid_output(
-    filename, likwid_markers=True, finish_line="struphy run finished"
+    filename, likwid_markers=True, finish_line="struphy run finished",
 ):
     """
     Read and process LIKWID output from a specified file.
@@ -116,7 +116,7 @@ def read_likwid_output(
                             "Raw STAT": tables[1],
                             "Metric": tables[2],
                             "Metric STAT": tables[3],
-                        }
+                        },
                     }
 
                     tasks = [task for task in tables[0]["header"][2:] if task]
@@ -129,10 +129,10 @@ def read_likwid_output(
                     for task in tasks:
                         node, task_id, processor_id = task.split(":")
                         table_dict[region]["nodes"][node]["processor_ids"].append(
-                            processor_id
+                            processor_id,
                         )
                         table_dict[region]["nodes"][node]["processor_order"].append(
-                            [task_id, processor_id]
+                            [task_id, processor_id],
                         )
 
                     tables = []
@@ -170,7 +170,7 @@ def read_likwid_output(
                             "Raw STAT": tables[1],
                             "Metric": tables[2],
                             "Metric STAT": tables[3],
-                        }
+                        },
                     }
 
                     tasks = tables[0]["header"][2:]
@@ -183,10 +183,10 @@ def read_likwid_output(
                     for task in tasks:
                         node, task_id, processor_id = task.split(":")
                         table_dict[region]["nodes"][node]["processor_ids"].append(
-                            processor_id
+                            processor_id,
                         )
                         table_dict[region]["nodes"][node]["processor_order"].append(
-                            [task_id, processor_id]
+                            [task_id, processor_id],
                         )
 
                     tables = []
@@ -440,7 +440,7 @@ class Project:
         return list(table_data[first_metric].keys())
 
     def get_maximum_id(
-        self, metric, group="model.integrate", table="Metric STAT", column="Sum"
+        self, metric, group="model.integrate", table="Metric STAT", column="Sum",
     ):
         """Get the ID of the LIKWID output with the maximum value for a specific metric.
 
@@ -470,7 +470,7 @@ class Project:
         return i_max
 
     def get_maximum(
-        self, metric, group="model.integrate", table="Metric STAT", column="Sum"
+        self, metric, group="model.integrate", table="Metric STAT", column="Sum",
     ):
         """Get the maximum value for a specific metric.
 
@@ -489,7 +489,7 @@ class Project:
         return self.get_value(metric, i_max, group, table, column)
 
     def get_average(
-        self, metric, group="model.integrate", table="Metric STAT", column="Sum"
+        self, metric, group="model.integrate", table="Metric STAT", column="Sum",
     ):
         """Get the average value for a specific metric.
 
@@ -506,7 +506,7 @@ class Project:
         for likwid_output in self.likwid_outputs:
             if group in likwid_output:
                 total += max(
-                    total, likwid_output[group]["dicts"][table][metric][column]
+                    total, likwid_output[group]["dicts"][table][metric][column],
                 )
                 count += 1
         return total / count if count > 0 else 0

@@ -3,6 +3,7 @@ import pickle
 
 import numpy as np
 import pandas as pd
+import yaml
 
 
 def sort_by_num_threads(bm):
@@ -19,7 +20,7 @@ def sort_by_num_threads(bm):
 
     for key, value in sorted_arrays.items():
         sorted_indices = sorted(
-            range(len(value["num_threads"])), key=lambda k: value["num_threads"][k]
+            range(len(value["num_threads"])), key=lambda k: value["num_threads"][k],
         )
         sorted_arrays[key]["num_threads"] = [
             value["num_threads"][i] for i in sorted_indices
@@ -56,11 +57,6 @@ def convert_kb_auto(kb_str):
         return f"{kb / 1024:.0f} MB"
     else:
         return f"{kb / (1024 * 1024):.0f} GB"
-
-
-import glob
-
-import pandas as pd
 
 
 def asciitable2df(table):
@@ -154,7 +150,7 @@ def add_plot_diagonal(
     specific_y = ymax
     # Interpolate to find the corresponding x-value
     specific_x = np.interp(
-        specific_y, max_performance_GFLOP, operational_intensity_FLOPpMB
+        specific_y, max_performance_GFLOP, operational_intensity_FLOPpMB,
     )
     mfig.axs.text(
         specific_x,
@@ -220,9 +216,6 @@ def get_average_val(
     return np.average(xvec), np.average(yvec), np.std(xvec), np.std(yvec)
 
 
-import yaml
-
-
 def get_maximum(path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum"):
     val = 0
     for filepath in glob.glob(path):
@@ -237,12 +230,12 @@ def get_maximum(path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum"
 def get_roofline_point(path):
     # print(path)
     dp_MFLOPps = get_maximum(
-        path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum"
+        path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum",
     )
     dp_GFLOPps = dp_MFLOPps * 1e-3
 
     bandwidth_MBps = get_maximum(
-        path, df_index=-1, metric="Memory bandwidth [MBytes/s] STAT", column_name="Sum"
+        path, df_index=-1, metric="Memory bandwidth [MBytes/s] STAT", column_name="Sum",
     )
     operational_intensity_FLOPpB = dp_MFLOPps / bandwidth_MBps
 

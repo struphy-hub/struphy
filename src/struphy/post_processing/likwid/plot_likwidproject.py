@@ -6,16 +6,17 @@ import os
 import random
 import re
 
-import struphy.post_processing.likwid.hardware_dicts as hwd
-import struphy.post_processing.likwid.likwid_parser as lp
-import struphy.post_processing.likwid.maxplotlylib as mply
-import struphy.post_processing.likwid.roofline_plotter as rp
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+
+import struphy.post_processing.likwid.hardware_dicts as hwd
+import struphy.post_processing.likwid.likwid_parser as lp
+import struphy.post_processing.likwid.maxplotlylib as mply
+import struphy.post_processing.likwid.roofline_plotter as rp
+
 
 def clean_string(string_in):
     return re.sub(r"[^\w\s-]", "", string_in.replace(" ", "_"))
@@ -66,7 +67,7 @@ def get_data(
     data = []
     for project in projects:
         groups = project.get_likwid_groups(
-            groups_include=groups_include, groups_skip=groups_skip
+            groups_include=groups_include, groups_skip=groups_skip,
         )
         for group in groups:
             group_dict = {
@@ -81,7 +82,7 @@ def get_data(
 
             for imetric, metric in enumerate(metrics):
                 group_dict[metric] = project.get_maximum(
-                    metric, group=group, column=column_name
+                    metric, group=group, column=column_name,
                 )
             data.append(group_dict)
     return data
@@ -116,7 +117,7 @@ def plot_roofline(
             mode="lines",
             line=dict(dash="dash"),
             name=f"Theoretical max ({theoretical_max_gflops:.0f} GFLOP/s)",
-        )
+        ),
     )
 
     for frac in [0.01]:
@@ -128,7 +129,7 @@ def plot_roofline(
                 mode="lines",
                 line=dict(dash="dash"),
                 name=f"{frac*100}% of theoretical ({gflops:.0f} GFLOP/s)",
-            )
+            ),
         )
 
     roofs_memory_bound = []
@@ -153,7 +154,7 @@ def plot_roofline(
                 y=roof["max_performance_GFLOP"],
                 mode="lines",
                 name=roof["label"],
-            )
+            ),
         )
         pass
 
@@ -185,7 +186,7 @@ def plot_roofline(
                 mode="markers+lines",
                 text=sorted_group["description"],  # Custom text for each point
                 name=f"{simulation_name}",  # Name displayed in the legend
-            )
+            ),
         )
 
     xtick_values = [10**t for t in range(int(math.log10(x0)), 1 + int(math.log10(x1)))]
@@ -254,10 +255,10 @@ def plot_bars(
     )
     data = sorted(data, key=lambda x: x["simulation_name"])
     df = pd.DataFrame(data)
-    
+
     # Add the relative value column
     df["relative_val"] = df.groupby("group")[metric].transform(
-        lambda x: x / x.iloc[0]
+        lambda x: x / x.iloc[0],
     )
     unique_groups = df["group"].unique()
 
@@ -275,7 +276,7 @@ def plot_bars(
                 hoverinfo="text",
                 textposition="auto",
                 textangle=0,
-            )
+            ),
         )
 
     fig.update_layout(barmode="stack")
@@ -351,7 +352,7 @@ def plot_speedup(
 
         xmin = min(xmin, min(sorted_group[metric1]))
         xmax = max(xmax, max(sorted_group[metric1]))
-        
+
         fig.add_trace(
             go.Scatter(
                 x=sorted_group[metric1],
@@ -359,7 +360,7 @@ def plot_speedup(
                 mode="markers+lines",
                 text=sorted_group["description"],  # Custom text for each point
                 name=f"{simulation_collection}",  # Name displayed in the legend
-            )
+            ),
         )
 
     x_data = [xmin, xmax]
@@ -374,7 +375,7 @@ def plot_speedup(
                 mode="lines",
                 name="Ideal speedup",
                 line=dict(width=4, color="red"),
-            )
+            ),
         )
 
     mply.format_axes(fig)
@@ -393,9 +394,9 @@ def plot_speedup(
     )
 
     fig_name = f"speedup_{clean_string(metric1)}_vs_{clean_string(metric2)}_{clean_string(column_name)}".replace(
-        "/", "p"
+        "/", "p",
     ).replace(
-        " ", "_"
+        " ", "_",
     )
 
     os.makedirs(f"{output_path}", exist_ok=True)
@@ -419,7 +420,7 @@ def plot_loadbalance(
     data = []
 
     groups = project.get_likwid_groups(
-        groups_include=groups_include, groups_skip=groups_skip
+        groups_include=groups_include, groups_skip=groups_skip,
     )
 
     for group in groups:
@@ -430,9 +431,9 @@ def plot_loadbalance(
                     "group": group,
                     "description": project.get_description(group),
                     "val": project.get_maximum(
-                        metric, group=group, column=node_name, table="Metric"
+                        metric, group=group, column=node_name, table="Metric",
                     ),
-                }
+                },
             )
 
     data = sorted(data, key=lambda x: x["node_name"])
@@ -451,7 +452,7 @@ def plot_loadbalance(
                 textposition="auto",
                 textangle=0,
                 name=group,  # Group name used for the legend
-            )
+            ),
         )
 
     # Sanitize the file path to remove non-standard characters
@@ -515,7 +516,7 @@ def plot_pinning(
                 showarrow=False,
                 font=dict(color="Black", size=36),
                 textangle=0,
-            )
+            ),
         )
         for inode, node in enumerate(project.nodes):
             # print(f"{node = }")
@@ -557,7 +558,7 @@ def plot_pinning(
                     y1=y1,
                     line=dict(color="Red", width=3, dash="dash"),
                     fillcolor="salmon",
-                )
+                ),
             )
 
             annotations.append(
@@ -568,7 +569,7 @@ def plot_pinning(
                     showarrow=False,
                     font=dict(color="red", size=20),
                     textangle=0,
-                )
+                ),
             )
 
             x0 = xorigin - 2.0 * dist
@@ -587,7 +588,7 @@ def plot_pinning(
                         y1=y1 + isocket * 2.0,
                         line=dict(color="Blue", width=3),
                         fillcolor="whitesmoke",
-                    )
+                    ),
                 )
                 # Add socket name
                 annotations.append(
@@ -598,7 +599,7 @@ def plot_pinning(
                         showarrow=False,
                         font=dict(color="Blue", size=20),
                         textangle=0,
-                    )
+                    ),
                 )
 
                 for threadgroup in range(int(num_cores_per_socket / 2)):
@@ -613,7 +614,7 @@ def plot_pinning(
                             y1=yorigin + 1 + isocket * 2.0,
                             line=dict(color="Black", width=2),
                             fillcolor="Black",
-                        )
+                        ),
                     )
 
                 for i, (place, used) in enumerate(sockets[isocket].items()):
@@ -629,7 +630,7 @@ def plot_pinning(
                             y1=yorigin + 1 + isocket * 2.0,
                             line=dict(color="Black", width=2),
                             fillcolor=col_dict[used],
-                        )
+                        ),
                     )
 
                     annotations.append(
@@ -641,7 +642,7 @@ def plot_pinning(
                             font=dict(color="red"),
                             textangle=90,
                             yanchor="bottom",
-                        )
+                        ),
                     )
 
         fig = go.Figure()
@@ -759,7 +760,7 @@ def plot_files(
                 'Sum',
                 'Max',
                 'Min',
-                "Avg"
+                "Avg",
             ]:
                 plot_bars(
                     metric=metric,
@@ -820,7 +821,7 @@ def load_projects(data_paths, procs_per_clone="any"):
                 procs_per_clone != project.procs_per_clone
             ):
                 print(
-                    f"Incorrect number of procs_per_clone: {project.procs_per_clone = } {procs_per_clone = }"
+                    f"Incorrect number of procs_per_clone: {project.procs_per_clone = } {procs_per_clone = }",
                 )
                 continue
             project.read_project()
@@ -833,7 +834,7 @@ def load_projects(data_paths, procs_per_clone="any"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run the plot files script with a given directory."
+        description="Run the plot files script with a given directory.",
     )
     parser.add_argument(
         "--dir",
@@ -843,7 +844,7 @@ if __name__ == "__main__":
         help="Paths to the data directories (space-separated, supports wildcards)",
     )
     parser.add_argument(
-        "--title", type=str, default="Testing", help="Name of the project"
+        "--title", type=str, default="Testing", help="Name of the project",
     )
     parser.add_argument(
         "--output",
