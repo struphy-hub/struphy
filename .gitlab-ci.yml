@@ -404,7 +404,7 @@ branch_lint_reports:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
     # Get changed Python files between the current branch and origin/devel
-    - LINT_FILES=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__')
+    - LINT_FILES=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
     - echo "Changed Python files:"
     - echo "$LINT_FILES"
 
@@ -424,7 +424,7 @@ autopep8:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - |
-      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$')
+      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
       echo "Changed Python files:"
       echo "$changed_files"
       if [ -n "$changed_files" ]; then
@@ -471,7 +471,7 @@ isort:
   script:
     - pip install isort
     - |
-      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$')
+      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
       echo "Changed Python files:"
       echo "$changed_files"
       if [ -n "$changed_files" ]; then
@@ -500,7 +500,7 @@ add-trailing-commas:
   script:
     - pip install add-trailing-comma
     - |
-      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$')
+      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
       echo "Changed Python files:"
       echo "$changed_files"
       if [ -n "$changed_files" ]; then
