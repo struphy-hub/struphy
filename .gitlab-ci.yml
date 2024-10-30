@@ -56,8 +56,8 @@ stages:
   - startup
   - build
   - install
-  - lint
   - test
+  - lint
   - pages
   - release 
 
