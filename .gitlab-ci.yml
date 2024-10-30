@@ -409,8 +409,8 @@ lint_struphy:
     - make -v
     - python3 --version
     - pip install -U virtualenv
-    - python3 -m venv_struphy_lint
-    - source venv_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
+    - python3 -m venv env_struphy_lint
+    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
     - pip list
     - ls
     - pwd
