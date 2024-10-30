@@ -384,6 +384,8 @@ def struphy_lint(config, verbose):
         Configuration dictionary containing the following keys:
             - input_type : str, optional
                 The type of files to lint ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
+            - output_format: str, optional
+                The format of the lint output ('table', or 'plain'). Defaults to 'table'
             - path : str, optional
                 Directory or file path to lint.
             - linters : list
@@ -392,10 +394,11 @@ def struphy_lint(config, verbose):
     verbose : bool
         If True, enables detailed output.
     """
-
+    print(config)
     # Extract individual settings from config
     input_type = config.get("input_type", "all")
     path = config.get("path")
+    output_format = config.get("output_format", "table")
     linters = config.get("linters", [])
 
     if input_type is None and path is not None:
@@ -417,6 +420,7 @@ def struphy_lint(config, verbose):
     # Check if all ci_linters are included in linters
     if all(ci_linter in linters for ci_linter in ci_linters):
         print("Passes CI if both isort and autopep8 passes")
+        print("-" * 40)
         check_ci_pass = True
     else:
         skipped_ci_linters = [
@@ -432,12 +436,15 @@ def struphy_lint(config, verbose):
         stats_list.append(stats)
 
         # Print the statistics in a table
-        print_stats_table(
-            [stats],
-            linters,
-            print_header=(ifile == 0),
-            pathlen=max_pathlen,
-        )
+        if output_format == "table":
+            print_stats_table(
+                [stats],
+                linters,
+                print_header=(ifile == 0),
+                pathlen=max_pathlen,
+            )
+        elif output_format == "plain":
+            print_stats_plain(stats, linters)
 
     if check_ci_pass:
         passes_ci = True
@@ -593,6 +600,37 @@ def struphy_format(config, verbose, yes=False):
     else:
         print("No Python files to format.")
 
+def print_stats_plain(stats, linters):
+    """
+    Print statistics for a single file in plain text format.
+
+    Parameters
+    ----------
+    stats : dict
+        Dictionary containing statistics for a single file.
+
+    linters : list
+        List of linters to display in the output.
+    """
+    print(f"File: {os.path.relpath(stats['path'])}")
+    print(f"  Lines: {stats['num_lines']}")
+    print(f"  Functions: {stats['num_functions']}")
+    print(f"  Classes: {stats['num_classes']}")
+    print(f"  Variables: {stats['num_variables']}")
+    
+    if "pylint" in linters:
+        print(f"  Pylint Score: {stats['pylint_score']}/10")
+        
+    for linter in linters:
+        status = YES_GREEN if stats[f"passes_{linter}"] else NO_RED
+        print(f"  {linter}: {status}")
+    
+    # Check for CI pass status if both linters are present
+    if "isort" in linters and "autopep8" in linters:
+        passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
+        ci_status = YES_GREEN if passes_ci else NO_RED
+        print(f"  Passes CI: {ci_status}")
+    print("-" * 40)  # Divider between files
 
 def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
     """
