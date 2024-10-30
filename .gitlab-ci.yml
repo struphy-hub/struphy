@@ -386,6 +386,7 @@ isort:
 
 # Lint struphy with `struphy lint`
 lint_struphy:
+  image: ubuntu:latest
   stage: lint
   needs: ['ci_vars']
   rules:
@@ -401,20 +402,30 @@ lint_struphy:
   before_script:
     - date
     - ls -a
-    - uname -a
-    - module list
-    - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
-    - module list
-    - make -v
-    - python3 --version
-    - pip install -U virtualenv
-    - python3 -m venv env_struphy_lint
+    - apt update -y && apt clean 
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt install -y software-properties-common
+    - add-apt-repository -y ppa:deadsnakes/ppa
+    - apt update -y
+    - apt install -y python3.11
+    - apt install -y python3.11-dev
+    - apt install -y python3-pip 
+    - apt install -y python3.11-venv 
+    - apt install -y gfortran gcc 
+    - apt install -y liblapack-dev libopenmpi-dev 
+    - apt install -y libblas-dev openmpi-bin 
+    - apt install -y libomp-dev libomp5 
+    - apt install -y git
+    - apt install -y pandoc
+    - apt install -y sqlite3
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+    - python3.11 -m pip list
+    - python3.11 -m venv env_struphy_lint
+  script:
     - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
     - pip list
     - ls
-    - pwd
-  script:
     - pwd
     - ls -1
     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
