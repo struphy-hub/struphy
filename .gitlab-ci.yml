@@ -310,7 +310,7 @@ lint_struphy:
     - ls -1
     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
     - struphy
-    - struphy lint branch
+    - struphy lint branch --output-format plain
   allow_failure: true
 
 ##################
