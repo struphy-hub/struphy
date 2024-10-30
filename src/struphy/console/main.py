@@ -714,7 +714,7 @@ def struphy():
             type=str,
             default="table",
             choices=["table", "plain"],
-            help="specify the format of the output: 'table' for tabular output or 'plain' for regular output"
+            help="specify the format of the output: 'table' for tabular output or 'plain' for regular output",
         )
 
     # parse argument

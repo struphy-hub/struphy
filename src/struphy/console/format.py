@@ -584,7 +584,8 @@ def struphy_format(config, verbose, yes=False):
 
             # Check if any files still require changes
             if not files_require_formatting(
-                python_files, [lint for lint in linters if not lint in skip_linters],
+                python_files,
+                [lint for lint in linters if not lint in skip_linters],
             ):
                 print("All files are properly formatted.")
                 break
@@ -599,6 +600,7 @@ def struphy_format(config, verbose, yes=False):
                 print("Contact Max about this")
     else:
         print("No Python files to format.")
+
 
 def print_stats_plain(stats, linters):
     """
@@ -617,20 +619,21 @@ def print_stats_plain(stats, linters):
     print(f"  Functions: {stats['num_functions']}")
     print(f"  Classes: {stats['num_classes']}")
     print(f"  Variables: {stats['num_variables']}")
-    
+
     if "pylint" in linters:
         print(f"  Pylint Score: {stats['pylint_score']}/10")
-        
+
     for linter in linters:
         status = PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED
         print(f"  {linter}: {status}")
-    
+
     # Check for CI pass status if both linters are present
     if "isort" in linters and "autopep8" in linters:
         passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
         ci_status = PASS_GREEN if passes_ci else FAIL_RED
         print(f"  Passes CI: {ci_status}")
     print("-" * 40)  # Divider between files
+
 
 def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
     """
