@@ -1,12 +1,14 @@
 def test_pproc_codes(model: str = None, group: str = None):
     '''Tests the post processing of runs in test_codes.py'''
 
-    import os
-    import struphy
     import inspect
-    from struphy.models import fluid, kinetic, hybrid, toy
-    from struphy.post_processing import pproc_struphy
+    import os
+
     from mpi4py import MPI
+
+    import struphy
+    from struphy.models import fluid, hybrid, kinetic, toy
+    from struphy.post_processing import pproc_struphy
 
     comm = MPI.COMM_WORLD
 
@@ -56,12 +58,14 @@ def test_pproc_codes(model: str = None, group: str = None):
                 # TODO: remove if-clause
                 if 'VlasovMasslessElectrons' in model:
                     print(
-                        f'Model {model} is currently excluded from tests.')
+                        f'Model {model} is currently excluded from tests.',
+                    )
                     continue
 
                 if 'Variational' in model or 'Visco' in model:
                     print(
-                        f'Model {model} is currently excluded from tests.')
+                        f'Model {model} is currently excluded from tests.',
+                    )
                     continue
 
                 path_out = os.path.join(libpath, 'io/out/test_' + model)
@@ -71,7 +75,8 @@ def test_pproc_codes(model: str = None, group: str = None):
             # TODO: remove if-clause
             if 'VlasovMasslessElectrons' in model:
                 print(
-                    f'Model {model} is currently excluded from tests.')
+                    f'Model {model} is currently excluded from tests.',
+                )
                 exit()
 
             path_out = os.path.join(libpath, 'io/out/test_' + model)

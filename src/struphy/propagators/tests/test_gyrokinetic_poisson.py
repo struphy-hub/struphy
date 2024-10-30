@@ -1,15 +1,14 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import pytest
 from mpi4py import MPI
-import numpy as np
-import matplotlib.pyplot as plt
 
-from struphy.geometry import domains
-from struphy.feec.psydac_derham import Derham
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
+from struphy.feec.psydac_derham import Derham
+from struphy.geometry import domains
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
-
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -19,21 +18,26 @@ rank = comm.Get_rank()
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('direction', [0, 1])
 @pytest.mark.parametrize('bc_type', ['periodic', 'dirichlet', 'neumann'])
-@pytest.mark.parametrize('mapping', [
-    ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}],
-    ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]])
+@pytest.mark.parametrize(
+    'mapping', [
+        ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}],
+        ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}],
+    ],
+)
 def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
     """
     Test the convergence of Poisson solver with M1perp diffusion matrix
     in 1D by means of manufactured solutions.
     """
 
-    solver_params = {'type': ('pcg', 'MassMatrixPreconditioner'),
-                     'tol': 1.e-13,
-                     'maxiter': 3000,
-                     'info': True,
-                     'verbose': False,
-                     'recycle': False}
+    solver_params = {
+        'type': ('pcg', 'MassMatrixPreconditioner'),
+        'tol': 1.e-13,
+        'maxiter': 3000,
+        'info': True,
+        'verbose': False,
+        'recycle': False,
+    }
 
     # create domain object
     dom_type = mapping[0]
@@ -59,11 +63,14 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
         h_vec = []
         if show_plot:
             plt.figure(
-                f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16))
+                f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16),
+            )
             plt.figure(
-                f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16))
+                f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16),
+            )
             plt.figure(
-                f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16))
+                f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(24, 16),
+            )
 
         for n, Neli in enumerate(Nels):
 
@@ -126,8 +133,10 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
                 print('Direction should be either 0 or 1')
 
             # create derham object
-            derham = Derham(Nel, p, spl_kind,
-                            dirichlet_bc=dirichlet_bc, comm=comm)
+            derham = Derham(
+                Nel, p, spl_kind,
+                dirichlet_bc=dirichlet_bc, comm=comm,
+            )
 
             # mass matrices
             mass_ops = WeightedMassOperators(derham, domain)
@@ -144,14 +153,16 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
 
             # create Poisson solver
             _phi = derham.create_field('phi', 'H1')
-            poisson_solver = ImplicitDiffusion(_phi.vector,
-                                               sigma_1=1e-12,
-                                               sigma_2=0.,
-                                               sigma_3=1.,
-                                               divide_by_dt=True,
-                                               diffusion_mat='M1perp',
-                                               rho=rho_vec,
-                                               solver=solver_params)
+            poisson_solver = ImplicitDiffusion(
+                _phi.vector,
+                sigma_1=1e-12,
+                sigma_2=0.,
+                sigma_3=1.,
+                divide_by_dt=True,
+                diffusion_mat='M1perp',
+                rho=rho_vec,
+                solver=solver_params,
+            )
 
             # Solve Poisson (call propagator with dt=1.)
             dt = 1.
@@ -164,19 +175,28 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
 
             if show_plot:
                 plt.figure(
-                    f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }')
+                    f'degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }',
+                )
                 plt.subplot(2, 3, n + 1)
                 if direction == 0:
-                    plt.plot(x[:, 0, 0], sol_val1[:, 0, 0],
-                            'ob', label='numerical')
-                    plt.plot(x[:, 0, 0], analytic_value1[:, 0, 0],
-                            'r--', label='exact')
+                    plt.plot(
+                        x[:, 0, 0], sol_val1[:, 0, 0],
+                        'ob', label='numerical',
+                    )
+                    plt.plot(
+                        x[:, 0, 0], analytic_value1[:, 0, 0],
+                        'r--', label='exact',
+                    )
                     plt.xlabel('x')
                 elif direction == 1:
-                    plt.plot(y[0, :, 0], sol_val1[0, :, 0],
-                            'ob', label='numerical')
-                    plt.plot(y[0, :, 0], analytic_value1[0, :, 0],
-                            'r--', label='exact')
+                    plt.plot(
+                        y[0, :, 0], sol_val1[0, :, 0],
+                        'ob', label='numerical',
+                    )
+                    plt.plot(
+                        y[0, :, 0], analytic_value1[0, :, 0],
+                        'r--', label='exact',
+                    )
                     plt.xlabel('y')
                 plt.title(f'{Nel = }')
                 plt.legend()
@@ -190,16 +210,22 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
 
         m, _ = np.polyfit(np.log(Nels), np.log(errors), deg=1)
         print(
-            f'For {pi = }, solution converges in {direction=} with rate {-m = } ')
+            f'For {pi = }, solution converges in {direction=} with rate {-m = } ',
+        )
         assert -m > (pi + 1 - 0.06)
 
         # Plot convergence in 1D
         if show_plot:
             plt.figure(
-                f'Convergence for degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(12, 8))
+                f'Convergence for degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }', figsize=(12, 8),
+            )
             plt.plot(h_vec, errors, 'o', label=f'p={p[direction]}')
-            plt.plot(h_vec, [h**(p[direction]+1)/h_vec[direction]**(p[direction]+1)*errors[direction]
-                            for h in h_vec], 'k--', label='correct rate p+1')
+            plt.plot(
+                h_vec, [
+                    h**(p[direction]+1)/h_vec[direction]**(p[direction]+1)*errors[direction]
+                    for h in h_vec
+                ], 'k--', label='correct rate p+1',
+            )
             plt.yscale("log")
             plt.xscale("log")
             plt.xlabel('Grid Spacing h')
@@ -215,10 +241,12 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
 @pytest.mark.parametrize('Nel', [[64, 64, 1]])
 @pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize('bc_type', ['periodic', 'dirichlet', 'neumann'])
-@pytest.mark.parametrize('mapping', [
-    ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}],
-    ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-])
+@pytest.mark.parametrize(
+    'mapping', [
+        ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 1.}],
+        ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}],
+    ],
+)
 def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
@@ -230,7 +258,8 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
         'maxiter': 3000,
         'info': True,
         'verbose': False,
-        'recycle': False}
+        'recycle': False,
+    }
 
     # create domain object
     dom_type = mapping[0]
@@ -302,8 +331,10 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
             return np.cos(np.pi/Lx*x) * (np.pi/Lx)**2
 
     # create derham object
-    derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc,
-                    comm=comm)
+    derham = Derham(
+        Nel, p, spl_kind, dirichlet_bc=dirichlet_bc,
+        comm=comm,
+    )
 
     # create weighted mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -331,22 +362,26 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 
     # Create Poisson solvers
     _phi1 = derham.create_field('test1', 'H1')
-    poisson_solver1 = ImplicitDiffusion(_phi1.vector,
-                                        sigma_1=1e-8,
-                                        sigma_2=0.,
-                                        sigma_3=1.,
-                                        diffusion_mat='M1perp',
-                                        rho=rho_vec1,
-                                        solver=solver_params)
+    poisson_solver1 = ImplicitDiffusion(
+        _phi1.vector,
+        sigma_1=1e-8,
+        sigma_2=0.,
+        sigma_3=1.,
+        diffusion_mat='M1perp',
+        rho=rho_vec1,
+        solver=solver_params,
+    )
 
     _phi2 = derham.create_field('test2', 'H1')
-    poisson_solver2 = ImplicitDiffusion(_phi2.vector,
-                                        sigma_1=1e-8,
-                                        sigma_2=0.,
-                                        sigma_3=1.,
-                                        diffusion_mat='M1perp',
-                                        rho=rho_vec2,
-                                        solver=solver_params)
+    poisson_solver2 = ImplicitDiffusion(
+        _phi2.vector,
+        sigma_1=1e-8,
+        sigma_2=0.,
+        sigma_3=1.,
+        diffusion_mat='M1perp',
+        rho=rho_vec2,
+        solver=solver_params,
+    )
 
     # Solve Poisson equation (call propagator with dt=1.)
     dt = 1.
@@ -379,15 +414,19 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
         plt.legend()
         plt.subplot(2, 2, 2)
         plt.title('2D numerical solution')
-        plt.pcolor(x[:, :, 0], y[:, :, 0],
-                   sol_val2[:, :, 0], vmin=-1., vmax=1.)
+        plt.pcolor(
+            x[:, :, 0], y[:, :, 0],
+            sol_val2[:, :, 0], vmin=-1., vmax=1.,
+        )
         plt.colorbar()
         ax = plt.gca()
         ax.set_aspect('equal', adjustable='box')
         plt.subplot(2, 2, 4)
         plt.title('2D true solution')
-        plt.pcolor(x[:, :, 0], y[:, :, 0],
-                   analytic_value2[:, :, 0], vmin=-1., vmax=1.)
+        plt.pcolor(
+            x[:, :, 0], y[:, :, 0],
+            analytic_value2[:, :, 0], vmin=-1., vmax=1.,
+        )
         plt.colorbar()
         ax = plt.gca()
         ax.set_aspect('equal', adjustable='box')
@@ -402,10 +441,12 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[32, 32, 16]])
 @pytest.mark.parametrize('p', [[1, 1, 1], [2, 2, 1]])
-@pytest.mark.parametrize('mapping', [
-    ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}],
-    ['Colella', {'Lx': 1., 'Ly': 1., 'alpha': .1, 'Lz': 1.}]
-])
+@pytest.mark.parametrize(
+    'mapping', [
+        ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}],
+        ['Colella', {'Lx': 1., 'Ly': 1., 'alpha': .1, 'Lz': 1.}],
+    ],
+)
 def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
@@ -421,7 +462,8 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         'maxiter': 3000,
         'info': False,
         'verbose': False,
-        'recycle': False}
+        'recycle': False,
+    }
 
     # create domain object
     dom_type = mapping[0]
@@ -448,8 +490,10 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         return dd1 + dd2
 
     # create 3d derham object
-    derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc,
-                    comm=comm)
+    derham = Derham(
+        Nel, p, spl_kind, dirichlet_bc=dirichlet_bc,
+        comm=comm,
+    )
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -466,14 +510,16 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     # Create 3d Poisson solver
     _phi = derham.create_field('test2', 'H1')
     _phi_2p5d = derham.create_field('sol_2p5d', 'H1')
-    poisson_solver_3d = ImplicitDiffusion(_phi.vector,
-                                          sigma_1=1e-8,
-                                          sigma_2=0.,
-                                          sigma_3=1.,
-                                          diffusion_mat='M1perp',
-                                          rho=rho_vec,
-                                          solver=solver_params)
-    
+    poisson_solver_3d = ImplicitDiffusion(
+        _phi.vector,
+        sigma_1=1e-8,
+        sigma_2=0.,
+        sigma_3=1.,
+        diffusion_mat='M1perp',
+        rho=rho_vec,
+        solver=solver_params,
+    )
+
     s = _phi.starts
     e = _phi.ends
 
@@ -491,13 +537,15 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
 
     _phi_small = derham.create_field('test_small', 'H1')
     rhs = derham.create_field('rhs', 'H1')
-    poisson_solver_2p5d = ImplicitDiffusion(_phi_small.vector,
-                                            sigma_1=1e-8,
-                                            sigma_2=0.,
-                                            sigma_3=1.,
-                                            diffusion_mat='M1perp',
-                                            rho=rhs.vector,
-                                            solver=solver_params)
+    poisson_solver_2p5d = ImplicitDiffusion(
+        _phi_small.vector,
+        sigma_1=1e-8,
+        sigma_2=0.,
+        sigma_3=1.,
+        diffusion_mat='M1perp',
+        rho=rhs.vector,
+        solver=solver_params,
+    )
 
     # Solve Poisson equation (call propagator with dt=1.)
     dt = 1.
@@ -527,7 +575,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     sol_val = domain.push(_phi, e1, e2, e3, kind='0')
     sol_val_2p5d = domain.push(_phi_2p5d, e1, e2, e3, kind='0')
     x, y, z = domain(e1, e2, e3)
-    
+
     print('max diff:', np.max(np.abs(sol_val - sol_val_2p5d)))
     assert np.max(np.abs(sol_val - sol_val_2p5d)) < 0.026
 
@@ -536,15 +584,19 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         for n in range(3):
             plt.subplot(2, 3, n + 1)
             plt.title(f'e3 = {e3[n*6]} from 3d solve')
-            plt.pcolor(x[:, :, n*6], y[:, :, n*6],
-                       sol_val[:, :, n*6], vmin=-1., vmax=1.)
+            plt.pcolor(
+                x[:, :, n*6], y[:, :, n*6],
+                sol_val[:, :, n*6], vmin=-1., vmax=1.,
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect('equal', adjustable='box')
             plt.subplot(2, 3, 4 + n)
             plt.title(f'e3 = {e3[n*6]} from 2.5d solve')
-            plt.pcolor(x[:, :, n*6], y[:, :, n*6],
-                       sol_val_2p5d[:, :, n*6], vmin=-1., vmax=1.)
+            plt.pcolor(
+                x[:, :, n*6], y[:, :, n*6],
+                sol_val_2p5d[:, :, n*6], vmin=-1., vmax=1.,
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect('equal', adjustable='box')
@@ -552,15 +604,19 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         for n in range(3):
             plt.subplot(2, 3, n + 1)
             plt.title(f'e2 = {e2[n*12]} from 3d solve')
-            plt.pcolor(x[:, n*12, :], z[:, n*12, :],
-                       sol_val[:, n*12, :], vmin=-1., vmax=1.)
+            plt.pcolor(
+                x[:, n*12, :], z[:, n*12, :],
+                sol_val[:, n*12, :], vmin=-1., vmax=1.,
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect('equal', adjustable='box')
             plt.subplot(2, 3, 4 + n)
             plt.title(f'e2 = {e2[n*12]} from 2.5d solve')
-            plt.pcolor(x[:, n*12, :], z[:, n*12, :],
-                       sol_val_2p5d[:, n*12, :], vmin=-1., vmax=1.)
+            plt.pcolor(
+                x[:, n*12, :], z[:, n*12, :],
+                sol_val_2p5d[:, n*12, :], vmin=-1., vmax=1.,
+            )
             plt.colorbar()
             ax = plt.gca()
             ax.set_aspect('equal', adjustable='box')
@@ -573,7 +629,7 @@ if __name__ == '__main__':
     direction = 0
     bc_type = 'periodic'
     mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
+    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
     test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
     # Nel = [64, 64, 1]

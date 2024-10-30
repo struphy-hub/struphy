@@ -1,6 +1,5 @@
+from numpy import mod, shape
 from pyccel.decorators import pure
-
-from numpy import shape, mod
 
 
 @pure

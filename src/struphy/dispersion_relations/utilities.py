@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.special import erfi
 
+
 def Zplasma(xi, der=0):
     """ 
     The plasma dispersion function and its first derivative.

@@ -1,7 +1,8 @@
-import sys
 import pickle
-import yaml
+import sys
+
 import numpy as np
+import yaml
 from matplotlib import pyplot as plt
 
 from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
@@ -17,21 +18,23 @@ def main():
     if sys.argv[1] == 'true':
         list_of_funcs = None
     else:
-        list_of_funcs = ['assemble_',
-                         'propagator',
-                         'accumulate',
-                         '_fill',
-                         'pusher',
-                         'update_ghost_regions',
-                         'solver',
-                         'class ',
-                         'stencil',
-                         'block',
-                         'integrate_in_time']
+        list_of_funcs = [
+            'assemble_',
+            'propagator',
+            'accumulate',
+            '_fill',
+            'pusher',
+            'update_ghost_regions',
+            'solver',
+            'class ',
+            'stencil',
+            'block',
+            'integrate_in_time',
+        ]
         print('\nKeyword search enabled with keywords:')
         print('-------------------------------------')
         print(list_of_funcs)
-        
+
     print('\nLoad profiling data:')
     print('--------------------')
 
@@ -50,7 +53,7 @@ def main():
 
         print('')
         get_cprofile_data(path)
-        
+
         sim_names += [path.split('/')[-2]]
 
         with open(path + 'profile_dict.sav', 'rb') as f:
@@ -72,7 +75,7 @@ def main():
 
         tmp = {}
         for key, val in d.items():
-            #tmp[key] = float(val['cumtime'])
+            # tmp[key] = float(val['cumtime'])
             tmp[key] = val
 
         if do_replace_keys:
@@ -84,7 +87,10 @@ def main():
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    print('simulation'.ljust(20) + '#proc'.ljust(7) + 'pos'.ljust(5) + 'function'.ljust(70) + 'ncalls'.ljust(15) + 'totime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15))
+    print(
+        'simulation'.ljust(20) + '#proc'.ljust(7) + 'pos'.ljust(5) + 'function'.ljust(70) +
+        'ncalls'.ljust(15) + 'totime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15),
+    )
     print('-'*154)
     for position, key in enumerate(dicts[0].keys()):
 
@@ -115,7 +121,7 @@ def main():
                 string = f'{sim_name}'.ljust(20) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
-                    #string += '\t\t'
+                    # string += '\t\t'
                 print(string)
 
                 d_saved[key]['mpi_size'] += [n]
@@ -135,27 +141,33 @@ def main():
     fig = plt.figure(figsize=(10, 10))
     for n, (key, val) in enumerate(d_saved.items()):
         if n < n_lines and '__init__' not in key and 'mass' not in key and 'set_backend' not in key:
-            #print(key, val)
+            # print(key, val)
 
             # strong scaling plot
             if all([Nel == val['Nel'][0] for Nel in val['Nel']]):
                 plt.loglog(val['mpi_size'], val['time'], label=key)
                 plt.xlabel('mpi_size')
                 plt.ylabel('time [s]')
-                plt.title('Strong scaling for Nel=' +
-                          str(val['Nel'][0]) + ' cells')
+                plt.title(
+                    'Strong scaling for Nel=' +
+                    str(val['Nel'][0]) + ' cells',
+                )
                 plt.legend(loc='lower left')
-                plt.loglog(val['mpi_size'], val['time'][0]/2 **
-                           np.arange(len(val['time'])), 'k--', alpha=0.3)
+                plt.loglog(
+                    val['mpi_size'], val['time'][0]/2 **
+                    np.arange(len(val['time'])), 'k--', alpha=0.3,
+                )
             # weak scaling plot
             else:
                 plt.plot(val['mpi_size'], val['time'], label=key)
                 plt.xlabel('mpi_size')
                 plt.ylabel('time [s]')
-                plt.title('Weak scaling for cells/mpi_size=' +
-                          str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
+                plt.title(
+                    'Weak scaling for cells/mpi_size=' +
+                    str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.',
+                )
                 plt.legend(loc='upper left')
-                #plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
+                # plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
                 plt.xscale('log')
 
     plt.show()

@@ -1,22 +1,22 @@
-from pyccel.decorators import pure, stack_array
 from numpy import empty
+from pyccel.decorators import pure, stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels 
-import struphy.pic.accumulation.filler_kernels as filler_kernels 
-import struphy.geometry.evaluation_kernels as evaluation_kernels 
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not remove; needed to identify dependencies
-
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.pic.accumulation.filler_kernels as filler_kernels
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 @pure
 @stack_array('bn1', 'bn2', 'bn3')
-def l2_projection_V0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                     starts0: 'int[:]', vec: 'float[:,:,:]',
-                     quad_locs_1: 'float[:]', quad_locs_2: 'float[:]', quad_locs_3: 'float[:]',
-                     scaled_wts_1: 'float[:]', scaled_wts_2: 'float[:]', scaled_wts_3: 'float[:]',
-                     fun_vals: 'float[:,:,:]'
-                     ):
+def l2_projection_V0(
+    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    starts0: 'int[:]', vec: 'float[:,:,:]',
+    quad_locs_1: 'float[:]', quad_locs_2: 'float[:]', quad_locs_3: 'float[:]',
+    scaled_wts_1: 'float[:]', scaled_wts_2: 'float[:]', scaled_wts_3: 'float[:]',
+    fun_vals: 'float[:,:,:]',
+):
     """ Kernel for integration of a function times basis functions in V0.
 
     Do integration using quadrature points and weights from Gauss-Legendre quadrature.
@@ -77,8 +77,10 @@ def l2_projection_V0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
                 fill = fun_vals[i, j, k] * scaled_wts_1[i] * \
                     scaled_wts_2[j] * scaled_wts_3[k]
 
-                filler_kernels.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1,
-                            span2, span3, starts0, vec, fill)
+                filler_kernels.fill_vec(
+                    pn1, pn2, pn3, bn1, bn2, bn3, span1,
+                    span2, span3, starts0, vec, fill,
+                )
 
 
 # # ================= 3d =================================
@@ -118,14 +120,16 @@ def l2_projection_V0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
 
 
 # ================= 3d =================================
-def hybrid_weight(pads1: int, pads2: int, pads3: int,
-                  pts1: 'float[:,:]', pts2: 'float[:,:]', pts3: 'float[:,:]',
-                  spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]',
-                  nq1: int, nq2: int, nq3: int,
-                  w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]',
-                  data1: 'float[:,:,:]', data2: 'float[:,:,:]', data3: 'float[:,:,:]',
-                  n_data: 'float[:,:,:,:,:,:]', 
-                  args_domain: 'DomainArguments'):
+def hybrid_weight(
+    pads1: int, pads2: int, pads3: int,
+    pts1: 'float[:,:]', pts2: 'float[:,:]', pts3: 'float[:,:]',
+    spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]',
+    nq1: int, nq2: int, nq3: int,
+    w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]',
+    data1: 'float[:,:,:]', data2: 'float[:,:,:]', data3: 'float[:,:,:]',
+    n_data: 'float[:,:,:,:,:,:]',
+    args_domain: 'DomainArguments',
+):
 
     nel1 = spans1.size
     nel2 = spans2.size
@@ -135,7 +139,7 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
     G = empty((3, 3), dtype=float)
     value_new = empty(3, dtype=float)
 
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
+    # $ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
     for iel1 in range(nel1):
         for iel2 in range(nel2):
             for iel3 in range(nel3):
@@ -144,12 +148,18 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
                     for q2 in range(nq2):
                         for q3 in range(nq3):
 
-                            value1 = data1[iel1*nq1+q1,
-                                           iel2*nq2+q2, iel3*nq3+q3]
-                            value2 = data2[iel1*nq1+q1,
-                                           iel2*nq2+q2, iel3*nq3+q3]
-                            value3 = data3[iel1*nq1+q1,
-                                           iel2*nq2+q2, iel3*nq3+q3]
+                            value1 = data1[
+                                iel1*nq1+q1,
+                                iel2*nq2+q2, iel3*nq3+q3,
+                            ]
+                            value2 = data2[
+                                iel1*nq1+q1,
+                                iel2*nq2+q2, iel3*nq3+q3,
+                            ]
+                            value3 = data3[
+                                iel1*nq1+q1,
+                                iel2*nq2+q2, iel3*nq3+q3,
+                            ]
 
                             eta1 = pts1[iel1, q1]
                             eta2 = pts2[iel2, q2]
@@ -181,15 +191,23 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
                                 overn = 0.0
                             else:
                                 overn = 1.0 / \
-                                    n_data[pads1 + iel1, pads2 + iel2,
-                                           pads3 + iel3, q1, q2, q3]
+                                    n_data[
+                                        pads1 + iel1, pads2 + iel2,
+                                        pads3 + iel3, q1, q2, q3,
+                                    ]
 
-                            value_new[0] = (G[0, 0]*value1 + G[0, 1]*value2 +
-                                            G[0, 2]*value3) * overn
-                            value_new[1] = (G[1, 0]*value1 + G[1, 1]*value2 +
-                                            G[1, 2]*value3) * overn
-                            value_new[2] = (G[2, 0]*value1 + G[2, 1]*value2 +
-                                            G[2, 2]*value3) * overn
+                            value_new[0] = (
+                                G[0, 0]*value1 + G[0, 1]*value2 +
+                                G[0, 2]*value3
+                            ) * overn
+                            value_new[1] = (
+                                G[1, 0]*value1 + G[1, 1]*value2 +
+                                G[1, 2]*value3
+                            ) * overn
+                            value_new[2] = (
+                                G[2, 0]*value1 + G[2, 1]*value2 +
+                                G[2, 2]*value3
+                            ) * overn
 
                             data1[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = \
                                 value_new[0]
@@ -197,4 +215,4 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
                                 value_new[1]
                             data3[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = \
                                 value_new[2]
-    #$ omp end parallel
+    # $ omp end parallel

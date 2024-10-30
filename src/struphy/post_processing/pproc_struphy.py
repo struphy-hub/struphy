@@ -1,10 +1,12 @@
-def main(path: str,
-         *,
-         step: int = 1,
-         celldivide: int = 1,
-         physical: bool = False,
-         guiding_center: bool = False,
-         classify: bool = False):
+def main(
+    path: str,
+    *,
+    step: int = 1,
+    celldivide: int = 1,
+    physical: bool = False,
+    guiding_center: bool = False,
+    classify: bool = False,
+):
     """
     Post-processing of finished Struphy runs.
 
@@ -30,16 +32,16 @@ def main(path: str,
     """
 
     import os
-    import shutil
-    import h5py
     import pickle
+    import shutil
+
+    import h5py
+    import numpy as np
     import yaml
 
-    import numpy as np
-
-    from struphy.models import fluid, kinetic, hybrid, toy
-    import struphy.post_processing.post_processing_tools as pproc
     import struphy.post_processing.orbits.orbits_tools as orbits_pproc
+    import struphy.post_processing.post_processing_tools as pproc
+    from struphy.models import fluid, hybrid, kinetic, toy
 
     print('')
 
@@ -56,8 +58,10 @@ def main(path: str,
     file = h5py.File(os.path.join(path, 'data/', 'data_proc0.hdf5'), 'r')
 
     # save time grid at which post-processing data is created
-    np.save(os.path.join(path_pproc, 't_grid.npy'),
-            file['time/value'][::step].copy())
+    np.save(
+        os.path.join(path_pproc, 't_grid.npy'),
+        file['time/value'][::step].copy(),
+    )
 
     # load parameters.yml
     with open(os.path.join(path, 'parameters.yml'), 'r') as f:
@@ -111,13 +115,15 @@ def main(path: str,
 
         point_data, grids_log, grids_phy = pproc.eval_femfields(
             path, fields, space_ids,
-            celldivide=[celldivide, celldivide, celldivide])
+            celldivide=[celldivide, celldivide, celldivide],
+        )
 
         if physical:
             point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
                 path, fields, space_ids,
                 celldivide=[celldivide, celldivide, celldivide],
-                physical=True)
+                physical=True,
+            )
 
         # directory for field data
         path_fields = os.path.join(path_pproc, 'fields_data')
@@ -157,28 +163,38 @@ def main(path: str,
             print(f'{new_name = }')
 
             with open(os.path.join(path_fields, subfolder, new_name + '_log.bin'), 'wb') as handle:
-                pickle.dump(val, handle,
-                            protocol=pickle.HIGHEST_PROTOCOL)
+                pickle.dump(
+                    val, handle,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
 
             if physical:
                 with open(os.path.join(path_fields, subfolder, new_name + '_phy.bin'), 'wb') as handle:
-                    pickle.dump(point_data_phy[name], handle,
-                                protocol=pickle.HIGHEST_PROTOCOL)
+                    pickle.dump(
+                        point_data_phy[name], handle,
+                        protocol=pickle.HIGHEST_PROTOCOL,
+                    )
 
         # save grids
         with open(os.path.join(path_fields, 'grids_log.bin'), 'wb') as handle:
-            pickle.dump(grids_log, handle,
-                        protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(
+                grids_log, handle,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
 
         with open(os.path.join(path_fields, 'grids_phy.bin'), 'wb') as handle:
-            pickle.dump(grids_phy, handle,
-                        protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(
+                grids_phy, handle,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
 
         # create vtk files
         pproc.create_vtk(path_fields, grids_phy, point_data)
         if physical:
-            pproc.create_vtk(path_fields, grids_phy,
-                             point_data_phy, physical=True)
+            pproc.create_vtk(
+                path_fields, grids_phy,
+                point_data_phy, physical=True,
+            )
 
     # kinetic post-processing
     if exist_kinetic is not None:
@@ -207,16 +223,19 @@ def main(path: str,
             # markers
             if exist_kinetic['markers']:
                 pproc.post_process_markers(
-                    path, path_kinetics_species, species, kinetic_kinds[n], step)
+                    path, path_kinetics_species, species, kinetic_kinds[n], step,
+                )
 
                 if guiding_center:
                     assert kinetic_kinds[n] == 'Particles6D'
                     orbits_pproc.post_process_orbit_guiding_center(
-                        path, path_kinetics_species, species)
+                        path, path_kinetics_species, species,
+                    )
 
                 if classify:
                     orbits_pproc.post_process_orbit_classification(
-                        path_kinetics_species, species)
+                        path_kinetics_species, species,
+                    )
 
             # distribution function
             if exist_kinetic['f']:
@@ -231,55 +250,73 @@ def main(path: str,
                 else:
                     compute_bckgr = False
 
-                pproc.post_process_f(path, path_kinetics_species,
-                                     species, step, compute_bckgr=compute_bckgr)
+                pproc.post_process_f(
+                    path, path_kinetics_species,
+                    species, step, compute_bckgr=compute_bckgr,
+                )
 
 
 if __name__ == '__main__':
 
     import argparse
+
     import struphy
 
     libpath = struphy.__path__[0]
 
     parser = argparse.ArgumentParser(
-        description='Post-process data of finished Struphy runs to prepare for diagnostics.')
+        description='Post-process data of finished Struphy runs to prepare for diagnostics.',
+    )
 
     # paths of simulation folders
-    parser.add_argument('dir',
-                        type=str,
-                        metavar='DIR',
-                        help='absolute path of simulation ouput folder to post-process')
+    parser.add_argument(
+        'dir',
+        type=str,
+        metavar='DIR',
+        help='absolute path of simulation ouput folder to post-process',
+    )
 
-    parser.add_argument('-s', '--step',
-                        type=int,
-                        metavar='N',
-                        help='do post-processing every N-th time step (default=1)',
-                        default=1)
+    parser.add_argument(
+        '-s', '--step',
+        type=int,
+        metavar='N',
+        help='do post-processing every N-th time step (default=1)',
+        default=1,
+    )
 
-    parser.add_argument('--celldivide',
-                        type=int,
-                        metavar='N',
-                        help='divide each grid cell by N for field evaluation (default=1)',
-                        default=1)
+    parser.add_argument(
+        '--celldivide',
+        type=int,
+        metavar='N',
+        help='divide each grid cell by N for field evaluation (default=1)',
+        default=1,
+    )
 
-    parser.add_argument('--physical',
-                        help='do post-processing into push-forwarded physical (xyz) components',
-                        action='store_true',)
+    parser.add_argument(
+        '--physical',
+        help='do post-processing into push-forwarded physical (xyz) components',
+        action='store_true',
+    )
 
-    parser.add_argument('--guiding-center',
-                        help='compute guiding-center coordinates (only from Particles6D)',
-                        action='store_true')
+    parser.add_argument(
+        '--guiding-center',
+        help='compute guiding-center coordinates (only from Particles6D)',
+        action='store_true',
+    )
 
-    parser.add_argument('--classify',
-                        help='classify guiding-center trajectories (passing, trapped or lost)',
-                        action='store_true')
+    parser.add_argument(
+        '--classify',
+        help='classify guiding-center trajectories (passing, trapped or lost)',
+        action='store_true',
+    )
 
     args = parser.parse_args()
 
-    main(args.dir,
-         step=args.step,
-         celldivide=args.celldivide,
-         physical=args.physical,
-         guiding_center=args.guiding_center,
-         classify=args.classify)
+    main(
+        args.dir,
+        step=args.step,
+        celldivide=args.celldivide,
+        physical=args.physical,
+        guiding_center=args.guiding_center,
+        classify=args.classify,
+    )

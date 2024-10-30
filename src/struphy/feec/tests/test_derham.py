@@ -8,15 +8,14 @@ import pytest
 def test_psydac_derham(Nel, p, spl_kind):
     '''Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
+    from psydac.linalg.block import BlockVector
+    from psydac.linalg.stencil import StencilVector
 
+    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-    from psydac.linalg.stencil import StencilVector
-    from psydac.linalg.block import BlockVector
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -31,8 +30,10 @@ def test_psydac_derham(Nel, p, spl_kind):
 
     # Struphy Derham (deprecated)
     nq_el = [4, 4, 4]
-    spaces = [Spline_space_1d(Nel_i, p_i, spl_kind_i, nq_el_i)
-              for Nel_i, p_i, spl_kind_i, nq_el_i in zip(Nel, p, spl_kind, nq_el)]
+    spaces = [
+        Spline_space_1d(Nel_i, p_i, spl_kind_i, nq_el_i)
+        for Nel_i, p_i, spl_kind_i, nq_el_i in zip(Nel, p, spl_kind, nq_el)
+    ]
 
     spaces[0].set_projectors(p[0] + 1)
     spaces[1].set_projectors(p[1] + 1)
@@ -70,8 +71,10 @@ def test_psydac_derham(Nel, p, spl_kind):
     e0 = x0_PSY.ends
 
     # Assign from start to end index + 1
-    x0_PSY[s0[0]: e0[0] + 1, s0[1]: e0[1] + 1, s0[2]: e0[2] +
-           1] = DR_STR.extract_0(x0)[s0[0]: e0[0] + 1, s0[1]: e0[1] + 1, s0[2]: e0[2] + 1]
+    x0_PSY[
+        s0[0]: e0[0] + 1, s0[1]: e0[1] + 1, s0[2]: e0[2] +
+        1,
+    ] = DR_STR.extract_0(x0)[s0[0]: e0[0] + 1, s0[1]: e0[1] + 1, s0[2]: e0[2] + 1]
 
     # Block of StencilVecttors
     x1_PSY = BlockVector(derham.Vh['1'])
@@ -79,42 +82,66 @@ def test_psydac_derham(Nel, p, spl_kind):
     print(f'rank {rank} | starts:', [component.starts for component in x1_PSY])
     print(f'rank {rank} | ends  :', [component.ends for component in x1_PSY])
     print(f'rank {rank} | pads  :', [component.pads for component in x1_PSY])
-    print(f'rank {rank} | shape (=dim):', [
-          component.shape for component in x1_PSY])
-    print(f'rank {rank} | [:].shape (=shape):', [
-          component[:].shape for component in x1_PSY])
+    print(
+        f'rank {rank} | shape (=dim):', [
+            component.shape for component in x1_PSY
+        ],
+    )
+    print(
+        f'rank {rank} | [:].shape (=shape):', [
+            component[:].shape for component in x1_PSY
+        ],
+    )
 
     s11, s12, s13 = [component.starts for component in x1_PSY]
     e11, e12, e13 = [component.ends for component in x1_PSY]
 
     x11, x12, x13 = DR_STR.extract_1(x1)
-    x1_PSY[0][s11[0]: e11[0] + 1, s11[1]: e11[1] + 1, s11[2]: e11[2] +
-              1] = x11[s11[0]: e11[0] + 1, s11[1]: e11[1] + 1, s11[2]: e11[2] + 1]
-    x1_PSY[1][s12[0]: e12[0] + 1, s12[1]: e12[1] + 1, s12[2]: e12[2] +
-              1] = x12[s12[0]: e12[0] + 1, s12[1]: e12[1] + 1, s12[2]: e12[2] + 1]
-    x1_PSY[2][s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] +
-              1] = x13[s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] + 1]
+    x1_PSY[0][
+        s11[0]: e11[0] + 1, s11[1]: e11[1] + 1, s11[2]: e11[2] +
+        1,
+    ] = x11[s11[0]: e11[0] + 1, s11[1]: e11[1] + 1, s11[2]: e11[2] + 1]
+    x1_PSY[1][
+        s12[0]: e12[0] + 1, s12[1]: e12[1] + 1, s12[2]: e12[2] +
+        1,
+    ] = x12[s12[0]: e12[0] + 1, s12[1]: e12[1] + 1, s12[2]: e12[2] + 1]
+    x1_PSY[2][
+        s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] +
+        1,
+    ] = x13[s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] + 1]
 
     x2_PSY = BlockVector(derham.Vh['2'])
     print(f'rank {rank} | \n2-form StencilVector:')
     print(f'rank {rank} | starts:', [component.starts for component in x2_PSY])
     print(f'rank {rank} | ends  :', [component.ends for component in x2_PSY])
     print(f'rank {rank} | pads  :', [component.pads for component in x2_PSY])
-    print(f'rank {rank} | shape (=dim):', [
-          component.shape for component in x2_PSY])
-    print(f'rank {rank} | [:].shape (=shape):', [
-          component[:].shape for component in x2_PSY])
+    print(
+        f'rank {rank} | shape (=dim):', [
+            component.shape for component in x2_PSY
+        ],
+    )
+    print(
+        f'rank {rank} | [:].shape (=shape):', [
+            component[:].shape for component in x2_PSY
+        ],
+    )
 
     s21, s22, s23 = [component.starts for component in x2_PSY]
     e21, e22, e23 = [component.ends for component in x2_PSY]
 
     x21, x22, x23 = DR_STR.extract_2(x2)
-    x2_PSY[0][s21[0]: e21[0] + 1, s21[1]: e21[1] + 1, s21[2]: e21[2] +
-              1] = x21[s21[0]: e21[0] + 1, s21[1]: e21[1] + 1, s21[2]: e21[2] + 1]
-    x2_PSY[1][s22[0]: e22[0] + 1, s22[1]: e22[1] + 1, s22[2]: e22[2] +
-              1] = x22[s22[0]: e22[0] + 1, s22[1]: e22[1] + 1, s22[2]: e22[2] + 1]
-    x2_PSY[2][s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] +
-              1] = x23[s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] + 1]
+    x2_PSY[0][
+        s21[0]: e21[0] + 1, s21[1]: e21[1] + 1, s21[2]: e21[2] +
+        1,
+    ] = x21[s21[0]: e21[0] + 1, s21[1]: e21[1] + 1, s21[2]: e21[2] + 1]
+    x2_PSY[1][
+        s22[0]: e22[0] + 1, s22[1]: e22[1] + 1, s22[2]: e22[2] +
+        1,
+    ] = x22[s22[0]: e22[0] + 1, s22[1]: e22[1] + 1, s22[2]: e22[2] + 1]
+    x2_PSY[2][
+        s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] +
+        1,
+    ] = x23[s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] + 1]
 
     x3_PSY = StencilVector(derham.Vh['3'])
     print(f'rank {rank} | \n3-form StencilVector:')
@@ -127,8 +154,10 @@ def test_psydac_derham(Nel, p, spl_kind):
     s3 = x3_PSY.starts
     e3 = x3_PSY.ends
 
-    x3_PSY[s3[0]: e3[0] + 1, s3[1]: e3[1] + 1, s3[2]: e3[2] +
-           1] = DR_STR.extract_3(x3)[s3[0]: e3[0] + 1, s3[1]: e3[1] + 1, s3[2]: e3[2] + 1]
+    x3_PSY[
+        s3[0]: e3[0] + 1, s3[1]: e3[1] + 1, s3[2]: e3[2] +
+        1,
+    ] = DR_STR.extract_3(x3)[s3[0]: e3[0] + 1, s3[1]: e3[1] + 1, s3[2]: e3[2] + 1]
 
     ########################
     ### TEST DERIVATIVES ###
@@ -232,7 +261,7 @@ def test_psydac_derham(Nel, p, spl_kind):
 
     fh3_STR = PI('3', f)
     fh3_PSY = derham.P['3'](f)
-    
+
     if rank == 0:
         print('\nCompare P3:')
     compare_arrays(fh3_PSY, fh3_STR, rank, atol=1e-5)

@@ -1,8 +1,8 @@
 import numpy as np
 from mpi4py import MPI
 
-from struphy.geometry import domains
 from struphy.feec.psydac_derham import Derham
+from struphy.geometry import domains
 from struphy.pic.particles import Particles6D
 
 
@@ -20,8 +20,10 @@ def main():
     spl_kind = [False, True, True]
 
     loading_type = 'pseudo_random'
-    loading_params = {'type': loading_type, 'seed': 1234,
-                      'moments': [0., 0., 0., 1., 1., 1.]}
+    loading_params = {
+        'type': loading_type, 'seed': 1234,
+        'moments': [0., 0., 0., 1., 1., 1.],
+    }
 
     marker_params = {'ppc': 10, 'eps': .25, 'loading': loading_params}
 
@@ -40,14 +42,17 @@ def main():
 
     # create particles
     particles = Particles6D(
-        'energetic_ions', **marker_params, derham=derham, bckgr_params=None)
+        'energetic_ions', **marker_params, derham=derham, bckgr_params=None,
+    )
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process before sorting : ')
     print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-    domain.show(grid_info=derham.domain_array,
-                markers=particles.markers_wo_holes)
+    domain.show(
+        grid_info=derham.domain_array,
+        markers=particles.markers_wo_holes,
+    )
 
     # sort particles according to domain decomposition
     comm.Barrier()
@@ -57,13 +62,16 @@ def main():
     print('Number of particles w/wo holes on each process after sorting : ')
     print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-    domain.show(grid_info=derham.domain_array,
-                markers=particles.markers_wo_holes)
+    domain.show(
+        grid_info=derham.domain_array,
+        markers=particles.markers_wo_holes,
+    )
 
     # are all markers in the correct domain?
     conds = np.logical_and(
         particles.markers[:, :3] > derham.domain_array[rank, 0::3],
-        particles.markers[:, :3] < derham.domain_array[rank, 1::3])
+        particles.markers[:, :3] < derham.domain_array[rank, 1::3],
+    )
 
     holes = particles.markers[:, 0] == -1.
     stay = np.all(conds, axis=1)

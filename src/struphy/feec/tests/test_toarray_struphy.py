@@ -3,23 +3,29 @@ import pytest
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
-@pytest.mark.parametrize('p',   [[3, 2, 1]])
+@pytest.mark.parametrize('p', [[3, 2, 1]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, False]])
-@pytest.mark.parametrize('mapping', [
-    ['Cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}]])
+@pytest.mark.parametrize(
+    'mapping', [
+        [
+            'Cuboid', {
+                'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.,
+            },
+        ],
+    ],
+)
 def test_toarray_struphy(Nel, p, spl_kind, mapping):
     """
     TODO
     """
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
-    from struphy.feec.psydac_derham import Derham
     from struphy.feec.mass import WeightedMassOperators
-    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
+    from struphy.geometry import domains
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -78,13 +84,17 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
 
     # Now we test the in-place version
     IM0 = np.zeros(
-        [M0.codomain.dimension, M0.domain.dimension], dtype=M0.dtype)
+        [M0.codomain.dimension, M0.domain.dimension], dtype=M0.dtype,
+    )
     IM1 = np.zeros(
-        [M1.codomain.dimension, M1.domain.dimension], dtype=M1.dtype)
+        [M1.codomain.dimension, M1.domain.dimension], dtype=M1.dtype,
+    )
     IM2 = np.zeros(
-        [M2.codomain.dimension, M2.domain.dimension], dtype=M2.dtype)
+        [M2.codomain.dimension, M2.domain.dimension], dtype=M2.dtype,
+    )
     IM3 = np.zeros(
-        [M3.codomain.dimension, M3.domain.dimension], dtype=M3.dtype)
+        [M3.codomain.dimension, M3.domain.dimension], dtype=M3.dtype,
+    )
 
     M0.toarray_struphy(out=IM0)
     M1.toarray_struphy(out=IM1)
@@ -103,14 +113,30 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
 
 if __name__ == '__main__':
     test_toarray_struphy(
-        [32, 2, 2], [2, 1, 1], [True, True, True], ['Cuboid', {
-            'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+        [32, 2, 2], [2, 1, 1], [True, True, True], [
+            'Cuboid', {
+                'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.,
+            },
+        ],
+    )
     test_toarray_struphy(
-        [2, 32, 2], [1, 2, 1], [False, True, True], ['Cuboid', {
-            'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+        [2, 32, 2], [1, 2, 1], [False, True, True], [
+            'Cuboid', {
+                'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.,
+            },
+        ],
+    )
     test_toarray_struphy(
-        [2, 2, 32], [1, 1, 2], [True, False, True], ['Cuboid', {
-            'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+        [2, 2, 32], [1, 1, 2], [True, False, True], [
+            'Cuboid', {
+                'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.,
+            },
+        ],
+    )
     test_toarray_struphy(
-        [2, 2, 32], [1, 1, 2], [False, False, False], ['Cuboid', {
-            'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+        [2, 2, 32], [1, 1, 2], [False, False, False], [
+            'Cuboid', {
+                'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.,
+            },
+        ],
+    )

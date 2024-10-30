@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 
 @pytest.mark.mpi(min_size=2)
@@ -13,15 +13,15 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     for all routines in particle_to_mat_kernels.py
     '''
 
-    from mpi4py import MPI
     from time import sleep
 
+    from mpi4py import MPI
+    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+    from psydac.linalg.stencil import StencilMatrix, StencilVector
+
+    from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
-    from struphy.bsplines import bsplines_kernels as bsp
-
-    from psydac.linalg.stencil import StencilVector, StencilMatrix
-    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -44,7 +44,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     comm.Barrier()
     sleep(.02*(rank + 1))
     print(
-        f"rank {rank} | starts1['v0']: {starts1['v0']}")
+        f"rank {rank} | starts1['v0']: {starts1['v0']}",
+    )
     comm.Barrier()
 
     # basis identifiers
@@ -62,19 +63,24 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     vec = {}
 
     mat['v0'] = StencilMatrix(
-        DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+        DR.Vh['0'], DR.Vh['0'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+    )._data
     vec['v0'] = StencilVector(DR.Vh['0'])._data
 
     mat['v3'] = StencilMatrix(
-        DR.Vh['3'], DR.Vh['3'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data
+        DR.Vh['3'], DR.Vh['3'], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+    )._data
     vec['v3'] = StencilVector(DR.Vh['3'])._data
 
     mat['v1'] = []
     for i in range(3):
         mat['v1'] += [[]]
         for j in range(3):
-            mat['v1'][-1] += [StencilMatrix(
-                DR.Vh['1'].spaces[i], DR.Vh['1'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data]
+            mat['v1'][-1] += [
+                StencilMatrix(
+                    DR.Vh['1'].spaces[i], DR.Vh['1'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+                )._data,
+            ]
 
     vec['v1'] = []
     for i in range(3):
@@ -84,8 +90,11 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     for i in range(3):
         mat['v2'] += [[]]
         for j in range(3):
-            mat['v2'][-1] += [StencilMatrix(
-                DR.Vh['2'].spaces[i], DR.Vh['2'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)._data]
+            mat['v2'][-1] += [
+                StencilMatrix(
+                    DR.Vh['2'].spaces[i], DR.Vh['2'].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+                )._data,
+            ]
 
     vec['v2'] = []
     for i in range(3):
@@ -156,11 +165,14 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         comm.Barrier()
         sleep(.02*(rank + 1))
         print(
-            f"rank {rank} | particles rows[0]['N']: {rows[0]['N']}, rows[0]['D'] {rows[0]['D']}")
+            f"rank {rank} | particles rows[0]['N']: {rows[0]['N']}, rows[0]['D'] {rows[0]['D']}",
+        )
         print(
-            f"rank {rank} | particles rows[1]['N']: {rows[1]['N']}, rows[1]['D'] {rows[1]['D']}")
+            f"rank {rank} | particles rows[1]['N']: {rows[1]['N']}, rows[1]['D'] {rows[1]['D']}",
+        )
         print(
-            f"rank {rank} | particles rows[2]['N']: {rows[2]['N']}, rows[2]['D'] {rows[2]['D']}")
+            f"rank {rank} | particles rows[2]['N']: {rows[2]['N']}, rows[2]['D'] {rows[2]['D']}",
+        )
         comm.Barrier()
 
         # local column indices in _data of non-vanishing B- and D-splines, as sets for comparison
@@ -173,10 +185,12 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
         # testing vector-valued spaces
         spaces_vector = ['v1', 'v2']
-        symmetries = {'diag': [[0, 0], [1, 1], [2, 2]],  # index pairs of block matrix
-                      'asym': [[0, 1], [0, 2], [1, 2]],
-                      'symm': [[0, 0], [0, 1], [0, 2], [1, 1], [1, 2], [2, 2]],
-                      'full': [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2]]}
+        symmetries = {
+            'diag': [[0, 0], [1, 1], [2, 2]],  # index pairs of block matrix
+            'asym': [[0, 1], [0, 2], [1, 2]],
+            'symm': [[0, 0], [0, 1], [0, 2], [1, 1], [1, 2], [2, 2]],
+            'full': [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2]],
+        }
         mvs = ['mat', 'm_v']
 
         count = 0
@@ -213,18 +227,24 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
                     if rank == 0:
                         print(f'\nTesting {name_b} ...')
 
-                    fun_b(DR.args_derham,
-                          eta1, eta2, eta3,
-                          *args)
+                    fun_b(
+                        DR.args_derham,
+                        eta1, eta2, eta3,
+                        *args,
+                    )
 
                     for n, ij in enumerate(ind_pairs):
-                        assert_mat(args[n], rows, cols, basis[space][ij[0]], basis[space]
-                                   [ij[1]], rank, verbose=False)  # assertion test of mat
+                        assert_mat(
+                            args[n], rows, cols, basis[space][ij[0]], basis[space]
+                            [ij[1]], rank, verbose=False,
+                        )  # assertion test of mat
                     if mv == 'm_v':
                         for i in range(3):
                             # assertion test of vec
-                            assert_vec(args[-6 + i], rows,
-                                       basis[space][i], rank)
+                            assert_vec(
+                                args[-6 + i], rows,
+                                basis[space][i], rank,
+                            )
 
                     count += 1
 
@@ -232,18 +252,24 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
                     if rank == 0:
                         print(f'\nTesting {name} ...')
 
-                    fun(DR.args_derham,
+                    fun(
+                        DR.args_derham,
                         span1, span2, span3,
-                        *args)
+                        *args,
+                    )
 
                     for n, ij in enumerate(ind_pairs):
-                        assert_mat(args[n], rows, cols, basis[space][ij[0]], basis[space]
-                                   [ij[1]], rank, verbose=False)  # assertion test of mat
+                        assert_mat(
+                            args[n], rows, cols, basis[space][ij[0]], basis[space]
+                            [ij[1]], rank, verbose=False,
+                        )  # assertion test of mat
                     if mv == 'm_v':
                         for i in range(3):
                             # assertion test of vec
-                            assert_vec(args[-6 + i], rows,
-                                       basis[space][i], rank)
+                            assert_vec(
+                                args[-6 + i], rows,
+                                basis[space][i], rank,
+                            )
 
                     count += 1
 
@@ -252,100 +278,132 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         # testing salar spaces
         if rank == 0:
             print(f'\nTesting mat_fill_b_v0 ...')
-        ptomat.mat_fill_b_v0(DR.args_derham, 
-                             eta1, eta2, eta3, 
-                             mat['v0'], 
-                             fill_mat[0, 0])
-        assert_mat(mat['v0'], rows, cols, basis['v0'],
-                   basis['v0'], rank)  # assertion test of mat
+        ptomat.mat_fill_b_v0(
+            DR.args_derham,
+            eta1, eta2, eta3,
+            mat['v0'],
+            fill_mat[0, 0],
+        )
+        assert_mat(
+            mat['v0'], rows, cols, basis['v0'],
+            basis['v0'], rank,
+        )  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             print(f'\nTesting m_v_fill_b_v0 ...')
-        ptomat.m_v_fill_b_v0(DR.args_derham,
-                             eta1, eta2, eta3, 
-                             mat['v0'],
-                             fill_mat[0, 0],
-                             vec['v0'], 
-                             fill_vec[0])
-        assert_mat(mat['v0'], rows, cols, basis['v0'],
-                   basis['v0'], rank)  # assertion test of mat
+        ptomat.m_v_fill_b_v0(
+            DR.args_derham,
+            eta1, eta2, eta3,
+            mat['v0'],
+            fill_mat[0, 0],
+            vec['v0'],
+            fill_vec[0],
+        )
+        assert_mat(
+            mat['v0'], rows, cols, basis['v0'],
+            basis['v0'], rank,
+        )  # assertion test of mat
         assert_vec(vec['v0'], rows, basis['v0'], rank)  # assertion test of vec
         count += 1
         comm.Barrier()
 
         if rank == 0:
             print(f'\nTesting mat_fill_b_v3 ...')
-        ptomat.mat_fill_b_v3(DR.args_derham,
-                             eta1, eta2, eta3,
-                             mat['v3'], 
-                             fill_mat[0, 0])
-        assert_mat(mat['v3'], rows, cols, basis['v3'],
-                   basis['v3'], rank)  # assertion test of mat
+        ptomat.mat_fill_b_v3(
+            DR.args_derham,
+            eta1, eta2, eta3,
+            mat['v3'],
+            fill_mat[0, 0],
+        )
+        assert_mat(
+            mat['v3'], rows, cols, basis['v3'],
+            basis['v3'], rank,
+        )  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             print(f'\nTesting m_v_fill_b_v3 ...')
-        ptomat.m_v_fill_b_v3(DR.args_derham,
-                             eta1, eta2, eta3, 
-                             mat['v3'], 
-                             fill_mat[0, 0], 
-                             vec['v3'], 
-                             fill_vec[0])
-        assert_mat(mat['v3'], rows, cols, basis['v3'],
-                   basis['v3'], rank)  # assertion test of mat
+        ptomat.m_v_fill_b_v3(
+            DR.args_derham,
+            eta1, eta2, eta3,
+            mat['v3'],
+            fill_mat[0, 0],
+            vec['v3'],
+            fill_vec[0],
+        )
+        assert_mat(
+            mat['v3'], rows, cols, basis['v3'],
+            basis['v3'], rank,
+        )  # assertion test of mat
         assert_vec(vec['v3'], rows, basis['v3'], rank)  # assertion test of vec
         count += 1
         comm.Barrier()
 
         if rank == 0:
             print(f'\nTesting mat_fill_v0 ...')
-        ptomat.mat_fill_v0(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v0'], 
-                           fill_mat[0, 0])
-        assert_mat(mat['v0'], rows, cols, basis['v0'],
-                   basis['v0'], rank)  # assertion test of mat
+        ptomat.mat_fill_v0(
+            DR.args_derham,
+            span1, span2, span3,
+            mat['v0'],
+            fill_mat[0, 0],
+        )
+        assert_mat(
+            mat['v0'], rows, cols, basis['v0'],
+            basis['v0'], rank,
+        )  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             print(f'\nTesting m_v_fill_v0 ...')
-        ptomat.m_v_fill_v0(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v0'], 
-                           fill_mat[0, 0],
-                           vec['v0'], 
-                           fill_vec[0])
-        assert_mat(mat['v0'], rows, cols, basis['v0'],
-                   basis['v0'], rank)  # assertion test of mat
+        ptomat.m_v_fill_v0(
+            DR.args_derham,
+            span1, span2, span3,
+            mat['v0'],
+            fill_mat[0, 0],
+            vec['v0'],
+            fill_vec[0],
+        )
+        assert_mat(
+            mat['v0'], rows, cols, basis['v0'],
+            basis['v0'], rank,
+        )  # assertion test of mat
         assert_vec(vec['v0'], rows, basis['v0'], rank)  # assertion test of vec
         count += 1
         comm.Barrier()
 
         if rank == 0:
             print(f'\nTesting mat_fill_v3 ...')
-        ptomat.mat_fill_v3(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v3'], 
-                           fill_mat[0, 0])
-        assert_mat(mat['v3'], rows, cols, basis['v3'],
-                   basis['v3'], rank)  # assertion test of mat
+        ptomat.mat_fill_v3(
+            DR.args_derham,
+            span1, span2, span3,
+            mat['v3'],
+            fill_mat[0, 0],
+        )
+        assert_mat(
+            mat['v3'], rows, cols, basis['v3'],
+            basis['v3'], rank,
+        )  # assertion test of mat
         count += 1
         comm.Barrier()
 
         if rank == 0:
             print(f'\nTesting m_v_fill_v3 ...')
-        ptomat.m_v_fill_v3(DR.args_derham,
-                           span1, span2, span3, 
-                           mat['v3'], 
-                           fill_mat[0, 0], 
-                           vec['v3'], 
-                           fill_vec[0])
-        assert_mat(mat['v3'], rows, cols, basis['v3'],
-                   basis['v3'], rank)  # assertion test of mat
+        ptomat.m_v_fill_v3(
+            DR.args_derham,
+            span1, span2, span3,
+            mat['v3'],
+            fill_mat[0, 0],
+            vec['v3'],
+            fill_vec[0],
+        )
+        assert_mat(
+            mat['v3'], rows, cols, basis['v3'],
+            basis['v3'], rank,
+        )  # assertion test of mat
         assert_vec(vec['v3'], rows, basis['v3'], rank)  # assertion test of vec
         count += 1
         comm.Barrier()
@@ -406,7 +464,8 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
     mat[:, :] = 0.
 
     print(
-        f'rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).')
+        f'rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).',
+    )
 
 
 def assert_vec(vec, rows, row_str, rank, verbose=False):
@@ -453,5 +512,8 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
 
 
 if __name__ == '__main__':
-    test_particle_to_mat_kernels([8, 9, 10], [2, 3, 4], [
-                                 True, False, False], n_markers=1)
+    test_particle_to_mat_kernels(
+        [8, 9, 10], [2, 3, 4], [
+            True, False, False,
+        ], n_markers=1,
+    )

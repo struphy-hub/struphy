@@ -10,8 +10,8 @@ import pytest
 def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     '''Test field background initialization of "LogicalConst" with multiple fields in params.'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
 
@@ -22,9 +22,10 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # background parameters
-    bckgr_params = {'type': 'LogicalConst',
-                    'LogicalConst': {'comps': {}}
-                    }
+    bckgr_params = {
+        'type': 'LogicalConst',
+        'LogicalConst': {'comps': {}},
+    }
 
     np.random.seed(1234)
 
@@ -55,19 +56,22 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     # test
     for i, (space, val) in enumerate(zip(spaces, vals)):
         field = derham.create_field(
-            'name_' + str(i), space, bckgr_params=bckgr_params)
+            'name_' + str(i), space, bckgr_params=bckgr_params,
+        )
         field.initialize_coeffs()
 
         if space in ('H1', 'L2'):
             print(
-                f'\n{rank = }, {space = }, after init:\n {np.max(np.abs(field(*meshgrids) - val)) = }')
+                f'\n{rank = }, {space = }, after init:\n {np.max(np.abs(field(*meshgrids) - val)) = }',
+            )
             # print(f'{field(*meshgrids) = }')
             assert np.allclose(field(*meshgrids), val)
         else:
             for i in range(3):
                 if vec_comps[i]:
                     print(
-                        f'\n{rank = }, {space = }, after init:\n {i = }, {np.max(np.abs(field(*meshgrids)[i] - val)) = }')
+                        f'\n{rank = }, {space = }, after init:\n {i = }, {np.max(np.abs(field(*meshgrids)[i] - val)) = }',
+                    )
                     # print(f'{field(*meshgrids)[i] = }')
                     assert np.allclose(field(*meshgrids)[i], val)
 
@@ -79,14 +83,15 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
 def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
     '''Test field background initialization of "MHD" with multiple fields in params.'''
 
-    from mpi4py import MPI
-    import numpy as np
     import inspect
+
+    import numpy as np
     from matplotlib import pyplot as plt
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.geometry import domains
     from struphy.fields_background.mhd_equil import equils
+    from struphy.geometry import domains
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -95,9 +100,10 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # background parameters
-    bckgr_params = {'type': 'MHD',
-                    'MHD': {'comps': {}}
-                    }
+    bckgr_params = {
+        'type': 'MHD',
+        'MHD': {'comps': {}},
+    }
 
     vals = []
     bckgr_params['MHD']['comps']['name_0'] = 'absB0'
@@ -126,35 +132,47 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
             print(f'{mhd_equil.params = }')
             if 'AdhocTorus' in key:
                 mhd_equil.domain = domains.HollowTorus(
-                    a1=1e-3, a2=mhd_equil.params['a'], R0=mhd_equil.params['R0'], tor_period=1)
+                    a1=1e-3, a2=mhd_equil.params['a'], R0=mhd_equil.params['R0'], tor_period=1,
+                )
             elif 'EQDSKequilibrium' in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif 'HomogenSlab' in key:
                 mhd_equil.domain = domains.Cuboid()
             elif 'ShearedSlab' in key:
-                mhd_equil.domain = domains.Cuboid(r1=mhd_equil.params['a'],
-                                                  r2=mhd_equil.params['a'] *
-                                                  2*np.pi,
-                                                  r3=mhd_equil.params['R0']*2*np.pi)
+                mhd_equil.domain = domains.Cuboid(
+                    r1=mhd_equil.params['a'],
+                    r2=mhd_equil.params['a'] *
+                    2*np.pi,
+                    r3=mhd_equil.params['R0']*2*np.pi,
+                )
             elif 'ShearFluid' in key:
-                mhd_equil.domain = domains.Cuboid(r1=mhd_equil.params['a'],
-                                                  r2=mhd_equil.params['b'],
-                                                  r3=mhd_equil.params['c'])
+                mhd_equil.domain = domains.Cuboid(
+                    r1=mhd_equil.params['a'],
+                    r2=mhd_equil.params['b'],
+                    r3=mhd_equil.params['c'],
+                )
             elif 'ScrewPinch' in key:
-                mhd_equil.domain = domains.HollowCylinder(a1=1e-3,
-                                                          a2=mhd_equil.params['a'],
-                                                          Lz=mhd_equil.params['R0']*2*np.pi)
+                mhd_equil.domain = domains.HollowCylinder(
+                    a1=1e-3,
+                    a2=mhd_equil.params['a'],
+                    Lz=mhd_equil.params['R0']*2*np.pi,
+                )
 
             field_0 = derham.create_field(
-                'name_0', 'H1', bckgr_params=bckgr_params)
+                'name_0', 'H1', bckgr_params=bckgr_params,
+            )
             field_1 = derham.create_field(
-                'name_1', 'Hcurl', bckgr_params=bckgr_params)
+                'name_1', 'Hcurl', bckgr_params=bckgr_params,
+            )
             field_2 = derham.create_field(
-                'name_2', 'Hdiv', bckgr_params=bckgr_params)
+                'name_2', 'Hdiv', bckgr_params=bckgr_params,
+            )
             field_3 = derham.create_field(
-                'name_3', 'L2', bckgr_params=bckgr_params)
+                'name_3', 'L2', bckgr_params=bckgr_params,
+            )
             field_4 = derham.create_field(
-                'name_4', 'H1vec', bckgr_params=bckgr_params)
+                'name_4', 'H1vec', bckgr_params=bckgr_params,
+            )
 
             field_0.initialize_coeffs(mhd_equil=mhd_equil)
             print('field_0 initialized.')
@@ -170,10 +188,12 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
             # scalar spaces
             print(f'{np.max(np.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / np.max(np.abs(mhd_equil.absB0(*meshgrids)))}')
             print(f'{np.max(np.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))) / np.max(np.abs(mhd_equil.p3(*meshgrids)))}')
-            assert np.max(np.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))
-                          ) / np.max(np.abs(mhd_equil.absB0(*meshgrids))) < 0.057
-            assert np.max(np.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))
-                          ) / np.max(np.abs(mhd_equil.p3(*meshgrids))) < 0.54
+            assert np.max(
+                np.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids)),
+            ) / np.max(np.abs(mhd_equil.absB0(*meshgrids))) < 0.057
+            assert np.max(
+                np.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids)),
+            ) / np.max(np.abs(mhd_equil.p3(*meshgrids))) < 0.54
             print('Scalar asserts passed.')
 
             # vector-valued spaces
@@ -183,23 +203,30 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
             else:
                 denom = np.max(np.abs(ref[0]))
             print(
-                f'{np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom = }')
+                f'{np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom = }',
+            )
             assert np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom < .28
             if np.max(np.abs(ref[1])) < 1e-11:
                 denom = 1.
             else:
                 denom = np.max(np.abs(ref[1]))
             print(
-                f'{np.max(np.abs(field_1(*meshgrids)[1] - ref[1])) / denom = }')
+                f'{np.max(np.abs(field_1(*meshgrids)[1] - ref[1])) / denom = }',
+            )
             assert np.max(np.abs(field_1(*meshgrids)[1] - ref[1])) / denom < .33
             if np.max(np.abs(ref[2])) < 1e-11:
                 denom = 1.
             else:
                 denom = np.max(np.abs(ref[2]))
             print(
-                f'{np.max(np.abs(field_1(*meshgrids)[2] - ref[2])) / denom = }')
-            assert np.max(np.abs(field_1(*meshgrids)
-                          [2] - ref[2])) / denom < 0.1
+                f'{np.max(np.abs(field_1(*meshgrids)[2] - ref[2])) / denom = }',
+            )
+            assert np.max(
+                np.abs(
+                    field_1(*meshgrids)
+                    [2] - ref[2],
+                ),
+            ) / denom < 0.1
             print('b1 asserts passed.')
 
             ref = mhd_equil.b2(*meshgrids)
@@ -208,22 +235,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
             else:
                 denom = np.max(np.abs(ref[0]))
             print(
-                f'{np.max(np.abs(field_2(*meshgrids)[0] - ref[0])) / denom = }')
+                f'{np.max(np.abs(field_2(*meshgrids)[0] - ref[0])) / denom = }',
+            )
             assert np.max(np.abs(field_2(*meshgrids)[0] - ref[0])) / denom < .86
             if np.max(np.abs(ref[1])) < 1e-11:
                 denom = 1.
             else:
                 denom = np.max(np.abs(ref[1]))
             print(
-                f'{np.max(np.abs(field_2(*meshgrids)[1] - ref[1])) / denom = }')
-            assert np.max(np.abs(field_2(*meshgrids)
-                          [1] - ref[1])) / denom < 0.4
+                f'{np.max(np.abs(field_2(*meshgrids)[1] - ref[1])) / denom = }',
+            )
+            assert np.max(
+                np.abs(
+                    field_2(*meshgrids)
+                    [1] - ref[1],
+                ),
+            ) / denom < 0.4
             if np.max(np.abs(ref[2])) < 1e-11:
                 denom = 1.
             else:
                 denom = np.max(np.abs(ref[2]))
             print(
-                f'{np.max(np.abs(field_2(*meshgrids)[2] - ref[2])) / denom = }')
+                f'{np.max(np.abs(field_2(*meshgrids)[2] - ref[2])) / denom = }',
+            )
             assert np.max(np.abs(field_2(*meshgrids)[2] - ref[2])) / denom < .18
             print('b2 asserts passed.')
 
@@ -233,41 +267,57 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
             else:
                 denom = np.max(np.abs(ref[0]))
             print(
-                f'{np.max(np.abs(field_4(*meshgrids)[0] - ref[0])) / denom = }')
+                f'{np.max(np.abs(field_4(*meshgrids)[0] - ref[0])) / denom = }',
+            )
             assert np.max(np.abs(field_4(*meshgrids)[0] - ref[0])) / denom < .55
             if np.max(np.abs(ref[1])) < 1e-11:
                 denom = 1.
             else:
                 denom = np.max(np.abs(ref[1]))
             print(
-                f'{np.max(np.abs(field_4(*meshgrids)[1] - ref[1])) / denom = }')
-            assert np.max(np.abs(field_4(*meshgrids)
-                          [1] - ref[1])) / denom < .2
+                f'{np.max(np.abs(field_4(*meshgrids)[1] - ref[1])) / denom = }',
+            )
+            assert np.max(
+                np.abs(
+                    field_4(*meshgrids)
+                    [1] - ref[1],
+                ),
+            ) / denom < .2
             if np.max(np.abs(ref[2])) < 1e-11:
                 denom = 1.
             else:
                 denom = np.max(np.abs(ref[2]))
             print(
-                f'{np.max(np.abs(field_4(*meshgrids)[2] - ref[2])) / denom = }')
-            assert np.max(np.abs(field_4(*meshgrids)
-                          [2] - ref[2])) / denom < .04
+                f'{np.max(np.abs(field_4(*meshgrids)[2] - ref[2])) / denom = }',
+            )
+            assert np.max(
+                np.abs(
+                    field_4(*meshgrids)
+                    [2] - ref[2],
+                ),
+            ) / denom < .04
             print('bv asserts passed.')
 
             # plotting fields with equilibrium
             if show_plot and rank == 0:
                 plt.figure(f'0/3-forms top, {mhd_equil = }', figsize=(24, 16))
                 plt.figure(
-                    f'0/3-forms poloidal, {mhd_equil = }', figsize=(24, 16))
+                    f'0/3-forms poloidal, {mhd_equil = }', figsize=(24, 16),
+                )
                 plt.figure(f'1-forms top, {mhd_equil = }', figsize=(24, 16))
                 plt.figure(
-                    f'1-forms poloidal, {mhd_equil = }', figsize=(24, 16))
+                    f'1-forms poloidal, {mhd_equil = }', figsize=(24, 16),
+                )
                 plt.figure(f'2-forms top, {mhd_equil = }', figsize=(24, 16))
                 plt.figure(
-                    f'2-forms poloidal, {mhd_equil = }', figsize=(24, 16))
+                    f'2-forms poloidal, {mhd_equil = }', figsize=(24, 16),
+                )
                 plt.figure(
-                    f'vector-fields top, {mhd_equil = }', figsize=(24, 16))
+                    f'vector-fields top, {mhd_equil = }', figsize=(24, 16),
+                )
                 plt.figure(
-                    f'vector-fields poloidal, {mhd_equil = }', figsize=(24, 16))
+                    f'vector-fields poloidal, {mhd_equil = }', figsize=(24, 16),
+                )
                 x, y, z = mhd_equil.domain(*meshgrids)
 
                 # 0-form
@@ -279,17 +329,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.figure(f'0/3-forms top, {mhd_equil = }')
                 plt.subplot(2, 3, 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :],
-                                 absB0_h[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                 2 - 1, :], absB0_h[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], z[:, 0, :],
+                        absB0_h[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], z[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], absB0_h[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :],
-                                 absB0_h[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                 2 - 1, :], absB0_h[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], y[:, 0, :],
+                        absB0_h[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], y[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], absB0_h[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -297,17 +359,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.title('Equilibrium $|B_0|$, top view (e1-e3)')
                 plt.subplot(2, 3, 3 + 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :],
-                                 absB0[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                 2 - 1, :], absB0[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], z[:, 0, :],
+                        absB0[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], z[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], absB0[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :],
-                                 absB0[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                 2 - 1, :], absB0[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], y[:, 0, :],
+                        absB0[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], y[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], absB0[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -317,13 +391,17 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.figure(f'0/3-forms poloidal, {mhd_equil = }')
                 plt.subplot(2, 3, 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0],
-                                 absB0_h[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], y[:, :, 0],
+                        absB0_h[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0],
-                                 absB0_h[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], z[:, :, 0],
+                        absB0_h[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
@@ -331,13 +409,17 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.title('Equilibrium $|B_0|$, poloidal view (e1-e2)')
                 plt.subplot(2, 3, 3 + 1)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0],
-                                 absB0[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], y[:, :, 0],
+                        absB0[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0],
-                                 absB0[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], z[:, :, 0],
+                        absB0[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
@@ -353,17 +435,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.figure(f'0/3-forms top, {mhd_equil = }')
                 plt.subplot(2, 3, 2)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :],
-                                 p3_h[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                 2 - 1, :], p3_h[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], z[:, 0, :],
+                        p3_h[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], z[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], p3_h[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :],
-                                 p3_h[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                 2 - 1, :], p3_h[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], y[:, 0, :],
+                        p3_h[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], y[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], p3_h[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -371,17 +465,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.title('Equilibrium $p_0$, top view (e1-e3)')
                 plt.subplot(2, 3, 3 + 2)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, 0, :], z[:, 0, :],
-                                 p3[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                 2 - 1, :], p3[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], z[:, 0, :],
+                        p3[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], z[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], p3[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 else:
-                    plt.contourf(x[:, 0, :], y[:, 0, :],
-                                 p3[:, 0, :], levels=levels)
-                    plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                 2 - 1, :], p3[:, Nel[1]//2, :], levels=levels)
+                    plt.contourf(
+                        x[:, 0, :], y[:, 0, :],
+                        p3[:, 0, :], levels=levels,
+                    )
+                    plt.contourf(
+                        x[:, Nel[1]//2, :], y[
+                            :, Nel[1] //
+                            2 - 1, :,
+                        ], p3[:, Nel[1]//2, :], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 plt.axis('equal')
@@ -391,13 +497,17 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.figure(f'0/3-forms poloidal, {mhd_equil = }')
                 plt.subplot(2, 3, 2)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0],
-                                 p3_h[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], y[:, :, 0],
+                        p3_h[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0],
-                                 p3_h[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], z[:, :, 0],
+                        p3_h[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
@@ -405,13 +515,17 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                 plt.title('Equilibrium $p_0$, poloidal view (e1-e2)')
                 plt.subplot(2, 3, 3 + 2)
                 if 'Slab' in key or 'Pinch' in key:
-                    plt.contourf(x[:, :, 0], y[:, :, 0],
-                                 p3[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], y[:, :, 0],
+                        p3[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('y')
                 else:
-                    plt.contourf(x[:, :, 0], z[:, :, 0],
-                                 p3[:, :, 0], levels=levels)
+                    plt.contourf(
+                        x[:, :, 0], z[:, :, 0],
+                        p3[:, :, 0], levels=levels,
+                    )
                     plt.xlabel('x')
                     plt.ylabel('z')
                 plt.axis('equal')
@@ -420,9 +534,11 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
 
                 # 1-form magnetic field plots
                 b1h = mhd_equil.domain.push(
-                    field_1(*meshgrids), *meshgrids, kind='1')
+                    field_1(*meshgrids), *meshgrids, kind='1',
+                )
                 b1 = mhd_equil.domain.push(
-                    [*mhd_equil.b1(*meshgrids)], *meshgrids, kind='1')
+                    [*mhd_equil.b1(*meshgrids)], *meshgrids, kind='1',
+                )
 
                 for i, (bh, b) in enumerate(zip(b1h, b1)):
 
@@ -431,17 +547,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.figure(f'1-forms top, {mhd_equil = }')
                     plt.subplot(2, 3, 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :],
-                                     bh[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                                           2 - 1, :], bh[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], z[:, 0, :],
+                            bh[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], z[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], bh[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :],
-                                     bh[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                                           2 - 1, :], bh[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], y[:, 0, :],
+                            bh[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], y[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], bh[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -449,17 +577,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.title(f'Equilibrium $B_{i + 1}$, top view (e1-e3)')
                     plt.subplot(2, 3, 3 + 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :],
-                                     b[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                                           2 - 1, :], b[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], z[:, 0, :],
+                            b[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], z[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], b[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :],
-                                     b[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                                           2 - 1, :], b[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], y[:, 0, :],
+                            b[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], y[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], b[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -469,28 +609,37 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.figure(f'1-forms poloidal, {mhd_equil = }')
                     plt.subplot(2, 3, 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0],
-                                     bh[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], y[:, :, 0],
+                            bh[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0],
-                                     bh[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], z[:, :, 0],
+                            bh[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
                     plt.colorbar()
                     plt.title(
-                        f'Equilibrium $B_{i + 1}$, poloidal view (e1-e2)')
+                        f'Equilibrium $B_{i + 1}$, poloidal view (e1-e2)',
+                    )
                     plt.subplot(2, 3, 3 + 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0],
-                                     b[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], y[:, :, 0],
+                            b[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0],
-                                     b[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], z[:, :, 0],
+                            b[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
@@ -499,9 +648,11 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
 
                 # 2-form magnetic field plots
                 b2h = mhd_equil.domain.push(
-                    field_2(*meshgrids), *meshgrids, kind='2')
+                    field_2(*meshgrids), *meshgrids, kind='2',
+                )
                 b2 = mhd_equil.domain.push(
-                    [*mhd_equil.b2(*meshgrids)], *meshgrids, kind='2')
+                    [*mhd_equil.b2(*meshgrids)], *meshgrids, kind='2',
+                )
 
                 for i, (bh, b) in enumerate(zip(b2h, b2)):
 
@@ -510,17 +661,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.figure(f'2-forms top, {mhd_equil = }')
                     plt.subplot(2, 3, 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :],
-                                     bh[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                                           2 - 1, :], bh[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], z[:, 0, :],
+                            bh[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], z[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], bh[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :],
-                                     bh[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                                           2 - 1, :], bh[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], y[:, 0, :],
+                            bh[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], y[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], bh[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -528,17 +691,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.title(f'Equilibrium $B_{i + 1}$, top view (e1-e3)')
                     plt.subplot(2, 3, 3 + 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :],
-                                     b[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                                           2 - 1, :], b[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], z[:, 0, :],
+                            b[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], z[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], b[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :],
-                                     b[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                                           2 - 1, :], b[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], y[:, 0, :],
+                            b[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], y[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], b[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -548,28 +723,37 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.figure(f'2-forms poloidal, {mhd_equil = }')
                     plt.subplot(2, 3, 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0],
-                                     bh[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], y[:, :, 0],
+                            bh[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0],
-                                     bh[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], z[:, :, 0],
+                            bh[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
                     plt.colorbar()
                     plt.title(
-                        f'Equilibrium $B_{i + 1}$, poloidal view (e1-e2)')
+                        f'Equilibrium $B_{i + 1}$, poloidal view (e1-e2)',
+                    )
                     plt.subplot(2, 3, 3 + 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0],
-                                     b[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], y[:, :, 0],
+                            b[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0],
-                                     b[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], z[:, :, 0],
+                            b[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
@@ -578,9 +762,11 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
 
                 # vector-field magnetic field plots
                 bvh = mhd_equil.domain.push(
-                    field_4(*meshgrids), *meshgrids, kind='v')
+                    field_4(*meshgrids), *meshgrids, kind='v',
+                )
                 bv = mhd_equil.domain.push(
-                    [*mhd_equil.bv(*meshgrids)], *meshgrids, kind='v')
+                    [*mhd_equil.bv(*meshgrids)], *meshgrids, kind='v',
+                )
 
                 for i, (bh, b) in enumerate(zip(bvh, bv)):
 
@@ -589,17 +775,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.figure(f'vector-fields top, {mhd_equil = }')
                     plt.subplot(2, 3, 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :],
-                                     bh[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                                           2 - 1, :], bh[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], z[:, 0, :],
+                            bh[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], z[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], bh[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :],
-                                     bh[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                                           2 - 1, :], bh[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], y[:, 0, :],
+                            bh[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], y[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], bh[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -607,17 +805,29 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.title(f'Equilibrium $B_{i + 1}$, top view (e1-e3)')
                     plt.subplot(2, 3, 3 + 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, 0, :], z[:, 0, :],
-                                     b[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], z[:, Nel[1] //
-                                                           2 - 1, :], b[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], z[:, 0, :],
+                            b[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], z[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], b[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     else:
-                        plt.contourf(x[:, 0, :], y[:, 0, :],
-                                     b[:, 0, :], levels=levels)
-                        plt.contourf(x[:, Nel[1]//2, :], y[:, Nel[1] //
-                                                           2 - 1, :], b[:, Nel[1]//2, :], levels=levels)
+                        plt.contourf(
+                            x[:, 0, :], y[:, 0, :],
+                            b[:, 0, :], levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1]//2, :], y[
+                                :, Nel[1] //
+                                2 - 1, :,
+                            ], b[:, Nel[1]//2, :], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     plt.axis('equal')
@@ -627,28 +837,37 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
                     plt.figure(f'vector-fields poloidal, {mhd_equil = }')
                     plt.subplot(2, 3, 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0],
-                                     bh[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], y[:, :, 0],
+                            bh[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0],
-                                     bh[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], z[:, :, 0],
+                            bh[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
                     plt.colorbar()
                     plt.title(
-                        f'Equilibrium $B_{i + 1}$, poloidal view (e1-e2)')
+                        f'Equilibrium $B_{i + 1}$, poloidal view (e1-e2)',
+                    )
                     plt.subplot(2, 3, 3 + 1 + i)
                     if 'Slab' in key or 'Pinch' in key:
-                        plt.contourf(x[:, :, 0], y[:, :, 0],
-                                     b[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], y[:, :, 0],
+                            b[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('y')
                     else:
-                        plt.contourf(x[:, :, 0], z[:, :, 0],
-                                     b[:, :, 0], levels=levels)
+                        plt.contourf(
+                            x[:, :, 0], z[:, :, 0],
+                            b[:, :, 0], levels=levels,
+                        )
                         plt.xlabel('x')
                         plt.ylabel('z')
                     plt.axis('equal')
@@ -665,12 +884,12 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
 def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     '''Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params.'''
 
-    from mpi4py import MPI
     import numpy as np
     from matplotlib import pyplot as plt
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.initial.perturbations import ModesSin, ModesCos
+    from struphy.initial.perturbations import ModesCos, ModesSin
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -680,11 +899,16 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     avg_1 = [None, 2.6, 3.7]
     avg_2 = [2, 3, 4.2]
 
-    bckgr_params = {'type': 'LogicalConst',
-                    'LogicalConst': {'comps': {'name_0': avg_0,
-                                               'name_1': avg_1,
-                                               'name_2': avg_2}}
-                    }
+    bckgr_params = {
+        'type': 'LogicalConst',
+        'LogicalConst': {
+            'comps': {
+                'name_0': avg_0,
+                'name_1': avg_1,
+                'name_2': avg_2,
+            },
+        },
+    }
 
     # perturbations
     ms_s = [0, 2]
@@ -696,58 +920,72 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     ns_c = [0]
     f_cos = ModesCos(ms=ms_c, ns=ns_c, amps=amps)
 
-    pert_params = {'type': ['ModesSin', 'ModesCos'],
-                   'ModesSin':
-                       {'comps':
-                           {'name_0': '0',
-                            'name_1': ['1', None, '1']
-                            },
-                        'ms':
-                            {'name_0': ms_s,
-                             'name_1': [ms_s, None, ms_s]
-                             },
-                        'ns':
-                            {'name_0': ns_s,
-                             'name_1': [ns_s, None, ns_s]
-                             },
-                        'amps':
-                            {'name_0': amps,
-                             'name_1': [amps, None, amps]
-                             }
-                        },
-                   'ModesCos':
-                   {'comps':
-                            {'name_0': '0',
-                             'name_1': ['1', '1', None],
-                             'name_2': [None, '2', None]
-                             },
-                    'ms':
-                            {'name_0': ms_c,
-                             'name_1': [ms_c, ms_c, None],
-                             'name_2': [None, ms_c, None]
-                             },
-                    'ns':
-                            {'name_0': ns_c,
-                             'name_1': [ns_c, ns_c, None],
-                             'name_2': [None, ns_c, None]
-                             },
-                    'amps':
-                            {'name_0': amps,
-                             'name_1': [amps, amps, None],
-                             'name_2': [None, amps, None]
-                             }
-                    }
-                   }
+    pert_params = {
+        'type': ['ModesSin', 'ModesCos'],
+        'ModesSin':
+            {
+                'comps':
+            {
+                'name_0': '0',
+                'name_1': ['1', None, '1'],
+            },
+                'ms':
+                    {
+                        'name_0': ms_s,
+                        'name_1': [ms_s, None, ms_s],
+            },
+                'ns':
+                    {
+                        'name_0': ns_s,
+                        'name_1': [ns_s, None, ns_s],
+            },
+                'amps':
+                    {
+                        'name_0': amps,
+                        'name_1': [amps, None, amps],
+            },
+        },
+        'ModesCos':
+        {
+            'comps':
+                    {
+                        'name_0': '0',
+                        'name_1': ['1', '1', None],
+                        'name_2': [None, '2', None],
+                    },
+            'ms':
+                    {
+                        'name_0': ms_c,
+                        'name_1': [ms_c, ms_c, None],
+                        'name_2': [None, ms_c, None],
+                    },
+            'ns':
+                    {
+                        'name_0': ns_c,
+                        'name_1': [ns_c, ns_c, None],
+                        'name_2': [None, ns_c, None],
+                    },
+            'amps':
+                    {
+                        'name_0': amps,
+                        'name_1': [amps, amps, None],
+                        'name_2': [None, amps, None],
+                    },
+        },
+    }
 
     # Psydac discrete Derham sequence and fields
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     field_0 = derham.create_field(
-        'name_0', 'H1', bckgr_params=bckgr_params, pert_params=pert_params)
+        'name_0', 'H1', bckgr_params=bckgr_params, pert_params=pert_params,
+    )
     field_1 = derham.create_field(
-        'name_1', 'Hcurl', bckgr_params=bckgr_params, pert_params=pert_params)
+        'name_1', 'Hcurl', bckgr_params=bckgr_params, pert_params=pert_params,
+    )
     field_2 = derham.create_field(
-        'name_2', 'Hdiv', bckgr_params=bckgr_params, pert_params=pert_params)
+        'name_2', 'Hdiv', bckgr_params=bckgr_params, pert_params=pert_params,
+    )
 
     field_0.initialize_coeffs()
     field_1.initialize_coeffs()
@@ -769,12 +1007,16 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
         if a is None:
             avg_2[i] = 0.
 
-    fun_1 = [avg_1[0] + f_sin(*meshgrids) + + f_cos(*meshgrids),
-             avg_1[1] + f_cos(*meshgrids),
-             avg_1[2] + f_sin(*meshgrids)]
-    fun_2 = [avg_2[0] + 0.*meshgrids[0],
-             avg_2[1] + f_cos(*meshgrids),
-             avg_2[2] + 0.*meshgrids[0]]
+    fun_1 = [
+        avg_1[0] + f_sin(*meshgrids) + + f_cos(*meshgrids),
+        avg_1[1] + f_cos(*meshgrids),
+        avg_1[2] + f_sin(*meshgrids),
+    ]
+    fun_2 = [
+        avg_2[0] + 0.*meshgrids[0],
+        avg_2[1] + f_cos(*meshgrids),
+        avg_2[2] + 0.*meshgrids[0],
+    ]
 
     f0_h = field_0(*meshgrids)
     f1_h = field_1(*meshgrids)
@@ -802,8 +1044,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 
         plt.figure('0-form', figsize=(10, 16))
         plt.subplot(2, 1, 1)
-        plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
-                     [0, :, :], f0_h[0, :, :], levels=levels)
+        plt.contourf(
+            meshgrids[1][0, :, :], meshgrids[2]
+            [0, :, :], f0_h[0, :, :], levels=levels,
+        )
         plt.xlabel('$\eta_2$')
         plt.ylabel('$\eta_3$')
         plt.xlim([0, 1.])
@@ -811,8 +1055,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
         plt.axis('equal')
         plt.colorbar()
         plt.subplot(2, 1, 2)
-        plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
-                     [0, :, :], fun_0[0, :, :], levels=levels)
+        plt.contourf(
+            meshgrids[1][0, :, :], meshgrids[2]
+            [0, :, :], fun_0[0, :, :], levels=levels,
+        )
         plt.xlabel('$\eta_2$')
         plt.ylabel('$\eta_3$')
         plt.title('reference')
@@ -827,8 +1073,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             levels = np.linspace(np.min(fun) - 1e-10, np.max(fun), 40)
 
             plt.subplot(2, 3, 1 + i)
-            plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
-                         [0, :, :], f_h[0, :, :], levels=levels)
+            plt.contourf(
+                meshgrids[1][0, :, :], meshgrids[2]
+                [0, :, :], f_h[0, :, :], levels=levels,
+            )
             plt.xlabel('$\eta_2$')
             plt.ylabel('$\eta_3$')
             plt.xlim([0, 1.])
@@ -836,8 +1084,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             plt.axis('equal')
             plt.colorbar()
             plt.subplot(2, 3, 4 + i)
-            plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
-                         [0, :, :], fun[0, :, :], levels=levels)
+            plt.contourf(
+                meshgrids[1][0, :, :], meshgrids[2]
+                [0, :, :], fun[0, :, :], levels=levels,
+            )
             plt.xlabel('$\eta_2$')
             plt.ylabel('$\eta_3$')
             plt.title('reference')
@@ -852,8 +1102,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             levels = np.linspace(np.min(fun) - 1e-10, np.max(fun), 40)
 
             plt.subplot(2, 3, 1 + i)
-            plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
-                         [0, :, :], f_h[0, :, :], levels=levels)
+            plt.contourf(
+                meshgrids[1][0, :, :], meshgrids[2]
+                [0, :, :], f_h[0, :, :], levels=levels,
+            )
             plt.xlabel('$\eta_2$')
             plt.ylabel('$\eta_3$')
             plt.xlim([0, 1.])
@@ -861,8 +1113,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
             plt.axis('equal')
             plt.colorbar()
             plt.subplot(2, 3, 4 + i)
-            plt.contourf(meshgrids[1][0, :, :], meshgrids[2]
-                         [0, :, :], fun[0, :, :], levels=levels)
+            plt.contourf(
+                meshgrids[1][0, :, :], meshgrids[2]
+                [0, :, :], fun[0, :, :], levels=levels,
+            )
             plt.xlabel('$\eta_2$')
             plt.ylabel('$\eta_3$')
             plt.title('reference')
@@ -883,8 +1137,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 def test_noise_init(Nel, p, spl_kind, space, direction):
     '''Only tests 1d noise ('e1', 'e2', 'e3') !!'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
@@ -909,7 +1163,7 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
             'direction': direction,
             'amp': 0.0001,
             'seed': 1234,
-        }
+        },
     }
     field.initialize_coeffs(init_params)
     field_np.initialize_coeffs(init_params)
@@ -921,13 +1175,17 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     # print(f'rank={rank}: \ncomp{0}={field.vector[0].toarray_local()}, \ncomp{0}_np={field_np.vector[0].toarray_local()}')
 
     compare_arrays(
-        field.vector, [field_np.vector[n].toarray_local() for n in range(3)], rank)
+        field.vector, [field_np.vector[n].toarray_local() for n in range(3)], rank,
+    )
 
 
 if __name__ == '__main__':
     # test_bckgr_init_const([8, 10, 12], [1, 2, 3], [False, False, True], [
     #     'H1', 'Hcurl', 'Hdiv'], [True, True, False])
-    test_bckgr_init_mhd([18, 24, 12], [1, 2, 1], [
-                        False, True, True], show_plot=False)
+    test_bckgr_init_mhd(
+        [18, 24, 12], [1, 2, 1], [
+            False, True, True,
+        ], show_plot=False,
+    )
     # test_sincos_init_const([1, 32, 32], [1, 3, 3], [True]*3, show_plot=True)
     # test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], 'Hcurl', 'e1')

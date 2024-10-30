@@ -1,15 +1,12 @@
-from psydac.linalg.stencil import StencilVector, StencilVectorSpace
-from psydac.linalg.block import BlockVector, BlockVectorSpace
-
-from struphy.linear_algebra.linalg_kron import kron_matvec_2d
-from struphy.feec.linear_operators import LinOpWithTransp
-from struphy.polar.basic import PolarVector, PolarDerhamSpace
-
+import numpy as np
 from mpi4py import MPI
-
+from psydac.linalg.block import BlockVector, BlockVectorSpace
+from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from scipy.sparse import csr_matrix, identity
 
-import numpy as np
+from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.linear_algebra.linalg_kron import kron_matvec_2d
+from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
 
 class PolarExtractionOperator(LinOpWithTransp):
@@ -98,14 +95,18 @@ class PolarExtractionOperator(LinOpWithTransp):
                 else:
                     if transposed:
                         self._blocks_ten_to_pol_shapes[-1] += [
-                            (W.n_rings[m]*W.n2[m], W.n_polar[n])]
+                            (W.n_rings[m]*W.n2[m], W.n_polar[n]),
+                        ]
                         self._blocks_ten_to_ten_shapes[-1] += [
-                            ((W.n_rings[m] + 1)*W.n2[m], W.n2[n])]
+                            ((W.n_rings[m] + 1)*W.n2[m], W.n2[n]),
+                        ]
                     else:
                         self._blocks_ten_to_pol_shapes[-1] += [
-                            (W.n_polar[m], W.n_rings[n]*W.n2[n])]
+                            (W.n_polar[m], W.n_rings[n]*W.n2[n]),
+                        ]
                         self._blocks_ten_to_ten_shapes[-1] += [
-                            (W.n2[m], (W.n_rings[n] + 1)*W.n2[n])]
+                            (W.n2[m], (W.n_rings[n] + 1)*W.n2[n]),
+                        ]
 
         # set polar blocks (map from first n_rings tensor-product rings to polar basis functions/DOFs)
         self.blocks_ten_to_pol = blocks_ten_to_pol
@@ -228,14 +229,18 @@ class PolarExtractionOperator(LinOpWithTransp):
 
             # 2. map "first tp ring" to "polar rings" + "first tp ring"
             if self.blocks_ten_to_ten is not None:
-                dot_parts_of_polar(self.blocks_ten_to_ten,
-                                   self.blocks_e3, v, out)
+                dot_parts_of_polar(
+                    self.blocks_ten_to_ten,
+                    self.blocks_e3, v, out,
+                )
 
             # 3. map polar coeffs to "polar rings"
             if self.blocks_ten_to_pol is not None:
                 out2 = out.space.zeros()
-                dot_parts_of_polar(self.blocks_ten_to_pol,
-                                   self.blocks_e3, v, out2)
+                dot_parts_of_polar(
+                    self.blocks_ten_to_pol,
+                    self.blocks_e3, v, out2,
+                )
 
                 # add contributions to "polar rings"
                 out += out2
@@ -257,13 +262,17 @@ class PolarExtractionOperator(LinOpWithTransp):
 
             # 2. map from "polar rings" to polar coeffs
             if self.blocks_ten_to_pol is not None:
-                dot_inner_tp_rings(self.blocks_ten_to_pol,
-                                   self.blocks_e3, v, out)
+                dot_inner_tp_rings(
+                    self.blocks_ten_to_pol,
+                    self.blocks_e3, v, out,
+                )
 
             # 3. map to "polar rings" + "first tp ring" to "first tp ring"
             if self.blocks_ten_to_ten is not None:
-                dot_inner_tp_rings(self.blocks_ten_to_ten,
-                                   self.blocks_e3, v, out)
+                dot_inner_tp_rings(
+                    self.blocks_ten_to_ten,
+                    self.blocks_e3, v, out,
+                )
 
         return out
 
@@ -346,10 +355,12 @@ class PolarLinearOperator(LinOpWithTransp):
         Whether to create the transposed extraction operator.
     """
 
-    def __init__(self, V, W,
-                 tp_operator=None, blocks_pol_to_ten=None,
-                 blocks_pol_to_pol=None, blocks_e3=None,
-                 transposed=False):
+    def __init__(
+        self, V, W,
+        tp_operator=None, blocks_pol_to_ten=None,
+        blocks_pol_to_pol=None, blocks_e3=None,
+        transposed=False,
+    ):
 
         assert isinstance(V, PolarDerhamSpace)
         assert isinstance(W, PolarDerhamSpace)
@@ -393,13 +404,16 @@ class PolarLinearOperator(LinOpWithTransp):
 
                 if self.transposed:
                     self._blocks_pol_to_ten_shapes[-1] += [
-                        (_codom.n_polar[m], (_dom.n_rings[n] + 1)*_dom.n2[n])]
+                        (_codom.n_polar[m], (_dom.n_rings[n] + 1)*_dom.n2[n]),
+                    ]
                 else:
                     self._blocks_pol_to_ten_shapes[-1] += [
-                        ((_codom.n_rings[m] + 1)*_codom.n2[m], _dom.n_polar[n])]
+                        ((_codom.n_rings[m] + 1)*_codom.n2[m], _dom.n_polar[n]),
+                    ]
 
                 self._blocks_pol_to_pol_shapes[-1] += [
-                    (_codom.n_polar[m], _dom.n_polar[n])]
+                    (_codom.n_polar[m], _dom.n_polar[n]),
+                ]
 
                 self._blocks_e3_shapes[-1] += [(_codom.n3[m], _dom.n3[n])]
 
@@ -563,15 +577,19 @@ class PolarLinearOperator(LinOpWithTransp):
         if self.transposed:
 
             # 3. "first tp ring" to polar
-            dot_inner_tp_rings(self.blocks_pol_to_ten,
-                               self.blocks_e3, v.tp, out2)
+            dot_inner_tp_rings(
+                self.blocks_pol_to_ten,
+                self.blocks_e3, v.tp, out2,
+            )
 
         # "standard" operator
         else:
 
             # 3. polar to "first tp ring"
-            dot_parts_of_polar(self.blocks_pol_to_ten,
-                               self.blocks_e3, v, out2.tp)
+            dot_parts_of_polar(
+                self.blocks_pol_to_ten,
+                self.blocks_e3, v, out2.tp,
+            )
 
         # sum up contributions
         out += out2
@@ -594,12 +612,14 @@ class PolarLinearOperator(LinOpWithTransp):
         blocks_pol_to_pol = transpose_block_mat(self.blocks_pol_to_pol)
         blocks_e3 = transpose_block_mat(self.blocks_e3)
 
-        return PolarLinearOperator(V, W,
-                                   tp_operator=self.tp_operator.transpose(),
-                                   blocks_pol_to_ten=blocks_pol_to_ten,
-                                   blocks_pol_to_pol=blocks_pol_to_pol,
-                                   blocks_e3=blocks_e3,
-                                   transposed=not self.transposed)
+        return PolarLinearOperator(
+            V, W,
+            tp_operator=self.tp_operator.transpose(),
+            blocks_pol_to_ten=blocks_pol_to_ten,
+            blocks_pol_to_pol=blocks_pol_to_pol,
+            blocks_e3=blocks_e3,
+            transposed=not self.transposed,
+        )
 
 
 def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
@@ -706,20 +726,25 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
                     tmp = np.zeros((n_rings_in[n], n2, n3_in[n]), dtype=float)
                     tmp[:, s2:e2 + 1, s3:e3 + 1] = \
                         in_vec[n][0:n_rings_in[n], s2:e2 + 1, s3:e3 + 1]
-                    res += kron_matvec_2d([block_e1_e2, block_e3],
-                                          tmp.reshape(n_rings_in[n]*n2, n3_in[n]))
+                    res += kron_matvec_2d(
+                        [block_e1_e2, block_e3],
+                        tmp.reshape(n_rings_in[n]*n2, n3_in[n]),
+                    )
 
         # sum up local dot products
         if polar_space.comm is not None:
             polar_space.comm.Allreduce(
-                MPI.IN_PLACE, res, op=MPI.SUM)
+                MPI.IN_PLACE, res, op=MPI.SUM,
+            )
 
         # write result to output polar vector (in-place)
         if map_to_tp:
             s1, s2, s3 = out_starts[m]
             e1, e2, e3 = out_ends[m]
-            out_tp[m][n_rings_out[m], s2:e2 + 1,
-                      s3:e3 + 1] = res[s2:e2 + 1, s3:e3 + 1]
+            out_tp[m][
+                n_rings_out[m], s2:e2 + 1,
+                s3:e3 + 1,
+            ] = res[s2:e2 + 1, s3:e3 + 1]
         else:
             out.pol[m][:, :] = res
 
@@ -830,16 +855,21 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
                         tmp = np.zeros((n2, n3_in[n]), dtype=float)
                         tmp[s2:e2 + 1, s3:e3 + 1] = \
                             in_tp[n][n_rings_in[n], s2:e2 + 1, s3:e3 + 1]
-                        res += kron_matvec_2d([block_e1_e2, block_e3],
-                                              tmp).reshape(n_rings_out[m], n2, n3_out[m])
+                        res += kron_matvec_2d(
+                            [block_e1_e2, block_e3],
+                            tmp,
+                        ).reshape(n_rings_out[m], n2, n3_out[m])
                 else:
-                    res += kron_matvec_2d([block_e1_e2, block_e3],
-                                          v.pol[n]).reshape(n_rings_out[m], n2, n3_out[m])
+                    res += kron_matvec_2d(
+                        [block_e1_e2, block_e3],
+                        v.pol[n],
+                    ).reshape(n_rings_out[m], n2, n3_out[m])
 
         if map_from_tp:
             if polar_space.comm is not None:
                 polar_space.comm.Allreduce(
-                    MPI.IN_PLACE, res, op=MPI.SUM)
+                    MPI.IN_PLACE, res, op=MPI.SUM,
+                )
 
         if out_starts[m][0] == 0:
             s1, s2, s3 = out_starts[m]

@@ -1,13 +1,13 @@
 import numpy as np
-from struphy.pic.base import Particles
-from struphy.pic import utilities_kernels
-from struphy.kinetic_background import maxwellians
-from struphy.fields_background.mhd_equil.equils import set_defaults
 
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry.base import Domain
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.geometry.base import Domain
+from struphy.kinetic_background import maxwellians
+from struphy.pic import utilities_kernels
+from struphy.pic.base import Particles
 
 
 class Particles6D(Particles):
@@ -33,33 +33,39 @@ class Particles6D(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'Maxwellian3D',
-                'Maxwellian3D': {}}
+        return {
+            'type': 'Maxwellian3D',
+            'Maxwellian3D': {},
+        }
 
-    def __init__(self,
-                 name: str,
-                 derham: Derham,
-                 *,
-                 domain: Domain = None,
-                 mhd_equil: MHDequilibrium = None,
-                 braginskii_equil: BraginskiiEquilibrium = None,
-                 bckgr_params: dict = None,
-                 pert_params: dict = None,
-                 sorting_params: dict = None,
-                 **marker_params):
+    def __init__(
+        self,
+        name: str,
+        derham: Derham,
+        *,
+        domain: Domain = None,
+        mhd_equil: MHDequilibrium = None,
+        braginskii_equil: BraginskiiEquilibrium = None,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+        sorting_params: dict = None,
+        **marker_params,
+    ):
 
         if bckgr_params is None:
             bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name,
-                         derham,
-                         domain=domain,
-                         mhd_equil=mhd_equil,
-                         braginskii_equil=braginskii_equil,
-                         bckgr_params=bckgr_params,
-                         pert_params=pert_params,
-                         sorting_params=sorting_params,
-                         **marker_params)
+        super().__init__(
+            name,
+            derham,
+            domain=domain,
+            mhd_equil=mhd_equil,
+            braginskii_equil=braginskii_equil,
+            bckgr_params=bckgr_params,
+            pert_params=pert_params,
+            sorting_params=sorting_params,
+            **marker_params,
+        )
 
     @property
     def n_cols(self):
@@ -103,13 +109,15 @@ class Particles6D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {'n': 1.,
-                       'u1': self.marker_params['loading']['moments'][0],
-                       'u2': self.marker_params['loading']['moments'][1],
-                       'u3': self.marker_params['loading']['moments'][2],
-                       'vth1': self.marker_params['loading']['moments'][3],
-                       'vth2': self.marker_params['loading']['moments'][4],
-                       'vth3': self.marker_params['loading']['moments'][5]}
+        maxw_params = {
+            'n': 1.,
+            'u1': self.marker_params['loading']['moments'][0],
+            'u2': self.marker_params['loading']['moments'][1],
+            'u3': self.marker_params['loading']['moments'][2],
+            'vth1': self.marker_params['loading']['moments'][3],
+            'vth2': self.marker_params['loading']['moments'][4],
+            'vth3': self.marker_params['loading']['moments'][5],
+        }
 
         fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
 
@@ -121,7 +129,8 @@ class Particles6D(Particles):
 
         else:
             raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
+            )
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
         """ Sampling density function as 0 form.
@@ -170,33 +179,39 @@ class Particles5D(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'GyroMaxwellian2D',
-                'GyroMaxwellian2D': {}}
+        return {
+            'type': 'GyroMaxwellian2D',
+            'GyroMaxwellian2D': {},
+        }
 
-    def __init__(self,
-                 name: str,
-                 derham: Derham,
-                 *,
-                 domain: Domain = None,
-                 mhd_equil: MHDequilibrium = None,
-                 braginskii_equil: BraginskiiEquilibrium = None,
-                 bckgr_params: dict = None,
-                 pert_params: dict = None,
-                 sorting_params: dict = None,
-                 **marker_params):
+    def __init__(
+        self,
+        name: str,
+        derham: Derham,
+        *,
+        domain: Domain = None,
+        mhd_equil: MHDequilibrium = None,
+        braginskii_equil: BraginskiiEquilibrium = None,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+        sorting_params: dict = None,
+        **marker_params,
+    ):
 
         if bckgr_params is None:
             bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name,
-                         derham,
-                         domain=domain,
-                         mhd_equil=mhd_equil,
-                         braginskii_equil=braginskii_equil,
-                         bckgr_params=bckgr_params,
-                         pert_params=pert_params,
-                         sorting_params=sorting_params,
-                         ** marker_params)
+        super().__init__(
+            name,
+            derham,
+            domain=domain,
+            mhd_equil=mhd_equil,
+            braginskii_equil=braginskii_equil,
+            bckgr_params=bckgr_params,
+            pert_params=pert_params,
+            sorting_params=sorting_params,
+            ** marker_params,
+        )
 
         # magnetic background
         if self.mhd_equil is not None:
@@ -206,9 +221,11 @@ class Particles5D(Particles):
 
         self._absB0_h = self.derham.P['0'](self.magn_bckgr.absB0)
 
-        self._unit_b1_h = self.derham.P['1']([self.magn_bckgr.unit_b1_1,
-                                              self.magn_bckgr.unit_b1_2,
-                                              self.magn_bckgr.unit_b1_3])
+        self._unit_b1_h = self.derham.P['1']([
+            self.magn_bckgr.unit_b1_1,
+            self.magn_bckgr.unit_b1_2,
+            self.magn_bckgr.unit_b1_3,
+        ])
 
         E0T = self.derham.extraction_ops['0'].transpose()
         E1T = self.derham.extraction_ops['1'].transpose()
@@ -276,14 +293,17 @@ class Particles5D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {'n': 1.,
-                       'u_para': self.marker_params['loading']['moments'][0],
-                       'u_perp': self.marker_params['loading']['moments'][1],
-                       'vth_para': self.marker_params['loading']['moments'][2],
-                       'vth_perp': self.marker_params['loading']['moments'][3]}
+        maxw_params = {
+            'n': 1.,
+            'u_para': self.marker_params['loading']['moments'][0],
+            'u_perp': self.marker_params['loading']['moments'][1],
+            'vth_para': self.marker_params['loading']['moments'][2],
+            'vth_perp': self.marker_params['loading']['moments'][3],
+        }
 
         self._svol = maxwellians.GyroMaxwellian2D(
-            maxw_params=maxw_params, volume_form=True, mhd_equil=self._magn_bckgr)
+            maxw_params=maxw_params, volume_form=True, mhd_equil=self._magn_bckgr,
+        )
 
         if self.spatial == 'uniform':
             out = self._svol(eta1, eta2, eta3, *v)
@@ -293,7 +313,8 @@ class Particles5D(Particles):
 
         else:
             raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
+            )
 
         return out
 
@@ -369,13 +390,17 @@ class Particles5D(Particles):
         abs_B0 = E0T.dot(abs_B0)
 
         if initial:
-            utilities_kernels.eval_magnetic_moment_5d(self.markers,
-                                                      self.derham.args_derham,
-                                                      abs_B0._data)
+            utilities_kernels.eval_magnetic_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                abs_B0._data,
+            )
 
-        utilities_kernels.eval_energy_5d(self.markers,
-                                         self.derham.args_derham,
-                                         abs_B0._data)
+        utilities_kernels.eval_energy_5d(
+            self.markers,
+            self.derham.args_derham,
+            abs_B0._data,
+        )
 
         if f_coords == 'constants_of_motion':
 
@@ -387,12 +412,14 @@ class Particles5D(Particles):
             r = self.markers[~self.holes, 0]*(1 - a1) + a1
             self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
 
-            utilities_kernels.eval_canonical_toroidal_moment_5d(self.markers,
-                                                                self.derham.args_derham,
-                                                                epsilon,
-                                                                B0,
-                                                                R0,
-                                                                abs_B0._data)
+            utilities_kernels.eval_canonical_toroidal_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                epsilon,
+                B0,
+                R0,
+                abs_B0._data,
+            )
 
     def save_magnetic_energy(self, b2):
         r"""
@@ -409,16 +436,18 @@ class Particles5D(Particles):
         b2t = E2T.dot(b2, out=self._tmp2)
         b2t.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy(self.markers,
-                                               self.derham.args_derham,
-                                               self.domain.args_domain,
-                                               self.absB0_h._data,
-                                               self.unit_b1_h[0]._data,
-                                               self.unit_b1_h[1]._data,
-                                               self.unit_b1_h[2]._data,
-                                               b2t[0]._data,
-                                               b2t[1]._data,
-                                               b2t[2]._data)
+        utilities_kernels.eval_magnetic_energy(
+            self.markers,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            self.absB0_h._data,
+            self.unit_b1_h[0]._data,
+            self.unit_b1_h[1]._data,
+            self.unit_b1_h[2]._data,
+            b2t[0]._data,
+            b2t[1]._data,
+            b2t[2]._data,
+        )
 
     def save_magnetic_background_energy(self):
         r"""
@@ -431,10 +460,12 @@ class Particles5D(Particles):
         abs_B0 = E0T.dot(self.absB0_h)
         abs_B0.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_background_energy(self.markers,
-                                                          self.derham.args_derham,
-                                                          self.domain.args_domain,
-                                                          abs_B0._data)
+        utilities_kernels.eval_magnetic_background_energy(
+            self.markers,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            abs_B0._data,
+        )
 
 
 class Particles3D(Particles):
@@ -454,33 +485,39 @@ class Particles3D(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'Constant',
-                'Constant': {}}
+        return {
+            'type': 'Constant',
+            'Constant': {},
+        }
 
-    def __init__(self,
-                 name: str,
-                 derham: Derham,
-                 *,
-                 domain: Domain = None,
-                 mhd_equil: MHDequilibrium = None,
-                 braginskii_equil: BraginskiiEquilibrium = None,
-                 bckgr_params: dict = None,
-                 pert_params: dict = None,
-                 sorting_params: dict = None,
-                 **marker_params):
+    def __init__(
+        self,
+        name: str,
+        derham: Derham,
+        *,
+        domain: Domain = None,
+        mhd_equil: MHDequilibrium = None,
+        braginskii_equil: BraginskiiEquilibrium = None,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+        sorting_params: dict = None,
+        **marker_params,
+    ):
 
         if bckgr_params is None:
             bckgr_params = self.default_bckgr_params()
 
-        super().__init__(name,
-                         derham,
-                         domain=domain,
-                         mhd_equil=mhd_equil,
-                         braginskii_equil=braginskii_equil,
-                         bckgr_params=bckgr_params,
-                         pert_params=pert_params,
-                         sorting_params=sorting_params,
-                         **marker_params)
+        super().__init__(
+            name,
+            derham,
+            domain=domain,
+            mhd_equil=mhd_equil,
+            braginskii_equil=braginskii_equil,
+            bckgr_params=bckgr_params,
+            pert_params=pert_params,
+            sorting_params=sorting_params,
+            **marker_params,
+        )
 
     @property
     def n_cols(self):
@@ -532,7 +569,8 @@ class Particles3D(Particles):
 
         else:
             raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
+            )
 
     def s0(self, eta1, eta2, eta3, remove_holes=True):
         """ Sampling density function as 0 form.

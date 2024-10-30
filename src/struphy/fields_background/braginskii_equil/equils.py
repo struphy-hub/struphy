@@ -1,8 +1,9 @@
 'Braginskii equilibria.'
 
 
-import numpy as np
 import warnings
+
+import numpy as np
 
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -54,12 +55,14 @@ class HomogenSlabITG(BraginskiiEquilibrium):
 
     def __init__(self, **params):
 
-        params_default = {'B0z': 1.,
-                          'Lx': 1.,
-                          'p0': 1.,
-                          'pmin': .1,
-                          'n0': 1.,
-                          'eps': .1}
+        params_default = {
+            'B0z': 1.,
+            'Lx': 1.,
+            'p0': 1.,
+            'pmin': .1,
+            'n0': 1.,
+            'eps': .1,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -83,7 +86,7 @@ class HomogenSlabITG(BraginskiiEquilibrium):
 
         return bx, by, bz
 
-    # equilibrium ion velocity 
+    # equilibrium ion velocity
     def u_xyz(self, x, y, z):
         """ Ion velocity.
         """

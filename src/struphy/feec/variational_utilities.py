@@ -1,8 +1,7 @@
 import numpy as np
+from psydac.linalg.basic import IdentityOperator, Vector
 
 from struphy.feec.linear_operators import LinOpWithTransp
-
-from psydac.linalg.basic import Vector, IdentityOperator
 
 
 class BracketOperator(LinOpWithTransp):
@@ -79,57 +78,79 @@ class BracketOperator(LinOpWithTransp):
         # self.Pcoord2 = CoordinateProjector(1, Xh, V0h)
         # self.Pcoord3 = CoordinateProjector(2, Xh, V0h)
         self.Pcoord1 = CoordinateProjector(
-            0, derham.Vh_pol['v'], derham.Vh_pol['0'])@derham.boundary_ops['v']
+            0, derham.Vh_pol['v'], derham.Vh_pol['0'],
+        )@derham.boundary_ops['v']
         self.Pcoord2 = CoordinateProjector(
-            1, derham.Vh_pol['v'], derham.Vh_pol['0'])@derham.boundary_ops['v']
+            1, derham.Vh_pol['v'], derham.Vh_pol['0'],
+        )@derham.boundary_ops['v']
         self.Pcoord3 = CoordinateProjector(
-            2, derham.Vh_pol['v'], derham.Vh_pol['0'])@derham.boundary_ops['v']
+            2, derham.Vh_pol['v'], derham.Vh_pol['0'],
+        )@derham.boundary_ops['v']
 
         # Initialize the BasisProjectionOperators
         self.PiuT = BasisProjectionOperator(
-            P0, V1h, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['1'],
-            V_boundary_op = IdentityOperator(derham.Vh_pol['1']),
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, V1h, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['1'],
+            V_boundary_op=IdentityOperator(derham.Vh_pol['1']),
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']),
+        )
 
         self.PigvT_1 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['v'],
-            V_boundary_op = derham.boundary_ops['v'],
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, Xh, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['v'],
+            V_boundary_op=derham.boundary_ops['v'],
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']),
+        )
         self.PigvT_2 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['v'],
-            V_boundary_op = derham.boundary_ops['v'],
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, Xh, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['v'],
+            V_boundary_op=derham.boundary_ops['v'],
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']),
+        )
         self.PigvT_3 = BasisProjectionOperator(
-            P0,  Xh, [[None, None, None]], transposed = True, use_cache = True,
-            V_extraction_op = derham.extraction_ops['v'],
-            V_boundary_op = derham.boundary_ops['v'],
-            P_boundary_op = IdentityOperator(derham.Vh_pol['0']))
+            P0, Xh, [[None, None, None]], transposed=True, use_cache=True,
+            V_extraction_op=derham.extraction_ops['v'],
+            V_boundary_op=derham.boundary_ops['v'],
+            P_boundary_op=IdentityOperator(derham.Vh_pol['0']),
+        )
 
         # Store the interpolation grid for later use in _update_all_weights
-        interpolation_grid = [pts.flatten()
-                              for pts in derham.proj_grid_pts['0']]
+        interpolation_grid = [
+            pts.flatten()
+            for pts in derham.proj_grid_pts['0']
+        ]
 
         self.interpolation_grid_spans, self.interpolation_grid_bn, self.interpolation_grid_bd = derham.prepare_eval_tp_fixed(
-            interpolation_grid)
+            interpolation_grid,
+        )
 
-        self.interpolation_grid_gradient = [[self.interpolation_grid_bd[0], self.interpolation_grid_bn[1], self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bd[1],
-                                                self.interpolation_grid_bn[2]],
-                                            [self.interpolation_grid_bn[0], self.interpolation_grid_bn[1], self.interpolation_grid_bd[2]]]
+        self.interpolation_grid_gradient = [
+            [self.interpolation_grid_bd[0], self.interpolation_grid_bn[1], self.interpolation_grid_bn[2]],
+            [
+                self.interpolation_grid_bn[0], self.interpolation_grid_bd[1],
+                self.interpolation_grid_bn[2],
+            ],
+            [self.interpolation_grid_bn[0], self.interpolation_grid_bn[1], self.interpolation_grid_bd[2]],
+        ]
 
         # Create tmps for later use in evaluating on the grid
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in interpolation_grid])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in interpolation_grid
+        ])
         self._vf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._gvf1_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._gvf2_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._gvf3_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._gvf1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self._gvf2_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self._gvf3_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
         # gradient of the component of the vector field
         grad = derham.grad_bcfree
@@ -198,25 +219,35 @@ class BracketOperator(LinOpWithTransp):
         self.gv3f.vector = grad_3_v
 
         vf_values = self.vf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, [self.interpolation_grid_bn]*3, out = self._vf_values)
+            self.interpolation_grid_spans, [self.interpolation_grid_bn]*3, out=self._vf_values,
+        )
 
-        gvf1_values = self.gv1f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out = self._gvf1_values)
+        gvf1_values = self.gv1f.eval_tp_fixed_loc(
+            self.interpolation_grid_spans,
+            self.interpolation_grid_gradient, out=self._gvf1_values,
+        )
 
-        gvf2_values = self.gv2f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out = self._gvf2_values)
+        gvf2_values = self.gv2f.eval_tp_fixed_loc(
+            self.interpolation_grid_spans,
+            self.interpolation_grid_gradient, out=self._gvf2_values,
+        )
 
-        gvf3_values = self.gv3f.eval_tp_fixed_loc(self.interpolation_grid_spans,
-                                                  self.interpolation_grid_gradient, out = self._gvf3_values)
+        gvf3_values = self.gv3f.eval_tp_fixed_loc(
+            self.interpolation_grid_spans,
+            self.interpolation_grid_gradient, out=self._gvf3_values,
+        )
 
         self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
 
         self.PigvT_1.update_weights(
-            [[gvf1_values[0], gvf1_values[1], gvf1_values[2]]])
+            [[gvf1_values[0], gvf1_values[1], gvf1_values[2]]],
+        )
         self.PigvT_2.update_weights(
-            [[gvf2_values[0], gvf2_values[1], gvf2_values[2]]])
+            [[gvf2_values[0], gvf2_values[1], gvf2_values[2]]],
+        )
         self.PigvT_3.update_weights(
-            [[gvf3_values[0], gvf3_values[1], gvf3_values[2]]])
+            [[gvf3_values[0], gvf3_values[1], gvf3_values[2]]],
+        )
 
         if out is not None:
             self.mbrackvw.dot(self._u, out=out)

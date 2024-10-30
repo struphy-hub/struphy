@@ -1,8 +1,9 @@
 import copy
 import os
+
 import struphy
-from struphy.main import main
 from struphy.io.setup import descend_options_dict
+from struphy.main import main
 
 libpath = struphy.__path__[0]
 
@@ -43,8 +44,10 @@ def call_model(key, val, map_and_equil, Tend=None):
             d_default = parameters['em_fields']['options']
 
             # create a list of parameter dicts for the different options
-            descend_options_dict(val.options()['em_fields']['options'],
-                                 d_opts['em_fields'], d_default=d_default)
+            descend_options_dict(
+                val.options()['em_fields']['options'],
+                d_opts['em_fields'], d_default=d_default,
+            )
 
     for name in val.species()['fluid']:
         # find out the fluid options of the model
@@ -56,8 +59,10 @@ def call_model(key, val, map_and_equil, Tend=None):
             d_opts['fluid'][name] = []
 
             # create a list of parameter dicts for the different options
-            descend_options_dict(val.options()['fluid'][name]['options'],
-                                 d_opts['fluid'][name], d_default=d_default)
+            descend_options_dict(
+                val.options()['fluid'][name]['options'],
+                d_opts['fluid'][name], d_default=d_default,
+            )
 
     for name in val.species()['kinetic']:
         # find out the kinetic options of the model
@@ -69,8 +74,10 @@ def call_model(key, val, map_and_equil, Tend=None):
             d_opts['kinetic'][name] = []
 
             # create a list of parameter dicts for the different options
-            descend_options_dict(val.options()['kinetic'][name]['options'],
-                                 d_opts['kinetic'][name], d_default=d_default)
+            descend_options_dict(
+                val.options()['kinetic'][name]['options'],
+                d_opts['kinetic'][name], d_default=d_default,
+            )
 
     path_out = os.path.join(libpath, 'io/out/test_' + key)
 
@@ -91,8 +98,11 @@ def call_model(key, val, map_and_equil, Tend=None):
 
     if Tend is not None:
         parameters['time']['Tend'] = Tend
-        main(key, parameters, path_out, save_step=int(
-            Tend/parameters['time']['dt']))
+        main(
+            key, parameters, path_out, save_step=int(
+                Tend/parameters['time']['dt'],
+            ),
+        )
         return
     else:
         # run with default

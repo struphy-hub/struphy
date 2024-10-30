@@ -1,26 +1,33 @@
-import pytest
 import time
+
+import pytest
 
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
-@pytest.mark.parametrize('p',   [[3, 2, 1]])
+@pytest.mark.parametrize('p', [[3, 2, 1]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, False]])
-@pytest.mark.parametrize('mapping', [
-    ['Cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}]])
+@pytest.mark.parametrize(
+    'mapping', [
+        [
+            'Cuboid', {
+                'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.,
+            },
+        ],
+    ],
+)
 def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     """
     TODO
     """
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
 
-    from struphy.geometry import domains
-    from struphy.feec.psydac_derham import Derham
     from struphy.feec.mass import WeightedMassOperators
+    from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
+    from struphy.geometry import domains
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -99,14 +106,30 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
 
 if __name__ == '__main__':
     test_tosparse_struphy(
-        [32, 2, 2], [2, 1, 1], [True, True, True], ['Colella', {
-            'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])
+        [32, 2, 2], [2, 1, 1], [True, True, True], [
+            'Colella', {
+                'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.,
+            },
+        ],
+    )
     test_tosparse_struphy(
-        [2, 32, 2], [1, 2, 1], [True, True, True], ['Colella', {
-            'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])
+        [2, 32, 2], [1, 2, 1], [True, True, True], [
+            'Colella', {
+                'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.,
+            },
+        ],
+    )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [True, True, True], ['Colella', {
-            'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])
+        [2, 2, 32], [1, 1, 2], [True, True, True], [
+            'Colella', {
+                'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.,
+            },
+        ],
+    )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [False, False, False], ['Colella', {
-            'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])
+        [2, 2, 32], [1, 1, 2], [False, False, False], [
+            'Colella', {
+                'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.,
+            },
+        ],
+    )

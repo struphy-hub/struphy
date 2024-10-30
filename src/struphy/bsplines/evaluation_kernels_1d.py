@@ -12,9 +12,8 @@ Possible combinations for tensor product (B):
 * (D)
 * (dN/deta)
 """
-from pyccel.decorators import pure, stack_array
-
 from numpy import empty, zeros
+from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 

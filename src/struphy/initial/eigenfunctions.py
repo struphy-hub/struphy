@@ -1,13 +1,11 @@
 import os
-import yaml
 
 import numpy as np
+import yaml
+from psydac.api.discretization import discretize
+from sympde.topology import Derham, Line
 
 from struphy.fields_background.mhd_equil.equils import set_defaults
-
-from sympde.topology import Line, Derham
-
-from psydac.api.discretization import discretize
 
 
 class InitialMHDAxisymHdivEigFun:
@@ -39,12 +37,14 @@ class InitialMHDAxisymHdivEigFun:
 
         o_path = state['o_path']
 
-        params_default = {'spec': 'sim_1/spec_n_-1.npy',
-                          'spec_abs': None,
-                          'eig_freq_upper': 0.02,
-                          'eig_freq_lower': 0.03,
-                          'kind': 'r',
-                          'scaling': 1.}
+        params_default = {
+            'spec': 'sim_1/spec_n_-1.npy',
+            'spec_abs': None,
+            'eig_freq_upper': 0.02,
+            'eig_freq_lower': 0.03,
+            'kind': 'r',
+            'scaling': 1.,
+        }
 
         params = set_defaults(params, params_default)
 
@@ -79,9 +79,13 @@ class InitialMHDAxisymHdivEigFun:
         derham_sym = Derham(domain_log)
 
         domain_log_h = discretize(
-            domain_log, ncells=[derham.Nel[2]], periodic=[True])
-        derham_1d = discretize(derham_sym, domain_log_h, degree=[
-                               derham.p[2]], nquads=[derham.nquads[2]])
+            domain_log, ncells=[derham.Nel[2]], periodic=[True],
+        )
+        derham_1d = discretize(
+            derham_sym, domain_log_h, degree=[
+                derham.p[2],
+            ], nquads=[derham.nquads[2]],
+        )
 
         p0, p1 = derham_1d.projectors(nquads=[derham.nq_pr[2]])
 
@@ -97,19 +101,31 @@ class InitialMHDAxisymHdivEigFun:
         assert params['kind'] == 'r' or params['kind'] == 'i'
 
         if params['kind'] == 'r':
-            eig_vec_1 = (np.outer(np.real(eig_vec_1), D_cos) -
-                         np.outer(np.imag(eig_vec_1), D_sin)).flatten()
-            eig_vec_2 = (np.outer(np.real(eig_vec_2), D_cos) -
-                         np.outer(np.imag(eig_vec_2), D_sin)).flatten()
-            eig_vec_3 = (np.outer(np.real(eig_vec_3), N_cos) -
-                         np.outer(np.imag(eig_vec_3), N_sin)).flatten()
+            eig_vec_1 = (
+                np.outer(np.real(eig_vec_1), D_cos) -
+                np.outer(np.imag(eig_vec_1), D_sin)
+            ).flatten()
+            eig_vec_2 = (
+                np.outer(np.real(eig_vec_2), D_cos) -
+                np.outer(np.imag(eig_vec_2), D_sin)
+            ).flatten()
+            eig_vec_3 = (
+                np.outer(np.real(eig_vec_3), N_cos) -
+                np.outer(np.imag(eig_vec_3), N_sin)
+            ).flatten()
         else:
-            eig_vec_1 = (np.outer(np.imag(eig_vec_1), D_cos) +
-                         np.outer(np.real(eig_vec_1), D_sin)).flatten()
-            eig_vec_2 = (np.outer(np.imag(eig_vec_2), D_cos) +
-                         np.outer(np.real(eig_vec_2), D_sin)).flatten()
-            eig_vec_3 = (np.outer(np.imag(eig_vec_3), N_cos) +
-                         np.outer(np.real(eig_vec_3), N_sin)).flatten()
+            eig_vec_1 = (
+                np.outer(np.imag(eig_vec_1), D_cos) +
+                np.outer(np.real(eig_vec_1), D_sin)
+            ).flatten()
+            eig_vec_2 = (
+                np.outer(np.imag(eig_vec_2), D_cos) +
+                np.outer(np.real(eig_vec_2), D_sin)
+            ).flatten()
+            eig_vec_3 = (
+                np.outer(np.imag(eig_vec_3), N_cos) +
+                np.outer(np.real(eig_vec_3), N_sin)
+            ).flatten()
 
         # set coefficients in full space
         eigvec_1_ten = np.zeros(derham.nbasis['2'][0], dtype=float)
@@ -127,17 +143,27 @@ class InitialMHDAxisymHdivEigFun:
 
         if derham.polar_ck == -1:
 
-            n_v2_0 = [[derham.nbasis['2'][0][0] - bc1_1 - bc1_2, derham.nbasis['2'][0][1], derham.nbasis['2'][0][2]],
-                      [derham.nbasis['2'][1][0], derham.nbasis['2'][1]
-                          [1] - bc2_1 - bc2_2, derham.nbasis['2'][1][2]],
-                      [derham.nbasis['2'][2][0], derham.nbasis['2'][2][1], derham.nbasis['2'][2][2] - bc3_1 - bc3_2]]
+            n_v2_0 = [
+                [derham.nbasis['2'][0][0] - bc1_1 - bc1_2, derham.nbasis['2'][0][1], derham.nbasis['2'][0][2]],
+                [
+                    derham.nbasis['2'][1][0], derham.nbasis['2'][1]
+                    [1] - bc2_1 - bc2_2, derham.nbasis['2'][1][2],
+                ],
+                [derham.nbasis['2'][2][0], derham.nbasis['2'][2][1], derham.nbasis['2'][2][2] - bc3_1 - bc3_2],
+            ]
 
-            eigvec_1_ten[bc1_1:derham.nbasis['2'][0][0] -
-                         bc1_2, :, :] = eig_vec_1.reshape(n_v2_0[0])
-            eigvec_2_ten[:, bc2_1:derham.nbasis['2'][1]
-                         [1] - bc2_2, :] = eig_vec_2.reshape(n_v2_0[1])
-            eigvec_3_ten[:, :, bc3_1:derham.nbasis['2'][2]
-                         [2] - bc3_2] = eig_vec_3.reshape(n_v2_0[2])
+            eigvec_1_ten[
+                bc1_1:derham.nbasis['2'][0][0] -
+                bc1_2, :, :,
+            ] = eig_vec_1.reshape(n_v2_0[0])
+            eigvec_2_ten[
+                :, bc2_1:derham.nbasis['2'][1]
+                [1] - bc2_2, :,
+            ] = eig_vec_2.reshape(n_v2_0[1])
+            eigvec_3_ten[
+                :, :, bc3_1:derham.nbasis['2'][2]
+                [2] - bc3_2,
+            ] = eig_vec_3.reshape(n_v2_0[2])
 
             self._eigvec_1 = eigvec_1_ten*params['scaling']
             self._eigvec_2 = eigvec_2_ten*params['scaling']
@@ -146,45 +172,70 @@ class InitialMHDAxisymHdivEigFun:
         else:
 
             # split into polar/tensor product parts
-            eig_vec_1 = np.split(eig_vec_1,
-                                 [derham.Vh_pol['2'].n_polar[0] * nnz_tor[0],])
-            eig_vec_2 = np.split(eig_vec_2,
-                                 [derham.Vh_pol['2'].n_polar[1] * nnz_tor[1],])
-            eig_vec_3 = np.split(eig_vec_3,
-                                 [derham.Vh_pol['2'].n_polar[2] * nnz_tor[2],])
+            eig_vec_1 = np.split(
+                eig_vec_1,
+                [derham.Vh_pol['2'].n_polar[0] * nnz_tor[0]],
+            )
+            eig_vec_2 = np.split(
+                eig_vec_2,
+                [derham.Vh_pol['2'].n_polar[1] * nnz_tor[1]],
+            )
+            eig_vec_3 = np.split(
+                eig_vec_3,
+                [derham.Vh_pol['2'].n_polar[2] * nnz_tor[2]],
+            )
 
             # reshape polar coeffs
             eig_vec_1[0] = eig_vec_1[0].reshape(
-                derham.Vh_pol['2'].n_polar[0], nnz_tor[0])
+                derham.Vh_pol['2'].n_polar[0], nnz_tor[0],
+            )
             eig_vec_2[0] = eig_vec_2[0].reshape(
-                derham.Vh_pol['2'].n_polar[1], nnz_tor[1])
+                derham.Vh_pol['2'].n_polar[1], nnz_tor[1],
+            )
             eig_vec_3[0] = eig_vec_3[0].reshape(
-                derham.Vh_pol['2'].n_polar[2], nnz_tor[2])
+                derham.Vh_pol['2'].n_polar[2], nnz_tor[2],
+            )
 
             # reshape tensor product coeffs
-            n_v2_0 = [[derham.nbasis['2'][0][0] - derham.Vh_pol['2'].n_rings[0] - bc1_2,
-                       derham.nbasis['2'][0][1],
-                       derham.nbasis['2'][0][2]],
-                      [derham.nbasis['2'][1][0] - derham.Vh_pol['2'].n_rings[1],
-                       derham.nbasis['2'][1][1],
-                       derham.nbasis['2'][1][2]],
-                      [derham.nbasis['2'][2][0] - derham.Vh_pol['2'].n_rings[2],
-                       derham.nbasis['2'][2][1],
-                       derham.nbasis['2'][2][2]]]
+            n_v2_0 = [
+                [
+                    derham.nbasis['2'][0][0] - derham.Vh_pol['2'].n_rings[0] - bc1_2,
+                    derham.nbasis['2'][0][1],
+                    derham.nbasis['2'][0][2],
+                ],
+                [
+                    derham.nbasis['2'][1][0] - derham.Vh_pol['2'].n_rings[1],
+                    derham.nbasis['2'][1][1],
+                    derham.nbasis['2'][1][2],
+                ],
+                [
+                    derham.nbasis['2'][2][0] - derham.Vh_pol['2'].n_rings[2],
+                    derham.nbasis['2'][2][1],
+                    derham.nbasis['2'][2][2],
+                ],
+            ]
 
-            eigvec_1_ten[derham.Vh_pol['2'].n_rings[0]:
-                         derham.nbasis['2'][0][0] - bc1_2, :, :] = eig_vec_1[1].reshape(n_v2_0[0])
+            eigvec_1_ten[
+                derham.Vh_pol['2'].n_rings[0]:
+                derham.nbasis['2'][0][0] - bc1_2, :, :,
+            ] = eig_vec_1[1].reshape(n_v2_0[0])
             eigvec_2_ten[derham.Vh_pol['2'].n_rings[1]:, :, :] = \
                 eig_vec_2[1].reshape(n_v2_0[1])
             eigvec_3_ten[derham.Vh_pol['2'].n_rings[2]:, :, :] = \
                 eig_vec_3[1].reshape(n_v2_0[2])
 
-            self._eigvec_1 = [eig_vec_1[0] * params['scaling'],
-                              eigvec_1_ten * params['scaling']]
-            self._eigvec_2 = [eig_vec_2[0] * params['scaling'],
-                              eigvec_2_ten * params['scaling']]
-            self._eigvec_3 = [eig_vec_3[0] * params['scaling'],
-                              eigvec_3_ten * params['scaling']]
+            self._eigvec_1 = [
+                eig_vec_1[0] * params['scaling'],
+                eigvec_1_ten * params['scaling'],
+            ]
+            self._eigvec_2 = [
+                eig_vec_2[0] * params['scaling'],
+                eigvec_2_ten * params['scaling'],
+            ]
+            self._eigvec_3 = [
+                eig_vec_3[0] * params['scaling'],
+                eigvec_3_ten * params['scaling'],
+            ]
 
     @property
     def u2(self):

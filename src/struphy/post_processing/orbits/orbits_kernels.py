@@ -1,12 +1,14 @@
+from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-from numpy import empty, shape, zeros, sqrt, log, abs, sign, pi
 
 
 @stack_array('x', 'v', 'B', 'unit_B', 'vperp', 'temp', 'Larmor_r')
-def calculate_guiding_center_from_6d(markers: 'float[:,:]',
-                                     B_cart: 'float[:,:]'):
+def calculate_guiding_center_from_6d(
+    markers: 'float[:,:]',
+    B_cart: 'float[:,:]',
+):
     r"""
     Calculate guiding center positions :math:`\overline{\mathbf X}` from 6d Cartesian phase-space coordinates :math:`(\mathbf x, \mathbf v)`:
 

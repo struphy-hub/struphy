@@ -10,14 +10,14 @@ def get_cprofile_data(path, print_callers=None):
             Part of function name for which to show calling functions.
     '''
 
-    import pstats
-    from pstats import SortKey
     import os
     import pickle
+    import pstats
+    from pstats import SortKey
 
     p = pstats.Stats(os.path.join(path, 'profile_tmp'))
     p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(0)
-    
+
     if print_callers is not None:
         print('Print callers:')
         print('--------------')
@@ -37,7 +37,7 @@ def get_cprofile_data(path, print_callers=None):
             if search:
                 li = line.split()
                 # print(li)
-                #print(len(name_li), len(li))
+                # print(len(name_li), len(li))
                 if len(li) == 0:
                     search = False
                     continue
@@ -46,15 +46,16 @@ def get_cprofile_data(path, print_callers=None):
                 # print(name_li[2], li[2])
                 # print(name_li[3], li[3])
                 # print(name_li[4], li[4])
-                data_cprofile[li[-1]] = {name_li[0]: li[0],
-                                         name_li[1]: li[1],
-                                         name_li[2]: li[2],
-                                         name_li[3]: li[3],
-                                         name_li[4]: li[4], }
+                data_cprofile[li[-1]] = {
+                    name_li[0]: li[0],
+                    name_li[1]: li[1],
+                    name_li[2]: li[2],
+                    name_li[3]: li[3],
+                    name_li[4]: li[4], }
                 # time.sleep(1)
 
             if 'filename:lineno' in line:
-                #print(n, repr(line))
+                # print(n, repr(line))
                 name_li = line.split()
                 # print(name_li)
                 search = True
@@ -76,8 +77,8 @@ def compare_cprofile_data(path, list_of_funcs=None):
             If "None", the 50 functions with the longest cumtime are listed.
     '''
 
-    import pickle
     import os
+    import pickle
 
     with open(os.path.join(path, 'profile_dict.sav'), 'rb') as f:
         data_cprofile = pickle.load(f)
@@ -88,8 +89,11 @@ def compare_cprofile_data(path, list_of_funcs=None):
         print('-'*76)
     else:
         print('-'*76)
-        print('function name, keywords: {}'.format(
-            list_of_funcs).ljust(60), 'cumulative time')
+        print(
+            'function name, keywords: {}'.format(
+                list_of_funcs,
+            ).ljust(60), 'cumulative time',
+        )
         print('-'*76)
 
     counter = 0
@@ -117,8 +121,10 @@ def replace_keys(d):
     '''
 
     import os
-    import struphy
+
     import psydac
+
+    import struphy
 
     struphy_path = struphy.__path__[0]
     psydac_path = psydac.__path__[0]
@@ -139,7 +145,7 @@ def replace_keys(d):
             l_nr = int(key[p1 + 1:p2])
             new_routine = key[p2:]
 
-            #print(key, p1, f_name, l_nr, new_routine)
+            # print(key, p1, f_name, l_nr, new_routine)
 
             found = False
             for root, dirs, files in os.walk(struphy_path):

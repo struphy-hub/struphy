@@ -5,11 +5,13 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
     import os
     import pickle
-    import yaml
+
     import numpy as np
+    import yaml
     from matplotlib import pyplot as plt
-    from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
+
     import struphy.utils.utils as utils
+    from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
 
     # Read struphy state file
     state = utils.read_state()
@@ -22,19 +24,21 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         abs_paths += [os.path.join(o_path, d)]
 
     # define the function filter
-    list_of_funcs = ['assemble_',
-                     'propagator',
-                     'accumulate',
-                     '_fill',
-                     'pusher',
-                     'update_ghost_regions',
-                     'mpi_sort_markers',
-                     'apply_kinetic_bc',
-                     'solver',
-                     'class ',
-                     'stencil',
-                     'block',
-                     'integrate']
+    list_of_funcs = [
+        'assemble_',
+        'propagator',
+        'accumulate',
+        '_fill',
+        'pusher',
+        'update_ghost_regions',
+        'mpi_sort_markers',
+        'apply_kinetic_bc',
+        'solver',
+        'class ',
+        'stencil',
+        'block',
+        'integrate',
+    ]
 
     # check --all option
     if all:
@@ -93,8 +97,10 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
     # loop over keys (should be same in each dict)
     d_saved = {}
-    print('simulation'.ljust(20) + '#proc'.ljust(7) + 'pos'.ljust(5) + 'function'.ljust(70) +
-          'ncalls'.ljust(15) + 'tottime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15))
+    print(
+        'simulation'.ljust(20) + '#proc'.ljust(7) + 'pos'.ljust(5) + 'function'.ljust(70) +
+        'ncalls'.ljust(15) + 'tottime'.ljust(15) + 'percall'.ljust(15) + 'cumtime'.ljust(15),
+    )
     print('-'*154)
     for position, key in enumerate(dicts[0].keys()):
 
@@ -103,7 +109,8 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
 
                 string = f'{sim_name}'.ljust(
-                    20) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
+                    20,
+                ) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
                     # if len(str(value)) < 7:
@@ -118,13 +125,16 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
         elif any(func in key for func in list_of_funcs) and 'dependencies_' not in key and '_dot' not in key:
 
-            d_saved[key] = {'mpi_size': [],
-                            'Nel': [], 'time': [], 'ncalls': []}
+            d_saved[key] = {
+                'mpi_size': [],
+                'Nel': [], 'time': [], 'ncalls': [],
+            }
 
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
 
                 string = f'{sim_name}'.ljust(
-                    20) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
+                    20,
+                ) + f'{n}'.ljust(7) + f'{position:2d}'.ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
                     # string += '\t\t'
@@ -167,8 +177,10 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
                 # ideal scaling
                 if n == 0:
-                    ax.loglog(val['mpi_size'], 1/2 ** np.arange(len(val['time'])), 'k--',
-                              alpha=0.3, label='ideal')
+                    ax.loglog(
+                        val['mpi_size'], 1/2 ** np.arange(len(val['time'])), 'k--',
+                        alpha=0.3, label='ideal',
+                    )
 
                 # print average time per one time step
                 if 'integrate' in key:
@@ -176,24 +188,32 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
                     for m in range(len(val['mpi_size'])):
                         avg_time_dt = round(
-                            float(val['time'][m])/float(val['ncalls'][m]), 2)
+                            float(val['time'][m])/float(val['ncalls'][m]), 2,
+                        )
                         textstr += 'MPI #' + \
                             str(val['mpi_size'][m]) + ' : ' + \
                             str(avg_time_dt) + ' s \n'
 
-                    ax.text(0.97, 0.91, textstr, fontsize=13, transform=ax.transAxes,
-                            verticalalignment='center', horizontalalignment='right')
+                    ax.text(
+                        0.97, 0.91, textstr, fontsize=13, transform=ax.transAxes,
+                        verticalalignment='center', horizontalalignment='right',
+                    )
 
                     continue
 
-                ax.loglog(val['mpi_size'], relative_times,
-                          'o' '-', label=key+', '+''.join(ratio[0]))
+                ax.loglog(
+                    val['mpi_size'], relative_times,
+                    'o' '-', label=key+', '+''.join(ratio[0]),
+                )
                 # plt.loglog(val['mpi_size'], val['time'], label=key)
                 ax.set_xlabel('MPI #', fontsize=13)
                 ax.set_ylabel(
-                    'Relative time [Total time with MPI #' + str(val['mpi_size'][0]) + ']', fontsize=13)
-                ax.set(title='Strong scaling for Nel=' +
-                       str(val['Nel'][0]) + ' cells')
+                    'Relative time [Total time with MPI #' + str(val['mpi_size'][0]) + ']', fontsize=13,
+                )
+                ax.set(
+                    title='Strong scaling for Nel=' +
+                    str(val['Nel'][0]) + ' cells',
+                )
                 ax.legend(loc='lower left')
 
             # weak scaling plot
@@ -201,8 +221,10 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 ax.plot(val['mpi_size'], val['time'], label=key)
                 ax.set_xlabel('mpi_size')
                 ax.set_ylabel('time [s]')
-                ax.set(title='Weak scaling for cells/mpi_size=' +
-                       str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
+                ax.set(
+                    title='Weak scaling for cells/mpi_size=' +
+                    str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.',
+                )
                 ax.legend(loc='upper left')
                 # ax.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
                 ax.set_xscale('log')

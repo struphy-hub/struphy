@@ -1,8 +1,5 @@
 from pyccel.decorators import stack_array
 
-# import module for matrix-matrix and matrix-vector multiplications
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
-
 # import modules for B-spline evaluation
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_2d as evaluation_kernels_2d
@@ -10,6 +7,9 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 
 # import module for mapping evaluation
 import struphy.geometry.evaluation_kernels as evaluation_kernels
+
+# import module for matrix-matrix and matrix-vector multiplications
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 
 @stack_array('e', 'v')
@@ -85,4 +85,3 @@ def set_particles_symmetric_2d_3v(numbers: 'float[:,:]', markers: 'float[:,:]'):
 
         markers[i_part, 1:3] = e
         markers[i_part, 3:6] = v
-

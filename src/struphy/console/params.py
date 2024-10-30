@@ -5,7 +5,7 @@ def struphy_params(model, file, yes=False, options=False):
     ----------
     model : str
         The name of the Struphy model.
-        
+
     yes : bool
         If true, say yes on prompt to overwrite .yml FILE
 
@@ -16,7 +16,7 @@ def struphy_params(model, file, yes=False, options=False):
         Whether to print to screen all possible options for the model.
     '''
 
-    from struphy.models import fluid, kinetic, hybrid, toy
+    from struphy.models import fluid, hybrid, kinetic, toy
 
     # load model class
     objs = [fluid, kinetic, hybrid, toy]

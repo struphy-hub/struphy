@@ -1,6 +1,7 @@
-import h5py
 import ctypes
 import os
+
+import h5py
 import numpy as np
 
 
@@ -53,8 +54,11 @@ class DataContainer:
         if file_exists:
             dataset_keys = []
 
-            self._file.visit(lambda key: dataset_keys.append(
-                key) if isinstance(self._file[key], h5py.Dataset) else None)
+            self._file.visit(
+                lambda key: dataset_keys.append(
+                    key,
+                ) if isinstance(self._file[key], h5py.Dataset) else None,
+            )
 
             for key in dataset_keys:
                 self._dset_dict[key] = None
@@ -112,11 +116,13 @@ class DataContainer:
                 if val.size == 1:
                     assert val.ndim == 1
                     self._file.create_dataset(
-                        key, (1,), maxshape=(None,), dtype=val.dtype, chunks=True)
+                        key, (1,), maxshape=(None,), dtype=val.dtype, chunks=True,
+                    )
                     self._file[key][0] = val[0]
                 else:
                     self._file.create_dataset(
-                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=val.dtype, chunks=True)
+                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=val.dtype, chunks=True,
+                    )
                     self._file[key][0] = val
 
             # set object ID
@@ -139,7 +145,8 @@ class DataContainer:
 
                 self._file[key].resize(self._file[key].shape[0] + 1, axis=0)
                 self._file[key][-1] = ctypes.cast(
-                    self._dset_dict[key], ctypes.py_object).value
+                    self._dset_dict[key], ctypes.py_object,
+                ).value
 
         # only loop over given keys
         else:
@@ -148,7 +155,8 @@ class DataContainer:
 
                 self._file[key].resize(self._file[key].shape[0] + 1, axis=0)
                 self._file[key][-1] = ctypes.cast(
-                    self._dset_dict[key], ctypes.py_object).value
+                    self._dset_dict[key], ctypes.py_object,
+                ).value
 
     def info(self):
         """ Print info of data sets to screen.  

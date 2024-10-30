@@ -1,12 +1,14 @@
+import inspect
+import time
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from mpi4py import MPI
-import matplotlib.pyplot as plt
-import inspect
-import time
-from struphy.feec.psydac_derham import Derham
-from struphy.feec.projectors import CommutingProjectorLocal
+
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.projectors import CommutingProjectorLocal
+from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 
 
@@ -126,7 +128,8 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
     figs = {}
     for sp_id in errors:
         figs[sp_id] = plt.figure(
-            sp_id + ', Local-proj. convergence', figsize=(24, 16))
+            sp_id + ', Local-proj. convergence', figsize=(24, 16),
+        )
 
     for n, Neli in enumerate(Nels):
 
@@ -202,8 +205,10 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
                 err = np.max(np.abs(f_analytic(e1, e2, e3) - field_vals))
                 f_plot = field_vals
             else:
-                err = [np.max(np.abs(exact(e1, e2, e3) - field_v))
-                       for exact, field_v in zip(f_analytic, field_vals)]
+                err = [
+                    np.max(np.abs(exact(e1, e2, e3) - field_v))
+                    for exact, field_v in zip(f_analytic, field_vals)
+                ]
                 f_plot = field_vals[0]
 
             errors[sp_id] += [np.max(err)]
@@ -223,10 +228,14 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
 
     for sp_id in derham.space_to_form:
 
-        line_for_rate_p1 = [Ne**(-rate_p1) * errors[sp_id]
-                            [0] / Nels[0]**(-rate_p1) for Ne in Nels]
-        line_for_rate_p0 = [Ne**(-rate_p0) * errors[sp_id]
-                            [0] / Nels[0]**(-rate_p0) for Ne in Nels]
+        line_for_rate_p1 = [
+            Ne**(-rate_p1) * errors[sp_id]
+            [0] / Nels[0]**(-rate_p1) for Ne in Nels
+        ]
+        line_for_rate_p0 = [
+            Ne**(-rate_p0) * errors[sp_id]
+            [0] / Nels[0]**(-rate_p0) for Ne in Nels
+        ]
 
         m, _ = np.polyfit(np.log(Nels), np.log(errors[sp_id]), deg=1)
         print(f'{sp_id = }, fitted convergence rate = {-m}, degree = {pi}')

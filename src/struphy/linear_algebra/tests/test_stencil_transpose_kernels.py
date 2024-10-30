@@ -10,19 +10,18 @@ import pytest
 def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     '''Compares the matrix transpose obtained from the Stencil .transpose method 
     with 
-    
+
     a) the result from kernel in struphy.linear_algebra.stencil_transpose_kernels.transpose_1d_kernel
     b) the result from Stencil .transpose with precompiled=True'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
+    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+    from psydac.linalg.stencil import StencilMatrix
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
 
-    from psydac.linalg.stencil import StencilMatrix
-    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-    
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
@@ -54,7 +53,10 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     codomain = spaces_1d[codomain_ind]
 
     mat = StencilMatrix(domain.vector_space, codomain.vector_space)
-    mat_pre = StencilMatrix(domain.vector_space, codomain.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+    mat_pre = StencilMatrix(
+        domain.vector_space, codomain.vector_space,
+        backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+    )
     matT_ker = StencilMatrix(codomain.vector_space, domain.vector_space)
 
     s_out = int(mat.codomain.starts[0])
@@ -89,10 +91,12 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     # kernel transpose
     add = int(e_out >= e_in)
-    transpose_1d_kernel(mat._data, matT_ker._data, s_out,
-                        p_out, add, s_in, e_in, p_in)
+    transpose_1d_kernel(
+        mat._data, matT_ker._data, s_out,
+        p_out, add, s_in, e_in, p_in,
+    )
     matT_ker.update_ghost_regions()
-    
+
     # precompiled transpose
     matT_pre = mat_pre.transpose()
     matT_pre.update_ghost_regions()
@@ -106,7 +110,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print(f'rank {rank} | codomain.starts = ', mat.codomain.starts)
         print(f'rank {rank} | codomain.ends = ', mat.codomain.ends)
         print(f'rank {rank} | codomain.pads = ', mat.codomain.pads)
-        #print(f'rank {rank} | add = ', add)
+        # print(f'rank {rank} | add = ', add)
         print('\nmat=', mat._data)
         print('\nmat.toarray=\n', mat.toarray())
         print('\nmatT=', matT._data)
@@ -129,19 +133,18 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
 def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     '''Compares the matrix transpose obtained from the Stencil .transpose method 
     with
-    
+
     a) the result from kernel in struphy.linear_algebra.stencil_transpose_kernels.transpose_3d_kernel
     b) the result from Stencil .transpose with precompiled=True'''
 
-    from mpi4py import MPI
     import numpy as np
+    from mpi4py import MPI
+    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+    from psydac.linalg.stencil import StencilMatrix
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
 
-    from psydac.linalg.stencil import StencilMatrix
-    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-    
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
@@ -174,7 +177,10 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     codomain = spaces_3d[codomain_ind]
 
     mat = StencilMatrix(domain.vector_space, codomain.vector_space)
-    mat_pre = StencilMatrix(domain.vector_space, codomain.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+    mat_pre = StencilMatrix(
+        domain.vector_space, codomain.vector_space,
+        backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+    )
     matT_ker = StencilMatrix(codomain.vector_space, domain.vector_space)
 
     s_out = np.array(mat.codomain.starts)
@@ -187,18 +193,22 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     # random matrix
     np.random.seed(123)
     tmp1 = np.random.rand(*codomain.vector_space.npts, *[2*q + 1 for q in p])
-    mat[s_out[0]: e_out[0] + 1,
+    mat[
+        s_out[0]: e_out[0] + 1,
         s_out[1]: e_out[1] + 1,
-        s_out[2]: e_out[2] + 1, ] = tmp1[s_out[0]: e_out[0] + 1,
-                                         s_out[1]: e_out[1] + 1,
-                                         s_out[2]: e_out[2] + 1,
-                                         ]
-    mat_pre[s_out[0]: e_out[0] + 1,
+        s_out[2]: e_out[2] + 1, ] = tmp1[
+            s_out[0]: e_out[0] + 1,
+            s_out[1]: e_out[1] + 1,
+            s_out[2]: e_out[2] + 1,
+    ]
+    mat_pre[
+        s_out[0]: e_out[0] + 1,
         s_out[1]: e_out[1] + 1,
-        s_out[2]: e_out[2] + 1, ] = tmp1[s_out[0]: e_out[0] + 1,
-                                         s_out[1]: e_out[1] + 1,
-                                         s_out[2]: e_out[2] + 1,
-                                         ]
+        s_out[2]: e_out[2] + 1, ] = tmp1[
+            s_out[0]: e_out[0] + 1,
+            s_out[1]: e_out[1] + 1,
+            s_out[2]: e_out[2] + 1,
+    ]
 
     # very important: update matrix after changing _data !!
     mat.update_ghost_regions()
@@ -210,15 +220,17 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     # kernel transpose
     add = [int(end_out >= end_in) for end_in, end_out in zip(mat.domain.ends, mat.codomain.ends)]
     add = np.array(add)
-    transpose_3d_kernel(mat._data,
-                        matT_ker._data,
-                        s_out,
-                        p_out,
-                        add,
-                        s_in,
-                        e_in,
-                        p_in)
-    
+    transpose_3d_kernel(
+        mat._data,
+        matT_ker._data,
+        s_out,
+        p_out,
+        add,
+        s_in,
+        e_in,
+        p_in,
+    )
+
     # precompiled transpose
     matT_pre = mat_pre.transpose()
 
@@ -236,26 +248,38 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print('\nmatT[0]=    ', matT._data[:, p_in[1], p_in[2], :, 0, 0])
         print('\nmatT_ker[0]=', matT_ker._data[:, p_in[1], p_in[2], :, 0, 0])
         print('\nmatT_pre[0]=', matT_pre._data[:, p_in[1], p_in[2], :, 0, 0])
-        
+
         print('\nmatT[1]=    ', matT._data[p_in[0], :, p_in[2], 1, :, 1])
         print('\nmatT_ker[1]=', matT_ker._data[p_in[0], :, p_in[2], 1, :, 1])
         print('\nmatT_pre[1]=', matT_pre._data[p_in[0], :, p_in[2], 1, :, 1])
-        
+
         print('\nmatT[2]=    ', matT._data[p_in[0], p_in[1], :, 1, 1, :])
         print('\nmatT_ker[2]=', matT_ker._data[p_in[0], p_in[1], :, 1, 1, :])
         print('\nmatT_pre[2]=', matT_pre._data[p_in[0], p_in[1], :, 1, 1, :])
 
-    assert np.allclose(matT_ker[s_in[0]: e_in[0] + 1,
-                                s_in[1]: e_in[1] + 1,
-                                s_in[2]: e_in[2] + 1], matT[s_in[0]: e_in[0] + 1,
-                                                            s_in[1]: e_in[1] + 1,
-                                                            s_in[2]: e_in[2] + 1])
-    
-    assert np.allclose(matT_pre[s_in[0]: e_in[0] + 1,
-                                s_in[1]: e_in[1] + 1,
-                                s_in[2]: e_in[2] + 1], matT[s_in[0]: e_in[0] + 1,
-                                                            s_in[1]: e_in[1] + 1,
-                                                            s_in[2]: e_in[2] + 1])
+    assert np.allclose(
+        matT_ker[
+            s_in[0]: e_in[0] + 1,
+            s_in[1]: e_in[1] + 1,
+            s_in[2]: e_in[2] + 1,
+        ], matT[
+            s_in[0]: e_in[0] + 1,
+            s_in[1]: e_in[1] + 1,
+            s_in[2]: e_in[2] + 1,
+        ],
+    )
+
+    assert np.allclose(
+        matT_pre[
+            s_in[0]: e_in[0] + 1,
+            s_in[1]: e_in[1] + 1,
+            s_in[2]: e_in[2] + 1,
+        ], matT[
+            s_in[0]: e_in[0] + 1,
+            s_in[1]: e_in[1] + 1,
+            s_in[2]: e_in[2] + 1,
+        ],
+    )
 
 
 if __name__ == '__main__':

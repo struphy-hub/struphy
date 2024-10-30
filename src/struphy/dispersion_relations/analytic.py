@@ -5,7 +5,7 @@ import numpy as np
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
 
-from struphy.dispersion_relations.base import DispersionRelations1D, ContinuousSpectra1D
+from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
@@ -24,12 +24,16 @@ class Maxwell1D(DispersionRelations1D):
         Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.toy.Maxwell`.
     """
 
-    def __init__(self,
-                 c=1.):
+    def __init__(
+        self,
+        c=1.,
+    ):
 
-        super().__init__('light wave',
-                         velocity_scale='light',
-                         c=c)
+        super().__init__(
+            'light wave',
+            velocity_scale='light',
+            c=c,
+        )
 
     def __call__(self, k):
         """
@@ -81,24 +85,28 @@ class MHDhomogenSlab(DispersionRelations1D):
         Adiabatic index (default: 5/3).
     """
 
-    def __init__(self,
-                 B0x=0.,
-                 B0y=1.,
-                 B0z=1.,
-                 p0=0.1,
-                 n0=1.0,
-                 gamma=5/3):
+    def __init__(
+        self,
+        B0x=0.,
+        B0y=1.,
+        B0z=1.,
+        p0=0.1,
+        n0=1.0,
+        gamma=5/3,
+    ):
 
-        super().__init__('shear Alfvén',
-                         'slow magnetosonic',
-                         'fast magnetosonic',
-                         velocity_scale='alfvén',
-                         B0x=B0x,
-                         B0y=B0y,
-                         B0z=B0z,
-                         p0=p0,
-                         n0=n0,
-                         gamma=gamma)
+        super().__init__(
+            'shear Alfvén',
+            'slow magnetosonic',
+            'fast magnetosonic',
+            velocity_scale='alfvén',
+            B0x=B0x,
+            B0y=B0y,
+            B0z=B0z,
+            p0=p0,
+            n0=n0,
+            gamma=gamma,
+        )
 
     def __call__(self, k):
         """
@@ -132,9 +140,11 @@ class MHDhomogenSlab(DispersionRelations1D):
             ((cS**2 + vA**2)**2 * Bsquare)
 
         self._branches['slow magnetosonic'] = np.sqrt(
-            1/2*k**2*(cS**2 + vA**2)*(1 - np.sqrt(1 - delta)))
+            1/2*k**2*(cS**2 + vA**2)*(1 - np.sqrt(1 - delta)),
+        )
         self._branches['fast magnetosonic'] = np.sqrt(
-            1/2*k**2*(cS**2 + vA**2)*(1 + np.sqrt(1 - delta)))
+            1/2*k**2*(cS**2 + vA**2)*(1 + np.sqrt(1 - delta)),
+        )
 
         return self.branches
 
@@ -168,27 +178,31 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
     with :math:`\epsilon = 1/(\hat \Omega_i \hat t)`.
     """
 
-    def __init__(self,
-                 B0x=0.,
-                 B0y=0.,
-                 B0z=1.,
-                 p0=0.1,
-                 n0=1.0,
-                 gamma=5/3,
-                 eps=0.1):
+    def __init__(
+        self,
+        B0x=0.,
+        B0y=0.,
+        B0z=1.,
+        p0=0.1,
+        n0=1.0,
+        gamma=5/3,
+        eps=0.1,
+    ):
 
-        super().__init__('shear Alfvén',
-                         'slow magnetosonic',
-                         'fast magnetosonic',
-                         'compressional Alfvén',
-                         velocity_scale='alfvén',
-                         B0x=B0x,
-                         B0y=B0y,
-                         B0z=B0z,
-                         p0=p0,
-                         n0=n0,
-                         gamma=gamma,
-                         eps=eps)
+        super().__init__(
+            'shear Alfvén',
+            'slow magnetosonic',
+            'fast magnetosonic',
+            'compressional Alfvén',
+            velocity_scale='alfvén',
+            B0x=B0x,
+            B0y=B0y,
+            B0z=B0z,
+            p0=p0,
+            n0=n0,
+            gamma=gamma,
+            eps=eps,
+        )
 
     def __call__(self, k):
         """
@@ -275,22 +289,26 @@ class FluidSlabITG(DispersionRelations1D):
         \frac{k_y}{k_z} > \frac{2}{3^{3/2}}\frac{\sqrt{Z + \gamma}^3}{Z^2} \frac{v^*}{v_i} \,, \qquad \frac{v^*}{v_i} = \frac{\partial_x T_0/T_0}{\rho_i}\,.
     """
 
-    def __init__(self,
-                 vstar=10.,
-                 vi=1.,
-                 Z=1.,
-                 kz=1.,
-                 gamma=5/3):
+    def __init__(
+        self,
+        vstar=10.,
+        vi=1.,
+        Z=1.,
+        kz=1.,
+        gamma=5/3,
+    ):
 
-        super().__init__('wave 1',
-                         'wave 2',
-                         'wave 3',
-                         velocity_scale='thermal',
-                         vstar=vstar,
-                         vi=vi,
-                         Z=Z,
-                         kz=kz,
-                         gamma=gamma)
+        super().__init__(
+            'wave 1',
+            'wave 2',
+            'wave 3',
+            velocity_scale='thermal',
+            vstar=vstar,
+            vi=vi,
+            Z=Z,
+            kz=kz,
+            gamma=gamma,
+        )
 
     def __call__(self, k):
         """
@@ -355,17 +373,21 @@ class ColdPlasma1D(DispersionRelations1D):
     def __init__(self, **params):
 
         # set default parameters
-        params_default = {'B0x': 0.,
-                          'B0y': 0.,
-                          'B0z': 1.,
-                          'n0': 1.,
-                          'alpha': 1.,
-                          'epsilon': 1.}
+        params_default = {
+            'B0x': 0.,
+            'B0y': 0.,
+            'B0z': 1.,
+            'n0': 1.,
+            'alpha': 1.,
+            'epsilon': 1.,
+        }
 
         params_all = set_defaults(params, params_default)
 
-        super().__init__('ion-cyclotron wave',
-                         'electron-cyclotron wave', 'L-wave', 'R-wave', **params)
+        super().__init__(
+            'ion-cyclotron wave',
+            'electron-cyclotron wave', 'L-wave', 'R-wave', **params,
+        )
 
     def __call__(self, kvec):
 
@@ -381,7 +403,8 @@ class ColdPlasma1D(DispersionRelations1D):
             theta = np.pi/2
         else:
             theta = np.arctan(
-                np.sqrt(self.params['B0x']**2 + self.params['B0y']**2) / self.params['B0z'])
+                np.sqrt(self.params['B0x']**2 + self.params['B0y']**2) / self.params['B0z'],
+            )
         print(theta)
         cos2 = np.cos(theta)**2
 
@@ -488,16 +511,18 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
     def __init__(self, **params):
 
         # set default parameters
-        params_default = {'B0': 1.,
-                          'p0': 0.5,
-                          'gamma': 5/3,
-                          'Ab': 1,
-                          'Ah': 1,
-                          'Zh': 1,
-                          'vth': 1.,
-                          'v0': 2.,
-                          'nuh': 0.05,
-                          'nb': 0.0005185219355}
+        params_default = {
+            'B0': 1.,
+            'p0': 0.5,
+            'gamma': 5/3,
+            'Ab': 1,
+            'Ah': 1,
+            'Zh': 1,
+            'vth': 1.,
+            'v0': 2.,
+            'nuh': 0.05,
+            'nb': 0.0005185219355,
+        }
 
         params_all = set_defaults(params, params_default)
 
@@ -601,7 +626,8 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
             else:
                 raise NotImplementedError(
-                    'Only methods newton and fsolve available!')
+                    'Only methods newton and fsolve available!',
+                )
 
             tmps[0][i] = wR[0] + 1j*wR[1]
             tmps[1][i] = wL[0] + 1j*wL[1]
@@ -823,8 +849,10 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         vperp = 1.  # TODO
         vth = 1.
 
-        vA = np.sqrt((self.params['B0x']**2 + self.params['B0y'] ** 2 +
-                      self.params['B0z']**2)/self.params['n0'])
+        vA = np.sqrt((
+            self.params['B0x']**2 + self.params['B0y'] ** 2 +
+            self.params['B0z']**2
+        )/self.params['n0'])
         # cS = np.sqrt(self.params['beta']*vA)
         cS = 1.
 
@@ -841,14 +869,20 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         # R-wave
         if pol == 1:
 
-            c1 = w**2 - vA**2*k**2 - w*nu*k*(wc/w*u0*(+y2 - (w - wc)/k/vpara*y1) - (
-                vperp**2/vpara)*(y3 - (w - wc)/k/vpara*y2 - u0/vpara*y2 + (w - wc)/k/vpara**2*u0*y1))
+            c1 = w**2 - vA**2*k**2 - w*nu*k*(
+                wc/w*u0*(+y2 - (w - wc)/k/vpara*y1) - (
+                    vperp**2/vpara
+                )*(y3 - (w - wc)/k/vpara*y2 - u0/vpara*y2 + (w - wc)/k/vpara**2*u0*y1)
+            )
 
         # L-wave:
         else:
 
-            c1 = w**2 - vA**2*k**2 - w*nu*k*(wc/w*u0*(-y2 + (w + wc)/k/vpara*y1) - (
-                vperp**2/vpara)*(y3 - (w + wc)/k/vpara*y2 - u0/vpara*y2 + (w + wc)/k/vpara**2*u0*y1))
+            c1 = w**2 - vA**2*k**2 - w*nu*k*(
+                wc/w*u0*(-y2 + (w + wc)/k/vpara*y1) - (
+                    vperp**2/vpara
+                )*(y3 - (w + wc)/k/vpara*y2 - u0/vpara*y2 + (w + wc)/k/vpara**2*u0*y1)
+            )
 
         return np.real(c1), np.imag(c1)
 
@@ -883,8 +917,10 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         vperp = 1.  # TODO
         vth = 1.
 
-        vA = np.sqrt((self.params['B0x']**2 + self.params['B0y']
-                     ** 2 + self.params['B0z']**2)/self.params['n0'])
+        vA = np.sqrt((
+            self.params['B0x']**2 + self.params['B0y']
+            ** 2 + self.params['B0z']**2
+        )/self.params['n0'])
         # cS = np.sqrt(self.params['beta']*vA)
         cS = 1.
 
@@ -984,13 +1020,15 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
     def __init__(self, **params):
 
         # set default parameters
-        params_default = {'a': 1.,
-                          'R0': 3.,
-                          'gamma': 5/3,
-                          'Bz': lambda x: 1. - 0*x,
-                          'p': lambda x: 0.5 - 0*x,
-                          'rho': lambda x: 1. - 0*x,
-                          'q': lambda x: 1.1 + 0.7*x**2}
+        params_default = {
+            'a': 1.,
+            'R0': 3.,
+            'gamma': 5/3,
+            'Bz': lambda x: 1. - 0*x,
+            'p': lambda x: 0.5 - 0*x,
+            'rho': lambda x: 1. - 0*x,
+            'q': lambda x: 1.1 + 0.7*x**2,
+        }
 
         params_all = set_defaults(params, params_default)
 
@@ -1031,7 +1069,8 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
 
         # slow sound continuum
         specs['slow_sound'] = np.sqrt(
-            gamma * p(x) * F(x, m, n)**2 / (rho(x) * (gamma*p(x) + By(x)**2 + Bz(x)**2)))
+            gamma * p(x) * F(x, m, n)**2 / (rho(x) * (gamma*p(x) + By(x)**2 + Bz(x)**2)),
+        )
 
         return specs
 
@@ -1092,12 +1131,14 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
     def __init__(self, **params):
 
         # set default parameters
-        params_default = {'R0': 3.,
-                          'gamma': 5/3,
-                          'Bz': lambda r: 1. - 0*r,
-                          'p': lambda r: 0.5 - 0*r,
-                          'rho': lambda r: 1. - 0*r,
-                          'q': lambda r: 1.1 + 0.7*r**2}
+        params_default = {
+            'R0': 3.,
+            'gamma': 5/3,
+            'Bz': lambda r: 1. - 0*r,
+            'p': lambda r: 0.5 - 0*r,
+            'rho': lambda r: 1. - 0*r,
+            'q': lambda r: 1.1 + 0.7*r**2,
+        }
 
         params_all = set_defaults(params, params_default)
 
@@ -1138,7 +1179,8 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
 
         # slow sound continuum
         specs['slow_sound'] = np.sqrt(
-            gamma*p(r)*F(r, m, n)**2/(rho(r)*(gamma*p(r) + Bt(r)**2 + Bz(r)**2)))
+            gamma*p(r)*F(r, m, n)**2/(rho(r)*(gamma*p(r) + Bt(r)**2 + Bz(r)**2)),
+        )
 
         return specs
 

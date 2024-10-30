@@ -1,5 +1,5 @@
-from pyccel.decorators import pure, stack_array
 from numpy import zeros
+from pyccel.decorators import pure, stack_array
 
 
 @pure

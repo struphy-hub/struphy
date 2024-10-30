@@ -1,32 +1,31 @@
 'Only FEEC variables are updated.'
 
 
+from copy import deepcopy
+
 import numpy as np
 from numpy import zeros
-
-from struphy.propagators.base import Propagator
-from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.base import Particles
-from struphy.pic.particles import Particles6D, Particles5D
-from struphy.polar.basic import PolarVector
-from struphy.kinetic_background.base import Maxwellian
-from struphy.kinetic_background.maxwellians import Maxwellian3D, GyroMaxwellian2D
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.feec import preconditioner
-from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
-from struphy.feec.variational_utilities import BracketOperator
-from struphy.io.setup import descend_options_dict
-
-from psydac.linalg.solvers import inverse
 from psydac.linalg.basic import IdentityOperator
+from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector, BlockLinearOperator, BlockVectorSpace
-import struphy.feec.utilities as util
 
-from copy import deepcopy
+import struphy.feec.utilities as util
+from struphy.feec import preconditioner
+from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
+from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.variational_utilities import BracketOperator
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.io.setup import descend_options_dict
+from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
+from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
+from struphy.pic.base import Particles
+from struphy.pic.particles import Particles5D, Particles6D
+from struphy.polar.basic import PolarVector
+from struphy.propagators.base import Propagator
 
 
 class Maxwell(Propagator):
@@ -45,23 +44,29 @@ class Maxwell(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 e: BlockVector,
-                 b: BlockVector,
-                 *,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        e: BlockVector,
+        b: BlockVector,
+        *,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(e, b)
 
@@ -85,12 +90,14 @@ class Maxwell(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()
@@ -159,25 +166,31 @@ class OhmCold(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 j: BlockVector,
-                 e: BlockVector,
-                 *,
-                 alpha: float = 1.,
-                 epsilon: float = 1.,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        j: BlockVector,
+        e: BlockVector,
+        *,
+        alpha: float = 1.,
+        epsilon: float = 1.,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(e, j)
 
@@ -200,12 +213,14 @@ class OhmCold(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = 1/2 * self._alpha**2 / self._epsilon * self._B
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         self._tmp_j1 = j.space.zeros()
         self._tmp_j2 = j.space.zeros()
@@ -259,23 +274,29 @@ class JxBCold(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 j: BlockVector,
-                 *,
-                 epsilon: float = 1.,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        j: BlockVector,
+        *,
+        epsilon: float = 1.,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(j)
 
@@ -293,13 +314,15 @@ class JxBCold(Propagator):
             pc = pc_class(self.mass_ops.M1ninv)
 
         # Instantiate linear solver
-        self._solver = inverse(self._M,
-                               solver['type'][0],
-                               pc=pc,
-                               x0=self.feec_vars[0],
-                               tol=solver['tol'],
-                               maxiter=solver['maxiter'],
-                               verbose=solver['verbose'])
+        self._solver = inverse(
+            self._M,
+            solver['type'][0],
+            pc=pc,
+            x0=self.feec_vars[0],
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._rhs_j = self._M.codomain.zeros()
@@ -360,24 +383,30 @@ class ShearAlfven(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 u: BlockVector,
-                 b: BlockVector,
-                 *,
-                 u_space: str,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        u: BlockVector,
+        b: BlockVector,
+        *,
+        u_space: str,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(u, b)
 
@@ -406,12 +435,14 @@ class ShearAlfven(Propagator):
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -475,31 +506,41 @@ class ShearAlfvenB1(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        dct['solver_M1'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                     ('cg', None)],
-                            'tol': 1.e-8,
-                            'maxiter': 3000,
-                            'info': False,
-                            'verbose': False,
-                            'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
+        dct['solver_M1'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 u: BlockVector,
-                 b: BlockVector,
-                 *,
-                 solver: dict = options(default=True)['solver'],
-                 solver_M1: dict = options(default=True)['solver_M1']):
+    def __init__(
+        self,
+        u: BlockVector,
+        b: BlockVector,
+        *,
+        solver: dict = options(default=True)['solver'],
+        solver_M1: dict = options(default=True)['solver_M1'],
+    ):
 
         super().__init__(u, b)
 
@@ -513,12 +554,14 @@ class ShearAlfvenB1(Propagator):
             pc_class = getattr(preconditioner, solver_M1['type'][1])
             pc = pc_class(self.mass_ops.M1)
 
-        M1_inv = inverse(self.mass_ops.M1,
-                         solver_M1['type'][0],
-                         pc=pc,
-                         tol=solver_M1['tol'],
-                         maxiter=solver_M1['maxiter'],
-                         verbose=solver_M1['verbose'])
+        M1_inv = inverse(
+            self.mass_ops.M1,
+            solver_M1['type'][0],
+            pc=pc,
+            tol=solver_M1['tol'],
+            maxiter=solver_M1['maxiter'],
+            verbose=solver_M1['verbose'],
+        )
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M2n
@@ -536,12 +579,14 @@ class ShearAlfvenB1(Propagator):
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -602,23 +647,29 @@ class Hall(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pbicgstab', 'MassMatrixPreconditioner'),
+                ('bicgstab', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 b: BlockVector,
-                 *,
-                 epsilon: float = 1.,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        b: BlockVector,
+        *,
+        epsilon: float = 1.,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(b)
 
@@ -643,13 +694,15 @@ class Hall(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Instantiate linear solver
-        self._solver = inverse(self._M,
-                               solver['type'][0],
-                               pc=pc,
-                               x0=self.feec_vars[0],
-                               tol=self._tol,
-                               maxiter=self._maxiter,
-                               verbose=self._verbose)
+        self._solver = inverse(
+            self._M,
+            solver['type'][0],
+            pc=pc,
+            x0=self.feec_vars[0],
+            tol=self._tol,
+            maxiter=self._maxiter,
+            verbose=self._verbose,
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._rhs_b = self._M.codomain.zeros()
@@ -718,26 +771,32 @@ class Magnetosonic(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pbicgstab', 'MassMatrixPreconditioner'),
+                ('bicgstab', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 n: StencilVector,
-                 u: BlockVector,
-                 p: StencilVector,
-                 *,
-                 u_space: str,
-                 b: BlockVector,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        n: StencilVector,
+        u: BlockVector,
+        p: StencilVector,
+        *,
+        u_space: str,
+        b: BlockVector,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(n, u, p)
 
@@ -786,12 +845,14 @@ class Magnetosonic(Propagator):
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -830,9 +891,11 @@ class Magnetosonic(Propagator):
         nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
-                                                       un1,
-                                                       pn1)
+        max_dn, max_du, max_dp = self.feec_vars_update(
+            nn1,
+            un1,
+            pn1,
+        )
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -897,24 +960,30 @@ class MagnetosonicUniform(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pbicgstab', 'MassMatrixPreconditioner'),
+                ('bicgstab', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 n: StencilVector,
-                 u: BlockVector,
-                 p: StencilVector,
-                 *,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        n: StencilVector,
+        u: BlockVector,
+        p: StencilVector,
+        *,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(n, u, p)
 
@@ -944,12 +1013,14 @@ class MagnetosonicUniform(Propagator):
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -983,9 +1054,11 @@ class MagnetosonicUniform(Propagator):
         nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
-                                                       un1,
-                                                       pn1)
+        max_dn, max_du, max_dp = self.feec_vars_update(
+            nn1,
+            un1,
+            pn1,
+        )
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -1030,15 +1103,16 @@ class FaradayExtended(Propagator):
         assert isinstance(a, (BlockVector, PolarVector))
 
         # parameters
-        params_default = {'a_space': None,
-                          'beq': None,
-                          'particles': None,
-                          'quad_number': None,
-                          'shape_degree': None,
-                          'shape_size': None,
-                          'solver_params': None,
-                          'accumulate_density': None
-                          }
+        params_default = {
+            'a_space': None,
+            'beq': None,
+            'particles': None,
+            'quad_number': None,
+            'shape_degree': None,
+            'shape_size': None,
+            'solver_params': None,
+            'accumulate_density': None,
+        }
 
         params = set_defaults(params, params_default)
 
@@ -1060,33 +1134,42 @@ class FaradayExtended(Propagator):
         self.size3 = int(self.derham.domain_array[self._rank, int(8)])
 
         self.weight_1 = zeros(
-            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float,
+        )
         self.weight_2 = zeros(
-            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float,
+        )
         self.weight_3 = zeros(
-            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float)
+            (self.size1*self._nqs[0], self.size2*self._nqs[1], self.size3*self._nqs[2]), dtype=float,
+        )
 
         self._weight_pre = [self.weight_1, self.weight_2, self.weight_3]
 
-        self._ind = [[self.derham.indN[0], self.derham.indD[1], self.derham.indD[2]],
-                     [self.derham.indD[0], self.derham.indN[1], self.derham.indD[2]],
-                     [self.derham.indD[0], self.derham.indD[1], self.derham.indN[2]]]
+        self._ind = [
+            [self.derham.indN[0], self.derham.indD[1], self.derham.indD[2]],
+            [self.derham.indD[0], self.derham.indN[1], self.derham.indD[2]],
+            [self.derham.indD[0], self.derham.indD[1], self.derham.indN[2]],
+        ]
 
         # Initialize Accumulator object for getting density from particles
         self._pts_x = 1.0 / (2.0*self.derham.Nel[0]) * np.polynomial.legendre.leggauss(
-            self._nqs[0])[0] + 1.0 / (2.0*self.derham.Nel[0])
+            self._nqs[0],
+        )[0] + 1.0 / (2.0*self.derham.Nel[0])
         self._pts_y = 1.0 / (2.0*self.derham.Nel[1]) * np.polynomial.legendre.leggauss(
-            self._nqs[1])[0] + 1.0 / (2.0*self.derham.Nel[1])
+            self._nqs[1],
+        )[0] + 1.0 / (2.0*self.derham.Nel[1])
         self._pts_z = 1.0 / (2.0*self.derham.Nel[2]) * np.polynomial.legendre.leggauss(
-            self._nqs[2])[0] + 1.0 / (2.0*self.derham.Nel[2])
+            self._nqs[2],
+        )[0] + 1.0 / (2.0*self.derham.Nel[2])
 
         self._p_shape = params['shape_degree']
         self._p_size = params['shape_size']
         self._accum_density = params['accumulate_density']
-        
+
         # Initialize Accumulator object for getting the matrix and vector related with vector potential
         self._accum_potential = Accumulator(
-            self.mass_ops, self.domain, self._a_space, 'hybrid_fA_Arelated', add_vector=True, symmetry='symm')
+            self.mass_ops, self.domain, self._a_space, 'hybrid_fA_Arelated', add_vector=True, symmetry='symm',
+        )
 
         self._solver_params = params['solver_params']
         # preconditioner
@@ -1109,27 +1192,36 @@ class FaradayExtended(Propagator):
 
         # the loop of fixed point iteration, 100 iterations at most.
 
-        self._accum_density.accumulate(self._particles, np.array(self.derham.Nel), np.array(self._nqs), np.array(
-            self._pts_x), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size))
+        self._accum_density.accumulate(
+            self._particles, np.array(self.derham.Nel), np.array(self._nqs), np.array(
+                self._pts_x,
+            ), np.array(self._pts_y), np.array(self._pts_z), np.array(self._p_shape), np.array(self._p_size),
+        )
         self._accum_potential.accumulate(self._particles)
 
         self._L2 = -dt/2 * \
             self._Minv @ (
-                self._accum_potential._operators[0].matrix + self._CMC)
-        self._RHS = -(self._L2.dot(self._a)) - dt*(self._Minv.dot(
-            self._accum_potential._vectors[0] - self.derham.curl.T @ self._M2).dot(self._beq))
+                self._accum_potential._operators[0].matrix + self._CMC
+            )
+        self._RHS = -(self._L2.dot(self._a)) - dt*(
+            self._Minv.dot(
+                self._accum_potential._vectors[0] - self.derham.curl.T @ self._M2,
+            ).dot(self._beq)
+        )
         self._rhs = self._M1.dot(self._a)
 
         for _ in range(10):
             # print('+++++=====++++++', self._accum_density._operators[0].matrix._data)
             # set mid-value used in the fixed iteration
             curla_mid = self.derham.curl.dot(
-                0.5*(self._a_old + self._a)) + self._beq
+                0.5*(self._a_old + self._a),
+            ) + self._beq
             curla_mid.update_ghost_regions()
             # initialize the curl A
             # remember to check ghost region of curla_mid
             util.create_weight_weightedmatrix_hybrid(
-                curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain)
+                curla_mid, self._weight_pre, self.derham, self._accum_density, self.domain,
+            )
             # self._weight = [[None, self._weight_pre[2], -self._weight_pre[1]], [None, None, self._weight_pre[0]], [None, None, None]]
             self._weight = [
                 [0.*self._weight_pre[k] for k in range(3)],
@@ -1144,8 +1236,10 @@ class FaradayExtended(Propagator):
             _RHS2 = HybridM1.dot(self._RHS) + self._rhs
 
             # TODO: unknown function 'pcg', use new solver API
-            a_new, info = pcg(_LHS, _RHS2, self._pc, x0=self._a, tol=self._solver_params['tol'],
-                              maxiter=self._solver_params['maxiter'], verbose=self._solver_params['verbose'])
+            a_new, info = pcg(
+                _LHS, _RHS2, self._pc, x0=self._a, tol=self._solver_params['tol'],
+                maxiter=self._solver_params['maxiter'], verbose=self._solver_params['verbose'],
+            )
 
             # write new coeffs into Propagator.variables
             max_da = self.feec_vars_update(a_new)
@@ -1157,13 +1251,17 @@ class FaradayExtended(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         return dct
 
 
@@ -1184,29 +1282,35 @@ class CurrentCoupling6DDensity(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pbicgstab', 'MassMatrixPreconditioner'),
+                ('bicgstab', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 u: BlockVector,
-                 *,
-                 particles: Particles6D,
-                 u_space: str,
-                 b_eq: BlockVector | PolarVector,
-                 b_tilde: BlockVector | PolarVector,
-                 Ab: int = 1,
-                 Ah: int = 1,
-                 epsilon: float = 1.,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        u: BlockVector,
+        *,
+        particles: Particles6D,
+        u_space: str,
+        b_eq: BlockVector | PolarVector,
+        b_tilde: BlockVector | PolarVector,
+        Ab: int = 1,
+        Ah: int = 1,
+        epsilon: float = 1.,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         super().__init__(u)
 
@@ -1215,7 +1319,8 @@ class CurrentCoupling6DDensity(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.space_to_form[u_space])
+                self.derham.space_to_form[u_space],
+            )
 
         self._particles = particles
         self._b_eq = b_eq
@@ -1228,11 +1333,14 @@ class CurrentCoupling6DDensity(Propagator):
             assert u_space == 'Hdiv'
 
             # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
-            quad_pts = [quad_grid[nquad].points.flatten()
-                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+            quad_pts = [
+                quad_grid[nquad].points.flatten()
+                for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)
+            ]
 
             self._nh0_at_quad = self.domain.push(
-                self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
+                self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False,
+            )
 
             # memory allocation of magnetic field at quadrature points
             self._b_quad1 = np.zeros_like(self._nh0_at_quad)
@@ -1256,15 +1364,17 @@ class CurrentCoupling6DDensity(Propagator):
         self._rank = self.derham.comm.Get_rank()
 
         self._coupling_const = Ah / Ab / epsilon
-        
+
         # load accumulator
-        self._accumulator = Accumulator(particles,
-                                        u_space,
-                                        accum_kernels.cc_lin_mhd_6d_1,
-                                        self.mass_ops,
-                                        self.domain.args_domain,
-                                        add_vector=False,
-                                        symmetry='asym')
+        self._accumulator = Accumulator(
+            particles,
+            u_space,
+            accum_kernels.cc_lin_mhd_6d_1,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=False,
+            symmetry='asym',
+        )
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.extraction_ops['2'].transpose()
@@ -1281,13 +1391,15 @@ class CurrentCoupling6DDensity(Propagator):
             pc = pc_class(self._M)
 
         # linear solver
-        self._solver = inverse(self._M,
-                               solver['type'][0],
-                               pc=pc,
-                               x0=self.feec_vars[0],
-                               tol=self._tol,
-                               maxiter=self._maxiter,
-                               verbose=self._verbose)
+        self._solver = inverse(
+            self._M,
+            solver['type'][0],
+            pc=pc,
+            x0=self.feec_vars[0],
+            tol=self._tol,
+            maxiter=self._maxiter,
+            verbose=self._verbose,
+        )
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -1317,8 +1429,10 @@ class CurrentCoupling6DDensity(Propagator):
         if self._particles.control_variate:
 
             # evaluate magnetic field at quadrature points (in-place)
-            WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-                                           out=[self._b_quad1, self._b_quad2, self._b_quad3])
+            WeightedMassOperator.eval_quad(
+                self.derham.Vh_fem['2'], self._b_full2,
+                out=[self._b_quad1, self._b_quad2, self._b_quad3],
+            )
 
             self._mat12[:, :, :] = self._coupling_const * \
                 self._b_quad3 * self._nh0_at_quad
@@ -1331,21 +1445,29 @@ class CurrentCoupling6DDensity(Propagator):
             self._mat31[:, :, :] = -self._mat13
             self._mat32[:, :, :] = -self._mat23
 
-            self._accumulator(self._b_full2[0]._data,
-                              self._b_full2[1]._data,
-                              self._b_full2[2]._data,
-                              self._space_key_int,
-                              self._coupling_const,
-                              control_mat=[[None, self._mat12, self._mat13],
-                                           [self._mat21, None,
-                                            self._mat23],
-                                           [self._mat31, self._mat32, None]])
+            self._accumulator(
+                self._b_full2[0]._data,
+                self._b_full2[1]._data,
+                self._b_full2[2]._data,
+                self._space_key_int,
+                self._coupling_const,
+                control_mat=[
+                    [None, self._mat12, self._mat13],
+                    [
+                        self._mat21, None,
+                        self._mat23,
+                    ],
+                    [self._mat31, self._mat32, None],
+                ],
+            )
         else:
-            self._accumulator(self._b_full2[0]._data,
-                              self._b_full2[1]._data,
-                              self._b_full2[2]._data,
-                              self._space_key_int,
-                              self._coupling_const)
+            self._accumulator(
+                self._b_full2[0]._data,
+                self._b_full2[1]._data,
+                self._b_full2[2]._data,
+                self._space_key_int,
+                self._coupling_const,
+            )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt/2 * self._accumulator.operators[0]
@@ -1407,17 +1529,23 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        dct['filter'] = {'use_filter': None,
-                         'modes': (0, 1),
-                         'repeat': 3,
-                         'alpha': 0.5}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
+        dct['filter'] = {
+            'use_filter': None,
+            'modes': (0, 1),
+            'repeat': 3,
+            'alpha': 0.5,
+        }
         dct['turn_off'] = False
 
         if default:
@@ -1425,18 +1553,20 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         return dct
 
-    def __init__(self,
-                 u: BlockVector,
-                 b: BlockVector,
-                 *,
-                 particles: Particles5D,
-                 absB0: StencilVector,
-                 unit_b1: BlockVector,
-                 u_space: str,
-                 solver: dict = options(default=True)['solver'],
-                 filter: dict = options(default=True)['filter'],
-                 coupling_params: dict,
-                 accumulated_magnetization: BlockVector):
+    def __init__(
+        self,
+        u: BlockVector,
+        b: BlockVector,
+        *,
+        particles: Particles5D,
+        absB0: StencilVector,
+        unit_b1: BlockVector,
+        u_space: str,
+        solver: dict = options(default=True)['solver'],
+        filter: dict = options(default=True)['filter'],
+        coupling_params: dict,
+        accumulated_magnetization: BlockVector,
+    ):
 
         super().__init__(u, b)
 
@@ -1453,15 +1583,17 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._unit_b1 = self._E1T.dot(self._unit_b1)
 
         self._accumulated_magnetization = accumulated_magnetization
-       
-        self._ACC = Accumulator(particles,
-                                u_space,
-                                accum_kernels_gc.cc_lin_mhd_5d_M,
-                                self.mass_ops,
-                                self.domain.args_domain,
-                                add_vector=True,
-                                symmetry='symm',
-                                filter_params=filter)
+
+        self._ACC = Accumulator(
+            particles,
+            u_space,
+            accum_kernels_gc.cc_lin_mhd_5d_M,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=True,
+            symmetry='symm',
+            filter_params=filter,
+        )
 
         # if self._particles.control_variate:
 
@@ -1509,12 +1641,14 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -1542,8 +1676,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
         #                          self._scale_vec, 0.)
 
-        self._ACC(self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                  self._scale_vec, 0.)
+        self._ACC(
+            self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+            self._scale_vec, 0.,
+        )
 
         self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
 
@@ -1628,17 +1764,23 @@ class MagnetosonicCurrentCoupling5D(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
-        dct['filter'] = {'use_filter': None,
-                         'modes': (0, 1),
-                         'repeat': 3,
-                         'alpha': 0.5}
+        dct['solver'] = {
+            'type': [
+                ('pbicgstab', 'MassMatrixPreconditioner'),
+                ('bicgstab', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
+        dct['filter'] = {
+            'use_filter': None,
+            'modes': (0, 1),
+            'repeat': 3,
+            'alpha': 0.5,
+        }
         dct['turn_off'] = False
 
         if default:
@@ -1646,19 +1788,21 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         return dct
 
-    def __init__(self,
-                 n: StencilVector,
-                 u: BlockVector,
-                 p: StencilVector,
-                 *,
-                 particles: Particles5D,
-                 b: BlockVector,
-                 absB0: StencilVector,
-                 unit_b1: BlockVector,
-                 u_space: str,
-                 solver: dict = options(default=True)['solver'],
-                 filter: dict = options(default=True)['filter'],
-                 coupling_params: dict):
+    def __init__(
+        self,
+        n: StencilVector,
+        u: BlockVector,
+        p: StencilVector,
+        *,
+        particles: Particles5D,
+        b: BlockVector,
+        absB0: StencilVector,
+        unit_b1: BlockVector,
+        u_space: str,
+        solver: dict = options(default=True)['solver'],
+        filter: dict = options(default=True)['filter'],
+        coupling_params: dict,
+    ):
 
         super().__init__(n, u, p)
 
@@ -1680,15 +1824,17 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(self._u_id)
-        
-        self._ACC = Accumulator(particles,
-                                u_space,
-                                accum_kernels_gc.cc_lin_mhd_5d_M,
-                                self.mass_ops,
-                                self.domain.args_domain,
-                                add_vector=True,
-                                symmetry='symm',
-                                filter_params=filter)
+
+        self._ACC = Accumulator(
+            particles,
+            u_space,
+            accum_kernels_gc.cc_lin_mhd_5d_M,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=True,
+            symmetry='symm',
+            filter_params=filter,
+        )
 
         # if self._particles.control_variate:
 
@@ -1742,8 +1888,10 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             _UT = _U.T
 
         self._B = -1/2. * _UT @ self.derham.div.T @ self.mass_ops.M3
-        self._C = 1/2. * (self.derham.div @ _S + 2 /
-                          3. * _K @ self.derham.div @ _U)
+        self._C = 1/2. * (
+            self.derham.div @ _S + 2 /
+            3. * _K @ self.derham.div @ _U
+        )
 
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
@@ -1760,12 +1908,14 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         # instantiate Schur solver (constant in this case)
         _BC = self._B @ self._C
 
-        self._schur_solver = SchurSolver(_A, _BC,
-                                         solver['type'][0],
-                                         pc=pc,
-                                         tol=solver['tol'],
-                                         maxiter=solver['maxiter'],
-                                         verbose=solver['verbose'])
+        self._schur_solver = SchurSolver(
+            _A, _BC,
+            solver['type'][0],
+            pc=pc,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
@@ -1795,8 +1945,10 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
         #                          self._scale_vec, 0.)
 
-        self._ACC(self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                  self._scale_vec, 0.)
+        self._ACC(
+            self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+            self._scale_vec, 0.,
+        )
 
         # update time-dependent operator
         self._b.update_ghost_regions()
@@ -1824,9 +1976,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(nn1,
-                                                       un1,
-                                                       pn1)
+        max_dn, max_du, max_dp = self.feec_vars_update(
+            nn1,
+            un1,
+            pn1,
+        )
 
         if self._info and self._rank == 0:
             print('Status     for Magnetosonic:', info['success'])
@@ -1881,22 +2035,33 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
-                                rot_B(e1, e2, e3)[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n:
+                        rot_B(e1, e2, e3)[:, :, :, m, n],
+                    ]
 
         elif self._u_id == '1':
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
-                                (rot_B(e1, e2, e3) @ self.domain.metric_inv(e1, e2, e3, change_out_order=True, squeeze_out=False))[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n:
+                        (
+                            rot_B(e1, e2, e3) @ self.domain.metric_inv(
+                                e1, e2, e3,
+                                change_out_order=True, squeeze_out=False,
+                            )
+                        )[:, :, :, m, n],
+                    ]
 
         else:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n:
-                                rot_B(e1, e2, e3)[:, :, :, m, n] / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False))]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n:
+                        rot_B(e1, e2, e3)[:, :, :, m, n] / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False)),
+                    ]
 
         # Initialize BasisProjectionOperator
         self._TB.update_weights(fun)
@@ -1922,13 +2087,17 @@ class CurrentCoupling5DDensity(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {'type': [('pbicgstab', 'MassMatrixPreconditioner'),
-                                  ('bicgstab', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pbicgstab', 'MassMatrixPreconditioner'),
+                ('bicgstab', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         dct['turn_off'] = False
 
         if default:
@@ -1936,18 +2105,20 @@ class CurrentCoupling5DDensity(Propagator):
 
         return dct
 
-    def __init__(self,
-                 u: BlockVector,
-                 *,
-                 particles: Particles5D,
-                 b: BlockVector,
-                 b_eq: BlockVector,
-                 unit_b1: BlockVector,
-                 curl_unit_b2: BlockVector,
-                 u_space: str,
-                 solver: dict = options(default=True)['solver'],
-                 coupling_params: dict,
-                 epsilon: float = 1.):
+    def __init__(
+        self,
+        u: BlockVector,
+        *,
+        particles: Particles5D,
+        b: BlockVector,
+        b_eq: BlockVector,
+        unit_b1: BlockVector,
+        curl_unit_b2: BlockVector,
+        u_space: str,
+        solver: dict = options(default=True)['solver'],
+        coupling_params: dict,
+        epsilon: float = 1.,
+    ):
 
         super().__init__(u)
 
@@ -1960,7 +2131,8 @@ class CurrentCoupling5DDensity(Propagator):
             self._space_key_int = 0
         else:
             self._space_key_int = int(
-                self.derham.space_to_form[u_space])
+                self.derham.space_to_form[u_space],
+            )
 
         self._epsilon = epsilon
         self._particles = particles
@@ -1974,14 +2146,16 @@ class CurrentCoupling5DDensity(Propagator):
 
         self._scale_mat = coupling_params['Ah'] / \
             coupling_params['Ab'] / self._epsilon
-        
-        self._accumulator = Accumulator(particles,
-                                        u_space,
-                                        accum_kernels_gc.cc_lin_mhd_5d_D,
-                                        self.mass_ops,
-                                        self.domain.args_domain,
-                                        add_vector=False,
-                                        symmetry='asym')
+
+        self._accumulator = Accumulator(
+            particles,
+            u_space,
+            accum_kernels_gc.cc_lin_mhd_5d_D,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=False,
+            symmetry='asym',
+        )
 
         # if self._particles.control_variate:
 
@@ -2055,13 +2229,15 @@ class CurrentCoupling5DDensity(Propagator):
             self._pc = pc_class(self._M)
 
         # linear solver
-        self._solver = inverse(self._M,
-                               solver['type'][0],
-                               pc=self._pc,
-                               x0=self.feec_vars[0],
-                               tol=solver['tol'],
-                               maxiter=solver['maxiter'],
-                               verbose=solver['verbose'])
+        self._solver = inverse(
+            self._M,
+            solver['type'][0],
+            pc=self._pc,
+            x0=self.feec_vars[0],
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+        )
 
         # temporary vectors to avoid memory allocation
         self._b_full1 = self._b_eq.space.zeros()
@@ -2122,11 +2298,13 @@ class CurrentCoupling5DDensity(Propagator):
         #                                  self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
         #                                  self._space_key_int, self._scale_mat, 0.)
 
-        self._accumulator(self._epsilon,
-                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                          self._space_key_int, self._scale_mat, 0.)
+        self._accumulator(
+            self._epsilon,
+            Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
+            self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+            self._space_key_int, self._scale_mat, 0.,
+        )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt/2 * self._accumulator.operators[0]
@@ -2213,36 +2391,45 @@ class ImplicitDiffusion(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['model'] = {'sigma_1': 1.,
-                        'sigma_2': 0.,
-                        'sigma_3': 1.,
-                        'stab_mat': ['M0', 'M0ad'],
-                        'diffusion_mat': ['M1', 'M1perp']}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': False}
+        dct['model'] = {
+            'sigma_1': 1.,
+            'sigma_2': 0.,
+            'sigma_3': 1.,
+            'stab_mat': ['M0', 'M0ad'],
+            'diffusion_mat': ['M1', 'M1perp'],
+        }
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': False,
+        }
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 phi: StencilVector,
-                 *,
-                 sigma_1: float = options()['model']['sigma_1'],
-                 sigma_2: float = options()['model']['sigma_2'],
-                 sigma_3: float = options()['model']['sigma_3'],
-                 divide_by_dt: bool = False,
-                 stab_mat: str = options(default=True)['model']['stab_mat'],
-                 diffusion_mat: str = options(default=True)[
-                     'model']['diffusion_mat'],
-                 rho: StencilVector | tuple | list = None,
-                 x0: StencilVector = None,
-                 solver: dict = options(default=True)['solver']):
+    def __init__(
+        self,
+        phi: StencilVector,
+        *,
+        sigma_1: float = options()['model']['sigma_1'],
+        sigma_2: float = options()['model']['sigma_2'],
+        sigma_3: float = options()['model']['sigma_3'],
+        divide_by_dt: bool = False,
+        stab_mat: str = options(default=True)['model']['stab_mat'],
+        diffusion_mat: str = options(default=True)[
+            'model'
+        ]['diffusion_mat'],
+        rho: StencilVector | tuple | list = None,
+        x0: StencilVector = None,
+        solver: dict = options(default=True)['solver'],
+    ):
 
         assert phi.space == self.derham.Vh['0']
 
@@ -2299,14 +2486,16 @@ class ImplicitDiffusion(Propagator):
             pc = pc_class(stab_mat)
 
         # solver just with A_2, but will be set during call with dt
-        self._solver = inverse(self._diffusion_op,
-                               solver['type'][0],
-                               pc=pc,
-                               x0=self.x0,
-                               tol=solver['tol'],
-                               maxiter=solver['maxiter'],
-                               verbose=solver['verbose'],
-                               recycle=solver['recycle'])
+        self._solver = inverse(
+            self._diffusion_op,
+            solver['type'][0],
+            pc=pc,
+            x0=self.x0,
+            tol=solver['tol'],
+            maxiter=solver['maxiter'],
+            verbose=solver['verbose'],
+            recycle=solver['recycle'],
+        )
 
         # allocate memory for solution
         self._tmp = phi.space.zeros()
@@ -2444,25 +2633,33 @@ class VariationalMomentumAdvection(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'verbose': False}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton', 'Picard'],
-                                'info': False}
+        dct['lin_solver'] = {
+            'tol': 1e-12,
+            'maxiter': 500,
+            'type': [
+                ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                ('cg', None),
+            ],
+            'verbose': False,
+        }
+        dct['nonlin_solver'] = {
+            'tol': 1e-8,
+            'maxiter': 100,
+            'type': ['Newton', 'Picard'],
+            'info': False,
+        }
         if default:
             dct = descend_options_dict(dct, [])
         return dct
 
-    def __init__(self,
-                 u: BlockVector,
-                 *,
-                 mass_ops: WeightedMassOperator,
-                 lin_solver: dict = options(default=True)['lin_solver'],
-                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
+    def __init__(
+        self,
+        u: BlockVector,
+        *,
+        mass_ops: WeightedMassOperator,
+        lin_solver: dict = options(default=True)['lin_solver'],
+        nonlin_solver: dict = options(default=True)['nonlin_solver'],
+    ):
 
         super().__init__(u)
 
@@ -2497,12 +2694,14 @@ class VariationalMomentumAdvection(Propagator):
         self.brack = BracketOperator(self.derham, self._tmp_mn)
         self._dt2_brack = 2.*self.brack
         self.derivative = self.WMM + self._dt2_brack
-        self.inv_derivative = inverse(self.pc@self.derivative,
-                                      'gmres',
-                                      tol=self._lin_solver['tol'],
-                                      maxiter=self._lin_solver['maxiter'],
-                                      verbose=self._lin_solver['verbose'],
-                                      recycle=True)
+        self.inv_derivative = inverse(
+            self.pc@self.derivative,
+            'gmres',
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -2554,14 +2753,17 @@ class VariationalMomentumAdvection(Propagator):
             pc_diff = self.pc.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
-                print("information on the linear solver : ",
-                      self.inv_derivative._info)
+                print(
+                    "information on the linear solver : ",
+                    self.inv_derivative._info,
+                )
             un1 -= update
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }')
+                f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(un1)
 
@@ -2599,7 +2801,8 @@ class VariationalMomentumAdvection(Propagator):
 
             # Compute the norm of the difference
             weak_diff = self._Mrhoinv.dot(
-                self._tmp_diff, out=self._tmp_weak_diff)
+                self._tmp_diff, out=self._tmp_weak_diff,
+            )
             err = self._tmp_diff.dot(weak_diff)
 
             # Update : m^{n+1,r+1} = m^n-advection
@@ -2611,7 +2814,8 @@ class VariationalMomentumAdvection(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }')
+                f'!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(un1)
 
@@ -2625,30 +2829,37 @@ class VariationalMomentumAdvection(Propagator):
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc = pc_class(self._Mrho)
 
-        self._Mrhoinv = inverse(self._Mrho,
-                                self._lin_solver['type'][0],
-                                pc=self.pc,
-                                tol=self._lin_solver['tol'],
-                                maxiter=self._lin_solver['maxiter'],
-                                verbose=self._lin_solver['verbose'],
-                                recycle=True)
+        self._Mrhoinv = inverse(
+            self._Mrho,
+            self._lin_solver['type'][0],
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv)
-        self._inv_Mv = inverse(self.mass_ops.Mv,
-                               'pcg',
-                               pc=self.pc_Mv,
-                               tol=1e-16,
-                               maxiter=1000,
-                               verbose=False)
+            self.mass_ops.Mv,
+        )
+        self._inv_Mv = inverse(
+            self.mass_ops.Mv,
+            'pcg',
+            pc=self.pc_Mv,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+        )
 
     def _get_error_newton(self, mn_diff):
         weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_weak_diff)
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_weak_diff,
+        )
         err_u = weak_un_diff.dot(mn_diff)
         return err_u
 
@@ -2706,17 +2917,23 @@ class VariationalDensityEvolve(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'verbose': False,
-                             'recycle': True}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton', 'Picard'],
-                                'info': False,
-                                'implicit_transport': False}
+        dct['lin_solver'] = {
+            'tol': 1e-12,
+            'maxiter': 500,
+            'type': [
+                ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                ('cg', None),
+            ],
+            'verbose': False,
+            'recycle': True,
+        }
+        dct['nonlin_solver'] = {
+            'tol': 1e-8,
+            'maxiter': 100,
+            'type': ['Newton', 'Picard'],
+            'info': False,
+            'implicit_transport': False,
+        }
         dct['physics'] = {'gamma': 5/3}
 
         if default:
@@ -2724,16 +2941,18 @@ class VariationalDensityEvolve(Propagator):
 
         return dct
 
-    def __init__(self,
-                 rho: StencilVector,
-                 u: BlockVector,
-                 *,
-                 model: str = 'barotropic',
-                 gamma: float = options()['physics']['gamma'],
-                 s: StencilVector = None,
-                 mass_ops: WeightedMassOperator,
-                 lin_solver: dict = options(default=True)['lin_solver'],
-                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
+    def __init__(
+        self,
+        rho: StencilVector,
+        u: BlockVector,
+        *,
+        model: str = 'barotropic',
+        gamma: float = options()['physics']['gamma'],
+        s: StencilVector = None,
+        mass_ops: WeightedMassOperator,
+        lin_solver: dict = options(default=True)['lin_solver'],
+        nonlin_solver: dict = options(default=True)['nonlin_solver'],
+    ):
 
         super().__init__(rho, u)
 
@@ -2823,7 +3042,8 @@ class VariationalDensityEvolve(Propagator):
             rhon_diff = rhon1.copy(out=self._tmp_rhon_diff)
             rhon_diff -= rhon
             weak_rhon_diff = self.mass_ops.M3.dot(
-                rhon_diff, out=self._tmp_rhon_weak_diff)
+                rhon_diff, out=self._tmp_rhon_weak_diff,
+            )
             err_rho = weak_rhon_diff.dot(rhon_diff)
 
             if err_rho > self._lin_solver['tol']:
@@ -2866,11 +3086,13 @@ class VariationalDensityEvolve(Propagator):
 
             # Compute the advection terms
             advection = self.divPirhoT.dot(
-                self._linear_form_dl_drho, out=self._tmp_advection)
+                self._linear_form_dl_drho, out=self._tmp_advection,
+            )
             advection *= dt
 
             rho_advection = self.divPirho.dot(
-                un12, out=self._tmp_rho_advection)
+                un12, out=self._tmp_rho_advection,
+            )
             rho_advection *= dt
 
             # Get diff
@@ -2901,8 +3123,10 @@ class VariationalDensityEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print("information on the linear solver : ",
-                      self._inv_Jacobian._solver._info)
+                print(
+                    "information on the linear solver : ",
+                    self._inv_Jacobian._solver._info,
+                )
             un1 -= incr[0]
             rhon1 -= incr[1]
 
@@ -2913,7 +3137,8 @@ class VariationalDensityEvolve(Propagator):
 
         if it == self._nonlin_solver['maxiter'] - 1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(rhon1, un1)
 
@@ -2955,11 +3180,13 @@ class VariationalDensityEvolve(Propagator):
 
             # Compute the advection terms
             advection = self.divPirhoT.dot(
-                self._linear_form_dl_drho, out=self._tmp_advection)
+                self._linear_form_dl_drho, out=self._tmp_advection,
+            )
             advection *= dt
 
             rho_advection = self.divPirho.dot(
-                un12, out=self._tmp_rho_advection)
+                un12, out=self._tmp_rho_advection,
+            )
             rho_advection *= dt
 
             # Get diff before update
@@ -2990,7 +3217,8 @@ class VariationalDensityEvolve(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(rhon1, un1)
 
@@ -3007,18 +3235,22 @@ class VariationalDensityEvolve(Propagator):
 
         # Initialize the BasisProjectionOperators
         self.Pirho = BasisProjectionOperator(
-            P2, Xh, [[None, None, None],
-                     [None, None, None],
-                     [None, None, None]],
+            P2, Xh, [
+                [None, None, None],
+                [None, None, None],
+                [None, None, None],
+            ],
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+        )
 
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+        )
 
         self.PirhoT = self.Pirho.T
 
@@ -3032,37 +3264,58 @@ class VariationalDensityEvolve(Propagator):
 
         hist_grid = self.derham.proj_grid_pts['2']
 
-        hist_grid_0 = [pts.flatten()
-                       for pts in hist_grid[0]]
-        hist_grid_1 = [pts.flatten()
-                       for pts in hist_grid[1]]
-        hist_grid_2 = [pts.flatten()
-                       for pts in hist_grid[2]]
+        hist_grid_0 = [
+            pts.flatten()
+            for pts in hist_grid[0]
+        ]
+        hist_grid_1 = [
+            pts.flatten()
+            for pts in hist_grid[1]
+        ]
+        hist_grid_2 = [
+            pts.flatten()
+            for pts in hist_grid[2]
+        ]
 
         self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_0)
+            hist_grid_0,
+        )
         self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_1)
+            hist_grid_1,
+        )
         self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_2)
+            hist_grid_2,
+        )
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_0])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_0
+        ])
         self._rhof_0_values = np.zeros(grid_shape, dtype=float)
-        self._uf_0_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._uf_0_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_1])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_1
+        ])
         self._rhof_1_values = np.zeros(grid_shape, dtype=float)
-        self._uf_1_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._uf_1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_2])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_2
+        ])
         self._rhof_2_values = np.zeros(grid_shape, dtype=float)
-        self._uf_2_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._uf_2_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
         # weighted mass matrix to go from m to u
         self._Mrho = self.WMM
@@ -3072,40 +3325,51 @@ class VariationalDensityEvolve(Propagator):
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc = pc_class(self._Mrho)
 
-        self._Mrhoinv = inverse(self._Mrho,
-                                self._lin_solver['type'][0],
-                                pc=self.pc,
-                                tol=self._lin_solver['tol'],
-                                maxiter=self._lin_solver['maxiter'],
-                                verbose=self._lin_solver['verbose'],
-                                recycle=True)
+        self._Mrhoinv = inverse(
+            self._Mrho,
+            self._lin_solver['type'][0],
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv)
-        self._inv_Mv = inverse(self.mass_ops.Mv,
-                               'pcg',
-                               pc=self.pc_Mv,
-                               tol=1e-16,
-                               maxiter=1000,
-                               verbose=False,
-                               recycle=True)
+            self.mass_ops.Mv,
+        )
+        self._inv_Mv = inverse(
+            self.mass_ops.Mv,
+            'pcg',
+            pc=self.pc_Mv,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+            recycle=True,
+        )
 
-        integration_grid = [grid_1d.flatten()
-                            for grid_1d in self.derham.quad_grid_pts['0']]
+        integration_grid = [
+            grid_1d.flatten()
+            for grid_1d in self.derham.quad_grid_pts['0']
+        ]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
-            integration_grid)
+            integration_grid,
+        )
 
         metric = self.domain.metric(*integration_grid)
         self._mass_metric_term = deepcopy(metric)
 
         # tmps
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in integration_grid])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in integration_grid
+        ])
         self._rhof_values = np.zeros(grid_shape, dtype=float)
 
         self._full_term_mass = deepcopy(metric)
@@ -3113,7 +3377,8 @@ class VariationalDensityEvolve(Propagator):
         # prepare for integration of linear form
 
         metric = self.domain.metric(
-            *integration_grid)*self.domain.jacobian_det(*integration_grid)
+            *integration_grid,
+        )*self.domain.jacobian_det(*integration_grid)
         self._proj_u2_metric_term = deepcopy(metric)
 
         # implicit transport operator
@@ -3121,32 +3386,41 @@ class VariationalDensityEvolve(Propagator):
         self._dt_divPiu = 2 * self.divPiu
 
         self._transop = self._I3 + self._dt_divPiu
-        self._inv_transop = inverse(self._transop,
-                                    'gmres',
-                                    tol=self._lin_solver['tol'],
-                                    maxiter=self._lin_solver['maxiter'],
-                                    verbose=False,
-                                    recycle=True)
+        self._inv_transop = inverse(
+            self._transop,
+            'gmres',
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=False,
+            recycle=True,
+        )
 
         # Other mass matrices for newton solve
-        self._M_un = self.mass_ops.create_weighted_mass('H1vec', 'L2')        
+        self._M_un = self.mass_ops.create_weighted_mass('H1vec', 'L2')
         self._M_un1 = self.mass_ops.create_weighted_mass('L2', 'H1vec')
         self._M_drho = self.mass_ops.create_weighted_mass('L2', 'L2')
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in integration_grid])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in integration_grid
+        ])
 
-        self._Guf_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
+        self._Guf_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
-        self._Guf1_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._Guf1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
         metric = self.domain.metric(*integration_grid)
         self._mass_u_metric_term = deepcopy(metric)
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol['v'], self.derham.Vh_pol['3'])
+            self.derham.Vh_pol['v'], self.derham.Vh_pol['3'],
+        )
 
         self._tmp_f = Jacs.zeros()
         self._tmp_incr = Jacs.zeros()
@@ -3167,12 +3441,14 @@ class VariationalDensityEvolve(Propagator):
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pbicgstab',
-                                             pc=self.pc,
-                                             tol=self._lin_solver['tol'],
-                                             maxiter=self._lin_solver['maxiter'],
-                                             verbose=self._lin_solver['verbose'],
-                                             recycle=True)
+        self._inv_Jacobian = SchurSolverFull(
+            self._Jacobian, 'pbicgstab',
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
         #                          'gmres',
@@ -3184,18 +3460,24 @@ class VariationalDensityEvolve(Propagator):
         # L2-projector for V3
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in integration_grid])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in integration_grid
+        ])
 
         # tmps
         self._eval_dl_drho = np.zeros(grid_shape, dtype=float)
 
         self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._uf1_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
+        self._uf1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in integration_grid])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in integration_grid
+        ])
 
         self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
         self._tmp_int_grid2 = np.zeros(grid_shape, dtype=float)
@@ -3214,12 +3496,18 @@ class VariationalDensityEvolve(Propagator):
             self._DG_values = np.zeros(grid_shape, dtype=float)
 
             gam = self._gamma
-            metric = np.power(self.domain.jacobian_det(
-                *integration_grid), 2-gam)
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ), 2-gam,
+            )
             self._proj_rho2_metric_term = deepcopy(metric)
 
-            metric = np.power(self.domain.jacobian_det(
-                *integration_grid), 1-gam)
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ), 1-gam,
+            )
             self._proj_drho_metric_term = deepcopy(metric)
 
     def __ener(self, rho, s, out=None):
@@ -3242,8 +3530,10 @@ class VariationalDensityEvolve(Propagator):
         dE(rho, s)/drho = (gamma*rho^{gamma-1} - s*rho^{gamma-2})*exp(s/rho)"""
         gam = self._gamma
         if out is None:
-            out = (gam * np.power(rho, gam-1) -
-                   s * np.power(rho, gam-2))*np.exp(s/rho)
+            out = (
+                gam * np.power(rho, gam-1) -
+                s * np.power(rho, gam-2)
+            )*np.exp(s/rho)
         else:
             out *= 0.
             out += s
@@ -3265,9 +3555,11 @@ class VariationalDensityEvolve(Propagator):
         d^2E(rho, s)/drho^2 = (gamma*(gamma-1) rho^{gamma-2}- 2*s*(gamma-1)*rho^{gamma-3}+ s^2*rho^{gamma-4})*exp(s/rho)"""
         gam = self._gamma
         if out is None:
-            out = (gam * (gam-1) * np.power(rho, gam-2)
-                   - s * 2 * (gam-1) * np.power(rho, gam-3)
-                   + s**2 * np.power(rho, gam-4))*np.exp(s/rho)
+            out = (
+                gam * (gam-1) * np.power(rho, gam-2)
+                - s * 2 * (gam-1) * np.power(rho, gam-3)
+                + s**2 * np.power(rho, gam-4)
+            )*np.exp(s/rho)
         else:
             out *= 0.
             out += s
@@ -3303,60 +3595,86 @@ class VariationalDensityEvolve(Propagator):
             out += 1.
         return out
 
-    def _update_Pirho(self,):
+    def _update_Pirho(self):
         """Update the weights of the `BasisProjectionOperator` Pirho"""
 
         rhof0_values = self.rhof1.eval_tp_fixed_loc(
-            self.hist_grid_0_spans, self.hist_grid_0_bd, out=self._rhof_0_values)
+            self.hist_grid_0_spans, self.hist_grid_0_bd, out=self._rhof_0_values,
+        )
         rhof1_values = self.rhof1.eval_tp_fixed_loc(
-            self.hist_grid_1_spans, self.hist_grid_1_bd, out=self._rhof_1_values)
+            self.hist_grid_1_spans, self.hist_grid_1_bd, out=self._rhof_1_values,
+        )
         rhof2_values = self.rhof1.eval_tp_fixed_loc(
-            self.hist_grid_2_spans, self.hist_grid_2_bd, out=self._rhof_2_values)
+            self.hist_grid_2_spans, self.hist_grid_2_bd, out=self._rhof_2_values,
+        )
 
-        self.Pirho.update_weights([[rhof0_values, None, None],
-                                   [None, rhof1_values, None],
-                                   [None, None, rhof2_values]])
+        self.Pirho.update_weights([
+            [rhof0_values, None, None],
+            [None, rhof1_values, None],
+            [None, None, rhof2_values],
+        ])
 
-        self.PirhoT.update_weights([[rhof0_values, None, None],
-                                    [None, rhof1_values, None],
-                                    [None, None, rhof2_values]])
+        self.PirhoT.update_weights([
+            [rhof0_values, None, None],
+            [None, rhof1_values, None],
+            [None, None, rhof2_values],
+        ])
 
-    def _update_Piu(self,):
+    def _update_Piu(self):
         """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
 
         uf0_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf_0_values)
+            self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf_0_values,
+        )
         uf1_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf_1_values)
+            self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf_1_values,
+        )
         uf2_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf_2_values)
+            self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf_2_values,
+        )
 
         self.Piu.update_weights(
-            [[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]])
+            [[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]],
+        )
 
-    def _update_weighted_MM(self,):
+    def _update_weighted_MM(self):
         """update the weighted mass matrix operator"""
 
         rhof_values = self.rhof1.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+        )
         for i in range(3):
             for j in range(3):
                 self._full_term_mass[i, j] = rhof_values * \
                     self._mass_metric_term[i, j]
 
-        self._Mrho.assemble([[self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
-                             [self._full_term_mass[1, 0], self._full_term_mass[1,
-                                                                               1], self._full_term_mass[1, 2]],
-                             [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]]],
-                            verbose=False)
+        self._Mrho.assemble(
+            [
+                [self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
+                [
+                    self._full_term_mass[1, 0], self._full_term_mass[
+                        1,
+                        1,
+                    ], self._full_term_mass[1, 2],
+                ],
+                [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
+            ],
+            verbose=False,
+        )
 
-    def _update_linear_form_u2(self,):
+    def _update_linear_form_u2(self):
         """Update the linearform representing integration in V3 against kynetic energy"""
 
-        uf_values = self.uf.eval_tp_fixed_loc(self.integration_grid_spans, [
-                                              self.integration_grid_bn]*3, out=self._uf_values)
-        uf1_values = self.uf1.eval_tp_fixed_loc(self.integration_grid_spans, [
-                                                self.integration_grid_bn]*3, out=self._uf1_values)
+        uf_values = self.uf.eval_tp_fixed_loc(
+            self.integration_grid_spans, [
+                self.integration_grid_bn,
+            ]*3, out=self._uf_values,
+        )
+        uf1_values = self.uf1.eval_tp_fixed_loc(
+            self.integration_grid_spans, [
+                self.integration_grid_bn,
+            ]*3, out=self._uf1_values,
+        )
 
         self._eval_dl_drho *= 0.
         for i in range(3):
@@ -3372,9 +3690,11 @@ class VariationalDensityEvolve(Propagator):
         if self._model == 'barotropic':
 
             rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+            )
             rhof1_values = self.rhof1.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof1_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof1_values,
+            )
 
             # self._eval_dl_drho -= (rhof_values + rhof1_values)/2
             rhof_values /= 2
@@ -3385,12 +3705,15 @@ class VariationalDensityEvolve(Propagator):
 
         if self._model == 'full':
             rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+            )
             rhof1_values = self.rhof1.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof1_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof1_values,
+            )
 
             sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values,
+            )
 
             # delta_rho_values = rhof1_values-rhof_values
             self._delta_rhof_values *= 0.
@@ -3408,12 +3731,16 @@ class VariationalDensityEvolve(Propagator):
             eta = self.__eta(delta_rho_values, out=self._eta_values)
 
             e_rho1_s = self.__ener(
-                rhof1_values, sf_values, out=self._e_rho1_s_values)
-            e_rho_s = self.__ener(rhof_values, sf_values,
-                                  out=self._e_rho_s_values)
+                rhof1_values, sf_values, out=self._e_rho1_s_values,
+            )
+            e_rho_s = self.__ener(
+                rhof_values, sf_values,
+                out=self._e_rho_s_values,
+            )
 
             de_rhom_s = self.__dener_drho(
-                rho_mid_values, sf_values, out=self._de_rhom_s_values)
+                rho_mid_values, sf_values, out=self._de_rhom_s_values,
+            )
 
             # eta*delta_rho_values*(e_rho1_s-e_rho_s)*delta_rho_values/(delta_rho_values**2+1e-40)
             self._DG_values *= 0.
@@ -3442,10 +3769,16 @@ class VariationalDensityEvolve(Propagator):
         self._get_L2dofs_V3(self._eval_dl_drho, dofs=self._linear_form_dl_drho)
 
     def _get_jacobian(self, dt):
-        uf_values = self.uf.eval_tp_fixed_loc(self.integration_grid_spans, [
-                                              self.integration_grid_bn]*3, out=self._uf_values)
-        uf1_values = self.uf1.eval_tp_fixed_loc(self.integration_grid_spans, [
-                                                self.integration_grid_bn]*3, out=self._uf1_values)
+        uf_values = self.uf.eval_tp_fixed_loc(
+            self.integration_grid_spans, [
+                self.integration_grid_bn,
+            ]*3, out=self._uf_values,
+        )
+        uf1_values = self.uf1.eval_tp_fixed_loc(
+            self.integration_grid_spans, [
+                self.integration_grid_bn,
+            ]*3, out=self._uf1_values,
+        )
 
         # Guf = metric @ uf
         for i in range(3):
@@ -3467,11 +3800,14 @@ class VariationalDensityEvolve(Propagator):
 
         if self._model == 'full':
             rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+            )
             rhof1_values = self.rhof1.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof1_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof1_values,
+            )
             sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values,
+            )
 
             # delta_rho_values = rhof1_values-rhof_values
             self._delta_rhof_values *= 0.
@@ -3482,15 +3818,20 @@ class VariationalDensityEvolve(Propagator):
             eta = self.__eta(delta_rho_values)
 
             e_rho1_s = self.__ener(
-                rhof1_values, sf_values, out=self._e_rho1_s_values)
-            e_rho_s = self.__ener(rhof_values, sf_values,
-                                  out=self._e_rho_s_values)
+                rhof1_values, sf_values, out=self._e_rho1_s_values,
+            )
+            e_rho_s = self.__ener(
+                rhof_values, sf_values,
+                out=self._e_rho_s_values,
+            )
 
             de_rho1_s = self.__dener_drho(
-                rhof1_values, sf_values, out=self._de_rhom_s_values)
+                rhof1_values, sf_values, out=self._de_rhom_s_values,
+            )
 
             d2e_rho1_s = self.__d2ener_drho2(
-                rhof1_values, sf_values, out=self._d2e_rho1_s_values)
+                rhof1_values, sf_values, out=self._d2e_rho1_s_values,
+            )
 
             # eta*(de_rho1_s*delta_rho_values-e_rho1_s+e_rho_s)/(delta_rho_values**2+1e-40)
             self._DG_values *= 0.
@@ -3517,9 +3858,11 @@ class VariationalDensityEvolve(Propagator):
             self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
 
         self._M_un.assemble(
-            [[self._Guf_values[0],   self._Guf_values[1],   self._Guf_values[2]]], verbose=False)
+            [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]], verbose=False,
+        )
         self._M_un1.assemble(
-            [[self._Guf1_values[0]], [self._Guf1_values[1]], [self._Guf1_values[2]]], verbose=False)
+            [[self._Guf1_values[0]], [self._Guf1_values[1]], [self._Guf1_values[2]]], verbose=False,
+        )
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
         self._dt_pc_divPirhoT._scalar = dt
@@ -3529,9 +3872,11 @@ class VariationalDensityEvolve(Propagator):
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
         weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff)
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff,
+        )
         weak_rhon_diff = self.mass_ops.M3.dot(
-            rhon_diff, out=self._tmp_rhon_weak_diff)
+            rhon_diff, out=self._tmp_rhon_weak_diff,
+        )
         err_rho = weak_rhon_diff.dot(rhon_diff)
         err_u = weak_un_diff.dot(mn_diff)
         return max(err_rho, err_u)
@@ -3539,9 +3884,11 @@ class VariationalDensityEvolve(Propagator):
     def _get_error_picard(self, un_diff, rhon_diff):
         """Error for the picard method : difference between the two last iterations"""
         weak_un_diff = self.mass_ops.Mv.dot(
-            un_diff, out=self._tmp_un_weak_diff)
+            un_diff, out=self._tmp_un_weak_diff,
+        )
         weak_rhon_diff = self.mass_ops.M3.dot(
-            rhon_diff, out=self._tmp_rhon_weak_diff)
+            rhon_diff, out=self._tmp_rhon_weak_diff,
+        )
         err_rho = weak_rhon_diff.dot(rhon_diff)
         err_u = weak_un_diff.dot(un_diff)
         return max(err_rho, err_u)
@@ -3598,16 +3945,22 @@ class VariationalEntropyEvolve(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'verbose': False}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton', 'Picard'],
-                                'info': False,
-                                'implicit_transport': False}
+        dct['lin_solver'] = {
+            'tol': 1e-12,
+            'maxiter': 500,
+            'type': [
+                ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                ('cg', None),
+            ],
+            'verbose': False,
+        }
+        dct['nonlin_solver'] = {
+            'tol': 1e-8,
+            'maxiter': 100,
+            'type': ['Newton', 'Picard'],
+            'info': False,
+            'implicit_transport': False,
+        }
         dct['physics'] = {'gamma': 5/3}
 
         if default:
@@ -3615,16 +3968,18 @@ class VariationalEntropyEvolve(Propagator):
 
         return dct
 
-    def __init__(self,
-                 s: StencilVector,
-                 u: BlockVector,
-                 *,
-                 model: str = 'full',
-                 gamma: float = options()['physics']['gamma'],
-                 rho: StencilVector,
-                 mass_ops: WeightedMassOperator,
-                 lin_solver: dict = options(default=True)['lin_solver'],
-                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
+    def __init__(
+        self,
+        s: StencilVector,
+        u: BlockVector,
+        *,
+        model: str = 'full',
+        gamma: float = options()['physics']['gamma'],
+        rho: StencilVector,
+        mass_ops: WeightedMassOperator,
+        lin_solver: dict = options(default=True)['lin_solver'],
+        nonlin_solver: dict = options(default=True)['nonlin_solver'],
+    ):
 
         super().__init__(s, u)
 
@@ -3705,7 +4060,8 @@ class VariationalEntropyEvolve(Propagator):
             sn_diff = sn1.copy(out=self._tmp_sn_diff)
             sn_diff -= sn
             weak_sn_diff = self.mass_ops.M3.dot(
-                sn_diff, out=self._tmp_sn_weak_diff)
+                sn_diff, out=self._tmp_sn_weak_diff,
+            )
             err_s = weak_sn_diff.dot(sn_diff)
 
             if err_s > self._lin_solver['tol']:
@@ -3749,11 +4105,13 @@ class VariationalEntropyEvolve(Propagator):
 
             # Compute the advection terms
             advection = self.divPisT.dot(
-                self._linear_form_dl_ds, out=self._tmp_advection)
+                self._linear_form_dl_ds, out=self._tmp_advection,
+            )
             advection *= dt
 
             s_advection = self.divPis.dot(
-                un12, out=self._tmp_s_advection)
+                un12, out=self._tmp_s_advection,
+            )
             s_advection *= dt
 
             # Get diff
@@ -3783,8 +4141,10 @@ class VariationalEntropyEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print("information on the linear solver : ",
-                      self._inv_Jacobian._solver._info)
+                print(
+                    "information on the linear solver : ",
+                    self._inv_Jacobian._solver._info,
+                )
             un1 -= incr[0]
             sn1 -= incr[1]
 
@@ -3794,7 +4154,8 @@ class VariationalEntropyEvolve(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(sn1, un1)
 
@@ -3841,11 +4202,13 @@ class VariationalEntropyEvolve(Propagator):
 
             # Compute the advection terms
             advection = self.divPisT.dot(
-                self._linear_form_dl_ds, out=self._tmp_advection)
+                self._linear_form_dl_ds, out=self._tmp_advection,
+            )
             advection *= dt
 
             s_advection = self.divPis.dot(
-                un12, out=self._tmp_s_advection)
+                un12, out=self._tmp_s_advection,
+            )
             s_advection *= dt
 
             # Get diff before update
@@ -3873,7 +4236,8 @@ class VariationalEntropyEvolve(Propagator):
 
             if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
                 print(
-                    f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                    f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }',
+                )
 
         self.feec_vars_update(sn1, un1)
 
@@ -3890,18 +4254,22 @@ class VariationalEntropyEvolve(Propagator):
 
         # Initialize the BasisProjectionOperators
         self.Pis = BasisProjectionOperator(
-            P2, Xh, [[None, None, None],
-                     [None, None, None],
-                     [None, None, None]],
+            P2, Xh, [
+                [None, None, None],
+                [None, None, None],
+                [None, None, None],
+            ],
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+        )
 
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+        )
 
         self.PisT = self.Pis.T
 
@@ -3914,37 +4282,58 @@ class VariationalEntropyEvolve(Propagator):
 
         hist_grid = self.derham.proj_grid_pts['2']
 
-        hist_grid_0 = [pts.flatten()
-                       for pts in hist_grid[0]]
-        hist_grid_1 = [pts.flatten()
-                       for pts in hist_grid[1]]
-        hist_grid_2 = [pts.flatten()
-                       for pts in hist_grid[2]]
+        hist_grid_0 = [
+            pts.flatten()
+            for pts in hist_grid[0]
+        ]
+        hist_grid_1 = [
+            pts.flatten()
+            for pts in hist_grid[1]
+        ]
+        hist_grid_2 = [
+            pts.flatten()
+            for pts in hist_grid[2]
+        ]
 
         self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_0)
+            hist_grid_0,
+        )
         self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_1)
+            hist_grid_1,
+        )
         self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_2)
+            hist_grid_2,
+        )
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_0])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_0
+        ])
         self._sf_0_values = np.zeros(grid_shape, dtype=float)
-        self._uf_0_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._uf_0_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_1])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_1
+        ])
         self._sf_1_values = np.zeros(grid_shape, dtype=float)
-        self._uf_1_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._uf_1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_2])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_2
+        ])
         self._sf_2_values = np.zeros(grid_shape, dtype=float)
-        self._uf_2_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._uf_2_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
         # weighted mass matrix to go from m to u
         self._Mrho = self.WMM
@@ -3954,44 +4343,53 @@ class VariationalEntropyEvolve(Propagator):
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc = pc_class(self._Mrho)
 
-        self._Mrhoinv = inverse(self._Mrho,
-                                self._lin_solver['type'][0],
-                                pc=self.pc,
-                                tol=self._lin_solver['tol'],
-                                maxiter=self._lin_solver['maxiter'],
-                                verbose=self._lin_solver['verbose'],
-                                recycle=True)
+        self._Mrhoinv = inverse(
+            self._Mrho,
+            self._lin_solver['type'][0],
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv)
-        self._inv_Mv = inverse(self.mass_ops.Mv,
-                               'pcg',
-                               pc=self.pc_Mv,
-                               tol=1e-16,
-                               maxiter=1000,
-                               verbose=False)
+            self.mass_ops.Mv,
+        )
+        self._inv_Mv = inverse(
+            self.mass_ops.Mv,
+            'pcg',
+            pc=self.pc_Mv,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+        )
 
         # implicit transport operator
         self._I3 = IdentityOperator(self.derham.Vh_pol['3'])
         self._dt_divPiu = 2 * self.divPiu
 
         self._transop = self._I3 + self._dt_divPiu
-        self._inv_transop = inverse(self._transop,
-                                    'gmres',
-                                    tol=self._lin_solver['tol'],
-                                    maxiter=self._lin_solver['maxiter'],
-                                    verbose=False,
-                                    recycle=True)
+        self._inv_transop = inverse(
+            self._transop,
+            'gmres',
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=False,
+            recycle=True,
+        )
 
         # For Newton solve
         self._M_ds = self.mass_ops.create_weighted_mass('L2', 'L2')
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol['v'], self.derham.Vh_pol['3'])
+            self.derham.Vh_pol['v'], self.derham.Vh_pol['3'],
+        )
 
         self._tmp_f = Jacs.zeros()
         self._tmp_incr = Jacs.zeros()
@@ -4011,12 +4409,14 @@ class VariationalEntropyEvolve(Propagator):
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pcg',
-                                             pc=self.pc,
-                                             tol=self._lin_solver['tol'],
-                                             maxiter=self._lin_solver['maxiter'],
-                                             verbose=self._lin_solver['verbose'],
-                                             recycle=True)
+        self._inv_Jacobian = SchurSolverFull(
+            self._Jacobian, 'pcg',
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
         #                          'gmres',
@@ -4029,15 +4429,20 @@ class VariationalEntropyEvolve(Propagator):
         # L2-projector for V3
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
 
-        integration_grid = [grid_1d.flatten()
-                            for grid_1d in self.derham.quad_grid_pts['3']]
+        integration_grid = [
+            grid_1d.flatten()
+            for grid_1d in self.derham.quad_grid_pts['3']
+        ]
 
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
-            integration_grid)
+            integration_grid,
+        )
 
         if self._model == 'full':
-            grid_shape = tuple([len(loc_grid)
-                                for loc_grid in integration_grid])
+            grid_shape = tuple([
+                len(loc_grid)
+                for loc_grid in integration_grid
+            ])
             self._sf_values = np.zeros(grid_shape, dtype=float)
             self._sf1_values = np.zeros(grid_shape, dtype=float)
             self._rhof_values = np.zeros(grid_shape, dtype=float)
@@ -4051,12 +4456,18 @@ class VariationalEntropyEvolve(Propagator):
             self._d2e_rho_s1_values = np.zeros(grid_shape, dtype=float)
 
             gam = self._gamma
-            metric = np.power(self.domain.jacobian_det(
-                *integration_grid), 2-gam)
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ), 2-gam,
+            )
             self._proj_rho2_metric_term = deepcopy(metric)
 
-            metric = np.power(self.domain.jacobian_det(
-                *integration_grid), 1-gam)
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ), 1-gam,
+            )
             self._proj_ds_metric_term = deepcopy(metric)
 
     def __ener(self, rho, s, out=None):
@@ -4118,33 +4529,43 @@ class VariationalEntropyEvolve(Propagator):
             out += 1.
         return out
 
-    def _update_Pis(self,):
+    def _update_Pis(self):
         """Update the weights of the `BasisProjectionOperator`"""
 
         sf0_values = self.sf1.eval_tp_fixed_loc(
-            self.hist_grid_0_spans, self.hist_grid_0_bd, out=self._sf_0_values)
+            self.hist_grid_0_spans, self.hist_grid_0_bd, out=self._sf_0_values,
+        )
         sf1_values = self.sf1.eval_tp_fixed_loc(
-            self.hist_grid_1_spans, self.hist_grid_1_bd, out=self._sf_1_values)
+            self.hist_grid_1_spans, self.hist_grid_1_bd, out=self._sf_1_values,
+        )
         sf2_values = self.sf1.eval_tp_fixed_loc(
-            self.hist_grid_2_spans, self.hist_grid_2_bd, out=self._sf_2_values)
+            self.hist_grid_2_spans, self.hist_grid_2_bd, out=self._sf_2_values,
+        )
 
-        self.Pis.update_weights([[sf0_values, None, None],
-                                 [None, sf1_values, None],
-                                 [None, None, sf2_values]])
+        self.Pis.update_weights([
+            [sf0_values, None, None],
+            [None, sf1_values, None],
+            [None, None, sf2_values],
+        ])
 
-        self.PisT.update_weights([[sf0_values, None, None],
-                                  [None, sf1_values, None],
-                                  [None, None, sf2_values]])
+        self.PisT.update_weights([
+            [sf0_values, None, None],
+            [None, sf1_values, None],
+            [None, None, sf2_values],
+        ])
 
-    def _update_Piu(self,):
+    def _update_Piu(self):
         """Update the weights of the `BasisProjectionOperator`"""
 
         uf0_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf_0_values)
+            self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf_0_values,
+        )
         uf1_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf_1_values)
+            self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf_1_values,
+        )
         uf2_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf_2_values)
+            self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf_2_values,
+        )
 
         # print()
         # print()
@@ -4156,19 +4577,23 @@ class VariationalEntropyEvolve(Propagator):
         # print()
 
         self.Piu.update_weights(
-            [[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]])
+            [[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]],
+        )
 
-    def _update_linear_form_u2(self,):
+    def _update_linear_form_u2(self):
         """Update the linearform representing integration in V3 against kynetic energy"""
 
         if self._model == 'full':
             sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values,
+            )
             sf1_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values,
+            )
 
             rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+            )
 
             # delta_s_values = s1_values-sf_values
             self._delta_sf_values *= 0.
@@ -4186,12 +4611,16 @@ class VariationalEntropyEvolve(Propagator):
             eta = self.__eta(delta_s_values, out=self._eta_values)
 
             e_rho_s1 = self.__ener(
-                rhof_values, sf1_values, out=self._e_rho_s1_values)
-            e_rho_s = self.__ener(rhof_values, sf_values,
-                                  out=self._e_rho_s_values)
+                rhof_values, sf1_values, out=self._e_rho_s1_values,
+            )
+            e_rho_s = self.__ener(
+                rhof_values, sf_values,
+                out=self._e_rho_s_values,
+            )
 
             de_rho_sm = self.__dener_ds(
-                rhof_values, s_mid_values, out=self._de_rho_sm_values)
+                rhof_values, s_mid_values, out=self._de_rho_sm_values,
+            )
 
             # metric_term * (eta*delta_s_values*(e_rho_s1-e_rho_s) / (delta_s_values**2+1e-40)+(1-eta)*de_rho_sm)
 
@@ -4224,11 +4653,14 @@ class VariationalEntropyEvolve(Propagator):
 
         if self._model == 'full':
             rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+            )
             sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values,
+            )
             sf1_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values,
+            )
 
             # delta_s_values = s1_values-sf_values
             self._delta_sf_values *= 0.
@@ -4239,15 +4671,20 @@ class VariationalEntropyEvolve(Propagator):
             eta = self.__eta(delta_s_values, out=self._eta_values)
 
             e_rho_s1 = self.__ener(
-                rhof_values, sf1_values, out=self._e_rho_s1_values)
-            e_rho_s = self.__ener(rhof_values, sf_values,
-                                  out=self._e_rho_s_values)
+                rhof_values, sf1_values, out=self._e_rho_s1_values,
+            )
+            e_rho_s = self.__ener(
+                rhof_values, sf_values,
+                out=self._e_rho_s_values,
+            )
 
             de_rho_s1 = self.__dener_ds(
-                rhof_values, sf1_values, out=self._de_rho_sm_values)
+                rhof_values, sf1_values, out=self._de_rho_sm_values,
+            )
 
             d2e_rho_s1 = self.__d2ener_ds2(
-                rhof_values, sf1_values, out=self._d2e_rho_s1_values)
+                rhof_values, sf1_values, out=self._d2e_rho_s1_values,
+            )
 
             # de_rho_s1*delta_s_values-e_rho_s1+e_rho_s
             self._tmp_int_grid *= 0.
@@ -4282,18 +4719,22 @@ class VariationalEntropyEvolve(Propagator):
 
     def _get_error_newton(self, mn_diff, sn_diff):
         weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff)
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff,
+        )
         weak_sn_diff = self.mass_ops.M3.dot(
-            sn_diff, out=self._tmp_sn_weak_diff)
+            sn_diff, out=self._tmp_sn_weak_diff,
+        )
         err_rho = weak_sn_diff.dot(sn_diff)
         err_u = weak_un_diff.dot(mn_diff)
         return max(err_rho, err_u)
 
     def _get_error_picard(self, un_diff, sn_diff):
         weak_un_diff = self.mass_ops.Mv.dot(
-            un_diff, out=self._tmp_un_weak_diff)
+            un_diff, out=self._tmp_un_weak_diff,
+        )
         weak_sn_diff = self.mass_ops.M3.dot(
-            sn_diff, out=self._tmp_sn_weak_diff)
+            sn_diff, out=self._tmp_sn_weak_diff,
+        )
         err_s = weak_sn_diff.dot(sn_diff)
         err_u = weak_un_diff.dot(un_diff)
         return max(err_s, err_u)
@@ -4346,30 +4787,38 @@ class VariationalMagFieldEvolve(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'non_linear_maxiter': 100,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'verbose': False}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton', 'Picard'],
-                                'info': False,
-                                'implicit_transport': False}
+        dct['lin_solver'] = {
+            'tol': 1e-12,
+            'maxiter': 500,
+            'non_linear_maxiter': 100,
+            'type': [
+                ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                ('cg', None),
+            ],
+            'verbose': False,
+        }
+        dct['nonlin_solver'] = {
+            'tol': 1e-8,
+            'maxiter': 100,
+            'type': ['Newton', 'Picard'],
+            'info': False,
+            'implicit_transport': False,
+        }
 
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 b: BlockVector,
-                 u: BlockVector,
-                 *,
-                 mass_ops: WeightedMassOperator,
-                 lin_solver: dict = options(default=True)['lin_solver'],
-                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
+    def __init__(
+        self,
+        b: BlockVector,
+        u: BlockVector,
+        *,
+        mass_ops: WeightedMassOperator,
+        lin_solver: dict = options(default=True)['lin_solver'],
+        nonlin_solver: dict = options(default=True)['nonlin_solver'],
+    ):
 
         super().__init__(b, u)
 
@@ -4440,7 +4889,8 @@ class VariationalMagFieldEvolve(Propagator):
             bn_diff = bn1.copy(out=self._tmp_bn_diff)
             bn_diff -= bn
             weak_bn_diff = self.mass_ops.M2.dot(
-                bn_diff, out=self._tmp_bn_weak_diff)
+                bn_diff, out=self._tmp_bn_weak_diff,
+            )
             err_b = weak_bn_diff.dot(bn_diff)
 
             if err_b > self._lin_solver['tol']:
@@ -4484,11 +4934,13 @@ class VariationalMagFieldEvolve(Propagator):
 
             # Compute the advection terms
             advection = self.curlPibT.dot(
-                self._linear_form_dl_db, out=self._tmp_advection)
+                self._linear_form_dl_db, out=self._tmp_advection,
+            )
             advection *= dt
 
             b_advection = self.curlPib.dot(
-                un12, out=self._tmp_b_advection)
+                un12, out=self._tmp_b_advection,
+            )
             b_advection *= dt
 
             # Get diff
@@ -4518,8 +4970,10 @@ class VariationalMagFieldEvolve(Propagator):
 
             incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
             if self._info:
-                print("information on the linear solver : ",
-                      self._inv_Jacobian._solver._info)
+                print(
+                    "information on the linear solver : ",
+                    self._inv_Jacobian._solver._info,
+                )
             un1 -= incr[0]
             bn1 -= incr[1]
 
@@ -4528,7 +4982,8 @@ class VariationalMagFieldEvolve(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(bn1, un1)
 
@@ -4570,11 +5025,13 @@ class VariationalMagFieldEvolve(Propagator):
 
             # Compute the advection terms
             advection = self.curlPibT.dot(
-                self._linear_form_dl_db, out=self._tmp_advection)
+                self._linear_form_dl_db, out=self._tmp_advection,
+            )
             advection *= dt
 
             b_advection = self.curlPib.dot(
-                un12, out=self._tmp_b_advection)
+                un12, out=self._tmp_b_advection,
+            )
             b_advection *= dt
 
             # Get diff before update
@@ -4602,7 +5059,8 @@ class VariationalMagFieldEvolve(Propagator):
 
             if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
                 print(
-                    f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
+                    f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }',
+                )
 
         self.feec_vars_update(bn1, un1)
 
@@ -4617,20 +5075,26 @@ class VariationalMagFieldEvolve(Propagator):
 
         # Initialize the BasisProjectionOperators
         self.Pib = BasisProjectionOperator(
-            P1, Xh, [[None, None, None],
-                     [None, None, None],
-                     [None, None, None]],
+            P1, Xh, [
+                [None, None, None],
+                [None, None, None],
+                [None, None, None],
+            ],
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']),
+        )
 
         self.Piu = BasisProjectionOperator(
-            P1, V2h, [[None, None, None],
-                      [None, None, None],
-                      [None, None, None]],
+            P1, V2h, [
+                [None, None, None],
+                [None, None, None],
+                [None, None, None],
+            ],
             transposed=False, use_cache=True,
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']),
+        )
 
         self.PibT = self.Pib.T
 
@@ -4645,51 +5109,90 @@ class VariationalMagFieldEvolve(Propagator):
 
         hist_grid = self.derham.proj_grid_pts['1']
 
-        hist_grid_0 = [pts.flatten()
-                       for pts in hist_grid[0]]
-        hist_grid_1 = [pts.flatten()
-                       for pts in hist_grid[1]]
-        hist_grid_2 = [pts.flatten()
-                       for pts in hist_grid[2]]
+        hist_grid_0 = [
+            pts.flatten()
+            for pts in hist_grid[0]
+        ]
+        hist_grid_1 = [
+            pts.flatten()
+            for pts in hist_grid[1]
+        ]
+        hist_grid_2 = [
+            pts.flatten()
+            for pts in hist_grid[2]
+        ]
 
         self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_0)
+            hist_grid_0,
+        )
         self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_1)
+            hist_grid_1,
+        )
         self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_2)
+            hist_grid_2,
+        )
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_0])
-        self._bf0_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
-        self._uf0_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
-        self.hist_grid_0_b = [[self.hist_grid_0_bn[0], self.hist_grid_0_bd[1], self.hist_grid_0_bd[2]],
-                              [self.hist_grid_0_bd[0], self.hist_grid_0_bn[1],
-                                  self.hist_grid_0_bd[2]],
-                              [self.hist_grid_0_bd[0], self.hist_grid_0_bd[1], self.hist_grid_0_bn[2]]]
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_1])
-        self._bf1_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
-        self._uf1_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
-        self.hist_grid_1_b = [[self.hist_grid_1_bn[0], self.hist_grid_1_bd[1], self.hist_grid_1_bd[2]],
-                              [self.hist_grid_1_bd[0], self.hist_grid_1_bn[1],
-                                  self.hist_grid_1_bd[2]],
-                              [self.hist_grid_1_bd[0], self.hist_grid_1_bd[1], self.hist_grid_1_bn[2]]]
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_0
+        ])
+        self._bf0_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self._uf0_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self.hist_grid_0_b = [
+            [self.hist_grid_0_bn[0], self.hist_grid_0_bd[1], self.hist_grid_0_bd[2]],
+            [
+                self.hist_grid_0_bd[0], self.hist_grid_0_bn[1],
+                self.hist_grid_0_bd[2],
+            ],
+            [self.hist_grid_0_bd[0], self.hist_grid_0_bd[1], self.hist_grid_0_bn[2]],
+        ]
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_1
+        ])
+        self._bf1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self._uf1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self.hist_grid_1_b = [
+            [self.hist_grid_1_bn[0], self.hist_grid_1_bd[1], self.hist_grid_1_bd[2]],
+            [
+                self.hist_grid_1_bd[0], self.hist_grid_1_bn[1],
+                self.hist_grid_1_bd[2],
+            ],
+            [self.hist_grid_1_bd[0], self.hist_grid_1_bd[1], self.hist_grid_1_bn[2]],
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                           for loc_grid in hist_grid_2])
-        self._bf2_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
-        self._uf2_values = [np.zeros(grid_shape, dtype=float)
-                            for i in range(3)]
-        self.hist_grid_2_b = [[self.hist_grid_2_bn[0], self.hist_grid_2_bd[1], self.hist_grid_2_bd[2]],
-                              [self.hist_grid_2_bd[0], self.hist_grid_2_bn[1],
-                                  self.hist_grid_2_bd[2]],
-                              [self.hist_grid_2_bd[0], self.hist_grid_2_bd[1], self.hist_grid_2_bn[2]]]
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in hist_grid_2
+        ])
+        self._bf2_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self._uf2_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self.hist_grid_2_b = [
+            [self.hist_grid_2_bn[0], self.hist_grid_2_bd[1], self.hist_grid_2_bd[2]],
+            [
+                self.hist_grid_2_bd[0], self.hist_grid_2_bn[1],
+                self.hist_grid_2_bd[2],
+            ],
+            [self.hist_grid_2_bd[0], self.hist_grid_2_bd[1], self.hist_grid_2_bn[2]],
+        ]
 
         # weighted mass matrix to go from m to u
         self._Mrho = self.WMM
@@ -4699,40 +5202,49 @@ class VariationalMagFieldEvolve(Propagator):
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc = pc_class(self._Mrho)
 
-        self._Mrhoinv = inverse(self._Mrho,
-                                self._lin_solver['type'][0],
-                                pc=self.pc,
-                                tol=self._lin_solver['tol'],
-                                maxiter=self._lin_solver['maxiter'],
-                                verbose=self._lin_solver['verbose'],
-                                recycle=True)
+        self._Mrhoinv = inverse(
+            self._Mrho,
+            self._lin_solver['type'][0],
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv)
-        self._inv_Mv = inverse(self.mass_ops.Mv,
-                               'pcg',
-                               pc=self.pc_Mv,
-                               tol=1e-16,
-                               maxiter=1000,
-                               verbose=False)
+            self.mass_ops.Mv,
+        )
+        self._inv_Mv = inverse(
+            self.mass_ops.Mv,
+            'pcg',
+            pc=self.pc_Mv,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+        )
 
         self._I2 = IdentityOperator(self.derham.Vh_pol['2'])
         self._dt_curlPiu = 2 * self.curlPiu
 
         self._transop = self._I2 + self._dt_curlPiu
-        self._inv_transop = inverse(self._transop,
-                                    'gmres',
-                                    tol=self._lin_solver['tol'],
-                                    maxiter=self._lin_solver['maxiter'],
-                                    verbose=False,
-                                    recycle=True)
+        self._inv_transop = inverse(
+            self._transop,
+            'gmres',
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=False,
+            recycle=True,
+        )
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol['v'], self.derham.Vh_pol['2'])
+            self.derham.Vh_pol['v'], self.derham.Vh_pol['2'],
+        )
 
         self._tmp_f = Jacs.zeros()
         self._tmp_incr = Jacs.zeros()
@@ -4751,12 +5263,14 @@ class VariationalMagFieldEvolve(Propagator):
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pcg',
-                                             pc=self.pc,
-                                             tol=self._lin_solver['tol'],
-                                             maxiter=self._lin_solver['maxiter'],
-                                             verbose=self._lin_solver['verbose'],
-                                             recycle=True)
+        self._inv_Jacobian = SchurSolverFull(
+            self._Jacobian, 'pcg',
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=self._lin_solver['verbose'],
+            recycle=True,
+        )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
         #                          'gmres',
@@ -4765,57 +5279,73 @@ class VariationalMagFieldEvolve(Propagator):
         #                          verbose=self._lin_solver['verbose'],
         #                          recycle=True)
 
-    def _update_Pib(self,):
+    def _update_Pib(self):
         """Update the weights of the `BasisProjectionOperator`"""
 
         bf0_values = self.bf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans, self.hist_grid_0_b, out=self._bf0_values)
+            self.hist_grid_0_spans, self.hist_grid_0_b, out=self._bf0_values,
+        )
         bf1_values = self.bf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans, self.hist_grid_1_b, out=self._bf1_values)
+            self.hist_grid_1_spans, self.hist_grid_1_b, out=self._bf1_values,
+        )
         bf2_values = self.bf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans, self.hist_grid_2_b, out=self._bf2_values)
+            self.hist_grid_2_spans, self.hist_grid_2_b, out=self._bf2_values,
+        )
 
-        self.Pib.update_weights([[None, -bf0_values[2], bf0_values[1]],
-                                 [bf1_values[2], None, -bf1_values[0]],
-                                 [-bf2_values[1], bf2_values[0], None]])
+        self.Pib.update_weights([
+            [None, -bf0_values[2], bf0_values[1]],
+            [bf1_values[2], None, -bf1_values[0]],
+            [-bf2_values[1], bf2_values[0], None],
+        ])
 
-        self.PibT.update_weights([[None, -bf0_values[2], bf0_values[1]],
-                                  [bf1_values[2], None, -bf1_values[0]],
-                                  [-bf2_values[1], bf2_values[0], None]])
+        self.PibT.update_weights([
+            [None, -bf0_values[2], bf0_values[1]],
+            [bf1_values[2], None, -bf1_values[0]],
+            [-bf2_values[1], bf2_values[0], None],
+        ])
 
-    def _update_Piu(self,):
+    def _update_Piu(self):
         """Update the weights of the `BasisProjectionOperator`"""
 
         uf0_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf0_values)
+            self.hist_grid_0_spans, [self.hist_grid_0_bn]*3, out=self._uf0_values,
+        )
         uf1_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf1_values)
+            self.hist_grid_1_spans, [self.hist_grid_1_bn]*3, out=self._uf1_values,
+        )
         uf2_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf2_values)
+            self.hist_grid_2_spans, [self.hist_grid_2_bn]*3, out=self._uf2_values,
+        )
 
-        self.Piu.update_weights([[None, uf0_values[2], -uf0_values[1]],
-                                 [-uf1_values[2], None, uf1_values[0]],
-                                 [uf2_values[1], -uf2_values[0], None]])
+        self.Piu.update_weights([
+            [None, uf0_values[2], -uf0_values[1]],
+            [-uf1_values[2], None, uf1_values[0]],
+            [uf2_values[1], -uf2_values[0], None],
+        ])
 
-    def _update_linear_form_u2(self,):
+    def _update_linear_form_u2(self):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
         wb = self.mass_ops.M2.dot(self._tmp_bn12, out=self._linear_form_dl_db)
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
         weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff)
+            self.derham.boundary_ops['v'].dot(mn_diff), out=self._tmp_un_weak_diff,
+        )
         weak_bn_diff = self.mass_ops.M2.dot(
-            bn_diff, out=self._tmp_bn_weak_diff)
+            bn_diff, out=self._tmp_bn_weak_diff,
+        )
         err_b = weak_bn_diff.dot(bn_diff)
         err_u = weak_un_diff.dot(mn_diff)
         return max(err_b, err_u)
 
     def _get_error_picard(self, un_diff, bn_diff):
         weak_un_diff = self.mass_ops.Mv.dot(
-            un_diff, out=self._tmp_un_weak_diff)
+            un_diff, out=self._tmp_un_weak_diff,
+        )
         weak_bn_diff = self.mass_ops.M2.dot(
-            bn_diff, out=self._tmp_bn_weak_diff)
+            bn_diff, out=self._tmp_bn_weak_diff,
+        )
         err_b = weak_bn_diff.dot(bn_diff)
         err_u = weak_un_diff.dot(un_diff)
         return max(err_b, err_u)
@@ -4869,35 +5399,44 @@ class VariationalViscosity(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'verbose': False, }
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton'],
-                                'info': False}
-        dct['physics'] = {'gamma': 1.66666666667,
-                          'mu': 0., 'mu_a': 0.}
+        dct['lin_solver'] = {
+            'tol': 1e-12,
+            'maxiter': 500,
+            'type': [
+                ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                ('cg', None),
+            ],
+            'verbose': False, }
+        dct['nonlin_solver'] = {
+            'tol': 1e-8,
+            'maxiter': 100,
+            'type': ['Newton'],
+            'info': False,
+        }
+        dct['physics'] = {
+            'gamma': 1.66666666667,
+            'mu': 0., 'mu_a': 0.,
+        }
 
         if default:
             dct = descend_options_dict(dct, [])
 
         return dct
 
-    def __init__(self,
-                 s: StencilVector,
-                 u: BlockVector,
-                 *,
-                 model: str = 'barotropic',
-                 gamma: float = options()['physics']['gamma'],
-                 rho: StencilVector,
-                 mu: float = options()['physics']['mu'],
-                 mu_a: float = options()['physics']['mu_a'],
-                 mass_ops: WeightedMassOperator,
-                 lin_solver: dict = options(default=True)['lin_solver'],
-                 nonlin_solver: dict = options(default=True)['nonlin_solver']):
+    def __init__(
+        self,
+        s: StencilVector,
+        u: BlockVector,
+        *,
+        model: str = 'barotropic',
+        gamma: float = options()['physics']['gamma'],
+        rho: StencilVector,
+        mu: float = options()['physics']['mu'],
+        mu_a: float = options()['physics']['mu_a'],
+        mass_ops: WeightedMassOperator,
+        lin_solver: dict = options(default=True)['lin_solver'],
+        nonlin_solver: dict = options(default=True)['nonlin_solver'],
+    ):
 
         super().__init__(s, u)
 
@@ -4958,7 +5497,8 @@ class VariationalViscosity(Propagator):
             self.__call_newton(dt)
         else:
             raise ValueError(
-                'wrong value for solver type in VariationalViscosity')
+                'wrong value for solver type in VariationalViscosity',
+            )
 
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
@@ -4984,11 +5524,14 @@ class VariationalViscosity(Propagator):
         self.gu2f.vector = gu2
 
         gu0_v = self.gu0f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf0_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf0_values,
+        )
         gu1_v = self.gu1f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf1_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf1_values,
+        )
         gu2_v = self.gu2f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf2_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf2_values,
+        )
 
         gu_sq_v = self._gu_init_values
         gu_sq_v *= 0.
@@ -5004,11 +5547,17 @@ class VariationalViscosity(Propagator):
 
         gu_sq_v *= dt*self._mu_a  # /2
 
-        self.M1_du.assemble([[gu_sq_v*self._mass_M1_metric[0, 0], gu_sq_v*self._mass_M1_metric[0, 1], gu_sq_v*self._mass_M1_metric[0, 2]],
-                             [gu_sq_v*self._mass_M1_metric[1, 0], gu_sq_v *
-                                 self._mass_M1_metric[1, 1], gu_sq_v*self._mass_M1_metric[1, 2]],
-                             [gu_sq_v*self._mass_M1_metric[2, 0], gu_sq_v*self._mass_M1_metric[1, 2], gu_sq_v*self._mass_M1_metric[2, 2]]],
-                            verbose=False)
+        self.M1_du.assemble(
+            [
+                [gu_sq_v*self._mass_M1_metric[0, 0], gu_sq_v*self._mass_M1_metric[0, 1], gu_sq_v*self._mass_M1_metric[0, 2]],
+                [
+                    gu_sq_v*self._mass_M1_metric[1, 0], gu_sq_v *
+                    self._mass_M1_metric[1, 1], gu_sq_v*self._mass_M1_metric[1, 2],
+                ],
+                [gu_sq_v*self._mass_M1_metric[2, 0], gu_sq_v*self._mass_M1_metric[1, 2], gu_sq_v*self._mass_M1_metric[2, 2]],
+            ],
+            verbose=False,
+        )
 
         # gu_sq_v *= 2.
         gu_sq_v += dt*self._mu
@@ -5041,18 +5590,24 @@ class VariationalViscosity(Propagator):
         self.gu122f.vector = gu212
 
         gu0_v = self.gu0f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf0_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf0_values,
+        )
         gu1_v = self.gu1f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf1_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf1_values,
+        )
         gu2_v = self.gu2f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf2_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf2_values,
+        )
 
         gu120_v = self.gu120f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf120_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf120_values,
+        )
         gu121_v = self.gu121f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf121_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf121_values,
+        )
         gu122_v = self.gu122f.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf122_values)
+            self.integration_grid_spans, self.integration_grid_gradient, out=self._guf122_values,
+        )
 
         gu_sq_v = self._gu_sq_values
         gu_sq_v *= 0.
@@ -5069,13 +5624,17 @@ class VariationalViscosity(Propagator):
         self.sf.vector = sn
 
         sf_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+            self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values,
+        )
 
         rhof_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+        )
 
-        e_rho_s = self.__ener(rhof_values, sf_values,
-                              out=self._e_rho_s_values)
+        e_rho_s = self.__ener(
+            rhof_values, sf_values,
+            out=self._e_rho_s_values,
+        )
 
         e_rho_s *= self._energy_metric
 
@@ -5094,10 +5653,12 @@ class VariationalViscosity(Propagator):
             self.sf1.vector = sn1
 
             sf1_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values,
+            )
 
             e_rho_s1 = self.__ener(
-                rhof_values, sf1_values, out=self._e_rho_s1_values)
+                rhof_values, sf1_values, out=self._e_rho_s1_values,
+            )
 
             e_rho_s1 *= self._energy_metric
 
@@ -5116,7 +5677,8 @@ class VariationalViscosity(Propagator):
                 break
 
             deds = self.__dener_ds(
-                rhof_values, sf1_values, out=self._de_rho_s1_values)
+                rhof_values, sf1_values, out=self._de_rho_s1_values,
+            )
             deds *= self._mass_metric_term
 
             self.M_de_ds.assemble([[deds]], verbose=False)
@@ -5131,7 +5693,8 @@ class VariationalViscosity(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(sn1, un1)
 
@@ -5142,24 +5705,29 @@ class VariationalViscosity(Propagator):
 
         Xv = getattr(self.basis_ops, 'Xv')
         Pcoord0 = CoordinateProjector(
-            0, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'])
+            0, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'],
+        )
         Pcoord1 = CoordinateProjector(
-            1, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'])
+            1, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'],
+        )
         Pcoord2 = CoordinateProjector(
-            2, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'])
+            2, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'],
+        )
 
-
-        M1 = self.mass_ops.M1        
+        M1 = self.mass_ops.M1
         self.M1_du = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl')
 
         self.pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.M3)
-        self._inv_M3 = inverse(self.mass_ops.M3,
-                               'pcg',
-                               pc=self.pc_M3,
-                               tol=1e-16,
-                               maxiter=1000,
-                               verbose=False)
+            self.mass_ops.M3,
+        )
+        self._inv_M3 = inverse(
+            self.mass_ops.M3,
+            'pcg',
+            pc=self.pc_M3,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+        )
 
         self.M_de_ds = self.mass_ops.create_weighted_mass('L2', 'L2')
 
@@ -5167,16 +5735,19 @@ class VariationalViscosity(Propagator):
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc_jac = pc_class(self.M_de_ds)
 
-        self.inv_jac = inverse(self.M_de_ds,
-                               'pcg',
-                               pc=self.pc_jac,
-                               tol=self._lin_solver['tol'],
-                               maxiter=self._lin_solver['maxiter'],
-                               verbose=False,
-                               recycle=True)
+        self.inv_jac = inverse(
+            self.M_de_ds,
+            'pcg',
+            pc=self.pc_jac,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=False,
+            recycle=True,
+        )
 
         grad = self.derham.grad
         self.scalar_stiffness = grad.T@M1@grad
@@ -5208,45 +5779,66 @@ class VariationalViscosity(Propagator):
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc = pc_class(self._Mrho)
 
-        self.inv_lop = inverse(self.l_op,
-                               'pcg',
-                               pc=self.pc,
-                               tol=self._lin_solver['tol'],
-                               maxiter=self._lin_solver['maxiter'],
-                               verbose=False,
-                               recycle=True)
+        self.inv_lop = inverse(
+            self.l_op,
+            'pcg',
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=False,
+            recycle=True,
+        )
 
         self.evol_op = self.inv_lop @ self.r_op
         # self.evol_op = IdentityOperator(self.derham.Vh_pol['v'])
-        integration_grid = [grid_1d.flatten()
-                            for grid_1d in self.derham.quad_grid_pts['3']]
+        integration_grid = [
+            grid_1d.flatten()
+            for grid_1d in self.derham.quad_grid_pts['3']
+        ]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
-            integration_grid)
+            integration_grid,
+        )
 
-        self.integration_grid_gradient = [[self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
-                                          [self.integration_grid_bn[0], self.integration_grid_bd[1],
-                                           self.integration_grid_bn[2]],
-                                          [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]]]
+        self.integration_grid_gradient = [
+            [self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+            [
+                self.integration_grid_bn[0], self.integration_grid_bd[1],
+                self.integration_grid_bn[2],
+            ],
+            [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]],
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                            for loc_grid in integration_grid])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in integration_grid
+        ])
 
-        self._guf0_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._guf1_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
-        self._guf2_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._guf0_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self._guf1_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
+        self._guf2_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
 
         self._guf120_values = [
-            np.zeros(grid_shape, dtype=float)for i in range(3)]
+            np.zeros(grid_shape, dtype=float)for i in range(3)
+        ]
         self._guf121_values = [
-            np.zeros(grid_shape, dtype=float)for i in range(3)]
+            np.zeros(grid_shape, dtype=float)for i in range(3)
+        ]
         self._guf122_values = [
-            np.zeros(grid_shape, dtype=float)for i in range(3)]
+            np.zeros(grid_shape, dtype=float)for i in range(3)
+        ]
 
         self._gu_sq_values = np.zeros(grid_shape, dtype=float)
         self._gu_init_values = np.zeros(grid_shape, dtype=float)
@@ -5264,20 +5856,30 @@ class VariationalViscosity(Propagator):
 
         gam = self._gamma
 
-        metric = np.power(self.domain.jacobian_det(
-            *integration_grid), -gam)
+        metric = np.power(
+            self.domain.jacobian_det(
+                *integration_grid,
+            ), -gam,
+        )
         self._mass_metric_term = deepcopy(metric)
 
-        metric = np.power(self.domain.jacobian_det(
-            *integration_grid), 1-gam)
+        metric = np.power(
+            self.domain.jacobian_det(
+                *integration_grid,
+            ), 1-gam,
+        )
         self._energy_metric = deepcopy(metric)
 
-        metric = np.power(self.domain.jacobian_det(
-            *integration_grid), 1)
+        metric = np.power(
+            self.domain.jacobian_det(
+                *integration_grid,
+            ), 1,
+        )
         self._sq_term_metric = deepcopy(metric)
 
         metric = self.domain.metric_inv(
-            *integration_grid)*self.domain.jacobian_det(*integration_grid)
+            *integration_grid,
+        )*self.domain.jacobian_det(*integration_grid)
         self._mass_M1_metric = deepcopy(metric)
 
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
@@ -5358,18 +5960,26 @@ class VariationalResistivity(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['lin_solver'] = {'tol': 1e-12,
-                             'maxiter': 500,
-                             'type': [('pcg', 'MassMatrixDiagonalPreconditioner'),
-                                      ('cg', None)],
-                             'verbose': False}
-        dct['nonlin_solver'] = {'tol': 1e-8,
-                                'maxiter': 100,
-                                'type': ['Newton'],
-                                'info': False}
-        dct['physics'] = {'eta': 0.,
-                          'eta_a': 0.,
-                          'gamma': 5/3}
+        dct['lin_solver'] = {
+            'tol': 1e-12,
+            'maxiter': 500,
+            'type': [
+                ('pcg', 'MassMatrixDiagonalPreconditioner'),
+                ('cg', None),
+            ],
+            'verbose': False,
+        }
+        dct['nonlin_solver'] = {
+            'tol': 1e-8,
+            'maxiter': 100,
+            'type': ['Newton'],
+            'info': False,
+        }
+        dct['physics'] = {
+            'eta': 0.,
+            'eta_a': 0.,
+            'gamma': 5/3,
+        }
         dct['linearize_current'] = False
 
         if default:
@@ -5377,18 +5987,20 @@ class VariationalResistivity(Propagator):
 
         return dct
 
-    def __init__(self,
-                 s: StencilVector,
-                 b: BlockVector,
-                 *,
-                 model: str = 'full',
-                 gamma: float = options()['physics']['gamma'],
-                 rho: StencilVector,
-                 eta: float = options()['physics']['eta'],
-                 eta_a: float = options()['physics']['eta_a'],
-                 lin_solver: dict = options(default=True)['lin_solver'],
-                 nonlin_solver: dict = options(default=True)['nonlin_solver'],
-                 linearize_current: dict = options(default=True)['linearize_current']):
+    def __init__(
+        self,
+        s: StencilVector,
+        b: BlockVector,
+        *,
+        model: str = 'full',
+        gamma: float = options()['physics']['gamma'],
+        rho: StencilVector,
+        eta: float = options()['physics']['eta'],
+        eta_a: float = options()['physics']['eta_a'],
+        lin_solver: dict = options(default=True)['lin_solver'],
+        nonlin_solver: dict = options(default=True)['nonlin_solver'],
+        linearize_current: dict = options(default=True)['linearize_current'],
+    ):
 
         super().__init__(s, b)
 
@@ -5439,7 +6051,8 @@ class VariationalResistivity(Propagator):
             self.__call_newton(dt)
         else:
             raise ValueError(
-                'wrong value for solver type in VariationalResistivity')
+                'wrong value for solver type in VariationalResistivity',
+            )
 
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
@@ -5458,7 +6071,8 @@ class VariationalResistivity(Propagator):
         cb = self.Tcurl.dot(bn, out=self._tmp_cb1)
         self.cbf1.vector = cb
         cb_v = self.cbf1.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_curl, out=self._cb1_values)
+            self.integration_grid_spans, self.integration_grid_curl, out=self._cb1_values,
+        )
 
         cb_sq_v = self._cb_sq_values_init
         cb_sq_v *= 0.
@@ -5470,19 +6084,28 @@ class VariationalResistivity(Propagator):
 
         cb_sq_v *= dt*self._eta_a
 
-        self.M1_cb.assemble([[cb_sq_v*self._sq_term_metric[0, 0], cb_sq_v*self._sq_term_metric[0, 1], cb_sq_v*self._sq_term_metric[0, 2]],
-                             [cb_sq_v*self._sq_term_metric[1, 0], cb_sq_v *
-                                 self._sq_term_metric[1, 1], cb_sq_v*self._sq_term_metric[1, 2]],
-                             [cb_sq_v*self._sq_term_metric[2, 0], cb_sq_v*self._sq_term_metric[2, 1], cb_sq_v*self._sq_term_metric[2, 2]]],
-                            verbose=False)
+        self.M1_cb.assemble(
+            [
+                [cb_sq_v*self._sq_term_metric[0, 0], cb_sq_v*self._sq_term_metric[0, 1], cb_sq_v*self._sq_term_metric[0, 2]],
+                [
+                    cb_sq_v*self._sq_term_metric[1, 0], cb_sq_v *
+                    self._sq_term_metric[1, 1], cb_sq_v*self._sq_term_metric[1, 2],
+                ],
+                [cb_sq_v*self._sq_term_metric[2, 0], cb_sq_v*self._sq_term_metric[2, 1], cb_sq_v*self._sq_term_metric[2, 2]],
+            ],
+            verbose=False,
+        )
 
         cb_sq_v += dt*self._eta
 
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current:
-            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(
-                self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
+            bn1 = self.evol_op.dot(
+                bn + dt*self._eta*self.derham.curl.dot(
+                    self.Tcurl.dot(self.projected_mhd_equil.b2),
+                ), out=self._tmp_bn1,
+            )
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
@@ -5495,7 +6118,8 @@ class VariationalResistivity(Propagator):
         bn12 /= 2.
         if self._linearize_current:
             cb1 = self.Tcurl.dot(
-                bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
+                bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1,
+            )
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
@@ -5505,9 +6129,11 @@ class VariationalResistivity(Propagator):
         self.cbf1.vector = cb1
 
         cb12_v = self.cbf12.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_curl, out=self._cb12_values)
+            self.integration_grid_spans, self.integration_grid_curl, out=self._cb12_values,
+        )
         cb1_v = self.cbf1.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_curl, out=self._cb1_values)
+            self.integration_grid_spans, self.integration_grid_curl, out=self._cb1_values,
+        )
 
         cb_sq_v = self._cb_sq_values
         cb_sq_v *= 0.
@@ -5522,13 +6148,17 @@ class VariationalResistivity(Propagator):
         self.sf.vector = sn
 
         sf_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+            self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values,
+        )
 
         rhof_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+            self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values,
+        )
 
-        e_rho_s = self.__ener(rhof_values, sf_values,
-                              out=self._e_rho_s_values)
+        e_rho_s = self.__ener(
+            rhof_values, sf_values,
+            out=self._e_rho_s_values,
+        )
 
         e_rho_s *= self._energy_metric
 
@@ -5547,10 +6177,12 @@ class VariationalResistivity(Propagator):
             self.sf1.vector = sn1
 
             sf1_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values)
+                self.integration_grid_spans, self.integration_grid_bd, out=self._sf1_values,
+            )
 
             e_rho_s1 = self.__ener(
-                rhof_values, sf1_values, out=self._e_rho_s1_values)
+                rhof_values, sf1_values, out=self._e_rho_s1_values,
+            )
 
             e_rho_s1 *= self._energy_metric
 
@@ -5569,7 +6201,8 @@ class VariationalResistivity(Propagator):
                 break
 
             deds = self.__dener_ds(
-                rhof_values, sf1_values, out=self._de_rho_s1_values)
+                rhof_values, sf1_values, out=self._de_rho_s1_values,
+            )
             deds *= self._mass_metric_term
 
             self.M_de_ds.assemble([[deds]], verbose=False)
@@ -5584,7 +6217,8 @@ class VariationalResistivity(Propagator):
 
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
-                f'!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err = } \n {tol**2 = }')
+                f'!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err = } \n {tol**2 = }',
+            )
 
         self.feec_vars_update(sn1, bn1)
 
@@ -5594,44 +6228,52 @@ class VariationalResistivity(Propagator):
         from struphy.feec.projectors import L2Projector
 
         pc_M1 = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.M1)
-        inv_M1 = inverse(self.mass_ops.M1,
-                         'pcg',
-                         pc=pc_M1,
-                         tol=1e-16,
-                         maxiter=1000,
-                         verbose=False)
+            self.mass_ops.M1,
+        )
+        inv_M1 = inverse(
+            self.mass_ops.M1,
+            'pcg',
+            pc=pc_M1,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+        )
 
         pc_M3 = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.M3)
-        self._inv_M3 = inverse(self.mass_ops.M3,
-                               'pcg',
-                               pc=pc_M3,
-                               tol=1e-16,
-                               maxiter=1000,
-                               verbose=False)
+            self.mass_ops.M3,
+        )
+        self._inv_M3 = inverse(
+            self.mass_ops.M3,
+            'pcg',
+            pc=pc_M3,
+            tol=1e-16,
+            maxiter=1000,
+            verbose=False,
+        )
 
-        M2 = self.mass_ops.M2 
+        M2 = self.mass_ops.M2
         self.M_de_ds = self.mass_ops.create_weighted_mass('L2', 'L2')
-        
-        D = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]        
-        self.M1_cb = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', weights = [D, 'sqrt_g'])
-        
+
+        D = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        self.M1_cb = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', weights=[D, 'sqrt_g'])
 
         if self._lin_solver['type'][1] is None:
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc_jac = pc_class(self.M_de_ds)
 
-        self.inv_jac = inverse(self.M_de_ds,
-                               'pcg',
-                               pc=self.pc_jac,
-                               tol=self._lin_solver['tol'],
-                               maxiter=self._lin_solver['maxiter'],
-                               verbose=False,
-                               recycle=True)
+        self.inv_jac = inverse(
+            self.M_de_ds,
+            'pcg',
+            pc=self.pc_jac,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=False,
+            recycle=True,
+        )
 
         curl = self.derham.curl
         self.Tcurl = inv_M1@curl.T@M2
@@ -5648,34 +6290,48 @@ class VariationalResistivity(Propagator):
             self.pc = None
         else:
             pc_class = getattr(
-                preconditioner, self._lin_solver['type'][1])
+                preconditioner, self._lin_solver['type'][1],
+            )
             self.pc = pc_class(M2)
 
-        self.inv_lop = inverse(self.l_op,
-                               'pcg',
-                               pc=self.pc,
-                               tol=self._lin_solver['tol'],
-                               maxiter=self._lin_solver['maxiter'],
-                               verbose=False,
-                               recycle=True)
+        self.inv_lop = inverse(
+            self.l_op,
+            'pcg',
+            pc=self.pc,
+            tol=self._lin_solver['tol'],
+            maxiter=self._lin_solver['maxiter'],
+            verbose=False,
+            recycle=True,
+        )
 
         self.evol_op = self.inv_lop@self.r_op
         # self.evol_op = IdentityOperator(self.derham.Vh_pol['v'])
-        integration_grid = [grid_1d.flatten()
-                            for grid_1d in self.derham.quad_grid_pts['3']]
+        integration_grid = [
+            grid_1d.flatten()
+            for grid_1d in self.derham.quad_grid_pts['3']
+        ]
         self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = self.derham.prepare_eval_tp_fixed(
-            integration_grid)
+            integration_grid,
+        )
 
-        self.integration_grid_curl = [[self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
-                                      [self.integration_grid_bn[0], self.integration_grid_bd[1],
-                                       self.integration_grid_bn[2]],
-                                      [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]]]
+        self.integration_grid_curl = [
+            [self.integration_grid_bd[0], self.integration_grid_bn[1], self.integration_grid_bn[2]],
+            [
+                self.integration_grid_bn[0], self.integration_grid_bd[1],
+                self.integration_grid_bn[2],
+            ],
+            [self.integration_grid_bn[0], self.integration_grid_bn[1], self.integration_grid_bd[2]],
+        ]
 
-        grid_shape = tuple([len(loc_grid)
-                            for loc_grid in integration_grid])
+        grid_shape = tuple([
+            len(loc_grid)
+            for loc_grid in integration_grid
+        ])
 
-        self._cb12_values = [np.zeros(grid_shape, dtype=float)
-                             for i in range(3)]
+        self._cb12_values = [
+            np.zeros(grid_shape, dtype=float)
+            for i in range(3)
+        ]
         self._cb1_values = [np.zeros(grid_shape, dtype=float)for i in range(3)]
 
         self._cb_sq_values = np.zeros(grid_shape, dtype=float)
@@ -5694,20 +6350,28 @@ class VariationalResistivity(Propagator):
 
         gam = self._gamma
 
-        metric = np.power(self.domain.jacobian_det(
-            *integration_grid), -gam)
+        metric = np.power(
+            self.domain.jacobian_det(
+                *integration_grid,
+            ), -gam,
+        )
         self._mass_metric_term = deepcopy(metric)
 
-        metric = np.power(self.domain.jacobian_det(
-            *integration_grid), 1-gam)
+        metric = np.power(
+            self.domain.jacobian_det(
+                *integration_grid,
+            ), 1-gam,
+        )
         self._energy_metric = deepcopy(metric)
 
         metric = self.domain.metric_inv(
-            *integration_grid)*self.domain.jacobian_det(*integration_grid)
+            *integration_grid,
+        )*self.domain.jacobian_det(*integration_grid)
         self._sq_term_metric = deepcopy(metric)
 
         metric = self.domain.metric_inv(
-            *integration_grid)
+            *integration_grid,
+        )
         self._sq_term_metric_no_jac = deepcopy(metric)
 
         self._get_L2dofs_V3 = L2Projector('L2', self.mass_ops).get_dofs
@@ -5773,11 +6437,13 @@ class TimeDependentSource(Propagator):
             dct = descend_options_dict(dct, [])
         return dct
 
-    def __init__(self,
-                 c: StencilVector,
-                 *,
-                 omega: float = options()['omega'],
-                 hfun: str = options(default=True)['hfun']):
+    def __init__(
+        self,
+        c: StencilVector,
+        *,
+        omega: float = options()['omega'],
+        hfun: str = options(default=True)['hfun'],
+    ):
 
         super().__init__(c)
 
@@ -5855,26 +6521,30 @@ class AdiabaticPhi(Propagator):
         Parameters for the iterative solver (see ``__init__`` for details).
     """
 
-    def __init__(self,
-                 phi: StencilVector,
-                 *,
-                 A_mat: WeightedMassOperator = 'M0',
-                 rho: StencilVector | tuple = None,
-                 sigma_1: float = 1.,
-                 x0: StencilVector = None,
-                 **params):
+    def __init__(
+        self,
+        phi: StencilVector,
+        *,
+        A_mat: WeightedMassOperator = 'M0',
+        rho: StencilVector | tuple = None,
+        sigma_1: float = 1.,
+        x0: StencilVector = None,
+        **params,
+    ):
 
         assert phi.space == self.derham.Vh['0']
 
         super().__init__(phi)
 
         # solver parameters
-        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1e-8,
-                          'maxiter': 3000,
-                          'info': False,
-                          'verbose': False,
-                          'recycle': False}
+        params_default = {
+            'type': ('pcg', 'MassMatrixPreconditioner'),
+            'tol': 1e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': False,
+        }
 
         params = set_defaults(params, params_default)
 
@@ -5906,14 +6576,16 @@ class AdiabaticPhi(Propagator):
             pc = pc_class(A_mat)
 
         # solver just with A_2, but will be set during call with dt
-        self._solver = inverse(self._A,
-                               params['type'][0],
-                               pc=pc,
-                               x0=self.x0,
-                               tol=params['tol'],
-                               maxiter=params['maxiter'],
-                               verbose=params['verbose'],
-                               recycle=params['recycle'])
+        self._solver = inverse(
+            self._A,
+            params['type'][0],
+            pc=pc,
+            x0=self.x0,
+            tol=params['tol'],
+            maxiter=params['maxiter'],
+            verbose=params['verbose'],
+            recycle=params['recycle'],
+        )
 
         # allocate memory for solution
         self._tmp = phi.space.zeros()
@@ -5983,11 +6655,15 @@ class AdiabaticPhi(Propagator):
     @classmethod
     def options(cls):
         dct = {}
-        dct['solver'] = {'type': [('pcg', 'MassMatrixPreconditioner'),
-                                  ('cg', None)],
-                         'tol': 1.e-8,
-                         'maxiter': 3000,
-                         'info': False,
-                         'verbose': False,
-                         'recycle': True}
+        dct['solver'] = {
+            'type': [
+                ('pcg', 'MassMatrixPreconditioner'),
+                ('cg', None),
+            ],
+            'tol': 1.e-8,
+            'maxiter': 3000,
+            'info': False,
+            'verbose': False,
+            'recycle': True,
+        }
         return dct

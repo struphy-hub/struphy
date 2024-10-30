@@ -145,8 +145,10 @@ def kernel_2d_mat(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, pj1: i
 
                                     value += wvol * bi * bj
 
-                            data[pads1 + i_local1, pads2 + i_local2,
-                                 pads1 + jl1 - il1, pads2 + jl2 - il2] += value
+                            data[
+                                pads1 + i_local1, pads2 + i_local2,
+                                pads1 + jl1 - il1, pads2 + jl2 - il2,
+                            ] += value
 
 
 def kernel_2d_vec(spans1: 'int[:]', spans2: 'int[:]', pi1: int, pi2: int, starts1: int, starts2: int, pads1: int, pads2: int, w1: 'float[:,:]', w2: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', mat_fun: 'float[:,:]', data: 'float[:,:]'):
@@ -264,9 +266,11 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
         for iel2 in range(ne2):
             for iel3 in range(ne3):
 
-                tmp_mat_fun[:, :, :] = mat_fun[iel1 * nq1: (iel1+1) * nq1,
-                                               iel2 * nq2: (iel2+1) * nq2,
-                                               iel3 * nq3: (iel3+1) * nq3]
+                tmp_mat_fun[:, :, :] = mat_fun[
+                    iel1 * nq1: (iel1+1) * nq1,
+                    iel2 * nq2: (iel2+1) * nq2,
+                    iel3 * nq3: (iel3+1) * nq3,
+                ]
 
                 tmp_w1[:] = w1[iel1, :]
                 tmp_w2[:] = w2[iel2, :]
@@ -316,8 +320,10 @@ def kernel_3d_mat(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
 
                                                     value += wvol * bi * bj
 
-                                        data[pads1 + i_local1, pads2 + i_local2, pads3 + i_local3,
-                                             pads1 + jl1 - il1, pads2 + jl2 - il2, pads3 + jl3 - il3] += value
+                                        data[
+                                            pads1 + i_local1, pads2 + i_local2, pads3 + i_local3,
+                                            pads1 + jl1 - il1, pads2 + jl2 - il2, pads3 + jl3 - il3,
+                                        ] += value
 
 
 def kernel_3d_vec(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:]'):
@@ -360,17 +366,21 @@ def kernel_3d_vec(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int
                                     for q3 in range(nq3):
 
                                         wvol = w1[iel1, q1] * w2[iel2, q2] * w3[iel3, q3] * \
-                                            mat_fun[iel1 * nq1 + q1,
-                                                    iel2 * nq2 + q2,
-                                                    iel3 * nq3 + q3]
+                                            mat_fun[
+                                                iel1 * nq1 + q1,
+                                                iel2 * nq2 + q2,
+                                                iel3 * nq3 + q3,
+                                        ]
 
                                         value += wvol * \
                                             bi1[iel1, il1, 0, q1] \
                                             * bi2[iel2, il2, 0, q2] \
                                             * bi3[iel3, il3, 0, q3]
 
-                            data[pads1 + i_local1, pads2 +
-                                 i_local2, pads3 + i_local3] += value
+                            data[
+                                pads1 + i_local1, pads2 +
+                                i_local2, pads3 + i_local3,
+                            ] += value
 
 
 def kernel_3d_eval(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', coeffs_data: 'float[:,:,:]', values: 'float[:,:,:]'):
@@ -452,9 +462,11 @@ def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
         for iel2 in range(ne2):
             for iel3 in range(ne3):
 
-                tmp_mat_fun[:, :, :] = mat_fun[iel1 * nq1: (iel1+1) * nq1,
-                                               iel2 * nq2: (iel2+1) * nq2,
-                                               iel3 * nq3: (iel3+1) * nq3]
+                tmp_mat_fun[:, :, :] = mat_fun[
+                    iel1 * nq1: (iel1+1) * nq1,
+                    iel2 * nq2: (iel2+1) * nq2,
+                    iel3 * nq3: (iel3+1) * nq3,
+                ]
 
                 tmp_w1[:] = w1[iel1, :]
                 tmp_w2[:] = w2[iel2, :]
@@ -463,14 +475,14 @@ def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
                 for q1 in range(nq1):
                     for q2 in range(nq2):
                         for q3 in range(nq3):
-                            
-                            tmp_bi1[:]=bi1[iel1, :, 0, q1]
-                            tmp_bi2[:]=bi2[iel2, :, 0, q2]
-                            tmp_bi3[:]=bi3[iel3, :, 0, q3]
 
-                            tmp_bj1[:]=bj1[iel1, :, 0, q1]
-                            tmp_bj2[:]=bj2[iel2, :, 0, q2]
-                            tmp_bj3[:]=bj3[iel3, :, 0, q3]
+                            tmp_bi1[:] = bi1[iel1, :, 0, q1]
+                            tmp_bi2[:] = bi2[iel2, :, 0, q2]
+                            tmp_bi3[:] = bi3[iel3, :, 0, q3]
+
+                            tmp_bj1[:] = bj1[iel1, :, 0, q1]
+                            tmp_bj2[:] = bj2[iel2, :, 0, q2]
+                            tmp_bj3[:] = bj3[iel3, :, 0, q3]
 
                             bj = 0.
                             for jl1 in range(pj1 + 1):
@@ -490,8 +502,10 @@ def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
                                         bj += tmp_bj1[jl1] * \
                                             tmp_bj2[jl2] * \
                                             tmp_bj3[jl3] * \
-                                                data_in[j_local1,
-                                                j_local2, j_local3]
+                                            data_in[
+                                            j_local1,
+                                            j_local2, j_local3,
+                                        ]
 
                             for il1 in range(pi1 + 1):
                                 for il2 in range(pi2 + 1):
@@ -507,7 +521,6 @@ def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
                                         i_local2 = i_global2 - startsi2 + padsi2
                                         i_local3 = i_global3 - startsi3 + padsi3
 
-
                                         wvol = tmp_w1[q1] * tmp_w2[q2] * tmp_w3[q3] * \
                                             tmp_mat_fun[q1, q2, q3]
 
@@ -517,9 +530,11 @@ def kernel_3d_matrixfree(spansi1: 'int[:]', spansi2: 'int[:]', spansi3: 'int[:]'
 
                                         value = wvol * bi * bj
 
-                                        data_out[i_local1, i_local2,
-                                                 i_local3] += value
-                                        
+                                        data_out[
+                                            i_local1, i_local2,
+                                            i_local3,
+                                        ] += value
+
 
 def kernel_3d_diag(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: int, pi2: int, pi3: int, starts1: int, starts2: int, starts3: int, pads1: int, pads2: int, pads3: int, w1: 'float[:,:]', w2: 'float[:,:]', w3: 'float[:,:]', bi1: 'float[:,:,:,:]', bi2: 'float[:,:,:,:]', bi3: 'float[:,:,:,:]', mat_fun: 'float[:,:,:]', data: 'float[:,:,:]'):
     """
@@ -554,9 +569,11 @@ def kernel_3d_diag(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: in
         for iel2 in range(ne2):
             for iel3 in range(ne3):
 
-                tmp_mat_fun[:, :, :] = mat_fun[iel1 * nq1: (iel1+1) * nq1,
-                                               iel2 * nq2: (iel2+1) * nq2,
-                                               iel3 * nq3: (iel3+1) * nq3]
+                tmp_mat_fun[:, :, :] = mat_fun[
+                    iel1 * nq1: (iel1+1) * nq1,
+                    iel2 * nq2: (iel2+1) * nq2,
+                    iel3 * nq3: (iel3+1) * nq3,
+                ]
 
                 tmp_w1[:] = w1[iel1, :]
                 tmp_w2[:] = w2[iel2, :]
@@ -579,15 +596,15 @@ def kernel_3d_diag(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: in
                             i_local1 = i_global1 - starts1
                             i_local2 = i_global2 - starts2
                             i_local3 = i_global3 - starts3
-                            
+
                             # Periodic case : last basis function are the first ones (no ghost regions on DiagonalStencilMatrix)
-                            if i_local1>=nb1:
+                            if i_local1 >= nb1:
                                 i_local1 -= nb1
-                                
-                            if i_local2>=nb2:
+
+                            if i_local2 >= nb2:
                                 i_local2 -= nb2
 
-                            if i_local3>=nb3:
+                            if i_local3 >= nb3:
                                 i_local3 -= nb3
 
                             value = 0.
@@ -602,11 +619,8 @@ def kernel_3d_diag(spans1: 'int[:]', spans2: 'int[:]', spans3: 'int[:]', pi1: in
                                         bi = tmp_bi1[q1] * \
                                             tmp_bi2[q2] * \
                                             tmp_bi3[q3]
-                                        
-                                        
+
                                         value += wvol * bi * bi
 
                             # No padding on StencilDiagonalMatrix
                             data[i_local1, i_local2, i_local3] += value
-
-

@@ -2,8 +2,9 @@
 
 
 from abc import ABCMeta, abstractmethod
-from matplotlib import pyplot as plt
+
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 class DispersionRelations1D(metaclass=ABCMeta):
@@ -16,7 +17,7 @@ class DispersionRelations1D(metaclass=ABCMeta):
     ----------
     branch_names : str
         Branche names (str) of the spectrum.
-        
+
     velocity_scale : str
         Determines the unit of :math:`\omega`.
         Must be one of ``alfvén``, ``cyclotron`` or ``light``.
@@ -30,12 +31,12 @@ class DispersionRelations1D(metaclass=ABCMeta):
     def __init__(self, *branch_names, velocity_scale='alfvén', **params):
 
         self._branches = {}
-        for name in branch_names:   
+        for name in branch_names:
             self._branches[name] = None
-            
+
         self._velocity_scale = velocity_scale
         self._params = params
-        
+
         # critical k-values
         self._k_crit = {}
 
@@ -50,14 +51,14 @@ class DispersionRelations1D(metaclass=ABCMeta):
         """ Dictionary of parameters necessary to compute the dispersion relation.
         """
         return self._params
-    
+
     @property
     def velocity_scale(self):
         """ Determines the unit of :math:`\omega`.
         Must be one of ``alfvén``, ``cyclotron`` or ``light``.
         """
         return self._velocity_scale
-    
+
     @property
     def k_crit(self):
         """ Dictionary of critical k-values (plotted as vertical lines with self.plot()).
@@ -81,9 +82,9 @@ class DispersionRelations1D(metaclass=ABCMeta):
         """
 
     def plot(self, k):
-        
+
         self(k)
-        
+
         if self.velocity_scale == 'alfvén':
             unit_om = '$v_A / \hat x$'
         elif self.velocity_scale == 'light':
@@ -92,22 +93,22 @@ class DispersionRelations1D(metaclass=ABCMeta):
             unit_om = '$\Omega_c$'
         elif self.velocity_scale == 'thermal':
             unit_om = '$v_{th} / \hat x$'
-            
+
         plt.figure(figsize=(5, 8))
         plt.subplot(2, 1, 1)
-        #plt.title('Real part')
+        # plt.title('Real part')
         plt.xlabel('k [$1 / \hat x$]')
         plt.ylabel(f'Re($\omega$) [{unit_om}]')
         plt.subplot(2, 1, 2)
-        #plt.title('Imaginary part')
+        # plt.title('Imaginary part')
         plt.xlabel('k [$1 / \hat x$]')
         plt.ylabel(f'Im($\omega$) [{unit_om}]')
         for name, omega in self.branches.items():
             plt.subplot(2, 1, 1)
             plt.plot(k, np.real(omega), label=name)
             plt.subplot(2, 1, 2)
-            plt.plot(k, np.imag(omega), label=name)    
-            
+            plt.plot(k, np.imag(omega), label=name)
+
         plt.subplot(2, 1, 1)
         for lab, kc in self.k_crit.items():
             if kc > np.min(k) and kc < np.max(k):
@@ -117,7 +118,7 @@ class DispersionRelations1D(metaclass=ABCMeta):
         for lab, kc in self.k_crit.items():
             if kc > np.min(k) and kc < np.max(k):
                 plt.axvline(kc, color='k', linestyle='--', linewidth=.5, label=lab)
-        
+
 
 class ContinuousSpectra1D(metaclass=ABCMeta):
     """

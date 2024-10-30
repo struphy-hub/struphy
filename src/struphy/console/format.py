@@ -662,7 +662,7 @@ def analyze_file(file_path, linters=None, verbose=False):
     Parameters
     ----------
     file_path : str
-        Path to the Python file.
+        Path to the Python file.q
 
     linters : list
         Linters to apply for analysis (default=["isort", "autopep8"]).

@@ -1,9 +1,8 @@
 import os
 
 import vtkmodules.all as vtk
-from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
-from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
-from vtkmodules.vtkIOXML import vtkXMLUnstructuredGridWriter, vtkXMLRectilinearGridWriter
+from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk, vtk_to_numpy as vtk2np
+from vtkmodules.vtkIOXML import vtkXMLRectilinearGridWriter, vtkXMLUnstructuredGridWriter
 
 """
 Some useful resources:  
@@ -24,10 +23,11 @@ Outdated resources:
 - https://shocksolution.com/microfluidics-and-biotechnology/visualization/python-vtk-paraview/  
 """
 
+
 class vtkWriter():
     """Usage `from struphy.io.out.paraview.vtk_writer import vtkWriter`"""
 
-    def __init__(self, format: str='vtu'):
+    def __init__(self, format: str = 'vtu'):
         """Initialize vtkWriter object.
 
         Parameters
@@ -80,7 +80,7 @@ class vtkWriter():
         writer.SetInputDataObject(ugrid)
 
         filepath = os.path.join(directory, filename + '.' + writer.GetDefaultFileExtension())
-        os.makedirs(directory, exist_ok=True) # Make sure directory exists.
+        os.makedirs(directory, exist_ok=True)  # Make sure directory exists.
         writer.SetFileName(filepath)
         success = writer.Write()
 

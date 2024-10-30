@@ -10,6 +10,7 @@ def run(n_procs):
 
     import os
     import subprocess
+
     import struphy
 
     libpath = struphy.__path__[0]
@@ -18,22 +19,31 @@ def run(n_procs):
     out_name = 'sim_example_linearextendedmhd'
 
     # run the model (could also call main() directly, but to enable parallel runs, use Struphy's command line interface)
-    subprocess.run(['struphy',
-                    'run',
-                    'LinearExtendedMHD',
-                    '-i',
-                    os.path.join(
-                        libpath, 'io/inp/longer_examples/params_linearextendedmhd.yml'),
-                    '-o',
-                    out_name,
-                    '--mpi',
-                    str(n_procs)], check=True)
+    subprocess.run(
+        [
+            'struphy',
+            'run',
+            'LinearExtendedMHD',
+            '-i',
+            os.path.join(
+                libpath, 'io/inp/longer_examples/params_linearextendedmhd.yml',
+            ),
+            '-o',
+            out_name,
+            '--mpi',
+            str(n_procs),
+        ], check=True,
+    )
 
     # perform post-processing
-    subprocess.run(['struphy',
-                    'pproc',
-                    '-d',
-                    out_name], check=True)
+    subprocess.run(
+        [
+            'struphy',
+            'pproc',
+            '-d',
+            out_name,
+        ], check=True,
+    )
 
 
 def diagnostics():
@@ -42,12 +52,13 @@ def diagnostics():
     """
 
     import os
-    import yaml
-    import h5py
     import pickle
 
-    from struphy.diagnostics.diagn_tools import power_spectrum_2d
+    import h5py
+    import yaml
+
     import struphy.utils.utils as utils
+    from struphy.diagnostics.diagn_tools import power_spectrum_2d
 
     # Read struphy state file
     state = utils.read_state()
@@ -73,20 +84,24 @@ def diagnostics():
     A = params['fluid']['mhd']['phys_params']['A']
     Z = params['fluid']['mhd']['phys_params']['Z']
     tu = (xu/Bu) * (MU*mH*A*nu)**(0.5) * (10.0**10.0)
-    p0 = (2*params['mhd_equilibrium']['HomogenSlab']
-          ['beta'])/(B0x**2 + B0y**2 + B0z**2)
+    p0 = (
+        2*params['mhd_equilibrium']['HomogenSlab']
+        ['beta']
+    )/(B0x**2 + B0y**2 + B0z**2)
     n0 = params['mhd_equilibrium']['HomogenSlab']['n0']
 
-    disp_params = {'B0x': B0x,
-                   'B0y': B0y,
-                   'B0z': B0z,
-                   'p0': p0,
-                   'n0': n0,
-                   'gamma': 5/3,
-                   'Bu': Bu,
-                   'tu': tu,
-                   'A': A,
-                   'Z': Z}
+    disp_params = {
+        'B0x': B0x,
+        'B0y': B0y,
+        'B0z': B0z,
+        'p0': p0,
+        'n0': n0,
+        'gamma': 5/3,
+        'Bu': Bu,
+        'tu': tu,
+        'A': A,
+        'Z': Z,
+    }
 
     # code name
     with open(os.path.join(out_path, 'parameters.yml')) as f:
@@ -111,48 +126,54 @@ def diagnostics():
         point_data_log = pickle.load(handle)
 
     # fft in (t, z) of first component of u_field on physical grid
-    power_spectrum_2d(point_data_log,
-                      names[3],
-                      code,
-                      grids_log,
-                      grids_mapped=grids_phy,
-                      component=0,
-                      slice_at=[0, 0, None],
-                      do_plot=True,
-                      disp_name='ExtendedMHDhomogenSlab',
-                      disp_params=disp_params)
+    power_spectrum_2d(
+        point_data_log,
+        names[3],
+        code,
+        grids_log,
+        grids_mapped=grids_phy,
+        component=0,
+        slice_at=[0, 0, None],
+        do_plot=True,
+        disp_name='ExtendedMHDhomogenSlab',
+        disp_params=disp_params,
+    )
 
     # load data dicts for u_field
     with open(os.path.join(out_path, 'post_processing/fields_data/mhd/pe3_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
 
     # fft in (t, z) of pressure on physical grid
-    power_spectrum_2d(point_data_log,
-                      names[2],
-                      code,
-                      grids_log,
-                      grids_mapped=grids_phy,
-                      component=0,
-                      slice_at=[0, 0, None],
-                      do_plot=True,
-                      disp_name='ExtendedMHDhomogenSlab',
-                      disp_params=disp_params)
+    power_spectrum_2d(
+        point_data_log,
+        names[2],
+        code,
+        grids_log,
+        grids_mapped=grids_phy,
+        component=0,
+        slice_at=[0, 0, None],
+        do_plot=True,
+        disp_name='ExtendedMHDhomogenSlab',
+        disp_params=disp_params,
+    )
 
     # load data dicts for u_field
     with open(os.path.join(out_path, 'post_processing/fields_data/mhd/n3_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
 
     # fft in (t, z) of pressure on physical grid
-    power_spectrum_2d(point_data_log,
-                      names[1],
-                      code,
-                      grids_log,
-                      grids_mapped=grids_phy,
-                      component=0,
-                      slice_at=[0, 0, None],
-                      do_plot=True,
-                      disp_name='ExtendedMHDhomogenSlab',
-                      disp_params=disp_params)
+    power_spectrum_2d(
+        point_data_log,
+        names[1],
+        code,
+        grids_log,
+        grids_mapped=grids_phy,
+        component=0,
+        slice_at=[0, 0, None],
+        do_plot=True,
+        disp_name='ExtendedMHDhomogenSlab',
+        disp_params=disp_params,
+    )
 
     # load data dicts for u_field
     with open(os.path.join(out_path, 'post_processing/fields_data/em_fields/b1_log.bin'), 'rb') as handle:
@@ -160,32 +181,36 @@ def diagnostics():
     print(point_data_log)
 
     # fft in (t, z) of pressure on physical grid
-    power_spectrum_2d(point_data_log,
-                      names[0],
-                      code,
-                      grids_log,
-                      grids_mapped=grids_phy,
-                      component=0,
-                      slice_at=[0, 0, None],
-                      do_plot=True,
-                      disp_name='ExtendedMHDhomogenSlab',
-                      disp_params=disp_params)
+    power_spectrum_2d(
+        point_data_log,
+        names[0],
+        code,
+        grids_log,
+        grids_mapped=grids_phy,
+        component=0,
+        slice_at=[0, 0, None],
+        do_plot=True,
+        disp_name='ExtendedMHDhomogenSlab',
+        disp_params=disp_params,
+    )
 
     # load data dicts for u_field
     with open(os.path.join(out_path, 'post_processing/fields_data/mhd/u2_log.bin'), 'rb') as handle:
         point_data_log = pickle.load(handle)
 
     # fft in (t, z) of pressure on physical grid
-    power_spectrum_2d(point_data_log,
-                      names[4],
-                      code,
-                      grids_log,
-                      grids_mapped=grids_phy,
-                      component=0,
-                      slice_at=[0, 0, None],
-                      do_plot=True,
-                      disp_name='ExtendedMHDhomogenSlab',
-                      disp_params=disp_params)
+    power_spectrum_2d(
+        point_data_log,
+        names[4],
+        code,
+        grids_log,
+        grids_mapped=grids_phy,
+        component=0,
+        slice_at=[0, 0, None],
+        do_plot=True,
+        disp_name='ExtendedMHDhomogenSlab',
+        disp_params=disp_params,
+    )
 
 
 if __name__ == '__main__':
@@ -194,17 +219,22 @@ if __name__ == '__main__':
 
     # get number of MPI processes
     parser = argparse.ArgumentParser(
-        description='Run an example for the model "LinearExtendedMHD".')
+        description='Run an example for the model "LinearExtendedMHD".',
+    )
 
-    parser.add_argument('--mpi',
-                        type=int,
-                        metavar='N',
-                        help='number of MPI processes used to run the model (default=1)',
-                        default=1)
+    parser.add_argument(
+        '--mpi',
+        type=int,
+        metavar='N',
+        help='number of MPI processes used to run the model (default=1)',
+        default=1,
+    )
 
-    parser.add_argument('-d', '--diagnostics',
-                        help='run diagnostics only, if output folder of example already exists',
-                        action='store_true')
+    parser.add_argument(
+        '-d', '--diagnostics',
+        help='run diagnostics only, if output folder of example already exists',
+        action='store_true',
+    )
 
     args = parser.parse_args()
 

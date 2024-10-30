@@ -18,12 +18,10 @@ Possible combinations for tensor product (BBB):
 * (N dN/deta N)
 * (N N dN/deta)
 """
+from numpy import empty, zeros
 from pyccel.decorators import stack_array
 
-from numpy import empty, zeros
-
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
-
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
@@ -156,7 +154,8 @@ def evaluate_3d(kind1: int, kind2: int, kind3: int, t1: 'float[:]', t2: 'float[:
     tmp2[:] = ind2[span2 - p2, :]
     tmp3[:] = ind3[span3 - p3, :]
     spline_value = evaluation_kernel_3d(
-        p1, p2, p3, b1, b2, b3, tmp1, tmp2, tmp3, coeff)
+        p1, p2, p3, b1, b2, b3, tmp1, tmp2, tmp3, coeff,
+    )
 
     return spline_value
 
@@ -206,40 +205,51 @@ def evaluate_tensor_product(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: 
 
                 if kind == 0:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        1, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 11:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        2, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 12:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        1, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 13:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        1, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 21:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        1, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 22:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        2, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 23:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        2, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 3:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        2, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 41:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        3, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        3, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 42:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 3, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        1, 3, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
                 elif kind == 43:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
+                        1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3],
+                    )
 
 
-def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int,  p2: int, p3: int, ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', coeff: 'float[:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', spline_values: 'float[:,:,:]', kind: int):
+def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2: int, p3: int, ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', coeff: 'float[:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', spline_values: 'float[:,:,:]', kind: int):
     """
     General evaluation of a tensor-product spline (serial, needs global arrays). 
 
@@ -290,37 +300,81 @@ def evaluate_matrix(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int,  p2
 
                 if kind == 0:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        1, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 11:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        2, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 12:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        1, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 13:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        1, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 21:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        1, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 22:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        2, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 23:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        2, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 3:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        2, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 41:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        3, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        3, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 42:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 3, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        1, 3, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
                 elif kind == 43:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+                        1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            i2, i3,
+                        ], eta2[i1, i2, i3], eta3[i1, i2, i3],
+                    )
 
 
 def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2: int, p3: int, ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', coeff: 'float[:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', spline_values: 'float[:,:,:]', kind: int):
@@ -374,54 +428,100 @@ def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2:
 
                 if kind == 0:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        1, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 11:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        2, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 12:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        1, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 13:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        1, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 21:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        1, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 22:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        2, 1, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 23:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        2, 2, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 3:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        2, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        2, 2, 2, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 41:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        3, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        3, 1, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 42:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 3, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        1, 3, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
                 elif kind == 43:
                     spline_values[i1, i2, i3] = evaluate_3d(
-                        1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                        1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[
+                            i1,
+                            0, 0,
+                        ], eta2[0, i2, 0], eta3[0, 0, i3],
+                    )
 
 ##############################
 ### Distributed evaluation ###
 ##############################
 
 
-def eval_spline_mpi_kernel(p1: 'int',
-                           p2: 'int',
-                           p3: 'int',
-                           basis1: 'float[:]',
-                           basis2: 'float[:]',
-                           basis3: 'float[:]',
-                           span1: 'int',
-                           span2: 'int',
-                           span3: 'int',
-                           _data: 'float[:,:,:]',
-                           starts: 'int[:]') -> float:
+def eval_spline_mpi_kernel(
+    p1: 'int',
+    p2: 'int',
+    p3: 'int',
+    basis1: 'float[:]',
+    basis2: 'float[:]',
+    basis3: 'float[:]',
+    span1: 'int',
+    span2: 'int',
+    span3: 'int',
+    _data: 'float[:,:,:]',
+    starts: 'int[:]',
+) -> float:
     """
     Summing non-zero contributions of a spline function with distributed memory (domain decomposition).
 
@@ -529,10 +629,12 @@ def eval_spline_derivative_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: '
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
-                    _data: 'float[:,:,:]', kind: 'int[:]',
-                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts: 'int[:]') -> float:
+def eval_spline_mpi(
+    eta1: float, eta2: float, eta3: float,
+    _data: 'float[:,:,:]', kind: 'int[:]',
+    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    starts: 'int[:]',
+) -> float:
     """
     Point-wise evaluation of a tensor-product spline, distributed. 
 
@@ -595,16 +697,20 @@ def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
     else:
         b3 = bd3
 
-    value = eval_spline_mpi_kernel(pn[0] - kind[0], pn[1] - kind[1],
-                                   pn[2] - kind[2], b1, b2, b3, span1, span2, span3, _data, starts)
+    value = eval_spline_mpi_kernel(
+        pn[0] - kind[0], pn[1] - kind[1],
+        pn[2] - kind[2], b1, b2, b3, span1, span2, span3, _data, starts,
+    )
 
     return value
 
 
-def eval_spline_mpi_tensor_product(eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]',
-                                   _data: 'float[:,:,:]', kind: 'int[:]',
-                                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                   starts: 'int[:]', values: 'float[:,:,:]'):
+def eval_spline_mpi_tensor_product(
+    eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]',
+    _data: 'float[:,:,:]', kind: 'int[:]',
+    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    starts: 'int[:]', values: 'float[:,:,:]',
+):
     """
     Tensor-product evaluation of a tensor-product spline, distributed. 
 
@@ -644,14 +750,17 @@ def eval_spline_mpi_tensor_product(eta1: 'float[:]', eta2: 'float[:]', eta3: 'fl
                     continue  # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(
-                    eta1[i], eta2[j], eta3[k], _data, kind, pn, tn1, tn2, tn3, starts)
+                    eta1[i], eta2[j], eta3[k], _data, kind, pn, tn1, tn2, tn3, starts,
+                )
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def eval_spline_mpi_tensor_product_fast(eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]',
-                                        _data: 'float[:,:,:]', kind: 'int[:]',
-                                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                        starts: 'int[:]', values: 'float[:,:,:]'):
+def eval_spline_mpi_tensor_product_fast(
+    eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]',
+    _data: 'float[:,:,:]', kind: 'int[:]',
+    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    starts: 'int[:]', values: 'float[:,:,:]',
+):
     """
     Tensor-product evaluation of a tensor-product spline, distributed, 
     and optimized by computing spans and spline values only once. 
@@ -706,7 +815,8 @@ def eval_spline_mpi_tensor_product_fast(eta1: 'float[:]', eta2: 'float[:]', eta3
 
             span2 = bsplines_kernels.find_span(tn2, pn[1], eta2[j])
             bsplines_kernels.b_d_splines_slim(
-                tn2, pn[1], eta2[j], span2, bn2, bd2)
+                tn2, pn[1], eta2[j], span2, bn2, bd2,
+            )
             if kind[1] == 0:
                 b2 = bn2
             else:
@@ -718,26 +828,31 @@ def eval_spline_mpi_tensor_product_fast(eta1: 'float[:]', eta2: 'float[:]', eta3
 
                 span3 = bsplines_kernels.find_span(tn3, pn[2], eta3[k])
                 bsplines_kernels.b_d_splines_slim(
-                    tn3, pn[2], eta3[k], span3, bn3, bd3)
+                    tn3, pn[2], eta3[k], span3, bn3, bd3,
+                )
                 if kind[2] == 0:
                     b3 = bn3
                 else:
                     b3 = bd3
 
-                values[i, j, k] = eval_spline_mpi_kernel(pn[0] - kind[0],
-                                                         pn[1] - kind[1],
-                                                         pn[2] - kind[2],
-                                                         b1, b2, b3,
-                                                         span1, span2, span3,
-                                                         _data,
-                                                         starts)
+                values[i, j, k] = eval_spline_mpi_kernel(
+                    pn[0] - kind[0],
+                    pn[1] - kind[1],
+                    pn[2] - kind[2],
+                    b1, b2, b3,
+                    span1, span2, span3,
+                    _data,
+                    starts,
+                )
 
 
 @stack_array('b1', 'b2', 'b3')
-def eval_spline_mpi_tensor_product_fixed(span1s: 'int[:]', span2s: 'int[:]', span3s: 'int[:]',
-                                         b1s: 'float[:,:]', b2s: 'float[:,:]', b3s: 'float[:,:]',
-                                         _data: 'float[:,:,:]', kind: 'int[:]', pn: 'int[:]',
-                                         starts: 'int[:]', values: 'float[:,:,:]'):
+def eval_spline_mpi_tensor_product_fixed(
+    span1s: 'int[:]', span2s: 'int[:]', span3s: 'int[:]',
+    b1s: 'float[:,:]', b2s: 'float[:,:]', b3s: 'float[:,:]',
+    _data: 'float[:,:,:]', kind: 'int[:]', pn: 'int[:]',
+    starts: 'int[:]', values: 'float[:,:,:]',
+):
     """
     Tensor-product evaluation of a tensor-product spline, distributed, 
     and optimized for a fixed grid (spans and spline values have been pre-evaluated). 
@@ -785,19 +900,23 @@ def eval_spline_mpi_tensor_product_fixed(span1s: 'int[:]', span2s: 'int[:]', spa
                 span3 = span3s[k]
                 b3[:] = b3s[k, :]
 
-                values[i, j, k] = eval_spline_mpi_kernel(pn[0] - kind[0],
-                                                         pn[1] - kind[1],
-                                                         pn[2] - kind[2],
-                                                         b1, b2, b3,
-                                                         span1, span2, span3,
-                                                         _data,
-                                                         starts)
+                values[i, j, k] = eval_spline_mpi_kernel(
+                    pn[0] - kind[0],
+                    pn[1] - kind[1],
+                    pn[2] - kind[2],
+                    b1, b2, b3,
+                    span1, span2, span3,
+                    _data,
+                    starts,
+                )
 
 
-def eval_spline_mpi_matrix(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]',
-                           _data: 'float[:,:,:]', kind: 'int[:]',
-                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                           starts: 'int[:]', values: 'float[:,:,:]'):
+def eval_spline_mpi_matrix(
+    eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]',
+    _data: 'float[:,:,:]', kind: 'int[:]',
+    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    starts: 'int[:]', values: 'float[:,:,:]',
+):
     """
     3d array evaluation of a tensor-product spline, distributed. 
 
@@ -841,13 +960,16 @@ def eval_spline_mpi_matrix(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'fl
                     continue  # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(
-                    eta1[i, j, k], eta2[i, j, k], eta3[i, j, k], _data, kind, pn, tn1, tn2, tn3, starts)
+                    eta1[i, j, k], eta2[i, j, k], eta3[i, j, k], _data, kind, pn, tn1, tn2, tn3, starts,
+                )
 
 
-def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]',
-                                    _data: 'float[:,:,:]', kind: 'int[:]',
-                                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                                    starts: 'int[:]', values: 'float[:,:,:]'):
+def eval_spline_mpi_sparse_meshgrid(
+    eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]',
+    _data: 'float[:,:,:]', kind: 'int[:]',
+    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    starts: 'int[:]', values: 'float[:,:,:]',
+):
     """
     Sparse meshgrid evaluation of a tensor-product spline, distributed. 
 
@@ -893,203 +1015,244 @@ def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', 
                     continue  # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(
-                    eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k], _data, kind, pn, tn1, tn2, tn3, starts)
+                    eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k], _data, kind, pn, tn1, tn2, tn3, starts,
+                )
 
 
 ###########################################
 ### Distributed Derham field evaluation ###
 ###########################################
 
-def get_spans(eta1: float,
-              eta2: float,
-              eta3: float,
-              args_derham: 'DerhamArguments'):
+def get_spans(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    args_derham: 'DerhamArguments',
+):
     '''Compute the knot span index, 
     the N-spline values (in bn) and the D-spline values (in bd) 
     at (eta1, eta2, eta3).'''
 
     # find spans
     span1 = bsplines_kernels.find_span(
-        args_derham.tn1, args_derham.pn[0], eta1)
+        args_derham.tn1, args_derham.pn[0], eta1,
+    )
     span2 = bsplines_kernels.find_span(
-        args_derham.tn2, args_derham.pn[1], eta2)
+        args_derham.tn2, args_derham.pn[1], eta2,
+    )
     span3 = bsplines_kernels.find_span(
-        args_derham.tn3, args_derham.pn[2], eta3)
+        args_derham.tn3, args_derham.pn[2], eta3,
+    )
 
     # get spline values at eta
     bsplines_kernels.b_d_splines_slim(
-        args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1)
+        args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1,
+    )
     bsplines_kernels.b_d_splines_slim(
-        args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2)
+        args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2,
+    )
     bsplines_kernels.b_d_splines_slim(
-        args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3)
+        args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3,
+    )
 
     return span1, span2, span3
 
 
-def eval_0form_spline_mpi(span1: int,
-                          span2: int,
-                          span3: int,
-                          args_derham: 'DerhamArguments',
-                          form_coeffs: 'float[:,:,:]') -> float:
+def eval_0form_spline_mpi(
+    span1: int,
+    span2: int,
+    span3: int,
+    args_derham: 'DerhamArguments',
+    form_coeffs: 'float[:,:,:]',
+) -> float:
     '''Single-point evaluation of Derham 0-form spline defined by form_coeffs,
     given N-spline values (in bn) and knot span indices span.'''
 
-    out = eval_spline_mpi_kernel(args_derham.pn[0],
-                                 args_derham.pn[1],
-                                 args_derham.pn[2],
-                                 args_derham.bn1,
-                                 args_derham.bn2,
-                                 args_derham.bn3,
-                                 span1, span2, span3,
-                                 form_coeffs,
-                                 args_derham.starts)
+    out = eval_spline_mpi_kernel(
+        args_derham.pn[0],
+        args_derham.pn[1],
+        args_derham.pn[2],
+        args_derham.bn1,
+        args_derham.bn2,
+        args_derham.bn3,
+        span1, span2, span3,
+        form_coeffs,
+        args_derham.starts,
+    )
     return out
 
 
-def eval_1form_spline_mpi(span1: int,
-                          span2: int,
-                          span3: int,
-                          args_derham: 'DerhamArguments',
-                          form_coeffs_1: 'float[:,:,:]',
-                          form_coeffs_2: 'float[:,:,:]',
-                          form_coeffs_3: 'float[:,:,:]',
-                          out: 'float[:]'):
+def eval_1form_spline_mpi(
+    span1: int,
+    span2: int,
+    span3: int,
+    args_derham: 'DerhamArguments',
+    form_coeffs_1: 'float[:,:,:]',
+    form_coeffs_2: 'float[:,:,:]',
+    form_coeffs_3: 'float[:,:,:]',
+    out: 'float[:]',
+):
     '''Single-point evaluation of Derham 1-form spline defined by form_coeffs,
     given N-spline values (in bn), D-spline values (in bd)
     and knot span indices span.'''
 
-    out[0] = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
-                                    args_derham.pn[1],
-                                    args_derham.pn[2],
-                                    args_derham.bd1,
-                                    args_derham.bn2,
-                                    args_derham.bn3,
-                                    span1, span2, span3,
-                                    form_coeffs_1,
-                                    args_derham.starts)
+    out[0] = eval_spline_mpi_kernel(
+        args_derham.pn[0] - 1,
+        args_derham.pn[1],
+        args_derham.pn[2],
+        args_derham.bd1,
+        args_derham.bn2,
+        args_derham.bn3,
+        span1, span2, span3,
+        form_coeffs_1,
+        args_derham.starts,
+    )
 
-    out[1] = eval_spline_mpi_kernel(args_derham.pn[0],
-                                    args_derham.pn[1] - 1,
-                                    args_derham.pn[2],
-                                    args_derham.bn1,
-                                    args_derham.bd2,
-                                    args_derham.bn3,
-                                    span1, span2, span3,
-                                    form_coeffs_2,
-                                    args_derham.starts)
+    out[1] = eval_spline_mpi_kernel(
+        args_derham.pn[0],
+        args_derham.pn[1] - 1,
+        args_derham.pn[2],
+        args_derham.bn1,
+        args_derham.bd2,
+        args_derham.bn3,
+        span1, span2, span3,
+        form_coeffs_2,
+        args_derham.starts,
+    )
 
-    out[2] = eval_spline_mpi_kernel(args_derham.pn[0],
-                                    args_derham.pn[1],
-                                    args_derham.pn[2] - 1,
-                                    args_derham.bn1,
-                                    args_derham.bn2,
-                                    args_derham.bd3,
-                                    span1, span2, span3,
-                                    form_coeffs_3,
-                                    args_derham.starts)
+    out[2] = eval_spline_mpi_kernel(
+        args_derham.pn[0],
+        args_derham.pn[1],
+        args_derham.pn[2] - 1,
+        args_derham.bn1,
+        args_derham.bn2,
+        args_derham.bd3,
+        span1, span2, span3,
+        form_coeffs_3,
+        args_derham.starts,
+    )
 
 
-def eval_2form_spline_mpi(span1: int,
-                          span2: int,
-                          span3: int,
-                          args_derham: 'DerhamArguments',
-                          form_coeffs_1: 'float[:,:,:]',
-                          form_coeffs_2: 'float[:,:,:]',
-                          form_coeffs_3: 'float[:,:,:]',
-                          out: 'float[:]'):
+def eval_2form_spline_mpi(
+    span1: int,
+    span2: int,
+    span3: int,
+    args_derham: 'DerhamArguments',
+    form_coeffs_1: 'float[:,:,:]',
+    form_coeffs_2: 'float[:,:,:]',
+    form_coeffs_3: 'float[:,:,:]',
+    out: 'float[:]',
+):
     '''Single-point evaluation of Derham 2-form spline defined by form_coeffs,
     given N-spline values (in bn), D-spline values (in bd)
     and knot span indices span.'''
 
-    out[0] = eval_spline_mpi_kernel(args_derham.pn[0],
-                                    args_derham.pn[1] - 1,
-                                    args_derham.pn[2] - 1,
-                                    args_derham.bn1,
-                                    args_derham.bd2,
-                                    args_derham.bd3,
-                                    span1, span2, span3,
-                                    form_coeffs_1,
-                                    args_derham.starts)
+    out[0] = eval_spline_mpi_kernel(
+        args_derham.pn[0],
+        args_derham.pn[1] - 1,
+        args_derham.pn[2] - 1,
+        args_derham.bn1,
+        args_derham.bd2,
+        args_derham.bd3,
+        span1, span2, span3,
+        form_coeffs_1,
+        args_derham.starts,
+    )
 
-    out[1] = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
-                                    args_derham.pn[1],
-                                    args_derham.pn[2] - 1,
-                                    args_derham.bd1,
-                                    args_derham.bn2,
-                                    args_derham.bd3,
-                                    span1, span2, span3,
-                                    form_coeffs_2,
-                                    args_derham.starts)
+    out[1] = eval_spline_mpi_kernel(
+        args_derham.pn[0] - 1,
+        args_derham.pn[1],
+        args_derham.pn[2] - 1,
+        args_derham.bd1,
+        args_derham.bn2,
+        args_derham.bd3,
+        span1, span2, span3,
+        form_coeffs_2,
+        args_derham.starts,
+    )
 
-    out[2] = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
-                                    args_derham.pn[1] - 1,
-                                    args_derham.pn[2],
-                                    args_derham.bd1,
-                                    args_derham.bd2,
-                                    args_derham.bn3,
-                                    span1, span2, span3,
-                                    form_coeffs_3,
-                                    args_derham.starts)
+    out[2] = eval_spline_mpi_kernel(
+        args_derham.pn[0] - 1,
+        args_derham.pn[1] - 1,
+        args_derham.pn[2],
+        args_derham.bd1,
+        args_derham.bd2,
+        args_derham.bn3,
+        span1, span2, span3,
+        form_coeffs_3,
+        args_derham.starts,
+    )
 
 
-def eval_3form_spline_mpi(span1: int,
-                          span2: int,
-                          span3: int,
-                          args_derham: 'DerhamArguments',
-                          form_coeffs: 'float[:,:,:]') -> float:
+def eval_3form_spline_mpi(
+    span1: int,
+    span2: int,
+    span3: int,
+    args_derham: 'DerhamArguments',
+    form_coeffs: 'float[:,:,:]',
+) -> float:
     '''Single-point evaluation of Derham 0-form spline defined by form_coeffs,
     given D-spline values (in bd) and knot span indices span.'''
 
-    out = eval_spline_mpi_kernel(args_derham.pn[0] - 1,
-                                 args_derham.pn[1] - 1,
-                                 args_derham.pn[2] - 1,
-                                 args_derham.bd1,
-                                 args_derham.bd2,
-                                 args_derham.bd3,
-                                 span1, span2, span3,
-                                 form_coeffs,
-                                 args_derham.starts)
+    out = eval_spline_mpi_kernel(
+        args_derham.pn[0] - 1,
+        args_derham.pn[1] - 1,
+        args_derham.pn[2] - 1,
+        args_derham.bd1,
+        args_derham.bd2,
+        args_derham.bd3,
+        span1, span2, span3,
+        form_coeffs,
+        args_derham.starts,
+    )
     return out
 
 
-def eval_vectorfield_spline_mpi(span1: int,
-                                span2: int,
-                                span3: int,
-                                args_derham: 'DerhamArguments',
-                                form_coeffs_1: 'float[:,:,:]',
-                                form_coeffs_2: 'float[:,:,:]',
-                                form_coeffs_3: 'float[:,:,:]',
-                                out: 'float[:]'):
+def eval_vectorfield_spline_mpi(
+    span1: int,
+    span2: int,
+    span3: int,
+    args_derham: 'DerhamArguments',
+    form_coeffs_1: 'float[:,:,:]',
+    form_coeffs_2: 'float[:,:,:]',
+    form_coeffs_3: 'float[:,:,:]',
+    out: 'float[:]',
+):
     '''Single-point evaluation of vector-field spline (H^1)^3 defined by form_coeffs,
     given N-spline values (in bn) and knot span indices span.'''
 
-    out[0] = eval_spline_mpi_kernel(args_derham.pn[0],
-                                    args_derham.pn[1],
-                                    args_derham.pn[2],
-                                    args_derham.bn1,
-                                    args_derham.bn2,
-                                    args_derham.bn3,
-                                    span1, span2, span3,
-                                    form_coeffs_1,
-                                    args_derham.starts)
+    out[0] = eval_spline_mpi_kernel(
+        args_derham.pn[0],
+        args_derham.pn[1],
+        args_derham.pn[2],
+        args_derham.bn1,
+        args_derham.bn2,
+        args_derham.bn3,
+        span1, span2, span3,
+        form_coeffs_1,
+        args_derham.starts,
+    )
 
-    out[1] = eval_spline_mpi_kernel(args_derham.pn[0],
-                                    args_derham.pn[1],
-                                    args_derham.pn[2],
-                                    args_derham.bn1,
-                                    args_derham.bn2,
-                                    args_derham.bn3,
-                                    span1, span2, span3,
-                                    form_coeffs_2,
-                                    args_derham.starts)
+    out[1] = eval_spline_mpi_kernel(
+        args_derham.pn[0],
+        args_derham.pn[1],
+        args_derham.pn[2],
+        args_derham.bn1,
+        args_derham.bn2,
+        args_derham.bn3,
+        span1, span2, span3,
+        form_coeffs_2,
+        args_derham.starts,
+    )
 
-    out[2] = eval_spline_mpi_kernel(args_derham.pn[0],
-                                    args_derham.pn[1],
-                                    args_derham.pn[2],
-                                    args_derham.bn1,
-                                    args_derham.bn2,
-                                    args_derham.bn3,
-                                    span1, span2, span3,
-                                    form_coeffs_3,
-                                    args_derham.starts)
+    out[2] = eval_spline_mpi_kernel(
+        args_derham.pn[0],
+        args_derham.pn[1],
+        args_derham.pn[2],
+        args_derham.bn1,
+        args_derham.bn2,
+        args_derham.bn3,
+        span1, span2, span3,
+        form_coeffs_3,
+        args_derham.starts,
+    )

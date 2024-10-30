@@ -1,8 +1,8 @@
 def test_kinetic_background_magics(show_plot=False):
     '''Test the magic commands __sum__, __mul__ and __sub__ 
     of the Maxwellian base class.'''
-    import numpy as np
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
@@ -28,7 +28,7 @@ def test_kinetic_background_magics(show_plot=False):
     # compare distribution function
     meshgrids = np.meshgrid(
         e1, e2, e3,
-        v1, [0.], [0.]
+        v1, [0.], [0.],
     )
 
     m1_vals = m1(*meshgrids)
@@ -50,7 +50,7 @@ def test_kinetic_background_magics(show_plot=False):
 
     # compare first two moments
     meshgrids = np.meshgrid(
-        e1, e2, e3
+        e1, e2, e3,
     )
 
     n1_vals = m1.n(*meshgrids)

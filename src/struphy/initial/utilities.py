@@ -1,10 +1,11 @@
 import os
-import yaml
-import h5py
-import struphy
 
-from struphy.io.output_handling import DataContainer
+import h5py
+import yaml
+
+import struphy
 from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.io.output_handling import DataContainer
 
 
 class InitFromOutput:
@@ -34,11 +35,15 @@ class InitFromOutput:
 
         o_path = state['o_path']
 
-        params_default = {'path': 'sim_1',
-                          'path_abs': None,
-                          'comps': {'n3': [True],
-                                    'u2': [True, True, True],
-                                    'p3': [True]}}
+        params_default = {
+            'path': 'sim_1',
+            'path_abs': None,
+            'comps': {
+                'n3': [True],
+                'u2': [True, True, True],
+                'p3': [True],
+            },
+        }
 
         params = set_defaults(params, params_default)
 

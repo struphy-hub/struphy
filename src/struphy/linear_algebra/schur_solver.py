@@ -1,5 +1,5 @@
-from psydac.linalg.basic import Vector, LinearOperator, IdentityOperator
-from psydac.linalg.block import BlockVector, BlockLinearOperator
+from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.solvers import inverse
 
 
@@ -46,11 +46,13 @@ class SchurSolver:
         Must correspond to the chosen solver.
     '''
 
-    def __init__(self, 
-                 A: LinearOperator, 
-                 BC: LinearOperator,
-                 solver_name: str,
-                 **solver_params):
+    def __init__(
+        self,
+        A: LinearOperator,
+        BC: LinearOperator,
+        solver_name: str,
+        **solver_params,
+    ):
 
         assert isinstance(A, LinearOperator)
         assert isinstance(BC, LinearOperator)

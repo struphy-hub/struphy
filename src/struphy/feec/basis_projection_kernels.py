@@ -1,5 +1,5 @@
-from pyccel.decorators import stack_array
 from numpy import shape, zeros
+from pyccel.decorators import stack_array
 
 
 def assemble_dofs_for_weighted_basisfuns_1d(
@@ -7,7 +7,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(
     starts_in: 'int[:]', ends_in: 'int[:]', pads_in: 'int[:]',
     starts_out: 'int[:]', ends_out: 'int[:]', pads_out: 'int[:]',
     fun_q: 'float[:]', wts1: 'float[:,:]', span1: 'int[:,:]',
-    basis1: 'float[:,:,:]', sub1: 'int[:]', dim1_in: int, p1_out: int
+    basis1: 'float[:,:,:]', sub1: 'int[:]', dim1_in: int, p1_out: int,
 ):
     '''Kernel for assembling the matrix
 
@@ -133,7 +133,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(
     span1: 'int[:,:]', span2: 'int[:,:]',
     basis1: 'float[:,:,:]', basis2: 'float[:,:,:]',
     sub1: 'int[:]', sub2: 'int[:]', dim1_in: int, dim2_in: int,
-    p1_out: int, p2_out: int
+    p1_out: int, p2_out: int,
 ):
     '''Kernel for assembling the matrix
 
@@ -320,7 +320,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(
     basis1: 'float[:,:,:]', basis2: 'float[:,:,:]', basis3: 'float[:,:,:]',
     sub1: 'int[:]', sub2: 'int[:]', sub3: 'int[:]',
     dim1_in: int, dim2_in: int, dim3_in: int,
-    p1_out: int, p2_out: int, p3_out: int
+    p1_out: int, p2_out: int, p3_out: int,
 ):
     '''Kernel for assembling the matrix
 
@@ -485,8 +485,10 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                     for jq in range(nq2):
                         for kq in range(nq3):
 
-                            funval = fun_q[nq1*ii + iq, nq2*jj + jq, nq3*kk +
-                                           kq] * wts1[ii, iq] * wts2[jj, jq] * wts3[kk, kq]
+                            funval = fun_q[
+                                nq1*ii + iq, nq2*jj + jq, nq3*kk +
+                                kq,
+                            ] * wts1[ii, iq] * wts2[jj, jq] * wts3[kk, kq]
 
                             # Basis function of input space:
                             # ------------------------------
@@ -551,14 +553,16 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                                         col3 = pi3 + o - (k + so3)
 
                                         # Row index: padding + local index.
-                                        mat[po1 + i, po2 + j, po3 + k,
-                                            col1, col2, col3] += value
+                                        mat[
+                                            po1 + i, po2 + j, po3 + k,
+                                            col1, col2, col3,
+                                        ] += value
 
 
 @stack_array('shp')
 def get_dofs_local_1_form_e1_component(
     f1: 'float[:,:,:]',
-    p1: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
+    p1: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]',
 ):
     '''Kernel for evaluating the degrees of freedom for the first component of 1-forms. This function is for local commuting projetors.
 
@@ -592,7 +596,7 @@ def get_dofs_local_1_form_e1_component(
 @stack_array('shp')
 def get_dofs_local_1_form_e2_component(
     f2: 'float[:,:,:]',
-    p2: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
+    p2: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]',
 ):
     '''Kernel for evaluating the degrees of freedom for the second component of 1-forms.  This function is for local commuting projetors.
 
@@ -626,7 +630,7 @@ def get_dofs_local_1_form_e2_component(
 @stack_array('shp')
 def get_dofs_local_1_form_e3_component(
     f3: 'float[:,:,:]',
-    p3: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]'
+    p3: int, wts: 'float[:]', f_eval_aux: 'float[:,:,:]',
 ):
     '''Kernel for evaluating the degrees of freedom for the third component of 1-forms.  This function is for local commuting projetors.
 
@@ -656,10 +660,11 @@ def get_dofs_local_1_form_e3_component(
                 for ii in range(p3):
                     f_eval_aux[i, j, k] += f3[i, j, in_start_3+ii]*wts[ii]
 
+
 @stack_array('shp')
 def get_dofs_local_2_form_e1_component(
     f1: 'float[:,:,:]',
-    p2: int, p3: int, GLweightsx: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
+    p2: int, p3: int, GLweightsx: 'float[:,:]', f_eval_aux: 'float[:,:,:]',
 ):
     '''Kernel for evaluating the degrees of freedom for the first component of 2-forms.  This function is for local commuting projetors.
 
@@ -692,13 +697,16 @@ def get_dofs_local_2_form_e1_component(
                 in_start_3 = k*p3
                 for jj in range(p2):
                     for kk in range(p3):
-                        f_eval_aux[i, j, k] += f1[i, in_start_2 +
-                                                  jj, in_start_3+kk] * GLweightsx[jj, kk]
+                        f_eval_aux[i, j, k] += f1[
+                            i, in_start_2 +
+                            jj, in_start_3+kk,
+                        ] * GLweightsx[jj, kk]
+
 
 @stack_array('shp')
 def get_dofs_local_2_form_e2_component(
     f2: 'float[:,:,:]',
-    p1: int, p3: int, GLweightsy: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
+    p1: int, p3: int, GLweightsy: 'float[:,:]', f_eval_aux: 'float[:,:,:]',
 ):
     '''Kernel for evaluating the degrees of freedom for the second component of 2-forms.  This function is for local commuting projetors.
 
@@ -731,13 +739,16 @@ def get_dofs_local_2_form_e2_component(
                 in_start_3 = k*p3
                 for ii in range(p1):
                     for kk in range(p3):
-                        f_eval_aux[i, j, k] += f2[in_start_1+ii,
-                                                  j, in_start_3+kk] * GLweightsy[ii, kk]
+                        f_eval_aux[i, j, k] += f2[
+                            in_start_1+ii,
+                            j, in_start_3+kk,
+                        ] * GLweightsy[ii, kk]
+
 
 @stack_array('shp')
 def get_dofs_local_2_form_e3_component(
     f3: 'float[:,:,:]',
-    p1: int, p2: int, GLweightsz: 'float[:,:]', f_eval_aux: 'float[:,:,:]'
+    p1: int, p2: int, GLweightsz: 'float[:,:]', f_eval_aux: 'float[:,:,:]',
 ):
     '''Kernel for evaluating the degrees of freedom for the third component of 2-forms.  This function is for local commuting projetors.
 
@@ -754,7 +765,7 @@ def get_dofs_local_2_form_e3_component(
 
         GLweightsz : 2d float array
             Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e1 and e2 direction.
-        
+
         f_eval_aux : 3d float array
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
@@ -771,13 +782,16 @@ def get_dofs_local_2_form_e3_component(
                 in_start_2 = j*p2
                 for ii in range(p1):
                     for jj in range(p2):
-                        f_eval_aux[i, j, k] += f3[in_start_1+ii,
-                                                  in_start_2+jj, k] * GLweightsz[ii, jj]
+                        f_eval_aux[i, j, k] += f3[
+                            in_start_1+ii,
+                            in_start_2+jj, k,
+                        ] * GLweightsz[ii, jj]
+
 
 @stack_array('shp')
 def get_dofs_local_3_form(
     faux: 'float[:,:,:]',
-    p1: int, p2: int, p3: int, GLweights: 'float[:,:,:]', f_eval: 'float[:,:,:]'
+    p1: int, p2: int, p3: int, GLweights: 'float[:,:,:]', f_eval: 'float[:,:,:]',
 ):
     '''Kernel for evaluating the degrees of freedom for 3-forms.  This function is for local commuting projetors.
 
@@ -797,7 +811,7 @@ def get_dofs_local_3_form(
 
         GLweights : 3d float array
             Tensor product of the Gauss-Legandre quadrature weights for the intergrals in the e1, e2 and e3 direction.
-        
+
         f_eval : 3d float array
             Output array where the evaluated degrees of freedom are stored. It is passed to this function with zeros in each entry.
     '''
@@ -816,8 +830,10 @@ def get_dofs_local_3_form(
                 for ii in range(p1):
                     for jj in range(p2):
                         for kk in range(p3):
-                            f_eval[i, j, k] += faux[in_start_1+ii, in_start_2 +
-                                                    jj, in_start_3+kk] * GLweights[ii, jj, kk]
+                            f_eval[i, j, k] += faux[
+                                in_start_1+ii, in_start_2 +
+                                jj, in_start_3+kk,
+                            ] * GLweights[ii, jj, kk]
 
 
 # We need a functions that tell us which of the quasi-interpolation points to take for a any given i
@@ -865,7 +881,7 @@ def select_quasi_points(i: int, p: int, Nbasis: int, periodic: bool):
 
 def solve_local_0_form(
     original_size1: int, original_size2: int, original_size3: int, index_translation1: 'int[:]', index_translation2: 'int[:]', index_translation3: 'int[:]', starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
-    p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]'
+    p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]',
 ):
     '''Kernel for obtaining the FEEC coefficients of zero forms with local projectors.
 
@@ -936,11 +952,14 @@ def solve_local_0_form(
             for i2 in range(starts[2], ends[2]+1):
                 L123 = 0.0
                 startj1, endj1 = select_quasi_points(
-                    i0, p1, npts[0], periodic[0])
+                    i0, p1, npts[0], periodic[0],
+                )
                 startj2, endj2 = select_quasi_points(
-                    i1, p2, npts[1], periodic[1])
+                    i1, p2, npts[1], periodic[1],
+                )
                 startj3, endj3 = select_quasi_points(
-                    i2, p3, npts[2], periodic[2])
+                    i2, p3, npts[2], periodic[2],
+                )
                 for j1 in range(2*p1-1):
                     # position 1 to evaluate rhs. The module is only necessary for periodic boundary conditions. But it does not hurt the clamped boundary conditions so we just leave it as is to avoid an extra if.
                     if (startj1+j1 < original_size1):
@@ -953,16 +972,22 @@ def solve_local_0_form(
                         if (startj2+j2 < original_size2):
                             pos2 = index_translation2[startj2+j2]
                         else:
-                            pos2 = index_translation2[int(
-                                startj2+j2 - 2*npts[1])]
+                            pos2 = index_translation2[
+                                int(
+                                    startj2+j2 - 2*npts[1],
+                                )
+                            ]
                         auxL3 = 0.0
                         for j3 in range(2*p3-1):
                             # position 3 to evaluate rhs
                             if (startj3+j3 < original_size3):
                                 pos3 = index_translation3[startj3+j3]
                             else:
-                                pos3 = index_translation3[int(
-                                    startj3+j3 - 2*npts[2])]
+                                pos3 = index_translation3[
+                                    int(
+                                        startj3+j3 - 2*npts[2],
+                                    )
+                                ]
                             auxL3 += wij2[i2][j3]*rhs[pos1, pos2, pos3]
                         auxL2 += wij1[i1][j2]*auxL3
                     L123 += wij0[i0][j1]*auxL2
@@ -972,8 +997,10 @@ def solve_local_0_form(
         counteri0 += 1
 
 
-def solve_local_1_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
-                       p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
+def solve_local_1_form(
+    original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+    p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]', whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]',
+):
     '''Kernel for obtaining the FEEC coefficients of one forms with local projectors.
 
     Parameters
@@ -1102,19 +1129,25 @@ def solve_local_1_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[1][0], periodic[0][0])
+                            i0, p1, npts[1][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[0][1], periodic[0][1])
+                            i1, p2, npts[0][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[0][2], periodic[0][2])
+                            i2, p3, npts[0][2], periodic[0][2],
+                        )
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizex[0]):
                                 pos1 = index_translationx0[startj1+j1]
                             else:
-                                pos1 = index_translationx0[int(
-                                    startj1+j1 + shift1)]
+                                pos1 = index_translationx0[
+                                    int(
+                                        startj1+j1 + shift1,
+                                    )
+                                ]
                             if (whij0[i0][j1] != 0.0):
                                 auxL2 = 0.0
                                 for j2 in range(lenj2):
@@ -1122,22 +1155,30 @@ def solve_local_1_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                                     if (startj2+j2 < original_pts_sizex[1]):
                                         pos2 = index_translationx1[startj2+j2]
                                     else:
-                                        pos2 = index_translationx1[int(
-                                            startj2+j2 - 2*npts[0][1])]
+                                        pos2 = index_translationx1[
+                                            int(
+                                                startj2+j2 - 2*npts[0][1],
+                                            )
+                                        ]
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
                                         # position 3 to evaluate rhs
                                         if (startj3+j3 < original_pts_sizex[2]):
                                             pos3 = index_translationx2[startj3+j3]
                                         else:
-                                            pos3 = index_translationx2[int(
-                                                startj3+j3 - 2*npts[0][2])]
+                                            pos3 = index_translationx2[
+                                                int(
+                                                    startj3+j3 - 2*npts[0][2],
+                                                )
+                                            ]
                                         auxL3 += wij2[i2][j3] * \
                                             rhs0[pos1, pos2, pos3]
                                     auxL2 += wij1[i1][j2]*auxL3
                                 L123 += whij0[i0][j1]*auxL2
-                        out0[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out0[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
@@ -1164,26 +1205,35 @@ def solve_local_1_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[1][0], periodic[0][0])
+                            i0, p1, npts[1][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[0][1], periodic[0][1])
+                            i1, p2, npts[0][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[0][2], periodic[0][2])
+                            i2, p3, npts[0][2], periodic[0][2],
+                        )
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizey[0]):
                                 pos1 = index_translationy0[startj1+j1]
                             else:
-                                pos1 = index_translationy0[int(
-                                    startj1+j1 - 2 * npts[1][0])]
+                                pos1 = index_translationy0[
+                                    int(
+                                        startj1+j1 - 2 * npts[1][0],
+                                    )
+                                ]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
                                 if (startj2+j2 < original_pts_sizey[1]):
                                     pos2 = index_translationy1[startj2+j2]
                                 else:
-                                    pos2 = index_translationy1[int(
-                                        startj2+j2 + shift2)]
+                                    pos2 = index_translationy1[
+                                        int(
+                                            startj2+j2 + shift2,
+                                        )
+                                    ]
                                 if (whij1[i1][j2] != 0.0):
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
@@ -1191,14 +1241,19 @@ def solve_local_1_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                                         if (startj3+j3 < original_pts_sizey[2]):
                                             pos3 = index_translationy2[startj3+j3]
                                         else:
-                                            pos3 = index_translationy2[int(
-                                                startj3+j3 - 2*npts[0][2])]
+                                            pos3 = index_translationy2[
+                                                int(
+                                                    startj3+j3 - 2*npts[0][2],
+                                                )
+                                            ]
                                         auxL3 += wij2[i2][j3] * \
                                             rhs1[pos1, pos2, pos3]
                                     auxL2 += whij1[i1][j2]*auxL3
                             L123 += wij0[i0][j1]*auxL2
-                        out1[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out1[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
@@ -1225,48 +1280,64 @@ def solve_local_1_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[1][0], periodic[0][0])
+                            i0, p1, npts[1][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[0][1], periodic[0][1])
+                            i1, p2, npts[0][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[0][2], periodic[0][2])
+                            i2, p3, npts[0][2], periodic[0][2],
+                        )
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizez[0]):
                                 pos1 = index_translationz0[startj1+j1]
                             else:
-                                pos1 = index_translationz0[int(
-                                    startj1+j1 - 2*npts[1][0])]
+                                pos1 = index_translationz0[
+                                    int(
+                                        startj1+j1 - 2*npts[1][0],
+                                    )
+                                ]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
                                 if (startj2+j2 < original_pts_sizez[1]):
                                     pos2 = index_translationz1[startj2+j2]
                                 else:
-                                    pos2 = index_translationz1[int(
-                                        startj2+j2 - 2*npts[0][1])]
+                                    pos2 = index_translationz1[
+                                        int(
+                                            startj2+j2 - 2*npts[0][1],
+                                        )
+                                    ]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
                                     if (startj3+j3 < original_pts_sizez[2]):
                                         pos3 = index_translationz2[startj3+j3]
                                     else:
-                                        pos3 = index_translationz2[int(
-                                            startj3+j3 + shift3)]
+                                        pos3 = index_translationz2[
+                                            int(
+                                                startj3+j3 + shift3,
+                                            )
+                                        ]
                                     if (whij2[i2][j3] != 0.0):
                                         auxL3 += whij2[i2][j3] * \
                                             rhs2[pos1, pos2, pos3]
                                 auxL2 += wij1[i1][j2]*auxL3
                             L123 += wij0[i0][j1]*auxL2
-                        out2[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out2[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
 
 
-def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
-                       p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
+def solve_local_2_form(
+    original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+    p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]', whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]',
+):
     '''Kernel for obtaining the FEEC coefficients of 2-forms with local projectors.
 
     Parameters
@@ -1400,27 +1471,36 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[0][0], periodic[0][0])
+                            i0, p1, npts[0][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[1][1], periodic[0][1])
+                            i1, p2, npts[1][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[2][2], periodic[0][2])
+                            i2, p3, npts[2][2], periodic[0][2],
+                        )
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizex[0]):
                                 pos1 = index_translationx0[startj1+j1]
                             else:
-                                pos1 = index_translationx0[int(
-                                    startj1+j1 - 2*npts[0][0])]
+                                pos1 = index_translationx0[
+                                    int(
+                                        startj1+j1 - 2*npts[0][0],
+                                    )
+                                ]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
                                 if (startj2+j2 < original_pts_sizex[1]):
                                     pos2 = index_translationx1[startj2+j2]
                                 else:
-                                    pos2 = index_translationx1[int(
-                                        startj2+j2 + shift2)]
+                                    pos2 = index_translationx1[
+                                        int(
+                                            startj2+j2 + shift2,
+                                        )
+                                    ]
                                 if (whij1[i1][j2] != 0.0):
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
@@ -1428,15 +1508,20 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                                         if (startj3+j3 < original_pts_sizex[2]):
                                             pos3 = index_translationx2[startj3+j3]
                                         else:
-                                            pos3 = index_translationx2[int(
-                                                startj3+j3 + shift3)]
+                                            pos3 = index_translationx2[
+                                                int(
+                                                    startj3+j3 + shift3,
+                                                )
+                                            ]
                                         if (whij2[i2][j3] != 0.0):
                                             auxL3 += whij2[i2][j3] * \
                                                 rhs0[pos1, pos2, pos3]
                                     auxL2 += whij1[i1][j2]*auxL3
                             L123 += wij0[i0][j1]*auxL2
-                        out0[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out0[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
@@ -1468,18 +1553,24 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[0][0], periodic[0][0])
+                            i0, p1, npts[0][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[1][1], periodic[0][1])
+                            i1, p2, npts[1][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[2][2], periodic[0][2])
+                            i2, p3, npts[2][2], periodic[0][2],
+                        )
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizey[0]):
                                 pos1 = index_translationy0[startj1+j1]
                             else:
-                                pos1 = index_translationy0[int(
-                                    startj1+j1 + shift1)]
+                                pos1 = index_translationy0[
+                                    int(
+                                        startj1+j1 + shift1,
+                                    )
+                                ]
                             if (whij0[i0][j1] != 0.0):
                                 auxL2 = 0.0
                                 for j2 in range(lenj2):
@@ -1487,23 +1578,31 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                                     if (startj2+j2 < original_pts_sizey[1]):
                                         pos2 = index_translationy1[startj2+j2]
                                     else:
-                                        pos2 = index_translationy1[int(
-                                            startj2+j2 - 2*npts[1][1])]
+                                        pos2 = index_translationy1[
+                                            int(
+                                                startj2+j2 - 2*npts[1][1],
+                                            )
+                                        ]
                                     auxL3 = 0.0
                                     for j3 in range(lenj3):
                                         # position 3 to evaluate rhs
                                         if (startj3+j3 < original_pts_sizey[2]):
                                             pos3 = index_translationy2[startj3+j3]
                                         else:
-                                            pos3 = index_translationy2[int(
-                                                startj3+j3 + shift3)]
+                                            pos3 = index_translationy2[
+                                                int(
+                                                    startj3+j3 + shift3,
+                                                )
+                                            ]
                                         if (whij2[i2][j3] != 0.0):
                                             auxL3 += whij2[i2][j3] * \
                                                 rhs1[pos1, pos2, pos3]
                                     auxL2 += wij1[i1][j2]*auxL3
                                 L123 += whij0[i0][j1]*auxL2
-                        out1[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out1[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
@@ -1535,18 +1634,24 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[0][0], periodic[0][0])
+                            i0, p1, npts[0][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[1][1], periodic[0][1])
+                            i1, p2, npts[1][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[2][2], periodic[0][2])
+                            i2, p3, npts[2][2], periodic[0][2],
+                        )
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizez[0]):
                                 pos1 = index_translationz0[startj1+j1]
                             else:
-                                pos1 = index_translationz0[int(
-                                    startj1+j1 + shift1)]
+                                pos1 = index_translationz0[
+                                    int(
+                                        startj1+j1 + shift1,
+                                    )
+                                ]
                             if (whij0[i0][j1] != 0.0):
                                 auxL2 = 0.0
                                 for j2 in range(lenj2):
@@ -1554,8 +1659,11 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                                     if (startj2+j2 < original_pts_sizez[1]):
                                         pos2 = index_translationz1[startj2+j2]
                                     else:
-                                        pos2 = index_translationz1[int(
-                                            startj2+j2 + shift2)]
+                                        pos2 = index_translationz1[
+                                            int(
+                                                startj2+j2 + shift2,
+                                            )
+                                        ]
                                     if (whij1[i1][j2] != 0.0):
                                         auxL3 = 0.0
                                         for j3 in range(lenj3):
@@ -1563,14 +1671,19 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
                                             if (startj3+j3 < original_pts_sizez[2]):
                                                 pos3 = index_translationz2[startj3+j3]
                                             else:
-                                                pos3 = index_translationz2[int(
-                                                    startj3+j3 - 2*npts[2][2])]
+                                                pos3 = index_translationz2[
+                                                    int(
+                                                        startj3+j3 - 2*npts[2][2],
+                                                    )
+                                                ]
                                             auxL3 += wij2[i2][j3] * \
                                                 rhs2[pos1, pos2, pos3]
                                         auxL2 += whij1[i1][j2]*auxL3
                                 L123 += whij0[i0][j1]*auxL2
-                        out2[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out2[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
@@ -1578,7 +1691,7 @@ def solve_local_2_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]
 
 def solve_local_3_form(
     original_size1: int, original_size2: int, original_size3: int, index_translation1: 'int[:]', index_translation2: 'int[:]', index_translation3: 'int[:]', starts: 'int[:]', ends: 'int[:]', pds: 'int[:]', npts: 'int[:]', periodic: 'bool[:]',
-    p1: int, p2: int, p3: int, whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]'
+    p1: int, p2: int, p3: int, whij0: 'float[:,:]', whij1: 'float[:,:]', whij2: 'float[:,:]', rhs: 'float[:,:,:]', out: 'float[:,:,:]',
 ):
     '''Kernel for obtaining the FEEC coefficients of three forms with local projectors.
 
@@ -1682,11 +1795,14 @@ def solve_local_3_form(
             for i2 in range(starts[2], ends[2]+1):
                 L123 = 0.0
                 startj1, endj1 = select_quasi_points(
-                    i0, p1, npts[0]+1, periodic[0])
+                    i0, p1, npts[0]+1, periodic[0],
+                )
                 startj2, endj2 = select_quasi_points(
-                    i1, p2, npts[1]+1, periodic[1])
+                    i1, p2, npts[1]+1, periodic[1],
+                )
                 startj3, endj3 = select_quasi_points(
-                    i2, p3, npts[2]+1, periodic[2])
+                    i2, p3, npts[2]+1, periodic[2],
+                )
                 for j1 in range(2*p1):
                     # position 1 to evaluate rhs
                     if (startj1+j1 < original_size1):
@@ -1700,8 +1816,11 @@ def solve_local_3_form(
                             if (startj2+j2 < original_size2):
                                 pos2 = index_translation2[startj2+j2]
                             else:
-                                pos2 = index_translation2[int(
-                                    startj2+j2 + shift2)]
+                                pos2 = index_translation2[
+                                    int(
+                                        startj2+j2 + shift2,
+                                    )
+                                ]
                             if (whij1[i1][j2] != 0.0):
                                 auxL3 = 0.0
                                 for j3 in range(2*p3):
@@ -1709,8 +1828,11 @@ def solve_local_3_form(
                                     if (startj3+j3 < original_size3):
                                         pos3 = index_translation3[startj3+j3]
                                     else:
-                                        pos3 = index_translation3[int(
-                                            startj3+j3 + shift3)]
+                                        pos3 = index_translation3[
+                                            int(
+                                                startj3+j3 + shift3,
+                                            )
+                                        ]
                                     if (whij2[i2][j3] != 0.0):
                                         auxL3 += whij2[i2][j3] * \
                                             rhs[pos1, pos2, pos3]
@@ -1722,8 +1844,10 @@ def solve_local_3_form(
         counteri0 += 1
 
 
-def solve_local_0V_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
-                        p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]',  rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]'):
+def solve_local_0V_form(
+    original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:]', original_pts_sizez: 'int[:]', index_translationx0: 'int[:]', index_translationx1: 'int[:]', index_translationx2: 'int[:]', index_translationy0: 'int[:]', index_translationy1: 'int[:]', index_translationy2: 'int[:]', index_translationz0: 'int[:]', index_translationz1: 'int[:]', index_translationz2: 'int[:]', nsp: int, starts: 'int[:,:]', ends: 'int[:,:]', pds: 'int[:,:]', npts: 'int[:,:]', periodic: 'bool[:,:]',
+    p1: int, p2: int, p3: int, wij0: 'float[:,:]', wij1: 'float[:,:]', wij2: 'float[:,:]', rhs0: 'float[:,:,:]', rhs1: 'float[:,:,:]', rhs2: 'float[:,:,:]', out0: 'float[:,:,:]', out1: 'float[:,:,:]', out2: 'float[:,:,:]',
+):
     '''Kernel for obtaining the FEEC coefficients of vector 0-forms with local projectors.
 
     Parameters
@@ -1836,41 +1960,55 @@ def solve_local_0V_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[0][0], periodic[0][0])
+                            i0, p1, npts[0][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[0][1], periodic[0][1])
+                            i1, p2, npts[0][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[0][2], periodic[0][2])
+                            i2, p3, npts[0][2], periodic[0][2],
+                        )
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizex[0]):
                                 pos1 = index_translationx0[startj1+j1]
                             else:
-                                pos1 = index_translationx0[int(
-                                    startj1+j1 - 2*npts[0][0])]
+                                pos1 = index_translationx0[
+                                    int(
+                                        startj1+j1 - 2*npts[0][0],
+                                    )
+                                ]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
                                 if (startj2+j2 < original_pts_sizex[1]):
                                     pos2 = index_translationx1[startj2+j2]
                                 else:
-                                    pos2 = index_translationx1[int(
-                                        startj2+j2 - 2*npts[0][1])]
+                                    pos2 = index_translationx1[
+                                        int(
+                                            startj2+j2 - 2*npts[0][1],
+                                        )
+                                    ]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
                                     if (startj3+j3 < original_pts_sizex[2]):
                                         pos3 = index_translationx2[startj3+j3]
                                     else:
-                                        pos3 = index_translationx2[int(
-                                            startj3+j3 - 2*npts[0][2])]
+                                        pos3 = index_translationx2[
+                                            int(
+                                                startj3+j3 - 2*npts[0][2],
+                                            )
+                                        ]
                                     auxL3 += wij2[i2][j3] * \
                                         rhs0[pos1, pos2, pos3]
                                 auxL2 += wij1[i1][j2]*auxL3
                             L123 += wij0[i0][j1]*auxL2
-                        out0[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out0[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
@@ -1886,41 +2024,55 @@ def solve_local_0V_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[0][0], periodic[0][0])
+                            i0, p1, npts[0][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[0][1], periodic[0][1])
+                            i1, p2, npts[0][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[0][2], periodic[0][2])
+                            i2, p3, npts[0][2], periodic[0][2],
+                        )
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizey[0]):
                                 pos1 = index_translationy0[startj1+j1]
                             else:
-                                pos1 = index_translationy0[int(
-                                    startj1+j1 - 2*npts[0][0])]
+                                pos1 = index_translationy0[
+                                    int(
+                                        startj1+j1 - 2*npts[0][0],
+                                    )
+                                ]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
                                 if (startj2+j2 < original_pts_sizey[1]):
                                     pos2 = index_translationy1[startj2+j2]
                                 else:
-                                    pos2 = index_translationy1[int(
-                                        startj2+j2 - 2*npts[0][1])]
+                                    pos2 = index_translationy1[
+                                        int(
+                                            startj2+j2 - 2*npts[0][1],
+                                        )
+                                    ]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
                                     if (startj3+j3 < original_pts_sizey[2]):
                                         pos3 = index_translationy2[startj3+j3]
                                     else:
-                                        pos3 = index_translationy2[int(
-                                            startj3+j3 - 2*npts[0][2])]
+                                        pos3 = index_translationy2[
+                                            int(
+                                                startj3+j3 - 2*npts[0][2],
+                                            )
+                                        ]
                                     auxL3 += wij2[i2][j3] * \
                                         rhs1[pos1, pos2, pos3]
                                 auxL2 += wij1[i1][j2]*auxL3
                             L123 += wij0[i0][j1]*auxL2
-                        out1[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out1[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1
@@ -1936,41 +2088,55 @@ def solve_local_0V_form(original_pts_sizex: 'int[:]', original_pts_sizey: 'int[:
                         L123 = 0.0
                         # For the third input I need the number of B-splines
                         startj1, endj1 = select_quasi_points(
-                            i0, p1, npts[0][0], periodic[0][0])
+                            i0, p1, npts[0][0], periodic[0][0],
+                        )
                         startj2, endj2 = select_quasi_points(
-                            i1, p2, npts[0][1], periodic[0][1])
+                            i1, p2, npts[0][1], periodic[0][1],
+                        )
                         startj3, endj3 = select_quasi_points(
-                            i2, p3, npts[0][2], periodic[0][2])
+                            i2, p3, npts[0][2], periodic[0][2],
+                        )
 
                         for j1 in range(lenj1):
                             # position 1 to evaluate rhs
                             if (startj1+j1 < original_pts_sizez[0]):
                                 pos1 = index_translationz0[startj1+j1]
                             else:
-                                pos1 = index_translationz0[int(
-                                    startj1+j1 - 2*npts[0][0])]
+                                pos1 = index_translationz0[
+                                    int(
+                                        startj1+j1 - 2*npts[0][0],
+                                    )
+                                ]
                             auxL2 = 0.0
                             for j2 in range(lenj2):
                                 # position 2 to evaluate rhs
                                 if (startj2+j2 < original_pts_sizez[1]):
                                     pos2 = index_translationz1[startj2+j2]
                                 else:
-                                    pos2 = index_translationz1[int(
-                                        startj2+j2 - 2*npts[0][1])]
+                                    pos2 = index_translationz1[
+                                        int(
+                                            startj2+j2 - 2*npts[0][1],
+                                        )
+                                    ]
                                 auxL3 = 0.0
                                 for j3 in range(lenj3):
                                     # position 3 to evaluate rhs
                                     if (startj3+j3 < original_pts_sizez[2]):
                                         pos3 = index_translationz2[startj3+j3]
                                     else:
-                                        pos3 = index_translationz2[int(
-                                            startj3+j3 - 2*npts[0][2])]
+                                        pos3 = index_translationz2[
+                                            int(
+                                                startj3+j3 - 2*npts[0][2],
+                                            )
+                                        ]
                                     auxL3 += wij2[i2][j3] * \
                                         rhs2[pos1, pos2, pos3]
                                 auxL2 += wij1[i1][j2]*auxL3
                             L123 += wij0[i0][j1]*auxL2
-                        out2[pds[h][0]+counteri0, pds[h][1] +
-                             counteri1, pds[h][2]+counteri2] = L123
+                        out2[
+                            pds[h][0]+counteri0, pds[h][1] +
+                            counteri1, pds[h][2]+counteri2,
+                        ] = L123
                         counteri2 += 1
                     counteri1 += 1
                 counteri0 += 1

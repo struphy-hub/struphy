@@ -1,13 +1,18 @@
-import pytest
 import inspect
+
+import pytest
+
 from struphy.models.tests.util import call_model
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('map_and_equil', [('Cuboid', 'HomogenSlab'),
-                                           ('HollowTorus', 'AdhocTorus'),
-                                           ('Tokamak', 'EQDSKequilibrium')
-                                           ])
+@pytest.mark.parametrize(
+    'map_and_equil', [
+        ('Cuboid', 'HomogenSlab'),
+        ('HollowTorus', 'AdhocTorus'),
+        ('Tokamak', 'EQDSKequilibrium'),
+    ],
+)
 def test_toy(map_and_equil, fast, model=None, Tend=None):
     '''Tests all models and all possible model.options (except solvers without preconditioner) in models/toy.py.
 
@@ -24,7 +29,8 @@ def test_toy(map_and_equil, fast, model=None, Tend=None):
                 if fast:
                     if 'Cuboid' not in map_and_equil[0]:
                         print(
-                            f'Fast is enabled, mapping {map_and_equil[0]} skipped ...')
+                            f'Fast is enabled, mapping {map_and_equil[0]} skipped ...',
+                        )
                         continue
 
                 call_model(key, val, map_and_equil, Tend=Tend)

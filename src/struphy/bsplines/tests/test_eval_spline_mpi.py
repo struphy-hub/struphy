@@ -1,9 +1,9 @@
 from sys import int_info
-import pytest
-
-from mpi4py import MPI
-import numpy as np
 from time import sleep
+
+import numpy as np
+import pytest
+from mpi4py import MPI
 
 
 @pytest.mark.mpi(min_size=2)
@@ -13,12 +13,13 @@ from time import sleep
 def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     '''Compares evaluation_kernel_3d with eval_spline_mpi_kernel.'''
 
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
     from struphy.bsplines import bsplines_kernels as bsp
-    from struphy.bsplines.evaluation_kernels_3d import evaluation_kernel_3d as eval3d
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_kernel as eval3d_mpi
+    from struphy.bsplines.evaluation_kernels_3d import (
+        eval_spline_mpi_kernel as eval3d_mpi,
+        evaluation_kernel_3d as eval3d,
+    )
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -86,53 +87,83 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
 
         # compare spline evaluation routines in V0
         val = eval3d(*derham.p, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, x0[0])
-        val_mpi = eval3d_mpi(*derham.p, bn1, bn2, bn3, span1,
-                             span2, span3, x0_psy._data, np.array(x0_psy.starts))
+        val_mpi = eval3d_mpi(
+            *derham.p, bn1, bn2, bn3, span1,
+            span2, span3, x0_psy._data, np.array(x0_psy.starts),
+        )
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V1
-        val = eval3d(derham.p[0] - 1, derham.p[1], derham.p[2], bd1,
-                     bn2, bn3, ind_d1, ind_n2, ind_n3, x1[0])
-        val_mpi = eval3d_mpi(derham.p[0] - 1, derham.p[1], derham.p[2], bd1, bn2, bn3,
-                             span1, span2, span3, x1_psy[0]._data, np.array(x1_psy[0].starts))
+        val = eval3d(
+            derham.p[0] - 1, derham.p[1], derham.p[2], bd1,
+            bn2, bn3, ind_d1, ind_n2, ind_n3, x1[0],
+        )
+        val_mpi = eval3d_mpi(
+            derham.p[0] - 1, derham.p[1], derham.p[2], bd1, bn2, bn3,
+            span1, span2, span3, x1_psy[0]._data, np.array(x1_psy[0].starts),
+        )
         assert np.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0], derham.p[1] - 1, derham.p[2], bn1,
-                     bd2, bn3, ind_n1, ind_d2, ind_n3, x1[1])
-        val_mpi = eval3d_mpi(derham.p[0], derham.p[1] - 1, derham.p[2], bn1, bd2, bn3,
-                             span1, span2, span3, x1_psy[1]._data, np.array(x1_psy[1].starts))
+        val = eval3d(
+            derham.p[0], derham.p[1] - 1, derham.p[2], bn1,
+            bd2, bn3, ind_n1, ind_d2, ind_n3, x1[1],
+        )
+        val_mpi = eval3d_mpi(
+            derham.p[0], derham.p[1] - 1, derham.p[2], bn1, bd2, bn3,
+            span1, span2, span3, x1_psy[1]._data, np.array(x1_psy[1].starts),
+        )
         assert np.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0], derham.p[1], derham.p[2] - 1, bn1,
-                     bn2, bd3, ind_n1, ind_n2, ind_d3, x1[2])
-        val_mpi = eval3d_mpi(derham.p[0], derham.p[1], derham.p[2] - 1, bn1, bn2, bd3,
-                             span1, span2, span3, x1_psy[2]._data, np.array(x1_psy[2].starts))
+        val = eval3d(
+            derham.p[0], derham.p[1], derham.p[2] - 1, bn1,
+            bn2, bd3, ind_n1, ind_n2, ind_d3, x1[2],
+        )
+        val_mpi = eval3d_mpi(
+            derham.p[0], derham.p[1], derham.p[2] - 1, bn1, bn2, bd3,
+            span1, span2, span3, x1_psy[2]._data, np.array(x1_psy[2].starts),
+        )
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V2
-        val = eval3d(derham.p[0], derham.p[1] - 1, derham.p[2] - 1, bn1,
-                     bd2, bd3, ind_n1, ind_d2, ind_d3, x2[0])
-        val_mpi = eval3d_mpi(derham.p[0], derham.p[1] - 1, derham.p[2] - 1, bn1, bd2, bd3,
-                             span1, span2, span3, x2_psy[0]._data, np.array(x2_psy[0].starts))
+        val = eval3d(
+            derham.p[0], derham.p[1] - 1, derham.p[2] - 1, bn1,
+            bd2, bd3, ind_n1, ind_d2, ind_d3, x2[0],
+        )
+        val_mpi = eval3d_mpi(
+            derham.p[0], derham.p[1] - 1, derham.p[2] - 1, bn1, bd2, bd3,
+            span1, span2, span3, x2_psy[0]._data, np.array(x2_psy[0].starts),
+        )
         assert np.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0] - 1, derham.p[1], derham.p[2] - 1, bd1,
-                     bn2, bd3, ind_d1, ind_n2, ind_d3, x2[1])
-        val_mpi = eval3d_mpi(derham.p[0] - 1, derham.p[1], derham.p[2] - 1, bd1, bn2, bd3,
-                             span1, span2, span3, x2_psy[1]._data, np.array(x2_psy[1].starts))
+        val = eval3d(
+            derham.p[0] - 1, derham.p[1], derham.p[2] - 1, bd1,
+            bn2, bd3, ind_d1, ind_n2, ind_d3, x2[1],
+        )
+        val_mpi = eval3d_mpi(
+            derham.p[0] - 1, derham.p[1], derham.p[2] - 1, bd1, bn2, bd3,
+            span1, span2, span3, x2_psy[1]._data, np.array(x2_psy[1].starts),
+        )
         assert np.allclose(val, val_mpi)
 
-        val = eval3d(derham.p[0] - 1, derham.p[1] - 1, derham.p[2], bd1,
-                     bd2, bn3, ind_d1, ind_d2, ind_n3, x2[2])
-        val_mpi = eval3d_mpi(derham.p[0] - 1, derham.p[1] - 1, derham.p[2], bd1, bd2, bn3,
-                             span1, span2, span3, x2_psy[2]._data, np.array(x2_psy[2].starts))
+        val = eval3d(
+            derham.p[0] - 1, derham.p[1] - 1, derham.p[2], bd1,
+            bd2, bn3, ind_d1, ind_d2, ind_n3, x2[2],
+        )
+        val_mpi = eval3d_mpi(
+            derham.p[0] - 1, derham.p[1] - 1, derham.p[2], bd1, bd2, bn3,
+            span1, span2, span3, x2_psy[2]._data, np.array(x2_psy[2].starts),
+        )
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V3
-        val = eval3d(derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
-                     bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, x3[0])
-        val_mpi = eval3d_mpi(derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1, bd1, bd2,
-                             bd3, span1, span2, span3, x3_psy._data, np.array(x3_psy.starts))
+        val = eval3d(
+            derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
+            bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, x3[0],
+        )
+        val_mpi = eval3d_mpi(
+            derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1, bd1, bd2,
+            bd3, span1, span2, span3, x3_psy._data, np.array(x3_psy.starts),
+        )
         assert np.allclose(val, val_mpi)
 
 
@@ -143,12 +174,10 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
 def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
     '''Compares evaluate_3d with eval_spline_mpi.'''
 
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
     from struphy.bsplines import bsplines_kernels as bsp
-    from struphy.bsplines.evaluation_kernels_3d import evaluate_3d
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi
+    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi, evaluate_3d
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -182,132 +211,164 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
         comm.Barrier()
 
         # compare spline evaluation routines in V0
-        val = evaluate_3d(1, 1, 1,
-                          tn1, tn2, tn3,
-                          *derham.p,
-                          *derham.indN,
-                          x0[0], eta1, eta2, eta3)
+        val = evaluate_3d(
+            1, 1, 1,
+            tn1, tn2, tn3,
+            *derham.p,
+            *derham.indN,
+            x0[0], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x0_psy._data,
-                                  derham.spline_types_pyccel['0'],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x0_psy._data,
+            derham.spline_types_pyccel['0'],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V1
         # 1st component
-        val = evaluate_3d(2, 1, 1,
-                          tn1[1:-1], tn2, tn3,
-                          derham.p[0] - 1, derham.p[1], derham.p[2],
-                          derham.indD[0], derham.indN[1], derham.indN[2],
-                          x1[0], eta1, eta2, eta3)
+        val = evaluate_3d(
+            2, 1, 1,
+            tn1[1:-1], tn2, tn3,
+            derham.p[0] - 1, derham.p[1], derham.p[2],
+            derham.indD[0], derham.indN[1], derham.indN[2],
+            x1[0], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x1_psy[0]._data,
-                                  derham.spline_types_pyccel['1'][0],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x1_psy[0]._data,
+            derham.spline_types_pyccel['1'][0],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
         # 2nd component
-        val = evaluate_3d(1, 2, 1,
-                          tn1, tn2[1:-1], tn3,
-                          derham.p[0], derham.p[1] - 1, derham.p[2],
-                          derham.indN[0], derham.indD[1], derham.indN[2],
-                          x1[1], eta1, eta2, eta3)
+        val = evaluate_3d(
+            1, 2, 1,
+            tn1, tn2[1:-1], tn3,
+            derham.p[0], derham.p[1] - 1, derham.p[2],
+            derham.indN[0], derham.indD[1], derham.indN[2],
+            x1[1], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x1_psy[1]._data,
-                                  derham.spline_types_pyccel['1'][1],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x1_psy[1]._data,
+            derham.spline_types_pyccel['1'][1],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
         # 3rd component
-        val = evaluate_3d(1, 1, 2,
-                          tn1, tn2, tn3[1:-1],
-                          derham.p[0], derham.p[1], derham.p[2] - 1,
-                          derham.indN[0], derham.indN[1], derham.indD[2],
-                          x1[2], eta1, eta2, eta3)
+        val = evaluate_3d(
+            1, 1, 2,
+            tn1, tn2, tn3[1:-1],
+            derham.p[0], derham.p[1], derham.p[2] - 1,
+            derham.indN[0], derham.indN[1], derham.indD[2],
+            x1[2], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x1_psy[2]._data,
-                                  derham.spline_types_pyccel['1'][2],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x1_psy[2]._data,
+            derham.spline_types_pyccel['1'][2],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V2
         # 1st component
-        val = evaluate_3d(1, 2, 2,
-                          tn1, tn2[1:-1], tn3[1:-1],
-                          derham.p[0], derham.p[1] - 1, derham.p[2] - 1,
-                          derham.indN[0], derham.indD[1], derham.indD[2],
-                          x2[0], eta1, eta2, eta3)
+        val = evaluate_3d(
+            1, 2, 2,
+            tn1, tn2[1:-1], tn3[1:-1],
+            derham.p[0], derham.p[1] - 1, derham.p[2] - 1,
+            derham.indN[0], derham.indD[1], derham.indD[2],
+            x2[0], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x2_psy[0]._data,
-                                  derham.spline_types_pyccel['2'][0],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x2_psy[0]._data,
+            derham.spline_types_pyccel['2'][0],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
         # 2nd component
-        val = evaluate_3d(2, 1, 2,
-                          tn1[1:-1], tn2, tn3[1:-1],
-                          derham.p[0] - 1, derham.p[1], derham.p[2] - 1,
-                          derham.indD[0], derham.indN[1], derham.indD[2],
-                          x2[1], eta1, eta2, eta3)
+        val = evaluate_3d(
+            2, 1, 2,
+            tn1[1:-1], tn2, tn3[1:-1],
+            derham.p[0] - 1, derham.p[1], derham.p[2] - 1,
+            derham.indD[0], derham.indN[1], derham.indD[2],
+            x2[1], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x2_psy[1]._data,
-                                  derham.spline_types_pyccel['2'][1],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x2_psy[1]._data,
+            derham.spline_types_pyccel['2'][1],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
         # 3rd component
-        val = evaluate_3d(2, 2, 1,
-                          tn1[1:-1], tn2[1:-1], tn3,
-                          derham.p[0] - 1, derham.p[1] - 1, derham.p[2],
-                          derham.indD[0], derham.indD[1], derham.indN[2],
-                          x2[2], eta1, eta2, eta3)
+        val = evaluate_3d(
+            2, 2, 1,
+            tn1[1:-1], tn2[1:-1], tn3,
+            derham.p[0] - 1, derham.p[1] - 1, derham.p[2],
+            derham.indD[0], derham.indD[1], derham.indN[2],
+            x2[2], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x2_psy[2]._data,
-                                  derham.spline_types_pyccel['2'][2],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x2_psy[2]._data,
+            derham.spline_types_pyccel['2'][2],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V3
-        val = evaluate_3d(2, 2, 2,
-                          tn1[1:-1], tn2[1:-1], tn3[1:-1],
-                          derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
-                          *derham.indD,
-                          x3[0], eta1, eta2, eta3)
+        val = evaluate_3d(
+            2, 2, 2,
+            tn1[1:-1], tn2[1:-1], tn3[1:-1],
+            derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
+            *derham.indD,
+            x3[0], eta1, eta2, eta3,
+        )
 
-        val_mpi = eval_spline_mpi(eta1, eta2, eta3,
-                                  x3_psy._data,
-                                  derham.spline_types_pyccel['3'],
-                                  np.array(derham.p),
-                                  tn1, tn2, tn3,
-                                  np.array(x0_psy.starts))
+        val_mpi = eval_spline_mpi(
+            eta1, eta2, eta3,
+            x3_psy._data,
+            derham.spline_types_pyccel['3'],
+            np.array(derham.p),
+            tn1, tn2, tn3,
+            np.array(x0_psy.starts),
+        )
 
         assert np.allclose(val, val_mpi)
 
@@ -326,14 +387,15 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     on random tensor product points.
     '''
 
-    from struphy.feec.psydac_derham import Derham
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
-    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fast
-
     import time
+
+    from struphy.bsplines.evaluation_kernels_3d import (
+        eval_spline_mpi_tensor_product,
+        eval_spline_mpi_tensor_product_fast,
+        evaluate_tensor_product,
+    )
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -358,7 +420,8 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     vals = np.zeros((n_markers, n_markers + 1, n_markers + 2), dtype=float)
     vals_mpi = np.zeros((n_markers, n_markers + 1, n_markers + 2), dtype=float)
     vals_mpi_fast = np.zeros(
-        (n_markers, n_markers + 1, n_markers + 2), dtype=float)
+        (n_markers, n_markers + 1, n_markers + 2), dtype=float,
+    )
 
     comm.Barrier()
     sleep(.02*(rank + 1))
@@ -369,37 +432,43 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
 
     # compare spline evaluation routines in V0
     t0 = time.time()
-    evaluate_tensor_product(tn1, tn2, tn3,
-                            *derham.p,
-                            *derham.indN,
-                            x0[0],
-                            eta1s, eta2s, eta3s,
-                            vals,
-                            0)
+    evaluate_tensor_product(
+        tn1, tn2, tn3,
+        *derham.p,
+        *derham.indN,
+        x0[0],
+        eta1s, eta2s, eta3s,
+        vals,
+        0,
+    )
     t1 = time.time()
     if rank == 0:
         print('V0 evaluate_tensor_product:'.ljust(40), t1 - t0)
 
     t0 = time.time()
-    eval_spline_mpi_tensor_product(eta1s, eta2s, eta3s,
-                                   x0_psy._data,
-                                   derham.spline_types_pyccel['0'],
-                                   np.array(derham.p),
-                                   tn1, tn2, tn3,
-                                   np.array(x0_psy.starts),
-                                   vals_mpi)
+    eval_spline_mpi_tensor_product(
+        eta1s, eta2s, eta3s,
+        x0_psy._data,
+        derham.spline_types_pyccel['0'],
+        np.array(derham.p),
+        tn1, tn2, tn3,
+        np.array(x0_psy.starts),
+        vals_mpi,
+    )
     t1 = time.time()
     if rank == 0:
         print('V0 eval_spline_mpi_tensor_product:'.ljust(40), t1 - t0)
 
     t0 = time.time()
-    eval_spline_mpi_tensor_product_fast(eta1s, eta2s, eta3s,
-                                        x0_psy._data,
-                                        derham.spline_types_pyccel['0'],
-                                        np.array(derham.p),
-                                        tn1, tn2, tn3,
-                                        np.array(x0_psy.starts),
-                                        vals_mpi_fast)
+    eval_spline_mpi_tensor_product_fast(
+        eta1s, eta2s, eta3s,
+        x0_psy._data,
+        derham.spline_types_pyccel['0'],
+        np.array(derham.p),
+        tn1, tn2, tn3,
+        np.array(x0_psy.starts),
+        vals_mpi_fast,
+    )
     t1 = time.time()
     if rank == 0:
         print('v0 eval_spline_mpi_tensor_product_fast:'.ljust(40), t1 - t0)
@@ -409,37 +478,43 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
 
     # compare spline evaluation routines in V3
     t0 = time.time()
-    evaluate_tensor_product(tn1[1:-1], tn2[1:-1], tn3[1:-1],
-                            derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
-                            *derham.indD,
-                            x3[0],
-                            eta1s, eta2s, eta3s,
-                            vals,
-                            3)
+    evaluate_tensor_product(
+        tn1[1:-1], tn2[1:-1], tn3[1:-1],
+        derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
+        *derham.indD,
+        x3[0],
+        eta1s, eta2s, eta3s,
+        vals,
+        3,
+    )
     t1 = time.time()
     if rank == 0:
         print('V3 evaluate_tensor_product:'.ljust(40), t1 - t0)
 
     t0 = time.time()
-    eval_spline_mpi_tensor_product(eta1s, eta2s, eta3s,
-                                   x3_psy._data,
-                                   derham.spline_types_pyccel['3'],
-                                   np.array(derham.p),
-                                   tn1, tn2, tn3,
-                                   np.array(x0_psy.starts),
-                                   vals_mpi)
+    eval_spline_mpi_tensor_product(
+        eta1s, eta2s, eta3s,
+        x3_psy._data,
+        derham.spline_types_pyccel['3'],
+        np.array(derham.p),
+        tn1, tn2, tn3,
+        np.array(x0_psy.starts),
+        vals_mpi,
+    )
     t1 = time.time()
     if rank == 0:
         print('V3 eval_spline_mpi_tensor_product:'.ljust(40), t1 - t0)
 
     t0 = time.time()
-    eval_spline_mpi_tensor_product_fast(eta1s, eta2s, eta3s,
-                                        x3_psy._data,
-                                        derham.spline_types_pyccel['3'],
-                                        np.array(derham.p),
-                                        tn1, tn2, tn3,
-                                        np.array(x0_psy.starts),
-                                        vals_mpi_fast)
+    eval_spline_mpi_tensor_product_fast(
+        eta1s, eta2s, eta3s,
+        x3_psy._data,
+        derham.spline_types_pyccel['3'],
+        np.array(derham.p),
+        tn1, tn2, tn3,
+        np.array(x0_psy.starts),
+        vals_mpi_fast,
+    )
     t1 = time.time()
     if rank == 0:
         print('v3 eval_spline_mpi_tensor_product_fast:'.ljust(40), t1 - t0)
@@ -461,14 +536,12 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     on histopolation grid of V3.
     '''
 
-    from struphy.feec.psydac_derham import Derham
-    from struphy.feec.basis_projection_ops import prepare_projection_of_basis
-
-    from struphy.feec.utilities import create_equal_random_arrays as cera
-    from struphy.bsplines.evaluation_kernels_3d import evaluate_tensor_product
-    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
-
     import time
+
+    from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed, evaluate_tensor_product
+    from struphy.feec.basis_projection_ops import prepare_projection_of_basis
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -486,21 +559,25 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
 
     # Histopolation grids
     spaces = derham.Vh_fem['3'].spaces
-    ptsG, wtsG, spans, bases, subs = prepare_projection_of_basis(spaces, spaces,
-                                                                 derham.Vh['3'].starts,
-                                                                 derham.Vh['3'].ends)
+    ptsG, wtsG, spans, bases, subs = prepare_projection_of_basis(
+        spaces, spaces,
+        derham.Vh['3'].starts,
+        derham.Vh['3'].ends,
+    )
     eta1s = ptsG[0].flatten()
     eta2s = ptsG[1].flatten()
     eta3s = ptsG[2].flatten()
-    
+
     spans_f, bns_f, bds_f = derham.prepare_eval_tp_fixed([eta1s, eta2s, eta3s])
 
     # output arrays
     vals = np.zeros((eta1s.size, eta2s.size, eta3s.size), dtype=float)
     vals_mpi_fixed = np.zeros(
-        (eta1s.size, eta2s.size, eta3s.size), dtype=float)
+        (eta1s.size, eta2s.size, eta3s.size), dtype=float,
+    )
     vals_mpi_grid = np.zeros(
-        (eta1s.size, eta2s.size, eta3s.size), dtype=float)
+        (eta1s.size, eta2s.size, eta3s.size), dtype=float,
+    )
 
     comm.Barrier()
     sleep(.02*(rank + 1))
@@ -511,45 +588,49 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
 
     # compare spline evaluation routines
     t0 = time.time()
-    evaluate_tensor_product(tn1[1:-1], tn2[1:-1], tn3[1:-1],
-                            derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
-                            *derham.indD,
-                            x3[0],
-                            eta1s, eta2s, eta3s,
-                            vals,
-                            3)
+    evaluate_tensor_product(
+        tn1[1:-1], tn2[1:-1], tn3[1:-1],
+        derham.p[0] - 1, derham.p[1] - 1, derham.p[2] - 1,
+        *derham.indD,
+        x3[0],
+        eta1s, eta2s, eta3s,
+        vals,
+        3,
+    )
     t1 = time.time()
     if rank == 0:
         print('V3 evaluate_tensor_product:'.ljust(40), t1 - t0)
 
     t0 = time.time()
-    eval_spline_mpi_tensor_product_fixed(*spans_f,
-                                         *bds_f,
-                                         x3_psy._data,
-                                         derham.spline_types_pyccel['3'],
-                                         np.array(derham.p),
-                                         np.array(x0_psy.starts),
-                                         vals_mpi_fixed)
+    eval_spline_mpi_tensor_product_fixed(
+        *spans_f,
+        *bds_f,
+        x3_psy._data,
+        derham.spline_types_pyccel['3'],
+        np.array(derham.p),
+        np.array(x0_psy.starts),
+        vals_mpi_fixed,
+    )
     t1 = time.time()
     if rank == 0:
         print('v3 eval_spline_mpi_tensor_product_fixed:'.ljust(40), t1 - t0)
-        
+
     assert np.allclose(vals, vals_mpi_fixed)
-    
+
     field = derham.create_field('test', 'L2')
     field.vector = x3_psy
-    
+
     assert np.allclose(field.vector._data, x3_psy._data)
-    
+
     t0 = time.time()
     field.eval_tp_fixed_loc(spans_f, bds_f, out=vals_mpi_fixed)
     t1 = time.time()
     if rank == 0:
         print('v3 field.eval_tp_fixed:'.ljust(40), t1 - t0)
-        
+
     assert np.allclose(vals, vals_mpi_fixed)
 
 
 if __name__ == '__main__':
-    #test_eval_tensor_product([8, 9, 10], [2, 1, 2], [True, False, False], n_markers=10)
+    # test_eval_tensor_product([8, 9, 10], [2, 1, 2], [True, False, False], n_markers=10)
     test_eval_tensor_product_grid([8, 9, 10], [2, 1, 2], [False, True, False], n_markers=10)

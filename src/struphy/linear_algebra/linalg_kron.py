@@ -15,8 +15,8 @@
 
 
 import numpy as np
-from scipy.sparse.linalg import splu
 from scipy.linalg import solve_circulant
+from scipy.sparse.linalg import splu
 
 
 def kron_matvec_2d(kmat, vec2d):
@@ -79,8 +79,21 @@ def kron_matvec_3d(kmat, vec3d):
     k1 = kmat[1].shape[0]
     k2 = kmat[2].shape[0]
 
-    res = ((kmat[2].dot(((kmat[1].dot(((kmat[0].dot(
-        vec3d.reshape(v0, v1*v2))).T).reshape(v1, v2*k0))).T).reshape(v2, k0*k1))).T).reshape(k0, k1, k2)
+    res = (
+        (
+            kmat[2].dot((
+                (
+                    kmat[1].dot((
+                        (
+                            kmat[0].dot(
+                                vec3d.reshape(v0, v1*v2),
+                            )
+                        ).T
+                    ).reshape(v1, v2*k0))
+                ).T
+            ).reshape(v2, k0*k1))
+        ).T
+    ).reshape(k0, k1, k2)
 
     return res
 
@@ -106,8 +119,13 @@ def kron_matvec_3d_2(kmat, vec3d):
 
     k1 = kmat.shape[0]
 
-    res = ((kmat.dot(((vec3d.reshape(v0, v1*v2)).T
-                      ).reshape(v1, v2*v0)).reshape(k1*v2, v0)).T).reshape(v0, k1, v2)
+    res = (
+        (
+            kmat.dot((
+                (vec3d.reshape(v0, v1*v2)).T
+            ).reshape(v1, v2*v0)).reshape(k1*v2, v0)
+        ).T
+    ).reshape(v0, k1, v2)
 
     return res
 
@@ -134,8 +152,13 @@ def kron_matvec_3d_23(kmat, vec3d):
     k1 = kmat[0].shape[0]
     k2 = kmat[1].shape[0]
 
-    res = (kmat[1].dot((kmat[0].dot(
-        ((vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*v0)).T).reshape(v2, v0*k1)).T).reshape(v0, k1, k2)
+    res = (
+        kmat[1].dot((
+            kmat[0].dot(
+                ((vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*v0),
+            ).T
+        ).reshape(v2, v0*k1)).T
+    ).reshape(v0, k1, k2)
 
     return res
 
@@ -149,8 +172,15 @@ def kron_matvec_3d_13(kmat, vec3d):
     k0 = kmat[0].shape[0]
     k2 = kmat[1].shape[0]
 
-    res = (kmat[1].dot((kmat[0].dot(
-        vec3d.reshape(v0, v1*v2)).reshape(k0*v1, v2)).T).T).reshape(k0, v1, k2)
+    res = (
+        kmat[1].dot(
+            (
+                kmat[0].dot(
+                    vec3d.reshape(v0, v1*v2),
+                ).reshape(k0*v1, v2)
+            ).T,
+        ).T
+    ).reshape(k0, v1, k2)
 
     return res
 
@@ -164,8 +194,15 @@ def kron_matvec_3d_12(kmat, vec3d):
     k0 = kmat[0].shape[0]
     k1 = kmat[1].shape[0]
 
-    res = ((kmat[1].dot((kmat[0].dot(
-        vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*k0)).reshape(k1*v2, k0)).T).reshape(k0, k1, v2)
+    res = (
+        (
+            kmat[1].dot((
+                kmat[0].dot(
+                    vec3d.reshape(v0, v1*v2),
+                ).T
+            ).reshape(v1, v2*k0)).reshape(k1*v2, k0)
+        ).T
+    ).reshape(k0, k1, v2)
 
     return res
 
@@ -274,8 +311,21 @@ def kron_lusolve_3d(kmatlu, rhs):
 
     r0, r1, r2 = rhs.shape
 
-    res = ((kmatlu[2].solve(((kmatlu[1].solve(((kmatlu[0].solve(
-        rhs.reshape(r0, r1*r2))).T).reshape(r1, r2*r0))).T).reshape(r2, r0*r1))).T).reshape(r0, r1, r2)
+    res = (
+        (
+            kmatlu[2].solve((
+                (
+                    kmatlu[1].solve((
+                        (
+                            kmatlu[0].solve(
+                                rhs.reshape(r0, r1*r2),
+                            )
+                        ).T
+                    ).reshape(r1, r2*r0))
+                ).T
+            ).reshape(r2, r0*r1))
+        ).T
+    ).reshape(r0, r1, r2)
 
     return res
 
@@ -308,8 +358,21 @@ def kron_solve_3d(kmat, rhs):
 
     r0, r1, r2 = rhs.shape
 
-    res = ((splu(kmat[2]).solve(((splu(kmat[1]).solve(((splu(kmat[0]).solve(
-        rhs.reshape(r0, r1*r2))).T).reshape(r1, r2*r0))).T).reshape(r2, r0*r1))).T).reshape(r0, r1, r2)
+    res = (
+        (
+            splu(kmat[2]).solve((
+                (
+                    splu(kmat[1]).solve((
+                        (
+                            splu(kmat[0]).solve(
+                                rhs.reshape(r0, r1*r2),
+                            )
+                        ).T
+                    ).reshape(r1, r2*r0))
+                ).T
+            ).reshape(r2, r0*r1))
+        ).T
+    ).reshape(r0, r1, r2)
 
     return res
 
@@ -342,20 +405,23 @@ def kron_fftsolve_3d(cvec, rhs):
     r0, r1, r2 = rhs.shape
     res = (
         (
-            solve_circulant(cvec[2],
-                            (
+            solve_circulant(
+                cvec[2],
                 (
-                            solve_circulant(cvec[1],
-                                            (
+                    (
+                        solve_circulant(
+                            cvec[1],
+                            (
                                 (
-                                    solve_circulant(cvec[0],
-                                            rhs.reshape(r0, r1*r2)
-                                                    )
+                                    solve_circulant(
+                                        cvec[0],
+                                        rhs.reshape(r0, r1*r2),
+                                    )
                                 ).T
-                            ).reshape(r1, r2*r0)
-                            )
-                            ).T
-            ).reshape(r2, r0*r1)
+                            ).reshape(r1, r2*r0),
+                        )
+                    ).T
+                ).reshape(r2, r0*r1),
             )
         ).T
     ).reshape(r0, r1, r2)

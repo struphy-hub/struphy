@@ -1,10 +1,15 @@
 'MHD equilibria.'
 
 
-import numpy as np
 import warnings
 
-from struphy.fields_background.mhd_equil.base import CartesianMHDequilibrium, LogicalMHDequilibrium, AxisymmMHDequilibrium
+import numpy as np
+
+from struphy.fields_background.mhd_equil.base import (
+    AxisymmMHDequilibrium,
+    CartesianMHDequilibrium,
+    LogicalMHDequilibrium,
+)
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -50,11 +55,13 @@ class HomogenSlab(CartesianMHDequilibrium):
 
     def __init__(self, **params):
 
-        params_default = {'B0x': 0.,
-                          'B0y': 0.,
-                          'B0z': 1.,
-                          'beta': .1,
-                          'n0': 1.}
+        params_default = {
+            'B0x': 0.,
+            'B0y': 0.,
+            'B0z': 1.,
+            'beta': .1,
+            'n0': 1.,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -106,8 +113,10 @@ class HomogenSlab(CartesianMHDequilibrium):
     def p_xyz(self, x, y, z):
         """ Plasma pressure.
         """
-        pp = self.params['beta'] * (self.params['B0x']**2 +
-                                    self.params['B0y']**2 + self.params['B0z']**2) / 2. - 0*x
+        pp = self.params['beta'] * (
+            self.params['B0x']**2 +
+            self.params['B0y']**2 + self.params['B0z']**2
+        ) / 2. - 0*x
 
         return pp
 
@@ -185,15 +194,17 @@ class ShearedSlab(CartesianMHDequilibrium):
 
     def __init__(self, **params):
 
-        params_default = {'a': 1.,
-                          'R0': 3.,
-                          'B0': 1.,
-                          'q0': 1.05,
-                          'q1': 1.80,
-                          'n1': 0.,
-                          'n2': 0.,
-                          'na': 1.,
-                          'beta': .1}
+        params_default = {
+            'a': 1.,
+            'R0': 3.,
+            'B0': 1.,
+            'q0': 1.05,
+            'q1': 1.80,
+            'n1': 0.,
+            'n2': 0.,
+            'na': 1.,
+            'beta': .1,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -221,11 +232,15 @@ class ShearedSlab(CartesianMHDequilibrium):
 
         else:
             if der == 0:
-                qout = self.params['q0'] + (self.params['q1'] -
-                                            self.params['q0'])*(x/self.params['a'])**2
+                qout = self.params['q0'] + (
+                    self.params['q1'] -
+                    self.params['q0']
+                )*(x/self.params['a'])**2
             else:
-                qout = 2*(self.params['q1'] -
-                          self.params['q0'])*x/self.params['a']**2
+                qout = 2*(
+                    self.params['q1'] -
+                    self.params['q0']
+                )*x/self.params['a']**2
 
         return qout
 
@@ -240,15 +255,18 @@ class ShearedSlab(CartesianMHDequilibrium):
             pout = self.params['B0']**2*self.params['beta'] / 2. - 0*x
         else:
             pout = self.params['B0']**2*self.params['beta'] / 2. * (
-                1 + eps**2/q**2) + self.params['B0']**2*eps**2*(1/self.params['q0']**2 - 1/q**2)
+                1 + eps**2/q**2
+            ) + self.params['B0']**2*eps**2*(1/self.params['q0']**2 - 1/q**2)
 
         return pout
 
     def n_x(self, x):
         """ Ion number density profile n = n(x).
         """
-        nout = (1 - self.params['na'])*(1 - (x/self.params['a']) **
-                                        self.params['n1'])**self.params['n2'] + self.params['na']
+        nout = (1 - self.params['na'])*(
+            1 - (x/self.params['a']) **
+            self.params['n1']
+        )**self.params['n2'] + self.params['na']
 
         return nout
 
@@ -351,7 +369,7 @@ class ShearedSlab(CartesianMHDequilibrium):
                 self.q_x(x, der=1)/self.q_x(x)**3
 
         return gradBx, gradBy, gradBz
-    
+
 
 class ShearFluid(CartesianMHDequilibrium):
     r"""
@@ -421,19 +439,21 @@ class ShearFluid(CartesianMHDequilibrium):
 
     def __init__(self, **params):
 
-        params_default = {'a': 1.,
-                          'b': 1.,
-                          'c': 1.,
-                          'z1': 0.25,
-                          'z2': 0.75,
-                          'delta': 0.06666666,
-                          'na': 1.,
-                          'nb': 0.25,
-                          'pa': 1.,
-                          'pb': 0.,
-                          'B0x': 1.,
-                          'B0y': 0.,
-                          'B0z': 0.,}
+        params_default = {
+            'a': 1.,
+            'b': 1.,
+            'c': 1.,
+            'z1': 0.25,
+            'z2': 0.75,
+            'delta': 0.06666666,
+            'na': 1.,
+            'nb': 0.25,
+            'pa': 1.,
+            'pb': 0.,
+            'B0x': 1.,
+            'B0y': 0.,
+            'B0z': 0.,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -449,7 +469,10 @@ class ShearFluid(CartesianMHDequilibrium):
 
     def T_z(self, z):
         r"""Swap function T(z) = \tanh(z - z_1)/\delta) - \tanh(z - z_2)/\delta)"""
-        Tout = (np.tanh((z-self.params['z1'])/self.params['delta']) - np.tanh((z-self.params['z2'])/self.params['delta']))/2.
+        Tout = (
+            np.tanh((z-self.params['z1'])/self.params['delta']) -
+            np.tanh((z-self.params['z2'])/self.params['delta'])
+        )/2.
         return Tout
 
     def p_z(self, z):
@@ -457,7 +480,7 @@ class ShearFluid(CartesianMHDequilibrium):
         """
 
         pout = self.params['pa'] + self.params['pb']*self.T_z(z)
-        
+
         return pout
 
     def n_z(self, z):
@@ -633,16 +656,18 @@ class ScrewPinch(CartesianMHDequilibrium):
 
     def __init__(self, **params):
 
-        params_default = {'a': 1.,
-                          'R0': 5.,
-                          'B0': 1.,
-                          'q0': 1.05,
-                          'q1': 1.80,
-                          'n1': 0.,
-                          'n2': 0.,
-                          'na': 1.,
-                          'p0': 1.e-8,
-                          'beta': .1}
+        params_default = {
+            'a': 1.,
+            'R0': 5.,
+            'B0': 1.,
+            'q0': 1.05,
+            'q1': 1.80,
+            'n1': 0.,
+            'n2': 0.,
+            'na': 1.,
+            'p0': 1.e-8,
+            'beta': .1,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -675,11 +700,15 @@ class ScrewPinch(CartesianMHDequilibrium):
 
         else:
             if der == 0:
-                qout = self.params['q0'] + (self.params['q1'] -
-                                            self.params['q0'])*(r/self.params['a'])**2
+                qout = self.params['q0'] + (
+                    self.params['q1'] -
+                    self.params['q0']
+                )*(r/self.params['a'])**2
             else:
-                qout = 2*(self.params['q1'] -
-                          self.params['q0'])*r/self.params['a']**2
+                qout = 2*(
+                    self.params['q1'] -
+                    self.params['q0']
+                )*r/self.params['a']**2
 
         return qout
 
@@ -709,8 +738,10 @@ class ScrewPinch(CartesianMHDequilibrium):
     def n_r(self, r):
         """ Radial ion number density profile n = n(r).
         """
-        nout = (1 - self.params['na'])*(1 - (r/self.params['a']) **
-                                        self.params['n1'])**self.params['n2'] + self.params['na']
+        nout = (1 - self.params['na'])*(
+            1 - (r/self.params['a']) **
+            self.params['n1']
+        )**self.params['n2'] + self.params['na']
 
         return nout
 
@@ -811,8 +842,11 @@ class ScrewPinch(CartesianMHDequilibrium):
         if np.all(q >= 100.):
             gradBr = 0*x
         else:
-            gradBr = self.params['B0']/self.params['R0']**2/np.sqrt(1+r**2/self.q_r(
-                r)**2/self.params['R0']**2)*(r/self.q_r(r)**2 - r**2/self.q_r(r)**3*self.q_r(r, der=1))
+            gradBr = self.params['B0']/self.params['R0']**2/np.sqrt(
+                1+r**2/self.q_r(
+                    r,
+                )**2/self.params['R0']**2,
+            )*(r/self.q_r(r)**2 - r**2/self.q_r(r)**3*self.q_r(r, der=1))
         gradBx = gradBr*np.cos(theta)
         gradBy = gradBr*np.sin(theta)
         gradBz = 0*x
@@ -934,26 +968,28 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
     def __init__(self, **params):
 
-        from scipy.interpolate import UnivariateSpline
         from scipy.integrate import quad
+        from scipy.interpolate import UnivariateSpline
 
         # parameters
-        params_default = {'a': 1.,
-                          'R0': 3.,
-                          'B0': 2.,
-                          'q_kind': 0,
-                          'q0': 1.71,
-                          'q1': 1.87,
-                          'n1': 2.,
-                          'n2': 1.,
-                          'na': .2,
-                          'p_kind': 1,
-                          'p0': 1.,
-                          'p1': .1,
-                          'p2': .1,
-                          'beta': 0.179,
-                          'psi_k': 3,
-                          'psi_nel': 50}
+        params_default = {
+            'a': 1.,
+            'R0': 3.,
+            'B0': 2.,
+            'q_kind': 0,
+            'q0': 1.71,
+            'q1': 1.87,
+            'n1': 2.,
+            'n2': 1.,
+            'na': .2,
+            'p_kind': 1,
+            'p0': 1.,
+            'p1': .1,
+            'p2': .1,
+            'beta': 0.179,
+            'psi_k': 3,
+            'psi_nel': 50,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -986,7 +1022,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 psis[i] = quad(dpsi_dr, 0., rr)[0]
 
             self._psi_i = UnivariateSpline(
-                r_i, psis, k=self.params['psi_k'], s=0., ext=3)
+                r_i, psis, k=self.params['psi_k'], s=0., ext=3,
+            )
 
             self._psi0 = 0.
             self._psi1 = self.psi(self.params['R0'] + self.params['a'], 0.)
@@ -1000,7 +1037,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 ps[i] = quad(dp_dr, 0., rr)[0]
 
             self._p_i = UnivariateSpline(
-                r_i, ps - ps[-1], k=self.params['psi_k'], s=0., ext=3)
+                r_i, ps - ps[-1], k=self.params['psi_k'], s=0., ext=3,
+            )
 
     @property
     def params(self):
@@ -1069,8 +1107,12 @@ class AdhocTorus(AxisymmMHDequilibrium):
             if der == 0:
                 out = -self.params['B0']*self.params['a']**2 / \
                     np.sqrt(dq*q0*eps**2 + dq**2)
-                out *= np.arctanh(np.sqrt((dq - dq*(r/self.params['R0'])
-                                  ** 2)/(q0*eps**2 + dq)))
+                out *= np.arctanh(
+                    np.sqrt((
+                        dq - dq*(r/self.params['R0'])
+                        ** 2
+                    )/(q0*eps**2 + dq)),
+                )
             elif der == 1:
                 out = self.params['B0']*r/q_bar_0
             elif der == 2:
@@ -1127,8 +1169,10 @@ class AdhocTorus(AxisymmMHDequilibrium):
                         if self.params['q0'] == self.params['q1']:
                             qout = 0*r
                         else:
-                            qout = (2*r*q1/a**2)*(1 - (1 - (r/a)**2)**(q1/q0) - (r/a)**2*(q1/q0)
-                                                  * (1 - (r/a)**2)**(q1/q0 - 1))/(1 - (1 - (r/a)**2)**(q1/q0))**2
+                            qout = (2*r*q1/a**2)*(
+                                1 - (1 - (r/a)**2)**(q1/q0) - (r/a)**2*(q1/q0)
+                                * (1 - (r/a)**2)**(q1/q0 - 1)
+                            )/(1 - (1 - (r/a)**2)**(q1/q0))**2
 
             # vector input
             else:
@@ -1153,8 +1197,11 @@ class AdhocTorus(AxisymmMHDequilibrium):
                         qout[:] = 0.
                     else:
                         qout[r_zeros] = 0*r_zeros
-                        qout[r_nzero] = (2*r_flat[r_nzero]*q1/a**2)*(1 - (1 - (r_flat[r_nzero]/a)**2)**(q1/q0) - (r_flat[r_nzero]/a)**2*(
-                            q1/q0)*(1 - (r_flat[r_nzero]/a)**2)**(q1/q0 - 1))/(1 - (1 - (r_flat[r_nzero]/a)**2)**(q1/q0))**2
+                        qout[r_nzero] = (2*r_flat[r_nzero]*q1/a**2)*(
+                            1 - (1 - (r_flat[r_nzero]/a)**2)**(q1/q0) - (r_flat[r_nzero]/a)**2*(
+                                q1/q0
+                            )*(1 - (r_flat[r_nzero]/a)**2)**(q1/q0 - 1)
+                        )/(1 - (1 - (r_flat[r_nzero]/a)**2)**(q1/q0))**2
 
                 qout = qout.reshape(sh).copy()
 
@@ -1174,10 +1221,12 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
                 if self.params['q0'] == self.params['q1']:
                     pout = self.params['B0']**2*self.params['a']**2/(
-                        self.params['R0']**2*self.params['q0']**2)*(1 - r**2/self.params['a']**2)
+                        self.params['R0']**2*self.params['q0']**2
+                    )*(1 - r**2/self.params['a']**2)
                 else:
                     pout = self.params['B0']**2*eps**2*self.params['q0']/(
-                        2*(self.params['q1'] - self.params['q0']))*(1/self.q_r(r)**2 - 1/self.params['q1']**2)
+                        2*(self.params['q1'] - self.params['q0'])
+                    )*(1/self.q_r(r)**2 - 1/self.params['q1']**2)
 
             # alternative profile
             else:
@@ -1193,15 +1242,19 @@ class AdhocTorus(AxisymmMHDequilibrium):
         else:
 
             pout = self.params['B0']**2 * self.params['beta'] / 2. * (
-                self.params['p0'] - self.params['p1']*r**2/self.params['a']**2 - self.params['p2']*r**4/self.params['a']**4)
+                self.params['p0'] - self.params['p1']*r**2/self.params['a']**2 -
+                self.params['p2']*r**4/self.params['a']**4
+            )
 
         return pout
 
     def n_r(self, r):
         """ Radial number density profile n = n(r).
         """
-        nout = (1 - self.params['na'])*(1 - (r/self.params['a']) **
-                                        self.params['n1'])**self.params['n2'] + self.params['na']
+        nout = (1 - self.params['na'])*(
+            1 - (r/self.params['a']) **
+            self.params['n1']
+        )**self.params['n2'] + self.params['na']
 
         return nout
 
@@ -1275,7 +1328,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
                     self.psi_r(r, der=1) * d2r_dRdZ
             else:
                 raise NotImplementedError(
-                    'Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!')
+                    'Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!',
+                )
 
         return out
 
@@ -1291,7 +1345,8 @@ class AdhocTorus(AxisymmMHDequilibrium):
             out = 0*Z
         else:
             raise NotImplementedError(
-                'Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!')
+                'Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!',
+            )
 
         return out
 
@@ -1418,25 +1473,27 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
     def __init__(self, **params):
 
-        from scipy.optimize import fsolve
         from scipy.integrate import odeint
         from scipy.interpolate import UnivariateSpline
+        from scipy.optimize import fsolve
 
         # parameters
-        params_default = {'a': 0.361925,
-                          'R0': 1.,
-                          'B0': 1.,
-                          'q0': 0.6,
-                          'q1': 2.5,
-                          'q0p': 0.78,
-                          'q1p': 5.00,
-                          'n1': 2.,
-                          'n2': 1.,
-                          'na': .2,
-                          'beta': 4.,
-                          'p1': 0.25,
-                          'psi_k': 3,
-                          'psi_nel': 50}
+        params_default = {
+            'a': 0.361925,
+            'R0': 1.,
+            'B0': 1.,
+            'q0': 0.6,
+            'q1': 2.5,
+            'q0p': 0.78,
+            'q1p': 5.00,
+            'n1': 2.,
+            'n2': 1.,
+            'na': .2,
+            'beta': 4.,
+            'p1': 0.25,
+            'psi_k': 3,
+            'psi_nel': 50,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -1465,8 +1522,10 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             psi_norm = (psi - self._psi0)/(psi1 - self._psi0)
             psi_s = (q1p - q1 + q0)/(q0p + q1p - 2*q1 + 2*q0)
 
-            q = q0 + psi_norm*(q1 - q0 + (q1p - q1 + q0) *
-                               (1 - psi_s)*(psi_norm - 1)/(psi_norm - psi_s))
+            q = q0 + psi_norm*(
+                q1 - q0 + (q1p - q1 + q0) *
+                (1 - psi_s)*(psi_norm - 1)/(psi_norm - psi_s)
+            )
 
             out = B0*r/(q*np.sqrt(1 - r**2/R0**2))
 
@@ -1484,8 +1543,10 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
         self._psi1 = fsolve(fun, -9.5)[0]
 
         # interpolate flux function
-        self._psi_i = UnivariateSpline(r_i, odeint(dpsi_dr, self._psi0, r_i, args=(self._psi1,)).flatten(),
-                                       k=self.params['psi_k'], s=0., ext=3)
+        self._psi_i = UnivariateSpline(
+            r_i, odeint(dpsi_dr, self._psi0, r_i, args=(self._psi1,)).flatten(),
+            k=self.params['psi_k'], s=0., ext=3,
+        )
 
     @property
     def params(self):
@@ -1554,8 +1615,10 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         psi_norm = (psi - self._psi0)/(self._psi1 - self._psi0)
 
-        q = q0 + psi_norm*(q1 - q0 + (q1p - q1 + q0)*(1 - psi_s)
-                           * (psi_norm - 1)/(psi_norm - psi_s))
+        q = q0 + psi_norm*(
+            q1 - q0 + (q1p - q1 + q0)*(1 - psi_s)
+            * (psi_norm - 1)/(psi_norm - psi_s)
+        )
 
         return q
 
@@ -1662,7 +1725,8 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
                     self.psi_r(r, der=1) * d2r_dZ2
             else:
                 raise NotImplementedError(
-                    'Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0) and (dR=0, dZ=2) possible!')
+                    'Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0) and (dR=0, dZ=2) possible!',
+                )
 
         return out
 
@@ -1678,7 +1742,8 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             out = 0*Z
         else:
             raise NotImplementedError(
-                'Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!')
+                'Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!',
+            )
 
         return out
 
@@ -1747,12 +1812,11 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     def __init__(self, units=None, **params):
 
-        from scipy.interpolate import UnivariateSpline, RectBivariateSpline
+        from scipy.interpolate import RectBivariateSpline, UnivariateSpline
         from scipy.optimize import minimize
 
-        from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-
         import struphy
+        from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 
         # no rescaling if units are not provided
         if units is None:
@@ -1763,21 +1827,23 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             units['p'] = 1.
             units['n'] = 1e20
             warnings.warn(
-                f'{units = }, no rescaling performed in EQDSK output.')
+                f'{units = }, no rescaling performed in EQDSK output.',
+            )
 
         self._units = units
 
-        params_default = {'rel_path': True,
-                          'file': 'AUGNLED_g031213.00830.high',
-                          'data_type': 0,
-                          'p_for_psi': [3, 3],
-                          'psi_resolution': [25., 6.25],
-                          'p_for_flux': 3,
-                          'flux_resolution': 50.,
-                          'n1': 2.,
-                          'n2': 1.,
-                          'na': .2,
-                          }
+        params_default = {
+            'rel_path': True,
+            'file': 'AUGNLED_g031213.00830.high',
+            'data_type': 0,
+            'p_for_psi': [3, 3],
+            'psi_resolution': [25., 6.25],
+            'p_for_flux': 3,
+            'flux_resolution': 50.,
+            'n1': 2.,
+            'n2': 1.,
+            'na': .2,
+        }
 
         self._params = set_defaults(params, params_default)
 
@@ -1837,16 +1903,23 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         R = np.linspace(self._r_range[0], self._r_range[1], nR)
         Z = np.linspace(self._z_range[0], self._z_range[1], nZ)
 
-        smooth_steps = [int(1/(self._params['psi_resolution'][0]*0.01)),
-                        int(1/(self._params['psi_resolution'][1]*0.01))]
+        smooth_steps = [
+            int(1/(self._params['psi_resolution'][0]*0.01)),
+            int(1/(self._params['psi_resolution'][1]*0.01)),
+        ]
 
-        self._psi_i = RectBivariateSpline(R[::smooth_steps[0]], Z[::smooth_steps[1]], psi[::smooth_steps[0], ::smooth_steps[1]],
-                                          kx=self._params['p_for_psi'][0], ky=self._params['p_for_psi'][1],
-                                          s=0.)
+        self._psi_i = RectBivariateSpline(
+            R[::smooth_steps[0]], Z[::smooth_steps[1]], psi[::smooth_steps[0], ::smooth_steps[1]],
+            kx=self._params['p_for_psi'][0], ky=self._params['p_for_psi'][1],
+            s=0.,
+        )
 
         # find minimum of interpolated flux function (is not the same as (R_at_axis, Z_at_axis) and psi.min()!)
-        self._psi_i_min = minimize(lambda x: self.psi(
-            x[0], x[1]), x0=[R_at_axis, Z_at_axis])
+        self._psi_i_min = minimize(
+            lambda x: self.psi(
+                x[0], x[1],
+            ), x0=[R_at_axis, Z_at_axis],
+        )
 
         # set on-axis and boundary fluxes
         self._psi0 = self._psi_i_min['fun']
@@ -1857,12 +1930,18 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         smooth_step = int(1/(self._params['flux_resolution']*0.01))
 
-        self._g_i = UnivariateSpline(flux_grid[::smooth_step], g_profile[::smooth_step],
-                                     k=self._params['p_for_flux'], s=0., ext=3)
-        self._p_i = UnivariateSpline(flux_grid[::smooth_step], p_profile[::smooth_step],
-                                     k=self._params['p_for_flux'], s=0., ext=3)
-        self._q_i = UnivariateSpline(flux_grid[::smooth_step], q_profile[::smooth_step],
-                                     k=self._params['p_for_flux'], s=0., ext=3)
+        self._g_i = UnivariateSpline(
+            flux_grid[::smooth_step], g_profile[::smooth_step],
+            k=self._params['p_for_flux'], s=0., ext=3,
+        )
+        self._p_i = UnivariateSpline(
+            flux_grid[::smooth_step], p_profile[::smooth_step],
+            k=self._params['p_for_flux'], s=0., ext=3,
+        )
+        self._q_i = UnivariateSpline(
+            flux_grid[::smooth_step], q_profile[::smooth_step],
+            k=self._params['p_for_flux'], s=0., ext=3,
+        )
 
     @property
     def units(self):
@@ -1965,7 +2044,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         if isinstance(psi, (int, float)):
             assert out.ndim == 0
             out = out.item()
-            
+
         # rescale to Struphy units
         out /= self.units['p']
 
@@ -2062,7 +2141,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
     Density profile can be set to 
 
     .. math::
-    
+
         n(r)= \left\{\begin{aligned}
         \ &n_0 p(r) \quad &&\textnormal{if density_profile = 'pressure'}\,,
 
@@ -2070,7 +2149,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         \ &n_1+\left(1-\frac{r}{a}\right) (n_0-n_1) \quad &&\textnormal{if density_profile = 'linear'}\,, 
         \end{aligned}\right. \,.
-        
+
     Parameters
     ----------
     units : dict
@@ -2122,14 +2201,14 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
     def __init__(self, units=None, **params):
 
-        from struphy.geometry.domains import GVECunit
+        import os
 
-        from gvec_to_python.reader.gvec_reader import create_GVEC_json
         from gvec_to_python import GVEC
+        from gvec_to_python.reader.gvec_reader import create_GVEC_json
+        from mpi4py import MPI
 
         import struphy
-        import os
-        from mpi4py import MPI
+        from struphy.geometry.domains import GVECunit
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -2143,22 +2222,24 @@ class GVECequilibrium(LogicalMHDequilibrium):
             units['p'] = 1.
             units['n'] = 1e20
             warnings.warn(
-                f'{units = }, no rescaling performed in GVEC output.')
+                f'{units = }, no rescaling performed in GVEC output.',
+            )
 
         self._units = units
 
-        params_default = {'rel_path': True,
-                          'dat_file': 'ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat',
-                          'json_file': None,
-                          'use_pest': False,
-                          'use_nfp': True,
-                          'rmin': 0.01,
-                          'Nel': (16, 16, 16),
-                          'p': (3, 3, 3),
-                          'density_profile': 'pressure',
-                          'p0': 0.,
-                          'n0': .2,
-                          'n1': 0. }
+        params_default = {
+            'rel_path': True,
+            'dat_file': 'ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat',
+            'json_file': None,
+            'use_pest': False,
+            'use_nfp': True,
+            'rmin': 0.01,
+            'Nel': (16, 16, 16),
+            'p': (3, 3, 3),
+            'density_profile': 'pressure',
+            'p0': 0.,
+            'n0': .2,
+            'n1': 0., }
 
         self._params = set_defaults(params, params_default)
 
@@ -2168,8 +2249,11 @@ class GVECequilibrium(LogicalMHDequilibrium):
             assert self._params['json_file'][-5:] == '.json'
 
             if self._params['rel_path']:
-                json_file = os.path.join(struphy.__path__[
-                                         0], 'fields_background/mhd_equil/gvec', self._params['json_file'])
+                json_file = os.path.join(
+                    struphy.__path__[
+                        0
+                    ], 'fields_background/mhd_equil/gvec', self._params['json_file'],
+                )
             else:
                 json_file = self._params['json_file']
 
@@ -2178,8 +2262,11 @@ class GVECequilibrium(LogicalMHDequilibrium):
             assert self._params['dat_file'][-4:] == '.dat'
 
             if self._params['rel_path']:
-                dat_file = os.path.join(struphy.__path__[
-                                        0], 'fields_background/mhd_equil/gvec', self._params['dat_file'])
+                dat_file = os.path.join(
+                    struphy.__path__[
+                        0
+                    ], 'fields_background/mhd_equil/gvec', self._params['dat_file'],
+                )
             else:
                 dat_file = params['dat_file']
 
@@ -2200,15 +2287,19 @@ class GVECequilibrium(LogicalMHDequilibrium):
             unit_tor_domain = "full"
 
         # gvec object
-        self._gvec = GVEC(json_file, mapping=mapping,
-                          unit_tor_domain=unit_tor_domain, use_pyccel=True)
+        self._gvec = GVEC(
+            json_file, mapping=mapping,
+            unit_tor_domain=unit_tor_domain, use_pyccel=True,
+        )
 
         # struphy domain object
         self._domain = GVECunit(self)
-        
+
         # create cache
-        self._cache = {'bv': {'grids': [], 'outs': []},
-                       'jv': {'grids': [], 'outs': []}}
+        self._cache = {
+            'bv': {'grids': [], 'outs': []},
+            'jv': {'grids': [], 'outs': []},
+        }
 
     @property
     def domain(self):
@@ -2253,7 +2344,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['bv']['outs'][i]
-                #print(f'Used cached bv at {i = }.')
+                # print(f'Used cached bv at {i = }.')
             else:
                 out = self._eval_bv(*etas, squeeze_out=squeeze_out)
                 self._cache['bv']['grids'] += [etas]
@@ -2263,9 +2354,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
             out = self._eval_bv(*etas, squeeze_out=squeeze_out)
             self._cache['bv']['grids'] += [etas]
             self._cache['bv']['outs'] += [out]
-            
+
         return out
-        
+
     def _eval_bv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2286,7 +2377,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         out = self.gvec.bv(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
             o /= self.units['B'] / self.units['x']
-        
+
         return out
 
     def jv(self, *etas, squeeze_out=False):
@@ -2309,7 +2400,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['jv']['outs'][i]
-                #print(f'Used cached jv at {i = }.')
+                # print(f'Used cached jv at {i = }.')
             else:
                 out = self._eval_jv(*etas, squeeze_out=squeeze_out)
                 self._cache['jv']['grids'] += [etas]
@@ -2321,7 +2412,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             self._cache['jv']['outs'] += [out]
 
         return out
-        
+
     def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2342,7 +2433,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         out = self.gvec.jv(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
             o /= self.units['j'] / self.units['x']
-        
+
         return out
 
     def p0(self, *etas, squeeze_out=False):
@@ -2364,7 +2455,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params['rmin']
-        return self._params['p0']+ self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/self.units['p']
+        return self._params['p0'] + self.gvec.p0(rmin + eta1*(1. - rmin), eta2, eta3, flat_eval=flat_eval)/self.units['p']
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3.
@@ -2399,7 +2490,8 @@ class GVECequilibrium(LogicalMHDequilibrium):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
         """
         raise NotImplementedError(
-            '1-form gradient of magnetic field of GVECequilibrium is not implemented')
+            '1-form gradient of magnetic field of GVECequilibrium is not implemented',
+        )
 
 
 class DESCequilibrium(LogicalMHDequilibrium):
@@ -2424,7 +2516,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).   
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
-    
+
     T_kelvin : maximum of temperature in Kelvin (default: 100000).
 
     Note
@@ -2446,13 +2538,13 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
     def __init__(self, units=None, **params):
 
-        from struphy.geometry.domains import DESCunit
+        import os
 
         import desc
+        from mpi4py import MPI
 
         import struphy
-        import os
-        from mpi4py import MPI
+        from struphy.geometry.domains import DESCunit
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -2466,24 +2558,30 @@ class DESCequilibrium(LogicalMHDequilibrium):
             units['p'] = 1.
             units['n'] = 1e20
             warnings.warn(
-                f'{units = }, no rescaling performed in DESC output.')
+                f'{units = }, no rescaling performed in DESC output.',
+            )
 
         self._units = units
 
-        params_default = {'eq_name': None,
-                          'rel_path': False,
-                          'use_pest': False,
-                          'use_nfp': True,
-                          'rmin': 0.01,
-                          'Nel': (16, 16, 50),
-                          'p': (3, 3, 3), 
-                          'T_kelvin': 100000}
+        params_default = {
+            'eq_name': None,
+            'rel_path': False,
+            'use_pest': False,
+            'use_nfp': True,
+            'rmin': 0.01,
+            'Nel': (16, 16, 50),
+            'p': (3, 3, 3),
+            'T_kelvin': 100000,
+        }
 
         self._params = set_defaults(params, params_default)
 
         if self._params['rel_path']:
-            eq_name = os.path.join(struphy.__path__[
-                0], 'fields_background/mhd_equil/desc', self._params['eq_name'])
+            eq_name = os.path.join(
+                struphy.__path__[
+                    0
+                ], 'fields_background/mhd_equil/desc', self._params['eq_name'],
+            )
         else:
             eq_name = self._params['eq_name']
 
@@ -2495,11 +2593,12 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         self._rmin = params['rmin']
         self._use_nfp = params['use_nfp']
-        
+
         # straight field line coords
         if self._params['use_pest']:
             raise ValueError(
-                'PEST coordinates not yet implemented in desc interface.')
+                'PEST coordinates not yet implemented in desc interface.',
+            )
             mapping = 'unit_pest'
         else:
             mapping = 'unit'
@@ -2508,9 +2607,11 @@ class DESCequilibrium(LogicalMHDequilibrium):
         self._domain = DESCunit(self)
 
         # create cache
-        self._cache = {'bv': {'grids': [], 'outs': []},
-                       'jv': {'grids': [], 'outs': []},
-                       'gradB1': {'grids': [], 'outs': []}}
+        self._cache = {
+            'bv': {'grids': [], 'outs': []},
+            'jv': {'grids': [], 'outs': []},
+            'gradB1': {'grids': [], 'outs': []},
+        }
 
     @property
     def domain(self):
@@ -2568,7 +2669,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['bv']['outs'][i]
-                #print(f'Used cached bv at {i = }.')
+                # print(f'Used cached bv at {i = }.')
             else:
                 out = self._eval_bv(*etas, squeeze_out=squeeze_out)
                 self._cache['bv']['grids'] += [etas]
@@ -2596,7 +2697,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
-            
+
         nfp = self.eq.NFP
         if not self.use_nfp:
             nfp = 1
@@ -2641,7 +2742,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
             if cached:
                 out = self._cache['jv']['outs'][i]
-                #print(f'Used cached jv at {i = }.')
+                # print(f'Used cached jv at {i = }.')
             else:
                 out = self._eval_jv(*etas, squeeze_out=squeeze_out)
                 self._cache['jv']['grids'] += [etas]
@@ -2653,7 +2754,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             self._cache['jv']['outs'] += [out]
 
         return out
-    
+
     def _eval_jv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2690,7 +2791,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             # adjust for Struphy units
             tmp /= self.units['j'] / self.units['x']
             out += [tmp]
-            
+
         return out
 
     def p0(self, *etas, squeeze_out=False):
@@ -2744,8 +2845,9 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         # Ori 25/06/24 - Add option to set temperature maximum and then set density accordingly, still proportional to pressure
         k_Boltzmann = 1.38*1e-23
-        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units['p'] #computes pressure in units of 1 Pa
-        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / self.units['n'] #density in default units, n=1 --> 10^20 m^(-3)
+        p0_pascal = self.p0(*etas, squeeze_out=squeeze_out) * self.units['p']  # computes pressure in units of 1 Pa
+        # density in default units, n=1 --> 10^20 m^(-3)
+        return p0_pascal / (self._params['T_kelvin'] * k_Boltzmann) / self.units['n']
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3.
@@ -2775,10 +2877,10 @@ class DESCequilibrium(LogicalMHDequilibrium):
             # print('No bv grids yet.')
             out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
             self._cache['gradB1']['grids'] += [etas]
-            self._cache['gradB1']['outs'] += [out] 
+            self._cache['gradB1']['outs'] += [out]
 
         return out
-    
+
     def _eval_gradB1(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2794,7 +2896,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
             eta2 = etas[1]
             eta3 = etas[2]
             flat_eval = False
-            
+
         nfp = self.eq.NFP
         if not self.use_nfp:
             nfp = 1
@@ -2813,12 +2915,12 @@ class DESCequilibrium(LogicalMHDequilibrium):
             elif var == "|B|_z":
                 tmp *= 2.*np.pi/nfp
             # adjust for Struphy units
-            tmp /= self.units['B'] 
+            tmp /= self.units['B']
             out += [tmp]
 
         return out
 
-    def desc_eval(self, var: str, e1: np.ndarray, e2: np.ndarray, e3: np.ndarray, flat_eval: bool=False, nfp: int=1, verbose: bool=False):
+    def desc_eval(self, var: str, e1: np.ndarray, e2: np.ndarray, e3: np.ndarray, flat_eval: bool = False, nfp: int = 1, verbose: bool = False):
         '''Transform the input grids to conform to desc's .compute method
         and evaluate var.
 
@@ -2833,15 +2935,16 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         flat_eval : bool
             Whether to do flat (marker) evaluation.
-            
+
         nfp : int
             Number of stellarator field periods to be used in the mapping (nfp=1 uses the whole stellarator).
 
         verbose : bool
             Print grid check to screen.'''
 
-        from desc.grid import Grid
         import warnings
+
+        from desc.grid import Grid
 
         warnings.filterwarnings("ignore")
 
@@ -2874,7 +2977,8 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         # compute output corresponding to the generated desc grid
         node_values = self.eq.compute(
-            var, grid=grid_3d, override_grid=False)
+            var, grid=grid_3d, override_grid=False,
+        )
 
         if flat_eval:
             out = node_values[var]
@@ -2883,16 +2987,28 @@ class DESCequilibrium(LogicalMHDequilibrium):
             theta1 = grid_3d.nodes[:, 1]
             zeta1 = grid_3d.nodes[:, 2]
         else:
-            out = (node_values[var].reshape(
-                (rho.size, theta.size, zeta.size), order="C"))
+            out = (
+                node_values[var].reshape(
+                    (rho.size, theta.size, zeta.size), order="C",
+                )
+            )
 
-            rho1 = (grid_3d.nodes[:, 0].reshape(
-                (rho.size, theta.size, zeta.size), order="C"))[:, 0, 0]
-            theta1 = (grid_3d.nodes[:, 1].reshape(
-                (rho.size, theta.size, zeta.size), order="C"))[0, :, 0]
-            zeta1 = (grid_3d.nodes[:, 2].reshape(
-                (rho.size, theta.size, zeta.size), order="C"))[0, 0, :]
-            
+            rho1 = (
+                grid_3d.nodes[:, 0].reshape(
+                    (rho.size, theta.size, zeta.size), order="C",
+                )
+            )[:, 0, 0]
+            theta1 = (
+                grid_3d.nodes[:, 1].reshape(
+                    (rho.size, theta.size, zeta.size), order="C",
+                )
+            )[0, :, 0]
+            zeta1 = (
+                grid_3d.nodes[:, 2].reshape(
+                    (rho.size, theta.size, zeta.size), order="C",
+                )
+            )[0, 0, :]
+
         # make sure the desc grid is correct
         assert np.all(rho == rho1)
         assert np.all(theta == theta1)

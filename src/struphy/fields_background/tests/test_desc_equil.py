@@ -9,7 +9,7 @@ def test_desc_equil(do_plot=False):
     import desc
     from desc.grid import Grid
 
-    from struphy.fields_background.mhd_equil import equils, base
+    from struphy.fields_background.mhd_equil import base, equils
 
     # default case, with and without use of toroidal field periods
     desc_eq = desc.examples.get("W7-X")
@@ -18,7 +18,7 @@ def test_desc_equil(do_plot=False):
 
     struphy_eqs = {}
     for nfp in nfps:
-        struphy_eqs[nfp] = equils.DESCequilibrium(use_nfp=nfp!=1)
+        struphy_eqs[nfp] = equils.DESCequilibrium(use_nfp=nfp != 1)
 
     # grid
     n1 = 8
@@ -30,12 +30,14 @@ def test_desc_equil(do_plot=False):
     e3 = np.linspace(0, 1 - 1e-6, n3)
 
     # desc grid and evaluation
-    vars = ['X', 'Y', 'Z', 'R', 'phi', 'sqrt(g)', 'p', 'B', 'J', 
-            'B_R', 'B_phi', 'B_Z', 
-            'J_R', 'J_phi', 'J_Z',
-            'B^rho', 'B^theta', 'B^zeta',
-            'J^rho', 'J^theta', 'J^zeta',
-            '|B|_r', '|B|_t', '|B|_z']
+    vars = [
+        'X', 'Y', 'Z', 'R', 'phi', 'sqrt(g)', 'p', 'B', 'J',
+        'B_R', 'B_phi', 'B_Z',
+        'J_R', 'J_phi', 'J_Z',
+        'B^rho', 'B^theta', 'B^zeta',
+        'J^rho', 'J^theta', 'J^zeta',
+        '|B|_r', '|B|_t', '|B|_z',
+    ]
 
     outs = {}
     for nfp in nfps:
@@ -55,17 +57,24 @@ def test_desc_equil(do_plot=False):
 
         for var in vars:
             node_values = desc_eq.compute(
-                var, grid=grid_3d, override_grid=False)
+                var, grid=grid_3d, override_grid=False,
+            )
 
             if node_values[var].ndim == 1:
-                out = (node_values[var].reshape(
-                    (rho.size, theta.size, zeta.size), order="C"))
+                out = (
+                    node_values[var].reshape(
+                        (rho.size, theta.size, zeta.size), order="C",
+                    )
+                )
                 outs[nfp][var] = np.ascontiguousarray(out)
             else:
                 B = []
                 for i in range(3):
-                    Bcomp = (node_values[var][:, i].reshape(
-                        (rho.size, theta.size, zeta.size), order="C"))
+                    Bcomp = (
+                        node_values[var][:, i].reshape(
+                            (rho.size, theta.size, zeta.size), order="C",
+                        )
+                    )
                     Bcomp = np.ascontiguousarray(Bcomp)
                     B += [Bcomp]
                     outs[nfp][var + str(i + 1)] = Bcomp
@@ -81,10 +90,10 @@ def test_desc_equil(do_plot=False):
 
         outs[nfp]['Bx'] = np.cos(outs[nfp]['phi']) * outs[nfp]['B_R'] - \
             np.sin(outs[nfp]['phi']) * outs[nfp]['B_phi']
-            
+
         outs[nfp]['By'] = np.sin(outs[nfp]['phi']) * outs[nfp]['B_R'] + \
             np.cos(outs[nfp]['phi']) * outs[nfp]['B_phi']
-            
+
         outs[nfp]['Bz'] = outs[nfp]['B_Z']
 
     # struphy evaluation
@@ -99,7 +108,7 @@ def test_desc_equil(do_plot=False):
         outs_struphy[nfp]['X'] = x
         outs_struphy[nfp]['Y'] = y
         outs_struphy[nfp]['Z'] = z
-        
+
         outs_struphy[nfp]['R'] = np.sqrt(x**2 + y**2)
         tmp = np.arctan2(y, x)
         tmp[tmp < -1e-6] += 2*np.pi
@@ -126,13 +135,14 @@ def test_desc_equil(do_plot=False):
         j1 = s_eq.j1(e1, e2, e3)
 
         outs_struphy[nfp]['J'] = np.sqrt(
-            jv[0]*j1[0] + jv[1]*j1[1] + jv[2]*j1[2])
+            jv[0]*j1[0] + jv[1]*j1[1] + jv[2]*j1[2],
+        )
 
         b_cart, xyz = s_eq.b_cart(e1, e2, e3)
         outs_struphy[nfp]['Bx'] = b_cart[0]
         outs_struphy[nfp]['By'] = b_cart[1]
         outs_struphy[nfp]['Bz'] = b_cart[2]
-        
+
         # include push forward to DESC logical coordinates
         gradB1 = s_eq.gradB1(e1, e2, e3)
         outs_struphy[nfp]['|B|_r'] = gradB1[0] / (1 - rmin)
@@ -156,17 +166,18 @@ def test_desc_equil(do_plot=False):
                 if max_norm < 1e-16:
                     max_norm = 1.
                 err = np.max(
-                    np.abs(outs[nfp][var] - outs_struphy[nfp][var])) / max_norm
+                    np.abs(outs[nfp][var] - outs_struphy[nfp][var]),
+                ) / max_norm
 
                 assert err < err_lim
-                print(f'compare {var}: {err = }', )
+                print(f'compare {var}: {err = }')
 
                 if do_plot:
                     fig = plt.figure(figsize=(12, 13))
-                    
+
                     levels = np.linspace(np.min(outs[nfp][var]) - 1e-10, np.max(outs[nfp][var]), 20)
-                    
-                    # poloidal plot 
+
+                    # poloidal plot
                     R = outs[nfp]['R'][:, :, 0].squeeze()
                     Z = outs[nfp]['Z'][:, :, 0].squeeze()
 
@@ -180,20 +191,21 @@ def test_desc_equil(do_plot=False):
 
                     plt.subplot(2, 2, 2)
                     map2 = plt.contourf(
-                        R, Z, outs_struphy[nfp][var][:, :, 0], levels=levels)
+                        R, Z, outs_struphy[nfp][var][:, :, 0], levels=levels,
+                    )
                     plt.title(f'Struphy, {err = }')
                     plt.xlabel('$R$')
                     plt.ylabel('$Z$')
                     plt.axis('equal')
                     plt.colorbar(map2, location='right')
-                    
+
                     # top view plot
                     x1 = outs[nfp]['X'][:, 0, :].squeeze()
                     y1 = outs[nfp]['Y'][:, 0, :].squeeze()
-                    
+
                     x2 = outs[nfp]['X'][:, n2//2, :].squeeze()
                     y2 = outs[nfp]['Y'][:, n2//2, :].squeeze()
-                    
+
                     plt.subplot(2, 2, 3)
                     map3 = plt.contourf(x1, y1, outs[nfp][var][:, 0, :], levels=levels)
                     map3b = plt.contourf(x2, y2, outs[nfp][var][:, n2//2, :], levels=levels)
@@ -202,7 +214,7 @@ def test_desc_equil(do_plot=False):
                     plt.ylabel('$y$')
                     plt.axis('equal')
                     plt.colorbar(map3, location='right')
-                    
+
                     plt.subplot(2, 2, 4)
                     map4 = plt.contourf(x1, y1, outs_struphy[nfp][var][:, 0, :], levels=levels)
                     map4b = plt.contourf(x2, y2, outs_struphy[nfp][var][:, n2//2, :], levels=levels)

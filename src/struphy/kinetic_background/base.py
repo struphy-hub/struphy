@@ -2,6 +2,7 @@
 
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 
 
@@ -429,7 +430,8 @@ class Maxwellian(KineticBackground):
             assert np.shape(arg) == shape0, \
                 f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
             assert np.ndim(arg) == 1 or np.ndim(
-                arg) == 3 + self.vdim, f'{np.ndim(arg) = } not allowed for Maxwellian evaluation.'  # flat or meshgrid evaluation
+                arg,
+            ) == 3 + self.vdim, f'{np.ndim(arg) = } not allowed for Maxwellian evaluation.'  # flat or meshgrid evaluation
 
         # Get result evaluated at eta's
         res = self.n(*args[:-self.vdim])
@@ -468,11 +470,13 @@ class Maxwellian(KineticBackground):
                 u = us[i]
                 vth = vths[i]
 
-            res *= self.gaussian(v,
-                                 u=u,
-                                 vth=vth,
-                                 polar=self.is_polar[i],
-                                 volume_form=self.volume_form)
+            res *= self.gaussian(
+                v,
+                u=u,
+                vth=vth,
+                polar=self.is_polar[i],
+                volume_form=self.volume_form,
+            )
 
         return res
 
@@ -602,9 +606,11 @@ class CanonicalMaxwellian(metaclass=ABCMeta):
         shape0 = np.shape(args[0])
         for i, arg in enumerate(args):
             assert np.shape(
-                arg) == shape0, f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
+                arg,
+            ) == shape0, f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
             assert np.ndim(arg) == 1 or np.ndim(
-                arg) == 3, f'{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation.'  # flat or meshgrid evaluation
+                arg,
+            ) == 3, f'{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation.'  # flat or meshgrid evaluation
 
         # Get result evaluated with each particles' psic
         res = self.n(args[2])

@@ -14,8 +14,10 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V0:')
     V = PolarDerhamSpace(derham, 'H1')
-    print('dimensions (parent, polar):',
-          derham.Vh_fem['0'].nbasis, V.dimension)
+    print(
+        'dimensions (parent, polar):',
+        derham.Vh_fem['0'].nbasis, V.dimension,
+    )
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -43,8 +45,10 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V1:')
     V = PolarDerhamSpace(derham, 'Hcurl')
-    print('dimensions (parent, polar):',
-          derham.Vh_fem['1'].nbasis, V.dimension)
+    print(
+        'dimensions (parent, polar):',
+        derham.Vh_fem['1'].nbasis, V.dimension,
+    )
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -136,8 +140,10 @@ def test_spaces(Nel, p, spl_kind):
 
     print('polar V0vec:')
     V = PolarDerhamSpace(derham, 'H1vec')
-    print('dimensions (parent, polar):',
-          derham.Vh_fem['v'].nbasis, V.dimension)
+    print(
+        'dimensions (parent, polar):',
+        derham.Vh_fem['v'].nbasis, V.dimension,
+    )
     print(V.dtype)
     print(V.zeros(), '\n')
     a = PolarVector(V)
@@ -174,18 +180,15 @@ def test_spaces(Nel, p, spl_kind):
 def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
     import numpy as np
-
-    from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.feec.psydac_derham import Derham
-    from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
-
-    from struphy.polar.extraction_operators import PolarExtractionBlocksC1
-    from struphy.polar.basic import PolarDerhamSpace, PolarVector
-    from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+    from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-    from mpi4py import MPI
+    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
+    from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.polar.basic import PolarDerhamSpace, PolarVector
+    from struphy.polar.extraction_operators import PolarExtractionBlocksC1
+    from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -196,18 +199,23 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     domain = IGAPolarCylinder(**params_map)
 
     # create de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm, polar_ck=1,
-                    domain=domain, with_projectors=False)
+    derham = Derham(
+        Nel, p, spl_kind, comm=comm, polar_ck=1,
+        domain=domain, with_projectors=False,
+    )
 
     # create legacy FEM spaces
-    spaces = [Spline_space_1d(Nel, p, spl_kind)
-              for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
+    spaces = [
+        Spline_space_1d(Nel, p, spl_kind)
+        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
+    ]
 
     for space_i in spaces:
         space_i.set_projectors()
 
     space = Tensor_spline_space(
-        spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
+        spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0],
+    )
     space.set_projectors('general')
 
     if rank == 0:
@@ -225,13 +233,17 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 
     # create pure tensor-product and polar vectors (legacy and distributed)
     f0_tp_leg, f0_tp = create_equal_random_arrays(
-        derham.Vh_fem['0'], flattened=True)
+        derham.Vh_fem['0'], flattened=True,
+    )
     e1_tp_leg, e1_tp = create_equal_random_arrays(
-        derham.Vh_fem['1'], flattened=True)
+        derham.Vh_fem['1'], flattened=True,
+    )
     b2_tp_leg, b2_tp = create_equal_random_arrays(
-        derham.Vh_fem['2'], flattened=True)
+        derham.Vh_fem['2'], flattened=True,
+    )
     p3_tp_leg, p3_tp = create_equal_random_arrays(
-        derham.Vh_fem['3'], flattened=True)
+        derham.Vh_fem['3'], flattened=True,
+    )
 
     f0_pol.tp = f0_tp
     e1_pol.tp = e1_tp
@@ -239,14 +251,26 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     p3_pol.tp = p3_tp
 
     np.random.seed(1607)
-    f0_pol.pol = [np.random.rand(
-        f0_pol.pol[0].shape[0], f0_pol.pol[0].shape[1])]
-    e1_pol.pol = [np.random.rand(
-        e1_pol.pol[n].shape[0], e1_pol.pol[n].shape[1]) for n in range(3)]
-    b2_pol.pol = [np.random.rand(
-        b2_pol.pol[n].shape[0], b2_pol.pol[n].shape[1]) for n in range(3)]
-    p3_pol.pol = [np.random.rand(
-        p3_pol.pol[0].shape[0], p3_pol.pol[0].shape[1])]
+    f0_pol.pol = [
+        np.random.rand(
+            f0_pol.pol[0].shape[0], f0_pol.pol[0].shape[1],
+        ),
+    ]
+    e1_pol.pol = [
+        np.random.rand(
+            e1_pol.pol[n].shape[0], e1_pol.pol[n].shape[1],
+        ) for n in range(3)
+    ]
+    b2_pol.pol = [
+        np.random.rand(
+            b2_pol.pol[n].shape[0], b2_pol.pol[n].shape[1],
+        ) for n in range(3)
+    ]
+    p3_pol.pol = [
+        np.random.rand(
+            p3_pol.pol[0].shape[0], p3_pol.pol[0].shape[1],
+        ),
+    ]
 
     f0_pol_leg = f0_pol.toarray(True)
     e1_pol_leg = e1_pol.toarray(True)
@@ -324,13 +348,11 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 def test_projectors(Nel, p, spl_kind):
 
     import numpy as np
-
-    from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.feec.psydac_derham import Derham
+    from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-    from mpi4py import MPI
+    from struphy.feec.psydac_derham import Derham
+    from struphy.geometry.domains import IGAPolarCylinder
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -341,18 +363,24 @@ def test_projectors(Nel, p, spl_kind):
     domain = IGAPolarCylinder(**params_map)
 
     # create polar de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[
-                    6, 6, 6], polar_ck=1, domain=domain)
+    derham = Derham(
+        Nel, p, spl_kind, comm=comm, nq_pr=[
+            6, 6, 6,
+        ], polar_ck=1, domain=domain,
+    )
 
     # create legacy FEM spaces
-    spaces = [Spline_space_1d(Nel, p, spl_kind)
-              for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
+    spaces = [
+        Spline_space_1d(Nel, p, spl_kind)
+        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
+    ]
 
     for space_i in spaces:
         space_i.set_projectors(nq=6)
 
     space = Tensor_spline_space(
-        spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
+        spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0],
+    )
     space.set_projectors('general')
 
     if rank == 0:
@@ -370,20 +398,28 @@ def test_projectors(Nel, p, spl_kind):
 
     # pull-back to logical domain
     def fun0(e1, e2, e3): return domain.pull(
-        fun_scalar, e1, e2, e3, kind='0')
+        fun_scalar, e1, e2, e3, kind='0',
+    )
 
-    fun1 = [lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1')[0],
-            lambda e1, e2, e3: domain.pull(
-                fun_vector, e1, e2, e3, kind='1')[1],
-            lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1')[2]]
+    fun1 = [
+        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1')[0],
+        lambda e1, e2, e3: domain.pull(
+            fun_vector, e1, e2, e3, kind='1',
+        )[1],
+        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='1')[2],
+    ]
 
-    fun2 = [lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2')[0],
-            lambda e1, e2, e3: domain.pull(
-                fun_vector, e1, e2, e3, kind='2')[1],
-            lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2')[2]]
+    fun2 = [
+        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2')[0],
+        lambda e1, e2, e3: domain.pull(
+            fun_vector, e1, e2, e3, kind='2',
+        )[1],
+        lambda e1, e2, e3: domain.pull(fun_vector, e1, e2, e3, kind='2')[2],
+    ]
 
     def fun3(e1, e2, e3): return domain.pull(
-        fun_scalar, e1, e2, e3, kind='3')
+        fun_scalar, e1, e2, e3, kind='3',
+    )
 
     # ============ project on V0 =========================
     if rank == 0:

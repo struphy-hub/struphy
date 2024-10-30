@@ -1,18 +1,20 @@
 def run(n_procs):
     """
     Run a TAE example for the model "LinearMHD", including post-processing.
-    
+
     Parameters
     ----------
     n_procs : int
         Number of MPI processes to run the model.
     """
-    
+
     import os
     import subprocess
+
+    import yaml
+
     import struphy
     import struphy.utils.utils as utils
-    import yaml
 
     libpath = struphy.__path__[0]
 
@@ -23,74 +25,93 @@ def run(n_procs):
 
     # name of simulation output folder
     out_name = 'sim_example_TAE_tokamak'
-    
+
     # run MHD eigenvalue solver
-    subprocess.run(['python3',
-                    os.path.join(libpath, 'eigenvalue_solvers/mhd_axisymmetric_main.py'),
-                    '-1',
-                    '--input-abs',
-                    os.path.join(libpath, 'io/inp/longer_examples/params_TAE_tokamak.yml'),
-                    '-o',
-                    out_name], 
-                    check=True)
-    
+    subprocess.run(
+        [
+            'python3',
+            os.path.join(libpath, 'eigenvalue_solvers/mhd_axisymmetric_main.py'),
+            '-1',
+            '--input-abs',
+            os.path.join(libpath, 'io/inp/longer_examples/params_TAE_tokamak.yml'),
+            '-o',
+            out_name,
+        ],
+        check=True,
+    )
+
     # make the .npy eigenspectrum smaller (just for testing)
-    subprocess.run(['python3',
-                    os.path.join(libpath, 'eigenvalue_solvers/mhd_axisymmetric_pproc.py'),
-                    '-n',
-                    '-1',
-                    '-i',
-                    out_name,
-                    '0.1',
-                    '0.2'], 
-                    check=True, cwd=libpath)
-    
+    subprocess.run(
+        [
+            'python3',
+            os.path.join(libpath, 'eigenvalue_solvers/mhd_axisymmetric_pproc.py'),
+            '-n',
+            '-1',
+            '-i',
+            out_name,
+            '0.1',
+            '0.2',
+        ],
+        check=True, cwd=libpath,
+    )
+
     # run the model
-    subprocess.run(['struphy', 
-                    'run', 
-                    'LinearMHD',
-                    '--input-abs',
-                    os.path.join(o_path, out_name, 'parameters.yml'),
-                    '-o',
-                    out_name,
-                    '--mpi',
-                    str(n_procs)], check=True)
-    
+    subprocess.run(
+        [
+            'struphy',
+            'run',
+            'LinearMHD',
+            '--input-abs',
+            os.path.join(o_path, out_name, 'parameters.yml'),
+            '-o',
+            out_name,
+            '--mpi',
+            str(n_procs),
+        ], check=True,
+    )
+
     # perform post-processing
-    subprocess.run(['struphy',
-                    'pproc',
-                    '-d',
-                    out_name,
-                    '-s',
-                    '500',
-                    '--celldivide',
-                    '5'], check=True)
-    
-    
+    subprocess.run(
+        [
+            'struphy',
+            'pproc',
+            '-d',
+            out_name,
+            '-s',
+            '500',
+            '--celldivide',
+            '5',
+        ], check=True,
+    )
+
+
 def diagnostics():
     """
     Perform diagnostics and plot results for the example run.
     """
-    
-    import os, yaml, h5py, pickle
-    
-    import numpy as np
+
+    import os
+    import pickle
+
+    import h5py
     import matplotlib.pyplot as plt
+    import numpy as np
+    import yaml
+
+    import struphy
     import struphy.utils.utils as utils
-    from struphy.io.setup import setup_domain_and_equil
     from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
     from struphy.dispersion_relations.analytic import MhdContinousSpectraCylinder
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    
-    import struphy
+    from struphy.io.setup import setup_domain_and_equil
 
-    libpath = struphy.__path__[0]    
+    libpath = struphy.__path__[0]
 
     # Read struphy state file
     state = utils.read_state()
 
     o_path = state['o_path']
-    
+
     out_name = 'sim_example_TAE_tokamak'
     out_path = os.path.join(o_path, out_name)
 
@@ -105,10 +126,10 @@ def diagnostics():
     nq_el = params['grid']['nq_el']
     dirichlet_bc = params['grid']['dirichlet_bc']
     polar_ck = params['grid']['polar_ck']
-    
+
     # create domain and MHD equilibrium
     domain, mhd_equil = setup_domain_and_equil(params)
-    
+
     # get MHD equilibrium parameters
     mhd_params = params['mhd_equilibrium'][params['mhd_equilibrium']['type']]
 
@@ -122,7 +143,7 @@ def diagnostics():
     eB = file['scalar']['en_B'][:]
 
     file.close()
-    
+
     # load logical and physical grids
     with open(os.path.join(out_path, 'post_processing/fields_data/grids_log.bin'), 'rb') as handle:
         grids_log = pickle.load(handle)
@@ -141,24 +162,29 @@ def diagnostics():
     bc = ['f', 'f']
     if dirichlet_bc[0]:
         bc[0] = 'd'
-        
+
     if dirichlet_bc[1]:
         bc[1] = 'd'
 
     fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
     fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], bc[1])
 
-    fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], polar_ck,
-                                 domain.cx[:, :, 0], domain.cy[:, :, 0],
-                                 n_tor=n_tor, basis_tor='i')
+    fem_2d = Tensor_spline_space(
+        [fem_1d_1, fem_1d_2], polar_ck,
+        domain.cx[:, :, 0], domain.cy[:, :, 0],
+        n_tor=n_tor, basis_tor='i',
+    )
 
     # load and analyze .npy spectrum
     omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)
     omega2 = omega2.flatten()
 
     omegaA = mhd_params['B0']/mhd_params['R0']
-    A, S = get_mhd_continua_2d(fem_2d, domain, omega2, U2_eig, [
-                               0, 4], omegaA, 0.03, 3)
+    A, S = get_mhd_continua_2d(
+        fem_2d, domain, omega2, U2_eig, [
+            0, 4,
+        ], omegaA, 0.03, 3,
+    )
 
     # plot some results
     fig = plt.figure()
@@ -178,19 +204,27 @@ def diagnostics():
     # plot shear Alfvén continuous spectra for m = [2, 3, 4]
 
     # analytical continuous spectra
-    spec_calc = MhdContinousSpectraCylinder(R0=mhd_params['R0'],
-                                            Bz=lambda r: mhd_params['B0'] - 0*r,
-                                            q=mhd_equil.q_r, rho=mhd_equil.n_r,
-                                            p=mhd_equil.p_r, gamma=5/3)
+    spec_calc = MhdContinousSpectraCylinder(
+        R0=mhd_params['R0'],
+        Bz=lambda r: mhd_params['B0'] - 0*r,
+        q=mhd_equil.q_r, rho=mhd_equil.n_r,
+        p=mhd_equil.p_r, gamma=5/3,
+    )
 
     plt.subplot(2, 2, 2)
     for m in range(2, 4 + 1):
-        plt.plot(0.1 + 0.9*A[m][0], A[m][1]/omegaA **2,
-                 '+', label='m = ' + str(m))
-        plt.plot(domain(grids_log[0], 0., 0.)[0] - mhd_params['R0'],
-                 spec_calc(domain(grids_log[0], 0., 0.)[0] \
-                 - mhd_params['R0'], m, -2)['shear_Alfvén']**2/omegaA**2,
-                 'k--', linewidth=0.5)
+        plt.plot(
+            0.1 + 0.9*A[m][0], A[m][1]/omegaA ** 2,
+            '+', label='m = ' + str(m),
+        )
+        plt.plot(
+            domain(grids_log[0], 0., 0.)[0] - mhd_params['R0'],
+            spec_calc(
+                domain(grids_log[0], 0., 0.)[0]
+                - mhd_params['R0'], m, -2,
+            )['shear_Alfvén']**2/omegaA**2,
+            'k--', linewidth=0.5,
+        )
 
     plt.xlabel('$r$ [m]')
     plt.ylabel('$\omega^2/\omega_\mathrm{A}^2$')
@@ -205,10 +239,12 @@ def diagnostics():
 
     # plot U2_1(t=0) on mapped grid
     plt.subplot(2, 2, 3)
-    
-    plt.contourf(grids_phy[0][:, :, 0], grids_phy[2][:, :, 0],
-                 u_field_log[0.][0][:, :, 8], levels=51, cmap='coolwarm')
-    
+
+    plt.contourf(
+        grids_phy[0][:, :, 0], grids_phy[2][:, :, 0],
+        u_field_log[0.][0][:, :, 8], levels=51, cmap='coolwarm',
+    )
+
     plt.axis('square')
     plt.colorbar()
     plt.title('$U^2_1(t=0)$', pad=10, fontsize=f_size)
@@ -226,28 +262,34 @@ def diagnostics():
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
 
     plt.show()
-       
-    
+
+
 if __name__ == '__main__':
-    
+
     import argparse
-    
+
     # get number of MPI processes
-    parser = argparse.ArgumentParser(description='Run a TAE (Toroidal Alfvén eigenmode) example for the model "LinearMHD".')
-    
-    parser.add_argument('--mpi',
-                        type=int,
-                        metavar='N',
-                        help='number of MPI processes used to run the model (default=1)',
-                        default=1)
-    
-    parser.add_argument('-d', '--diagnostics',
-                        help='run diagnostics only, if output folder of example already exists',
-                        action='store_true')
-    
+    parser = argparse.ArgumentParser(
+        description='Run a TAE (Toroidal Alfvén eigenmode) example for the model "LinearMHD".',
+    )
+
+    parser.add_argument(
+        '--mpi',
+        type=int,
+        metavar='N',
+        help='number of MPI processes used to run the model (default=1)',
+        default=1,
+    )
+
+    parser.add_argument(
+        '-d', '--diagnostics',
+        help='run diagnostics only, if output folder of example already exists',
+        action='store_true',
+    )
+
     args = parser.parse_args()
-    
+
     if not args.diagnostics:
         run(args.mpi)
-        
+
     diagnostics()

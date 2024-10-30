@@ -1,16 +1,13 @@
-from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector, BlockLinearOperator
-
+import numpy as np
+from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
+from psydac.linalg.block import BlockLinearOperator, BlockVector
+from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-from psydac.api.essential_bc import apply_essential_bc_stencil
-
-from struphy.polar.basic import PolarVector
-from struphy.feec import banded_to_stencil_kernels as bts
 import struphy.feec.utilities_kernels as kernels
-
-import numpy as np
+from struphy.feec import banded_to_stencil_kernels as bts
+from struphy.polar.basic import PolarVector
 
 
 class RotationMatrix:
@@ -30,19 +27,25 @@ class RotationMatrix:
         assert len(vec_fun) == 3
         assert all([callable(fun) for fun in vec_fun])
 
-        self._cross_mask = [[0, -1,  1],
-                            [1,  0, -1],
-                            [-1,  1,  0]]
+        self._cross_mask = [
+            [0, -1, 1],
+            [1, 0, -1],
+            [-1, 1, 0],
+        ]
 
-        self._funs = [[lambda e1, e2, e3: 0*e1, vec_fun[2], vec_fun[1]],
-                      [vec_fun[2], lambda e1, e2, e3: 0*e2, vec_fun[0]],
-                      [vec_fun[1], vec_fun[0], lambda e1, e2, e3: 0*e3]]
+        self._funs = [
+            [lambda e1, e2, e3: 0*e1, vec_fun[2], vec_fun[1]],
+            [vec_fun[2], lambda e1, e2, e3: 0*e2, vec_fun[0]],
+            [vec_fun[1], vec_fun[0], lambda e1, e2, e3: 0*e3],
+        ]
 
     def __call__(self, e1, e2, e3):
 
         # array from 2d list gives 3x3 array is in the first two indices
-        tmp = np.array([[self._cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)]
-                        for m, row in enumerate(self._funs)])
+        tmp = np.array([
+            [self._cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)]
+            for m, row in enumerate(self._funs)
+        ])
 
         # numpy operates on the last two indices with @
         return np.transpose(tmp, axes=(2, 3, 4, 0, 1))
@@ -116,9 +119,11 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
                 = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1]
 
         if flattened:
-            arr = np.concatenate((arr[0].flatten(),
-                                  arr[1].flatten(),
-                                  arr[2].flatten()))
+            arr = np.concatenate((
+                arr[0].flatten(),
+                arr[1].flatten(),
+                arr[2].flatten(),
+            ))
 
     arr_psy.update_ghost_regions()
 
@@ -154,17 +159,23 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         if arr.ndim == 3:
             tmp2 = arr[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1]
         else:
-            tmp2 = arr.reshape(arr_psy.space.npts[0],
-                               arr_psy.space.npts[1],
-                               arr_psy.space.npts[2])[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1]
+            tmp2 = arr.reshape(
+                arr_psy.space.npts[0],
+                arr_psy.space.npts[1],
+                arr_psy.space.npts[2],
+            )[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1]
 
         assert np.allclose(tmp1, tmp2, atol=atol)
 
     elif isinstance(arr_psy, BlockVector):
 
         if not (isinstance(arr, tuple) or isinstance(arr, list)):
-            arrs = np.split(arr, [arr_psy.blocks[0].shape[0],
-                            arr_psy.blocks[0].shape[0] + arr_psy.blocks[1].shape[0]])
+            arrs = np.split(
+                arr, [
+                    arr_psy.blocks[0].shape[0],
+                    arr_psy.blocks[0].shape[0] + arr_psy.blocks[1].shape[0],
+                ],
+            )
         else:
             arrs = arr
 
@@ -178,7 +189,8 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                 tmp2 = vec[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1]
             else:
                 tmp2 = vec.reshape(vec_psy.space.npts[0], vec_psy.space.npts[1], vec_psy.space.npts[2])[
-                    s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1]
+                    s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1,
+                ]
 
             assert np.allclose(tmp1, tmp2, atol=atol)
 
@@ -188,14 +200,20 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         e = arr_psy.codomain.ends
         p = arr_psy.pads
         tmp_arr = arr[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :]
-        tmp1 = arr_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1,
-                       -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
+        tmp1 = arr_psy[
+            s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1,
+            -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1,
+        ]
 
         if tmp_arr.shape == tmp1.shape:
             tmp2 = tmp_arr
         else:
-            tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] + 1 - s[2],
-                             2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+            tmp2 = np.zeros(
+                (
+                    e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] + 1 - s[2],
+                    2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1,
+                ), dtype=float,
+            )
             bts.band_to_stencil_3d(tmp_arr, tmp2)
 
         assert np.allclose(tmp1, tmp2, atol=atol)
@@ -210,16 +228,24 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                 s = mat_psy.codomain.starts
                 e = mat_psy.codomain.ends
                 p = mat_psy.pads
-                tmp_mat = mat[s[0]: e[0] + 1, s[1]: e[1] + 1,
-                              s[2]: e[2] + 1, :, :, :]
-                tmp1 = mat_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1,
-                               -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
+                tmp_mat = mat[
+                    s[0]: e[0] + 1, s[1]: e[1] + 1,
+                    s[2]: e[2] + 1, :, :, :,
+                ]
+                tmp1 = mat_psy[
+                    s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1,
+                    -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1,
+                ]
 
                 if tmp_mat.shape == tmp1.shape:
                     tmp2 = tmp_mat
                 else:
-                    tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] + 1 - s[2],
-                                     2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+                    tmp2 = np.zeros(
+                        (
+                            e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] + 1 - s[2],
+                            2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1,
+                        ), dtype=float,
+                    )
                     bts.band_to_stencil_3d(tmp_mat, tmp2)
 
                 assert np.allclose(tmp1, tmp2, atol=atol)
@@ -229,7 +255,8 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
 
     if verbose:
         print(
-            f'Rank {rank}: Assertion for array comparison passed with atol={atol}.')
+            f'Rank {rank}: Assertion for array comparison passed with atol={atol}.',
+        )
 
 
 def apply_essential_bc_to_array(space_id, vector, bc):
@@ -278,7 +305,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp, axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:,  0] = 0.
+                vector.pol[0][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp, axis=2, ext=+1, order=0)
@@ -312,8 +339,8 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:,  0] = 0.
-                vector.pol[1][:,  0] = 0.
+                vector.pol[0][:, 0] = 0.
+                vector.pol[1][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
@@ -344,7 +371,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[2][:,  0] = 0.
+                vector.pol[2][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
@@ -373,7 +400,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[2][:,  0] = 0.
+                vector.pol[2][:, 0] = 0.
 
         if bc[2][1]:
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
@@ -405,33 +432,47 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
 
     '''
 
-    nqs = [quad_grid[nquad].num_quad_pts for quad_grid, nquad in zip(
-        derham.Vh_fem['0']._quad_grids, derham.Vh_fem['0'].nquads)]
+    nqs = [
+        quad_grid[nquad].num_quad_pts for quad_grid, nquad in zip(
+            derham.Vh_fem['0']._quad_grids, derham.Vh_fem['0'].nquads,
+        )
+    ]
 
     for aa, wspace in enumerate(derham.Vh_fem['2'].spaces):
         # knot span indices of elements of local domain
-        spans_out = [quad_grid[nquad].spans for quad_grid,
-                     nquad in zip(wspace._quad_grids, wspace.nquads)]
+        spans_out = [
+            quad_grid[nquad].spans for quad_grid,
+            nquad in zip(wspace._quad_grids, wspace.nquads)
+        ]
         # global start spline index on process
         starts_out = [int(start) for start in wspace.vector_space.starts]
 
         # Iniitialize hybrid linear operators
         # global quadrature points (flattened) and weights in format (local element, local weight)
-        pts = [quad_grid[nquad].points for quad_grid,
-               nquad in zip(wspace._quad_grids, wspace.nquads)]
-        wts = [quad_grid[nquad].weights for quad_grid,
-               nquad in zip(wspace._quad_grids, wspace.nquads)]
+        pts = [
+            quad_grid[nquad].points for quad_grid,
+            nquad in zip(wspace._quad_grids, wspace.nquads)
+        ]
+        wts = [
+            quad_grid[nquad].weights for quad_grid,
+            nquad in zip(wspace._quad_grids, wspace.nquads)
+        ]
 
         p = wspace.degree
 
         # evaluated basis functions at quadrature points of the space
-        basis_o = [quad_grid[nquad].basis for quad_grid,
-                   nquad in zip(wspace._quad_grids, wspace.nquads)]
+        basis_o = [
+            quad_grid[nquad].basis for quad_grid,
+            nquad in zip(wspace._quad_grids, wspace.nquads)
+        ]
 
         pads_out = wspace.vector_space.pads
 
         kernels.hybrid_curlA(
-            *starts_out, *spans_out, p[0], p[1], p[2], nqs[0], nqs[1], nqs[2], *basis_o, weight_pre[aa], b[aa]._data)
+            *starts_out, *spans_out, p[0], p[1], p[2], nqs[0], nqs[1], nqs[2], *basis_o, weight_pre[aa], b[aa]._data,
+        )
     # generate the weight for generating the matrix
-    kernels.hybrid_weight(*pads_out, *pts, *spans_out, nqs[0], nqs[1], nqs[2], wts[0], wts[1], wts[2],
-                          weight_pre[0], weight_pre[1], weight_pre[2], accum_density._operators[0].matrix._data, *domain.args_map)
+    kernels.hybrid_weight(
+        *pads_out, *pts, *spans_out, nqs[0], nqs[1], nqs[2], wts[0], wts[1], wts[2],
+        weight_pre[0], weight_pre[1], weight_pre[2], accum_density._operators[0].matrix._data, *domain.args_map,
+    )

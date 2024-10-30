@@ -1,13 +1,12 @@
+import itertools
 from abc import abstractmethod
 
-from mpi4py import MPI
 import numpy as np
-from scipy import sparse
-import itertools
-
-from psydac.linalg.basic import Vector, VectorSpace, LinearOperator
-from psydac.linalg.stencil import StencilVectorSpace
+from mpi4py import MPI
+from psydac.linalg.basic import LinearOperator, Vector, VectorSpace
 from psydac.linalg.block import BlockVectorSpace
+from psydac.linalg.stencil import StencilVectorSpace
+from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
@@ -62,7 +61,8 @@ class LinOpWithTransp(LinearOperator):
             if out is None:
                 # We declare the matrix form of our linear operator
                 out = np.zeros(
-                    [self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+                    [self.codomain.dimension, self.domain.dimension], dtype=self.dtype,
+                )
             else:
                 assert isinstance(out, np.ndarray)
                 assert out.shape[0] == self.codomain.dimension
@@ -70,11 +70,13 @@ class LinOpWithTransp(LinearOperator):
 
             # We use this matrix to store the partial results that we shall combine into the final matrix with a reduction at the end
             result = np.zeros(
-                (self.codomain.dimension, self.domain.dimension), dtype=self.dtype)
+                (self.codomain.dimension, self.domain.dimension), dtype=self.dtype,
+            )
         else:
             if out is not None:
                 raise Exception(
-                    'If is_sparse is True then out must be set to None.')
+                    'If is_sparse is True then out must be set to None.',
+                )
             numrows = self.codomain.dimension
             numcols = self.domain.dimension
             # We define a list to store the non-zero data, a list to sotre the row index of said data and a list to store the column index.
@@ -95,8 +97,12 @@ class LinOpWithTransp(LinearOperator):
             ndim = [sp.ndim for sp in self.domain.spaces]
 
             # First each rank is going to need to know the starts and ends of all other ranks
-            startsarr = np.array([starts[i][j] for i in range(nsp)
-                                 for j in range(ndim[i])], dtype=int)
+            startsarr = np.array(
+                [
+                    starts[i][j] for i in range(nsp)
+                    for j in range(ndim[i])
+                ], dtype=int,
+            )
 
             # Create an array to store gathered data from all ranks
             allstarts = np.empty(size * len(startsarr), dtype=int)
@@ -107,8 +113,12 @@ class LinOpWithTransp(LinearOperator):
             # Reshape 'allstarts' to have 9 columns and 'size' rows
             allstarts = allstarts.reshape((size, len(startsarr)))
 
-            endsarr = np.array([ends[i][j] for i in range(nsp)
-                               for j in range(ndim[i])], dtype=int)
+            endsarr = np.array(
+                [
+                    ends[i][j] for i in range(nsp)
+                    for j in range(ndim[i])
+                ], dtype=int,
+            )
             # Create an array to store gathered data from all ranks
             allends = np.empty(size * len(endsarr), dtype=int)
 
@@ -130,7 +140,8 @@ class LinOpWithTransp(LinearOperator):
                     itterables = []
                     for i in range(ndim[h]):
                         itterables.append(
-                            range(allstarts[currentrank][i+npredim], allends[currentrank][i+npredim]+1))
+                            range(allstarts[currentrank][i+npredim], allends[currentrank][i+npredim]+1),
+                        )
                     # We iterate over all the entries that belong to rank number currentrank
                     for i in itertools.product(*itterables):
                         if (rank == currentrank):
@@ -198,7 +209,8 @@ class LinOpWithTransp(LinearOperator):
                 itterables = []
                 for i in range(ndim):
                     itterables.append(
-                        range(allstarts[currentrank][i], allends[currentrank][i]+1))
+                        range(allstarts[currentrank][i], allends[currentrank][i]+1),
+                    )
                 # We iterate over all the entries that belong to rank number currentrank
                 for i in itertools.product(*itterables):
                     if (rank == currentrank):
@@ -224,7 +236,8 @@ class LinOpWithTransp(LinearOperator):
         else:
             # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
             raise Exception(
-                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.')
+                'Function toarray_struphy() only supports Stencil Vectors or Block Vectors.',
+            )
 
         if is_sparse == False:
             # Use Allreduce to perform addition reduction and give one copy of the result to all ranks.
@@ -241,13 +254,16 @@ class LinOpWithTransp(LinearOperator):
             if rank == 0:
                 # Rank 0 collects all rows from other ranks
                 all_rows = [
-                    item for sublist in gathered_rows for item in sublist]
+                    item for sublist in gathered_rows for item in sublist
+                ]
                 # Rank 0 collects all columns from other ranks
                 all_cols = [
-                    item for sublist in gathered_cols for item in sublist]
+                    item for sublist in gathered_cols for item in sublist
+                ]
                 # Rank 0 collects all data from other ranks
                 all_data = [
-                    item for sublist in gathered_data for item in sublist]
+                    item for sublist in gathered_data for item in sublist
+                ]
 
                 # Broadcast 'all_rows' to all other ranks
                 comm.bcast(all_rows, root=0)
@@ -279,7 +295,8 @@ class LinOpWithTransp(LinearOperator):
                 return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).todia()
             else:
                 raise Exception(
-                    'The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.')
+                    'The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.',
+                )
 
 
 class BoundaryOperator(LinOpWithTransp):
@@ -335,8 +352,10 @@ class BoundaryOperator(LinOpWithTransp):
         if space_id == 'H1':
 
             if isinstance(vector_space, PolarDerhamSpace):
-                dim_nz1_pol *= (n_pts[0] - vector_space.n_rings[0] -
-                                self.bc[0][1])*n_pts[1]
+                dim_nz1_pol *= (
+                    n_pts[0] - vector_space.n_rings[0] -
+                    self.bc[0][1]
+                )*n_pts[1]
                 dim_nz1_pol += vector_space.n_polar[0]
             else:
                 dim_nz1_pol *= n_pts[0] - self.bc[0][0] - self.bc[0][1]
@@ -352,16 +371,22 @@ class BoundaryOperator(LinOpWithTransp):
         elif space_id == 'Hcurl':
 
             if isinstance(vector_space, PolarDerhamSpace):
-                dim_nz1_pol *= (n_pts[0][0] -
-                                vector_space.n_rings[0])*n_pts[0][1]
+                dim_nz1_pol *= (
+                    n_pts[0][0] -
+                    vector_space.n_rings[0]
+                )*n_pts[0][1]
                 dim_nz1_pol += vector_space.n_polar[0]
 
-                dim_nz2_pol *= (n_pts[1][0] - vector_space.n_rings[1] -
-                                self.bc[0][1])*n_pts[1][1]
+                dim_nz2_pol *= (
+                    n_pts[1][0] - vector_space.n_rings[1] -
+                    self.bc[0][1]
+                )*n_pts[1][1]
                 dim_nz2_pol += vector_space.n_polar[1]
 
-                dim_nz3_pol *= (n_pts[2][0] - vector_space.n_rings[2] -
-                                self.bc[0][1])*n_pts[2][1]
+                dim_nz3_pol *= (
+                    n_pts[2][0] - vector_space.n_rings[2] -
+                    self.bc[0][1]
+                )*n_pts[2][1]
                 dim_nz3_pol += vector_space.n_polar[2]
             else:
                 dim_nz1_pol *= n_pts[0][0]
@@ -380,23 +405,31 @@ class BoundaryOperator(LinOpWithTransp):
             self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
             self._dim_nz_tor = (dim_nz1_tor, dim_nz2_tor, dim_nz3_tor)
 
-            self._dim_nz = (dim_nz1_pol*dim_nz1_tor,
-                            dim_nz2_pol*dim_nz2_tor,
-                            dim_nz3_pol*dim_nz3_tor)
+            self._dim_nz = (
+                dim_nz1_pol*dim_nz1_tor,
+                dim_nz2_pol*dim_nz2_tor,
+                dim_nz3_pol*dim_nz3_tor,
+            )
 
         elif space_id == 'Hdiv' or space_id == 'H1vec':
 
             if isinstance(vector_space, PolarDerhamSpace):
-                dim_nz1_pol *= (n_pts[0][0] - vector_space.n_rings[0] -
-                                self.bc[0][1])*n_pts[0][1]
+                dim_nz1_pol *= (
+                    n_pts[0][0] - vector_space.n_rings[0] -
+                    self.bc[0][1]
+                )*n_pts[0][1]
                 dim_nz1_pol += vector_space.n_polar[0]
 
-                dim_nz2_pol *= (n_pts[1][0] -
-                                vector_space.n_rings[1])*n_pts[1][1]
+                dim_nz2_pol *= (
+                    n_pts[1][0] -
+                    vector_space.n_rings[1]
+                )*n_pts[1][1]
                 dim_nz2_pol += vector_space.n_polar[1]
 
-                dim_nz3_pol *= (n_pts[2][0] -
-                                vector_space.n_rings[2])*n_pts[2][1]
+                dim_nz3_pol *= (
+                    n_pts[2][0] -
+                    vector_space.n_rings[2]
+                )*n_pts[2][1]
                 dim_nz3_pol += vector_space.n_polar[2]
             else:
                 dim_nz1_pol *= n_pts[0][0] - self.bc[0][0] - self.bc[0][1]
@@ -415,9 +448,11 @@ class BoundaryOperator(LinOpWithTransp):
             self._dim_nz_pol = (dim_nz1_pol, dim_nz2_pol, dim_nz3_pol)
             self._dim_nz_tor = (dim_nz1_tor, dim_nz2_tor, dim_nz3_tor)
 
-            self._dim_nz = (dim_nz1_pol*dim_nz1_tor,
-                            dim_nz2_pol*dim_nz2_tor,
-                            dim_nz3_pol*dim_nz3_tor)
+            self._dim_nz = (
+                dim_nz1_pol*dim_nz1_tor,
+                dim_nz2_pol*dim_nz2_tor,
+                dim_nz3_pol*dim_nz3_tor,
+            )
 
         else:
 
@@ -509,4 +544,3 @@ class BoundaryOperator(LinOpWithTransp):
         Returns the transposed operator.
         """
         return BoundaryOperator(self._domain, self._space_id, self.bc)
-    
