@@ -61,8 +61,8 @@ GREEN_COLOR = "\033[92m"
 RED_COLOR = "\033[91m"
 BLACK_COLOR = "\033[0m"
 
-NO_RED = f"{RED_COLOR}No{BLACK_COLOR}"
-YES_GREEN = f"{GREEN_COLOR}Yes{BLACK_COLOR}"
+FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
+PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 
 def check_isort(file_path, verbose=False):
@@ -622,13 +622,13 @@ def print_stats_plain(stats, linters):
         print(f"  Pylint Score: {stats['pylint_score']}/10")
         
     for linter in linters:
-        status = YES_GREEN if stats[f"passes_{linter}"] else NO_RED
+        status = PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED
         print(f"  {linter}: {status}")
     
     # Check for CI pass status if both linters are present
     if "isort" in linters and "autopep8" in linters:
         passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
-        ci_status = YES_GREEN if passes_ci else NO_RED
+        ci_status = PASS_GREEN if passes_ci else FAIL_RED
         print(f"  Passes CI: {ci_status}")
     print("-" * 40)  # Divider between files
 
@@ -681,10 +681,10 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
         headers.append("Passes CI")
 
         for linter in linters:
-            row.append(YES_GREEN if stats[f"passes_{linter}"] else NO_RED)
+            row.append(PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED)
         if "isort" in linters and "autopep8" in linters:
             passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
-            row.append(YES_GREEN if passes_ci else NO_RED)
+            row.append(PASS_GREEN if passes_ci else FAIL_RED)
         table.append(row)
     if print_header:
         print(tabulate(table, headers=headers, tablefmt="grid"))
