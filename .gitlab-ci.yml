@@ -340,49 +340,49 @@ isort:
 
 # Check the changed files in the current branch with add-trailing-commas
 # Don't run the check in the scheduled CI pipeline
-add-trailing-commas:
-  stage: lint
-  rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-    # Don't run the check in the scheduled CI pipeline
-  script:
-    - pip install add-trailing-comma
-    - |
-      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
-      echo "Changed Python files:"
-      echo "$changed_files"
-      if [ -n "$changed_files" ]; then
-        echo "Running add-trailing-commas on changed files..."
-        for file in $changed_files; do
-          echo "Processing $file..."
-          # Create a temporary file and format it
-          temp_file=$(mktemp)
-          cp "$file" "$temp_file"
-          add-trailing-comma "$temp_file"
+# add-trailing-commas:
+#   stage: lint
+#   rules:
+#     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+#       when: never
+#     - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+#       when: never
+#     - if: $CI_PIPELINE_SOURCE == "schedule"
+#       when: never
+#     - if: $CI_COMMIT_TAG
+#       when: never
+#     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+#     # Don't run the check in the scheduled CI pipeline
+#   script:
+#     - pip install add-trailing-comma
+#     - |
+#       changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
+#       echo "Changed Python files:"
+#       echo "$changed_files"
+#       if [ -n "$changed_files" ]; then
+#         echo "Running add-trailing-commas on changed files..."
+#         for file in $changed_files; do
+#           echo "Processing $file..."
+#           # Create a temporary file and format it
+#           temp_file=$(mktemp)
+#           cp "$file" "$temp_file"
+#           add-trailing-comma "$temp_file"
           
-          # Compare the original file with the modified temporary file
-          if diff "$file" "$temp_file" > /dev/null; then
-            echo "$file is already correctly formatted."
-          else
-            diff "$file" "$temp_file"
-            exit 1
-          fi
+#           # Compare the original file with the modified temporary file
+#           if diff "$file" "$temp_file" > /dev/null; then
+#             echo "$file is already correctly formatted."
+#           else
+#             diff "$file" "$temp_file"
+#             exit 1
+#           fi
           
-          # Clean up the temporary file
-          rm "$temp_file"
-        done
-      else
-        echo "No Python files to check."
-      fi
-  allow_failure: true
+#           # Clean up the temporary file
+#           rm "$temp_file"
+#         done
+#       else
+#         echo "No Python files to check."
+#       fi
+#   allow_failure: true
 
 
 # # Lint struphy with `struphy lint`

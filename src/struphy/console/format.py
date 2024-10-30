@@ -401,7 +401,7 @@ def struphy_lint(config, verbose):
     if input_type is None and path is not None:
         input_type = "path"
     # Define standard linters which will be checked in the CI
-    ci_linters = ["add-trailing-comma", "isort", "autopep8"]
+    ci_linters = ["isort", "autopep8"]
     python_files = get_python_files(input_type, path)
 
     print(
@@ -553,15 +553,32 @@ def struphy_format(config, verbose, yes=False):
         "add-trailing-comma": ["--exit-zero-even-if-changed"],
     }
 
+    # Skip linting with add-trailing-comma since it disagrees with autopep8
+    skip_linters = ["add-trailing-comma"]
+
     if python_files:
         for iteration in range(iterations):
             if verbose:
                 print(f"Iteration {iteration + 1}: Running formatters...")
 
-            run_linters_on_files(linters, python_files, flags, verbose)
+            if iteration == 0:
+                linters_to_apply = linters
+            else:
+                linters_to_apply = [
+                    lint for lint in linters if not lint in skip_linters
+                ]
+
+            run_linters_on_files(
+                linters,
+                python_files,
+                flags,
+                verbose,
+            )
 
             # Check if any files still require changes
-            if not files_require_formatting(python_files, linters):
+            if not files_require_formatting(
+                python_files, [lint for lint in linters if not lint in skip_linters],
+            ):
                 print("All files are properly formatted.")
                 break
         else:
