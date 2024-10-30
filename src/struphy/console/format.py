@@ -631,7 +631,7 @@ def print_stats_plain(stats, linters):
     if "isort" in linters and "autopep8" in linters:
         passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
         ci_status = PASS_GREEN if passes_ci else FAIL_RED
-        print(f"  Passes CI: {ci_status}")
+        print(f"  Full CI check: {ci_status}")
     print("-" * 40)  # Divider between files
 
 
