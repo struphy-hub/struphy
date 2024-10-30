@@ -417,7 +417,6 @@ lint_struphy:
   script:
     - pwd
     - ls -1
-    - git fetch origin
     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
     - struphy
     - struphy lint branch
