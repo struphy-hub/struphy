@@ -35,7 +35,7 @@ Check the pre-installed packages and upgrade ``pip``::
 
 Continue with the Struphy installation; the quickest install is via :ref:`PyPI <pypi_install>`::
     
-    pip install struphy
+    pip install -U struphy
     struphy compile
 
 When finished, you can deactivate the virtual environment::
@@ -111,7 +111,7 @@ On **Fedora-CentOS-RHEL** you must::
 
 Install package::
 
-    pip install struphy
+    pip install -U struphy
 
 Compile kernels::
 

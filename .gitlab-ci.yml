@@ -313,7 +313,7 @@ c_cronjob_install:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - pip install struphy
+    - pip install -U struphy
     - pip show struphy
     - pip list
     - struphy
@@ -487,7 +487,56 @@ Ubuntu_latest:
     - struphy compile --status
     - make -v
     - struphy compile
-    - struphy test models --fast
+    - struphy -h # this is the Quickstart
+    - struphy compile 
+    - struphy -p
+    - struphy --set-i .
+    - struphy --set-o . 
+    - struphy run -h
+    - struphy params VlasovMaxwellOneSpecies -y
+    - ls -1a
+    - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    - ls my_first_sim/
+    - struphy pproc -d my_first_sim
+    - ls my_first_sim/post_processing/fields_data/
+    - ls my_first_sim/post_processing/kinetic_data/
+    - struphy params VlasovMaxwellOneSpecies --options
+    - struphy test models --fast # this is the models test
+
+# Quickstart test
+quickstart_tests:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pwd
+    - ls -1a
+    - struphy -h # this is the Quickstart
+    - struphy compile 
+    - struphy -p
+    - struphy --set-i .
+    - struphy --set-o . 
+    - struphy run -h
+    - struphy params VlasovMaxwellOneSpecies -y
+    - ls -1a
+    - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    - ls my_first_sim/
+    - struphy pproc -d my_first_sim
+    - ls my_first_sim/post_processing/fields_data/
+    - ls my_first_sim/post_processing/kinetic_data/
+    - struphy params VlasovMaxwellOneSpecies --options
+
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 # default tests
 c_unit_tests:
@@ -504,7 +553,7 @@ c_unit_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test unit  
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -523,7 +572,7 @@ c_model_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -535,7 +584,7 @@ c_model_cronjob_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -559,7 +608,7 @@ c_tutorial_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test tutorials --fast
 
@@ -591,7 +640,7 @@ fortran_unit_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test unit 
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -604,7 +653,7 @@ fortran_model_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -617,7 +666,7 @@ fortran_tutorial_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test tutorials
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -649,7 +698,7 @@ Ubuntu_23_04:
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile
@@ -677,7 +726,7 @@ struphy_ubuntu_python_3_11:
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile
@@ -727,7 +776,7 @@ Fedora:
     - module load mpi/openmpi-$(arch)
     - module list 
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -756,7 +805,7 @@ struphy_fedora_python_3_10:
     - module load mpi/openmpi-$(arch)
     - module list 
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -800,7 +849,7 @@ OpenSuse:
     - python3 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -827,7 +876,7 @@ struphy_opensuse_python_3_11:
     - python3 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -875,7 +924,7 @@ AlmaLinux:
     - python3.10 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - pip list
@@ -902,7 +951,7 @@ struphy_almalinux_python_3_10:
     - python3.10 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - pip list
