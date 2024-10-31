@@ -61,8 +61,8 @@ GREEN_COLOR = "\033[92m"
 RED_COLOR = "\033[91m"
 BLACK_COLOR = "\033[0m"
 
-NO_RED = f"{RED_COLOR}No{BLACK_COLOR}"
-YES_GREEN = f"{GREEN_COLOR}Yes{BLACK_COLOR}"
+FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
+PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 
 def check_isort(file_path, verbose=False):
@@ -384,6 +384,8 @@ def struphy_lint(config, verbose):
         Configuration dictionary containing the following keys:
             - input_type : str, optional
                 The type of files to lint ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
+            - output_format: str, optional
+                The format of the lint output ('table', or 'plain'). Defaults to 'table'
             - path : str, optional
                 Directory or file path to lint.
             - linters : list
@@ -396,12 +398,13 @@ def struphy_lint(config, verbose):
     # Extract individual settings from config
     input_type = config.get("input_type", "all")
     path = config.get("path")
+    output_format = config.get("output_format", "table")
     linters = config.get("linters", [])
 
     if input_type is None and path is not None:
         input_type = "path"
     # Define standard linters which will be checked in the CI
-    ci_linters = ["add-trailing-comma", "isort", "autopep8"]
+    ci_linters = ["isort", "autopep8"]
     python_files = get_python_files(input_type, path)
 
     print(
@@ -417,6 +420,7 @@ def struphy_lint(config, verbose):
     # Check if all ci_linters are included in linters
     if all(ci_linter in linters for ci_linter in ci_linters):
         print("Passes CI if both isort and autopep8 passes")
+        print("-" * 40)
         check_ci_pass = True
     else:
         skipped_ci_linters = [
@@ -432,12 +436,15 @@ def struphy_lint(config, verbose):
         stats_list.append(stats)
 
         # Print the statistics in a table
-        print_stats_table(
-            [stats],
-            linters,
-            print_header=(ifile == 0),
-            pathlen=max_pathlen,
-        )
+        if output_format == "table":
+            print_stats_table(
+                [stats],
+                linters,
+                print_header=(ifile == 0),
+                pathlen=max_pathlen,
+            )
+        elif output_format == "plain":
+            print_stats_plain(stats, linters)
 
     if check_ci_pass:
         passes_ci = True
@@ -553,15 +560,33 @@ def struphy_format(config, verbose, yes=False):
         "add-trailing-comma": ["--exit-zero-even-if-changed"],
     }
 
+    # Skip linting with add-trailing-comma since it disagrees with autopep8
+    skip_linters = ["add-trailing-comma"]
+
     if python_files:
         for iteration in range(iterations):
             if verbose:
                 print(f"Iteration {iteration + 1}: Running formatters...")
 
-            run_linters_on_files(linters, python_files, flags, verbose)
+            if iteration == 0:
+                linters_to_apply = linters
+            else:
+                linters_to_apply = [
+                    lint for lint in linters if not lint in skip_linters
+                ]
+
+            run_linters_on_files(
+                linters,
+                python_files,
+                flags,
+                verbose,
+            )
 
             # Check if any files still require changes
-            if not files_require_formatting(python_files, linters):
+            if not files_require_formatting(
+                python_files,
+                [lint for lint in linters if not lint in skip_linters],
+            ):
                 print("All files are properly formatted.")
                 break
         else:
@@ -575,6 +600,39 @@ def struphy_format(config, verbose, yes=False):
                 print("Contact Max about this")
     else:
         print("No Python files to format.")
+
+
+def print_stats_plain(stats, linters):
+    """
+    Print statistics for a single file in plain text format.
+
+    Parameters
+    ----------
+    stats : dict
+        Dictionary containing statistics for a single file.
+
+    linters : list
+        List of linters to display in the output.
+    """
+    print(f"File: {os.path.relpath(stats['path'])}")
+    print(f"  Lines: {stats['num_lines']}")
+    print(f"  Functions: {stats['num_functions']}")
+    print(f"  Classes: {stats['num_classes']}")
+    print(f"  Variables: {stats['num_variables']}")
+
+    if "pylint" in linters:
+        print(f"  Pylint Score: {stats['pylint_score']}/10")
+
+    for linter in linters:
+        status = PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED
+        print(f"  {linter}: {status}")
+
+    # Check for CI pass status if both linters are present
+    if "isort" in linters and "autopep8" in linters:
+        passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
+        ci_status = PASS_GREEN if passes_ci else FAIL_RED
+        print(f"  Full CI check: {ci_status}")
+    print("-" * 40)  # Divider between files
 
 
 def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
@@ -626,10 +684,10 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
         headers.append("Passes CI")
 
         for linter in linters:
-            row.append(YES_GREEN if stats[f"passes_{linter}"] else NO_RED)
+            row.append(PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED)
         if "isort" in linters and "autopep8" in linters:
             passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
-            row.append(YES_GREEN if passes_ci else NO_RED)
+            row.append(PASS_GREEN if passes_ci else FAIL_RED)
         table.append(row)
     if print_header:
         print(tabulate(table, headers=headers, tablefmt="grid"))
