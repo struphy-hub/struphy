@@ -13,11 +13,16 @@ LIKWID is imported only when profiling is enabled to avoid unnecessary overhead.
 
 # Import the profiling configuration class and context manager
 from functools import lru_cache
+from mpi4py import MPI
+import numpy as np
+import pickle
+import os
 
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports
 def _import_pylikwid():
     import pylikwid
     return pylikwid
+
 
 class ProfilingConfig:
     """
@@ -30,6 +35,8 @@ class ProfilingConfig:
             cls._instance = super().__new__(cls)
             cls._instance.likwid = False  # Default value (profiling disabled)
             cls._instance.simulation_label = ''
+            cls._instance.sample_duration = 0.1
+            cls._instance.sample_interval = 1
         return cls._instance
 
     def set_likwid(self, value, simulation_label = ''):
@@ -64,6 +71,145 @@ class ProfilingConfig:
             bool: True if profiling is enabled, False otherwise.
         """
         return self.likwid
+    
+    def set_sample_duration(self, value):
+        self.sample_duration = value
+    
+    def get_sample_duration(self):
+        return self.sample_duration
+
+    def set_sample_interval(self, value):
+        self.sample_interval = value
+    
+    def get_sample_interval(self):
+        return self.sample_interval
+
+
+
+        set_sample_duration
+
+class ProfileManager:
+    """
+    Singleton class to manage and track all ProfileRegion instances.
+    """
+
+    _regions = {}
+
+    @classmethod
+    def profile_region(cls, region_name):
+        """
+        Get an existing ProfileRegion by name, or create a new one if it doesn't exist.
+
+        Parameters
+        ----------
+        region_name: str
+            The name of the profiling region.
+
+        Returns
+        -------
+        ProfileRegion: The ProfileRegion instance.
+        """
+        if region_name in cls._regions:
+            return cls._regions[region_name]
+        else:
+            # Create and register a new ProfileRegion
+            new_region = ProfileRegion(region_name)
+            cls._regions[region_name] = new_region
+            return new_region
+
+    @classmethod
+    def get_region(cls, region_name):
+        """
+        Get a registered ProfileRegion by name.
+
+        Parameters
+        ----------
+        region_name: str
+            The name of the profiling region.
+
+        Returns
+        -------
+        ProfileRegion or None: The registered ProfileRegion instance or None if not found.
+        """
+        return cls._regions.get(region_name)
+
+    @classmethod
+    def get_all_regions(cls):
+        """
+        Get all registered ProfileRegion instances.
+
+        Returns
+        -------
+        dict: Dictionary of all registered ProfileRegion instances.
+        """
+        return cls._regions
+    
+    @classmethod
+    def save_to_pickle(cls, file_path):
+        """
+        Save profiling data to a single file using pickle and NumPy arrays in parallel.
+
+        Parameters
+        ----------
+        file_path: str
+            Path to the file where data will be saved.
+        """
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+
+        # Prepare the data to be gathered
+        local_data = {}
+        for name, region in cls._regions.items():
+            local_data[name] = {
+                "ncalls": region.ncalls,
+                "durations": np.array(region.durations, dtype=np.float64),
+                "start_times": np.array(region.start_times, dtype=np.float64),
+                "end_times": np.array(region.end_times, dtype=np.float64),
+            }
+
+        # Gather all data at the root process (rank 0)
+        all_data = comm.gather(local_data, root=0)
+
+        if rank == 0:
+            # Combine the data from all processes
+            combined_data = {f"rank_{i}": data for i, data in enumerate(all_data)}
+
+            # Convert the file path to an absolute path
+            absolute_path = os.path.abspath(file_path)
+
+            # Save the combined data using pickle
+            with open(absolute_path, "wb") as file:
+                pickle.dump(combined_data, file)
+
+            print(f"Data saved to {absolute_path}")
+    
+    @classmethod
+    def print_summary(cls):
+        """
+        Print a summary of the profiling data for all regions.
+        """
+        
+        print("Profiling Summary:")
+        print("=" * 40)
+        for name, region in cls._regions.items():
+            if region.ncalls > 0:
+                total_duration = sum(region.durations)
+                average_duration = total_duration / region.ncalls
+                min_duration = min(region.durations)
+                max_duration = max(region.durations)
+                std_duration = np.std(region.durations)
+            else:
+                total_duration = average_duration = min_duration = max_duration = std_duration = 0
+
+            print(f"Region: {name}")
+            print(f"  Number of Calls: {region.ncalls}")
+            print(f"  Total Duration: {total_duration:.6f} seconds")
+            print(f"  Average Duration: {average_duration:.6f} seconds")
+            print(f"  Min Duration: {min_duration:.6f} seconds")
+            print(f"  Max Duration: {max_duration:.6f} seconds")
+            print(f"  Std Deviation: {std_duration:.6f} seconds")
+            print("-" * 40)
 
 class ProfileRegion:
     """
@@ -88,11 +234,19 @@ class ProfileRegion:
             Name of the profiling region.
         """
         
+        if hasattr(self, '_initialized') and self._initialized:
+            return  # Skip re-initialization
+        
         self.config = ProfilingConfig()
         # By default, self.config.simulation_label = ''
         # --> self.region_name = region_name
         self.region_name = self.config.simulation_label + region_name
-        
+        self._ncalls = 0
+        self._start_times = []
+        self._end_times = []
+        self._durations = []
+        self.started = False
+
     def __enter__(self):
         """
         Enter the profiling context, starting the LIKWID marker if profiling is enabled.
@@ -102,6 +256,13 @@ class ProfileRegion:
         """
         if self.config.get_likwid():
             self._pylikwid().markerstartregion(self.region_name)
+        
+        
+        self._ncalls += 1
+        self._start_time = MPI.Wtime()
+        if self._start_time % self.config.sample_interval < self.config.sample_duration or self._ncalls == 1:
+            self._start_times.append(self._start_time)
+            self.started = True            
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -115,6 +276,11 @@ class ProfileRegion:
         """
         if self.config.get_likwid():
             self._pylikwid().markerstopregion(self.region_name)
+        if self.started:
+            end_time = MPI.Wtime()
+            self._end_times.append(end_time)
+            self._durations.append(end_time - self._start_time)
+            self.started = False   
 
     def _pylikwid(self):
         """
@@ -124,6 +290,46 @@ class ProfileRegion:
             module: The pylikwid module.
         """
         return _import_pylikwid()
+    
+    @property
+    def ncalls(self):
+        """
+        Get the number of times the region has been entered.
+
+        Returns:
+            int: Number of calls to this profiling region.
+        """
+        return self._ncalls
+    
+    @property
+    def durations(self):
+        """
+        Get the list of durations for each call to the profiling region.
+
+        Returns:
+            list: Durations of each call in seconds.
+        """
+        return self._durations
+    
+    @property
+    def start_times(self):
+        """
+        Get the list of start times for each call to the profiling region.
+
+        Returns:
+            list: Start times of each call in seconds.
+        """
+        return self._start_times
+    
+    @property
+    def end_times(self):
+        """
+        Get the list of end times for each call to the profiling region.
+
+        Returns:
+            list: End times of each call in seconds.
+        """
+        return self._end_times
 
 def pylikwid_markerinit():
     """
@@ -174,3 +380,15 @@ def get_likwid():
         bool: True if profiling is enabled, False otherwise.
     """
     return ProfilingConfig().get_likwid()
+
+def set_sample_duration(value):
+    return ProfilingConfig().set_sample_duration(value)
+
+def get_sample_duration():
+    return ProfilingConfig().get_sample_duration()
+
+def set_sample_interval(value):
+    return ProfilingConfig().set_sample_interval(value)
+
+def get_sample_interval():
+    return ProfilingConfig().get_sample_interval()

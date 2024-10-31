@@ -44,7 +44,7 @@ def main(
     from struphy.feec.psydac_derham import Derham
     from struphy.models import fluid, kinetic, hybrid, toy
     from struphy.io.setup import pre_processing, setup_domain_cloning
-    from struphy.profiling.profiling import ProfileRegion
+    from struphy.profiling.profiling import ProfileManager
     from struphy.io.output_handling import DataContainer
     from pyevtk.hl import gridToVTK
 
@@ -87,7 +87,7 @@ def main(
         except AttributeError:
             pass
 
-    with ProfileRegion('model_class_setup'):
+    with ProfileManager.profile_region('model_class_setup'):
         model = model_class(params=params, comm=sub_comm,
                             inter_comm=inter_comm)
 
@@ -219,7 +219,7 @@ def main(
 
         # perform one time step dt
         t0 = time.time()
-        with ProfileRegion('model.integrate'):
+        with ProfileManager.profile_region('model.integrate'):
             model.integrate(time_params['dt'], time_params['split_algo'])
         t1 = time.time()
 
@@ -313,8 +313,10 @@ if __name__ == '__main__':
     import os
     import struphy
     from struphy.profiling.profiling import (
-        ProfileRegion,
+        ProfileManager,
         set_likwid,
+        set_sample_duration,
+        set_sample_interval,
         pylikwid_markerinit,
         pylikwid_markerclose,
     )
@@ -406,8 +408,10 @@ if __name__ == '__main__':
 
     # Enable profiling if likwid == True
     set_likwid(args.likwid)
+    set_sample_duration(1)
+    set_sample_interval(2)
     pylikwid_markerinit()
-    with ProfileRegion('main'):
+    with ProfileManager.profile_region('main'):
         # solve the model
         main(
             args.model,
@@ -420,3 +424,7 @@ if __name__ == '__main__':
             sort_step=args.sort_step
         )
     pylikwid_markerclose()
+    all_regions = ProfileManager.get_all_regions()
+    ProfileManager.print_summary()
+
+    ProfileManager.save_to_pickle(os.path.join(o_path, "profiling_data.pkl"))

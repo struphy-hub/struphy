@@ -7,7 +7,7 @@ import inspect
 from mpi4py import MPI
 
 from struphy.propagators.base import Propagator
-from struphy.profiling.profiling import ProfileRegion
+from struphy.profiling.profiling import ProfileManager
 from psydac.linalg.stencil import StencilVector
 
 
@@ -569,11 +569,11 @@ class StruphyModel(metaclass=ABCMeta):
             for propagator in self.propagators:
                 prop_name = type(propagator).__name__
 
-                with ProfileRegion(prop_name):
+                with ProfileManager.profile_region(prop_name):
                     propagator(dt)
 
                 # if self.Nclones > 1:
-                #     with ProfileRegion(prop_name + '_barrier'):
+                #     with ProfileManager.profile_region(prop_name + '_barrier'):
                 #         self.comm.Barrier()
                 #         self.inter_comm.Barrier()
 
@@ -584,20 +584,20 @@ class StruphyModel(metaclass=ABCMeta):
 
             for propagator in self.propagators:
                 prop_name = type(propagator).__name__
-                with ProfileRegion(prop_name):
+                with ProfileManager.profile_region(prop_name):
                     propagator(dt/2)
 
-                # with ProfileRegion(prop_name + '_barrier'):
+                # with ProfileManager.profile_region(prop_name + '_barrier'):
                 #         self.comm.Barrier()
                 #         self.inter_comm.Barrier()
 
             for propagator in self.propagators[::-1]:
                 prop_name = type(propagator).__name__
 
-                with ProfileRegion(prop_name):
+                with ProfileManager.profile_region(prop_name):
                     propagator(dt/2)
 
-                # with ProfileRegion(prop_name + '_barrier'):
+                # with ProfileManager.profile_region(prop_name + '_barrier'):
                 #     self.comm.Barrier()
                 #     self.inter_comm.Barrier()
 
@@ -679,7 +679,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # initialize em fields
         if len(self.em_fields) > 0:
-            with ProfileRegion('initialize_em_fields'):
+            with ProfileManager.profile_region('initialize_em_fields'):
                 for key, val in self.em_fields.items():
 
                     if 'params' in key:
@@ -739,7 +739,7 @@ class StruphyModel(metaclass=ABCMeta):
                             else:
                                 print('No perturbation.')
         if len(self.fluid) > 0:
-            with ProfileRegion('initialize_fluids'):
+            with ProfileManager.profile_region('initialize_fluids'):
                 for species, val in self.fluid.items():
 
                     for variable, subval in val.items():
@@ -801,7 +801,7 @@ class StruphyModel(metaclass=ABCMeta):
                             print('No perturbation.')
         # initialize particles
         if len(self.kinetic) > 0:
-            with ProfileRegion('initialize_particles'):
+            with ProfileManager.profile_region('initialize_particles'):
                 for species, val in self.kinetic.items():
 
                     obj = val['obj']
