@@ -92,18 +92,15 @@ stages:
     - export IOB_DIR=$CI_JOBS_DIR
     - export FIGURE_DIR=$CI_JOBS_DIR/figures
     - export VENV_DIR=/ptmp/maxlin/struphy/virtual_envs
-    - export ARTIFACT_DIR="artifacts_${CI_PIPELINE_ID}"
     - echo $PIPELINE_NAME
     - echo $CI_JOBS_DIR
     - echo $IOB_DIR
     - echo $FIGURE_DIR
     - echo $VENV_DIR
-    - echo $ARTIFACT_DIR
     - mkdir -p $CI_JOBS_DIR
     - mkdir -p $IOB_DIR
     - mkdir -p $FIGURE_DIR
     - mkdir -p $VENV_DIR
-    - mkdir -p $ARTIFACT_DIR
     - echo "$CI_PIPELINE_ID was here on $(date)" >> $CI_JOBS_DIR/private_runner.log
 
 private_runner_venv:
@@ -187,20 +184,24 @@ upload_outputs:
     - mpi_scaling_plot
   extends: .raven_private_runner
   script:
+    - datetime=$(date +"%Y%m%d_%H%M%S")
+    - export ARTIFACT_DIR="struphy_performance_${datetime}_${CI_PIPELINE_ID}"
+    - echo $ARTIFACT_DIR
+    - mkdir -p $ARTIFACT_DIR
     # Print the files in the output directory
     - find $CI_JOBS_DIR/ -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
     # Make tar.gz files and upload it to datashare
     - ls $CI_JOBS_DIR/
-    - datetime=$(date +"%Y%m%d_%H%M%S")
-    - mkdir -p $ARTIFACT_DIR/$datetime
-    - cp -r $CI_JOBS_DIR/ $ARTIFACT_DIR/$datetime
+    - cp -r $CI_JOBS_DIR/ $ARTIFACT_DIR/
     - ls -R $ARTIFACT_DIR/
     - echo "Uploading output artifacts to datashare..."
-    - tar -czf artifacts_${datetime}.tar.gz $ARTIFACT_DIR/$datetime
+    - OUTPUT_TAR=struphy_performance_${datetime}_${CI_PIPELINE_ID}.tar.gz
+    - tar -czf ${OUTPUT_TAR} $ARTIFACT_DIR/
     - |
-      curl -T artifacts_${datetime}.tar.gz -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
+      curl -T ${OUTPUT_TAR} -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
     - echo "Uploading output artifacts to Gitlab..."
   artifacts:
+    name: "struphy_performance_${CI_PIPELINE_ID}"
     paths:
       - $ARTIFACT_DIR
     expire_in: 30 days
