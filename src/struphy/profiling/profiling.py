@@ -11,12 +11,15 @@ using LIKWID markers. It includes:
 LIKWID is imported only when profiling is enabled to avoid unnecessary overhead.
 """
 
+import os
+import pickle
+
 # Import the profiling configuration class and context manager
 from functools import lru_cache
-from mpi4py import MPI
+
 import numpy as np
-import pickle
-import os
+from mpi4py import MPI
+
 
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports
 def _import_pylikwid():
@@ -39,17 +42,17 @@ class ProfilingConfig:
             cls._instance.sample_interval = 1
         return cls._instance
 
-    def set_likwid(self, value, simulation_label = ''):
+    def set_likwid(self, value, simulation_label=''):
         """
         Set the profiling flag to enable or disable profiling.
-        
+
         Parameters
         ----------
         value: bool
             True to enable profiling, False to disable.
         """
         self.likwid = value
-    
+
     def set_simulation_label(self, value):
         """
         Set the label for the simulation. When profiling a region,
@@ -60,7 +63,7 @@ class ProfilingConfig:
         value: str
             Label name
         """
-        
+
         self.simulation_label = value
 
     def get_likwid(self):
@@ -71,22 +74,21 @@ class ProfilingConfig:
             bool: True if profiling is enabled, False otherwise.
         """
         return self.likwid
-    
+
     def set_sample_duration(self, value):
         self.sample_duration = value
-    
+
     def get_sample_duration(self):
         return self.sample_duration
 
     def set_sample_interval(self, value):
         self.sample_interval = value
-    
+
     def get_sample_interval(self):
         return self.sample_interval
 
-
-
         set_sample_duration
+
 
 class ProfileManager:
     """
@@ -143,7 +145,7 @@ class ProfileManager:
         dict: Dictionary of all registered ProfileRegion instances.
         """
         return cls._regions
-    
+
     @classmethod
     def save_to_pickle(cls, file_path):
         """
@@ -183,13 +185,13 @@ class ProfileManager:
                 pickle.dump(combined_data, file)
 
             print(f"Data saved to {absolute_path}")
-    
+
     @classmethod
     def print_summary(cls):
         """
         Print a summary of the profiling data for all regions.
         """
-        
+
         print("Profiling Summary:")
         print("=" * 40)
         for name, region in cls._regions.items():
@@ -211,6 +213,7 @@ class ProfileManager:
             print(f"  Std Deviation: {std_duration:.6f} seconds")
             print("-" * 40)
 
+
 class ProfileRegion:
     """
     Context manager for profiling specific code regions using LIKWID markers.
@@ -219,7 +222,7 @@ class ProfileRegion:
     ----------
     region_name: str
         Name of the profiling region.
-    
+
     config: ProfilingConfig
         Instance of ProfilingConfig for accessing profiling settings.
     """
@@ -233,10 +236,10 @@ class ProfileRegion:
         region_name: str
             Name of the profiling region.
         """
-        
+
         if hasattr(self, '_initialized') and self._initialized:
             return  # Skip re-initialization
-        
+
         self.config = ProfilingConfig()
         # By default, self.config.simulation_label = ''
         # --> self.region_name = region_name
@@ -256,13 +259,12 @@ class ProfileRegion:
         """
         if self.config.get_likwid():
             self._pylikwid().markerstartregion(self.region_name)
-        
-        
+
         self._ncalls += 1
         self._start_time = MPI.Wtime()
         if self._start_time % self.config.sample_interval < self.config.sample_duration or self._ncalls == 1:
             self._start_times.append(self._start_time)
-            self.started = True            
+            self.started = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -280,7 +282,7 @@ class ProfileRegion:
             end_time = MPI.Wtime()
             self._end_times.append(end_time)
             self._durations.append(end_time - self._start_time)
-            self.started = False   
+            self.started = False
 
     def _pylikwid(self):
         """
@@ -290,7 +292,7 @@ class ProfileRegion:
             module: The pylikwid module.
         """
         return _import_pylikwid()
-    
+
     @property
     def ncalls(self):
         """
@@ -300,7 +302,7 @@ class ProfileRegion:
             int: Number of calls to this profiling region.
         """
         return self._ncalls
-    
+
     @property
     def durations(self):
         """
@@ -310,7 +312,7 @@ class ProfileRegion:
             list: Durations of each call in seconds.
         """
         return self._durations
-    
+
     @property
     def start_times(self):
         """
@@ -320,7 +322,7 @@ class ProfileRegion:
             list: Start times of each call in seconds.
         """
         return self._start_times
-    
+
     @property
     def end_times(self):
         """
@@ -331,23 +333,26 @@ class ProfileRegion:
         """
         return self._end_times
 
+
 def pylikwid_markerinit():
     """
     Initialize LIKWID profiling markers.
-    
+
     This function imports pylikwid only if profiling is enabled.
     """
     if ProfilingConfig().get_likwid():
         _import_pylikwid().markerinit()
 
+
 def pylikwid_markerclose():
     """
     Close LIKWID profiling markers.
-    
+
     This function imports pylikwid only if profiling is enabled.
     """
     if ProfilingConfig().get_likwid():
         _import_pylikwid().markerclose()
+
 
 def set_likwid(value):
     """
@@ -359,6 +364,7 @@ def set_likwid(value):
         True to enable profiling, False to disable.
     """
     ProfilingConfig().set_likwid(value)
+
 
 def set_simulation_label(value):
     """
@@ -372,6 +378,7 @@ def set_simulation_label(value):
     # This allows  for running multiple simulations with different labels but where the regions have the same name.
     ProfilingConfig().set_simulation_label(value)
 
+
 def get_likwid():
     """
     Get the current global profiling configuration.
@@ -381,14 +388,18 @@ def get_likwid():
     """
     return ProfilingConfig().get_likwid()
 
+
 def set_sample_duration(value):
     return ProfilingConfig().set_sample_duration(value)
+
 
 def get_sample_duration():
     return ProfilingConfig().get_sample_duration()
 
+
 def set_sample_interval(value):
     return ProfilingConfig().set_sample_interval(value)
+
 
 def get_sample_interval():
     return ProfilingConfig().get_sample_interval()

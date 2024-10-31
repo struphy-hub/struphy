@@ -7,7 +7,7 @@ def main(
     runtime: int = 300,
     save_step: int = 1,
     supress_out: bool = False,
-    sort_step: int = 0
+    sort_step: int = 0,
 ):
     """
     Run a Struphy model.
@@ -34,26 +34,26 @@ def main(
 
     supress_out : bool
         Whether to supress screen output during time integration.
-        
+
     sort_step: int, optional
         Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
 
     """
 
-    from struphy.models.base import StruphyModel
-    from struphy.feec.psydac_derham import Derham
-    from struphy.models import fluid, kinetic, hybrid, toy
-    from struphy.io.setup import pre_processing, setup_domain_cloning
-    from struphy.profiling.profiling import ProfileManager
-    from struphy.io.output_handling import DataContainer
+    import copy
+    import os
+    import time
+
+    import numpy as np
+    from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
-    import copy
-    import numpy as np
-    import time
-    import os
-
-    from mpi4py import MPI
+    from struphy.feec.psydac_derham import Derham
+    from struphy.io.output_handling import DataContainer
+    from struphy.io.setup import pre_processing, setup_domain_cloning
+    from struphy.models import fluid, hybrid, kinetic, toy
+    from struphy.models.base import StruphyModel
+    from struphy.profiling.profiling import ProfileManager
 
     if sort_step:
         from struphy.pic.base import Particles
@@ -68,7 +68,7 @@ def main(
 
     # loading of simulation parameters, creating output folder and printing information to screen
     params = pre_processing(
-        model_name, parameters, path_out, restart, runtime, save_step, rank, size
+        model_name, parameters, path_out, restart, runtime, save_step, rank, size,
     )
 
     # Setup domain cloning communicators
@@ -77,7 +77,8 @@ def main(
     # between the clones : inter_comm
     # A copy of the params is used since the parker params are updated.
     params, inter_comm, sub_comm = setup_domain_cloning(
-        comm, copy.deepcopy(params), params['grid']['Nclones'])
+        comm, copy.deepcopy(params), params['grid']['Nclones'],
+    )
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     objs = [fluid, kinetic, hybrid, toy]
@@ -88,8 +89,10 @@ def main(
             pass
 
     with ProfileManager.profile_region('model_class_setup'):
-        model = model_class(params=params, comm=sub_comm,
-                            inter_comm=inter_comm)
+        model = model_class(
+            params=params, comm=sub_comm,
+            inter_comm=inter_comm,
+        )
 
     assert isinstance(model, StruphyModel)
 
@@ -119,8 +122,10 @@ def main(
             pointData['absB0'] = absB0
             pointData['p0'] = p0
 
-        gridToVTK(os.path.join(path_out, 'geometry'),
-                  *grids_phy, pointData=pointData)
+        gridToVTK(
+            os.path.join(path_out, 'geometry'),
+            *grids_phy, pointData=pointData,
+        )
 
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
@@ -157,10 +162,12 @@ def main(
         total_steps = str(
             int(
                 round(
-                    (time_params['Tend'] - time_state['value']
-                     [0]) / time_params['dt']
-                )
-            )
+                    (
+                        time_params['Tend'] - time_state['value']
+                        [0]
+                    ) / time_params['dt'],
+                ),
+            ),
         )
 
     # compute initial scalars and kinetic data, pass time state to all propagators
@@ -203,7 +210,7 @@ def main(
                 )
                 print()
             break
-        
+
         if sort_step and time_state['index'][0] % sort_step == 0:
             t0 = time.time()
             for key, val in model.pointer.items():
@@ -212,7 +219,7 @@ def main(
             t1 = time.time()
             if rank == 0 and not supress_out:
                 message = 'Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}'.format(
-                    run_time_now * 60, t1 - t0
+                    run_time_now * 60, t1 - t0,
                 )
                 print(message, end='\n')
                 print()
@@ -225,10 +232,11 @@ def main(
 
         # update time and index (round time to 10 decimals for a clean time grid!)
         time_state['value'][0] = round(
-            time_state['value'][0] + time_params['dt'], 10)
+            time_state['value'][0] + time_params['dt'], 10,
+        )
         time_state['value_sec'][0] = round(
             time_state['value_sec'][0] +
-            time_params['dt'] * model.units['t'], 10
+            time_params['dt'] * model.units['t'], 10,
         )
         time_state['index'][0] += 1
 
@@ -274,16 +282,16 @@ def main(
 
                 message = 'time step: ' + step + '/' + str(total_steps)
                 message += ' | ' + 'time: {0:10.5f}/{1:10.5f}'.format(
-                    time_state['value'][0], time_params['Tend']
+                    time_state['value'][0], time_params['Tend'],
                 )
                 message += ' | ' + 'phys. time [s]: {0:12.10f}/{1:12.10f}'.format(
                     time_state['value_sec'][0], time_params['Tend'] *
-                    model.units['t']
+                    model.units['t'],
                 )
                 message += (
                     ' | '
                     + 'wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}'.format(
-                        run_time_now * 60, t1 - t0
+                        run_time_now * 60, t1 - t0,
                     )
                 )
 
@@ -291,13 +299,12 @@ def main(
                 model.print_scalar_quantities()
                 print()
 
-
     # ===================================================================
 
     with open(path_out + '/meta.txt', 'a') as f:
         # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
         f.write(
-            f"{rank} {inter_comm.Get_rank()} {sub_comm.Get_rank()} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
+            f"{rank} {inter_comm.Get_rank()} {sub_comm.Get_rank()} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n",
         )
     comm.Barrier()
     if rank == 0:
@@ -311,17 +318,17 @@ if __name__ == '__main__':
 
     import argparse
     import os
+
     import struphy
+    import struphy.utils.utils as utils
     from struphy.profiling.profiling import (
         ProfileManager,
+        pylikwid_markerclose,
+        pylikwid_markerinit,
         set_likwid,
         set_sample_duration,
         set_sample_interval,
-        pylikwid_markerinit,
-        pylikwid_markerclose,
     )
-
-    import struphy.utils.utils as utils
 
     # Read struphy state file
     state = utils.read_state()
@@ -332,7 +339,7 @@ if __name__ == '__main__':
 
     # model
     parser.add_argument(
-        'model', type=str, metavar='model', help='the name of the model to run'
+        'model', type=str, metavar='model', help='the name of the model to run',
     )
 
     # input (absolute path)
@@ -421,7 +428,7 @@ if __name__ == '__main__':
             runtime=args.runtime,
             save_step=args.save_step,
             supress_out=args.supress_out,
-            sort_step=args.sort_step
+            sort_step=args.sort_step,
         )
     pylikwid_markerclose()
     all_regions = ProfileManager.get_all_regions()

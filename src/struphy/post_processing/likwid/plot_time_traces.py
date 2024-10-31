@@ -1,8 +1,10 @@
+import os
 import pickle
-import numpy as np
+
 import matplotlib
 import matplotlib.pyplot as plt
-import os
+import numpy as np
+
 
 def plot_time_vs_duration(path):
     """
@@ -35,7 +37,8 @@ def plot_time_vs_duration(path):
 
             # Use the color from the color_map for each region
             color = color_map[region_name]
-            plt.plot(start_times, durations, 'x-', color=color, label=f"{region_name}" if rank_name == 'rank_0' else None)
+            plt.plot(start_times, durations, 'x-', color=color,
+                     label=f"{region_name}" if rank_name == 'rank_0' else None)
 
     plt.title("Time vs. Duration for Profiling Regions")
     plt.xlabel("Start Time (s)")
@@ -45,6 +48,7 @@ def plot_time_vs_duration(path):
     plt.tight_layout()
     # plt.show()
     plt.savefig('time_vs_duration.pdf')
+
 
 def plot_gantt_chart(path):
     """
@@ -61,7 +65,7 @@ def plot_gantt_chart(path):
         profiling_data = pickle.load(file)
 
     plt.figure(figsize=(12, 8))
-    
+
     # Collect unique region names and their earliest start times
     region_start_times = {}
     for rank_data in profiling_data.values():
@@ -110,7 +114,7 @@ def plot_gantt_chart(path):
                     color=color_map(rank_idx / num_ranks),
                     alpha=0.6,
                     height=bar_height,
-                    label=f"{rank_name}" if region_idx == 0 else None
+                    label=f"{rank_name}" if region_idx == 0 else None,
                 )
 
         # Calculate the middle y position for this region's label
@@ -134,8 +138,10 @@ def plot_gantt_chart(path):
     # Save the plot as a PDF file
     plt.savefig('gantt_chart.pdf')
 
+
 if __name__ == '__main__':
     import argparse
+
     import struphy.utils.utils as utils
 
     # Read struphy state file
@@ -144,8 +150,10 @@ if __name__ == '__main__':
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Plot profiling time trace.")
-    parser.add_argument('--path', type=str, default=os.path.join(o_path, "profiling_data.pkl"),
-                        help="Path to the profiling data file (default: o_path from struphy state)")
+    parser.add_argument(
+        '--path', type=str, default=os.path.join(o_path, "profiling_data.pkl"),
+        help="Path to the profiling data file (default: o_path from struphy state)",
+    )
 
     args = parser.parse_args()
     path = os.path.abspath(args.path)  # Convert to absolute path
@@ -153,4 +161,3 @@ if __name__ == '__main__':
     # Plot the time trace
     plot_time_vs_duration(path)
     plot_gantt_chart(path)
-
