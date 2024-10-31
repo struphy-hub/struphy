@@ -410,7 +410,7 @@ branch_lint_reports:
 
 # Lint struphy with `struphy lint`
 lint_struphy:
-  image: ubuntu:latest
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   stage: lint
   needs: ['ci_vars']
   rules:
@@ -425,35 +425,16 @@ lint_struphy:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
     - date
-    - ls -a
-    - apt update -y && apt clean 
-    - export DEBIAN_FRONTEND=noninteractive
-    - apt install -y software-properties-common
-    - add-apt-repository -y ppa:deadsnakes/ppa
-    - apt update -y
-    - apt install -y python3.11
-    - apt install -y python3.11-dev
-    - apt install -y python3-pip 
-    - apt install -y python3.11-venv 
-    - apt install -y gfortran gcc 
-    - apt install -y liblapack-dev libopenmpi-dev 
-    - apt install -y libblas-dev openmpi-bin 
-    - apt install -y libomp-dev libomp5 
-    - apt install -y git
-    - apt install -y pandoc
-    - apt install -y sqlite3
-    - export OMPI_ALLOW_RUN_AS_ROOT=1
-    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-    - python3.11 -m pip list
     - python3.11 -m venv env_struphy_lint
   script:
     - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
+    - pip install --upgrade pip
     - pip list
     - ls
     - pwd
-    - ls -1
     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
     - struphy
+    # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint branch --output-format plain
   allow_failure: true
 
