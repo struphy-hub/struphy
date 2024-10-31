@@ -394,7 +394,7 @@ def struphy_lint(config, verbose):
     verbose : bool
         If True, enables detailed output.
     """
-    print(config)
+
     # Extract individual settings from config
     input_type = config.get("input_type", "all")
     path = config.get("path")
