@@ -227,7 +227,6 @@ Struphy enforces the following formatting standards:
 
 * `autopep8 <https://github.com/hhatto/autopep8>`_
 * `isort <https://github.com/PyCQA/isort>`_
-* `add-trailing-comma <https://github.com/asottile/add-trailing-comma>`_
 
 These standards are checked in the "linting" stage of the CI. When coding locally in a feature branch, 
 you can check the formatting via::
@@ -237,20 +236,21 @@ you can check the formatting via::
 (Note that ``branch`` is meant literally, i.e. not the branch name). This will lead to an output like::
 
     $ struphy lint branch
-    The following files will be linted with ['autopep8', 'isort']
+    The following files will be linted with ['isort', 'autopep8']
     ---------------------------------------------------------------
-    src/struphy/console/format.py
-    src/struphy/console/main.py
+    /raven/u/maxlin/git_repos/struphy/src/struphy/console/format.py
+    /raven/u/maxlin/git_repos/struphy/src/struphy/console/main.py
 
 
     Passes CI if both isort and autopep8 passes
-    +--------------------------------+---------+---------+-----------+--------+----------------------+---------+------------+-------------+
-    |             File               |   Lines |   Funcs |   Classes |   Vars | add-trailing-comma   | isort   | autopep8   | Passes CI   |
-    +================================+=========+=========+===========+========+======================+=========+============+=============+
-    | src/struphy/console/format.py  |     351 |      12 |         0 |     71 | Yes                  | Yes     | Yes        | Yes         |
-    +--------------------------------+---------+---------+-----------+--------+----------------------+---------+------------+-------------+
-    | src/struphy/console/main.py    |    1025 |       5 |         2 |     85 | Yes                  | No      | No         | Yes         |
-    +--------------------------------+---------+---------+-----------+--------+----------------------+---------+------------+-------------+
+    ----------------------------------------
+    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
+    |             File               |   Lines |   Funcs |   Classes |   Vars | isort   | autopep8   | Passes CI   |
+    +================================+=========+=========+===========+========+=========+============+=============+
+    | src/struphy/console/format.py  |     774 |      15 |         0 |     88 | PASS    | FAIL       | FAIL        |
+    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
+    | src/struphy/console/main.py    |    1068 |       6 |         2 |     89 | PASS    | PASS       | PASS        |
+    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
     Not all files will pass CI
 
 In order to format the files that would not pass the CI::
