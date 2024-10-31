@@ -56,9 +56,9 @@ stages:
   - startup
   - build
   - install
-  - lint
   - test
   - performance-tests
+  - lint
   - pages
   - release 
 
@@ -408,10 +408,11 @@ branch_lint_reports:
     - echo "Changed Python files:"
     - echo "$LINT_FILES"
 
-# Check the changed files in the current branch with autopep8
-# Don't run the check in the scheduled CI pipeline
-autopep8:
+# Lint struphy with `struphy lint`
+lint_struphy:
+  image: ubuntu:latest
   stage: lint
+  needs: ['ci_vars']
   rules:
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
       when: never
@@ -422,134 +423,39 @@ autopep8:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    - date
+    - ls -a
+    - apt update -y && apt clean 
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt install -y software-properties-common
+    - add-apt-repository -y ppa:deadsnakes/ppa
+    - apt update -y
+    - apt install -y python3.11
+    - apt install -y python3.11-dev
+    - apt install -y python3-pip 
+    - apt install -y python3.11-venv 
+    - apt install -y gfortran gcc 
+    - apt install -y liblapack-dev libopenmpi-dev 
+    - apt install -y libblas-dev openmpi-bin 
+    - apt install -y libomp-dev libomp5 
+    - apt install -y git
+    - apt install -y pandoc
+    - apt install -y sqlite3
+    - export OMPI_ALLOW_RUN_AS_ROOT=1
+    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+    - python3.11 -m pip list
+    - python3.11 -m venv env_struphy_lint
   script:
-    - |
-      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
-      echo "Changed Python files:"
-      echo "$changed_files"
-      if [ -n "$changed_files" ]; then
-        pip install autopep8
-        echo "Running autopep8 on changed files..."
-        failure=0
-        for file in $changed_files; do
-          echo "Checking $file with autopep8..."
-          diff_output=$(autopep8 --diff "$file")  # Capture the diff output
-          if [ ${#diff_output} -eq 0 ]; then  # Check if the length of diff output is zero
-              echo "$file: SUCCESS (PEP8 compliant)"
-          else
-              echo "$file: FAIL (Needs formatting)"
-              failure=1
-          fi
-        done
-        if [ "$failure" -eq 1 ]; then
-          echo "Some files failed autopep8 check."
-          exit 1
-        else
-          echo "All files passed autopep8 check."
-        fi
-      else
-        echo "No Python files to check."
-      fi
-    - source env_$CI_PIPELINE_ID/bin/activate
+    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
+    - pip list
+    - ls
+    - pwd
+    - ls -1
+    - pip install -e . # We have to install struphy in editable mode for struphy lint to work
+    - struphy
+    - struphy lint branch --output-format plain
   allow_failure: true
-
-
-# Check the changed files in the current branch with isort
-# Don't run the check in the scheduled CI pipeline
-isort:
-  stage: lint
-  rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  script:
-    - pip install isort
-    - |
-      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
-      echo "Changed Python files:"
-      echo "$changed_files"
-      if [ -n "$changed_files" ]; then
-        echo "Running isort on changed files..."
-        echo "$changed_files" | xargs isort --profile black --check-only
-      else
-        echo "No Python files to check."
-      fi
-  allow_failure: true
-
-# Check the changed files in the current branch with add-trailing-commas
-# Don't run the check in the scheduled CI pipeline
-add-trailing-commas:
-  stage: lint
-  rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-    # Don't run the check in the scheduled CI pipeline
-  script:
-    - pip install add-trailing-comma
-    - |
-      changed_files=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
-      echo "Changed Python files:"
-      echo "$changed_files"
-      if [ -n "$changed_files" ]; then
-        echo "Running add-trailing-commas on changed files..."
-        for file in $changed_files; do
-          echo "Processing $file..."
-          # Create a temporary file and format it
-          temp_file=$(mktemp)
-          cp "$file" "$temp_file"
-          add-trailing-comma "$temp_file"
-          
-          # Compare the original file with the modified temporary file
-          if diff "$file" "$temp_file" > /dev/null; then
-            echo "$file is already correctly formatted."
-          else
-            diff "$file" "$temp_file"
-            exit 1
-          fi
-          
-          # Clean up the temporary file
-          rm "$temp_file"
-        done
-      else
-        echo "No Python files to check."
-      fi
-  allow_failure: true
-
-
-# # Lint struphy with `struphy lint`
-# lint_struphy:
-#   stage: lint
-#   rules:
-#     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
-#       when: never
-#     - if: $CI_COMMIT_MESSAGE =~ /make-pages/
-#       when: never
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#       when: never
-#     - if: $CI_COMMIT_TAG
-#       when: never
-#     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-#   script:
-#     - pwd
-#     - ls -1
-#     - git fetch origin
-#     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
-#     - struphy
-#     - struphy lint branch
-#   allow_failure: true
 
 ##################
 ### TEST STAGE ###

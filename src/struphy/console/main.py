@@ -771,9 +771,17 @@ def struphy():
             "--linters",
             type=str,
             nargs='+',
-            default=["add-trailing-comma", "isort", "autopep8"],
+            default=["isort", "autopep8"],
             choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint"],
             help="list of linters to use",
+        )
+
+        parser_lint.add_argument(
+            "--output-format",
+            type=str,
+            default="table",
+            choices=["table", "plain"],
+            help="specify the format of the output: 'table' for tabular output or 'plain' for regular output",
         )
 
     # parse argument
@@ -790,6 +798,8 @@ def struphy():
 
     if args.command == 'format':
         args.config["iterations"] = args.iterations
+    if args.command == 'lint':
+        args.config["output_format"] = args.output_format
 
     # if no arguments are passed, print help and exit
     print_help = True
@@ -1027,7 +1037,7 @@ def struphy():
     kwargs.pop('refresh_models')
 
     # These options are stored in kwargs.config
-    for key in ["input_type", "path", "linters", "iterations"]:
+    for key in ["input_type", "path", "linters", "iterations", "output_format"]:
         kwargs.pop(key, None)
 
     # start sub-command function with all parameters of that function
