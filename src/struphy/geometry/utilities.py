@@ -2,32 +2,31 @@
 
 
 import numpy as np
-        
+from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
-from scipy.optimize import root_scalar, newton, root
 
 from struphy.bsplines import bsplines as bsp
-from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 from struphy.geometry.base import PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
+from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
 
-def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_power=1, xi_param='equal_angle', Nel_pre=[64, 256], p_pre=[3, 3], r0=0.3):
+def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_power=1, xi_param='equal_angle', Nel_pre=(64, 256), p_pre=(3, 3), r0=0.3):
     r"""
     Given a poloidal flux function :math:`\psi(R, Z)`, constructs a flux-aligned spline mapping :math:`(R, Z) = F(s(\psi), \xi)`.
-    
+
     The radial coordinate :math:`s \in [0, 1]` is parametrized in terms of powers of :math:`\psi`:
 
     .. math::
-    
+
         s(\psi) = [ (\psi - \psi_0)/(\psi_1 - \psi_0) ]^p,
-        
+
     where :math:`\psi_0` is the value of the innermost flux surface of the mapping,
     :math:`\psi_1` the value of the outermost flux surface, and :math:`p \in \mathbb Q` is some power.
 
     The angular coordinate :math:`\xi \in (0, 2\pi)` can be parametrized in five different ways:
-    
+
         1. ``equal_angle``
         2. ``equal_arc_length``
         3. ``sfl`` (straight field line angle)
@@ -38,33 +37,33 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
 
         1. First, a flux-aligned mapping with parameters ``Nel_pre``, ``p_pre`` is constructed with ``xi=equal angle``.
         2. Second, a mapping with lower resolution is constructed with the desired :math:`\xi`-parametrization.
-        
+
     The field-line tracing algorithm for the ``equal_angle``-parametrization is as follows:
     given a callable mapping :math:`s(R, Z) = [ (\psi(R, Z) - \psi_0)/(\psi_1 - \psi_0) ]^p \in [0, 1]`, 
     we want to find the spline mapping
 
     .. math::
-    
+
         R(s, \xi) &= \sum_{i=1}^{N_1}\sum_{j=1}^{N_2}c^R_{ij}N_1(s)N_2(\xi)\,,
-        
+
         Z(s, \xi) &= \sum_{i=1}^{N_1}\sum_{j=1}^{N_2}c^Z_{ij}N_1(s)N_2(\xi).
-    
+
     This will be achieved by interpolation, which means we need a set of function values :math:`(R_{ij}, Z_{ij})`
     at the interpolation point sets :math:`(s_i, \xi_j)_{i=1,j=1}^{N_1, N_2}`. At first, we need to obtain these function values.
     For this we draw lines for :math:`\xi_j=j\Delta\xi` for :math:`j\in\{0,1,\cdots,N_2-1\}`:
 
     .. math::
-    
+
         R_j(r) &= R_\text{axis} + r\cos(\xi_j)\,,
-        
+
         Z_j(r) &= Z_\text{axis} + r\sin(\xi_j)\,.
 
     For each :math:`j`, we calculate the intersections with certain :math:`s_i`-values by computing the root of the function
 
     .. math::
-    
+
         f(r) = s(R_j(r),Z_j(r)) - s_i\,.
-    
+
     This yields a :math:`r_{i}` which leads to :math:`R_{ij}=R_j(r_i)` and :math:`Z_{ij}=Z_j(r_i)`.
     Finally, after having found the :math:`(R_{ij}, Z_{ij})`, 
     we solve a spline interpolation problem to find the :math:`(c^R_{ij}, c^Z_{ij})`.
@@ -98,10 +97,10 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
     xi_param : str
         Which angular (xi) parametrization.
 
-    Nel_pre : list[int], optional
+    Nel_pre : tuple | list, optional
         Number of elements to be used for the pre-mapping.
 
-    p_pre : list[int], optional
+    p_pre : tuple | list, optional
         Spline degrees to be used for the pre-mapping.
 
     r0 : float, optional
@@ -132,14 +131,17 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
     s_gr = bsp.greville(Ts, ps, False)
     x_gr = bsp.greville(Tx, px, True)
 
-    if p[1]%2 == 1: assert x_gr[0] == 0.
+    if p[1] % 2 == 1:
+        assert x_gr[0] == 0.
 
     # collocation matrices
     Is = bsp.collocation_matrix(Ts, ps, s_gr, False)
     Ix = bsp.collocation_matrix(Tx, px, x_gr, True)
 
-    ILUs = [splu(csc_matrix(Is)), 
-            splu(csc_matrix(Ix))]
+    ILUs = [
+        splu(csc_matrix(Is)),
+        splu(csc_matrix(Ix)),
+    ]
 
     # check if pole is included
     if np.abs(psi(psi_axis_R, psi_axis_Z) - psi0) < 1e-14:
@@ -150,7 +152,7 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
     R = np.zeros((s_gr.size, x_gr.size), dtype=float)
     Z = np.zeros((s_gr.size, x_gr.size), dtype=float)
 
-    # function whose root must be found        
+    # function whose root must be found
     for j, x in enumerate(x_gr):
         for i, s in enumerate(s_gr):
 
@@ -198,7 +200,7 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
 
         print('Calculation of pre-mapping successful! Start angle parametrization ' + xi_param + '.')
 
-        # create temporary domain 
+        # create temporary domain
         domain_eq_angle = PoloidalSplineTorus(Nel=Nel_pre, p=p_pre, cx=cR_equal_angle, cy=cZ_equal_angle)
 
         # create new interpolation data
@@ -213,19 +215,24 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
         s_gr = bsp.greville(Ts, ps, False)
         x_gr = bsp.greville(Tx, px, True)
 
-        if p[1]%2 == 1: assert x_gr[0] == 0.
+        if p[1] % 2 == 1:
+            assert x_gr[0] == 0.
 
         # collocation matrices
         Is = bsp.collocation_matrix(Ts, ps, s_gr, False)
         Ix = bsp.collocation_matrix(Tx, px, x_gr, True)
 
-        ILUs = [splu(csc_matrix(Is)), 
-                splu(csc_matrix(Ix))]
+        ILUs = [
+            splu(csc_matrix(Is)),
+            splu(csc_matrix(Ix)),
+        ]
 
-        xi_param_dict = {'equal_arc_length' : 1, 
-                         'sfl' : 2,
-                         'equal_area' : 3,
-                         'equal_volume' : 4}
+        xi_param_dict = {
+            'equal_arc_length' : 1,
+            'sfl' : 2,
+            'equal_area' : 3,
+            'equal_volume' : 4,
+        }
 
         # target function for xi parametrization
         def f_angles(xis, s_val):
@@ -235,7 +242,7 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
             # add 0 and 1 to angles array
             xis_extended = np.array([0.] + list(xis) + [1.])
 
-            # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val 
+            # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val
             _RZ = domain_eq_angle(s_val, xis_extended, 0.)
 
             _R = _RZ[0]
@@ -255,7 +262,7 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
             l_cum = np.cumsum(dl)
 
             # odd spline degree
-            if px%2 == 1:
+            if px % 2 == 1:
                 xi_diff = l_cum[:-1]/l - x_gr[1:]
             # even spline degree
             else:
@@ -267,7 +274,7 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
         R = np.zeros((s_gr.size, x_gr.size), dtype=float)
         Z = np.zeros((s_gr.size, x_gr.size), dtype=float)
 
-        if px%2 == 1:
+        if px % 2 == 1:
             xis0 = x_gr[1:].copy()
         else:
             xis0 = x_gr.copy()
@@ -290,7 +297,7 @@ def field_line_tracing(psi, psi_axis_R, psi_axis_Z, psi0, psi1, Nel, p, psi_powe
             xis0 = tracing['x']
 
             # add zero angle for odd degree
-            if px%2 == 1:
+            if px % 2 == 1:
                 R[i, 1:] = domain_eq_angle(s_flux, tracing['x'], 0.)[0]
                 Z[i, 1:] = domain_eq_angle(s_flux, tracing['x'], 0.)[2]
 

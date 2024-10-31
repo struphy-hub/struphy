@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 import os
 import subprocess
+
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
 
 from struphy.dispersion_relations import analytic
 
 
-def power_spectrum_2d(values, name, code, grids,
-                      grids_mapped=None, component=0, slice_at=[None, 0, 0],
-                      do_plot=False, disp_name=None, disp_params={},
-                      save_plot=False, save_name=None, file_format='png'):
+def power_spectrum_2d(
+    values, name, code, grids,
+    grids_mapped=None, component=0, slice_at=(None, 0, 0),
+    do_plot=False, disp_name=None, disp_params={},
+    save_plot=False, save_name=None, file_format='png',
+):
     """ Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
     Returns values if plot=False.
 
@@ -81,8 +84,10 @@ def power_spectrum_2d(values, name, code, grids,
     # check uniform grid in time
     dt = keys[1] - keys[0]
     print(f'time step: {dt}')
-    assert np.all([np.abs(y - x - dt) < 1e-12 for x,
-                  y in zip(keys[:-1], keys[1:])])
+    assert np.all([
+        np.abs(y - x - dt) < 1e-12 for x,
+        y in zip(keys[:-1], keys[1:])
+    ])
 
     # create 4d np.array with shape (time, eta1, eta2, eta3)
     dim_t = len(keys)
@@ -134,10 +139,14 @@ def power_spectrum_2d(values, name, code, grids,
         colormap = 'plasma'
         K, W = np.meshgrid(kvec, omega)
         lvls = np.logspace(-15, -1, 27)
-        disp_plot = ax.contourf(K, W, dispersion**2 / (dispersion**2).max(),
-                                cmap=colormap, norm=colors.LogNorm(), levels=lvls)
-        plt.colorbar(ticks=[1e-12, 1e-9, 1e-6, 1e-3],
-                     mappable=disp_plot, format='%.0e')
+        disp_plot = ax.contourf(
+            K, W, dispersion**2 / (dispersion**2).max(),
+            cmap=colormap, norm=colors.LogNorm(), levels=lvls,
+        )
+        plt.colorbar(
+            ticks=[1e-12, 1e-9, 1e-6, 1e-3],
+            mappable=disp_plot, format='%.0e',
+        )
         title = name + ' component ' + \
             str(component + 1) + ' from code: ' + code
         ax.set_title(title)
@@ -177,9 +186,11 @@ def power_spectrum_2d(values, name, code, grids,
         return kvec, omega, dispersion
 
 
-def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
-                 do_fit=False, fit_minima=False, order=4, no_extrema=4, start_extremum=0, degree=1,
-                 show_plot=False, save_plot=False, savedir=None, file_format='png'):
+def plot_scalars(
+    time, scalar_quantities, scalars_plot=None, do_log=False,
+    do_fit=False, fit_minima=False, order=4, no_extrema=4, start_extremum=0, degree=1,
+    show_plot=False, save_plot=False, savedir=None, file_format='png',
+):
     """ Plot the scalar quantities and the relative error in the total energy for a simulation.
 
     Parameters
@@ -187,7 +198,7 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
     scalar_quantities : dict
         HDF5 dictionary dataset containing the scalar quantities that were saved during the simulation
 
-    scalars_plot : list
+    scalars_plot : list | tuple
         list of names of scalars that should be plotted. If empty then all are plotted
 
     do_log : boolean
@@ -241,19 +252,25 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
             plt.show()
 
         plt.figure('en_tot_rel_err')
-        plt.plot(time[1:], np.divide(
-            np.abs(en_tot[1:] - en_tot[0]), en_tot[0]))
+        plt.plot(
+            time[1:], np.divide(
+                np.abs(en_tot[1:] - en_tot[0]), en_tot[0],
+            ),
+        )
 
         if save_plot:
             assert savedir is not None, 'When wanting to save the plot a path has to be given!'
-            plt.savefig(os.path.join(
-                savedir, 'en_tot_rel_err' + '.' + file_format))
+            plt.savefig(
+                os.path.join(
+                    savedir, 'en_tot_rel_err' + '.' + file_format,
+                ),
+            )
         if show_plot:
             plt.show()
 
     # Dict with label as key and time series as value
     plot_quantities = {}
-    if len(scalars_plot) == 0:
+    if scalars_plot is None:
         for key, quantity in scalar_quantities.items():
             if key not in ['time', 'en_tot']:
                 plot_quantities[key] = quantity[:]
@@ -280,9 +297,11 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
             # for plotting take a bit more time at start and end
             if len(inds_exs[0]) >= 2:
                 time_start_idx = np.max(
-                    [0, 2*inds_exs[0][start_extremum] - inds_exs[0][start_extremum+1]])
+                    [0, 2*inds_exs[0][start_extremum] - inds_exs[0][start_extremum+1]],
+                )
                 time_end_idx = np.min(
-                    [len(time) - 1, 2*inds_exs[0][start_extremum+no_extrema-1] - inds_exs[0][start_extremum+no_extrema-2]])
+                    [len(time) - 1, 2*inds_exs[0][start_extremum+no_extrema-1] - inds_exs[0][start_extremum+no_extrema-2]],
+                )
                 time_cut = time[time_start_idx:time_end_idx]
             else:
                 time_cut = time
@@ -293,15 +312,20 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
 
             if inds_exs is not None:
                 # do the fitting
-                coeffs = np.polyfit(times_extrema, np.log(
-                    quantity_extrema), deg=degree)
-                plt.plot(times_extrema, quantity_extrema,
-                         'r*', label='local extrema')
+                coeffs = np.polyfit(
+                    times_extrema, np.log(
+                        quantity_extrema,
+                    ), deg=degree,
+                )
+                plt.plot(
+                    times_extrema, quantity_extrema,
+                    'r*', label='local extrema',
+                )
                 plt.plot(
                     time_cut,
                     np.exp(coeffs[0] * time_cut + coeffs[1]),
                     label=r"$a * \exp(m x)$ with" +
-                    f"\na={np.round(np.exp(coeffs[1]), 3)} m={np.round(coeffs[0], 3)}"
+                    f"\na={np.round(np.exp(coeffs[1]), 3)} m={np.round(coeffs[0], 3)}",
                 )
         else:
             plt.plot(time, plot_quantity[:], '.', label=key, markersize=2)
@@ -309,16 +333,19 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
             if inds_exs is not None:
                 # do the fitting
                 coeffs = np.polyfit(
-                    times_extrema, quantity_extrema, deg=degree)
+                    times_extrema, quantity_extrema, deg=degree,
+                )
 
                 # plot quantity, extrema, and fit
-                plt.plot(times_extrema, quantity_extrema,
-                         'r*', label='local extrema')
+                plt.plot(
+                    times_extrema, quantity_extrema,
+                    'r*', label='local extrema',
+                )
                 plt.plot(
                     time_cut,
                     np.exp(coeffs[0] * time_cut + coeffs[1]),
                     label=r"$a x + b$ with" +
-                    f"\na={np.round(coeffs[1], 3)} b={np.round(coeffs[0], 3)}"
+                    f"\na={np.round(coeffs[1], 3)} b={np.round(coeffs[0], 3)}",
                 )
 
     plt.legend()
@@ -331,8 +358,10 @@ def plot_scalars(time, scalar_quantities, scalars_plot=[], do_log=False,
         plt.show()
 
 
-def plot_distr_fun(path, time_idx, grid_slices,
-                   save_plot=False, savepath=None, file_format='png'):
+def plot_distr_fun(
+    path, time_idx, grid_slices,
+    save_plot=False, savepath=None, file_format='png',
+):
     """ Plot the binned distribution function at given slices of the phase space.
 
     Parameters
@@ -386,14 +415,21 @@ def plot_distr_fun(path, time_idx, grid_slices,
         # Load grid
         directions = folder.split('_')
         for direction in directions:
-            grids += [np.load(os.path.join(subpath,
-                              'grid_' + direction + '.npy'))]
+            grids += [
+                np.load(
+                    os.path.join(
+                        subpath,
+                        'grid_' + direction + '.npy',
+                    ),
+                ),
+            ]
 
         # Get indices of where to plot in other directions
         grid_idxs = {}
         for k in range(f.ndim - 1):
             grid_idxs[directions[k]] = np.argmin(
-                np.abs(grids[k] - grid_slices[directions[k]]))
+                np.abs(grids[k] - grid_slices[directions[k]]),
+            )
 
         for k in range(f.ndim - 1):
             # Prepare slicing
@@ -418,8 +454,10 @@ def plot_distr_fun(path, time_idx, grid_slices,
 
                 if save_plot:
                     assert savepath is not None, 'When wanting to save the plot a path has to be given!'
-                    savename = os.path.join(savepath, species + '_delta_f_'
-                                            + directions[k] + '.' + file_format)
+                    savename = os.path.join(
+                        savepath, species + '_delta_f_'
+                        + directions[k] + '.' + file_format,
+                    )
                     plt.savefig(savename)
                 else:
                     plt.show()
@@ -435,8 +473,10 @@ def plot_distr_fun(path, time_idx, grid_slices,
 
                 if save_plot:
                     assert savepath is not None, 'When wanting to save the plot a path has to be given!'
-                    savename = os.path.join(savepath, species + '_f_'
-                                            + directions[k] + '.' + file_format)
+                    savename = os.path.join(
+                        savepath, species + '_f_'
+                        + directions[k] + '.' + file_format,
+                    )
                     plt.savefig(savename)
                 else:
                     plt.show()
@@ -482,7 +522,7 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         return
 
     data_path = os.path.join(
-        path, 'post_processing', 'kinetic_data', species, 'distribution_function', slice_name
+        path, 'post_processing', 'kinetic_data', species, 'distribution_function', slice_name,
     )
 
     # Check how many slicings have been given and make slices_2d for all
@@ -495,15 +535,16 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
                 if direc2[0] == 'v':
                     slices_2d += [direc1 + '_' + direc2]
     print(
-        f"Found {len(slices_2d)} 2D slicing(s) for {species}, proceeding to generate images")
+        f"Found {len(slices_2d)} 2D slicing(s) for {species}, proceeding to generate images",
+    )
 
     # Load all the grids
     grids = []
     for direction in directions:
         grids += [
             np.load(
-                os.path.join(data_path, 'grid_' + direction + '.npy')
-            )
+                os.path.join(data_path, 'grid_' + direction + '.npy'),
+            ),
         ]
 
     # Create folder for images of video
@@ -521,12 +562,12 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         if background_type in background_params.keys():
             background_function = getattr(
                 maxwellians,
-                background_params['type']
+                background_params['type'],
             )(background_params[background_type])
         else:
             background_function = getattr(
                 maxwellians,
-                background_params['type']
+                background_params['type'],
             )()
 
         bckgr_grids = []
@@ -545,19 +586,20 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         df_data = np.load(
             os.path.join(
                 data_path,
-                'f_binned.npy'
-            )
+                'f_binned.npy',
+            ),
         ) - background_data[None, :, :, :, :, :, :].squeeze()
     elif marker_type in ['control_variate', 'delta_f']:
         df_data = np.load(
             os.path.join(
                 data_path,
-                'delta_f_binned.npy'
-            )
+                'delta_f_binned.npy',
+            ),
         )
     else:
         raise NotImplementedError(
-            f"Making a video for marker type {marker_type} is not implemented!")
+            f"Making a video for marker type {marker_type} is not implemented!",
+        )
 
     assert df_data is not None
 
@@ -567,19 +609,20 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         grid_idxs = {}
         for k in range(df_data.ndim - 1):
             grid_idxs[directions[k]] = np.argmin(
-                np.abs(grids[k] - grid_slices[directions[k]]))
+                np.abs(grids[k] - grid_slices[directions[k]]),
+            )
 
         eta_grid = np.load(
             os.path.join(
                 data_path,
-                'grid_' + slc[:2] + '.npy'
-            )
+                'grid_' + slc[:2] + '.npy',
+            ),
         )
         v_grid = np.load(
             os.path.join(
                 data_path,
-                'grid_' + slc[-2:] + '.npy'
-            )
+                'grid_' + slc[-2:] + '.npy',
+            ),
         )
 
         # Prepare slicing
@@ -604,7 +647,7 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
             save_path=imgs_folder,
             model_name=model_name,
             eta_label=slc[:2],
-            v_label=slc[-2:]
+            v_label=slc[-2:],
         )
         print("Phase space plots have been successfully created!")
 
@@ -612,17 +655,19 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
             import cv2
         except:
             yn = input(
-                "It seems like cv2 is not installed. Would you like to install it now (Y/n)?")
+                "It seems like cv2 is not installed. Would you like to install it now (Y/n)?",
+            )
 
             if yn in ('', 'Y', 'y', 'yes', 'Yes'):
                 subprocess.run(
-                    ["python3", "-m", "pip", "install", "opencv-python"])
+                    ["python3", "-m", "pip", "install", "opencv-python"],
+                )
             else:
                 return
 
         images = [
             img for img in sorted(
-                os.listdir(imgs_folder)
+                os.listdir(imgs_folder),
             ) if img.endswith(".png")
         ]
         frame = cv2.imread(os.path.join(imgs_folder, images[0]))
@@ -634,7 +679,7 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
                 vid_folder,
                 'video_' + slc + '.avi',
             ),
-            0, fps, (width, height)
+            0, fps, (width, height),
         )
 
         print("Creating video now")
@@ -701,8 +746,8 @@ def phase_space_plots(t_grid, eta_grid, v_grid, df_binned, save_path, model_name
         plt.savefig(
             os.path.join(
                 save_path,
-                'step_{0:0{1}d}.png'.format(n, log_nt)
+                'step_{0:0{1}d}.png'.format(n, log_nt),
             ),
-            bbox_inches="tight"
+            bbox_inches="tight",
         )
         plt.clf()

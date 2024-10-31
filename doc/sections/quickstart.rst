@@ -9,7 +9,7 @@ Get help on Struphy console commands::
 
 Check if kernels are compiled::
 
-    struphy compile --status
+    struphy compile
 
 Check the current I/O paths::
 
@@ -24,9 +24,9 @@ Get a list of available Struphy models::
 
     struphy run -h
 
-Let us run the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
+Let us generate default parameters for the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
 
-    struphy run VlasovMaxwellOneSpecies
+    struphy params VlasovMaxwellOneSpecies
 
 After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwellOneSpecies.yml`` is created
 in the current input path (cwd). Let us rename it for convenience::
