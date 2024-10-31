@@ -1008,7 +1008,17 @@ class CustomFormatter(NoSubparsersMetavarFormatter, RawTextHelpFormatter):
     pass
 
 
-def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
+def recursive_get_files(path, contains=('.yml', '.yaml'), out=None, prefix=None):
+
+    if out is None:
+        out = []
+
+    if prefix is None:
+        prefix = []
+
+    # only search 1 level deep (e.g. a/test.yml will be found, but not a/b/test.yml)
+    level_depth = 1
+
     all_names = os.listdir(path)
     n_folders = 0
     # count folders in path
@@ -1016,13 +1026,15 @@ def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
         if os.path.isdir(os.path.join(path, name)):
             n_folders += 1
     # add specified files to out or descend
+    n_searched_folders = 0
     for name in all_names:
         if any([cont in name for cont in contains]):
             if len(prefix) == 0:
                 out += [name]
             else:
                 out += [os.path.join(prefix[-1], name)]
-        elif os.path.isdir(os.path.join(path, name)):
+        elif os.path.isdir(os.path.join(path, name)) and len(prefix) < level_depth:
+            n_searched_folders += 1
             if len(prefix) == 0:
                 prefix = [name]
             else:
@@ -1033,7 +1045,8 @@ def recursive_get_files(path, contains=('.yml', '.yaml'), out=[], prefix=[]):
                 out=out,
                 prefix=prefix,
             )
-    if n_folders == 0 and len(prefix) != 0:
+
+    if (n_folders == 0 or len(prefix) == level_depth or n_searched_folders == n_folders) and len(prefix) != 0:
         prefix.pop()
 
     return out
@@ -1050,7 +1063,7 @@ def is_installed_editable(package_name):
             # print(f"{package_name} is installed in editable mode.")
             return True
 
-        print(f"{package_name} is not installed in editable mode.")
+        # print(f"{package_name} is not installed in editable mode.")
         return False
 
     except subprocess.CalledProcessError as e:
