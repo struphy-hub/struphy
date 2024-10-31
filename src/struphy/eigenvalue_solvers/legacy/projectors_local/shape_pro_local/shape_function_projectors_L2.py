@@ -419,9 +419,11 @@ class projectors_L2_3d:
     def heavy_test(self, test1, test2, test3, acc, particles_loc, Np, domain):
         ker_loc.kernel_1_heavy(
             self.basisN[0], self.basisN[1], self.basisN[2], self.basisD[0], self.basisD[1], self.basisD[2], self.indN[0], self.indN[1], self.indN[2], self.indD[0], self.indD[1], self.indD[2], self.pts[
-                0], self.pts[1], self.pts[2], self.wts[0], self.wts[1], self.wts[2], test1, test2, test3, acc.oneform_temp1, acc.oneform_temp2, acc.oneform_temp3, Np, self.n_quad, self.p, self.Nel, self.p_shape,
+                0
+            ], self.pts[1], self.pts[2], self.wts[0], self.wts[1], self.wts[2], test1, test2, test3, acc.oneform_temp1, acc.oneform_temp2, acc.oneform_temp3, Np, self.n_quad, self.p, self.Nel, self.p_shape,
             self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23, self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.NbaseN, self.NbaseD, particles_loc.shape[
-                1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                1
+            ], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
         )
 
         # ker_loc.kernel_1_heavy(self.pts[0][0], self.pts[1][0], self.pts[2][0], self.wts[0][0], self.wts[1][0], self.wts[2][0], test1, test2, test3, acc.oneform_temp1, acc.oneform_temp2, acc.oneform_temp3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23, self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.NbaseN, self.NbaseD, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
@@ -503,9 +505,11 @@ class projectors_L2_3d:
         if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             ker_loc.kernel_1_form(
                 self.indN[0], self.indN[1], self.indN[2], self.indD[0], self.indD[1], self.indD[2], self.right_loc_1, self.right_loc_2, self.right_loc_3, self.basisN[0], self.basisN[1], self.basisN[2], self.basisD[0], self.basisD[1], self.basisD[
-                    2], self.pts[0], self.pts[1], self.pts[2], self.wts[0], self.wts[1], self.wts[2], Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13,
+                    2
+                ], self.pts[0], self.pts[1], self.pts[2], self.wts[0], self.wts[1], self.wts[2], Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13,
                 self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23, self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.kernel_1_11_loc, self.kernel_1_12_loc, self.kernel_1_13_loc, self.kernel_1_22_loc, self.kernel_1_23_loc, self.kernel_1_33_loc, self.NbaseN, self.NbaseD, self.related, particles_loc.shape[
-                    1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                    1
+                ], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
             )
         else:
             print('non-periodic case not implemented!!!')
@@ -516,27 +520,31 @@ class projectors_L2_3d:
                 ker_loc.vv_1_form(
                     self.wts[0][0], self.wts[1][0], self.wts[2][0], self.pts[0][0], self.pts[1][0], self.pts[2][0], 0.0, self.right_loc_1, self.right_loc_2, self.right_loc_3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, accvv.mid_particles, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23,
                     self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[
-                        2], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                        2
+                    ], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
                 )
             elif index_label == 2:
                 ker_loc.vv_1_form(
                     self.wts[0][0], self.wts[1][0], self.wts[2][0], self.pts[0][0], self.pts[1][0], self.pts[2][0], 0.5 *
                     dt, self.right_loc_1, self.right_loc_2, self.right_loc_3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, accvv.stage1_out_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23,
                     self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[
-                        2], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                        2
+                    ], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
                 )
             elif index_label == 3:
                 ker_loc.vv_1_form(
                     self.wts[0][0], self.wts[1][0], self.wts[2][0], self.pts[0][0], self.pts[1][0], self.pts[2][0], 0.5 *
                     dt, self.right_loc_1, self.right_loc_2, self.right_loc_3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, accvv.stage2_out_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23,
                     self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[
-                        2], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                        2
+                    ], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
                 )
             elif index_label == 4:
                 ker_loc.vv_1_form(
                     self.wts[0][0], self.wts[1][0], self.wts[2][0], self.pts[0][0], self.pts[1][0], self.pts[2][0], dt, self.right_loc_1, self.right_loc_2, self.right_loc_3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, accvv.stage3_out_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23,
                     self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[
-                        2], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                        2
+                    ], self.NbaseN, self.NbaseD, self.related, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
                 )
 
         mpi_comm.Reduce(self.right_loc_1, accvv.vec1, op=MPI.SUM, root=0)

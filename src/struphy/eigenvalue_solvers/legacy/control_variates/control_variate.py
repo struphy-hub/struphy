@@ -212,50 +212,62 @@ class terms_control_variate:
             # assembly of F (1-component)
             ker.kernel_inner(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[
-                    2], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, self.space.wts[0],
+                    2
+                ], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, self.space.wts[0],
                 self.space.wts[1], self.space.wts[2], self.space.basisN[0], self.space.basisN[1], self.space.basisN[2], self.space.NbaseN[
-                    0], self.space.NbaseN[1], self.space.NbaseN[2], self.F1, self.B2_2*self.mat_jh3 - self.B2_3*self.mat_jh2,
+                    0
+                ], self.space.NbaseN[1], self.space.NbaseN[2], self.F1, self.B2_2*self.mat_jh3 - self.B2_3*self.mat_jh2,
             )
 
             # assembly of F (2-component)
             ker.kernel_inner(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[
-                    2], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, self.space.wts[0],
+                    2
+                ], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, self.space.wts[0],
                 self.space.wts[1], self.space.wts[2], self.space.basisN[0], self.space.basisN[1], self.space.basisN[2], self.space.NbaseN[
-                    0], self.space.NbaseN[1], self.space.NbaseN[2], self.F2, self.B2_3*self.mat_jh1 - self.B2_1*self.mat_jh3,
+                    0
+                ], self.space.NbaseN[1], self.space.NbaseN[2], self.F2, self.B2_3*self.mat_jh1 - self.B2_1*self.mat_jh3,
             )
 
             # assembly of F (3-component)
             ker.kernel_inner(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[
-                    2], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, self.space.wts[0],
+                    2
+                ], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, self.space.wts[0],
                 self.space.wts[1], self.space.wts[2], self.space.basisN[0], self.space.basisN[1], self.space.basisN[2], self.space.NbaseN[
-                    0], self.space.NbaseN[1], self.space.NbaseN[2], self.F3, self.B2_1*self.mat_jh2 - self.B2_2*self.mat_jh1,
+                    0
+                ], self.space.NbaseN[1], self.space.NbaseN[2], self.F3, self.B2_1*self.mat_jh2 - self.B2_2*self.mat_jh1,
             )
 
         elif self.basis_u == 2:
             # assembly of F (1-component)
             ker.kernel_inner(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[
-                    2], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 1, 1, self.space.wts[0],
+                    2
+                ], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 0, 1, 1, self.space.wts[0],
                 self.space.wts[1], self.space.wts[2], self.space.basisN[0], self.space.basisD[1], self.space.basisD[2], self.space.NbaseN[
-                    0], self.space.NbaseD[1], self.space.NbaseD[2], self.F1, self.B2_2*self.mat_jh3 - self.B2_3*self.mat_jh2,
+                    0
+                ], self.space.NbaseD[1], self.space.NbaseD[2], self.F1, self.B2_2*self.mat_jh3 - self.B2_3*self.mat_jh2,
             )
 
             # assembly of F (2-component)
             ker.kernel_inner(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[
-                    2], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 1, 0, 1, self.space.wts[0],
+                    2
+                ], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 1, 0, 1, self.space.wts[0],
                 self.space.wts[1], self.space.wts[2], self.space.basisD[0], self.space.basisN[1], self.space.basisD[2], self.space.NbaseD[
-                    0], self.space.NbaseN[1], self.space.NbaseD[2], self.F2, self.B2_3*self.mat_jh1 - self.B2_1*self.mat_jh3,
+                    0
+                ], self.space.NbaseN[1], self.space.NbaseD[2], self.F2, self.B2_3*self.mat_jh1 - self.B2_1*self.mat_jh3,
             )
 
             # assembly of F (3-component)
             ker.kernel_inner(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[
-                    2], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 1, 1, 0, self.space.wts[0],
+                    2
+                ], self.space.n_quad[0], self.space.n_quad[1], self.space.n_quad[2], 1, 1, 0, self.space.wts[0],
                 self.space.wts[1], self.space.wts[2], self.space.basisD[0], self.space.basisD[1], self.space.basisN[2], self.space.NbaseD[
-                    0], self.space.NbaseD[1], self.space.NbaseN[2], self.F3, self.B2_1*self.mat_jh2 - self.B2_2*self.mat_jh1,
+                    0
+                ], self.space.NbaseD[1], self.space.NbaseN[2], self.F3, self.B2_1*self.mat_jh2 - self.B2_2*self.mat_jh1,
             )
 
         return np.concatenate((self.F1.flatten(), self.F2.flatten(), self.F3.flatten()))
@@ -314,50 +326,62 @@ class terms_control_variate:
             # assembly of M12
             ker.kernel_mass(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[2], self.space.n_quad[
-                    0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, 0, 0, 0, self.space.wts[0], self.space.wts[1],
+                    0
+                ], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, 0, 0, 0, self.space.wts[0], self.space.wts[1],
                 self.space.wts[2], self.space.basisN[0], self.space.basisN[1], self.space.basisN[2], self.space.basisN[0], self.space.basisN[
-                    1], self.space.basisN[2], self.space.indN[0], self.space.indN[1], self.space.indN[2], self.M12, +self.mat_nh*self.B2_3,
+                    1
+                ], self.space.basisN[2], self.space.indN[0], self.space.indN[1], self.space.indN[2], self.M12, +self.mat_nh*self.B2_3,
             )
 
             # assembly of M13
             ker.kernel_mass(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[2], self.space.n_quad[
-                    0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, 0, 0, 0, self.space.wts[0], self.space.wts[1],
+                    0
+                ], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, 0, 0, 0, self.space.wts[0], self.space.wts[1],
                 self.space.wts[2], self.space.basisN[0], self.space.basisN[1], self.space.basisN[2], self.space.basisN[0], self.space.basisN[
-                    1], self.space.basisN[2], self.space.indN[0], self.space.indN[1], self.space.indN[2], self.M13, -self.mat_nh*self.B2_2,
+                    1
+                ], self.space.basisN[2], self.space.indN[0], self.space.indN[1], self.space.indN[2], self.M13, -self.mat_nh*self.B2_2,
             )
 
             # assembly of M23
             ker.kernel_mass(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[2], self.space.n_quad[
-                    0], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, 0, 0, 0, self.space.wts[0], self.space.wts[1],
+                    0
+                ], self.space.n_quad[1], self.space.n_quad[2], 0, 0, 0, 0, 0, 0, self.space.wts[0], self.space.wts[1],
                 self.space.wts[2], self.space.basisN[0], self.space.basisN[1], self.space.basisN[2], self.space.basisN[0], self.space.basisN[
-                    1], self.space.basisN[2], self.space.indN[0], self.space.indN[1], self.space.indN[2], self.M23, +self.mat_nh*self.B2_1,
+                    1
+                ], self.space.basisN[2], self.space.indN[0], self.space.indN[1], self.space.indN[2], self.M23, +self.mat_nh*self.B2_1,
             )
 
         elif self.basis_u == 2:
             # assembly of M12
             ker.kernel_mass(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[2], self.space.n_quad[
-                    0], self.space.n_quad[1], self.space.n_quad[2], 0, 1, 1, 1, 0, 1, self.space.wts[0], self.space.wts[1],
+                    0
+                ], self.space.n_quad[1], self.space.n_quad[2], 0, 1, 1, 1, 0, 1, self.space.wts[0], self.space.wts[1],
                 self.space.wts[2], self.space.basisN[0], self.space.basisD[1], self.space.basisD[2], self.space.basisD[0], self.space.basisN[
-                    1], self.space.basisD[2], self.space.indN[0], self.space.indD[1], self.space.indD[2], self.M12, +self.mat_nh*self.B2_3,
+                    1
+                ], self.space.basisD[2], self.space.indN[0], self.space.indD[1], self.space.indD[2], self.M12, +self.mat_nh*self.B2_3,
             )
 
             # assembly of M13
             ker.kernel_mass(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[2], self.space.n_quad[
-                    0], self.space.n_quad[1], self.space.n_quad[2], 0, 1, 1, 1, 1, 0, self.space.wts[0], self.space.wts[1],
+                    0
+                ], self.space.n_quad[1], self.space.n_quad[2], 0, 1, 1, 1, 1, 0, self.space.wts[0], self.space.wts[1],
                 self.space.wts[2], self.space.basisN[0], self.space.basisD[1], self.space.basisD[2], self.space.basisD[0], self.space.basisD[
-                    1], self.space.basisN[2], self.space.indN[0], self.space.indD[1], self.space.indD[2], self.M13, -self.mat_nh*self.B2_2,
+                    1
+                ], self.space.basisN[2], self.space.indN[0], self.space.indD[1], self.space.indD[2], self.M13, -self.mat_nh*self.B2_2,
             )
 
             # assembly of M23
             ker.kernel_mass(
                 self.space.Nel[0], self.space.Nel[1], self.space.Nel[2], self.space.p[0], self.space.p[1], self.space.p[2], self.space.n_quad[
-                    0], self.space.n_quad[1], self.space.n_quad[2], 1, 0, 1, 1, 1, 0, self.space.wts[0], self.space.wts[1],
+                    0
+                ], self.space.n_quad[1], self.space.n_quad[2], 1, 0, 1, 1, 1, 0, self.space.wts[0], self.space.wts[1],
                 self.space.wts[2], self.space.basisD[0], self.space.basisN[1], self.space.basisD[2], self.space.basisD[0], self.space.basisD[
-                    1], self.space.basisN[2], self.space.indD[0], self.space.indN[1], self.space.indD[2], self.M23, +self.mat_nh*self.B2_1,
+                    1
+                ], self.space.basisN[2], self.space.indD[0], self.space.indN[1], self.space.indD[2], self.M23, +self.mat_nh*self.B2_1,
             )
 
         # conversion to sparse matrix and return

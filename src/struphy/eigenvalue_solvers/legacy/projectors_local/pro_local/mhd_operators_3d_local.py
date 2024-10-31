@@ -603,10 +603,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_1(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_N[2]], self.int_global_N[0], self.his_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.int_global_N[0], self.his_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1],
             self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisN_his[2], self.x_int_indices[0], self.x_his_indices[
-                1], self.x_his_indices[2], self.wts[1], self.wts[2], Q11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[1], self.wts[2], Q11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
@@ -618,10 +621,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_2(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_N[2]], self.his_global_N[0], self.int_global_N[1], self.his_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [
+                self.n_his_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.his_global_N[0], self.int_global_N[1], self.his_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1],
             self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisN_his[2], self.x_his_indices[0], self.x_int_indices[
-                1], self.x_his_indices[2], self.wts[0], self.wts[2], Q22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[0], self.wts[2], Q22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
@@ -633,10 +639,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_3(
-            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                                                self.n_int_locbf_N[2]], self.his_global_N[0], self.his_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
+            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [
+                self.n_his_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_N[0], self.his_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
             self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[
-                1], self.x_int_indices[2], self.wts[0], self.wts[1], Q33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
+                1
+            ], self.x_int_indices[2], self.wts[0], self.wts[1], Q33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
         )
 
         # ========= conversion to sparse matrices (1 - component) =================
@@ -760,10 +769,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_1(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1],
-                                                                                                                                                self.n_his_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_D[1],
+                self.n_his_locbf_D[2],
+            ], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1],
             self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_his[2], self.x_int_indices[0], self.x_his_indices[
-                1], self.x_his_indices[2], self.wts[1], self.wts[2], Q11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[1], self.wts[2], Q11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
@@ -775,10 +787,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_2(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [
+                self.n_his_locbf_D[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_D[2],
+            ], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1],
             self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_his[2], self.x_his_indices[0], self.x_int_indices[
-                1], self.x_his_indices[2], self.wts[0], self.wts[2], Q22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[0], self.wts[2], Q22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
@@ -790,10 +805,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_3(
-            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_his_locbf_D[1],
-                                                                                                                                                self.n_int_locbf_N[2]], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
+            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [
+                self.n_his_locbf_D[0], self.n_his_locbf_D[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
             self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[
-                1], self.x_int_indices[2], self.wts[0], self.wts[1], Q33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
+                1
+            ], self.x_int_indices[2], self.wts[0], self.wts[1], Q33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
         )
 
         # ========= conversion to sparse matrices (1 - component) =================
@@ -1036,10 +1054,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_1(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.his_global_N[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [
+                self.n_his_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_N[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0],
             self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisN_int[
-                2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
+                2
+            ], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
         )
 
         ker_eva.kernel_eva(
@@ -1048,10 +1069,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_1(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.his_global_N[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [
+                self.n_his_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_N[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0],
             self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisN_int[
-                2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
+                2
+            ], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
         )
 
         # ================= assembly of 2 - component (PI_1_2 : int, his, int) ============
@@ -1063,10 +1087,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_2(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.int_global_N[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0],
             self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisN_int[
-                2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
+                2
+            ], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
         )
 
         """
@@ -1086,10 +1113,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_2(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.int_global_N[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0],
             self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisN_int[
-                2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
+                2
+            ], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
         )
 
         # ================= assembly of 3 - component (PI_1_3 : int, int, his) ============
@@ -1101,10 +1131,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_3(
-            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_his_locbf_N[2]], self.int_global_N[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.int_global_N[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0],
             self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_his[
-                2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                2
+            ], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         """
@@ -1124,10 +1157,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_3(
-            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_his_locbf_N[2]], self.int_global_N[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.int_global_N[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0],
             self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_his[
-                2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                2
+            ], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # conversion to sparse matrices (1 - component)
@@ -1328,10 +1364,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_1(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_int_locbf_D[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.his_global_N[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_N[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [
+                self.n_his_locbf_N[0], self.n_int_locbf_D[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_N[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_N[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0],
             self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisD_int[1], self.basisN_int[
-                2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
+                2
+            ], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
         )
 
         ker_eva.kernel_eva(
@@ -1340,10 +1379,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_1(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_int_locbf_D[2]], self.his_global_N[0], self.int_global_N[1], self.int_global_D[2], self.his_loccof_N[0], self.int_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [
+                self.n_his_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_int_locbf_D[2],
+            ], self.his_global_N[0], self.int_global_N[1], self.int_global_D[2], self.his_loccof_N[0], self.int_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0],
             self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisD_int[
-                2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
+                2
+            ], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
         )
 
         # ================= assembly of 2 - component (PI_1_2 : int, his, int) ============
@@ -1355,10 +1397,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_2(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_D[0], self.n_his_locbf_N[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.int_global_D[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [
+                self.n_int_locbf_D[0], self.n_his_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.int_global_D[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0],
             self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_int[0], self.basisN_his[1], self.basisN_int[
-                2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
+                2
+            ], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
         )
 
         ker_eva.kernel_eva(
@@ -1367,10 +1412,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_2(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                              self.n_int_locbf_D[2]], self.int_global_N[0], self.his_global_N[1], self.int_global_D[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_D[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_int_locbf_D[2],
+            ], self.int_global_N[0], self.his_global_N[1], self.int_global_D[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_D[2], self.coeff_i[0],
             self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisD_int[
-                2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
+                2
+            ], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
         )
 
         # ================= assembly of 3 - component (PI_1_3 : int, int, his) ============
@@ -1382,10 +1430,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_3(
-            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_D[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_his_locbf_N[2]], self.int_global_D[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_D[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [
+                self.n_int_locbf_D[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.int_global_D[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_D[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0],
             self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_int[0], self.basisN_int[1], self.basisN_his[
-                2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                2
+            ], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         ker_eva.kernel_eva(
@@ -1394,10 +1445,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_3(
-            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_D[1],
-                                                                                                                              self.n_his_locbf_N[2]], self.int_global_N[0], self.int_global_D[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_D[1], self.his_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_int_locbf_D[1],
+                self.n_his_locbf_N[2],
+            ], self.int_global_N[0], self.int_global_D[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_D[1], self.his_loccof_N[2], self.coeff_i[0],
             self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_int[1], self.basisN_his[
-                2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                2
+            ], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # conversion to sparse matrices (1 - component)
@@ -1598,10 +1652,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_1(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_int_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [
+                self.n_his_locbf_D[0], self.n_int_locbf_N[1],
+                self.n_int_locbf_D[2],
+            ], self.his_global_D[0], self.int_global_N[1], self.int_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0],
             self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_int[
-                2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
+                2
+            ], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
         )
 
         ker_eva.kernel_eva(
@@ -1610,10 +1667,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_1(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_D[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [
+                self.n_his_locbf_D[0], self.n_int_locbf_D[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_D[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0],
             self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_int[1], self.basisN_int[
-                2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
+                2
+            ], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]),
         )
 
         # ================= assembly of 2 - component (PI_1_2 : int, his, int) ============
@@ -1625,10 +1685,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_2(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1],
-                                                                                                                              self.n_int_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_D[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_D[1],
+                self.n_int_locbf_D[2],
+            ], self.int_global_N[0], self.his_global_D[1], self.int_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_D[2], self.coeff_i[0],
             self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_int[
-                2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
+                2
+            ], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
         )
 
         ker_eva.kernel_eva(
@@ -1637,10 +1700,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_2(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_D[0], self.n_his_locbf_D[1],
-                                                                                                                              self.n_int_locbf_N[2]], self.int_global_D[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [
+                self.n_int_locbf_D[0], self.n_his_locbf_D[1],
+                self.n_int_locbf_N[2],
+            ], self.int_global_D[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0],
             self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_int[0], self.basisD_his[1], self.basisN_int[
-                2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
+                2
+            ], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]),
         )
 
         # ================= assembly of 3 - component (PI_1_3 : int, int, his) ============
@@ -1652,10 +1718,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_3(
-            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_D[1],
-                                                                                                                              self.n_his_locbf_D[2]], self.int_global_N[0], self.int_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.int_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_int_locbf_D[1],
+                self.n_his_locbf_D[2],
+            ], self.int_global_N[0], self.int_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.int_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0],
             self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_int[1], self.basisD_his[
-                2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                2
+            ], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         ker_eva.kernel_eva(
@@ -1664,10 +1733,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi1_3(
-            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_D[0], self.n_int_locbf_N[1],
-                                                                                                                              self.n_his_locbf_D[2]], self.int_global_D[0], self.int_global_N[1], self.his_global_D[2], self.int_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0],
+            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [
+                self.n_int_locbf_D[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_D[2],
+            ], self.int_global_D[0], self.int_global_N[1], self.his_global_D[2], self.int_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0],
             self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_int[0], self.basisN_int[1], self.basisD_his[
-                2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                2
+            ], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ============== conversion to sparse matrices (1 - component) ==============
@@ -1848,10 +1920,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_1(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_N[2]], self.int_global_N[0], self.his_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.int_global_N[0], self.his_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1],
             self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisN_his[2], self.x_int_indices[0], self.x_his_indices[
-                1], self.x_his_indices[2], self.wts[1], self.wts[2], S11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[1], self.wts[2], S11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
@@ -1863,10 +1938,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_2(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_N[2]], self.his_global_N[0], self.int_global_N[1], self.his_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [
+                self.n_his_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.his_global_N[0], self.int_global_N[1], self.his_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1],
             self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisN_his[2], self.x_his_indices[0], self.x_int_indices[
-                1], self.x_his_indices[2], self.wts[0], self.wts[2], S22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[0], self.wts[2], S22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
@@ -1878,10 +1956,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_3(
-            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                                                self.n_int_locbf_N[2]], self.his_global_N[0], self.his_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
+            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [
+                self.n_his_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_N[0], self.his_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
             self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[
-                1], self.x_int_indices[2], self.wts[0], self.wts[1], S33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
+                1
+            ], self.x_int_indices[2], self.wts[0], self.wts[1], S33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
         )
 
         # ========= conversion to sparse matrices (1 - component) =================
@@ -2005,10 +2086,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_1(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1],
-                                                                                                                                                self.n_his_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_D[1],
+                self.n_his_locbf_D[2],
+            ], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1],
             self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_his[2], self.x_int_indices[0], self.x_his_indices[
-                1], self.x_his_indices[2], self.wts[1], self.wts[2], S11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[1], self.wts[2], S11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
@@ -2020,10 +2104,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_2(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [
+                self.n_his_locbf_D[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_D[2],
+            ], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1],
             self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_his[2], self.x_his_indices[0], self.x_int_indices[
-                1], self.x_his_indices[2], self.wts[0], self.wts[2], S22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[0], self.wts[2], S22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
@@ -2035,10 +2122,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_3(
-            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_his_locbf_D[1],
-                                                                                                                                                self.n_int_locbf_N[2]], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
+            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [
+                self.n_his_locbf_D[0], self.n_his_locbf_D[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
             self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[
-                1], self.x_int_indices[2], self.wts[0], self.wts[1], S33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
+                1
+            ], self.x_int_indices[2], self.wts[0], self.wts[1], S33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
         )
 
         # ========= conversion to sparse matrices (1 - component) =================
@@ -2236,10 +2326,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_1(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_N[2]], self.int_global_N[0], self.his_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.int_global_N[0], self.his_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1],
             self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisN_his[2], self.x_int_indices[0], self.x_his_indices[
-                1], self.x_his_indices[2], self.wts[1], self.wts[2], N11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[1], self.wts[2], N11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
@@ -2251,10 +2344,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_2(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_N[2]], self.his_global_N[0], self.int_global_N[1], self.his_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [
+                self.n_his_locbf_N[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_N[2],
+            ], self.his_global_N[0], self.int_global_N[1], self.his_global_N[2], self.his_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1],
             self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisN_his[2], self.x_his_indices[0], self.x_int_indices[
-                1], self.x_his_indices[2], self.wts[0], self.wts[2], N22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[0], self.wts[2], N22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
@@ -2266,10 +2362,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_3(
-            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_his_locbf_N[1],
-                                                                                                                                                self.n_int_locbf_N[2]], self.his_global_N[0], self.his_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
+            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [
+                self.n_his_locbf_N[0], self.n_his_locbf_N[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_N[0], self.his_global_N[1], self.int_global_N[2], self.his_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
             self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[
-                1], self.x_int_indices[2], self.wts[0], self.wts[1], N33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
+                1
+            ], self.x_int_indices[2], self.wts[0], self.wts[1], N33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
         )
 
         # ========= conversion to sparse matrices (1 - component) =================
@@ -2393,10 +2492,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_1(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1],
-                                                                                                                                                self.n_his_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1],
+            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [
+                self.n_int_locbf_N[0], self.n_his_locbf_D[1],
+                self.n_his_locbf_D[2],
+            ], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1],
             self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_his[2], self.x_int_indices[0], self.x_his_indices[
-                1], self.x_his_indices[2], self.wts[1], self.wts[2], N11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[1], self.wts[2], N11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
@@ -2408,10 +2510,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_2(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1],
-                                                                                                                                                self.n_his_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1],
+            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [
+                self.n_his_locbf_D[0], self.n_int_locbf_N[1],
+                self.n_his_locbf_D[2],
+            ], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1],
             self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_his[2], self.x_his_indices[0], self.x_int_indices[
-                1], self.x_his_indices[2], self.wts[0], self.wts[2], N22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
+                1
+            ], self.x_his_indices[2], self.wts[0], self.wts[2], N22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size),
         )
 
         # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
@@ -2423,10 +2528,13 @@ class projectors_local_mhd:
         )
 
         ker_loc.kernel_pi2_3(
-            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_his_locbf_D[1],
-                                                                                                                                                self.n_int_locbf_N[2]], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
+            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [
+                self.n_his_locbf_D[0], self.n_his_locbf_D[1],
+                self.n_int_locbf_N[2],
+            ], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1],
             self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[
-                1], self.x_int_indices[2], self.wts[0], self.wts[1], N33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
+                1
+            ], self.x_int_indices[2], self.wts[0], self.wts[1], N33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]),
         )
 
         # ========= conversion to sparse matrices (1 - component) =================

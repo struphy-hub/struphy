@@ -1465,12 +1465,16 @@ class Tensor_spline_space:
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                 eva_2d.evaluate_tensor_product_2d(
-                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:,
-                                                                                                    :, 0].copy(), eta1, eta2, values_r_1, 0,
+                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[
+                        :,
+                        :, 0,
+                    ].copy(), eta1, eta2, values_r_1, 0,
                 )
                 eva_2d.evaluate_tensor_product_2d(
-                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:,
-                                                                                                    :, 0].copy(), eta1, eta2, values_i_1, 0,
+                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[
+                        :,
+                        :, 0,
+                    ].copy(), eta1, eta2, values_i_1, 0,
                 )
 
                 if self.n_tor != 0 and self.basis_tor == 'r':
@@ -1479,12 +1483,16 @@ class Tensor_spline_space:
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                     eva_2d.evaluate_tensor_product_2d(
-                        self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:,
-                                                                                                        :, 1], eta1, eta2, values_r_2, 0,
+                        self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[
+                            :,
+                            :, 1,
+                        ], eta1, eta2, values_r_2, 0,
                     )
                     eva_2d.evaluate_tensor_product_2d(
-                        self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:,
-                                                                                                        :, 1], eta1, eta2, values_i_2, 0,
+                        self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[
+                            :,
+                            :, 1,
+                        ], eta1, eta2, values_i_2, 0,
                     )
 
             # matrix evaluation

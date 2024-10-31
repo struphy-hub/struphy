@@ -32,12 +32,14 @@ def df_all(kind_map : 'int', params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'f
 
             # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
             mat_out[0, 0] = evaluation_kernel_3d(
-                pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]
-                                                         ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx,
+                pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[
+                    pn[2]
+                ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx,
             )
             mat_out[0, 1] = evaluation_kernel_3d(
-                pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]
-                                                         ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx,
+                pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[
+                    pn[2]
+                ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx,
             )
             mat_out[0, 2] = evaluation_kernel_3d(
                 pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx,
@@ -45,12 +47,14 @@ def df_all(kind_map : 'int', params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'f
 
             # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
             mat_out[1, 0] = evaluation_kernel_3d(
-                pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]
-                                                         ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy,
+                pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[
+                    pn[2]
+                ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy,
             )
             mat_out[1, 1] = evaluation_kernel_3d(
-                pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]
-                                                         ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy,
+                pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[
+                    pn[2]
+                ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy,
             )
             mat_out[1, 2] = evaluation_kernel_3d(
                 pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy,
@@ -58,12 +62,14 @@ def df_all(kind_map : 'int', params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'f
 
             # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
             mat_out[2, 0] = evaluation_kernel_3d(
-                pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]
-                                                         ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz,
+                pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[
+                    pn[2]
+                ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz,
             )
             mat_out[2, 1] = evaluation_kernel_3d(
-                pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]
-                                                         ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz,
+                pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[
+                    pn[2]
+                ], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz,
             )
             mat_out[2, 2] = evaluation_kernel_3d(
                 pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz,

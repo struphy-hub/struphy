@@ -79,9 +79,11 @@ class Pusher:
 
             push_vel_2d.pusher_step3(
                 particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[
-                    1], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0], b2[1], b2[2], self.b0_eq, up[0],
+                    1
+                ], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0], b2[1], b2[2], self.b0_eq, up[0],
                 up[1], up[2], self.basis_u, self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[
-                    2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power, self.fem_space.n_tor,
+                    2
+                ], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power, self.fem_space.n_tor,
             )
 
         else:
@@ -89,7 +91,8 @@ class Pusher:
             push_vel_3d.pusher_step3(
                 particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0] + b2[0], self.b2_eq[1] + b2[1], self.b2_eq[2] +
                 b2[2], self.b0_eq, up[0], up[1], up[2], self.basis_u, self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[
-                    1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power,
+                    1
+                ], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, mu_0, power,
             )
 
     # ======================================================
@@ -130,9 +133,11 @@ class Pusher:
 
             push_vel_2d.pusher_step5(
                 particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[
-                    1], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0],
+                    1
+                ], self.b2_eq[0], self.b2_eq[1], self.b2_eq[2], b2[0],
                 b2[1], b2[2], self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[1], self.domain.T[
-                    2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.fem_space.n_tor,
+                    2
+                ], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.fem_space.n_tor,
             )
 
         else:
@@ -140,7 +145,8 @@ class Pusher:
             push_vel_3d.pusher_step5(
                 particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0] + b2[0], self.b2_eq[1] +
                 b2[1], self.b2_eq[2] + b2[2], self.domain.kind_map, self.domain.params_numpy, self.domain.T[0], self.domain.T[
-                    1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz,
+                    1
+                ], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz,
             )
 
     # ======================================================

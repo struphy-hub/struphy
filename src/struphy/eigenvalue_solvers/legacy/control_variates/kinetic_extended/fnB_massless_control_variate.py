@@ -131,9 +131,11 @@ def uv_right(dft, DFIT_11, DFIT_12, DFIT_13, DFIT_21, DFIT_22, DFIT_23, DFIT_31,
     )
     ker_cv.uvfinal(
         indN[0], indN[1], indN[2], indD[0], indD[1], indD[2], Nel[0], Nel[1], Nel[2], tensor_space_FEM.n_quad[
-            0], tensor_space_FEM.n_quad[1], tensor_space_FEM.n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3,
+            0
+        ], tensor_space_FEM.n_quad[1], tensor_space_FEM.n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3,
         uvalue, temp_final_0, temp_final_1, temp_final_2, temp_final_3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[
-            1], tensor_space_FEM.basisN[2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+            1
+        ], tensor_space_FEM.basisN[2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
     )
     # ========================= C.T ===========================
     temp_final = temp_final_0.flatten() + tensor_space_FEM.G.T .dot(

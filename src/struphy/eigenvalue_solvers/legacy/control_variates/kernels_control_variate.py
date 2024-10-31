@@ -149,8 +149,10 @@ def kernel_evaluation_quad(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map,
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
                             mat_f[ie1, q1, ie2, q2, ie3, q3] = fun(
-                                eta1[ie1, q1], eta2[ie2, q2], eta3[ie3,
-                                                                   q3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz,
+                                eta1[ie1, q1], eta2[ie2, q2], eta3[
+                                    ie3,
+                                    q3,
+                                ], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz,
                             )
     # $ omp end do
     # $ omp end parallel

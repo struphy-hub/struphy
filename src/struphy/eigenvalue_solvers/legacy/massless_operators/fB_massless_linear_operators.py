@@ -70,9 +70,11 @@ class Massless_linear_operators:
         # ==========================Qvv * vector ============================
         vv_kernel.right_hand(
             self.indN[0], self.indN[1], self.indN[2], self.indD[0], self.indD[1], self.indD[2], self.Nel[0], self.Nel[
-                1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], self.p[0], self.p[1], self.p[2],
+                1
+            ], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], self.p[0], self.p[1], self.p[2],
             self.d[0], self.d[1], self.d[2], self.basisN[0], self.basisN[1], self.basisN[2], self.basisD[0], self.basisD[
-                1], self.basisD[2], TEMP.LO_r1, TEMP.LO_r2, TEMP.LO_r3, ACC_VV.one_form1, ACC_VV.one_form2, ACC_VV.one_form3,
+                1
+            ], self.basisD[2], TEMP.LO_r1, TEMP.LO_r2, TEMP.LO_r3, ACC_VV.one_form1, ACC_VV.one_form2, ACC_VV.one_form3,
         )
 
         vv_kernel.weight(
@@ -82,9 +84,11 @@ class Massless_linear_operators:
 
         vv_kernel.final(
             self.indN[0], self.indN[1], self.indN[2], self.indD[0], self.indD[1], self.indD[2], self.Nel[0], self.Nel[
-                1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], self.p[0], self.p[1], self.p[2],
+                1
+            ], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], self.p[0], self.p[1], self.p[2],
             self.d[0], self.d[1], self.d[2], TEMP.LO_w1, TEMP.LO_w2, TEMP.LO_w3, ACC_VV.one_form1, ACC_VV.one_form2, ACC_VV.one_form3, self.basisN[
-                0], self.basisN[1], self.basisN[2], self.basisD[0], self.basisD[1], self.basisD[2],
+                0
+            ], self.basisN[1], self.basisN[2], self.basisD[0], self.basisD[1], self.basisD[2],
         )
 
         # =========================inverse of M1 ===========================
@@ -126,7 +130,8 @@ class Massless_linear_operators:
         vv_kernel.final(
             indN[0], indN[1], indN[2], indD[0], indD[1], indD[2], Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2],
             TEMP.weight1, TEMP.weight2, TEMP.weight3, ACC_VV.one_form1, ACC_VV.one_form2, ACC_VV.one_form3, basisN[
-                0], basisN[1], basisN[2], basisD[0], basisD[1], basisD[2],
+                0
+            ], basisN[1], basisN[2], basisD[0], basisD[1], basisD[2],
         )
 
         ACC_VV.coe1[:, :, :] = ACC_VV.one_form1
@@ -155,9 +160,11 @@ class Massless_linear_operators:
 
         vv_kernel.prepre(
             indN[0], indN[1], indN[2], indD[0], indD[1], indD[2], df_det, DFIT_11, DFIT_12, DFIT_13, DFIT_21, DFIT_22, DFIT_23, DFIT_31, DFIT_32, DFIT_33, Nel[
-                0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], b1value, b2value, b3value,
+                0
+            ], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], b1value, b2value, b3value,
             uvalue, b1, b2, b3, dft, generate_weight1, generate_weight3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2], pts[0], pts[1], pts[2], wts[0], wts[1], wts[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2], pts[0], pts[1], pts[2], wts[0], wts[1], wts[2],
         )
 
     def gather(self, index, dt, acc, tensor_space_FEM, domain, particles_loc, Np_loc, Np):
@@ -204,25 +211,29 @@ class Massless_linear_operators:
             vv_kernel.piecewise_scatter(
                 acc.index_shapex, acc.index_shapey, acc.index_shapez, acc.index_diffx, acc.index_diffy, acc.index_diffz, acc.p_shape, acc.p_size, acc.stage1_out_loc, tensor_space_FEM.Nel, Np_loc, Np, acc.weight1, acc.weight2, acc.weight3,
                 tensor_space_FEM.pts[0], tensor_space_FEM.pts[1], tensor_space_FEM.pts[2], tensor_space_FEM.n_quad, particles_loc, domain.kind_map, domain.params_map, domain.T[
-                    0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                    0
+                ], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
             )
         elif index == 2:
             vv_kernel.piecewise_scatter(
                 acc.index_shapex, acc.index_shapey, acc.index_shapez, acc.index_diffx, acc.index_diffy, acc.index_diffz, acc.p_shape, acc.p_size, acc.stage2_out_loc, tensor_space_FEM.Nel, Np_loc, Np, acc.weight1, acc.weight2, acc.weight3,
                 tensor_space_FEM.pts[0], tensor_space_FEM.pts[1], tensor_space_FEM.pts[2], tensor_space_FEM.n_quad, particles_loc, domain.kind_map, domain.params_map, domain.T[
-                    0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                    0
+                ], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
             )
         elif index == 3:
             vv_kernel.piecewise_scatter(
                 acc.index_shapex, acc.index_shapey, acc.index_shapez, acc.index_diffx, acc.index_diffy, acc.index_diffz, acc.p_shape, acc.p_size, acc.stage3_out_loc, tensor_space_FEM.Nel, Np_loc, Np, acc.weight1, acc.weight2, acc.weight3,
                 tensor_space_FEM.pts[0], tensor_space_FEM.pts[1], tensor_space_FEM.pts[2], tensor_space_FEM.n_quad, particles_loc, domain.kind_map, domain.params_map, domain.T[
-                    0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                    0
+                ], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
             )
         else:
             vv_kernel.piecewise_scatter(
                 acc.index_shapex, acc.index_shapey, acc.index_shapez, acc.index_diffx, acc.index_diffy, acc.index_diffz, acc.p_shape, acc.p_size, acc.stage4_out_loc, tensor_space_FEM.Nel, Np_loc, Np, acc.weight1, acc.weight2, acc.weight3,
                 tensor_space_FEM.pts[0], tensor_space_FEM.pts[1], tensor_space_FEM.pts[2], tensor_space_FEM.n_quad, particles_loc, domain.kind_map, domain.params_map, domain.T[
-                    0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
+                    0
+                ], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz,
             )
 
     def linearoperator_step3(self, twoform_temp1_long, twoform_temp2_long, twoform_temp3_long, temp_vector_1, temp_vector_2, temp_vector_3, idn, idd, tensor_space_FEM, dt, input_vector, b1, b2, b3, weight1, weight2, weight3, right_1, right_2, right_3, uvalue, b1value, b2value, b3value):
@@ -262,9 +273,11 @@ class Massless_linear_operators:
         time1 = time.time()
         bb_kernel.right_hand(
             idn[0], idn[1], idn[2], idd[0], idd[1], idd[2], Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[
-                2], p[0], p[1], p[2], d[0], d[1], d[2], tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1],
+                2
+            ], p[0], p[1], p[2], d[0], d[1], d[2], tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1],
             tensor_space_FEM.basisN[2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[
-                1], tensor_space_FEM.basisD[2], right_1, right_2, right_3, temp_vector_1, temp_vector_2, temp_vector_3,
+                1
+            ], tensor_space_FEM.basisD[2], right_1, right_2, right_3, temp_vector_1, temp_vector_2, temp_vector_3,
         )
         time2 = time.time()
         # print('right_hand_time', time2 - time1)
@@ -278,9 +291,11 @@ class Massless_linear_operators:
         # time1 = time.time()
         bb_kernel.final(
             idn[0], idn[1], idn[2], idd[0], idd[1], idd[2], Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, temp_vector_1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, temp_vector_1,
             temp_vector_2, temp_vector_3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
         # time2 = time.time()
         # print('time_final', time2 - time1)
@@ -350,9 +365,11 @@ class Massless_linear_operators:
         # time1 = time.time()
         bb_kernel.right_hand(
             idn[0], idn[1], idn[2], idd[0], idd[1], idd[2], Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[
-                2], p[0], p[1], p[2], d[0], d[1], d[2], tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1],
+                2
+            ], p[0], p[1], p[2], d[0], d[1], d[2], tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1],
             tensor_space_FEM.basisN[2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[
-                1], tensor_space_FEM.basisD[2], right_1, right_2, right_3, temp_vector_1, temp_vector_2, temp_vector_3,
+                1
+            ], tensor_space_FEM.basisD[2], right_1, right_2, right_3, temp_vector_1, temp_vector_2, temp_vector_3,
         )
         # time2 = time.time()
         # print('right_hand_bb', time2 - time1)
@@ -360,7 +377,8 @@ class Massless_linear_operators:
         bb_kernel.bvalue(
             idn[0], idn[1], idn[2], idd[0], idd[1], idd[2], Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], b1, b2, b3, tensor_space_FEM.basisN[0],
             tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[
-                1], tensor_space_FEM.basisD[2], b1value, b2value, b3value, temp_vector_1, temp_vector_2, temp_vector_3,
+                1
+            ], tensor_space_FEM.basisD[2], b1value, b2value, b3value, temp_vector_1, temp_vector_2, temp_vector_3,
         )
         # time2 = time.time()
         # print('bvalue_time_bb', time2 - time1)
@@ -375,9 +393,11 @@ class Massless_linear_operators:
         # time1 = time.time()
         bb_kernel.final(
             idn[0], idn[1], idn[2], idd[0], idd[1], idd[2], Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, temp_vector_1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, temp_vector_1,
             temp_vector_2, temp_vector_3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
         # time2 = time.time()
         # print('final_bb', time2 - time1)
@@ -418,13 +438,16 @@ class Massless_linear_operators:
         bv_kernel.weight_2(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_right(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
             acc.oneform_temp2, acc.oneform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
         acc.oneform_temp_long[:] = spa.linalg.gmres(
             M1, np.concatenate(
@@ -448,13 +471,16 @@ class Massless_linear_operators:
         bv_kernel.weight_1(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_left(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
             acc.twoform_temp2, acc.twoform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
 
         return M1.dot(input) + dt**2/4.0 * tensor_space_FEM.C.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
@@ -491,13 +517,16 @@ class Massless_linear_operators:
         bv_kernel.weight_2(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_right(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
             acc.oneform_temp2, acc.oneform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
         acc.oneform_temp_long[:] = mat .dot(
             spa.linalg.gmres(
@@ -523,13 +552,16 @@ class Massless_linear_operators:
         bv_kernel.weight_1(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_left(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
             acc.twoform_temp2, acc.twoform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
 
         return M1.dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))) - CURL.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
@@ -584,13 +616,16 @@ class Massless_linear_operators:
         bv_kernel.weight_2(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_right(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
             acc.oneform_temp2, acc.oneform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
 
         return spa.linalg.cg(M1, np.concatenate((acc.oneform_temp1.flatten(), acc.oneform_temp2.flatten(), acc.oneform_temp3.flatten())), tol=10**(-13), M=M1_PRE)[0]
@@ -624,13 +659,16 @@ class Massless_linear_operators:
         bv_kernel.weight_2(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_right(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
             acc.oneform_temp2, acc.oneform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
 
         acc.oneform_temp1_long[:], acc.oneform_temp2_long[:], acc.oneform_temp3_long[:] = np.split(
@@ -652,13 +690,16 @@ class Massless_linear_operators:
         bv_kernel.weight_1(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_left(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
             acc.twoform_temp2, acc.twoform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
 
         return M1.dot(input) + dt**2/4.0 * tensor_space_FEM.C.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
@@ -695,13 +736,16 @@ class Massless_linear_operators:
         bv_kernel.weight_2(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_right(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
             acc.oneform_temp2, acc.oneform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
         acc.oneform_temp_long[:] = mat .dot(
             np.concatenate(
@@ -724,13 +768,16 @@ class Massless_linear_operators:
         bv_kernel.weight_1(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_left(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.twoform_temp1,
             acc.twoform_temp2, acc.twoform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
 
         return M1.dot(np.concatenate((bb1.flatten(), bb2.flatten(), bb3.flatten()))) - CURL.T .dot(np.concatenate((acc.twoform_temp1.flatten(), acc.twoform_temp2.flatten(), acc.twoform_temp3.flatten())))
@@ -766,13 +813,16 @@ class Massless_linear_operators:
         bv_kernel.weight_2(
             DF_inv_11, DF_inv_12, DF_inv_13, DF_inv_21, DF_inv_22, DF_inv_23, DF_inv_31, DF_inv_32, DF_inv_33,
             pts[0], pts[1], pts[2], dft, generate_weight1, generate_weight3, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
+                1
+            ], n_quad[2], b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3,
         )
         bv_kernel.final_right(
             N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[
-                1], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
+                1
+            ], n_quad[2], p[0], p[1], p[2], d[0], d[1], d[2], weight1, weight2, weight3, acc.oneform_temp1,
             acc.oneform_temp2, acc.oneform_temp3, tensor_space_FEM.basisN[0], tensor_space_FEM.basisN[1], tensor_space_FEM.basisN[
-                2], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
+                2
+            ], tensor_space_FEM.basisD[0], tensor_space_FEM.basisD[1], tensor_space_FEM.basisD[2],
         )
 
         return np.concatenate((acc.oneform_temp1.flatten(), acc.oneform_temp2.flatten(), acc.oneform_temp3.flatten()))

@@ -127,7 +127,8 @@ class MHDOperatorsCore:
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_N_i[0][1], self.dofs_0_N_i[1][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_N[0], self.basis_int_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_3_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_3_pts, val, row, col,
                 )
 
                 EF_12 = spa.csr_matrix(
@@ -151,7 +152,8 @@ class MHDOperatorsCore:
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_N_i[0][1], self.dofs_0_N_i[1][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_N[0], self.basis_int_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_2_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_2_pts, val, row, col,
                 )
 
                 EF_13 = spa.csr_matrix(
@@ -175,7 +177,8 @@ class MHDOperatorsCore:
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_0_N_i[0][1], self.dofs_1_N_i[1][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_3_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_3_pts, val, row, col,
                 )
 
                 EF_21 = spa.csr_matrix(
@@ -199,7 +202,8 @@ class MHDOperatorsCore:
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_0_N_i[0][1], self.dofs_1_N_i[1][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_1_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_1_pts, val, row, col,
                 )
 
                 EF_23 = spa.csr_matrix(
@@ -277,9 +281,11 @@ class MHDOperatorsCore:
 
                 ker.rhs11(
                     self.dofs_1_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_0_N_i[2][0], self.dofs_1_N_i[
-                        0][1], self.dofs_0_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs_cum[0],
+                        0
+                    ][1], self.dofs_0_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_N[0], self.basis_int_N[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_3_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_3_pts, val, row, col,
                 )
 
                 EF_12 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[0], self.space.Ntot_0form))
@@ -307,9 +313,11 @@ class MHDOperatorsCore:
 
                 ker.rhs11(
                     self.dofs_1_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_0_N_i[2][0], self.dofs_1_N_i[
-                        0][1], self.dofs_0_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs_cum[0],
+                        0
+                    ][1], self.dofs_0_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_N[0], self.basis_int_N[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_2_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_2_pts, val, row, col,
                 )
 
                 EF_13 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[0], self.space.Ntot_0form))
@@ -337,9 +345,11 @@ class MHDOperatorsCore:
 
                 ker.rhs12(
                     self.dofs_0_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_0_N_i[2][0], self.dofs_0_N_i[
-                        0][1], self.dofs_1_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[1], self.subs_cum[1],
+                        0
+                    ][1], self.dofs_1_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_N[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_3_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_3_pts, val, row, col,
                 )
 
                 EF_21 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[1], self.space.Ntot_0form))
@@ -367,9 +377,11 @@ class MHDOperatorsCore:
 
                 ker.rhs12(
                     self.dofs_0_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_0_N_i[2][0], self.dofs_0_N_i[
-                        0][1], self.dofs_1_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[1], self.subs_cum[1],
+                        0
+                    ][1], self.dofs_1_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_N[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_1_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_1_pts, val, row, col,
                 )
 
                 EF_23 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[1], self.space.Ntot_0form))
@@ -397,9 +409,11 @@ class MHDOperatorsCore:
 
                 ker.rhs13(
                     self.dofs_0_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_N_i[2][0], self.dofs_0_N_i[
-                        0][1], self.dofs_0_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[2], self.subs_cum[2],
+                        0
+                    ][1], self.dofs_0_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[2], self.subs_cum[2],
                     self.wts[2], self.basis_int_N[0], self.basis_int_N[1], self.basis_his_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_2_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_2_pts, val, row, col,
                 )
 
                 EF_31 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[2], self.space.Ntot_0form))
@@ -427,9 +441,11 @@ class MHDOperatorsCore:
 
                 ker.rhs13(
                     self.dofs_0_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_N_i[2][0], self.dofs_0_N_i[
-                        0][1], self.dofs_0_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[2], self.subs_cum[2],
+                        0
+                    ][1], self.dofs_0_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[2], self.subs_cum[2],
                     self.wts[2], self.basis_int_N[0], self.basis_int_N[1], self.basis_his_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_1_pts, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_1_pts, val, row, col,
                 )
 
                 EF_32 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[2], self.space.Ntot_0form))
@@ -457,7 +473,8 @@ class MHDOperatorsCore:
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_D_i[0][1], self.dofs_0_N_i[1][1], self.subs[0], self.subs_cum[0], self.wts[0],
                     self.basis_his_D[0], self.basis_int_N[1], np.array(self.space.NbaseN), np.array(
-                        self.space.NbaseD), -B2_3_pts/det_dF, val, row, col,
+                        self.space.NbaseD,
+                    ), -B2_3_pts/det_dF, val, row, col,
                 )
 
                 EF_12 = spa.csr_matrix(
@@ -485,7 +502,8 @@ class MHDOperatorsCore:
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0], self.dofs_0_D_i[1][0], self.dofs_1_D_i[0][1], self.dofs_0_D_i[1][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_D[0], self.basis_int_D[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_2_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_2_pts/det_dF, val, row, col,
                 )
 
                 EF_13 = spa.csr_matrix(
@@ -513,7 +531,8 @@ class MHDOperatorsCore:
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0], self.dofs_1_D_i[1][0], self.dofs_0_N_i[0][1], self.dofs_1_D_i[1][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_D[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_3_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_3_pts/det_dF, val, row, col,
                 )
 
                 EF_21 = spa.csr_matrix(
@@ -541,7 +560,8 @@ class MHDOperatorsCore:
                 ker.rhs12_2d(
                     self.dofs_0_D_i[0][0], self.dofs_1_D_i[1][0], self.dofs_0_D_i[0][1], self.dofs_1_D_i[1][1], self.subs[1], self.subs_cum[1], self.wts[1],
                     self.basis_int_D[0], self.basis_his_D[1], np.array(self.space.NbaseN), np.array(
-                        self.space.NbaseD), -B2_1_pts/det_dF, val, row, col,
+                        self.space.NbaseD,
+                    ), -B2_1_pts/det_dF, val, row, col,
                 )
 
                 EF_23 = spa.csr_matrix(
@@ -633,9 +653,11 @@ class MHDOperatorsCore:
 
                 ker.rhs11(
                     self.dofs_1_D_i[0][0], self.dofs_0_N_i[1][0], self.dofs_0_D_i[2][0], self.dofs_1_D_i[
-                        0][1], self.dofs_0_N_i[1][1], self.dofs_0_D_i[2][1], self.subs[0], self.subs_cum[0],
+                        0
+                    ][1], self.dofs_0_N_i[1][1], self.dofs_0_D_i[2][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_D[0], self.basis_int_N[1], self.basis_int_D[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_3_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_3_pts/det_dF, val, row, col,
                 )
 
                 EF_12 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[0], self.space.Ntot_2form[1]))
@@ -671,9 +693,11 @@ class MHDOperatorsCore:
 
                 ker.rhs11(
                     self.dofs_1_D_i[0][0], self.dofs_0_D_i[1][0], self.dofs_0_N_i[2][0], self.dofs_1_D_i[
-                        0][1], self.dofs_0_D_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs_cum[0],
+                        0
+                    ][1], self.dofs_0_D_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_D[0], self.basis_int_D[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_2_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_2_pts/det_dF, val, row, col,
                 )
 
                 EF_13 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[0], self.space.Ntot_2form[2]))
@@ -709,9 +733,11 @@ class MHDOperatorsCore:
 
                 ker.rhs12(
                     self.dofs_0_N_i[0][0], self.dofs_1_D_i[1][0], self.dofs_0_D_i[2][0], self.dofs_0_N_i[
-                        0][1], self.dofs_1_D_i[1][1], self.dofs_0_D_i[2][1], self.subs[1], self.subs_cum[1],
+                        0
+                    ][1], self.dofs_1_D_i[1][1], self.dofs_0_D_i[2][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_D[1], self.basis_int_D[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_3_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_3_pts/det_dF, val, row, col,
                 )
 
                 EF_21 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[1], self.space.Ntot_2form[0]))
@@ -747,9 +773,11 @@ class MHDOperatorsCore:
 
                 ker.rhs12(
                     self.dofs_0_D_i[0][0], self.dofs_1_D_i[1][0], self.dofs_0_N_i[2][0], self.dofs_0_D_i[
-                        0][1], self.dofs_1_D_i[1][1], self.dofs_0_N_i[2][1], self.subs[1], self.subs_cum[1],
+                        0
+                    ][1], self.dofs_1_D_i[1][1], self.dofs_0_N_i[2][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_D[0], self.basis_his_D[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_1_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_1_pts/det_dF, val, row, col,
                 )
 
                 EF_23 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[1], self.space.Ntot_2form[2]))
@@ -785,9 +813,11 @@ class MHDOperatorsCore:
 
                 ker.rhs13(
                     self.dofs_0_N_i[0][0], self.dofs_0_D_i[1][0], self.dofs_1_D_i[2][0], self.dofs_0_N_i[
-                        0][1], self.dofs_0_D_i[1][1], self.dofs_1_D_i[2][1], self.subs[2], self.subs_cum[2],
+                        0
+                    ][1], self.dofs_0_D_i[1][1], self.dofs_1_D_i[2][1], self.subs[2], self.subs_cum[2],
                     self.wts[2], self.basis_int_N[0], self.basis_int_D[1], self.basis_his_D[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), -B2_2_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), -B2_2_pts/det_dF, val, row, col,
                 )
 
                 EF_31 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[2], self.space.Ntot_2form[0]))
@@ -823,9 +853,11 @@ class MHDOperatorsCore:
 
                 ker.rhs13(
                     self.dofs_0_D_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_D_i[2][0], self.dofs_0_D_i[
-                        0][1], self.dofs_0_N_i[1][1], self.dofs_1_D_i[2][1], self.subs[2], self.subs_cum[2],
+                        0
+                    ][1], self.dofs_0_N_i[1][1], self.dofs_1_D_i[2][1], self.subs[2], self.subs_cum[2],
                     self.wts[2], self.basis_int_D[0], self.basis_int_N[1], self.basis_his_D[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), B2_1_pts/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), B2_1_pts/det_dF, val, row, col,
                 )
 
                 EF_32 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_1form[2], self.space.Ntot_2form[1]))
@@ -887,7 +919,8 @@ class MHDOperatorsCore:
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_0_N_i[0][1], self.dofs_1_N_i[1][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ, val, row, col,
                 )
 
                 F_11 = spa.csr_matrix(
@@ -917,7 +950,8 @@ class MHDOperatorsCore:
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_N_i[0][1], self.dofs_0_N_i[1][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_N[0], self.basis_int_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ, val, row, col,
                 )
 
                 F_22 = spa.csr_matrix(
@@ -947,7 +981,8 @@ class MHDOperatorsCore:
                 ker.rhs2_2d(
                     self.dofs_1_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_1_N_i[0][1], self.dofs_1_N_i[1][1], self.subs[0], self.subs[1], self.subs_cum[0],
                     self.subs_cum[1], self.wts[0], self.wts[1], self.basis_his_N[0], self.basis_his_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ, val, row, col,
                 )
 
                 F_33 = spa.csr_matrix(
@@ -989,9 +1024,11 @@ class MHDOperatorsCore:
 
                 ker.rhs21(
                     self.dofs_0_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_1_N_i[2][0], self.dofs_0_N_i[0][
-                        1], self.dofs_1_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[1], self.subs[2], self.subs_cum[1],
+                        1
+                    ], self.dofs_1_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[1], self.subs[2], self.subs_cum[1],
                     self.subs_cum[2], self.wts[1], self.wts[2], self.basis_int_N[0], self.basis_his_N[1], self.basis_his_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ, val, row, col,
                 )
 
                 F_11 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_2form[0], self.space.Ntot_0form))
@@ -1027,9 +1064,11 @@ class MHDOperatorsCore:
 
                 ker.rhs22(
                     self.dofs_1_N_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_N_i[2][0], self.dofs_1_N_i[0][
-                        1], self.dofs_0_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[0], self.subs[2], self.subs_cum[0],
+                        1
+                    ], self.dofs_0_N_i[1][1], self.dofs_1_N_i[2][1], self.subs[0], self.subs[2], self.subs_cum[0],
                     self.subs_cum[2], self.wts[0], self.wts[2], self.basis_his_N[0], self.basis_int_N[1], self.basis_his_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ, val, row, col,
                 )
 
                 F_22 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_2form[1], self.space.Ntot_0form))
@@ -1065,9 +1104,11 @@ class MHDOperatorsCore:
 
                 ker.rhs23(
                     self.dofs_1_N_i[0][0], self.dofs_1_N_i[1][0], self.dofs_0_N_i[2][0], self.dofs_1_N_i[0][
-                        1], self.dofs_1_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs[1], self.subs_cum[0],
+                        1
+                    ], self.dofs_1_N_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs[1], self.subs_cum[0],
                     self.subs_cum[1], self.wts[0], self.wts[1], self.basis_his_N[0], self.basis_his_N[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ, val, row, col,
                 )
 
                 F_33 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_2form[2], self.space.Ntot_0form))
@@ -1099,7 +1140,8 @@ class MHDOperatorsCore:
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0], self.dofs_1_D_i[1][0], self.dofs_0_N_i[0][1], self.dofs_1_D_i[1][1], self.subs[1], self.subs_cum[1],
                     self.wts[1], self.basis_int_N[0], self.basis_his_D[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
                 )
 
                 F_11 = spa.csr_matrix(
@@ -1131,7 +1173,8 @@ class MHDOperatorsCore:
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_D_i[0][1], self.dofs_0_N_i[1][1], self.subs[0], self.subs_cum[0],
                     self.wts[0], self.basis_his_D[0], self.basis_int_N[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
                 )
 
                 F_22 = spa.csr_matrix(
@@ -1167,7 +1210,8 @@ class MHDOperatorsCore:
                 ker.rhs2_2d(
                     self.dofs_1_D_i[0][0], self.dofs_1_D_i[1][0], self.dofs_1_D_i[0][1], self.dofs_1_D_i[1][1], self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1],
                     self.wts[0], self.wts[1], self.basis_his_D[0], self.basis_his_D[1], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
                 )
 
                 F_33 = spa.csr_matrix(
@@ -1213,9 +1257,11 @@ class MHDOperatorsCore:
 
                 ker.rhs21(
                     self.dofs_0_N_i[0][0], self.dofs_1_D_i[1][0], self.dofs_1_D_i[2][0], self.dofs_0_N_i[0][
-                        1], self.dofs_1_D_i[1][1], self.dofs_1_D_i[2][1], self.subs[1], self.subs[2], self.subs_cum[1],
+                        1
+                    ], self.dofs_1_D_i[1][1], self.dofs_1_D_i[2][1], self.subs[1], self.subs[2], self.subs_cum[1],
                     self.subs_cum[2], self.wts[1], self.wts[2], self.basis_int_N[0], self.basis_his_D[1], self.basis_his_D[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
                 )
 
                 F_11 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_2form[0], self.space.Ntot_2form[0]))
@@ -1255,9 +1301,11 @@ class MHDOperatorsCore:
 
                 ker.rhs22(
                     self.dofs_1_D_i[0][0], self.dofs_0_N_i[1][0], self.dofs_1_D_i[2][0], self.dofs_1_D_i[0][
-                        1], self.dofs_0_N_i[1][1], self.dofs_1_D_i[2][1], self.subs[0], self.subs[2], self.subs_cum[0],
+                        1
+                    ], self.dofs_0_N_i[1][1], self.dofs_1_D_i[2][1], self.subs[0], self.subs[2], self.subs_cum[0],
                     self.subs_cum[2], self.wts[0], self.wts[2], self.basis_his_D[0], self.basis_int_N[1], self.basis_his_D[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
                 )
 
                 F_22 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_2form[1], self.space.Ntot_2form[1]))
@@ -1297,9 +1345,11 @@ class MHDOperatorsCore:
 
                 ker.rhs23(
                     self.dofs_1_D_i[0][0], self.dofs_1_D_i[1][0], self.dofs_0_N_i[2][0], self.dofs_1_D_i[0][
-                        1], self.dofs_1_D_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs[1], self.subs_cum[0],
+                        1
+                    ], self.dofs_1_D_i[1][1], self.dofs_0_N_i[2][1], self.subs[0], self.subs[1], self.subs_cum[0],
                     self.subs_cum[1], self.wts[0], self.wts[1], self.basis_his_D[0], self.basis_his_D[1], self.basis_int_N[2], np.array(
-                        self.space.NbaseN), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
+                        self.space.NbaseN,
+                    ), np.array(self.space.NbaseD), EQ/det_dF, val, row, col,
                 )
 
                 F_33 = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_2form[2], self.space.Ntot_2form[2]))
@@ -1346,7 +1396,8 @@ class MHDOperatorsCore:
             ker.rhs2_2d(
                 self.dofs_1_D_i[0][0], self.dofs_1_D_i[1][0], self.dofs_1_D_i[0][1], self.dofs_1_D_i[1][1], self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1],
                 self.wts[0], self.wts[1], self.basis_his_D[0], self.basis_his_D[1], np.array(
-                    self.space.NbaseN), np.array(self.space.NbaseD), P3_pts/det_dF, val, row, col,
+                    self.space.NbaseN,
+                ), np.array(self.space.NbaseD), P3_pts/det_dF, val, row, col,
             )
 
             PR = spa.csr_matrix(
@@ -1386,9 +1437,11 @@ class MHDOperatorsCore:
 
             ker.rhs3(
                 self.dofs_1_D_i[0][0], self.dofs_1_D_i[1][0], self.dofs_1_D_i[2][0], self.dofs_1_D_i[0][1], self.dofs_1_D_i[
-                    1][1], self.dofs_1_D_i[2][1], self.subs[0], self.subs[1], self.subs[2], self.subs_cum[0], self.subs_cum[1],
+                    1
+                ][1], self.dofs_1_D_i[2][1], self.subs[0], self.subs[1], self.subs[2], self.subs_cum[0], self.subs_cum[1],
                 self.subs_cum[2], self.wts[0], self.wts[1], self.wts[2], self.basis_his_D[0], self.basis_his_D[1], self.basis_his_D[2], np.array(
-                    self.space.NbaseN), np.array(self.space.NbaseD), P3_pts/det_dF, val, row, col,
+                    self.space.NbaseN,
+                ), np.array(self.space.NbaseD), P3_pts/det_dF, val, row, col,
             )
 
             PR = spa.csr_matrix((val, (row, col)), shape=(self.space.Ntot_3form, self.space.Ntot_3form))

@@ -811,32 +811,37 @@ class MHDOperators:
 
             if hasattr(self, 'dofs_MF'):
                 self.MF = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]
-                     ), matvec=self.__MF, rmatvec=self.__MF_transposed,
+                    (
+                        self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0],
+                    ), matvec=self.__MF, rmatvec=self.__MF_transposed,
                 )
 
             if hasattr(self, 'dofs_PF'):
                 self.PF = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]
-                     ), matvec=self.__PF, rmatvec=self.__PF_transposed,
+                    (
+                        self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0],
+                    ), matvec=self.__PF, rmatvec=self.__PF_transposed,
                 )
 
             if hasattr(self, 'dofs_JF'):
                 self.JF = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]
-                     ), matvec=self.__JF, rmatvec=self.__JF_transposed,
+                    (
+                        self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0],
+                    ), matvec=self.__JF, rmatvec=self.__JF_transposed,
                 )
 
             if hasattr(self, 'dofs_EF'):
                 self.EF = spa.linalg.LinearOperator(
-                    (self.core.space.E1_0.shape[0], self.core.space.Ev_0.shape[0]
-                     ), matvec=self.__EF, rmatvec=self.__EF_transposed,
+                    (
+                        self.core.space.E1_0.shape[0], self.core.space.Ev_0.shape[0],
+                    ), matvec=self.__EF, rmatvec=self.__EF_transposed,
                 )
 
             if hasattr(self, 'dofs_PR'):
                 self.PR = spa.linalg.LinearOperator(
-                    (self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]
-                     ), matvec=self.__PR, rmatvec=self.__PR_transposed,
+                    (
+                        self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0],
+                    ), matvec=self.__PR, rmatvec=self.__PR_transposed,
                 )
 
             if hasattr(self, 'dofs_Mn'):
@@ -868,26 +873,30 @@ class MHDOperators:
 
             if hasattr(self, 'dofs_MF'):
                 self.MF = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]
-                     ), matvec=self.__MF, rmatvec=self.__MF_transposed,
+                    (
+                        self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0],
+                    ), matvec=self.__MF, rmatvec=self.__MF_transposed,
                 )
 
             if hasattr(self, 'dofs_PF'):
                 self.PF = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]
-                     ), matvec=self.__PF, rmatvec=self.__PF_transposed,
+                    (
+                        self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0],
+                    ), matvec=self.__PF, rmatvec=self.__PF_transposed,
                 )
 
             if hasattr(self, 'dofs_EF'):
                 self.EF = spa.linalg.LinearOperator(
-                    (self.core.space.E1_0.shape[0], self.core.space.E2_0.shape[0]
-                     ), matvec=self.__EF, rmatvec=self.__EF_transposed,
+                    (
+                        self.core.space.E1_0.shape[0], self.core.space.E2_0.shape[0],
+                    ), matvec=self.__EF, rmatvec=self.__EF_transposed,
                 )
 
             if hasattr(self, 'dofs_PR'):
                 self.PR = spa.linalg.LinearOperator(
-                    (self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]
-                     ), matvec=self.__PR, rmatvec=self.__PR_transposed,
+                    (
+                        self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0],
+                    ), matvec=self.__PR, rmatvec=self.__PR_transposed,
                 )
 
             if hasattr(self, 'Mn_mat'):

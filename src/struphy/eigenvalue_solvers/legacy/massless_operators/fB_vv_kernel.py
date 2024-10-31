@@ -416,7 +416,8 @@ def piecewise_gather(ddt, index_shapex, index_shapey, index_shapez, index_diffx,
                                     mapping_fast.df_all(
                                         kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f,
                                         r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, temp1[
-                                            0] % 1.0, temp1[1] % 1.0, temp1[2] % 1.0, df, fx, 0,
+                                            0
+                                        ] % 1.0, temp1[1] % 1.0, temp1[2] % 1.0, df, fx, 0,
                                     )
                                     # evaluate Jacobian determinant
                                     det_df = abs(linalg.det(df))
@@ -554,7 +555,8 @@ def piecewise_scatter(index_shapex, index_shapey, index_shapez, index_diffx, ind
                                     mapping_fast.df_all(
                                         kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f,
                                         r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, temp1[
-                                            0] % 1.0, temp1[1] % 1.0, temp1[2] % 1.0, df, fx, 0,
+                                            0
+                                        ] % 1.0, temp1[1] % 1.0, temp1[2] % 1.0, df, fx, 0,
                                     )
                                     # evaluate Jacobian determinant
                                     det_df = abs(linalg.det(df))

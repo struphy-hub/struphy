@@ -1228,10 +1228,12 @@ class projectors_local_3d:
         lambdas1 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
 
         ker_loc.kernel_pi11_3d(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]
-             ], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1],
+            [
+                self.NbaseD[0], self.NbaseN[1], self.NbaseN[2],
+            ], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1],
             self.coeffi_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], mat_f.reshape(
-                self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, x_int3.size), lambdas1,
+                self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, x_int3.size,
+            ), lambdas1,
         )
 
         # ======== 2-component ========
@@ -1266,10 +1268,12 @@ class projectors_local_3d:
         lambdas2  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
 
         ker_loc.kernel_pi12_3d(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]
-             ], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1],
+            [
+                self.NbaseN[0], self.NbaseD[1], self.NbaseN[2],
+            ], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1],
             self.coeffi_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], mat_f.reshape(
-                x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size), lambdas2,
+                x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size,
+            ), lambdas2,
         )
 
         # ======== 3-component ========
@@ -1304,10 +1308,12 @@ class projectors_local_3d:
         lambdas3  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
 
         ker_loc.kernel_pi13_3d(
-            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]
-             ], self.p, self.n_quad, self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1],
+            [
+                self.NbaseN[0], self.NbaseN[1], self.NbaseD[2],
+            ], self.p, self.n_quad, self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1],
             self.coeffh_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], mat_f.reshape(
-                x_int1.size, x_int2.size, self.pts[2][:, 0].shape[0], self.pts[2].shape[1]), lambdas3,
+                x_int1.size, x_int2.size, self.pts[2][:, 0].shape[0], self.pts[2].shape[1],
+            ), lambdas3,
         )
 
         return np.concatenate((lambdas1.flatten(), lambdas2.flatten(), lambdas3.flatten()))
@@ -1372,10 +1378,12 @@ class projectors_local_3d:
         lambdas1 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
 
         ker_loc.kernel_pi21_3d(
-            [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]
-             ], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2],
+            [
+                self.NbaseN[0], self.NbaseD[1], self.NbaseD[2],
+            ], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2],
             self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], mat_f.reshape(
-                x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1]), lambdas1,
+                x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1],
+            ), lambdas1,
         )
 
         # ======== 2-component ========
@@ -1410,10 +1418,12 @@ class projectors_local_3d:
         lambdas2 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
 
         ker_loc.kernel_pi22_3d(
-            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]
-             ], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2],
+            [
+                self.NbaseD[0], self.NbaseN[1], self.NbaseD[2],
+            ], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2],
             self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], mat_f.reshape(
-                self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, self.pts[2].shape[0], self.pts[2].shape[1]), lambdas2,
+                self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, self.pts[2].shape[0], self.pts[2].shape[1],
+            ), lambdas2,
         )
 
         # ======== 3-component ========
@@ -1448,10 +1458,12 @@ class projectors_local_3d:
         lambdas3 = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
 
         ker_loc.kernel_pi23_3d(
-            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]
-             ], self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2],
+            [
+                self.NbaseD[0], self.NbaseD[1], self.NbaseN[2],
+            ], self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2],
             self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], mat_f.reshape(
-                self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size), lambdas3,
+                self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size,
+            ), lambdas3,
         )
 
         return np.concatenate((lambdas1.flatten(), lambdas2.flatten(), lambdas3.flatten()))

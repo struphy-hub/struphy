@@ -444,9 +444,11 @@ TENSOR_SPACE_FEM : tensor_spline_space-tensor product B-spline space
                                 # evaluate Jacobian matrix
                                 mapping_fast.df_all(
                                     DOMAIN.kind_map, DOMAIN.params_map, DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[
-                                        2], DOMAIN.p, DOMAIN.NbaseN, span1f, span2f, span3f, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, l1f, l2f, l3f,
+                                        2
+                                    ], DOMAIN.p, DOMAIN.NbaseN, span1f, span2f, span3f, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, l1f, l2f, l3f,
                                     r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, self.TENSOR_SPACE_FEM.pts[0][
-                                        ie1, q1], self.TENSOR_SPACE_FEM.pts[1][ie2, q2], self.TENSOR_SPACE_FEM.pts[2][ie3, q3], df, fx, 0,
+                                        ie1, q1,
+                                    ], self.TENSOR_SPACE_FEM.pts[1][ie2, q2], self.TENSOR_SPACE_FEM.pts[2][ie3, q3], df, fx, 0,
                                 )
                                 # evaluate inverse Jacobian matrix
                                 mapping_fast.df_inv_all(df, dfinv)
@@ -498,22 +500,31 @@ TENSOR_SPACE_FEM : tensor_spline_space-tensor product B-spline space
 
                                 if control == True:
                                     x1 = mapping3d.f(
-                                        TENSOR_SPACE_FEM.pts[0][ie1, q1], TENSOR_SPACE_FEM.pts[1][ie2,
-                                                                                                  q2], TENSOR_SPACE_FEM.pts[2][ie3, q3], 1,
+                                        TENSOR_SPACE_FEM.pts[0][ie1, q1], TENSOR_SPACE_FEM.pts[1][
+                                            ie2,
+                                            q2,
+                                        ], TENSOR_SPACE_FEM.pts[2][ie3, q3], 1,
                                         DOMAIN.kind_map, DOMAIN.params_map, DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[
-                                            2], DOMAIN.p, DOMAIN.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
+                                            2
+                                        ], DOMAIN.p, DOMAIN.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
                                     )
                                     x2 = mapping3d.f(
-                                        TENSOR_SPACE_FEM.pts[0][ie1, q1], TENSOR_SPACE_FEM.pts[1][ie2,
-                                                                                                  q2], TENSOR_SPACE_FEM.pts[2][ie3, q3], 2,
+                                        TENSOR_SPACE_FEM.pts[0][ie1, q1], TENSOR_SPACE_FEM.pts[1][
+                                            ie2,
+                                            q2,
+                                        ], TENSOR_SPACE_FEM.pts[2][ie3, q3], 2,
                                         DOMAIN.kind_map, DOMAIN.params_map, DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[
-                                            2], DOMAIN.p, DOMAIN.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
+                                            2
+                                        ], DOMAIN.p, DOMAIN.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
                                     )
                                     x3 = mapping3d.f(
-                                        TENSOR_SPACE_FEM.pts[0][ie1, q1], TENSOR_SPACE_FEM.pts[1][ie2,
-                                                                                                  q2], TENSOR_SPACE_FEM.pts[2][ie3, q3], 3,
+                                        TENSOR_SPACE_FEM.pts[0][ie1, q1], TENSOR_SPACE_FEM.pts[1][
+                                            ie2,
+                                            q2,
+                                        ], TENSOR_SPACE_FEM.pts[2][ie3, q3], 3,
                                         DOMAIN.kind_map, DOMAIN.params_map, DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[
-                                            2], DOMAIN.p, DOMAIN.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
+                                            2
+                                        ], DOMAIN.p, DOMAIN.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
                                     )
                                     Jeqx[ie1, ie2, ie3, q1, q2, q3]  = equ_PIC.jhx_eq(x1, x2, x3)
                                     Jeqy[ie1, ie2, ie3, q1, q2, q3]  = equ_PIC.jhy_eq(x1, x2, x3)
