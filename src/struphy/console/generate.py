@@ -1,25 +1,27 @@
 from struphy.console.utils import generate_batch_script, save_batch_script
 def struphy_generate(kind, template, likwid = False, **slurm_args):
-    print('Generate batch script for {template}')
+    print(f'Generate batch script for {template}')
     sbatch_params = {
         'raven': {
-            'ntasks_per_node': 8,
-            'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
+            'ntasks-per-node': 8,
+            'module-setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
             'likwid': likwid,
         },
         'cobra': {
-            'ntasks_per_node': 72,
+            'ntasks-per-node': 72,
             'likwid': likwid,
         },
         'viper': {
-            'ntasks_per_node': 4,
+            'ntasks-per-node': 4,
             'likwid': likwid,
         },
     }
-    params = {**sbatch_params[template], **slurm_args['slurm_args']}
-    print(params)
-
-    
-    batch_script = generate_batch_script(**params)
+    params = {}
+    if template is not None:
+        params = {**sbatch_params[template]}
+    if slurm_args['slurm_args'] is not None:
+        params = {**params, **slurm_args['slurm_args']}
+    batch_script = generate_batch_script(chars_until_comment=60,**params)
     print(batch_script)
+    print('done')
     

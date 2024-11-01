@@ -3,7 +3,7 @@ import os
 import struphy.utils.utils as utils
 
 
-def add_line(script, line, comment='', chars_until_comment=80):
+def add_line(script, line, comment='', chars_until_comment=60):
     if len(line) > chars_until_comment:
         script += f"{line} # {comment}\n"
     else:
@@ -11,7 +11,7 @@ def add_line(script, line, comment='', chars_until_comment=80):
     return script
 
 
-def generate_batch_script(**kwargs):
+def generate_batch_script(chars_until_comment=80,**kwargs):
     # Default parameters for the batch script
     params = {
         'working_directory': './',
@@ -34,41 +34,30 @@ def generate_batch_script(**kwargs):
     # Update params with any provided keyword arguments
     params.update(kwargs)
 
-    # Start generating the SLURM batch script
+    # Start generating the SLURM batch script    
+    header = generate_slurm_header(chars_until_comment=chars_until_comment,**params)
+
+    setup = generate_setup(chars_until_comment=chars_until_comment,**params)
+
+    run_script = "\n"#generate_run_script(**params)
+
     script = "#!/bin/bash\n"
-    print(kwargs)
-    
-    script += generate_slurm_header(**params)
-    print(script)
-    exit()
-    script = add_line(script, f"#SBATCH -o {params['output_file']}", "Standard output file")
-    script = add_line(script, f"#SBATCH -e {params['error_file']}", "Standard error file")
-    script = add_line(script, f"#SBATCH -D {params['working_directory']}", "Working directory")
-    script = add_line(script, f"#SBATCH -J {params['job_name']}", "Job name")
+    script += header
+    script += setup
+    # script += run_script
 
-    if params['partition']:
-        script = add_line(script, f"#SBATCH --partition={params['partition']}", "Partition")
-    script = add_line(script, f"#SBATCH --nodes={params['nodes']}", "Number of compute nodes")
+    return script
 
-    if params['ntasks_per_core']:
-        script = add_line(script, f"#SBATCH --ntasks-per-core={params['ntasks_per_core']}", "Number of tasks per core")
-    script = add_line(
-        script, f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}", "Number of MPI processes per node")
 
-    if params['cpus_per_task']:
-        script = add_line(script, f"#SBATCH --cpus-per-task={params['cpus_per_task']}", "Number of CPUs per task")
-    if params['memory']:
-        script = add_line(script, f"#SBATCH --mem={params['memory']}", "Memory allocation")
-    script = add_line(script, "#SBATCH --mail-type=all", "Send email notifications for all events")
-    script = add_line(script, f"#SBATCH --mail-user={params['mail_user']}", "Email address for notifications")
-    script = add_line(script, f"#SBATCH --time={params['time']}", "Maximum runtime")
-    script += "\n"
+def generate_setup(chars_until_comment=80,**params):
+
+    script = ""
 
     # Activate environment
     script += "# Activate environment\n"
     script = add_line(script, f"source {params['venv_path']}/bin/activate", "Activate the virtual environment")
     script = add_line(script, "module purge", "Purge modules")
-    script = add_line(script, params['module_setup'], "Load necessary modules")
+    script = add_line(script, params['module-setup'], "Load necessary modules")
     # script = add_line(script, f"export PATH={params['venv_path']}/bin/:$PATH", "Export path")
 
     script += "\n"
@@ -81,22 +70,29 @@ def generate_batch_script(**kwargs):
     script = add_line(script, "KMP_AFFINITY=scatter", "For pinning threads correctly")
     script += "\n"
 
-    # Save hardware information
-    script += "# Save hardware information\n"
-    script = add_line(script, "misc=\"misc_$SLURM_JOB_ID\"", "")
-    script = add_line(script, "mkdir -p $misc", "")
-    script = add_line(script, "module list > \"$misc/module_list.txt\"", "Save loaded modules")
-    script = add_line(script, "echo $OMP_NUM_THREADS > \"$misc/OMP_NUM_THREADS.txt\"", "Save OMP_NUM_THREADS value")
-    script = add_line(script, "printenv > \"$misc/printenv.txt\"", "Save environment variables")
-    script = add_line(script, "cp $0 $misc/", "Save a copy of the batch script")
+    # Display hardware information directly
+    script += "# Display hardware information directly\n"
+    script = add_line(script, "echo \"Loaded modules:\"", "Show loaded modules")
+    script = add_line(script, "module list", "")
+
+    script = add_line(script, "echo \"OMP_NUM_THREADS value:\"", "Show OMP_NUM_THREADS value")
+    script = add_line(script, "echo $OMP_NUM_THREADS", "")
+
+    script = add_line(script, "echo \"Environment variables:\"", "Show environment variables")
+    script = add_line(script, "printenv", "")
+
+    script = add_line(script, "echo \"Content of this batch script:\"", "Show content of the batch script")
+    script = add_line(script, "cat $0", "")
     script += "\n"
 
-    # Save SLURM-specific environment variables
-    script += "# Save SLURM-specific environment variables\n"
+    # Display SLURM-specific environment variables
+    script += "# Display SLURM-specific environment variables\n"
+    script = add_line(script, "echo \"SLURM-specific environment variables:\"", "")
     script = add_line(script, "for var in $(env | grep ^SLURM_ | cut -d= -f1); do", "Loop through SLURM variables")
-    script = add_line(script, "    echo \"$var=${!var}\" >> \"$misc/SLURM_VARIABLES.txt\"", "Save SLURM variable")
+    script = add_line(script, "    echo \"$var=${!var}\"", "Show SLURM variable")
     script = add_line(script, "done", "End of SLURM variable loop")
     script += "\n"
+
 
     # Add LIKWID-related commands if requested
     if params['likwid']:
@@ -116,7 +112,7 @@ def generate_batch_script(**kwargs):
     return script
 
 
-def generate_slurm_header(**kwargs):
+def generate_slurm_header(chars_until_comment=80, **kwargs):
     """
     Generate a Slurm batch script with all possible SBATCH options,
     only adding those provided in kwargs.
@@ -156,12 +152,14 @@ def generate_slurm_header(**kwargs):
     }
 
     # Start generating the SLURM batch script
-    script = "#!/bin/bash\n"
-
+    script = "#"*(chars_until_comment+2)
+    script += "\n"
     # Add SBATCH directives based on kwargs
     for option, description in sbatch_options.items():
         if option in kwargs and kwargs[option] is not None:
-            script = add_line(script, f"#SBATCH --{option}={kwargs[option]}", description)
+            script = add_line(script, f"#SBATCH --{option}={kwargs[option]}", description,chars_until_comment=chars_until_comment)
+    script += "#"*(chars_until_comment+2)
+    script += "\n"
     return script
 
 
