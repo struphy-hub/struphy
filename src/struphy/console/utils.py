@@ -1,5 +1,7 @@
-import struphy.utils.utils as utils
 import os
+
+import struphy.utils.utils as utils
+
 
 def add_line(script, line, comment='', chars_until_comment=80):
     if len(line) > chars_until_comment:
@@ -8,11 +10,12 @@ def add_line(script, line, comment='', chars_until_comment=80):
         script += f"{line} {' ' * (chars_until_comment - len(line))}# {comment}\n"
     return script
 
+
 def generate_batch_script(**kwargs):
     # Default parameters for the batch script
     params = {
-        'working_directory':'./',
-        'job_name':'job_struphy',
+        'working_directory': './',
+        'job_name': 'job_struphy',
         'output_file': "./job_struphy_%j.out",
         'error_file': "./job_struphy_%j.err",
         'nodes': 1,
@@ -25,7 +28,7 @@ def generate_batch_script(**kwargs):
         'cpus_per_task': None,
         'memory': '2GB',
         'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
-        'likwid': False
+        'likwid': False,
     }
 
     # Update params with any provided keyword arguments
@@ -33,18 +36,19 @@ def generate_batch_script(**kwargs):
 
     # Start generating the SLURM batch script
     script = "#!/bin/bash\n"
-    script = add_line(script, f"#SBATCH -o {params['output_file']}",       "Standard output file")
-    script = add_line(script, f"#SBATCH -e {params['error_file']}",        "Standard error file")
+    script = add_line(script, f"#SBATCH -o {params['output_file']}", "Standard output file")
+    script = add_line(script, f"#SBATCH -e {params['error_file']}", "Standard error file")
     script = add_line(script, f"#SBATCH -D {params['working_directory']}", "Working directory")
-    script = add_line(script, f"#SBATCH -J {params['job_name']}",          "Job name")
+    script = add_line(script, f"#SBATCH -J {params['job_name']}", "Job name")
 
     if params['partition']:
         script = add_line(script, f"#SBATCH --partition={params['partition']}", "Partition")
-    script = add_line(script, f"#SBATCH --nodes={params['nodes']}",             "Number of compute nodes")
+    script = add_line(script, f"#SBATCH --nodes={params['nodes']}", "Number of compute nodes")
 
     if params['ntasks_per_core']:
         script = add_line(script, f"#SBATCH --ntasks-per-core={params['ntasks_per_core']}", "Number of tasks per core")
-    script = add_line(script, f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}", "Number of MPI processes per node")
+    script = add_line(
+        script, f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}", "Number of MPI processes per node")
 
     if params['cpus_per_task']:
         script = add_line(script, f"#SBATCH --cpus-per-task={params['cpus_per_task']}", "Number of CPUs per task")
@@ -61,11 +65,11 @@ def generate_batch_script(**kwargs):
     script = add_line(script, "module purge", "Purge modules")
     script = add_line(script, params['module_setup'], "Load necessary modules")
     # script = add_line(script, f"export PATH={params['venv_path']}/bin/:$PATH", "Export path")
-    
+
     script += "\n"
 
     # Set up environment variables
-    script +=  "# Pinning\n"
+    script += "# Pinning\n"
     # script = add_line(script, "# Set the number of OMP threads *per process* to avoid overloading of the node!", "")
     # script = add_line(script, "#export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK", "")
     # script = add_line(script, "#export OMP_PLACES=cores", "")
@@ -73,7 +77,7 @@ def generate_batch_script(**kwargs):
     script += "\n"
 
     # Save hardware information
-    script +=  "# Save hardware information\n"
+    script += "# Save hardware information\n"
     script = add_line(script, "misc=\"misc_$SLURM_JOB_ID\"", "")
     script = add_line(script, "mkdir -p $misc", "")
     script = add_line(script, "module list > \"$misc/module_list.txt\"", "Save loaded modules")
@@ -83,7 +87,7 @@ def generate_batch_script(**kwargs):
     script += "\n"
 
     # Save SLURM-specific environment variables
-    script +=  "# Save SLURM-specific environment variables\n"
+    script += "# Save SLURM-specific environment variables\n"
     script = add_line(script, "for var in $(env | grep ^SLURM_ | cut -d= -f1); do", "Loop through SLURM variables")
     script = add_line(script, "    echo \"$var=${!var}\" >> \"$misc/SLURM_VARIABLES.txt\"", "Save SLURM variable")
     script = add_line(script, "done", "End of SLURM variable loop")
@@ -92,17 +96,22 @@ def generate_batch_script(**kwargs):
     # Add LIKWID-related commands if requested
     if params['likwid']:
         likwid_section = "# Add LIKWID-related commands\n"
-        likwid_section = add_line(likwid_section, "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)", "Set LIKWID prefix")
-        likwid_section = add_line(likwid_section, "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib", "Update LD_LIBRARY_PATH for LIKWID")
-        likwid_section = add_line(likwid_section, "likwid-topology > \"$misc/likwid-topology.txt\"", "Save LIKWID topology information")
-        likwid_section = add_line(likwid_section, "likwid-topology -g > \"$misc/likwid-topology-g.txt\"", "Save extended LIKWID topology information")
+        likwid_section = add_line(
+            likwid_section, "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)", "Set LIKWID prefix")
+        likwid_section = add_line(likwid_section, "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib",
+                                  "Update LD_LIBRARY_PATH for LIKWID")
+        likwid_section = add_line(likwid_section, "likwid-topology > \"$misc/likwid-topology.txt\"",
+                                  "Save LIKWID topology information")
+        likwid_section = add_line(likwid_section, "likwid-topology -g > \"$misc/likwid-topology-g.txt\"",
+                                  "Save extended LIKWID topology information")
         script += likwid_section
         script += "\n"
-    
+
     script += "\n"
     return script
 
-def save_batch_script(batch_script, filename, path = None):
+
+def save_batch_script(batch_script, filename, path=None):
     if path is None:
         state = utils.read_state()
         path = state['b_path']
