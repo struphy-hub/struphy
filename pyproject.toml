@@ -46,7 +46,14 @@ dependencies = [
     'pyccel>=1.11.1',
     'gvec-to-python',
     'desc-opt',
-    'netcdf4<1.7.0'
+    'netcdf4<1.7.0',
+    'autopep8',
+    'isort',
+    'flake8',
+    'pylint',
+    'add-trailing-comma',
+    'pytest',
+    'pre-commit',
 ]
 
 [project.urls]
@@ -84,3 +91,29 @@ struphy = "struphy.console.main:struphy"
 struphy = ['compile_struphy.mk',
            'psydac-0.1.13-py3-none-any.whl',
            ]
+
+[tool.autopep8]
+# Add specific settings for autopep8
+max_line_length = 120
+ignore = ["E221,E226,E203,E731,E711"]
+# Descriptions of error codes: https://www.flake8rules.com/
+# E201 – Whitespace after  (, [ or {
+# E202 – Whitespace before (, [ or {
+# E221 – Multiple spaces before operator
+# E226 – Missing whitespace around arithmetic operators
+# E266 – Too many leading # for block comment
+# E731 – Do not assign a lambda expression
+# E203 – Whitespace before : (used in slicing)
+# E711 - Ignore enforcing 'is not None' over '!= None'
+
+[tool.isort]
+# Configuration for isort
+profile = "black"  # Using the Black profile to match formatting styles
+line_length = 120
+multi_line_output = 3  # Control how isort wraps imports
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+
+[tool.pylint]
+max-line-length=120

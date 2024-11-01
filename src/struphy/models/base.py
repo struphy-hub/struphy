@@ -1729,6 +1729,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 else:
                     pert_params = None
 
+                if 'sorting' in val['params']:
+                    sorting_params = val['params']['sorting']
+                else:
+                    sorting_params = None
+
                 kinetic_class = getattr(particles, val['space'])
 
                 val['obj'] = kinetic_class(
@@ -1739,7 +1744,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     mhd_equil=self.mhd_equil,
                     braginskii_equil=self.braginskii_equil,
                     bckgr_params=bckgr_params,
-                    pert_params=pert_params
+                    pert_params=pert_params,
+                    sorting_params=sorting_params
                 )
 
                 obj = val['obj']

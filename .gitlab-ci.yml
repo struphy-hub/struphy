@@ -57,6 +57,7 @@ stages:
   - build
   - install
   - test
+  - lint
   - pages
   - release 
 
@@ -167,7 +168,7 @@ c_cronjob_install:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - pip install struphy
+    - pip install -U struphy
     - pip show struphy
     - pip list
     - struphy
@@ -179,6 +180,119 @@ c_cronjob_install:
     paths:
       - env_$CI_PIPELINE_ID/
     expire_in: 1 day
+
+##################
+### LINT STAGE ###
+##################
+
+# Template for linting Python files with flake8 and pylint
+.lint_template:
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
+  script:
+    - date
+    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
+    - module list
+    - python3 --version
+    - source env_$CI_PIPELINE_ID/bin/activate
+    - pip list
+    # Install linters
+    - pip install flake8 pylint
+    # Check if any Python files were found to lint
+    - if [ -z "$LINT_FILES" ]; then echo "No files to lint."; exit 0; fi
+    - mkdir -p lint_results/
+    # Lint with flake8
+    - flake8 $LINT_FILES > lint_results/flake8_report.txt || true
+    # Lint with pylint and display the score for each file
+    - echo "Running pylint on individual files..."
+    - |
+      for file in $LINT_FILES; do
+        echo "Linting $file..."
+        echo "Linting $file..." >> lint_results/pylint_report.txt
+        # Run pylint and store output in a temporary file
+        pylint --score=y "$file" > temp_pylint_output.txt || true
+        # Append output to the main pylint report file
+        cat temp_pylint_output.txt >> lint_results/pylint_report.txt
+        # Extract and display the score line
+        grep 'Your code has been rated at' temp_pylint_output.txt
+        echo ""
+        echo "------------------------"
+        echo "------------------------" >> lint_results/pylint_report.txt
+        echo "------------------------" >> lint_results/pylint_report.txt
+      done
+    - rm -f temp_pylint_output.txt
+  artifacts:
+    paths:
+      - lint_results/
+    expire_in: 30 days
+  allow_failure: true
+
+# Generate linting reports with pylint and flake8 of full repo
+# Run in weekly CI pipeline only
+full_repo_lint_reports:
+  stage: lint
+  extends:
+    - .lint_template
+  rules:
+    # Only run full lint report with pylint and flake8 on the scheduled CI pipeline
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  before_script:
+    # Find all .py files, excluding those with __XYZ__ in their path
+    - LINT_FILES=$(find src/struphy -name "*.py" ! -path "*__*__*")
+    - echo "All Python files for full lint:"
+    - echo "$LINT_FILES"
+
+# Generate linting reports with pylint and flake8 of files changed in the current branch
+# Don't run the check in the scheduled CI pipeline
+branch_lint_reports:
+  extends:
+    - .lint_template
+  stage: lint
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    # Get changed Python files between the current branch and origin/devel
+    - LINT_FILES=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
+    - echo "Changed Python files:"
+    - echo "$LINT_FILES"
+
+# Lint struphy with `struphy lint`
+lint_struphy:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+  stage: lint
+  needs: ['ci_vars']
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    - date
+    - python3.11 -m venv env_struphy_lint
+  script:
+    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
+    - pip install --upgrade pip
+    - pip list
+    - ls
+    - pwd
+    - pip install -e . # We have to install struphy in editable mode for struphy lint to work
+    - struphy
+    # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
+    - struphy lint branch --output-format plain
+  allow_failure: true
 
 ##################
 ### TEST STAGE ###
@@ -228,7 +342,56 @@ Ubuntu_latest:
     - struphy compile --status
     - make -v
     - struphy compile
-    - struphy test models --fast
+    - struphy -h # this is the Quickstart
+    - struphy compile 
+    - struphy -p
+    - struphy --set-i .
+    - struphy --set-o . 
+    - struphy run -h
+    - struphy params VlasovMaxwellOneSpecies -y
+    - ls -1a
+    - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    - ls my_first_sim/
+    - struphy pproc -d my_first_sim
+    - ls my_first_sim/post_processing/fields_data/
+    - ls my_first_sim/post_processing/kinetic_data/
+    - struphy params VlasovMaxwellOneSpecies --options
+    - struphy test models --fast # this is the models test
+
+# Quickstart test
+quickstart_tests:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pwd
+    - ls -1a
+    - struphy -h # this is the Quickstart
+    - struphy compile 
+    - struphy -p
+    - struphy --set-i .
+    - struphy --set-o . 
+    - struphy run -h
+    - struphy params VlasovMaxwellOneSpecies -y
+    - ls -1a
+    - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    - ls my_first_sim/
+    - struphy pproc -d my_first_sim
+    - ls my_first_sim/post_processing/fields_data/
+    - ls my_first_sim/post_processing/kinetic_data/
+    - struphy params VlasovMaxwellOneSpecies --options
+
+    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 # default tests
 c_unit_tests:
@@ -245,7 +408,7 @@ c_unit_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test unit  
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -264,7 +427,7 @@ c_model_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -276,7 +439,7 @@ c_model_cronjob_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -300,7 +463,7 @@ c_tutorial_tests:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test tutorials --fast
 
@@ -332,7 +495,7 @@ fortran_unit_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test unit 
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -345,7 +508,7 @@ fortran_model_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -358,7 +521,7 @@ fortran_tutorial_tests:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
-    - ls -1
+    - ls -1a
     - struphy compile --status
     - struphy test tutorials
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
@@ -390,7 +553,7 @@ Ubuntu_23_04:
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile
@@ -418,7 +581,7 @@ struphy_ubuntu_python_3_11:
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile
@@ -468,7 +631,7 @@ Fedora:
     - module load mpi/openmpi-$(arch)
     - module list 
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -497,7 +660,7 @@ struphy_fedora_python_3_10:
     - module load mpi/openmpi-$(arch)
     - module list 
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -541,7 +704,7 @@ OpenSuse:
     - python3 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -568,7 +731,7 @@ struphy_opensuse_python_3_11:
     - python3 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - struphy compile 
@@ -616,7 +779,7 @@ AlmaLinux:
     - python3.10 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - pip list
@@ -643,7 +806,7 @@ struphy_almalinux_python_3_10:
     - python3.10 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE=struphy; fi
+    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
     - echo $FILE
     - pip install $FILE
     - pip list

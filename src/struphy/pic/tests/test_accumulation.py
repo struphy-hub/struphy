@@ -43,6 +43,8 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.accumulation.particles_to_grid import Accumulator
     from struphy.pic.accumulation import accum_kernels
+    
+    from struphy.feec.mass import WeightedMassOperators
 
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
@@ -57,6 +59,8 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     # DeRham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
+    
+    mass_ops = WeightedMassOperators(derham, domain)
 
     if rank == 0:
         print(derham.domain_array)
@@ -167,7 +171,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     ACC = Accumulator(particles,
                       'Hcurl', 
                       accum_kernels.pc_lin_mhd_6d_full,
-                      derham, 
+                      mass_ops, 
                       domain.args_domain, 
                       add_vector=True, 
                       symmetry='pressure')

@@ -11,6 +11,7 @@ import copy
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
+from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
@@ -19,6 +20,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+import time
 
 
 class Particles(metaclass=ABCMeta):
@@ -51,6 +53,9 @@ class Particles(metaclass=ABCMeta):
     pert_params : dict
         Kinetic perturbation parameters.
 
+    sorting_params : dict
+        Sorting boxes size parameters
+
     marker_params : dict
         Marker parameters for loading.
     """
@@ -64,6 +69,7 @@ class Particles(metaclass=ABCMeta):
                  braginskii_equil: BraginskiiEquilibrium = None,
                  bckgr_params: dict = None,
                  pert_params: dict = None,
+                 sorting_params: dict = None,
                  **marker_params):
 
         if domain is None:
@@ -179,6 +185,17 @@ class Particles(metaclass=ABCMeta):
         # Have at least 3 spare places in markers array
         assert self.args_markers.first_free_idx + 2 < self.n_cols - \
             1, f'{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!'
+
+        # initialize the sorting
+        self._initialized_sorting = False
+        if sorting_params is not None:
+            self._init_sorting_boxes(sorting_params['nx'],
+                                     sorting_params['ny'],
+                                     sorting_params['nz'],
+                                     sorting_params['eps'])
+            self._initialized_sorting = True
+            self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
+
 
     @classmethod
     @abstractmethod
@@ -602,7 +619,7 @@ class Particles(metaclass=ABCMeta):
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(n_rows*0.5), 10), dtype=float)
 
-    def draw_markers(self):
+    def draw_markers(self, sort: 'bool' = True):
         r""" 
         Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
         In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
@@ -670,6 +687,13 @@ class Particles(metaclass=ABCMeta):
             v_\perp = \sqrt{- \ln(1-r)}\sqrt{2}v_\mathrm{th} + u \,.
 
         All needed parameters can be set in the parameter file, see :ref:`params_yml`.
+
+        An initial sorting will be performed if sort is given as True (default) and sorting_params were given to the init.
+
+        Parameters
+        ----------
+        sort : Bool
+            Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
         """
 
         # number of markers on the local process at loading stage
@@ -814,10 +838,10 @@ class Particles(metaclass=ABCMeta):
                     2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
             # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
             elif self.vdim == 2:
-                self.markers[:n_mks_load_loc, 3] = sp.erfinv(
+                self._markers[:n_mks_load_loc, 3] = sp.erfinv(
                     2*self.velocities[:, 0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
 
-                self.markers[:n_mks_load_loc, 4] = np.sqrt(
+                self._markers[:n_mks_load_loc, 4] = np.sqrt(
                     -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
             elif self.vdim == 0:
                 pass
@@ -829,7 +853,7 @@ class Particles(metaclass=ABCMeta):
             self._spatial = self.marker_params['loading']['spatial']
             if self._spatial == 'disc':
                 self._markers[:n_mks_load_loc, 0] = np.sqrt(
-                    self.markers[:n_mks_load_loc, 0])
+                    self._markers[:n_mks_load_loc, 0])
             else:
                 assert self._spatial == 'uniform', f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
 
@@ -857,6 +881,11 @@ class Particles(metaclass=ABCMeta):
 
             assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
                 self._holes[n_mks_load_loc:])
+
+        if self._initialized_sorting and sort:
+            print("Sorting the markers after initial draw")
+            self.mpi_sort_markers()
+            self.do_sort()
 
     def mpi_sort_markers(self,
                          apply_bc: bool = True,
@@ -915,7 +944,7 @@ class Particles(metaclass=ABCMeta):
                          self._markers, self.comm)
 
         # new holes and new number of holes and markers on process
-        self._holes = self.markers[:, 0] == -1.
+        self._holes[:] = self.markers[:, 0] == -1.
         self._n_holes_loc = np.count_nonzero(self.holes)
         self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
@@ -1289,6 +1318,117 @@ class Particles(metaclass=ABCMeta):
         outside_inds = np.nonzero(is_outside)[0]
 
         return outside_inds
+
+    class SortingBoxes:
+        """Boxes used for the sorting of the particles.
+
+        Represented as a 2D array of integers, 
+        each line of the array corespond to one box, 
+        and all the non (-1) entries of line i are the particles in the i-th box
+
+        Parameters
+        ----------
+        nx : int
+            number of boxes in the x direction.
+
+        ny : int
+            number of boxes in the y direction.
+
+        nz : int
+            number of boxes in the z direction.
+
+        markers : 2D numpy.array
+            marker array of the particles.
+
+        box_index : int
+            Column index of the particles array to store the box number, counted from 
+            the end (e.g. -2 for the second-to-last).
+
+        eps : float
+            additional buffer space in the size of the boxes"""
+
+        def __init__(self, nx: 'int', ny: 'int', nz: 'int', markers: 'float[:,:]', box_index: 'int' = -2, eps: 'float' = 0.1):
+            assert isinstance(nx, int)
+            assert isinstance(ny, int)
+            assert isinstance(nz, int)
+            self._nx = nx
+            self._ny = ny
+            self._nz = nz
+            self._markers = markers
+            self._box_index = box_index
+            self._eps = eps
+            self._set_boxes()
+
+        @property
+        def nx(self):
+            return self._nx
+
+        @property
+        def ny(self):
+            return self._ny
+
+        @property
+        def nz(self):
+            return self._nz
+
+        @property
+        def box_index(self):
+            return self._box_index
+
+        def _set_boxes(self):
+            """"(Re)set the box structure."""
+            n_particles = self._markers.shape[0]
+            self._n_boxes = self._nx*self._ny*self._nz
+            n_mkr = int(n_particles/self._n_boxes)+1
+            eps = self._eps
+            n_rows = round(n_mkr *
+                           (1 + 1/np.sqrt(n_mkr)+eps))
+            # cartesian boxes
+            self._boxes = np.zeros((self._n_boxes, n_rows), dtype=int)
+            self._next_index = np.zeros((self._n_boxes+1), dtype=int)
+            self._cumul_next_index = np.zeros((self._n_boxes+2), dtype=int)
+            self._swap_line_1 = np.zeros(self._markers.shape[1])
+            self._swap_line_2 = np.zeros(self._markers.shape[1])
+
+    def _init_sorting_boxes(self, nx, ny, nz, eps):
+        """Initialize the SortingBoxes."""
+        self._sorting_boxes = self.SortingBoxes(
+            nx, ny, nz, self._markers, eps=eps)
+
+    def sort_boxed_particles_numpy(self):
+        """Sort the particles by box using numpy.sort."""
+        sorting_axis = self._sorting_boxes.box_index
+        self._argsort_array[:] = self._markers[:, sorting_axis].argsort(
+        )
+        self._markers[:, :] = self._markers[self._argsort_array]
+
+    def do_sort(self):
+        """Assign the particles to boxes and then sort them."""
+        nx = self._sorting_boxes.nx
+        ny = self._sorting_boxes.ny
+        nz = self._sorting_boxes.nz
+        nboxes = nx*ny*nz
+        domain_array_loc = self.derham.domain_array[self.mpi_rank]
+
+        put_particles_in_boxes(self._markers,
+                               self.holes,
+                               self._sorting_boxes.nx,
+                               self._sorting_boxes.ny,
+                               self._sorting_boxes.nz,
+                               self._sorting_boxes._boxes,
+                               self._sorting_boxes._next_index, domain_array_loc)
+
+        # We could either use numpy routine or kernel to sort
+        # Kernel seems to be 3x faster
+        # self.sort_boxed_particles_numpy()
+
+        sort_boxed_particles(self._markers,
+                             self._sorting_boxes._swap_line_1,
+                             self._sorting_boxes._swap_line_2,
+                             nboxes+1,
+                             self._sorting_boxes._next_index,
+                             self._sorting_boxes._cumul_next_index,
+                             )
 
 
 def sendrecv_determine_mtbs(markers,

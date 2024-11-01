@@ -330,28 +330,28 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
     * ``.npy`` files:
 
       * Particles6D:
-                                
-        ===== ===== ============== ============= 
-        index | 0 | | 1 | 2 | 3 |  | 4 | 5 | 6 | 
-        ===== ===== ============== ============= 
+
+        ===== ===== ============== =============
+        index | 0 | | 1 | 2 | 3 |  | 4 | 5 | 6 |
+        ===== ===== ============== =============
         value  ID   position (xyz)  velocities  
-        ===== ===== ============== ============= 
+        ===== ===== ============== =============
             
       * Particles5D:
-                                        
+
         ===== ===== ================ ========== ====== ============
-        index | 0 | | 1 | 2 | | 3 |     4        5         6        
-        ===== ===== ================ ========== ====== ============ 
+        index | 0 | | 1 | 2 | | 3 |      4        5         6      
+        ===== ===== ================ ========== ====== ============
         value  ID   guiding_center   v_parallel v_perp magn. moment
         ===== ===== ================ ========== ====== ============
         
       * Particles3D:
         
-        ===== ===== ============== 
+        ===== ===== ==============
         index | 0 | | 1 | 2 | 3 | 
-        ===== ===== ============== 
+        ===== ===== ==============
         value  ID   position (xyz)
-        ===== ===== ============== 
+        ===== ===== ==============
 
     * ``.txt`` files :
 
@@ -446,6 +446,7 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
             temp[ids] = markers[n*step, :ids.size, save_index]
 
         # sorting out lost particles
+        ids = temp[:,-1].astype('int')
         ids_lost_particles= np.setdiff1d(np.arange(n_markers), ids)
         lost_particles_mask[:] = False
         lost_particles_mask[ids_lost_particles] = True

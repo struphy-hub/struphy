@@ -5,6 +5,7 @@ from struphy.propagators import propagators_fields, propagators_coupling, propag
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 
 
+
 class LinearMHDVlasovCC(StruphyModel):
     r"""
     Hybrid linear MHD + energetic ions (6D Vlasov) with **current coupling scheme**.
@@ -1077,12 +1078,13 @@ class ColdPlasmaVlasov(StruphyModel):
 
         # Initialize fields and particles
         super().initialize_from_params()
+        
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(self.pointer['hot_electrons'],
                                          "H1",
                                          accum_kernels.vlasov_maxwell_poisson,
-                                         self.derham,
+                                         self.mass_ops,
                                          self.domain.args_domain)
         charge_accum()
 
