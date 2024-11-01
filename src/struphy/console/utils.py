@@ -15,19 +15,19 @@ def generate_batch_script(**kwargs):
     # Default parameters for the batch script
     params = {
         'working_directory': './',
-        'job_name': 'job_struphy',
-        'output_file': "./job_struphy_%j.out",
-        'error_file': "./job_struphy_%j.err",
+        'job-name': 'job_struphy',
+        'output-file': "./job_struphy_%j.out",
+        'error-file': "./job_struphy_%j.err",
         'nodes': 1,
-        'ntasks_per_node': 72,
-        'mail_user': "",
+        'ntasks-per-node': 72,
+        'mail-user': "",
         'time': "00:10:00",
         'venv_path': "~/git_repos/env_struphy_devel",
         'partition': None,
         'ntasks_per_core': None,
         'cpus_per_task': None,
         'memory': '2GB',
-        'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
+        'module-setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
         'likwid': False,
     }
 
@@ -160,8 +160,8 @@ def generate_slurm_header(**kwargs):
 
     # Add SBATCH directives based on kwargs
     for option, description in sbatch_options.items():
-        if option.replace("-", "_") in kwargs and kwargs[option.replace("-", "_")] is not None:
-            script = add_line(script, f"#SBATCH --{option}={kwargs[option.replace('-', '_')]}", description)
+        if option in kwargs and kwargs[option] is not None:
+            script = add_line(script, f"#SBATCH --{option}={kwargs[option]}", description)
     return script
 
 

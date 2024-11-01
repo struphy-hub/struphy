@@ -730,13 +730,6 @@ def struphy():
             help="generate files for struphy",
             description="Generate standard input files such as params or batch scripts.",
         )
-    # subparser.add_argument(
-    #             "input_type",
-    #             type=str,
-    #             choices=['all', 'staged', 'branch'],
-    #             nargs="?",  # optional
-    #             help="specify the files to process",
-    #         )
             
     parser_generate.add_argument(
         'kind',
@@ -748,15 +741,33 @@ def struphy():
     parser_generate.add_argument(
             "--template",
             type=str,
-            default="raven",
-            choices=["raven", "viper"],
+            default=None,
+            choices=[None, "raven", "viper"],
             help="",
         )
+    
+    parser_generate.add_argument(
+        "--slurm-args",
+        nargs="*",
+        action="append",
+        help="Additional SBATCH options in the format key=value",
+    )
 
 
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
+
+    if args.command == 'generate':
+        # Convert additional kwargs to a dictionary
+        extra_kwargs = {}
+        if args.slurm_args:
+            for pair in args.slurm_args:
+                for item in pair:
+                    key, value = item.split("=")
+                    extra_kwargs[key] = value
+            args.slurm_args = extra_kwargs
+
     if args.command == 'format' or args.command == 'lint':
         if not args.input_type and not args.path:
             parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
