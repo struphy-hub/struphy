@@ -32,6 +32,7 @@ def struphy():
     from struphy.console.run import struphy_run
     from struphy.console.test import struphy_test
     from struphy.console.units import struphy_units
+    from struphy.console.generate import struphy_generate
     libpath = struphy.__path__[0]
 
     # create argument parser
@@ -722,6 +723,36 @@ def struphy():
             choices=["table", "plain"],
             help="specify the format of the output: 'table' for tabular output or 'plain' for regular output",
         )
+
+    # 10) generator for input parameters, batch scripts
+    parser_generate = subparsers.add_parser(
+            "generate",
+            help="generate files for struphy",
+            description="Generate standard input files such as params or batch scripts.",
+        )
+    # subparser.add_argument(
+    #             "input_type",
+    #             type=str,
+    #             choices=['all', 'staged', 'branch'],
+    #             nargs="?",  # optional
+    #             help="specify the files to process",
+    #         )
+            
+    parser_generate.add_argument(
+        'kind',
+        type=str,
+        choices=["batch-script", "parameters"],
+        help="",
+    )
+    
+    parser_generate.add_argument(
+            "--template",
+            type=str,
+            default="raven",
+            choices=["raven", "viper"],
+            help="",
+        )
+
 
     # parse argument
     argcomplete.autocomplete(parser)
