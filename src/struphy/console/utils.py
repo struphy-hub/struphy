@@ -36,6 +36,11 @@ def generate_batch_script(**kwargs):
 
     # Start generating the SLURM batch script
     script = "#!/bin/bash\n"
+    print(kwargs)
+    
+    script += generate_slurm_header(**params)
+    print(script)
+    exit()
     script = add_line(script, f"#SBATCH -o {params['output_file']}", "Standard output file")
     script = add_line(script, f"#SBATCH -e {params['error_file']}", "Standard error file")
     script = add_line(script, f"#SBATCH -D {params['working_directory']}", "Working directory")
@@ -109,6 +114,56 @@ def generate_batch_script(**kwargs):
 
     script += "\n"
     return script
+
+
+def generate_slurm_header(**kwargs):
+    """
+    Generate a Slurm batch script with all possible SBATCH options,
+    only adding those provided in kwargs.
+
+    Parameters:
+    - kwargs: Dictionary of parameters for the Slurm script, including SBATCH options.
+
+    Returns:
+    - str: The complete batch script as a string.
+    """
+    # List of all possible SBATCH options with their descriptions
+    sbatch_options = {
+        "job-name": "Job name",
+        "output": "Standard output file",
+        "error": "Standard error file",
+        "workdir": "Working directory",
+        "partition": "Partition to submit to",
+        "nodes": "Number of compute nodes",
+        "ntasks": "Total number of tasks",
+        "ntasks-per-node": "Number of tasks per node",
+        "cpus-per-task": "Number of CPUs per task",
+        "time": "Maximum runtime (HH:MM:SS)",
+        "mem": "Memory allocation",
+        "mail-user": "Email address for notifications",
+        "mail-type": "Type of email notifications (e.g., BEGIN, END, FAIL)",
+        "constraint": "Constraints for selecting nodes",
+        "gres": "Generic resources (e.g., GPUs)",
+        "qos": "Quality of Service",
+        "account": "Account name for resource allocation",
+        "exclude": "Nodes to exclude",
+        "mincpus": "Minimum number of CPUs per node",
+        "requeue": "Requeue the job if it fails",
+        "signal": "Send a signal to the job before it is terminated",
+        "nice": "Set the scheduling priority",
+        "export": "Export environment variables"
+        # Add more options as needed
+    }
+
+    # Start generating the SLURM batch script
+    script = "#!/bin/bash\n"
+
+    # Add SBATCH directives based on kwargs
+    for option, description in sbatch_options.items():
+        if option.replace("-", "_") in kwargs and kwargs[option.replace("-", "_")] is not None:
+            script = add_line(script, f"#SBATCH --{option}={kwargs[option.replace('-', '_')]}", description)
+    return script
+
 
 
 def save_batch_script(batch_script, filename, path=None):
