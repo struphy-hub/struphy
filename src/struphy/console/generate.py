@@ -1,10 +1,11 @@
 from struphy.console.utils import generate_batch_script, save_batch_script
-def struphy_generate(kind, template, likwid = False, **slurm_args):
+def struphy_generate(kind, template, likwid = True, **slurm_args):
     print(f'Generate batch script for {template}')
     sbatch_params = {
         'raven': {
             'ntasks-per-node': 8,
             'module-setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
+            'modules': ["anaconda/3/2023.03", "gcc/12", "openmpi/4.1", "likwid/5.2"],
             'likwid': likwid,
         },
         'cobra': {

@@ -42,8 +42,8 @@ def generate_batch_script(chars_until_comment=80,**kwargs):
     run_script = "\n"#generate_run_script(**params)
 
     script = "#!/bin/bash\n"
-    script += header
-    script += setup
+    script += header + "\n\n"
+    script += setup + "\n\n"
     # script += run_script
 
     return script
@@ -56,8 +56,15 @@ def generate_setup(chars_until_comment=80,**params):
     # Activate environment
     script += "# Activate environment\n"
     script = add_line(script, f"source {params['venv_path']}/bin/activate", "Activate the virtual environment")
+    
+    script += "\n\n"
+    script += "# Load modules\n"
     script = add_line(script, "module purge", "Purge modules")
-    script = add_line(script, params['module-setup'], "Load necessary modules")
+    # script = add_line(script, params['module-setup'], "Load necessary modules")
+    modules = params.get('modules', None)
+    if modules:
+        for module in modules:
+            script = add_line(script, f"module load {module}", f"Load {module}")
     # script = add_line(script, f"export PATH={params['venv_path']}/bin/:$PATH", "Export path")
 
     script += "\n"
@@ -98,13 +105,20 @@ def generate_setup(chars_until_comment=80,**params):
     if params['likwid']:
         likwid_section = "# Add LIKWID-related commands\n"
         likwid_section = add_line(
-            likwid_section, "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)", "Set LIKWID prefix")
-        likwid_section = add_line(likwid_section, "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib",
-                                  "Update LD_LIBRARY_PATH for LIKWID")
-        likwid_section = add_line(likwid_section, "likwid-topology > \"$misc/likwid-topology.txt\"",
-                                  "Save LIKWID topology information")
-        likwid_section = add_line(likwid_section, "likwid-topology -g > \"$misc/likwid-topology-g.txt\"",
-                                  "Save extended LIKWID topology information")
+            likwid_section, "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)", "Set LIKWID prefix",
+        )
+        likwid_section = add_line(
+            likwid_section, "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib",
+            "Update LD_LIBRARY_PATH for LIKWID",
+        )
+        likwid_section = add_line(
+            likwid_section, "likwid-topology",
+            "Show LIKWID topology information",
+        )
+        likwid_section = add_line(
+            likwid_section, "likwid-topology -g",
+            "Show graphical LIKWID topology information",
+        )
         script += likwid_section
         script += "\n"
 
@@ -147,7 +161,7 @@ def generate_slurm_header(chars_until_comment=80, **kwargs):
         "requeue": "Requeue the job if it fails",
         "signal": "Send a signal to the job before it is terminated",
         "nice": "Set the scheduling priority",
-        "export": "Export environment variables"
+        "export": "Export environment variables",
         # Add more options as needed
     }
 
