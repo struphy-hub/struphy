@@ -1,5 +1,7 @@
 from struphy.console.utils import generate_batch_script, save_batch_script
-def struphy_generate(kind, template, likwid = True, **slurm_args):
+
+
+def struphy_generate(kind, template, likwid=True, **slurm_args):
     print(f'Generate batch script for {template}')
     sbatch_params = {
         'raven': {
@@ -22,7 +24,6 @@ def struphy_generate(kind, template, likwid = True, **slurm_args):
         params = {**sbatch_params[template]}
     if slurm_args['slurm_args'] is not None:
         params = {**params, **slurm_args['slurm_args']}
-    batch_script = generate_batch_script(chars_until_comment=60,**params)
+    batch_script = generate_batch_script(chars_until_comment=60, **params)
     print(batch_script)
     print('done')
-    

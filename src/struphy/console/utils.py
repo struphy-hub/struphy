@@ -11,7 +11,7 @@ def add_line(script, line, comment='', chars_until_comment=60):
     return script
 
 
-def generate_batch_script(chars_until_comment=80,**kwargs):
+def generate_batch_script(chars_until_comment=80, **kwargs):
     # Default parameters for the batch script
     params = {
         'working_directory': './',
@@ -34,12 +34,12 @@ def generate_batch_script(chars_until_comment=80,**kwargs):
     # Update params with any provided keyword arguments
     params.update(kwargs)
 
-    # Start generating the SLURM batch script    
-    header = generate_slurm_header(chars_until_comment=chars_until_comment,**params)
+    # Start generating the SLURM batch script
+    header = generate_slurm_header(chars_until_comment=chars_until_comment, **params)
 
-    setup = generate_setup(chars_until_comment=chars_until_comment,**params)
+    setup = generate_setup(chars_until_comment=chars_until_comment, **params)
 
-    run_script = "\n"#generate_run_script(**params)
+    run_script = "\n"  # generate_run_script(**params)
 
     script = "#!/bin/bash\n"
     script += header + "\n\n"
@@ -49,14 +49,14 @@ def generate_batch_script(chars_until_comment=80,**kwargs):
     return script
 
 
-def generate_setup(chars_until_comment=80,**params):
+def generate_setup(chars_until_comment=80, **params):
 
     script = ""
 
     # Activate environment
     script += "# Activate environment\n"
     script = add_line(script, f"source {params['venv_path']}/bin/activate", "Activate the virtual environment")
-    
+
     script += "\n\n"
     script += "# Load modules\n"
     script = add_line(script, "module purge", "Purge modules")
@@ -99,7 +99,6 @@ def generate_setup(chars_until_comment=80,**params):
     script = add_line(script, "    echo \"$var=${!var}\"", "Show SLURM variable")
     script = add_line(script, "done", "End of SLURM variable loop")
     script += "\n"
-
 
     # Add LIKWID-related commands if requested
     if params['likwid']:
@@ -171,11 +170,11 @@ def generate_slurm_header(chars_until_comment=80, **kwargs):
     # Add SBATCH directives based on kwargs
     for option, description in sbatch_options.items():
         if option in kwargs and kwargs[option] is not None:
-            script = add_line(script, f"#SBATCH --{option}={kwargs[option]}", description,chars_until_comment=chars_until_comment)
+            script = add_line(script, f"#SBATCH --{option}={kwargs[option]}",
+                              description, chars_until_comment=chars_until_comment)
     script += "#"*(chars_until_comment+2)
     script += "\n"
     return script
-
 
 
 def save_batch_script(batch_script, filename, path=None):

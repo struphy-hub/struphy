@@ -26,13 +26,13 @@ def struphy():
     import struphy.utils.utils as utils
     from struphy.console.compile import struphy_compile
     from struphy.console.format import struphy_format, struphy_lint
+    from struphy.console.generate import struphy_generate
     from struphy.console.params import struphy_params
     from struphy.console.pproc import struphy_pproc
     from struphy.console.profile import struphy_profile
     from struphy.console.run import struphy_run
     from struphy.console.test import struphy_test
     from struphy.console.units import struphy_units
-    from struphy.console.generate import struphy_generate
     libpath = struphy.__path__[0]
 
     # create argument parser
@@ -726,33 +726,32 @@ def struphy():
 
     # 10) generator for input parameters, batch scripts
     parser_generate = subparsers.add_parser(
-            "generate",
-            help="generate files for struphy",
-            description="Generate standard input files such as params or batch scripts.",
-        )
-            
+        "generate",
+        help="generate files for struphy",
+        description="Generate standard input files such as params or batch scripts.",
+    )
+
     parser_generate.add_argument(
         'kind',
         type=str,
         choices=["batch-script", "parameters"],
         help="",
     )
-    
+
     parser_generate.add_argument(
-            "--template",
-            type=str,
-            default=None,
-            choices=[None, "raven", "viper"],
-            help="",
-        )
-    
+        "--template",
+        type=str,
+        default=None,
+        choices=[None, "raven", "viper"],
+        help="",
+    )
+
     parser_generate.add_argument(
         "--slurm-args",
         nargs="*",
         action="append",
         help="Additional SBATCH options in the format key=value",
     )
-
 
     # parse argument
     argcomplete.autocomplete(parser)
