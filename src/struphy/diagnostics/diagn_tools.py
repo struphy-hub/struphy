@@ -525,83 +525,19 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         path, 'post_processing', 'kinetic_data', species, 'distribution_function', slice_name,
     )
 
-    # Check how many slicings have been given and make slices_2d for all
-    # combinations of spatial and velocity dimensions
-    slices_2d = []
-    directions = slice_name.split('_')
-    for direc1 in directions:
-        if direc1[0] == 'e':
-            for direc2 in directions:
-                if direc2[0] == 'v':
-                    slices_2d += [direc1 + '_' + direc2]
-    print(
-        f"Found {len(slices_2d)} 2D slicing(s) for {species}, proceeding to generate images",
-    )
-
-    # Load all the grids
-    grids = []
-    for direction in directions:
-        grids += [
-            np.load(
-                os.path.join(data_path, 'grid_' + direction + '.npy'),
-            ),
-        ]
-
     # Create folder for images of video
     vid_folder = os.path.join(path, 'videos')
     if not os.path.exists(vid_folder):
         os.mkdir(vid_folder)
 
-    # If simulation was for full-f subtract the background function
-    if marker_type == 'full_f':
-        assert background_params is not None
-
-        # Load background
-        from struphy.kinetic_background import maxwellians
-        background_type = background_params['type']
-        if background_type in background_params.keys():
-            background_function = getattr(
-                maxwellians,
-                background_params['type'],
-            )(background_params[background_type])
-        else:
-            background_function = getattr(
-                maxwellians,
-                background_params['type'],
-            )()
-
-        bckgr_grids = []
-        k = 0
-        for direc in ['e1', 'e2', 'e3', 'v1', 'v2', 'v3']:
-            if direc in directions:
-                bckgr_grids += [grids[k]]
-                k += 1
-            else:
-                bckgr_grids += [np.array(grid_slices[direc])]
-
-        bckgr_mesh = np.meshgrid(*bckgr_grids, indexing='ij')
-
-        background_data = background_function(*bckgr_mesh)
-
-        df_data = np.load(
-            os.path.join(
-                data_path,
-                'f_binned.npy',
-            ),
-        ) - background_data[None, :, :, :, :, :, :].squeeze()
-    elif marker_type in ['control_variate', 'delta_f']:
-        df_data = np.load(
-            os.path.join(
-                data_path,
-                'delta_f_binned.npy',
-            ),
-        )
-    else:
-        raise NotImplementedError(
-            f"Making a video for marker type {marker_type} is not implemented!",
-        )
-
-    assert df_data is not None
+    slices_2d, grids, directions, df_data = get_slices_grids_directions_and_df_data(
+        marker_type=marker_type,
+        background_params=background_params,
+        grid_slices=grid_slices,
+        data_path=data_path,
+        slice_name=slice_name,
+        species=species,
+    )
 
     # Make plot series for each 2D slice
     for slc in slices_2d:
@@ -751,3 +687,264 @@ def phase_space_plots(t_grid, eta_grid, v_grid, df_binned, save_path, model_name
             bbox_inches="tight",
         )
         plt.clf()
+
+
+def phase_space_overview(t_grid, grid_slices, slice_name, marker_type, species, path, model_name, background_params=None):
+    """ Create an overview 2D slices of the distribution function for 6 different times.
+
+    Parameters
+    ----------
+    t_grid : np.ndarray
+        1D-array containing all the times
+
+    grid_slices : dict
+        holds the names of the directions as keys and the values at where the function should
+        be evaluated as values
+
+    slice_name : str
+        The name of the slicing, e.g. e2_v1_v2
+
+    marker_type : str
+        one of full_f, control_variate, delta_f
+
+    species : str
+        the name of the species
+
+    path : str
+        the path to the data of which the videos should be created
+
+    model_name : str
+        name of the model that was run
+
+    background_params : dict [optional]
+        parameters of the maxwellian background type if a full_f method was used
+    """
+    # Make sure that the slice that was saved during the simulation is at least 2D
+    if '_' not in slice_name:
+        return
+
+    data_path = os.path.join(
+        path, 'post_processing', 'kinetic_data', species, 'distribution_function', slice_name,
+    )
+
+    # Create folder for images of video
+    vid_folder = os.path.join(path, 'videos')
+    if not os.path.exists(vid_folder):
+        os.mkdir(vid_folder)
+
+    slices_2d, grids, directions, df_data = get_slices_grids_directions_and_df_data(
+        marker_type=marker_type,
+        background_params=background_params,
+        grid_slices=grid_slices,
+        data_path=data_path,
+        slice_name=slice_name,
+        species=species,
+    )
+
+    # Make plot series for each 2D slice
+    for slc in slices_2d:
+        # Get indices of where to plot in other directions
+        grid_idxs = {}
+        for k in range(df_data.ndim - 1):
+            grid_idxs[directions[k]] = np.argmin(
+                np.abs(grids[k] - grid_slices[directions[k]]),
+            )
+
+        eta_grid = np.load(
+            os.path.join(
+                data_path,
+                'grid_' + slc[:2] + '.npy',
+            ),
+        )
+        v_grid = np.load(
+            os.path.join(
+                data_path,
+                'grid_' + slc[-2:] + '.npy',
+            ),
+        )
+
+        # Prepare slicing
+        f_slicing = [0] * df_data.ndim
+        for k in range(df_data.ndim):
+            # directions in which f is evaluated at a point
+            if directions[k - 1] in slc:
+                f_slicing[k] = slice(None)
+            else:
+                f_slicing[k] = grid_idxs[directions[k - 1]]
+
+        df_binned = df_data[tuple(f_slicing)].squeeze()
+
+        # Create folder for saving the images series
+        imgs_folder = os.path.join(path, slc)
+        if not os.path.exists(imgs_folder):
+            os.mkdir(imgs_folder)
+
+        assert t_grid.ndim == eta_grid.ndim == v_grid.ndim == 1, f"Input arrays must be 1D!"
+        assert df_binned.shape[0] == t_grid.size, f"{df_binned.shape =}, {t_grid.shape =}"
+        assert df_binned.shape[1] == eta_grid.size, f"{df_binned.shape =}, {eta_grid.shape =}"
+        assert df_binned.shape[2] == v_grid.size, f"{df_binned.shape =}, {v_grid.shape =}"
+
+        ee1, vv1 = np.meshgrid(eta_grid, v_grid, indexing='ij')
+
+        # polish data
+        df_binned[np.where(np.abs(df_binned) >= 1.0)] = 0.
+        # df_binned[:, :] -= np.mean(df_binned)
+
+        len_dt = len(str(t_grid[1]).split('.')[1])
+
+        cmap = 'seismic'
+        vmin = np.min(df_binned)/3
+        vmax = np.max(df_binned)/3
+        vscale = np.max([vmin, vmax])
+
+        eta_label = slc[:2]
+        v_label = slc[-2:]
+
+        fig, axes = plt.subplots(3, 2, figsize=(12, 10))
+        # fig.tight_layout(h_pad=5.0, w_pad=5.0)
+        # fig.tight_layout(pad=5.0)
+        plt.subplots_adjust(
+            left=0.05,
+            bottom=0.1,
+            right=0.85,
+            top=0.9,
+            wspace=0.3,
+            hspace=0.35,
+        )
+
+        fig.suptitle(f'Struphy model "{model_name}"')
+        for k in np.arange(6):
+            n = 100*k
+            t = f'%.{len_dt}f' % t_grid[n]
+            im = axes.flatten()[k].pcolor(ee1, vv1, df_binned[n], cmap=cmap, vmin=-vscale, vmax=vscale)
+            axes.flatten()[k].title.set_text(f'$t=${t}')
+            if eta_label is not None:
+                axes.flatten()[k].set_xlabel(fr"$\eta_{eta_label[-1]}$")
+            if v_label is not None:
+                axes.flatten()[k].set_ylabel(fr"$v_{v_label[-1]}$")
+
+        cbar_ax = fig.add_axes([0.9, 0.1, 0.02, 0.7])
+        plt.colorbar(im, cax=cbar_ax)
+        # plt.show()
+        plt.savefig(
+            os.path.join(
+                imgs_folder,
+                'overview.png',
+            ),
+            dpi=150,
+        )
+        plt.clf()
+
+
+def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path, slice_name, species, background_params=None):
+    """ Prepare the lists of slices, grids, and directions form the given data and extract the delta-f data.
+
+    Parameters
+    ----------
+    marker_type : str
+        one of full_f, control_variate, delta_f
+
+    grid_slices : dict
+        holds the names of the directions as keys and the values at where the function should
+        be evaluated as values
+
+    data_path : str
+        the path to the data which should be prepared
+
+    slice_name : str
+        The name of the slicing, e.g. e2_v1_v2
+
+    species : str
+        the name of the species
+
+    background_params : dict [optional]
+        parameters of the maxwellian background type if a full_f method was used
+
+    Returns
+    -------
+    slices_2d : list[string]
+        A list of all the slicings
+
+    grids : list[np.ndarray]
+        A list of all grids according to the slices
+
+    directions : list[string]
+        A list of the directions that appear in all slices
+
+    df_data : np.ndarray
+        The data of delta-f (in case of full-f: distribution function minus background)
+    """
+
+    directions = slice_name.split('_')
+
+    # If simulation was for full-f subtract the background function
+    if marker_type == 'full_f':
+        assert background_params is not None
+
+        # Load background
+        from struphy.kinetic_background import maxwellians
+        background_type = background_params['type']
+        if background_type in background_params.keys():
+            background_function = getattr(
+                maxwellians,
+                background_params['type'],
+            )(background_params[background_type])
+        else:
+            background_function = getattr(
+                maxwellians,
+                background_params['type'],
+            )()
+
+        bckgr_grids = []
+        k = 0
+        for direc in ['e1', 'e2', 'e3', 'v1', 'v2', 'v3']:
+            if direc in directions:
+                bckgr_grids += [grids[k]]
+                k += 1
+            else:
+                bckgr_grids += [np.array(grid_slices[direc])]
+
+        bckgr_mesh = np.meshgrid(*bckgr_grids, indexing='ij')
+
+        background_data = background_function(*bckgr_mesh)
+
+        df_data = np.load(
+            os.path.join(
+                data_path,
+                'f_binned.npy',
+            ),
+        ) - background_data[None, :, :, :, :, :, :].squeeze()
+    elif marker_type in ['control_variate', 'delta_f']:
+        df_data = np.load(
+            os.path.join(
+                data_path,
+                'delta_f_binned.npy',
+            ),
+        )
+    else:
+        raise NotImplementedError(
+            f"Making a video for marker type {marker_type} is not implemented!",
+        )
+
+    # Check how many slicings have been given and make slices_2d for all
+    # combinations of spatial and velocity dimensions
+    slices_2d = []
+    for direc1 in directions:
+        if direc1[0] == 'e':
+            for direc2 in directions:
+                if direc2[0] == 'v':
+                    slices_2d += [direc1 + '_' + direc2]
+    print(
+        f"Found {len(slices_2d)} 2D slicing(s) for {species}, proceeding to generate images",
+    )
+
+    # Load all the grids
+    grids = []
+    for direction in directions:
+        grids += [
+            np.load(
+                os.path.join(data_path, 'grid_' + direction + '.npy'),
+            ),
+        ]
+
+    return slices_2d, grids, directions, df_data
