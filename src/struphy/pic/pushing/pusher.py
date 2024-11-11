@@ -1,11 +1,11 @@
 'Accelerated particle pushing.'
 
 
+import numpy as np
+from mpi4py.MPI import IN_PLACE, SUM
+
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
-
-import numpy as np
-from mpi4py.MPI import SUM, IN_PLACE
 
 
 class Pusher:
@@ -39,11 +39,8 @@ class Pusher:
     rules to follow for iterative solvers:
 
     * Spline/geometry evaluations at :math:`\boldsymbol \eta^n_p` can be be done via ``init_kernels``.
-    * Pusher ``kernel`` and ``eval_kernels`` can perform evaluations at arbitrary
-    weighted averages :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`,
-    for :math:`i=1,2,3`.
-    * MPI sorting is done automatically before kernel calls according to the specified 
-    values :math:`\alpha_i` for each kernel.
+    * Pusher ``kernel`` and ``eval_kernels`` can perform evaluations at arbitrary weighted averages :math:`\eta_{p,i} = \alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`, for :math:`i=1,2,3`.
+    * MPI sorting is done automatically before kernel calls according to the specified values :math:`\alpha_i` for each kernel.
 
     Parameters
     ----------
@@ -100,21 +97,23 @@ class Pusher:
         Whether to print some info or not.
     """
 
-    def __init__(self,
-                 particles: Particles,
-                 kernel,
-                 args_kernel: tuple,
-                 args_derham: DerhamArguments,
-                 args_domain: DomainArguments,
-                 *,
-                 alpha_in_kernel: float | int | tuple | list,
-                 init_kernels: dict = {},
-                 eval_kernels: dict = {},
-                 n_stages: int = 1,
-                 maxiter: int = 1,
-                 tol: float = 1.e-8,
-                 mpi_sort: str = None,
-                 verbose: bool = False):
+    def __init__(
+        self,
+        particles: Particles,
+        kernel,
+        args_kernel: tuple,
+        args_derham: DerhamArguments,
+        args_domain: DomainArguments,
+        *,
+        alpha_in_kernel: float | int | tuple | list,
+        init_kernels: dict = {},
+        eval_kernels: dict = {},
+        n_stages: int = 1,
+        maxiter: int = 1,
+        tol: float = 1.e-8,
+        mpi_sort: str = None,
+        verbose: bool = False,
+    ):
 
         self._particles = particles
         self._kernel = kernel
@@ -182,7 +181,7 @@ class Pusher:
         markers[:, buffer_idx + 3 + vdim: buffer_idx + 3 + vdim + 3] = 0.
 
         # clear buffer columns starting from residual index, dont clear ID (last column)
-        markers[:,  residual_idx:-1] = 0.
+        markers[:, residual_idx:-1] = 0.
 
         if self.verbose:
             rank = self.particles.derham.comm.Get_rank()
@@ -196,13 +195,15 @@ class Pusher:
             comps = ker_args[2]
             add_args = ker_args[3]
 
-            ker(np.array([0., 0., 0., 0., 0., 0.]),
+            ker(
+                np.array([0., 0., 0., 0., 0., 0.]),
                 column_nr,
                 comps,
                 self.particles.args_markers,
                 self._args_derham,
                 self._args_domain,
-                *add_args)
+                *add_args,
+            )
 
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
@@ -215,7 +216,8 @@ class Pusher:
             if self.verbose and self.maxiter > 1:
                 max_res = 1.
                 print(
-                    f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }')
+                    f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                )
                 self.particles.derham.comm.Barrier()
 
             n_not_converged[0] = self.particles.n_mks
@@ -231,28 +233,36 @@ class Pusher:
                     add_args = ker_args[4]
 
                     # sort according to alpha-weighted average
-                    self.particles.mpi_sort_markers(apply_bc=False,
-                                                    alpha=alpha[:3])
+                    self.particles.mpi_sort_markers(
+                        apply_bc=False,
+                        alpha=alpha[:3],
+                    )
                     # evaluate
-                    ker(alpha,
+                    ker(
+                        alpha,
                         column_nr,
                         comps,
                         self.particles.args_markers,
                         self._args_derham,
                         self._args_domain,
-                        *add_args)
+                        *add_args,
+                    )
 
                 # sort according to alpha-weighted average
-                self.particles.mpi_sort_markers(apply_bc=False,
-                                                alpha=self._alpha_in_kernel)
+                self.particles.mpi_sort_markers(
+                    apply_bc=False,
+                    alpha=self._alpha_in_kernel,
+                )
 
                 # push markers
-                self.kernel(dt,
-                            stage,
-                            self.particles.args_markers,
-                            self._args_derham,
-                            self._args_domain,
-                            *self._args_kernel)
+                self.kernel(
+                    dt,
+                    stage,
+                    self.particles.args_markers,
+                    self._args_derham,
+                    self._args_domain,
+                    *self._args_kernel,
+                )
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
 
@@ -265,15 +275,18 @@ class Pusher:
                     self._converged_loc[:] = self._residuals < self._tol
                     self._not_converged_loc[:] = ~self._converged_loc
                     n_not_converged[0] = np.count_nonzero(
-                        self._not_converged_loc)
+                        self._not_converged_loc,
+                    )
 
                     if self.verbose:
                         print(
-                            f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }')
+                            f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                        )
                         self.particles.derham.comm.Barrier()
 
                     self.particles.derham.comm.Allreduce(
-                        self._mpi_in_place, n_not_converged, op=self._mpi_sum)
+                        self._mpi_in_place, n_not_converged, op=self._mpi_sum,
+                    )
 
                     # take converged markers out of the loop
                     markers[self._converged_loc, buffer_idx] = -1.
@@ -283,7 +296,8 @@ class Pusher:
                     if self.maxiter > 1:
                         rank = self.particles.derham.comm.Get_rank()
                         print(
-                            f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }')
+                            f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                        )
                     # sort markers according to domain decomposition
                     if self.mpi_sort == 'each':
                         self.particles.mpi_sort_markers()
@@ -301,7 +315,8 @@ class Pusher:
             # print stage info
             if self.verbose:
                 print(
-                    f'rank {rank}: stage {stage + 1} of {self.n_stages} done.')
+                    f'rank {rank}: stage {stage + 1} of {self.n_stages} done.',
+                )
                 self.particles.derham.comm.Barrier()
 
         # sort markers according to domain decomposition
@@ -402,12 +417,13 @@ class ButcherTableau:
 
     @staticmethod
     def available_methods():
-        meth_avail = ['rk4',
-                      'forward_euler',
-                      'heun2',
-                      'rk2',
-                      'heun3',
-                      ]
+        meth_avail = [
+            'rk4',
+            'forward_euler',
+            'heun2',
+            'rk2',
+            'heun3',
+        ]
         return meth_avail
 
     def __init__(self, algo: str = 'rk4'):
