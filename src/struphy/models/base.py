@@ -1,14 +1,15 @@
+import inspect
+import operator
 from abc import ABCMeta, abstractmethod
+from functools import reduce
+
 import numpy as np
 import yaml
-from functools import reduce
-import operator
-import inspect
 from mpi4py import MPI
-
-from struphy.propagators.base import Propagator
-from struphy.profiling.profiling import ProfileRegion
 from psydac.linalg.stencil import StencilVector
+
+from struphy.profiling.profiling import ProfileRegion
+from struphy.propagators.base import Propagator
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -33,10 +34,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         # TODO: comm=None does not work yet.
 
-        from struphy.io.setup import setup_domain_and_equil, setup_derham
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+        from struphy.io.setup import setup_derham, setup_domain_and_equil
 
         assert 'em_fields' in self.species()
         assert 'fluid' in self.species()
@@ -48,7 +49,8 @@ class StruphyModel(metaclass=ABCMeta):
 
         if params is None:
             params = self.generate_default_parameter_file(
-                save=False, prompt=False)
+                save=False, prompt=False,
+            )
 
         self._params = params
         self._comm = comm
@@ -72,21 +74,29 @@ class StruphyModel(metaclass=ABCMeta):
 
         # compute model units
         self._units, self._equation_params = self.model_units(
-            self.params, verbose=True, comm=self._comm)
+            self.params, verbose=True, comm=self._comm,
+        )
 
         # create domain, equilibrium
         self._domain, self._mhd_equil = setup_domain_and_equil(
-            params, units=self.units)
+            params, units=self.units,
+        )
 
         # TODO: remove
         self._braginskii_equil = self.mhd_equil
 
         if comm.Get_rank() == 0:
             print('\nTIME:')
-            print(f'time step:'.ljust(25), "{0} ({1:4.2e} s)".format(
-                params['time']['dt'], params['time']['dt'] * self.units['t']))
-            print(f'final time:'.ljust(25), "{0} ({1:4.2e} s)".format(
-                params['time']['Tend'], params['time']['Tend'] * self.units['t']))
+            print(
+                f'time step:'.ljust(25), "{0} ({1:4.2e} s)".format(
+                    params['time']['dt'], params['time']['dt'] * self.units['t'],
+                ),
+            )
+            print(
+                f'final time:'.ljust(25), "{0} ({1:4.2e} s)".format(
+                    params['time']['Tend'], params['time']['Tend'] * self.units['t'],
+                ),
+            )
             print(f'splitting algo:'.ljust(25), params['time']['split_algo'])
 
             print('\nDOMAIN:')
@@ -109,18 +119,21 @@ class StruphyModel(metaclass=ABCMeta):
             dims_mask = [True]*3
 
         self._derham = setup_derham(
-            params['grid'], comm=comm, inter_comm=inter_comm, domain=self.domain, mpi_dims_mask=dims_mask)
+            params['grid'], comm=comm, inter_comm=inter_comm, domain=self.domain, mpi_dims_mask=dims_mask,
+        )
 
         # create projected MHD equilibrium
         self._projected_mhd_equil = ProjectedMHDequilibrium(
-            self.mhd_equil, self.derham)
+            self.mhd_equil, self.derham,
+        )
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
             self.derham,
             self.domain,
             eq_mhd=self.mhd_equil,
-            eq_braginskii=self.braginskii_equil)
+            eq_braginskii=self.braginskii_equil,
+        )
 
         # allocate memory for variables
         self._pointer = {}
@@ -140,7 +153,8 @@ class StruphyModel(metaclass=ABCMeta):
         Propagator.domain = self.domain
         Propagator.mass_ops = self.mass_ops
         Propagator.basis_ops = BasisProjectionOperators(
-            self.derham, self.domain, eq_mhd=self.mhd_equil)
+            self.derham, self.domain, eq_mhd=self.mhd_equil,
+        )
         Propagator.projected_mhd_equil = self.projected_mhd_equil
 
         # create dummy lists/dicts to be filled by the sub-class
@@ -352,19 +366,23 @@ class StruphyModel(metaclass=ABCMeta):
                     var_stem += '_' + el
                 species = ['fluid', var_stem]
 
-            cls.add_option(species=species,
-                           option=prop,
-                           dct=dct)
+            cls.add_option(
+                species=species,
+                option=prop,
+                dct=dct,
+            )
 
         return dct
 
     @classmethod
-    def add_option(cls,
-                   species: str | list,
-                   option,
-                   dct: dict,
-                   *,
-                   key=None):
+    def add_option(
+        cls,
+        species: str | list,
+        option,
+        dct: dict,
+        *,
+        key=None,
+    ):
         """ Add an option to the dictionary of parameters under [species][options].
 
         Test with "struphy params MODEL".
@@ -404,8 +422,10 @@ class StruphyModel(metaclass=ABCMeta):
             key = [key]
 
         if inspect.isclass(option):
-            setInDict(dct, species + ['options'] +
-                      [option.__name__], option.options())
+            setInDict(
+                dct, species + ['options'] +
+                [option.__name__], option.options(),
+            )
         else:
             assert key is not None, 'Must provide key if option is not a class.'
             setInDict(dct, species + ['options'] + key, option)
@@ -431,7 +451,8 @@ class StruphyModel(metaclass=ABCMeta):
         assert isinstance(name, str), "name must be a string"
         if compute == 'from_particles':
             assert isinstance(
-                species, str), "species must be a string when compute is 'from_particles'"
+                species, str,
+            ), "species must be a string when compute is 'from_particles'"
 
         self._scalar_quantities[name] = {
             'value': np.empty(1, dtype=float),
@@ -460,8 +481,10 @@ class StruphyModel(metaclass=ABCMeta):
         compute = self._scalar_quantities[name]['compute']
 
         if compute == 'from_particles':
-            compute_operations = ['sum_within_clone',
-                                  'sum_between_clones', 'divide_n_mks']
+            compute_operations = [
+                'sum_within_clone',
+                'sum_between_clones', 'divide_n_mks',
+            ]
         elif compute == 'from_field':
             compute_operations = []
         else:
@@ -477,15 +500,18 @@ class StruphyModel(metaclass=ABCMeta):
             # Perform MPI operations based on the compute flags
             if 'sum_within_clone' in compute_operations:
                 self.derham.comm.Allreduce(
-                    MPI.IN_PLACE, value_array, op=MPI.SUM)
+                    MPI.IN_PLACE, value_array, op=MPI.SUM,
+                )
 
             if 'sum_between_clones' in compute_operations and self.Nclones > 1:
                 self.inter_comm.Allreduce(
-                    MPI.IN_PLACE, value_array, op=MPI.SUM)
+                    MPI.IN_PLACE, value_array, op=MPI.SUM,
+                )
 
             if 'average_between_clones' in compute_operations and self.Nclones > 1:
                 self.inter_comm.Allreduce(
-                    MPI.IN_PLACE, value_array, op=MPI.SUM)
+                    MPI.IN_PLACE, value_array, op=MPI.SUM,
+                )
                 value_array /= self.Nclones
 
             if 'divide_n_mks' in compute_operations:
@@ -493,7 +519,8 @@ class StruphyModel(metaclass=ABCMeta):
                 n_mks_tot = np.array([self.pointer[species].n_mks])
                 if self.Nclones > 1:
                     self.inter_comm.Allreduce(
-                        MPI.IN_PLACE, n_mks_tot, op=MPI.SUM)
+                        MPI.IN_PLACE, n_mks_tot, op=MPI.SUM,
+                    )
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -502,7 +529,8 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             # Sum the values of the summands
             value = sum(
-                self._scalar_quantities[summand]['value'][0] for summand in summands)
+                self._scalar_quantities[summand]['value'][0] for summand in summands
+            )
             self._scalar_quantities[name]['value'][0] = value
 
     def add_time_state(self, time_state):
@@ -541,8 +569,12 @@ class StruphyModel(metaclass=ABCMeta):
                         else:
                             print(f'{k}: {v}')
 
-                prop_instance = prop(*[self.pointer[var]
-                                       for var in variables], **kwargs_i)
+                prop_instance = prop(
+                    *[
+                        self.pointer[var]
+                        for var in variables
+                    ], **kwargs_i,
+                )
                 assert isinstance(prop_instance, Propagator)
                 self._propagators += [prop_instance]
 
@@ -603,7 +635,8 @@ class StruphyModel(metaclass=ABCMeta):
 
         else:
             raise NotImplementedError(
-                f'Splitting scheme {split_algo} not available.')
+                f'Splitting scheme {split_algo} not available.',
+            )
 
     def update_markers_to_be_saved(self):
         '''
@@ -620,7 +653,8 @@ class StruphyModel(metaclass=ABCMeta):
             n_mks_save = val['params']['save_data']['n_markers']
             if n_mks_save > 0:
                 markers_on_proc = np.logical_and(
-                    obj.markers[:, -1] >= 0., obj.markers[:, -1] < n_mks_save)
+                    obj.markers[:, -1] >= 0., obj.markers[:, -1] < n_mks_save,
+                )
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
                 val['kinetic_data']['markers'][:] = -1.
                 val['kinetic_data']['markers'][:n_markers_on_proc] = obj.markers[markers_on_proc]
@@ -690,7 +724,8 @@ class StruphyModel(metaclass=ABCMeta):
                         assert isinstance(obj, Derham.Field)
 
                         obj.initialize_coeffs(
-                            domain=self.domain, mhd_equil=self.mhd_equil)
+                            domain=self.domain, mhd_equil=self.mhd_equil,
+                        )
 
                         if self._comm_world_rank == 0:
                             print(f'EM field "{key}" was initialized with:')
@@ -707,7 +742,8 @@ class StruphyModel(metaclass=ABCMeta):
                                     bckgr_types = bckgr_type
                                 else:
                                     raise NotImplemented(
-                                        'The type of initial background must be null or str or list.')
+                                        'The type of initial background must be null or str or list.',
+                                    )
 
                                 if bckgr_type is not None:
                                     for _type in bckgr_types:
@@ -729,7 +765,8 @@ class StruphyModel(metaclass=ABCMeta):
                                     pert_types = pert_type
                                 else:
                                     raise NotImplemented(
-                                        f'The type of initial perturbation must be null or str or list.')
+                                        f'The type of initial perturbation must be null or str or list.',
+                                    )
 
                                 if pert_type is not None:
                                     for _type in pert_types:
@@ -750,11 +787,13 @@ class StruphyModel(metaclass=ABCMeta):
                             obj = subval['obj']
                             assert isinstance(obj, Derham.Field)
                             obj.initialize_coeffs(
-                                domain=self.domain, mhd_equil=self.mhd_equil, species=species)
+                                domain=self.domain, mhd_equil=self.mhd_equil, species=species,
+                            )
 
                     if self._comm_world_rank == 0:
                         print(
-                            f'Fluid species "{species}" was initialized with:')
+                            f'Fluid species "{species}" was initialized with:',
+                        )
 
                         if 'background' in val['params']:
                             bckgr_type = val['params']['background']['type']
@@ -768,7 +807,8 @@ class StruphyModel(metaclass=ABCMeta):
                                 bckgr_types = bckgr_type
                             else:
                                 raise NotImplemented(
-                                    f'The type of initial perturbation must be null or str or list.')
+                                    f'The type of initial perturbation must be null or str or list.',
+                                )
 
                             if bckgr_type is not None:
                                 for _type in bckgr_types:
@@ -790,7 +830,8 @@ class StruphyModel(metaclass=ABCMeta):
                                 pert_types = pert_type
                             else:
                                 raise NotImplemented(
-                                    f'The type of initial perturbation must be null or str or list.')
+                                    f'The type of initial perturbation must be null or str or list.',
+                                )
 
                             if pert_type is not None:
                                 for _type in pert_types:
@@ -810,7 +851,8 @@ class StruphyModel(metaclass=ABCMeta):
                     if self._comm_world_rank == 0:
                         _type = val['params']['background']['type']
                         print(
-                            f'Kinetic species "{species}" was initialized with:')
+                            f'Kinetic species "{species}" was initialized with:',
+                        )
                         print('type:'.ljust(25), _type)
                         if _type is not None:
                             if not isinstance(_type, list):
@@ -833,7 +875,8 @@ class StruphyModel(metaclass=ABCMeta):
                             obj.save_constants_of_motion(
                                 epsilon=self.equation_params[species]['epsilon'],
                                 f_coords=obj.f0.coords,
-                                initial=True)
+                                initial=True,
+                            )
 
                         obj.initialize_weights()
 
@@ -874,7 +917,8 @@ class StruphyModel(metaclass=ABCMeta):
                         obj = subval['obj']
                         assert isinstance(obj, Derham.Field)
                         obj.initialize_coeffs_from_restart_file(
-                            data.file, species)
+                            data.file, species,
+                        )
 
         # initialize particles
         if len(self.kinetic) > 0:
@@ -910,8 +954,9 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         from psydac.linalg.stencil import StencilVector
-        from struphy.io.output_handling import DataContainer
+
         from struphy.feec.psydac_derham import Derham
+        from struphy.io.output_handling import DataContainer
         from struphy.pic.base import Particles
 
         assert isinstance(data, DataContainer)
@@ -951,13 +996,15 @@ class StruphyModel(metaclass=ABCMeta):
 
                     if isinstance(obj.vector_stencil, StencilVector):
                         data.add_data(
-                            {key_field: obj.vector_stencil._data})
+                            {key_field: obj.vector_stencil._data},
+                        )
 
                     else:
                         for n in range(3):
                             key_component = key_field + '/' + str(n + 1)
                             data.add_data(
-                                {key_component: obj.vector_stencil[n]._data})
+                                {key_component: obj.vector_stencil[n]._data},
+                            )
 
                     # save field meta data
                     data.file[key_field].attrs['space_id'] = obj.space_id
@@ -970,13 +1017,15 @@ class StruphyModel(metaclass=ABCMeta):
 
                 if isinstance(obj.vector_stencil, StencilVector):
                     data.add_data(
-                        {key_field_restart: obj.vector_stencil._data})
+                        {key_field_restart: obj.vector_stencil._data},
+                    )
                 else:
                     for n in range(3):
                         key_component_restart = key_field_restart + \
                             '/' + str(n + 1)
                         data.add_data(
-                            {key_component_restart: obj.vector_stencil[n]._data})
+                            {key_component_restart: obj.vector_stencil[n]._data},
+                        )
 
         # save fluid data in group 'feec/'
         for species, val in self.fluid.items():
@@ -1002,13 +1051,15 @@ class StruphyModel(metaclass=ABCMeta):
 
                         if isinstance(obj.vector_stencil, StencilVector):
                             data.add_data(
-                                {key_field: obj.vector_stencil._data})
+                                {key_field: obj.vector_stencil._data},
+                            )
 
                         else:
                             for n in range(3):
                                 key_component = key_field + '/' + str(n + 1)
                                 data.add_data(
-                                    {key_component: obj.vector_stencil[n]._data})
+                                    {key_component: obj.vector_stencil[n]._data},
+                                )
 
                         # save field meta data
                         data.file[key_field].attrs['space_id'] = obj.space_id
@@ -1021,13 +1072,15 @@ class StruphyModel(metaclass=ABCMeta):
 
                     if isinstance(obj.vector_stencil, StencilVector):
                         data.add_data(
-                            {key_field_restart: obj.vector_stencil._data})
+                            {key_field_restart: obj.vector_stencil._data},
+                        )
                     else:
                         for n in range(3):
                             key_component_restart = key_field_restart + \
                                 '/' + str(n + 1)
                             data.add_data(
-                                {key_component_restart: obj.vector_stencil[n]._data})
+                                {key_component_restart: obj.vector_stencil[n]._data},
+                            )
 
         # save kinetic data in group 'kinetic/'
         for key, val in self.kinetic.items():
@@ -1051,7 +1104,8 @@ class StruphyModel(metaclass=ABCMeta):
                         dims = (len(key2) - 2)//3 + 1
                         for dim in range(dims):
                             data.file[key_f].attrs['bin_centers' + '_' + str(dim + 1)] = val['bin_edges'][key2][dim][:-1] + (
-                                val['bin_edges'][key2][dim][1] - val['bin_edges'][key2][dim][0])/2
+                                val['bin_edges'][key2][dim][1] - val['bin_edges'][key2][dim][0]
+                            )/2
 
                 else:
                     data.add_data({key_dat: val1})
@@ -1076,13 +1130,15 @@ class StruphyModel(metaclass=ABCMeta):
 
                     if isinstance(obj.vector_stencil, StencilVector):
                         data.add_data(
-                            {key_field: obj.vector_stencil._data})
+                            {key_field: obj.vector_stencil._data},
+                        )
 
                     else:
                         for n in range(3):
                             key_component = key_field + '/' + str(n + 1)
                             data.add_data(
-                                {key_component: obj.vector_stencil[n]._data})
+                                {key_component: obj.vector_stencil[n]._data},
+                            )
 
                     # save field meta data
                     data.file[key_field].attrs['space_id'] = obj.space_id
@@ -1095,13 +1151,15 @@ class StruphyModel(metaclass=ABCMeta):
 
                 if isinstance(obj.vector_stencil, StencilVector):
                     data.add_data(
-                        {key_field_restart: obj.vector_stencil._data})
+                        {key_field_restart: obj.vector_stencil._data},
+                    )
                 else:
                     for n in range(3):
                         key_component_restart = key_field_restart + \
                             '/' + str(n + 1)
                         data.add_data(
-                            {key_component_restart: obj.vector_stencil[n]._data})
+                            {key_component_restart: obj.vector_stencil[n]._data},
+                        )
 
         # keys to be saved at each time step and only at end (restart)
         save_keys_all = []
@@ -1156,16 +1214,20 @@ class StruphyModel(metaclass=ABCMeta):
         A_bulk = None
         if 'fluid' in params:
             if cls.bulk_species() in params['fluid']:
-                Z_bulk = params['fluid'][cls.bulk_species()
-                                         ]['phys_params']['Z']
-                A_bulk = params['fluid'][cls.bulk_species()
-                                         ]['phys_params']['A']
+                Z_bulk = params['fluid'][
+                    cls.bulk_species()
+                ]['phys_params']['Z']
+                A_bulk = params['fluid'][
+                    cls.bulk_species()
+                ]['phys_params']['A']
         if 'kinetic' in params:
             if cls.bulk_species() in params['kinetic']:
-                Z_bulk = params['kinetic'][cls.bulk_species()
-                                           ]['phys_params']['Z']
-                A_bulk = params['kinetic'][cls.bulk_species()
-                                           ]['phys_params']['A']
+                Z_bulk = params['kinetic'][
+                    cls.bulk_species()
+                ]['phys_params']['Z']
+                A_bulk = params['kinetic'][
+                    cls.bulk_species()
+                ]['phys_params']['A']
 
         # compute model units
         if 'kBT' in params['units']:
@@ -1173,36 +1235,54 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             kBT = None
 
-        units = derive_units(Z_bulk=Z_bulk,
-                             A_bulk=A_bulk,
-                             x=params['units']['x'],
-                             B=params['units']['B'],
-                             n=params['units']['n'],
-                             kBT=kBT,
-                             velocity_scale=cls.velocity_scale())
+        units = derive_units(
+            Z_bulk=Z_bulk,
+            A_bulk=A_bulk,
+            x=params['units']['x'],
+            B=params['units']['B'],
+            n=params['units']['n'],
+            kBT=kBT,
+            velocity_scale=cls.velocity_scale(),
+        )
 
         # print to screen
         if verbose and rank == 0:
 
             print('\nUNITS:')
-            print(f'Unit of length:'.ljust(25),
-                  '{:4.3e}'.format(units['x']) + ' m')
-            print(f'Unit of time:'.ljust(25),
-                  '{:4.3e}'.format(units['t']) + ' s')
-            print(f'Unit of velocity:'.ljust(25),
-                  '{:4.3e}'.format(units['v']) + ' m/s')
-            print(f'Unit of magnetic field:'.ljust(25),
-                  '{:4.3e}'.format(units['B']) + ' T')
+            print(
+                f'Unit of length:'.ljust(25),
+                '{:4.3e}'.format(units['x']) + ' m',
+            )
+            print(
+                f'Unit of time:'.ljust(25),
+                '{:4.3e}'.format(units['t']) + ' s',
+            )
+            print(
+                f'Unit of velocity:'.ljust(25),
+                '{:4.3e}'.format(units['v']) + ' m/s',
+            )
+            print(
+                f'Unit of magnetic field:'.ljust(25),
+                '{:4.3e}'.format(units['B']) + ' T',
+            )
 
             if A_bulk is not None:
-                print(f'Unit of particle density:'.ljust(25),
-                      '{:4.3e}'.format(units['n']) + ' m⁻³')
-                print(f'Unit of mass density:'.ljust(25),
-                      '{:4.3e}'.format(units['rho']) + ' kg/m³')
-                print(f'Unit of pressure:'.ljust(25),
-                      '{:4.3e}'.format(units['p'] * 1e-5) + ' bar')
-                print(f'Unit of current density:'.ljust(25),
-                      '{:4.3e}'.format(units['j']) + ' A/m²')
+                print(
+                    f'Unit of particle density:'.ljust(25),
+                    '{:4.3e}'.format(units['n']) + ' m⁻³',
+                )
+                print(
+                    f'Unit of mass density:'.ljust(25),
+                    '{:4.3e}'.format(units['rho']) + ' kg/m³',
+                )
+                print(
+                    f'Unit of pressure:'.ljust(25),
+                    '{:4.3e}'.format(units['p'] * 1e-5) + ' bar',
+                )
+                print(
+                    f'Unit of current density:'.ljust(25),
+                    '{:4.3e}'.format(units['j']) + ' A/m²',
+                )
 
         # compute equation parameters for each species
         e = 1.602176634e-19  # elementary charge (C)
@@ -1316,10 +1396,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
     @classmethod
     def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
-        import struphy
-        import yaml
         import os
 
+        import yaml
+
+        import struphy
         import struphy.utils.utils as utils
 
         # Read struphy state file
@@ -1342,18 +1423,23 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             if yn in ('', 'Y', 'y', 'yes', 'Yes'):
                 with open(file, 'w') as outfile:
-                    yaml.dump(parameters, outfile, Dumper=MyDumper,
-                              default_flow_style=None, sort_keys=False, indent=4, line_break='\n')
+                    yaml.dump(
+                        parameters, outfile, Dumper=MyDumper,
+                        default_flow_style=None, sort_keys=False, indent=4, line_break='\n',
+                    )
                 print(
-                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".')
+                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".',
+                )
             else:
                 pass
 
     @classmethod
-    def generate_default_parameter_file(cls,
-                                        file: str = None,
-                                        save: bool = True,
-                                        prompt: bool = True):
+    def generate_default_parameter_file(
+        cls,
+        file: str = None,
+        save: bool = True,
+        prompt: bool = True,
+    ):
         '''Generate a parameter file with default options for each species,
         and save it to the current input path.
 
@@ -1374,9 +1460,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         -------
         The default parameter dictionary.'''
 
-        import struphy
-        import yaml
         import os
+
+        import yaml
+
+        import struphy
         from struphy.io.setup import descend_options_dict
 
         libpath = struphy.__path__[0]
@@ -1407,36 +1495,41 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # get rid of species names in initial conditions (add back later)
         parameters['kinetic']['species_name'].pop('background')
-        parameters['kinetic']['species_name']['markers']['loading'].pop(
-            'moments')
+        # parameters['kinetic']['species_name']['markers']['loading'].pop(
+        #     'moments')
 
         for keys in bckgr_params_scalar:
             parameters['em_fields']['background'][bckgr_type].pop(keys)
             parameters['em_fields']['background'][bckgr_type][keys] = {}
             parameters['fluid']['species_name']['background'][bckgr_type].pop(
-                keys)
+                keys,
+            )
             parameters['fluid']['species_name']['background'][bckgr_type][keys] = {}
 
         for keys in pert_params_scalar:
             parameters['em_fields']['perturbation'][pert_type].pop(keys)
             parameters['em_fields']['perturbation'][pert_type][keys] = {}
             parameters['fluid']['species_name']['perturbation'][pert_type].pop(
-                keys)
+                keys,
+            )
             parameters['fluid']['species_name']['perturbation'][pert_type][keys] = {}
             parameters['kinetic']['species_name']['perturbation'][pert_type].pop(
-                keys)
+                keys,
+            )
             parameters['kinetic']['species_name']['perturbation'][pert_type][keys] = {}
 
         # standard Maxwellians
-        maxw_name = {'6D': 'Maxwellian3D',
-                     '5D': 'GyroMaxwellian2D',
-                     '4D': 'Maxwellian1D',
-                     '3D': 'Constant'}
+        maxw_name = {
+            '6D': 'Maxwellian3D',
+            '5D': 'GyroMaxwellian2D',
+            '4D': 'Maxwellian1D',
+            '3D': 'Constant',
+        }
 
-        moms = {'6D': [0., 0., 0., 1., 1., 1.],
-                '5D': [0., 0., 1., 1.],
-                '4D': [0., 1.],
-                '3D': []}
+        # moms = {'6D': [0., 0., 0., 1., 1., 1.],
+        #         '5D': [0., 0., 1., 1.],
+        #         '4D': [0., 1.],
+        #         '3D': []}
 
         # init options dicts
         d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
@@ -1465,8 +1558,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # find out the default em_fields options of the model
         if 'options' in cls.options()['em_fields']:
             # create the default options parameters
-            d_default = descend_options_dict(cls.options()['em_fields']['options'],
-                                             d_opts['em_fields'])
+            d_default = descend_options_dict(
+                cls.options()['em_fields']['options'],
+                d_opts['em_fields'],
+            )
 
             parameters['em_fields']['options'] = d_default
 
@@ -1485,8 +1580,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     d_opts['fluid'][name] = []
 
                     # create the default options parameters
-                    d_default = descend_options_dict(cls.options()['fluid'][name]['options'],
-                                                     d_opts['fluid'][name])
+                    d_default = descend_options_dict(
+                        cls.options()['fluid'][name]['options'],
+                        d_opts['fluid'][name],
+                    )
 
                     parameters['fluid'][name]['options'] = d_default
 
@@ -1525,16 +1622,20 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     d_opts['kinetic'][name] = []
 
                     # create the default options parameters
-                    d_default = descend_options_dict(cls.options()['kinetic'][name]['options'],
-                                                     d_opts['kinetic'][name])
+                    d_default = descend_options_dict(
+                        cls.options()['kinetic'][name]['options'],
+                        d_opts['kinetic'][name],
+                    )
 
                     parameters['kinetic'][name]['options'] = d_default
 
                 # set the correct names in the parameter file
                 dim = kind[-2:]
-                parameters['kinetic'][name]['background'] = {'type': maxw_name[dim],
-                                                             maxw_name[dim]: {'n': 0.05}}
-                parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
+                parameters['kinetic'][name]['background'] = {
+                    'type': maxw_name[dim],
+                    maxw_name[dim]: {'n': 0.05},
+                }
+                # parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
                 for keys, vals in pert_params_scalar.items():
                     parameters['kinetic'][name]['perturbation'][pert_type][keys]['n'] = vals
@@ -1549,7 +1650,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 parameters['diagnostics'][name] = {'save_data': True}
 
         cls.write_parameters_to_file(
-            parameters=parameters, file=file, save=save, prompt=prompt)
+            parameters=parameters, file=file, save=save, prompt=prompt,
+        )
 
         return parameters
 
@@ -1594,7 +1696,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert isinstance(space, dict)
             assert 'fluid' in self.params, 'Top-level key "fluid" is missing in parameter file.'
             assert var_name in self.params[
-                'fluid'], f'Fluid species {var_name} is missing in parameter file.'
+                'fluid'
+            ], f'Fluid species {var_name} is missing in parameter file.'
 
             if self._comm_world_rank == 0:
                 print('fluid:'.ljust(25), f'"{var_name}" ({space})')
@@ -1650,8 +1753,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         Creates FEM fields for em-fields and fluid variables and a particle class for kinetic species.
         """
 
-        from struphy.pic import particles
         from struphy.feec.psydac_derham import Derham
+        from struphy.pic import particles
         from struphy.pic.base import Particles
 
         # allocate memory for FE coeffs of electromagnetic fields/potentials
@@ -1674,10 +1777,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if 'params' in key:
                     continue
                 else:
-                    val['obj'] = self.derham.create_field(key,
-                                                          val['space'],
-                                                          bckgr_params=bckgr_params,
-                                                          pert_params=pert_params)
+                    val['obj'] = self.derham.create_field(
+                        key,
+                        val['space'],
+                        bckgr_params=bckgr_params,
+                        pert_params=pert_params,
+                    )
 
                     self._pointer[key] = val['obj'].vector
 
@@ -1707,10 +1812,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                             variable,
                             subval['space'],
                             bckgr_params=bckgr_params,
-                            pert_params=pert_params)
+                            pert_params=pert_params,
+                        )
 
-                        self._pointer[species + '_' +
-                                      variable] = subval['obj'].vector
+                        self._pointer[
+                            species + '_' +
+                            variable
+                        ] = subval['obj'].vector
 
         # marker arrays and plasma parameters of kinetic species
         if 'kinetic' in self.params:
@@ -1745,7 +1853,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     braginskii_equil=self.braginskii_equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params,
-                    sorting_params=sorting_params
+                    sorting_params=sorting_params,
                 )
 
                 obj = val['obj']
@@ -1760,7 +1868,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if n_markers > 0:
                     val['kinetic_data'] = {}
                     val['kinetic_data']['markers'] = np.zeros(
-                        (n_markers, obj.markers.shape[1]), dtype=float)
+                        (n_markers, obj.markers.shape[1]), dtype=float,
+                    )
 
                 # for storing the distribution function
                 if 'f' in val['params']['save_data']:
@@ -1780,12 +1889,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                             val['bin_edges'][sli] = []
                             dims = (len(sli) - 2)//3 + 1
                             for j in range(dims):
-                                val['bin_edges'][sli] += [np.linspace(
-                                    ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1)]
+                                val['bin_edges'][sli] += [
+                                    np.linspace(
+                                        ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1,
+                                    ),
+                                ]
                             val['kinetic_data']['f'][sli] = np.zeros(
-                                n_bins[i], dtype=float)
+                                n_bins[i], dtype=float,
+                            )
                             val['kinetic_data']['df'][sli] = np.zeros(
-                                n_bins[i], dtype=float)
+                                n_bins[i], dtype=float,
+                            )
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
@@ -1798,10 +1912,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if 'params' in key:
                     continue
                 else:
-                    val['obj'] = self.derham.create_field(key,
-                                                          val['space'],
-                                                          bckgr_params=None,
-                                                          pert_params=None)
+                    val['obj'] = self.derham.create_field(
+                        key,
+                        val['space'],
+                        bckgr_params=None,
+                        pert_params=None,
+                    )
 
                     self._pointer[key] = val['obj'].vector
 
@@ -1855,7 +1971,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # compute model units
         units, equation_params = self.model_units(
-            self.params, verbose=False, comm=self.comm)
+            self.params, verbose=False, comm=self.comm,
+        )
 
         # units affices for printing
         units_affix = {}
@@ -1911,16 +2028,26 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         if verbose:
             print('\nPLASMA PARAMETERS:')
-            print(f'Plasma volume:'.ljust(25),
-                  '{:4.3e}'.format(plasma_volume) + units_affix['plasma volume'])
-            print(f'Transit length:'.ljust(25),
-                  '{:4.3e}'.format(transit_length) + units_affix['transit length'])
-            print(f'Avg. magnetic field:'.ljust(25),
-                  '{:4.3e}'.format(magnetic_field) + units_affix['magnetic field'])
-            print(f'Max magnetic field:'.ljust(25),
-                  '{:4.3e}'.format(B_max) + units_affix['magnetic field'])
-            print(f'Min magnetic field:'.ljust(25),
-                  '{:4.3e}'.format(B_min) + units_affix['magnetic field'])
+            print(
+                f'Plasma volume:'.ljust(25),
+                '{:4.3e}'.format(plasma_volume) + units_affix['plasma volume'],
+            )
+            print(
+                f'Transit length:'.ljust(25),
+                '{:4.3e}'.format(transit_length) + units_affix['transit length'],
+            )
+            print(
+                f'Avg. magnetic field:'.ljust(25),
+                '{:4.3e}'.format(magnetic_field) + units_affix['magnetic field'],
+            )
+            print(
+                f'Max magnetic field:'.ljust(25),
+                '{:4.3e}'.format(B_max) + units_affix['magnetic field'],
+            )
+            print(
+                f'Min magnetic field:'.ljust(25),
+                '{:4.3e}'.format(B_min) + units_affix['magnetic field'],
+            )
 
         # species dependent parameters
         pparams = {}
@@ -1936,11 +2063,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # charge (C)
                 pparams[species]['charge'] = val['params']['phys_params']['Z'] * e
                 # density (m⁻³)
-                pparams[species]['density'] = np.mean(self.mhd_equil.n0(
-                    eta1, eta2, eta3) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                pparams[species]['density'] = np.mean(
+                    self.mhd_equil.n0(
+                        eta1, eta2, eta3,
+                    ) * np.abs(det_tmp),
+                ) * units['x']**3 / plasma_volume * units['n']
                 # pressure (bar)
-                pparams[species]['pressure'] = np.mean(self.mhd_equil.p0(
-                    eta1, eta2, eta3) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['p'] * 1e-5
+                pparams[species]['pressure'] = np.mean(
+                    self.mhd_equil.p0(
+                        eta1, eta2, eta3,
+                    ) * np.abs(det_tmp),
+                ) * units['x']**3 / plasma_volume * units['p'] * 1e-5
                 # thermal energy (keV)
                 pparams[species]['kBT'] = pparams[species]['pressure'] * \
                     1e5 / pparams[species]['density'] / e * 1e-3
@@ -1948,7 +2081,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if len(self.kinetic) > 0:
 
             eta1mg, eta2mg, eta3mg = np.meshgrid(
-                eta1, eta2, eta3, indexing='ij'
+                eta1, eta2, eta3, indexing='ij',
             )
 
             for species, val in self.kinetic.items():
@@ -1983,19 +2116,20 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         pass_braginskii_equil = None
 
                         print(
-                            f'\n{fi} is not in tmp_params; default background parameters are used.')
+                            f'\n{fi} is not in tmp_params; default background parameters are used.',
+                        )
 
                     if tmp is None:
                         tmp = getattr(maxwellians, fi_type)(
                             maxw_params=maxw_params,
                             mhd_equil=pass_mhd_equil,
-                            braginskii_equil=pass_braginskii_equil
+                            braginskii_equil=pass_braginskii_equil,
                         )
                     else:
                         tmp = tmp + getattr(maxwellians, fi_type)(
                             maxw_params=maxw_params,
                             mhd_equil=pass_mhd_equil,
-                            braginskii_equil=pass_braginskii_equil
+                            braginskii_equil=pass_braginskii_equil,
                         )
 
                 if tmp.coords == 'constants_of_motion':
@@ -2005,11 +2139,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     psi = self.mhd_equil.psi_r(r)
 
                     # density (m⁻³)
-                    pparams[species]['density'] = np.mean(tmp.n(
-                        psi) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                    pparams[species]['density'] = np.mean(
+                        tmp.n(
+                            psi,
+                        ) * np.abs(det_tmp),
+                    ) * units['x']**3 / plasma_volume * units['n']
                     # thermal speed (m/s)
-                    pparams[species]['v_th'] = np.mean(tmp.vth(
-                        psi) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['v']
+                    pparams[species]['v_th'] = np.mean(
+                        tmp.vth(
+                            psi,
+                        ) * np.abs(det_tmp),
+                    ) * units['x']**3 / plasma_volume * units['v']
                     # thermal energy (keV)
                     pparams[species]['kBT'] = pparams[species]['mass'] * \
                         pparams[species]['v_th']**2 / e * 1e-3
@@ -2029,7 +2169,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     for k in range(len(vths)):
                         vth += [
                             vths[k] * np.abs(det_tmp) *
-                            units['x']**3 / plasma_volume * units['v']
+                            units['x']**3 / plasma_volume * units['v'],
                         ]
                     thermal_speed = 0.
                     for dir in range(val['obj'].vdim):
@@ -2053,10 +2193,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         for species in pparams:
             # alfvén speed (m/s)
             pparams[species]['v_A'] = magnetic_field / np.sqrt(
-                mu0 * pparams[species]['mass'] * pparams[species]['density'])
+                mu0 * pparams[species]['mass'] * pparams[species]['density'],
+            )
             # thermal speed (m/s)
             pparams[species]['v_th'] = np.sqrt(
-                pparams[species]['kBT'] * 1e3 * e / pparams[species]['mass'])
+                pparams[species]['kBT'] * 1e3 * e / pparams[species]['mass'],
+            )
             # thermal frequency (Mrad/s)
             pparams[species]['Omega_th'] = pparams[species]['v_th'] / \
                 transit_length * 1e-6
@@ -2064,8 +2206,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             pparams[species]['Omega_c'] = pparams[species]['charge'] * \
                 magnetic_field / pparams[species]['mass'] * 1e-6
             # plasma frequency (Mrad/s)
-            pparams[species]['Omega_p'] = np.sqrt(pparams[species]['density'] * (
-                pparams[species]['charge'])**2 / eps0 / pparams[species]['mass']) * 1e-6
+            pparams[species]['Omega_p'] = np.sqrt(
+                pparams[species]['density'] * (
+                    pparams[species]['charge']
+                )**2 / eps0 / pparams[species]['mass'],
+            ) * 1e-6
             # alfvén frequency (Mrad/s)
             pparams[species]['Omega_A'] = pparams[species]['v_A'] / \
                 transit_length * 1e-6
@@ -2087,8 +2232,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 ch.pop('type')
                 print(f'is bulk:'.ljust(25), species == self.bulk_species())
                 for kinds, vals in ch.items():
-                    print(kinds.ljust(25), '{:+4.3e}'.format(
-                        vals), units_affix[kinds])
+                    print(
+                        kinds.ljust(25), '{:+4.3e}'.format(
+                            vals,
+                        ), units_affix[kinds],
+                    )
                 print('------------------------------------')
 
         return pparams
