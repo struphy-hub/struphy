@@ -92,7 +92,7 @@ kinetic :
             loading :
                 type          : pseudo_random # particle loading mechanism 
                 seed          : 1234 # seed for random number generator
-                moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                # moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec. Are now automatically generated.
                 spatial       : uniform # uniform or disc
                 dir_particles : 'path_to_particles' # directory of particles if loaded externally
         save_data :
