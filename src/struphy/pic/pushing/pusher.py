@@ -53,9 +53,6 @@ class Pusher:
     args_kernel : tuple
         Optional arguments passed to the kernel.
 
-    args_derham : DerhamArguments
-        Discrete FE space infos.
-
     args_domain : DomainArguments
         Mapping infos.
 
@@ -102,7 +99,6 @@ class Pusher:
         particles: Particles,
         kernel,
         args_kernel: tuple,
-        args_derham: DerhamArguments,
         args_domain: DomainArguments,
         *,
         alpha_in_kernel: float | int | tuple | list,
@@ -119,7 +115,6 @@ class Pusher:
         self._kernel = kernel
         self._newton = 'newton' in kernel.__name__
         self._args_kernel = args_kernel
-        self._args_derham = args_derham
         self._args_domain = args_domain
 
         # determines the evaluation points for kernel
@@ -200,7 +195,6 @@ class Pusher:
                 column_nr,
                 comps,
                 self.particles.args_markers,
-                self._args_derham,
                 self._args_domain,
                 *add_args,
             )
@@ -233,33 +227,33 @@ class Pusher:
                     add_args = ker_args[4]
 
                     # sort according to alpha-weighted average
-                    self.particles.mpi_sort_markers(
-                        apply_bc=False,
-                        alpha=alpha[:3],
-                    )
+                    if self.particles.mpi_comm is not None:
+                        self.particles.mpi_sort_markers(
+                            apply_bc=False,
+                            alpha=alpha[:3],
+                        )
                     # evaluate
                     ker(
                         alpha,
                         column_nr,
                         comps,
                         self.particles.args_markers,
-                        self._args_derham,
                         self._args_domain,
                         *add_args,
                     )
 
                 # sort according to alpha-weighted average
-                self.particles.mpi_sort_markers(
-                    apply_bc=False,
-                    alpha=self._alpha_in_kernel,
-                )
+                if self.particles.mpi_comm is not None:
+                    self.particles.mpi_sort_markers(
+                        apply_bc=False,
+                        alpha=self._alpha_in_kernel,
+                    )
 
                 # push markers
                 self.kernel(
                     dt,
                     stage,
                     self.particles.args_markers,
-                    self._args_derham,
                     self._args_domain,
                     *self._args_kernel,
                 )
@@ -300,15 +294,20 @@ class Pusher:
                         )
                     # sort markers according to domain decomposition
                     if self.mpi_sort == 'each':
-                        self.particles.mpi_sort_markers()
-
+                        if self.particles.mpi_comm is not None:
+                            self.particles.mpi_sort_markers()
+                        else:
+                            self.particles.apply_kinetic_bc()
                     break
 
                 # check for convergence
                 if n_not_converged[0] == 0:
                     # sort markers according to domain decomposition
-                    if self.mpi_sort == 'each':
-                        self.particles.mpi_sort_markers()
+                    if self.mpi_sort == 'each' :
+                        if self.particles.mpi_comm is not None:
+                            self.particles.mpi_sort_markers()
+                        else:
+                            self.particles.apply_kinetic_bc()
 
                     break
 
@@ -321,7 +320,10 @@ class Pusher:
 
         # sort markers according to domain decomposition
         if self.mpi_sort == 'last':
-            self.particles.mpi_sort_markers(do_test=True)
+            if self.particles.mpi_comm is not None:
+                self.particles.mpi_sort_markers(do_test=True)
+            else:
+                self.particles.apply_kinetic_bc()
 
     @property
     def particles(self):
@@ -352,12 +354,6 @@ class Pusher:
         """ Optional arguments for kernel.
         """
         return self._args_kernel
-
-    @property
-    def args_derham(self):
-        """ Mandatory Derham arguments.
-        """
-        return self._args_derham
 
     @property
     def args_domain(self):

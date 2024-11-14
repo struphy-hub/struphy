@@ -153,16 +153,18 @@ class VlasovAmpere(Propagator):
         )
 
         # Instantiate particle pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._e_sum.blocks[0]._data,
+            self._e_sum.blocks[1]._data,
+            self._e_sum.blocks[2]._data,
+            self._c2,
+        )
+
         self._pusher = Pusher(
             particles,
             pusher_kernels.push_v_with_efield,
-            (
-                self._e_sum.blocks[0]._data,
-                self._e_sum.blocks[1]._data,
-                self._e_sum.blocks[2]._data,
-                self._c2,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -377,16 +379,18 @@ class EfieldWeights(Propagator):
         )
 
         # Instantiate particle pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._e_sum.blocks[0]._data,
+            self._e_sum.blocks[1]._data,
+            self._e_sum.blocks[2]._data,
+            self._f0_values, self._kappa, self._vth,
+        )
+
         self._pusher = Pusher(
             particles,
             pusher_kernels.push_weights_with_efield_lin_va,
-            (
-                self._e_sum.blocks[0]._data,
-                self._e_sum.blocks[1]._data,
-                self._e_sum.blocks[2]._data,
-                self._f0_values, self._kappa, self._vth,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -1164,15 +1168,18 @@ class PressureCoupling6D(Propagator):
         self._tmp_g2 = self._G.codomain.zeros()
         self._tmp_g3 = self._G.codomain.zeros()
 
+        # instantiate Pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._tmp_g1[0]._data, self._tmp_g1[1]._data, self._tmp_g1[2]._data,
+            self._tmp_g2[0]._data, self._tmp_g2[1]._data, self._tmp_g2[2]._data,
+            self._tmp_g3[0]._data, self._tmp_g3[1]._data, self._tmp_g3[2]._data,
+        )
+
         self._pusher = Pusher(
             particles,
             pusher_ker,
-            (
-                self._tmp_g1[0]._data, self._tmp_g1[1]._data, self._tmp_g1[2]._data,
-                self._tmp_g2[0]._data, self._tmp_g2[1]._data, self._tmp_g2[2]._data,
-                self._tmp_g3[0]._data, self._tmp_g3[1]._data, self._tmp_g3[2]._data,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -1480,7 +1487,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._u_avg1 = u.space.zeros()
         self._u_avg2 = self._EuT.codomain.zeros()
 
-        # load particle pusher
+        # load particle pusher kernel
         if u_space == 'Hcurl':
             kernel = pusher_kernels.push_bxu_Hcurl
         elif u_space == 'Hdiv':
@@ -1492,18 +1499,21 @@ class CurrentCoupling6DCurrent(Propagator):
                 f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
             )
 
+        # instantiate Pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._b_full2[0]._data,
+            self._b_full2[1]._data,
+            self._b_full2[2]._data,
+            self._u_avg2[0]._data,
+            self._u_avg2[1]._data,
+            self._u_avg2[2]._data,
+        )
+
         self._pusher = Pusher(
             particles,
             kernel,
-            (
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._u_avg2[0]._data,
-                self._u_avg2[1]._data,
-                self._u_avg2[2]._data,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -1779,18 +1789,21 @@ class CurrentCoupling5DCurlb(Propagator):
                 f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
             )
 
+        # instantiate Pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._epsilon,
+            self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
+            self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+            self._u_avg2[0]._data, self._u_avg2[1]._data, self._u_avg2[2]._data,
+            0.,
+        )
+
         self._pusher = Pusher(
             particles,
             kernel,
-            (
-                self._epsilon,
-                self._b_full2[0]._data, self._b_full2[1]._data, self._b_full2[2]._data,
-                self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-                self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                self._u_avg2[0]._data, self._u_avg2[1]._data, self._u_avg2[2]._data,
-                0.,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -2191,7 +2204,7 @@ class CurrentCoupling5DGradB(Propagator):
         # choose algorithm
         self._butcher = ButcherTableau(algo)
 
-        # instantiate Pusher_
+        # instantiate Pusher
         if u_space == 'Hdiv':
             kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
         elif u_space == 'H1vec':
@@ -2201,11 +2214,12 @@ class CurrentCoupling5DGradB(Propagator):
                 f'{u_space = } not valid, choose from "Hdiv" or "H1vec.',
             )
 
+        args_kernel = (self.derham.args_derham,)
+
         self._pusher = Pusher(
             particles,
             kernel,
-            (None),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -2324,8 +2338,8 @@ class CurrentCoupling5DGradB(Propagator):
                 dt,
                 stage,
                 self.particles[0].args_markers,
-                self.derham.args_derham,
                 self.domain.args_domain,
+                self.derham.args_derham,
                 self._epsilon,
                 Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
                 self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
