@@ -28,8 +28,8 @@ def push_v_with_efield(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
     const: 'float',
 ):
@@ -115,8 +115,8 @@ def push_vxb_analytic(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]',
     b2_2: 'float[:,:,:]',
     b2_3: 'float[:,:,:]',
@@ -226,8 +226,8 @@ def push_vxb_implicit(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]',
     b2_2: 'float[:,:,:]',
     b2_3: 'float[:,:,:]',
@@ -347,8 +347,8 @@ def push_pxb_analytic(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]',
 ):
@@ -485,8 +485,8 @@ def push_hybrid_xp_lnn(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     p_shape: 'int[:]', p_size: 'float[:]', Nel: 'int[:]',
     pts1: 'float[:]', pts2: 'float[:]', pts3: 'float[:]',
     wts1: 'float[:]', wts2: 'float[:]', wts3: 'float[:]',
@@ -673,8 +673,8 @@ def push_hybrid_xp_ap(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     pn1: int, pn2: int, pn3: int,
     a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]',
 ):
@@ -794,12 +794,14 @@ def push_hybrid_xp_ap(
         a_xx[0, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] -
             2, args_derham.pn[1], args_derham.pn[2], bdd1, args_derham.bn2, args_derham.bn3, span1, span2, span3, a1_1, args_derham.starts, int(
-                1),
+                1,
+            ),
         )
         a_xx[0, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1, args_derham.pn[1] -
             1, args_derham.pn[2], args_derham.bd1, args_derham.bd2, args_derham.bn3, span1, span2, span3, a1_1, args_derham.starts, int(
-                2),
+                2,
+            ),
         )
         a_xx[0, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1, args_derham.pn[1], args_derham.pn[2] -
@@ -809,12 +811,14 @@ def push_hybrid_xp_ap(
         a_xx[1, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1, args_derham.pn[1] -
             1, args_derham.pn[2], args_derham.bd1, args_derham.bd2, args_derham.bn3, span1, span2, span3, a1_2, args_derham.starts, int(
-                1),
+                1,
+            ),
         )
         a_xx[1, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0], args_derham.pn[1] -
             2, args_derham.pn[2], args_derham.bn1, bdd2, args_derham.bn3, span1, span2, span3, a1_2, args_derham.starts, int(
-                2),
+                2,
+            ),
         )
         a_xx[1, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0], args_derham.pn[1] - 1, args_derham.pn[2] -
@@ -888,8 +892,8 @@ def push_bxu_Hdiv(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]',
 ):
@@ -993,8 +997,8 @@ def push_bxu_Hcurl(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     u1_1: 'float[:,:,:]', u1_2: 'float[:,:,:]', u1_3: 'float[:,:,:]',
 ):
@@ -1102,8 +1106,8 @@ def push_bxu_H1vec(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     uv_1: 'float[:,:,:]', uv_2: 'float[:,:,:]', uv_3: 'float[:,:,:]',
 ):
@@ -1207,8 +1211,8 @@ def push_bxu_Hdiv_pauli(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     pn1: int, pn2: int, pn3: int,
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]',
@@ -1352,8 +1356,8 @@ def push_pc_GXu_full(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
     GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
     GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]',
@@ -1458,8 +1462,8 @@ def push_pc_GXu(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
     GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
     GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]',
@@ -1557,7 +1561,6 @@ def push_eta_stage(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
     a: 'float[:]',
     b: 'float[:]',
@@ -1637,8 +1640,8 @@ def push_pc_eta_rk4_Hcurl_full(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
 ):
     r'''Fourth order Runge-Kutta solve of
@@ -1763,8 +1766,8 @@ def push_pc_eta_rk4_Hdiv_full(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
 ):
     r'''Fourth order Runge-Kutta solve of
@@ -1887,8 +1890,8 @@ def push_pc_eta_rk4_H1vec_full(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
 ):
     r'''Fourth order Runge-Kutta solve of
@@ -2009,8 +2012,8 @@ def push_pc_eta_rk4_Hcurl(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
 ):
     r'''Fourth order Runge-Kutta solve of
@@ -2136,8 +2139,8 @@ def push_pc_eta_rk4_Hdiv(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
 ):
     r'''Fourth order Runge-Kutta solve of
@@ -2261,8 +2264,8 @@ def push_pc_eta_rk4_H1vec(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
 ):
     r'''Fourth order Runge-Kutta solve of
@@ -2384,8 +2387,8 @@ def push_weights_with_efield_lin_va(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
     f0_values: 'float[:]', kappa: 'float', vth: 'float',
 ):
@@ -2471,8 +2474,8 @@ def push_weights_with_efield_lin_vm(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
     f0_values: 'float[:]', f0_params: 'float[:]',
     n_markers_tot: 'int', kappa: 'float',
@@ -2567,8 +2570,8 @@ def push_weights_with_efield_delta_f_vm(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
     f0_values: 'float[:]', vth: 'float',
     kappa: 'float', substep: 'int',
@@ -2675,8 +2678,8 @@ def push_x_v_static_efield(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
     weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
     e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
@@ -2790,8 +2793,8 @@ def push_deterministic_diffusion_stage(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
     pi_u: 'float[:,:,:]',
     pi_grad_u1: 'float[:,:,:]', pi_grad_u2: 'float[:,:,:]', pi_grad_u3: 'float[:,:,:]',
     diffusion_coeff: float,
@@ -2888,7 +2891,6 @@ def push_random_diffusion_stage(
     dt: float,
     stage: int,
     args_markers: 'MarkerArguments',
-    args_derham: 'DerhamArguments',
     args_domain: 'DomainArguments',
     noise: 'float[:,:]', diffusion_coeff: float,
     a: 'float[:]', b: 'float[:]', c: 'float[:]',

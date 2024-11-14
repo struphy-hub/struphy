@@ -66,12 +66,10 @@ class PushEta(Propagator):
             butcher.c,
         )
 
-        # instantiate Pusher
         self._pusher = Pusher(
             particles,
             kernel,
             args_kernel,
-            self.derham.args_derham,
             self.domain.args_domain,
             alpha_in_kernel=1.,
             n_stages=butcher.n_stages,
@@ -141,6 +139,7 @@ class PushVxB(Propagator):
 
         # instantiate Pusher
         args_kernel = (
+            self.derham.args_derham,
             self._b_full[0]._data,
             self._b_full[1]._data,
             self._b_full[2]._data,
@@ -150,7 +149,6 @@ class PushVxB(Propagator):
             particles,
             kernel,
             args_kernel,
-            self.derham.args_derham,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -255,15 +253,17 @@ class PushEtaPC(Propagator):
                     f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
                 )
 
+        args_kernel = (
+            self.derham.args_derham,
+            self._u[0]._data,
+            self._u[1]._data,
+            self._u[2]._data,
+        )
+
         self._pusher = Pusher(
             particles,
             kernel,
-            (
-                self._u[0]._data,
-                self._u[1]._data,
-                self._u[2]._data,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
             n_stages=4,
@@ -397,6 +397,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     first_free_idx,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         self._phi._data,
@@ -409,6 +410,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     first_free_idx + 1,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         curl_unit_b_dot_b0._data,
@@ -420,6 +422,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     first_free_idx + 2,
                     (0, 1, 2),
                     (
+                        self.derham.args_derham,
                         unit_b1[0]._data,
                         unit_b1[1]._data, unit_b1[2]._data,
                     ),
@@ -432,6 +435,7 @@ class PushGuidingCenterBxEstar(Propagator):
                         first_free_idx + 5,
                         None,
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._B_dot_b._data,
                             self._phi._data,
@@ -445,6 +449,7 @@ class PushGuidingCenterBxEstar(Propagator):
                         first_free_idx + 6,
                         None,
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._B_dot_b._data,
                             self._phi._data,
@@ -458,6 +463,7 @@ class PushGuidingCenterBxEstar(Propagator):
                         first_free_idx + 7,
                         (0,),
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                             self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
@@ -471,6 +477,7 @@ class PushGuidingCenterBxEstar(Propagator):
                         first_free_idx + 8,
                         (0, 1),
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                             self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
@@ -484,6 +491,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     alpha_in_kernel = 1.  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                         self._B_dot_b._data,
@@ -499,6 +507,7 @@ class PushGuidingCenterBxEstar(Propagator):
                         first_free_idx + 5,
                         None,
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._B_dot_b._data,
                             self._phi._data,
@@ -512,6 +521,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                     alpha_in_kernel = .5  # evaluate at mid-point
                     args_kernel = (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                         self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
@@ -525,6 +535,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     first_free_idx,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         self._phi._data,
@@ -538,6 +549,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     first_free_idx + 1,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         self._phi._data,
@@ -551,6 +563,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
                 alpha_in_kernel = .5  # evaluate at mid-point
                 args_kernel = (
+                    self.derham.args_derham,
                     self._epsilon,
                     unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                     self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
@@ -570,7 +583,6 @@ class PushGuidingCenterBxEstar(Propagator):
                 particles,
                 kernel,
                 args_kernel,
-                self.derham.args_derham,
                 self.domain.args_domain,
                 alpha_in_kernel=alpha_in_kernel,
                 init_kernels=self.init_kernels,
@@ -587,6 +599,7 @@ class PushGuidingCenterBxEstar(Propagator):
             kernel = pusher_kernels_gc.push_gc_bxEstar_explicit_multistage
 
             args_kernel = (
+                self.derham.args_derham,
                 self._epsilon,
                 unit_b1[0]._data, unit_b1[1]._data, unit_b1[2]._data,
                 self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
@@ -601,7 +614,6 @@ class PushGuidingCenterBxEstar(Propagator):
                 particles,
                 kernel,
                 args_kernel,
-                self.derham.args_derham,
                 self.domain.args_domain,
                 alpha_in_kernel=1.,
                 n_stages=butcher.n_stages,
@@ -772,6 +784,7 @@ class PushGuidingCenterParallel(Propagator):
                     first_free_idx,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         self._phi._data,
@@ -784,6 +797,7 @@ class PushGuidingCenterParallel(Propagator):
                     first_free_idx + 1,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         curl_unit_b_dot_b0._data,
@@ -795,6 +809,7 @@ class PushGuidingCenterParallel(Propagator):
                     first_free_idx + 2,
                     (0, 1, 2),
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         b2[0]._data, b2[1]._data, b2[2]._data,
                         curl_unit_b2[0]._data, curl_unit_b2[1]._data, curl_unit_b2[2]._data,
@@ -808,6 +823,7 @@ class PushGuidingCenterParallel(Propagator):
                         first_free_idx + 5,
                         None,
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._B_dot_b._data,
                             self._phi._data,
@@ -821,6 +837,7 @@ class PushGuidingCenterParallel(Propagator):
                         first_free_idx + 6,
                         None,
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._B_dot_b._data,
                             self._phi._data,
@@ -834,6 +851,7 @@ class PushGuidingCenterParallel(Propagator):
                         first_free_idx + 7,
                         (0,),
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                             self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
@@ -847,6 +865,7 @@ class PushGuidingCenterParallel(Propagator):
                         first_free_idx + 8,
                         (0, 1),
                         (
+                            self.derham.args_derham,
                             self._epsilon,
                             self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                             self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
@@ -860,6 +879,7 @@ class PushGuidingCenterParallel(Propagator):
 
                     alpha_in_kernel = 1.  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                         self._B_dot_b._data,
@@ -874,6 +894,7 @@ class PushGuidingCenterParallel(Propagator):
                         first_free_idx + 5,
                         None,
                         args_eval=(
+                            self.derham.args_derham,
                             self._epsilon,
                             self._B_dot_b._data,
                             self._phi._data,
@@ -887,6 +908,7 @@ class PushGuidingCenterParallel(Propagator):
 
                     alpha_in_kernel = .5  # evaluate at mid-point
                     args_kernel = (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                         self._e_field[0]._data, self._e_field[1]._data, self._e_field[2]._data,
@@ -900,6 +922,7 @@ class PushGuidingCenterParallel(Propagator):
                     first_free_idx,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         self._phi._data,
@@ -913,6 +936,7 @@ class PushGuidingCenterParallel(Propagator):
                     first_free_idx + 1,
                     None,
                     (
+                        self.derham.args_derham,
                         self._epsilon,
                         self._B_dot_b._data,
                         self._phi._data,
@@ -926,6 +950,7 @@ class PushGuidingCenterParallel(Propagator):
 
                 alpha_in_kernel = .5  # evaluate at mid-point
                 args_kernel = (
+                    self.derham.args_derham,
                     self._epsilon,
                     self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                     b2[0]._data, b2[1]._data, b2[2]._data,
@@ -946,7 +971,6 @@ class PushGuidingCenterParallel(Propagator):
                 particles,
                 kernel,
                 args_kernel,
-                self.derham.args_derham,
                 self.domain.args_domain,
                 alpha_in_kernel=alpha_in_kernel,
                 init_kernels=self.init_kernels,
@@ -963,6 +987,7 @@ class PushGuidingCenterParallel(Propagator):
             kernel = pusher_kernels_gc.push_gc_Bstar_explicit_multistage
 
             args_kernel = (
+                self.derham.args_derham,
                 self._epsilon,
                 self._grad_b_full[0]._data, self._grad_b_full[1]._data, self._grad_b_full[2]._data,
                 b2[0]._data, b2[1]._data, b2[2]._data,
@@ -978,7 +1003,6 @@ class PushGuidingCenterParallel(Propagator):
                 particles,
                 kernel,
                 args_kernel,
-                self.derham.args_derham,
                 self.domain.args_domain,
                 alpha_in_kernel=1.,
                 n_stages=butcher.n_stages,
@@ -1054,16 +1078,19 @@ class PushVinEfield(Propagator):
         assert isinstance(e_field, (BlockVector, PolarVector))
         self._e_field = e_field
 
+        # instantiate Pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._e_field.blocks[0]._data,
+            self._e_field.blocks[1]._data,
+            self._e_field.blocks[2]._data,
+            self.kappa,
+        )
+
         self._pusher = Pusher(
             particles,
             pusher_kernels.push_v_with_efield,
-            (
-                self._e_field.blocks[0]._data,
-                self._e_field.blocks[1]._data,
-                self._e_field.blocks[2]._data,
-                self.kappa,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
         )
@@ -1218,16 +1245,19 @@ class PushDeterministicDiffusion(Propagator):
             self.domain.args_domain,
         )
 
+        # instantiate Pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._u_on_grid.vectors[0]._data,
+            self._tmp[0]._data, self._tmp[1]._data, self._tmp[2]._data,
+            self._diffusion,
+            self._butcher.a, self._butcher.b, self._butcher.c,
+        )
+
         self._pusher = Pusher(
             particles,
             pusher_kernels.push_deterministic_diffusion_stage,
-            (
-                self._u_on_grid.vectors[0]._data,
-                self._tmp[0]._data, self._tmp[1]._data, self._tmp[2]._data,
-                self._diffusion,
-                self._butcher.a, self._butcher.b, self._butcher.c,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
             n_stages=self._butcher.n_stages,
@@ -1301,15 +1331,17 @@ class PushRandomDiffusion(Propagator):
         # choose algorithm
         self._butcher = ButcherTableau('forward_euler')
 
+        # instantiate Pusher
+        args_kernel = (
+            self._noise,
+            self._diffusion,
+            self._butcher.a, self._butcher.b, self._butcher.c,
+        )
+
         self._pusher = Pusher(
             particles,
             pusher_kernels.push_random_diffusion_stage,
-            (
-                self._noise,
-                self._diffusion,
-                self._butcher.a, self._butcher.b, self._butcher.c,
-            ),
-            self.derham.args_derham,
+            args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.,
             n_stages=self._butcher.n_stages,

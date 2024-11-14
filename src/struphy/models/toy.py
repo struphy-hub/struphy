@@ -993,7 +993,7 @@ class DeterministicParticleDiffusion(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushDeterministicDiffusion] = {
             'algo': algo,
-            'bc_type': params['markers']['bc']['type'],
+            'bc_type': params['markers']['bc'],
             'diffusion_coefficient': diffusion_coefficient,
         }
 
@@ -1082,7 +1082,7 @@ class RandomParticleDiffusion(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushRandomDiffusion] = {
             'algo': algo,
-            'bc_type': species1_params['markers']['bc']['type'],
+            'bc_type': species1_params['markers']['bc'],
             'diffusion_coefficient': diffusion_coefficient,
         }
 

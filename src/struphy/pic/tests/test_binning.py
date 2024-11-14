@@ -2,14 +2,12 @@ import pytest
 
 # TODO: add tests for Particles5D
 
-
 # ===========================================
 # ========== single-threaded tests ==========
 # ===========================================
+
+
 @pytest.mark.mpi_skip
-@pytest.mark.parametrize('Nel', [[12, 9, 2]])
-@pytest.mark.parametrize('p', [[3, 2, 1]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 @pytest.mark.parametrize(
     'mapping', [
         [
@@ -21,20 +19,11 @@ import pytest
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
     ],
 )
-def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
+def test_binning_6D_full_f(mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for full-f Particles6D.
 
     Parameters
     ----------
-    Nel : list[int]
-        number of elements in each space-direction
-
-    p : list[int]
-        number of spline degrees in each space-direction
-
-    spl_kind : list[int]
-        periodicity of splines in each space-direction
-
     mapping : tuple[String, dict] (or list with 2 entries)
         name and specification of the mapping
     """
@@ -43,7 +32,6 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     import numpy as np
     from mpi4py import MPI
 
-    from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
@@ -58,36 +46,25 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # Psydac discrete Derham sequence
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
-    assert size == 1
-    derham = Derham(Nel, p, spl_kind, comm=comm)
-
     # create particles
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
     }
-    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
+    bc_params = ['periodic', 'periodic', 'periodic']
 
     # ===========================================
     # ===== Test Maxwellian in v1 direction =====
     # ===========================================
-    marker_params = {
-        'Np': Np,
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
-    }
-    bckgr_params = None
-
     particles = Particles6D(
-        'energetic_ions', **marker_params,
-        bckgr_params=bckgr_params, derham=derham,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        loading_params=loading_params,
+        domain=domain,
     )
+
     particles.draw_markers()
 
     # test weights
@@ -123,14 +100,6 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     # =========================================
     # ===== Test cosine in eta1 direction =====
     # =========================================
-    marker_params = {
-        'Np': Np,
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
-    }
-    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -144,10 +113,13 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
-        bckgr_params=bckgr_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        loading_params=loading_params,
+        domain=domain,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -183,16 +155,8 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
-    }
-    marker_params = {
-        'Np': Np,
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
     }
     n1 = 0.8
     n2 = 0.2
@@ -232,10 +196,14 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        loading_params=loading_params,
+        domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -303,9 +271,6 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
 
 
 @pytest.mark.mpi_skip
-@pytest.mark.parametrize('Nel', [[12, 9, 2]])
-@pytest.mark.parametrize('p', [[3, 2, 1]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 @pytest.mark.parametrize(
     'mapping', [
         [
@@ -317,20 +282,11 @@ def test_binning_6D_full_f(Nel, p, spl_kind, mapping, show_plot=False):
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
     ],
 )
-def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
+def test_binning_6D_delta_f(mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for delta-f Particles6D.
 
     Parameters
     ----------
-    Nel : list[int]
-        number of elements in each space-direction
-
-    p : list[int]
-        number of spline degrees in each space-direction
-
-    spl_kind : list[int]
-        periodicity of splines in each space-direction
-
     mapping : tuple[String, dict] (or list with 2 entries)
         name and specification of the mapping
     """
@@ -339,7 +295,6 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     import numpy as np
     from mpi4py import MPI
 
-    from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
@@ -354,32 +309,16 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # Psydac discrete Derham sequence
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
-    assert size == 1
-    derham = Derham(Nel, p, spl_kind, comm=comm)
-
     # create particles
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
     }
-    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
+    bc_params = ['periodic', 'periodic', 'periodic']
 
     # =========================================
     # ===== Test cosine in eta1 direction =====
     # =========================================
-    marker_params = {
-        'Np': Np,
-        'type': 'delta_f',
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
-    }
-    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -393,10 +332,14 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
-        bckgr_params=bckgr_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        type='delta_f',
+        loading_params=loading_params,
+        domain=domain,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -432,17 +375,8 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
-    }
-    marker_params = {
-        'Np': Np,
-        'type': 'delta_f',
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
     }
     n1 = 0.8
     n2 = 0.2
@@ -484,10 +418,14 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        type='delta_f',
+        loading_params=loading_params,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -557,12 +495,7 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
 # ==========================================
 # ========== multi-threaded tests ==========
 # ==========================================
-
-
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[12, 9, 2]])
-@pytest.mark.parametrize('p', [[3, 2, 1]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 @pytest.mark.parametrize(
     'mapping', [
         [
@@ -574,20 +507,11 @@ def test_binning_6D_delta_f(Nel, p, spl_kind, mapping, show_plot=False):
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
     ],
 )
-def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
+def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for full-f Particles6D with mpi.
 
     Parameters
     ----------
-    Nel : list[int]
-        number of elements in each space-direction
-
-    p : list[int]
-        number of spline degrees in each space-direction
-
-    spl_kind : list[int]
-        periodicity of splines in each space-direction
-
     mapping : tuple[String, dict] (or list with 2 entries)
         name and specification of the mapping
     """
@@ -596,7 +520,6 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     import numpy as np
     from mpi4py import MPI
 
-    from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
@@ -616,31 +539,25 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     size = comm.Get_size()
     rank = comm.Get_rank()
     assert size > 1
-    derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # create particles
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
     }
-    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
+    bc_params = ['periodic', 'periodic', 'periodic']
 
     # ===========================================
     # ===== Test Maxwellian in v1 direction =====
     # ===========================================
-    marker_params = {
-        'Np': Np,
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
-    }
-    bckgr_params = None
-
     particles = Particles6D(
-        'energetic_ions', **marker_params,
-        bckgr_params=bckgr_params, derham=derham,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        loading_params=loading_params,
+        comm=comm,
+        domain=domain,
     )
     particles.draw_markers()
 
@@ -682,14 +599,6 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     # =========================================
     # ===== Test cosine in eta1 direction =====
     # =========================================
-    marker_params = {
-        'Np': Np,
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
-    }
-    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -703,10 +612,14 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
-        bckgr_params=bckgr_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        loading_params=loading_params,
+        comm=comm,
+        domain=domain,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -747,16 +660,8 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
-    }
-    marker_params = {
-        'Np': Np,
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
     }
     n1 = 0.8
     n2 = 0.2
@@ -796,10 +701,15 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        loading_params=loading_params,
+        comm=comm,
+        domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -872,9 +782,6 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[12, 9, 2]])
-@pytest.mark.parametrize('p', [[3, 2, 1]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 @pytest.mark.parametrize(
     'mapping', [
         [
@@ -886,20 +793,11 @@ def test_binning_6D_full_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
         #     'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
     ],
 )
-def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
+def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     """ Test Maxwellian in v1-direction and cosine perturbation for delta-f Particles6D with mpi.
 
     Parameters
     ----------
-    Nel : list[int]
-        number of elements in each space-direction
-
-    p : list[int]
-        number of spline degrees in each space-direction
-
-    spl_kind : list[int]
-        periodicity of splines in each space-direction
-
     mapping : tuple[String, dict] (or list with 2 entries)
         name and specification of the mapping
     """
@@ -908,7 +806,6 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     import numpy as np
     from mpi4py import MPI
 
-    from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
@@ -928,28 +825,17 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     size = comm.Get_size()
     rank = comm.Get_rank()
     assert size > 1
-    derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # create particles
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
     }
-    bc_params = {'type': ['periodic', 'periodic', 'periodic']}
+    bc_params = ['periodic', 'periodic', 'periodic']
 
     # =========================================
     # ===== Test cosine in eta1 direction =====
     # =========================================
-    marker_params = {
-        'Np': Np,
-        'type': 'delta_f',
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
-    }
-    bckgr_params = None
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -963,10 +849,15 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
-        bckgr_params=bckgr_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        type='delta_f',
+        loading_params=loading_params,
+        comm=comm,
+        domain=domain,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -1007,17 +898,8 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
     loading_params = {
-        'type': 'pseudo_random',
         'seed': seed,
         'spatial': 'uniform',
-    }
-    marker_params = {
-        'Np': Np,
-        'type': 'delta_f',
-        'eps': .25,
-        'loading': loading_params,
-        'bc': bc_params,
-        'domain': domain,
     }
     n1 = 0.8
     n2 = 0.2
@@ -1059,10 +941,16 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
     }
 
     particles = Particles6D(
-        'energetic_ions', **marker_params,
+        name='energetic_ions',
+        Np=Np,
+        bc=bc_params,
+        loading='pseudo_random',
+        type='delta_f',
+        loading_params=loading_params,
+        comm=comm,
+        domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
-        derham=derham,
     )
     particles.draw_markers()
     particles.initialize_weights()
@@ -1135,16 +1023,14 @@ def test_binning_6D_delta_f_mpi(Nel, p, spl_kind, mapping, show_plot=False):
 
 
 if __name__ == '__main__':
+
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
 
-    if size == 1:
+    if comm is None or size == 1:
         test_binning_6D_full_f(
-            Nel=[24, 1, 1],
-            p=[3, 1, 1],
-            spl_kind=[True, False, False],
             mapping=[
                 'Cuboid',
                 # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
@@ -1156,9 +1042,6 @@ if __name__ == '__main__':
             show_plot=True,
         )
         test_binning_6D_delta_f(
-            Nel=[24, 1, 1],
-            p=[3, 1, 1],
-            spl_kind=[True, False, False],
             mapping=[
                 'Cuboid',
                 # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
@@ -1168,9 +1051,6 @@ if __name__ == '__main__':
         )
     else:
         test_binning_6D_full_f_mpi(
-            Nel=[24, 1, 1],
-            p=[3, 1, 1],
-            spl_kind=[True, False, False],
             mapping=[
                 'Cuboid',
                 # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
@@ -1182,9 +1062,6 @@ if __name__ == '__main__':
             show_plot=True,
         )
         test_binning_6D_delta_f_mpi(
-            Nel=[24, 1, 1],
-            p=[3, 1, 1],
-            spl_kind=[True, False, False],
             mapping=[
                 'Cuboid',
                 # {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
