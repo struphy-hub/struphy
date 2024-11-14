@@ -3,9 +3,8 @@
 """
 Basic functions for point-wise B-spline evaluation
 """
-from pyccel.decorators import pure, stack_array
-
 from numpy import empty, zeros
+from pyccel.decorators import pure, stack_array
 
 
 @pure
@@ -256,8 +255,9 @@ def basis_funs_all_ders(knots: 'float[:]', degree: int, eta: float, span: int, l
                 d = a[s2, 0] * ndu[rk, pk]
             j1 = 1 if (rk > -1) else -rk
             j2 = k-1 if (r-1 <= pk) else degree-r
-            a[s2, j1:j2+1] = (a[s1, j1:j2+1] - a[s1, j1-1:j2]
-                              ) * ndu[pk+1, rk+j1:rk+j2+1]
+            a[s2, j1:j2+1] = (
+                a[s1, j1:j2+1] - a[s1, j1-1:j2]
+            ) * ndu[pk+1, rk+j1:rk+j2+1]
             for l in range(j2 + 1 - j1):
                 d += a[s2, j1 + l] * ndu[rk + j1 + l, pk]
             #d += dot(a[s2, j1:j2+1], ndu[rk+j1:rk+j2+1, pk])
@@ -375,8 +375,10 @@ def d_splines_slim(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', values:
 
     # compute D-splines values by scaling
     for il in range(pd + 1):
-        values[pd - il] = pn/(tn[span - il + pn] -
-                              tn[span - il]) * b_values[pd - il]
+        values[pd - il] = pn/(
+            tn[span - il + pn] -
+            tn[span - il]
+        ) * b_values[pd - il]
 
 
 @pure
@@ -427,8 +429,10 @@ def b_d_splines_slim(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', bn: '
         if j == pn-1:
             # compute D-splines values by scaling B-splines of degree pn-1
             for il in range(pd + 1):
-                bd[pd - il] = pn/(tn[span - il + pn] -
-                                  tn[span - il]) * bn[pd - il]
+                bd[pd - il] = pn/(
+                    tn[span - il + pn] -
+                    tn[span - il]
+                ) * bn[pd - il]
 
         for r in range(j + 1):
             temp = bn[r]/(right[r] + left[j - r])
@@ -656,7 +660,7 @@ def b_spl_1st_der_slim(t: 'float[:]', p: 'int', eta: 'float', span: 'int', value
 def piecewise(p: 'int', delta: 'float', eta: 'float') -> 'float':
     r"""
     evaluate a hat function (B-spline) centered at eta0 (the center of the support) at eta1, i.e. 
-    
+
     .. math::
         1.0 / delta * S((eta1 - eta0)/ delta)
 
@@ -753,7 +757,7 @@ def piecewise_der(p: 'int', delta: 'float', eta: 'float') -> 'float':
 def convolution(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
     r"""
     evaluate a hat function (B-spline) at eta, i.e. 
-    
+
     .. math::
         1.0 / delta * S(eta/ delta)
 
@@ -808,7 +812,7 @@ def convolution(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
 def convolution_der(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
     r"""
     evaluate the derivative of a hat function (B-spline) at eta, i.e. 
-    
+
     .. math::
         1.0 / delta^2 * S'(eta/ delta)
 
