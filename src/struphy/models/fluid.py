@@ -696,7 +696,7 @@ class ViscoresistiveMHD(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {propagators_fields.VariationalDensityEvolve: ['mhd_rho3', 'mhd_uv'],
-                propagators_fields.VariationalMomentumAdvection: ['mhd_uv'],
+                #propagators_fields.VariationalMomentumAdvection: ['mhd_uv'],
                 propagators_fields.VariationalEntropyEvolve: ['mhd_s3', 'mhd_uv'],
                 propagators_fields.VariationalMagFieldEvolve: ['b2', 'mhd_uv'],
                 propagators_fields.VariationalViscosity: ['mhd_s3', 'mhd_uv'],
@@ -761,9 +761,9 @@ class ViscoresistiveMHD(StruphyModel):
                                                                      'lin_solver': lin_solver_density,
                                                                      'nonlin_solver': nonlin_solver_density}
 
-        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {'mass_ops': self.WMM,
-                                                                         'lin_solver': lin_solver_momentum,
-                                                                         'nonlin_solver': nonlin_solver_momentum}
+        # self._kwargs[propagators_fields.VariationalMomentumAdvection] = {'mass_ops': self.WMM,
+        #                                                                  'lin_solver': lin_solver_momentum,
+        #                                                                  'nonlin_solver': nonlin_solver_momentum}
 
         self._kwargs[propagators_fields.VariationalEntropyEvolve] = {'model': model,
                                                                      'rho': self.pointer['mhd_rho3'],
@@ -805,10 +805,13 @@ class ViscoresistiveMHD(StruphyModel):
         self.add_scalar('en_tot')
         self.add_scalar('dens_tot')
         self.add_scalar('entr_tot')
+        self.add_scalar('tot_div_B')
 
         # temporary vectors for scalar quantities
         self._tmp_m1 = self.derham.Vh_pol['v'].zeros()
         self._tmp_wb2 = self.derham.Vh_pol['2'].zeros()
+        self._tmp_div_B = self.derham.Vh_pol['3'].zeros()
+        self._tmp_w_div_B = self.derham.Vh_pol['3'].zeros()
         tmp_dof = self.derham.Vh_pol['3'].zeros()
         projV3 = L2Projector('L2', self._mass_ops)
         def f(e1, e2, e3): return 1
@@ -835,7 +838,7 @@ class ViscoresistiveMHD(StruphyModel):
         en_U = self.pointer['mhd_uv'] .dot(m1)/2
         self.update_scalar('en_U', en_U)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer['b2'])
+        wb2 = self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_wb2)
         en_mag = wb2.dot(self.pointer['b2'])/2
         self.update_scalar('en_mag', en_mag)
 
@@ -848,6 +851,11 @@ class ViscoresistiveMHD(StruphyModel):
         self.update_scalar('dens_tot', dens_tot)
         entr_tot = self._ones.dot(self.pointer['mhd_s3'])
         self.update_scalar('entr_tot', entr_tot)
+
+        div_B = self.derham.div.dot(self.pointer['b2'], out= self._tmp_div_B)
+        w_div_B = self._mass_ops.M3.dot(div_B, out= self._tmp_w_div_B)
+        L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
+        self.update_scalar('tot_div_B', L2_div_B)
 
     def update_thermo_energy(self):
         '''Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.

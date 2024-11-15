@@ -765,7 +765,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         Whether to store some information computed in _assemble_mat for reuse. Set it to true if planned to update the weights later.
     """
 
-    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, P_extraction_op=None, P_boundary_op=None, transposed=False, polar_shift=False, use_cache=False):
+    def __init__(self, P, V, weights, V_extraction_op=None, V_boundary_op=None, P_extraction_op=None, P_boundary_op=None, transposed=False, polar_shift=False, use_cache=False, logical=False):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -773,6 +773,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         assert isinstance(P, CommutingProjector)
         assert isinstance(V, FemSpace)
 
+        self._logical = logical
         self._P = P
         self._V = V
 
@@ -780,7 +781,16 @@ class BasisProjectionOperator(LinOpWithTransp):
         if P_extraction_op is not None:
             self._P_extraction_op = P_extraction_op
         else:
-            self._P_extraction_op = P.dofs_extraction_op
+            if self._logical:
+                self._P_extraction_op = P.base_extraction_op
+                self._ETE = self._P_extraction_op@self._P_extraction_op.T
+
+                from psydac.linalg.solvers import inverse
+
+                self._ETEm1 = inverse(self._ETE, 'cg', tol=1e-16)
+                self._proj = self._ETEm1@self._P_extraction_op
+            else:
+                self._P_extraction_op = P.dofs_extraction_op
 
         if V_extraction_op is not None:
             self._V_extraction_op = V_extraction_op
@@ -852,9 +862,10 @@ class BasisProjectionOperator(LinOpWithTransp):
         if transposed:
             self._dof_mat_T = self._dof_mat.T
             self._dof_operator = self._V_boundary_op @ self._V_extraction_op @ self._dof_mat_T @ self._P_extraction_op.T @ self._P_boundary_op.T
+            self._x0 = self._dof_operator.domain.zeros()
         else:
             self._dof_operator = self._P_boundary_op @ self._P_extraction_op @ self._dof_mat @ self._V_extraction_op.T @ self._V_boundary_op.T
-
+            self._x0 = self._dof_operator.codomain.zeros()
         # set domain and codomain
         self._domain = self.dof_operator.domain
         self._codomain = self.dof_operator.codomain
@@ -862,6 +873,9 @@ class BasisProjectionOperator(LinOpWithTransp):
         # temporary vectors for dot product
         self._tmp_dom = self._dof_operator.domain.zeros()
         self._tmp_codom = self._dof_operator.codomain.zeros()
+        self._tmp_mat_codom = self._dof_mat.codomain.zeros()
+        self._tmp_mat_codom_2 = self._dof_mat.codomain.zeros()
+
 
     @property
     def domain(self):
@@ -932,29 +946,34 @@ class BasisProjectionOperator(LinOpWithTransp):
         assert v.space == self.domain
 
         if out is None:
+            out = self.codomain.zeros()
 
+        assert isinstance(out, Vector)
+        assert out.space == self.codomain
+
+
+        if not self._logical:
             if self.transposed:
                 # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                out = self.dof_operator.dot(self._P.solve(
-                    v, True, apply_bc=True))
-            else:
-                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                out = self._P.solve(self.dof_operator.dot(
-                    v), False, apply_bc=True)
-
-        else:
-
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-
-            if self.transposed:
-                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom)
+                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom, x0=self._x0)
+                self._tmp_dom.copy(out=self._x0)
                 self.dof_operator.dot(self._tmp_dom, out=out)
             else:
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 self.dof_operator.dot(v, out=self._tmp_codom)
-                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out)
+                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out, x0=self._x0)
+                out.copy(out=self._x0)
+
+        else:
+            if self.transposed:
+                (self._proj.T @ self._P_boundary_op.T).dot(v, out=self._tmp_mat_codom)
+                self._P.projector_tensor.solver.solve(self._tmp_mat_codom, transposed=True, out=self._tmp_mat_codom_2)
+                (self._V_boundary_op @ self._V_extraction_op @ self._dof_mat_T).dot(self._tmp_mat_codom_2, out=out)
+
+            else:
+                (self._dof_mat @ self._V_extraction_op.T @ self._V_boundary_op.T).dot(v, out=self._tmp_mat_codom)
+                self._P.projector_tensor.solver.solve(self._tmp_mat_codom, transposed=False, out=self._tmp_mat_codom_2)
+                (self._P_boundary_op @ self._proj).dot(self._tmp_mat_codom_2, out=out)
 
         return out
 

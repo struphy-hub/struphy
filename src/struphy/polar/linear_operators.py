@@ -2,6 +2,8 @@ from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from psydac.linalg.block import BlockVector, BlockVectorSpace
 
 from struphy.linear_algebra.linalg_kron import kron_matvec_2d
+from struphy.linear_algebra.linalg_kron_kernels import kernel_kron_matvec_2d
+
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.polar.basic import PolarVector, PolarDerhamSpace
 
@@ -124,7 +126,12 @@ class PolarExtractionOperator(LinOpWithTransp):
                 if W.type_of_basis_3[m] != W.type_of_basis_3[n]:
                     self._blocks_e3[-1] += [None]
                 else:
-                    self._blocks_e3[-1] += [identity(W.n3[n])]
+                    self._blocks_e3[-1] += [np.identity(W.n3[n])]
+
+        self._dot_parts_of_polar = Dot_parts_of_polar(self.blocks_ten_to_pol,
+                                   self.blocks_e3)
+        
+        self._tmp_out_2 = self.codomain.zeros()
 
     @property
     def domain(self):
@@ -220,6 +227,7 @@ class PolarExtractionOperator(LinOpWithTransp):
 
             # 1. identity operation on outer tp zone
             if out is None:
+                print('None out')
                 out = v.tp.copy()
             else:
                 assert isinstance(out, (StencilVector, BlockVector))
@@ -228,14 +236,12 @@ class PolarExtractionOperator(LinOpWithTransp):
 
             # 2. map "first tp ring" to "polar rings" + "first tp ring"
             if self.blocks_ten_to_ten is not None:
-                dot_parts_of_polar(self.blocks_ten_to_ten,
-                                   self.blocks_e3, v, out)
+                self._dot_parts_of_polar(v, out)
 
             # 3. map polar coeffs to "polar rings"
             if self.blocks_ten_to_pol is not None:
-                out2 = out.space.zeros()
-                dot_parts_of_polar(self.blocks_ten_to_pol,
-                                   self.blocks_e3, v, out2)
+                out2 = self._tmp_out_2
+                self._dot_parts_of_polar(v, out2)
 
                 # add contributions to "polar rings"
                 out += out2
@@ -248,6 +254,7 @@ class PolarExtractionOperator(LinOpWithTransp):
 
             if out is None:
                 out = PolarVector(self._codomain)
+                print('None out')
             else:
                 assert isinstance(out, PolarVector)
                 assert out.space == self._codomain
@@ -412,6 +419,9 @@ class PolarLinearOperator(LinOpWithTransp):
         # set blocks for Kronecker product in eta_3 direction
         self.blocks_e3 = blocks_e3
 
+        self._dot_parts_of_polar = Dot_parts_of_polar(self.blocks_pol_to_ten,
+                               self.blocks_e3)
+
     @property
     def domain(self):
         return self._domain
@@ -570,8 +580,7 @@ class PolarLinearOperator(LinOpWithTransp):
         else:
 
             # 3. polar to "first tp ring"
-            dot_parts_of_polar(self.blocks_pol_to_ten,
-                               self.blocks_e3, v, out2.tp)
+            self._dot_parts_of_polar(v, out2.tp)
 
         # sum up contributions
         out += out2
@@ -708,6 +717,8 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
                         in_vec[n][0:n_rings_in[n], s2:e2 + 1, s3:e3 + 1]
                     res += kron_matvec_2d([block_e1_e2, block_e3],
                                           tmp.reshape(n_rings_in[n]*n2, n3_in[n]))
+                    # kernel_kron_matvec_2d(block_e1_e2, block_e3,
+                    #                       tmp.reshape(n_rings_in[n]*n2, n3_in[n]),res)
 
         # sum up local dot products
         if polar_space.comm is not None:
@@ -721,131 +732,138 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
             out_tp[m][n_rings_out[m], s2:e2 + 1,
                       s3:e3 + 1] = res[s2:e2 + 1, s3:e3 + 1]
         else:
-            out.pol[m][:, :] = res
+            out.pol[m][:, :] = res[:,:]
 
+class Dot_parts_of_polar:
 
-def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
-    """
-    Maps either
+    def __init__(self, blocks_e1_e2, blocks_e3):
 
-        a) polar coeffs of v to "polar rings" of out (blocks[:][n].shape[1] = n_polar[n] polar coeffs),
-        b) "first tp ring" of v to "polar rings" + "first tp ring" of out (blocks[:][n].shape[1] = n2),
+        self._blocks_e1_e2 = blocks_e1_e2
+        self._blocks_e3 = blocks_e3
 
-    and performs a Kronecker product in eta_3 dirction (k-indices). For notation see Fig. below.
+        self._n_rows = []
+        self._n_cols = []
 
-                     /       /       /               /               /
-             k = 1  /       /       /               /               /
-           k = 0   /       /       /               /               /
-                  ------------------------------- -----------------
-          j = 0   |       |       |               |               |
-          j = 1   |       |       |               |               |     
-                  |       |       |               |               |
-                  | i = 0 |  ...  |  i = n_rings  |  i > n_rings  |    
-                  |       |       |               |               |   /
-                  |       |       |               |               |  /
-        j = n2-1  |       |       |               |               | /
-                  -------------------------------------------------
-                  |  polar rings  | first tp ring | outer tp zone |
+        self._n3_in = []
+        self._n3_out = []
 
-    Fig. : Indexing of 3d spline tensor-product (tp) basis functions/DOFs/coefficients.
-
-    Parameters
-    ----------
-    blocks_e1_e2 : list
-        2D nested list with matrices that map polar coeffs or "first tp ring" to inner to rings depending on shape. 
-
-    blocks_e3 : list
-        2D nested list with matrices that solely act along eta_3 direction.
-
-    v : StencilVector | BlockVector
-        Input vector.
-
-    out : PolarVector
-        Output vector that is written to. 
-    """
-
-    assert isinstance(blocks_e1_e2, list)
-    assert isinstance(blocks_e3, list)
-    assert isinstance(v, PolarVector)
-    assert isinstance(out, (StencilVector, BlockVector))
-
-    polar_space = v.space
-
-    # number of coeffs in eta_2 (always the same (periodic))
-    n2 = polar_space.n2[0]
-
-    # extract needed shapes
-    n_rows = []
-    n_cols = []
-
-    n3_in = []
-    n3_out = []
-
-    for m in range(len(blocks_e1_e2)):
-        for n in range(len(blocks_e1_e2[0])):
-            if blocks_e1_e2[m][n] is not None:
-                n_rows += [blocks_e1_e2[m][n].shape[0]]
-                n3_out += [blocks_e3[m][n].shape[0]]
-                break
-
-    for n in range(len(blocks_e1_e2[0])):
         for m in range(len(blocks_e1_e2)):
-            if blocks_e1_e2[m][n] is not None:
-                n_cols += [blocks_e1_e2[m][n].shape[1]]
-                n3_in += [blocks_e3[m][n].shape[1]]
-                break
+            for n in range(len(blocks_e1_e2[0])):
+                if blocks_e1_e2[m][n] is not None:
+                    self._n_rows += [blocks_e1_e2[m][n].shape[0]]
+                    self._n3_out += [blocks_e3[m][n].shape[0]]
+                    break
 
-    # number of rings to be written to
-    n_rings_in = polar_space.n_rings
-    n_rings_out = [nr//n2 for nr in n_rows]
+        for n in range(len(blocks_e1_e2[0])):
+            for m in range(len(blocks_e1_e2)):
+                if blocks_e1_e2[m][n] is not None:
+                    self._n_cols += [blocks_e1_e2[m][n].shape[1]]
+                    self._n3_in += [blocks_e3[m][n].shape[1]]
+                    break
 
-    # convert needed scalar attributes to lists
-    is_scalar_in = isinstance(v.tp, StencilVector)
-    in_starts = [polar_space.starts] if is_scalar_in else polar_space.starts
-    in_ends = [polar_space.ends] if is_scalar_in else polar_space.ends
-    in_tp = [v.tp] if is_scalar_in else v.tp
+    def __call__(self, v, out):
+        """
+        Maps either
 
-    is_scalar_out = isinstance(out, StencilVector)
-    out_starts = [out.space.starts] if is_scalar_out else out.space.starts
-    out_ends = [out.space.ends] if is_scalar_out else out.space.ends
-    out_vec = [out] if is_scalar_out else out
+            a) polar coeffs of v to "polar rings" of out (blocks[:][n].shape[1] = n_polar[n] polar coeffs),
+            b) "first tp ring" of v to "polar rings" + "first tp ring" of out (blocks[:][n].shape[1] = n2),
 
-    # determine if mapped from polar coeffs or "first tp ring"
-    map_from_tp = True if n_cols[0] == n2 else False
+        and performs a Kronecker product in eta_3 dirction (k-indices). For notation see Fig. below.
 
-    # loop over codomain components
-    for m, (row_e1_e2, row_e3) in enumerate(zip(blocks_e1_e2, blocks_e3)):
+                        /       /       /               /               /
+                k = 1  /       /       /               /               /
+            k = 0   /       /       /               /               /
+                    ------------------------------- -----------------
+            j = 0   |       |       |               |               |
+            j = 1   |       |       |               |               |     
+                    |       |       |               |               |
+                    | i = 0 |  ...  |  i = n_rings  |  i > n_rings  |    
+                    |       |       |               |               |   /
+                    |       |       |               |               |  /
+            j = n2-1  |       |       |               |               | /
+                    -------------------------------------------------
+                    |  polar rings  | first tp ring | outer tp zone |
 
-        res = np.zeros((n_rings_out[m], n2, n3_out[m]), dtype=float)
+        Fig. : Indexing of 3d spline tensor-product (tp) basis functions/DOFs/coefficients.
 
-        # loop over domain components
-        for n, (block_e1_e2, block_e3) in enumerate(zip(row_e1_e2, row_e3)):
+        Parameters
+        ----------
+        blocks_e1_e2 : list
+            2D nested list with matrices that map polar coeffs or "first tp ring" to inner to rings depending on shape. 
 
-            if block_e1_e2 is not None:
+        blocks_e3 : list
+            2D nested list with matrices that solely act along eta_3 direction.
 
-                if map_from_tp:
-                    if in_starts[n][0] == 0:
-                        s1, s2, s3 = in_starts[n]
-                        e1, e2, e3 = in_ends[n]
-                        tmp = np.zeros((n2, n3_in[n]), dtype=float)
-                        tmp[s2:e2 + 1, s3:e3 + 1] = \
-                            in_tp[n][n_rings_in[n], s2:e2 + 1, s3:e3 + 1]
+        v : StencilVector | BlockVector
+            Input vector.
+
+        out : PolarVector
+            Output vector that is written to. 
+        """
+
+        assert isinstance(v, PolarVector)
+        assert isinstance(out, (StencilVector, BlockVector))
+
+        polar_space = v.space
+
+        # number of coeffs in eta_2 (always the same (periodic))
+        n2 = polar_space.n2[0]
+
+        # extract needed shapes
+
+        # number of rings to be written to
+        n_rings_in = polar_space.n_rings
+        n_rings_out = [nr//n2 for nr in self._n_rows]
+
+        # convert needed scalar attributes to lists
+        is_scalar_in = isinstance(v.tp, StencilVector)
+        in_starts = [polar_space.starts] if is_scalar_in else polar_space.starts
+        in_ends = [polar_space.ends] if is_scalar_in else polar_space.ends
+        in_tp = [v.tp] if is_scalar_in else v.tp
+
+        is_scalar_out = isinstance(out, StencilVector)
+        out_starts = [out.space.starts] if is_scalar_out else out.space.starts
+        out_ends = [out.space.ends] if is_scalar_out else out.space.ends
+        out_vec = [out] if is_scalar_out else out
+
+        # determine if mapped from polar coeffs or "first tp ring"
+        map_from_tp = True if self._n_cols[0] == n2 else False
+
+        # loop over codomain components
+        for m, (row_e1_e2, row_e3) in enumerate(zip(self._blocks_e1_e2, self._blocks_e3)):
+
+            res = np.zeros((n_rings_out[m], n2, self._n3_out[m]), dtype=float)
+
+            # loop over domain components
+            for n, (block_e1_e2, block_e3) in enumerate(zip(row_e1_e2, row_e3)):
+
+                if block_e1_e2 is not None:
+                    #tmp_res = np.zeros((n_rings_out[m]*n2, n3_out[m]), dtype=float)
+                    if map_from_tp:
+                        if in_starts[n][0] == 0:
+                            s1, s2, s3 = in_starts[n]
+                            e1, e2, e3 = in_ends[n]
+                            tmp = np.zeros((n2, self._n3_in[n]), dtype=float)
+                            tmp[s2:e2 + 1, s3:e3 + 1] = \
+                                in_tp[n][n_rings_in[n], s2:e2 + 1, s3:e3 + 1]
+                            res += kron_matvec_2d([block_e1_e2, block_e3],
+                                                tmp).reshape(n_rings_out[m], n2, self._n3_out[m])
+                            # kernel_kron_matvec_2d(block_e1_e2, block_e3,tmp,tmp_res)
+                    else:
                         res += kron_matvec_2d([block_e1_e2, block_e3],
-                                              tmp).reshape(n_rings_out[m], n2, n3_out[m])
-                else:
-                    res += kron_matvec_2d([block_e1_e2, block_e3],
-                                          v.pol[n]).reshape(n_rings_out[m], n2, n3_out[m])
+                                            v.pol[n]).reshape(n_rings_out[m], n2, self._n3_out[m])
+                        #kernel_kron_matvec_2d(block_e1_e2, block_e3,v.pol[n],tmp_res)
 
-        if map_from_tp:
-            if polar_space.comm is not None:
-                polar_space.comm.Allreduce(
-                    MPI.IN_PLACE, res, op=MPI.SUM)
+            if map_from_tp:
+                if polar_space.comm is not None:
+                    polar_space.comm.Allreduce(
+                        MPI.IN_PLACE, res, op=MPI.SUM)
 
-        if out_starts[m][0] == 0:
-            s1, s2, s3 = out_starts[m]
-            e1, e2, e3 = out_ends[m]
-            out_vec[m][0:n_rings_out[m], s2:e2 + 1, s3:e3 + 1] = \
-                res[:, s2:e2 + 1, s3:e3 + 1]
+            if out_starts[m][0] == 0:
+                s1, s2, s3 = out_starts[m]
+                e1, e2, e3 = out_ends[m]
+                out_vec[m][0:n_rings_out[m], s2:e2 + 1, s3:e3 + 1] = \
+                    res[:, s2:e2 + 1, s3:e3 + 1]
 
 
 def dot_pol_pol(blocks_e1_e2, blocks_e3, v, out):
@@ -872,6 +890,7 @@ def dot_pol_pol(blocks_e1_e2, blocks_e3, v, out):
         for v_pol, block_e1_e2, block_e3 in zip(v.pol, row_e1_e2, row_e3):
             if block_e1_e2 is not None:
                 out_pol[:, :] += kron_matvec_2d([block_e1_e2, block_e3], v_pol)
+                # kernel_kron_matvec_2d(block_e1_e2, block_e3, v_pol, out_pol)
 
 
 def transpose_block_mat(blocks):

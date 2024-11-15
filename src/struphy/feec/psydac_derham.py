@@ -1576,9 +1576,15 @@ class Derham:
 
             if isinstance(self.vector, StencilVector):
                 self.vector._data[:] = file[key][-1]
-            else:
+            elif isinstance(self.vector, BlockVector):
                 for n in range(3):
                     self.vector[n]._data[:] = file[key + '/' + str(n + 1)][-1]
+            elif isinstance(self.vector, PolarVector):
+                if isinstance(self.vector.tp, StencilVector):
+                    self.vector.tp._data[:] = file[key][-1]
+                elif isinstance(self.vector.tp, BlockVector):
+                    for n in range(3):
+                        self.vector.tp[n]._data[:] = file[key + '/' + str(n + 1)][-1]
 
             self._vector.update_ghost_regions()
 
@@ -1602,7 +1608,8 @@ class Derham:
             '''
 
             if isinstance(self.vector, PolarVector):
-                vec = self.vector.tp
+                self.extract_coeffs()
+                vec = self._vector_stencil
             else:
                 vec = self.vector
 
@@ -1838,7 +1845,10 @@ class Derham:
                 else:
                     sli += [slice(self._gl_s[n][d], self._gl_e[n][d] + 1)]
                     gl_s += [self._gl_s[n][d]]
-                    vec = self._vector[n]
+                    if isinstance(self._vector, PolarVector):
+                        vec = self._vector._tp[n]
+                    else:
+                        vec = self._vector[n]
 
             # local shape without ghost regions
             if n == None:
@@ -1963,6 +1973,7 @@ class Derham:
                 tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
                 Warning, f'2d noise in the directions {direction} is not correctly initilaized for MPI !!'
             elif direction == 'e1e2e3':
+                tmp_arrays = np.zeros((nprocs[0],nprocs[1], nprocs[2])).tolist()
                 Warning, f'3d noise in the directions {direction} is not correctly initilaized for MPI !!'
                 pass
             else:
@@ -2000,8 +2011,7 @@ class Derham:
                     elif direction == 'e2e3':
                         _amps[:] = tmp_arrays[inds[1]][inds[2]]
                     elif direction == 'e1e2e3':
-                        _amps[:] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp
+                        _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
 
                 else:
 
@@ -2035,6 +2045,11 @@ class Derham:
                             np.random.rand(*shapes) - .5) * 2. * amp
                         already_drawn[:, inds[1], inds[2]] = True
                         _amps[:] = tmp_arrays[inds[1]][inds[2]]
+                    elif direction == 'e1e2e3':
+                        tmp_arrays[inds[0]][inds[1]][inds[2]] = (
+                            np.random.rand(*shapes) - .5) * 2. * amp
+                        already_drawn[inds[0], inds[1], inds[2]] = True
+                        _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
 
                 if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
                     return _amps

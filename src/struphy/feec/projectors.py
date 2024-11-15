@@ -238,7 +238,7 @@ class CommutingProjector:
         """
         return self._pc0T
 
-    def solve(self, rhs, transposed=False, apply_bc=False, out=None):
+    def solve(self, rhs, transposed=False, apply_bc=False, out=None, x0=None):
         """
         Solves the linear system I * x = rhs, resp. I^T * x = rhs for x, where I is the composite inter-/histopolation matrix.
 
@@ -269,9 +269,11 @@ class CommutingProjector:
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
+                    self._polar_solver0T.set_options(x0=x0)
                     x = self._polar_solver0T.solve(
                         self._boundary_op.T.dot(rhs), out=out)
                 else:
+                    self._polar_solverT.set_options(x0=x0)
                     x = self._polar_solverT.solve(
                         self._boundary_op.T.dot(rhs), out=out)
             # standard (tensor product) case (Kronecker solver)
@@ -284,9 +286,11 @@ class CommutingProjector:
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
+                    self._polar_solver0.set_options(x0=x0)
                     x = self._polar_solver0.solve(
                         self._boundary_op.T.dot(rhs), out=out)
                 else:
+                    self._polar_solver.set_options(x0=x0)
                     x = self._polar_solver.solve(
                         self._boundary_op.T.dot(rhs), out=out)
             # standard (tensor product) case (Kronecker solver)
@@ -1555,8 +1559,11 @@ class L2Projector:
                 mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
                                            *wts, *basis, mat_w, dofs._data)
             elif isinstance(dofs, PolarVector):
+                dofs_tmp = self.space.vector_space.zeros()
+
                 mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
-                                           *wts, *basis, mat_w, dofs.tp._data)
+                                           *wts, *basis, mat_w, dofs_tmp._data)
+                self.Mmat._V_extraction_op.dot(dofs_tmp, out=dofs)
             else:
                 mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
                                            *wts, *basis, mat_w, dofs[a]._data)

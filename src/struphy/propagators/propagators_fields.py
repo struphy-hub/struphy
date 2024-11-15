@@ -2712,7 +2712,8 @@ class VariationalDensityEvolve(Propagator):
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
                                 'info': False,
-                                'implicit_transport': False}
+                                'implicit_transport': False,
+                                'linearize': False}
         dct['physics'] = {'gamma': 5/3}
 
         if default:
@@ -2745,6 +2746,7 @@ class VariationalDensityEvolve(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = self._nonlin_solver['implicit_transport']
+        self._linearize = self._nonlin_solver['linearize']
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -2782,6 +2784,10 @@ class VariationalDensityEvolve(Propagator):
         self._tmp_advection = u.space.zeros()
         self._tmp_rho_advection = rho.space.zeros()
         self._linear_form_dl_drho = rho.space.zeros()
+
+        # Compute the initial force in case we want to 'linearize' around a given equilibrium
+        if self._linearize:
+            self._compute_init_linear_form()
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -2832,6 +2838,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             # No implicit
             rhon1 = rhon.copy(out=self._tmp_rhon1)
+            rhon1 += self._tmp_rhon_diff
 
         # Initialize variable for Newton iteration
         if self._model == 'full':
@@ -2842,9 +2849,12 @@ class VariationalDensityEvolve(Propagator):
         self._update_Pirho()
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
+        rhon1 += self._tmp_rhon_diff
         self.rhof1.vector = rhon1
+        self._update_weighted_MM()
         un1 = un.copy(out=self._tmp_un1)
-        mn1 = mn.copy(out=self._tmp_mn1)
+        un1 += self._tmp_un_diff
+        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver['tol']
         err = tol+1
 
@@ -2911,7 +2921,10 @@ class VariationalDensityEvolve(Propagator):
             print(
                 f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
+        self._tmp_un_diff = un1-un
+        self._tmp_rhon_diff = rhon1-rhon
         self.feec_vars_update(rhon1, un1)
+
 
     def __call_picard(self, dt):
         """Solve the non linear system for updating the variables using Picard iteration method"""
@@ -3009,13 +3022,15 @@ class VariationalDensityEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            logical=False)
 
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['3'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            logical=False)
 
         self.PirhoT = self.Pirho.T
 
@@ -3077,7 +3092,7 @@ class VariationalDensityEvolve(Propagator):
                                 pc=self.pc,
                                 tol=self._lin_solver['tol'],
                                 maxiter=self._lin_solver['maxiter'],
-                                verbose=self._lin_solver['verbose'],
+                                verbose=False,
                                 recycle=True)
 
         # Inverse mass matrix needed to compute the error
@@ -3184,8 +3199,16 @@ class VariationalDensityEvolve(Propagator):
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
+        self._pc_full_mass = inverse(self._Mrho,
+                                    self._lin_solver['type'][0],
+                                    pc=self.pc,
+                                    tol=0.01*self._lin_solver['tol'],
+                                    maxiter=self._lin_solver['maxiter'],
+                                    verbose=False,
+                                    recycle=True)
+
         self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pbicgstab',
-                                             pc=self.pc,
+                                             pc=self._pc_full_mass,
                                              tol=self._lin_solver['tol'],
                                              maxiter=self._lin_solver['maxiter'],
                                              verbose=self._lin_solver['verbose'],
@@ -3451,12 +3474,34 @@ class VariationalDensityEvolve(Propagator):
             self._tmp_int_grid *= 0.
             self._tmp_int_grid += self._DG_values
             self._tmp_int_grid += de_rhom_s
+            if self._linearize:
+                self._tmp_int_grid -= self._init_dener_drho
             self._tmp_int_grid *= self._proj_rho2_metric_term
 
             # self._eval_dl_drho -= self._proj_rho2_metric_term * (self._DG_values + de_rhom_s)
             self._eval_dl_drho -= self._tmp_int_grid
 
         self._get_L2dofs_V3(self._eval_dl_drho, dofs=self._linear_form_dl_drho)
+
+    def _compute_init_linear_form(self):
+
+        self.rhof.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.n3)
+
+        if abs(self._gamma-5/3)<1e-3:
+            self.sf.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.s3_monoatomic)
+        elif abs(self._gamma-7/5)<1e-3:
+            self.sf.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.s3_diatomic)
+        else:
+            raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
+
+        rhof0_values = self.rhof.eval_tp_fixed_loc(
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+
+        sf0_values = self.sf.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+        
+        self._init_dener_drho = self.__dener_drho(
+                rhof0_values, sf0_values)
 
     def _get_jacobian(self, dt):
         uf_values = self.uf.eval_tp_fixed_loc(self.integration_grid_spans, [
@@ -3624,7 +3669,8 @@ class VariationalEntropyEvolve(Propagator):
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
                                 'info': False,
-                                'implicit_transport': False}
+                                'implicit_transport': False,
+                                'linearize' : 'False'}
         dct['physics'] = {'gamma': 5/3}
 
         if default:
@@ -3657,6 +3703,7 @@ class VariationalEntropyEvolve(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = nonlin_solver['implicit_transport']
+        self._linearize = self._nonlin_solver['linearize']
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -3694,6 +3741,8 @@ class VariationalEntropyEvolve(Propagator):
         self._tmp_advection = u.space.zeros()
         self._tmp_s_advection = s.space.zeros()
         self._linear_form_dl_ds = s.space.zeros()
+        if self._linearize:
+            self._compute_init_linear_form()
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -3746,9 +3795,11 @@ class VariationalEntropyEvolve(Propagator):
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         sn1 = sn.copy(out=self._tmp_sn1)
+        sn1 += self._tmp_sn_diff
         self.sf1.vector = sn1
         un1 = un.copy(out=self._tmp_un1)
-        mn1 = mn.copy(out=self._tmp_mn1)
+        un1 += self._tmp_un_diff
+        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver['tol']
         err = tol+1
 
@@ -3812,7 +3863,8 @@ class VariationalEntropyEvolve(Propagator):
         if it == self._nonlin_solver['maxiter']-1 or np.isnan(err):
             print(
                 f'!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }')
-
+        self._tmp_sn_diff = sn1-sn
+        self._tmp_un_diff = un1-un
         self.feec_vars_update(sn1, un1)
 
     def __call_picard(self, dt):
@@ -3913,13 +3965,15 @@ class VariationalEntropyEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            logical=False)
 
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['3'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            logical=False)
 
         self.PisT = self.Pis.T
 
@@ -4034,8 +4088,16 @@ class VariationalEntropyEvolve(Propagator):
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
+        self._pc_full_mass = inverse(self._Mrho,
+                                    self._lin_solver['type'][0],
+                                    pc=self.pc,
+                                    tol=0.01*self._lin_solver['tol'],
+                                    maxiter=self._lin_solver['maxiter'],
+                                    verbose=False,
+                                    recycle=True)
+
         self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pcg',
-                                             pc=self.pc,
+                                             pc=self._pc_full_mass,
                                              tol=self._lin_solver['tol'],
                                              maxiter=self._lin_solver['maxiter'],
                                              verbose=self._lin_solver['verbose'],
@@ -4238,10 +4300,32 @@ class VariationalEntropyEvolve(Propagator):
             de_rho_sm *= eta
 
             self._tmp_int_grid += de_rho_sm
+            if self._linearize:
+                self._tmp_int_grid -= self._init_dener_ds
             self._tmp_int_grid *= self._proj_rho2_metric_term
             self._tmp_int_grid *= -1.
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_ds)
+
+    def _compute_init_linear_form(self):
+
+        self.rhof.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.n3)
+
+        if abs(self._gamma-5/3)<1e-3:
+            self.sf.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.s3_monoatomic)
+        elif abs(self._gamma-7/5)<1e-3:
+            self.sf.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.s3_diatomic)
+        else:
+            raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
+
+        rhof0_values = self.rhof.eval_tp_fixed_loc(
+                self.integration_grid_spans, self.integration_grid_bd, out=self._rhof_values)
+
+        sf0_values = self.sf.eval_tp_fixed_loc(
+            self.integration_grid_spans, self.integration_grid_bd, out=self._sf_values)
+        
+        self._init_dener_ds = self.__dener_ds(
+                rhof0_values, sf0_values)
 
     def _get_jacobian(self, dt):
 
@@ -4379,7 +4463,8 @@ class VariationalMagFieldEvolve(Propagator):
                                 'maxiter': 100,
                                 'type': ['Newton', 'Picard'],
                                 'info': False,
-                                'implicit_transport': False}
+                                'implicit_transport': False,
+                                'linearize': False}
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -4400,6 +4485,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = nonlin_solver['implicit_transport']
+        self._linearize = self._nonlin_solver['linearize']
 
         if self.derham.comm is not None:
             rank = self.derham.comm.Get_rank()
@@ -4435,6 +4521,9 @@ class VariationalMagFieldEvolve(Propagator):
         self._tmp_advection = u.space.zeros()
         self._tmp_b_advection = b.space.zeros()
         self._linear_form_dl_db = b.space.zeros()
+
+        if self._linearize:
+            self._extracted_b2 = self.derham.extraction_ops['2'].dot(self.projected_mhd_equil.b2)
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -4483,9 +4572,11 @@ class VariationalMagFieldEvolve(Propagator):
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
+        bn1 += self._tmp_bn_diff
         self.bf.vector = bn1
         un1 = un.copy(out=self._tmp_un1)
-        mn1 = mn.copy(out=self._tmp_mn1)
+        un1 += self._tmp_un_diff
+        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver['tol']
         err = tol+1
 
@@ -4553,6 +4644,8 @@ class VariationalMagFieldEvolve(Propagator):
             print(
                 f'!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }')
 
+        self._tmp_un_diff = un1-un
+        self._tmp_bn_diff = bn1-bn
         self.feec_vars_update(bn1, un1)
 
     def __call_picard(self, dt):
@@ -4646,7 +4739,8 @@ class VariationalMagFieldEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']),
+            logical=False)
 
         self.Piu = BasisProjectionOperator(
             P1, V2h, [[None, None, None],
@@ -4654,7 +4748,8 @@ class VariationalMagFieldEvolve(Propagator):
                       [None, None, None]],
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['2'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']))
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']),
+            logical=False)
 
         self.PibT = self.Pib.T
 
@@ -4775,8 +4870,16 @@ class VariationalMagFieldEvolve(Propagator):
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
+        self._pc_full_mass = inverse(self._Mrho,
+                                    self._lin_solver['type'][0],
+                                    pc=self.pc,
+                                    tol=0.01*self._lin_solver['tol'],
+                                    maxiter=self._lin_solver['maxiter'],
+                                    verbose=False,
+                                    recycle=True)
+
         self._inv_Jacobian = SchurSolverFull(self._Jacobian, 'pcg',
-                                             pc=self.pc,
+                                             pc=self._pc_full_mass,
                                              tol=self._lin_solver['tol'],
                                              maxiter=self._lin_solver['maxiter'],
                                              verbose=self._lin_solver['verbose'],
@@ -4823,7 +4926,10 @@ class VariationalMagFieldEvolve(Propagator):
 
     def _update_linear_form_u2(self,):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
-        wb = self.mass_ops.M2.dot(self._tmp_bn12, out=self._linear_form_dl_db)
+        if self._linearize:
+            wb = self.mass_ops.M2.dot(self._tmp_bn12 - self._extracted_b2, out=self._linear_form_dl_db)
+        else:
+            wb = self.mass_ops.M2.dot(self._tmp_bn12, out=self._linear_form_dl_db)
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
@@ -4969,12 +5075,12 @@ class VariationalViscosity(Propagator):
         self._tmp_sn1 = s.space.zeros()
         self._tmp_sn_incr = s.space.zeros()
         self._tmp_sn_weak_diff = s.space.zeros()
-        self._tmp_gu0 = self.derham.Vh['1'].zeros()
-        self._tmp_gu1 = self.derham.Vh['1'].zeros()
-        self._tmp_gu2 = self.derham.Vh['1'].zeros()
-        self._tmp_gu120 = self.derham.Vh['1'].zeros()
-        self._tmp_gu121 = self.derham.Vh['1'].zeros()
-        self._tmp_gu122 = self.derham.Vh['1'].zeros()
+        self._tmp_gu0 = self.derham.Vh_pol['1'].zeros()
+        self._tmp_gu1 = self.derham.Vh_pol['1'].zeros()
+        self._tmp_gu2 = self.derham.Vh_pol['1'].zeros()
+        self._tmp_gu120 = self.derham.Vh_pol['1'].zeros()
+        self._tmp_gu121 = self.derham.Vh_pol['1'].zeros()
+        self._tmp_gu122 = self.derham.Vh_pol['1'].zeros()
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_e_sn1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
@@ -5501,6 +5607,8 @@ class VariationalResistivity(Propagator):
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_e_sn1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
+        if self._linearize_current :
+            self._extracted_b2 = self.derham.boundary_ops['2'].dot(self.derham.extraction_ops['2'].dot(self.projected_mhd_equil.b2))
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -5549,8 +5657,8 @@ class VariationalResistivity(Propagator):
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current:
-            bn1 = self.evol_op.dot(bn + dt*self._eta*self.derham.curl.dot(
-                self.Tcurl.dot(self.projected_mhd_equil.b2)), out=self._tmp_bn1)
+            bn1 = self.evol_op.dot(bn + dt*self._eta*self.curl.dot(
+                self.Tcurl.dot(self._extracted_b2)), out=self._tmp_bn1)
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
@@ -5563,7 +5671,7 @@ class VariationalResistivity(Propagator):
         bn12 /= 2.
         if self._linearize_current:
             cb1 = self.Tcurl.dot(
-                bn1-self.projected_mhd_equil.b2, out=self._tmp_cb1)
+                bn1-self._extracted_b2, out=self._tmp_cb1)
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
@@ -5713,10 +5821,10 @@ class VariationalResistivity(Propagator):
                                verbose=False,
                                recycle=True)
 
-        curl = self.derham.curl
-        self.Tcurl = inv_M1@curl.T@M2
+        self.curl = self.derham.curl
+        self.Tcurl = inv_M1@self.curl.T@M2
 
-        self.phy_stiffness = M2@curl@inv_M1@curl.T@M2
+        self.phy_stiffness = M2@self.curl@inv_M1@self.curl.T@M2
         self.phy_cb_stiffness = self.Tcurl.T@self.M1_cb@self.Tcurl
 
         self._scaled_stiffness = .00001 * self.phy_stiffness

@@ -248,6 +248,30 @@ class SchurSolverFull:
         rhs *= -1
         rhs += bx
 
+        pc = self._solver._options['pc']
+
+        op = pc@self._S
+
+        # print("converting to sparse")
+        # ops = op.tosparse()
+        # from scipy.sparse.linalg import eigs
+        # import numpy as np
+        # print("getting big eigenvalue")
+        # big_ev = eigs(ops, k=1, which='LM', return_eigenvectors=False)
+        # print(big_ev)
+        # print("getting small eigenvalues")
+        # small_ev = eigs(ops, k=80, which='SM', return_eigenvectors=False)
+        # small_ev = small_ev * (np.abs(small_ev)>1e-10)
+
+        # where_zero = (np.abs(small_ev)<1e-10)*1
+        # nb_zero = int(np.sum(where_zero))
+        # print("number of 0 ev : ", nb_zero)
+        # smallest_ev = small_ev[-(nb_zero+1)]
+        # biggest_ev = big_ev[0]
+        # print(smallest_ev,biggest_ev)
+        # print("K = ", biggest_ev/smallest_ev)
+        # exit()
+
         # solve linear system (in-place if out is not None)
         x = self._solver.dot(rhs, out=out[0])
         y = self._C.dot(x, out=out[1])

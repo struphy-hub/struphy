@@ -149,7 +149,7 @@ class ModesSin:
                                 np.tanh((eta3 - 0.5)/params)/np.cosh((eta3 - 0.5)/params)]
             elif pfun == 'localize_r':
                 self._pfuns += [lambda eta1, eta2, eta3:
-                                eta1**2*(1-eta1**2)]
+                                eta1**2*(1-eta1)**2]
             else:
                 raise ValueError(f'Profile function {pfun} is not defined..')
 

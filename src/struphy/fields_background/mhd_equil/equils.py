@@ -1246,19 +1246,21 @@ class AdhocTorus(AxisymmMHDequilibrium):
         """ Poloidal flux function psi = psi(R, Z).
         """
 
+        eps = 1e-16
+
         r = np.sqrt(Z**2 + (R - self.params['R0'])**2)
 
         if dR == 0 and dZ == 0:
             out = self.psi_r(r, der=0)
         else:
 
-            dr_dR = (R - self.params['R0'])/r
-            dr_dZ = Z/r
+            dr_dR = (R - self.params['R0'])/(r+eps)
+            dr_dZ = Z/(r+eps)
 
-            d2r_dR2 = (r - (R - self.params['R0'])*dr_dR)/r**2
-            d2r_dZ2 = (r - Z*dr_dZ)/r**2
+            d2r_dR2 = (r - (R - self.params['R0'])*dr_dR)//(r+eps)**2
+            d2r_dZ2 = (r - Z*dr_dZ)//(r+eps)**2
 
-            d2r_dRdZ = -Z*(R - self.params['R0'])/r**3
+            d2r_dRdZ = -Z*(R - self.params['R0'])//(r+eps)**3
 
             if dR == 1 and dZ == 0:
                 out = self.psi_r(r, der=1) * dr_dR
