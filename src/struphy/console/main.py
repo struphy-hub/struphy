@@ -446,6 +446,12 @@ def struphy():
     )
 
     parser_run.add_argument(
+        '-g', '--group',
+        type=str,
+        help='likwid measurement group',
+    )
+
+    parser_run.add_argument(
         '-li', '--likwid-inp',
         type=str,
         metavar='FILE',

@@ -18,6 +18,7 @@ def struphy_run(
     likwid_inp=None,
     likwid_input_abs=None,
     likwid_repetitions=1,
+    group='MEM_DP',
 ):
     """
     Run a Struphy model: prepare arguments, output folder and execute main().
@@ -137,7 +138,7 @@ def struphy_run(
     if likwid:
         if likwid_inp is None and likwid_input_abs is None:
             # use default likwid parameters
-            likwid_command = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker']
+            likwid_command = ['likwid-mpirun', '-n', str(mpi), '-g', group, '-stats', '-marker']
         else:
             if likwid_inp is not None:
                 likwid_input_abs = os.path.join(i_path, likwid_inp)
