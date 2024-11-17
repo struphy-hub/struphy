@@ -253,6 +253,11 @@ def plot_bars(
         groups_skip=groups_skip,
         split_by_simulation_label=split_by_simulation_label,
     )
+    
+    if all(d.get(metric) is None for d in data):
+        print("All values for the metric {metric} are None.")
+        return
+    
     data = sorted(data, key=lambda x: x["simulation_name"])
     df = pd.DataFrame(data)
 

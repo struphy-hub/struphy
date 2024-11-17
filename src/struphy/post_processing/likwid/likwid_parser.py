@@ -253,6 +253,8 @@ class Project:
             read_project (bool): Whether to read the project data on initialization.
             likwid_out_naming (str): Pattern for LIKWID output files.
         """
+
+        # TODO: Update this to use setters instead
         self.name = name
         self.path = path
         self.nodelist = None
@@ -266,6 +268,7 @@ class Project:
         self.simulation_finished = False
         self.num_mpi = 1
         self.Nclones = 1
+        self._bandwidth_measured = True
 
         if "mpi" in self.name:
             self.num_mpi = int(self.name.split("_")[-1].replace("mpi", ""))
@@ -338,6 +341,17 @@ class Project:
             lw_output["thread_list"] = thread_list
             self.threadlist = thread_list
             self.likwid_outputs.append(lw_output)
+            
+            # Check if bandwidth was measured
+            bandwidth = self.get_value(
+                    metric="Memory bandwidth [MBytes/s] STAT",
+                    likwid_output_id=0,
+                    group=self.get_likwid_groups()[0],
+                    table="Metric STAT",
+                    column="Avg",
+                )
+            if bandwidth:
+                self._bandwidth_measured = True
             if self.simulation_finished:
                 self.nodes = lw_output[self.get_likwid_groups()[0]]["nodes"].keys()
                 self.threads = lw_output[self.get_likwid_groups()[0]]["dicts"]["Raw"][
@@ -402,7 +416,7 @@ class Project:
     def get_value(
         self,
         metric,
-        likwid_output_id,
+        likwid_output_id = 0,
         group="model.integrate",
         table="Metric STAT",
         column="Sum",
@@ -419,11 +433,14 @@ class Project:
         Returns:
             float: The retrieved value.
         """
-        if likwid_output_id is None:
-            return 0
-        return self.likwid_outputs[likwid_output_id][group]["dicts"][table][metric][
-            column
-        ]
+        if likwid_output_id:
+            try:
+                return self.likwid_outputs[likwid_output_id][group]["dicts"][table][metric][
+                    column
+                ]
+            except (KeyError, IndexError):
+                    return None
+        return None
 
     def get_columns(self, group="model.integrate", table="Metric STAT"):
         """Get columns from a specific group and table in the last LIKWID output.
@@ -456,7 +473,10 @@ class Project:
         value, i_max = 0, None
         for ilw, likwid_output in enumerate(self.likwid_outputs):
             if group in likwid_output:
-                val = likwid_output[group]["dicts"][table][metric][column]
+                try:
+                    val = likwid_output[group]["dicts"][table][metric][column]
+                except (KeyError, IndexError):
+                    return None
                 if val in ["nil", ""]:
                     val = 0
                 if val >= value:
@@ -529,14 +549,17 @@ class Project:
         description += f"<b>Group</b>: {group}<br>"
         description += f"<b>MPI procs</b>: {self.num_mpi}<br>"
         for metric in metrics:
-            data = self.get_value(
-                metric,
-                likwid_output_id=imax,
-                group=group,
-                table="Metric STAT",
-                column="Avg",
-            )
-            description += f"<b>{metric}</b>: {data}<br>"
+            try:
+                data = self.get_value(
+                    metric,
+                    likwid_output_id=imax,
+                    group=group,
+                    table="Metric STAT",
+                    column="Avg",
+                )
+                description += f"<b>{metric}</b>: {data}<br>"
+            except:
+                pass
 
         return description
 
