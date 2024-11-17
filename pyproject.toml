@@ -55,6 +55,7 @@ dependencies = [
     'add-trailing-comma',
     'pytest',
     'pre-commit',
+    'kaleido',
 ]
 
 [project.urls]
