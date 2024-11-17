@@ -156,9 +156,38 @@ class ProfileManager:
         # Gather all data at the root process (rank 0)
         all_data = comm.gather(local_data, root=0)
 
+        # Save the likwid configuration data
+        likwid_data = {}
+        if ProfilingConfig().likwid:
+            pylikwid = _import_pylikwid()
+
+            # Gather LIKWID-specific information
+            pylikwid.inittopology()
+            likwid_data["cpu_info"] = pylikwid.getcpuinfo()
+            likwid_data["cpu_topology"] = pylikwid.getcputopology()
+            pylikwid.finalizetopology()
+
+            likwid_data["numa_info"] = pylikwid.initnuma()
+            pylikwid.finalizenuma()
+
+            likwid_data["affinity_info"] = pylikwid.initaffinity()
+            pylikwid.finalizeaffinity()
+
+            pylikwid.initconfiguration()
+            likwid_data["configuration"] = pylikwid.getconfiguration()
+            pylikwid.destroyconfiguration()
+
+            # Gather group information
+            likwid_data["groups"] = [group['Name'] for group in pylikwid.getgroups()]
+
+
         if rank == 0:
             # Combine the data from all processes
             combined_data = {f"rank_{i}": data for i, data in enumerate(all_data)}
+
+            # Add the likwid data
+            if likwid_data:
+                combined_data["likwid_data"] = likwid_data
 
             # Convert the file path to an absolute path
             absolute_path = os.path.abspath(file_path)
