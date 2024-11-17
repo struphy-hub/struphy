@@ -28,66 +28,49 @@ def _import_pylikwid():
 
 
 class ProfilingConfig:
-    """
-    Singleton class for managing global profiling configuration.
-    """
+    """Singleton class for managing global profiling configuration."""
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance.likwid = False  # Default value (profiling disabled)
-            cls._instance.simulation_label = ''
-            cls._instance.sample_duration = 0.1
-            cls._instance.sample_interval = 1
+            cls._instance._likwid = False
+            cls._instance._simulation_label = ''
+            cls._instance._sample_duration = 0.1
+            cls._instance._sample_interval = 1
         return cls._instance
 
-    def set_likwid(self, value, simulation_label=''):
-        """
-        Set the profiling flag to enable or disable profiling.
+    @property
+    def likwid(self):
+        return self._likwid
 
-        Parameters
-        ----------
-        value: bool
-            True to enable profiling, False to disable.
-        """
-        self.likwid = value
+    @likwid.setter
+    def likwid(self, value):
+        self._likwid = value
 
-    def set_simulation_label(self, value):
-        """
-        Set the label for the simulation. When profiling a region,
-        the region_name will be appended to the label. 
+    @property
+    def simulation_label(self):
+        return self._simulation_label
 
-        Parameters
-        ----------
-        value: str
-            Label name
-        """
+    @simulation_label.setter
+    def simulation_label(self, value):
+        self._simulation_label = value
 
-        self.simulation_label = value
+    @property
+    def sample_duration(self):
+        return self._sample_duration
 
-    def get_likwid(self):
-        """
-        Get the current profiling configuration.
+    @sample_duration.setter
+    def sample_duration(self, value):
+        self._sample_duration = value
 
-        Returns:
-            bool: True if profiling is enabled, False otherwise.
-        """
-        return self.likwid
+    @property
+    def sample_interval(self):
+        return self._sample_interval
 
-    def set_sample_duration(self, value):
-        self.sample_duration = value
-
-    def get_sample_duration(self):
-        return self.sample_duration
-
-    def set_sample_interval(self, value):
-        self.sample_interval = value
-
-    def get_sample_interval(self):
-        return self.sample_interval
-
-        set_sample_duration
+    @sample_interval.setter
+    def sample_interval(self, value):
+        self._sample_interval = value
 
 
 class ProfileManager:
@@ -215,34 +198,12 @@ class ProfileManager:
 
 
 class ProfileRegion:
-    """
-    Context manager for profiling specific code regions using LIKWID markers.
-
-    Attributes:
-    ----------
-    region_name: str
-        Name of the profiling region.
-
-    config: ProfilingConfig
-        Instance of ProfilingConfig for accessing profiling settings.
-    """
+    """Context manager for profiling specific code regions using LIKWID markers."""
 
     def __init__(self, region_name):
-        """
-        Initialize the ProfileRegion context manager.
-
-        Parameters
-        ----------
-        region_name: str
-            Name of the profiling region.
-        """
-
         if hasattr(self, '_initialized') and self._initialized:
-            return  # Skip re-initialization
-
+            return
         self.config = ProfilingConfig()
-        # By default, self.config.simulation_label = ''
-        # --> self.region_name = region_name
         self.region_name = self.config.simulation_label + region_name
         self._ncalls = 0
         self._start_times = []
@@ -251,13 +212,7 @@ class ProfileRegion:
         self.started = False
 
     def __enter__(self):
-        """
-        Enter the profiling context, starting the LIKWID marker if profiling is enabled.
-
-        Returns:
-            ProfileRegion: The current instance of ProfileRegion.
-        """
-        if self.config.get_likwid():
+        if self.config.likwid:
             self._pylikwid().markerstartregion(self.region_name)
 
         self._ncalls += 1
@@ -268,15 +223,7 @@ class ProfileRegion:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """
-        Exit the profiling context, stopping the LIKWID marker if profiling is enabled.
-
-        Args:
-            exc_type (type): The exception type, if any.
-            exc_value (Exception): The exception value, if any.
-            traceback (traceback): The traceback object, if any.
-        """
-        if self.config.get_likwid():
+        if self.config.likwid:
             self._pylikwid().markerstopregion(self.region_name)
         if self.started:
             end_time = MPI.Wtime()
@@ -285,121 +232,31 @@ class ProfileRegion:
             self.started = False
 
     def _pylikwid(self):
-        """
-        Import and return the pylikwid module, caching the result to avoid repeated imports.
-
-        Returns:
-            module: The pylikwid module.
-        """
         return _import_pylikwid()
 
     @property
     def ncalls(self):
-        """
-        Get the number of times the region has been entered.
-
-        Returns:
-            int: Number of calls to this profiling region.
-        """
         return self._ncalls
 
     @property
     def durations(self):
-        """
-        Get the list of durations for each call to the profiling region.
-
-        Returns:
-            list: Durations of each call in seconds.
-        """
         return self._durations
 
     @property
     def start_times(self):
-        """
-        Get the list of start times for each call to the profiling region.
-
-        Returns:
-            list: Start times of each call in seconds.
-        """
         return self._start_times
 
     @property
     def end_times(self):
-        """
-        Get the list of end times for each call to the profiling region.
-
-        Returns:
-            list: End times of each call in seconds.
-        """
         return self._end_times
 
 
 def pylikwid_markerinit():
-    """
-    Initialize LIKWID profiling markers.
-
-    This function imports pylikwid only if profiling is enabled.
-    """
-    if ProfilingConfig().get_likwid():
+    """Initialize LIKWID profiling markers."""
+    if ProfilingConfig().likwid:
         _import_pylikwid().markerinit()
 
-
 def pylikwid_markerclose():
-    """
-    Close LIKWID profiling markers.
-
-    This function imports pylikwid only if profiling is enabled.
-    """
-    if ProfilingConfig().get_likwid():
+    """Close LIKWID profiling markers."""
+    if ProfilingConfig().likwid:
         _import_pylikwid().markerclose()
-
-
-def set_likwid(value):
-    """
-    Set the global profiling configuration.
-
-    Parameters
-    ----------
-    value: bool
-        True to enable profiling, False to disable.
-    """
-    ProfilingConfig().set_likwid(value)
-
-
-def set_simulation_label(value):
-    """
-    Set the simulation label
-
-    Parameters
-    ----------
-    value: str
-        Simulation label
-    """
-    # This allows  for running multiple simulations with different labels but where the regions have the same name.
-    ProfilingConfig().set_simulation_label(value)
-
-
-def get_likwid():
-    """
-    Get the current global profiling configuration.
-
-    Returns:
-        bool: True if profiling is enabled, False otherwise.
-    """
-    return ProfilingConfig().get_likwid()
-
-
-def set_sample_duration(value):
-    return ProfilingConfig().set_sample_duration(value)
-
-
-def get_sample_duration():
-    return ProfilingConfig().get_sample_duration()
-
-
-def set_sample_interval(value):
-    return ProfilingConfig().set_sample_interval(value)
-
-
-def get_sample_interval():
-    return ProfilingConfig().get_sample_interval()
