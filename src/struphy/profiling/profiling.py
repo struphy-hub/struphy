@@ -177,8 +177,7 @@ class ProfileManager:
             likwid_data["configuration"] = pylikwid.getconfiguration()
             pylikwid.destroyconfiguration()
 
-            # Gather group information
-            likwid_data["groups"] = [group['Name'] for group in pylikwid.getgroups()]
+            likwid_data["groups"] = pylikwid.getgroups()
 
 
         if rank == 0:
