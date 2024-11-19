@@ -411,7 +411,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print(f"sort_step argument received: {args.sort_step}")
     # Enable profiling if likwid == True
     config = ProfilingConfig()
     config.likwid = args.likwid

@@ -268,7 +268,7 @@ class Project:
         self.simulation_finished = False
         self.num_mpi = 1
         self.Nclones = 1
-        self._bandwidth_measured = True
+        self._bandwidth_measured = False
 
         if "mpi" in self.name:
             self.num_mpi = int(self.name.split("_")[-1].replace("mpi", ""))
@@ -343,15 +343,16 @@ class Project:
             self.likwid_outputs.append(lw_output)
             
             # Check if bandwidth was measured
-            bandwidth = self.get_value(
-                    metric="Memory bandwidth [MBytes/s] STAT",
-                    likwid_output_id=0,
-                    group=self.get_likwid_groups()[0],
-                    table="Metric STAT",
-                    column="Avg",
-                )
-            if bandwidth:
-                self._bandwidth_measured = True
+            if self.simulation_finished:
+                bandwidth = self.get_value(
+                        metric="Memory bandwidth [MBytes/s] STAT",
+                        likwid_output_id=0,
+                        group=self.get_likwid_groups()[0],
+                        table="Metric STAT",
+                        column="Avg",
+                    )
+                if bandwidth:
+                    self._bandwidth_measured = True
             if self.simulation_finished:
                 self.nodes = lw_output[self.get_likwid_groups()[0]]["nodes"].keys()
                 self.threads = lw_output[self.get_likwid_groups()[0]]["dicts"]["Raw"][
