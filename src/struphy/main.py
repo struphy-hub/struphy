@@ -415,8 +415,8 @@ if __name__ == '__main__':
 
     # Enable profiling if likwid == True
     set_likwid(args.likwid)
-    set_sample_duration(1)
-    set_sample_interval(2)
+    set_sample_duration(2.5)
+    set_sample_interval(10)
     pylikwid_markerinit()
     with ProfileManager.profile_region('main'):
         # solve the model

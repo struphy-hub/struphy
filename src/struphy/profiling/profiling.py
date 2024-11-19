@@ -38,8 +38,8 @@ class ProfilingConfig:
             cls._instance = super().__new__(cls)
             cls._instance.likwid = False  # Default value (profiling disabled)
             cls._instance.simulation_label = ''
-            cls._instance.sample_duration = 0.1
-            cls._instance.sample_interval = 1
+            cls._instance.sample_duration = 0
+            cls._instance.sample_interval = 0
         return cls._instance
 
     def set_likwid(self, value, simulation_label=''):
@@ -168,6 +168,12 @@ class ProfileManager:
                 "durations": np.array(region.durations, dtype=np.float64),
                 "start_times": np.array(region.start_times, dtype=np.float64),
                 "end_times": np.array(region.end_times, dtype=np.float64),
+                "config": {
+                    "likwid": region.config.likwid,
+                    "simulation_label": region.config.simulation_label,
+                    "sample_duration": region.config.sample_duration,
+                    "sample_interval": region.config.sample_interval,
+                },
             }
 
         # Gather all data at the root process (rank 0)

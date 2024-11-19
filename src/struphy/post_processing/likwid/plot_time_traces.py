@@ -6,7 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_time_vs_duration(path):
+def plot_time_vs_duration(
+        path,
+        output_path,
+        groups_include=["*"],
+        groups_skip=[],
+    ):
     """
     Plot start times versus durations for all profiling regions from all MPI ranks, 
     with each region using the same color across ranks.
@@ -39,6 +44,15 @@ def plot_time_vs_duration(path):
             color = color_map[region_name]
             plt.plot(start_times, durations, 'x-', color=color,
                      label=f"{region_name}" if rank_name == 'rank_0' else None)
+    xmax = max(start_times)
+    x = 0
+    while x < xmax:
+        xa = x + info['config']['sample_duration']
+        xb = xa + (info['config']['sample_interval'] - info['config']['sample_duration'])
+        plt.axvspan(xa, xb, alpha=0.5, color='red', zorder = 1)
+        x += info['config']['sample_interval']
+    print(region_name, xmax, info['config'])
+
 
     plt.title("Time vs. Duration for Profiling Regions")
     plt.xlabel("Start Time (s)")
@@ -47,10 +61,16 @@ def plot_time_vs_duration(path):
     plt.grid(visible=True, linestyle='--', alpha=0.5)
     plt.tight_layout()
     # plt.show()
-    plt.savefig('time_vs_duration.pdf')
+    figure_path = os.path.join(output_path,'time_vs_duration.pdf')
+    plt.savefig(figure_path)
+    print(f"open {figure_path}")
 
-
-def plot_gantt_chart(path):
+def plot_gantt_chart(
+        path,
+        output_path,
+        groups_include=["*"],
+        groups_skip=[],
+    ):
     """
     Plot Gantt chart of profiling regions from all MPI ranks using a grouped bar plot,
     where bars are grouped by region and stacked for different ranks, with each rank having a specific color.
@@ -136,7 +156,9 @@ def plot_gantt_chart(path):
     plt.tight_layout()
 
     # Save the plot as a PDF file
-    plt.savefig('gantt_chart.pdf')
+    figure_path = os.path.join(output_path, 'gantt_chart.pdf')
+    plt.savefig(figure_path)
+    print(f"open {figure_path}")
 
 
 if __name__ == '__main__':
@@ -159,5 +181,5 @@ if __name__ == '__main__':
     path = os.path.abspath(args.path)  # Convert to absolute path
 
     # Plot the time trace
-    plot_time_vs_duration(path)
-    plot_gantt_chart(path)
+    plot_time_vs_duration(path,output_path=o_path)
+    plot_gantt_chart(path,output_path=o_path)
