@@ -184,11 +184,9 @@ def struphy_run(
         str(runtime),
         '-s',
         str(save_step),
-        # '--sort-step',
-        # str(sort_step),
+        '--sort-step',
+        str(sort_step),
     ]
-    if sort_step != 0:
-        cmd_main.extend(['--sort-step', str(sort_step)])
 
     cmd_cprofile = [
         '-m',
