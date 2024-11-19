@@ -5,16 +5,17 @@ import pytest
 
 from struphy.models import toy
 from struphy.models.tests.util import call_model
-from struphy.profiling.profiling import (  # ProfileRegion,
-    pylikwid_markerclose,
-    pylikwid_markerinit,
-    set_likwid,
-    set_simulation_label,
-)
+
 
 
 @pytest.mark.performance
-def test_performance():
+def profile_performance():
+    from struphy.profiling.profiling import (  # ProfileRegion,
+        pylikwid_markerclose,
+        pylikwid_markerinit,
+        set_likwid,
+        set_simulation_label,
+    )
     map_and_equil = ('Cuboid', 'HomogenSlab')
     fast = True
     Tend = 0.005
