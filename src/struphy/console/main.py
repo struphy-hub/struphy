@@ -447,6 +447,7 @@ def struphy():
 
     parser_run.add_argument(
         '-g', '--group',
+        default='MEM_DP',
         type=str,
         help='likwid measurement group',
     )
