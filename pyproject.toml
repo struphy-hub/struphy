@@ -98,12 +98,13 @@ struphy = ['compile_struphy.mk',
 [tool.autopep8]
 # Add specific settings for autopep8
 max_line_length = 120
-ignore = ["E221,E226,E203,E731,E711"]
+ignore = ["E221,E226,E203,E265,E731,E711"]
 # Descriptions of error codes: https://www.flake8rules.com/
 # E201 – Whitespace after  (, [ or {
 # E202 – Whitespace before (, [ or {
 # E221 – Multiple spaces before operator
 # E226 – Missing whitespace around arithmetic operators
+# E265 - Block comment should start with '# '
 # E266 – Too many leading # for block comment
 # E731 – Do not assign a lambda expression
 # E203 – Whitespace before : (used in slicing)

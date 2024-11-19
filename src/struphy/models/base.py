@@ -864,20 +864,13 @@ class StruphyModel(metaclass=ABCMeta):
                     obj.draw_markers()
                     obj.mpi_sort_markers(do_test=True)
 
-                    if not val['params']['markers']['loading']['type'] == 'restart':
-
-                        typ = val['params']['markers']['type']
-                        assert typ in ['full_f', 'delta_f', 'control_variate'], \
-                            f'Type {typ} for distribution function is not known!'
-
+                    if not val['params']['markers']['loading'] == 'restart':
                         if obj.coords == 'vpara_mu':
-
                             obj.save_constants_of_motion(
                                 epsilon=self.equation_params[species]['epsilon'],
                                 f_coords=obj.f0.coords,
                                 initial=True,
                             )
-
                         obj.initialize_weights()
 
     def initialize_from_restart(self, data):
@@ -1495,9 +1488,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # get rid of species names in initial conditions (add back later)
         parameters['kinetic']['species_name'].pop('background')
-        parameters['kinetic']['species_name']['markers']['loading'].pop(
-            'moments',
-        )
+        # parameters['kinetic']['species_name']['markers']['loading'].pop(
+        #     'moments')
 
         for keys in bckgr_params_scalar:
             parameters['em_fields']['background'][bckgr_type].pop(keys)
@@ -1527,12 +1519,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             '3D': 'Constant',
         }
 
-        moms = {
-            '6D': [0., 0., 0., 1., 1., 1.],
-            '5D': [0., 0., 1., 1.],
-            '4D': [0., 1.],
-            '3D': [],
-        }
+        # moms = {'6D': [0., 0., 0., 1., 1., 1.],
+        #         '5D': [0., 0., 1., 1.],
+        #         '4D': [0., 1.],
+        #         '3D': []}
 
         # init options dicts
         d_opts = {'em_fields': [], 'fluid': {}, 'kinetic': {}}
@@ -1638,7 +1628,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     'type': maxw_name[dim],
                     maxw_name[dim]: {'n': 0.05},
                 }
-                parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
+                # parameters['kinetic'][name]['markers']['loading']['moments'] = moms[dim]
 
                 for keys, vals in pert_params_scalar.items():
                     parameters['kinetic'][name]['perturbation'][pert_type][keys]['n'] = vals
@@ -1828,6 +1818,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             for species, val in self.kinetic.items():
 
+                assert 'Np' in val['params']['markers']
+                assert 'bc' in val['params']['markers']
+                assert 'loading' in val['params']['markers']
+
                 # background parameters
                 if 'background' in val['params']:
                     bckgr_params = val['params']['background']
@@ -1848,15 +1842,18 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 kinetic_class = getattr(particles, val['space'])
 
                 val['obj'] = kinetic_class(
-                    species,
+                    name=species,
                     **val['params']['markers'],
-                    derham=self.derham,
+                    sorting_params=sorting_params,
+                    comm=self.derham.comm,
+                    inter_comm=self.derham.inter_comm,
                     domain=self.domain,
                     mhd_equil=self.mhd_equil,
                     braginskii_equil=self.braginskii_equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params,
-                    sorting_params=sorting_params,
+                    domain_array=self.derham.domain_array,
+                    projected_mhd_equil=self.projected_mhd_equil,
                 )
 
                 obj = val['obj']
