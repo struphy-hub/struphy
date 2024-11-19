@@ -200,10 +200,11 @@ upload_outputs:
     - |
       curl -T ${OUTPUT_TAR} -u SK3fLV4VzawfjoW: -H 'X-Requested-With: XMLHttpRequest' -H 'X-Method-Override: PUT' https://datashare.mpcdf.mpg.de/public.php/webdav/
     - echo "Uploading output artifacts to Gitlab..."
+    - mv $ARTIFACT_DIR/ artifact
   artifacts:
     name: "struphy_performance_${CI_PIPELINE_ID}"
     paths:
-      - $ARTIFACT_DIR
+      - artifact
     expire_in: 30 days
 
 # python virtual environments into cache
