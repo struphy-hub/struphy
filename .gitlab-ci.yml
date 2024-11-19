@@ -85,7 +85,7 @@ stages:
     - module list
     - LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
     - export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
-    - export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH
+    # - export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH
     - export PIPELINE_NAME="pipeline_${CI_PIPELINE_ID}"
     - export SLURM_JOBNAME_PREFIX="struphy_${CI_PIPELINE_ID}"
     - export CI_JOBS_DIR=/ptmp/maxlin/struphy/CI_jobs/$PIPELINE_NAME
