@@ -52,18 +52,11 @@ kinetic :
             A : 1 # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :
-            type    : full_f # full_f, control_variate, or delta_f
-            ppc     : null
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
             eps     : 2.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc : 
-                type    : [remove, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
-                remove  :
-                    save              : False
-                    boundary_transfer : False
-                    particle_refilling : False            
-            loading :
-                type    : pseudo_random # particle loading mechanism 
+            bc : [remove, periodic, periodic]           
+            loading : pseudo_random 
+            loading_params :
                 seed    : 1608 # seed for random number generator
                 moments : [0., 0., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial : uniform # uniform or disc

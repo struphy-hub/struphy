@@ -69,6 +69,7 @@ __epyccel__/
 *.vts
 *acquisition.lock
 *.json
+.output*
 
 # Default simulations and diagnostics
 my_diagnostics
@@ -81,6 +82,7 @@ logs
 # I/O
 src/struphy/io/out/
 src/struphy/state.yml
+src/struphy/io/inp/params_*
 
 # models list
 src/struphy/models/models_list

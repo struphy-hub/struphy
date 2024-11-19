@@ -323,11 +323,9 @@ if __name__ == '__main__':
     import struphy.utils.utils as utils
     from struphy.profiling.profiling import (
         ProfileManager,
+        ProfilingConfig,
         pylikwid_markerclose,
         pylikwid_markerinit,
-        set_likwid,
-        set_sample_duration,
-        set_sample_interval,
     )
 
     # Read struphy state file
@@ -414,9 +412,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Enable profiling if likwid == True
-    set_likwid(args.likwid)
-    set_sample_duration(2.5)
-    set_sample_interval(10)
+    config = ProfilingConfig()
+    config.likwid = args.likwid
+    config.sample_duration = 0.1
+    config.sample_interval = 1
+    config.simulation_label = ""
+
     pylikwid_markerinit()
     with ProfileManager.profile_region('main'):
         # solve the model
@@ -431,7 +432,7 @@ if __name__ == '__main__':
             sort_step=args.sort_step,
         )
     pylikwid_markerclose()
-    all_regions = ProfileManager.get_all_regions()
+    # all_regions = ProfileManager.get_all_regions()
     ProfileManager.print_summary()
 
-    ProfileManager.save_to_pickle(os.path.join(o_path, "profiling_data.pkl"))
+    ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_data.pkl"))
