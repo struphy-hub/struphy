@@ -673,12 +673,18 @@ class StruphyModel(metaclass=ABCMeta):
             obj = val['obj']
             assert isinstance(obj, Particles)
 
+            if obj.n_cols_diagnostics > 0:
+                for i in range(obj.n_cols_diagnostics):
+
+                    str_dn = f'd{i+1}'
+                    dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
+
             if 'f' in val['params']['save_data']:
 
                 for slice_i, edges in val['bin_edges'].items():
 
                     comps = slice_i.split('_')
-                    components = [False]*(3 + obj.vdim)
+                    components = [False]*(3 + obj.vdim + 3 + obj.n_cols_diagnostics)
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True
@@ -866,11 +872,11 @@ class StruphyModel(metaclass=ABCMeta):
 
                     if not val['params']['markers']['loading'] == 'restart':
                         if obj.coords == 'vpara_mu':
-                            obj.save_constants_of_motion(
-                                epsilon=self.equation_params[species]['epsilon'],
-                                f_coords=obj.f0.coords,
-                                initial=True,
-                            )
+                            obj.save_magnetic_moment()
+
+                        if obj.f0.coords == 'constants_of_motion':
+                            obj.save_constants_of_motion()
+
                         obj.initialize_weights()
 
     def initialize_from_restart(self, data):
@@ -1852,6 +1858,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     braginskii_equil=self.braginskii_equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params,
+                    equation_params=self.equation_params[species],
                     domain_array=self.derham.domain_array,
                     projected_mhd_equil=self.projected_mhd_equil,
                 )

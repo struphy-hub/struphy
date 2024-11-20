@@ -298,10 +298,12 @@ class GuidingCenter(StruphyModel):
 
     def update_scalar_quantities(self):
         # particles' kinetic energy
+
         self._en_fv[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 3]**2,
         ) / (2.*self.pointer['ions'].n_mks)
 
+        self.pointer['ions'].save_magnetic_background_energy()
         self._en_tot[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
             self.pointer['ions'].markers[~self.pointer['ions'].holes, 8],
         ) / self.pointer['ions'].n_mks
