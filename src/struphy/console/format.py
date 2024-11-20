@@ -406,6 +406,8 @@ def struphy_lint(config, verbose):
     # Define standard linters which will be checked in the CI
     ci_linters = ["isort", "autopep8"]
     python_files = get_python_files(input_type, path)
+    if len(python_files) == 0:
+        sys.exit(0)
 
     print(
         tabulate(
@@ -551,6 +553,8 @@ def struphy_format(config, verbose, yes=False):
         input_type = "path"
 
     python_files = get_python_files(input_type, path)
+    if len(python_files) == 0:
+        sys.exit(0)
 
     confirm_formatting(python_files, linters, yes)
 
