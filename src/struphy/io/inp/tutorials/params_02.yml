@@ -63,6 +63,9 @@ fluid :
                     info: false
                     verbose: false
                     recycle: true
+                filter: {use_filter: null, modes: 1, repeat: 1, alpha: 0.5}
+                boundary_cut: {e1: 0.0, e2: 0.0, e3: 0.0}
+                turn_off: false
             ShearAlfven:
                 solver:
                     type: [pcg, MassMatrixPreconditioner]
@@ -71,6 +74,7 @@ fluid :
                     info: false
                     verbose: false
                     recycle: true
+                turn_off: false
             Magnetosonic:
                 solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
@@ -79,6 +83,7 @@ fluid :
                     info: false
                     verbose: false
                     recycle: true
+                turn_off: false
 
 kinetic :
     energetic_ions :
@@ -120,5 +125,9 @@ kinetic :
                     info: false
                     verbose: false
                     recycle: true
+                filter: {use_filter: null, modes: 1, repeat: 1, alpha: 0.5}
+                boundary_cut: {e1: 0.0, e2: 0.0, e3: 0.0}
+                turn_off: false
+
             PushEta: {algo: rk4}
             PushVxB: {algo: analytic}

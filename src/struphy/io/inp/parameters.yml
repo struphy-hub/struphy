@@ -86,7 +86,6 @@ kinetic :
             Np      : 1000 # alternative if ppc = null, total number of markers
             ppc     : null  # number of markers per 3d grid cell
             bc      : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
-            bc_refill : particle_refilling
             type    : full_f # full_f, control_variate, or delta_f
             eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
             loading : pseudo_random # particle loading mechanism 

@@ -52,8 +52,8 @@ class Particles(metaclass=ABCMeta):
     loading_params : dict
         Parameterts for loading, see defaults below.
 
-    bc_refill : str
-        Either 'boundary_transfer' or 'particle_refilling'.
+    bc_refill : list
+        Either 'inner' or 'outer'.
 
     sorting_params : dict
         Sorting boxes size parameters.
@@ -102,6 +102,7 @@ class Particles(metaclass=ABCMeta):
         loading_params: dict = None,
         bc_refill: str = None,
         sorting_params: dict = None,
+        equation_params: dict = None,
         comm: Intracomm = None,
         inter_comm: Intracomm = None,
         domain: Domain = None,
@@ -132,7 +133,8 @@ class Particles(metaclass=ABCMeta):
             assert bci in ('remove', 'reflect', 'periodic', 'refill')
 
         if bc_refill is not None:
-            assert bc_refill in ('save', 'boundary_transfer', 'particle_refilling')
+            for bc_refilli in bc_refill:
+                assert bc_refilli in ('outer', 'inner')
 
         self._type = type
         self._loading = loading
@@ -208,6 +210,8 @@ class Particles(metaclass=ABCMeta):
         if self.loading_params['moments'] is None:
             self.auto_sampling_params()
 
+        self._equation_params = equation_params
+
         # background p-form description (default: None, which means 0-form)
         if 'pforms' in bckgr_params:
             assert len(bckgr_params['pforms']) == 2, \
@@ -268,8 +272,19 @@ class Particles(metaclass=ABCMeta):
 
         # set coordinates of the background distribution
         if self.f0.coords == 'constants_of_motion':
-            self._f_coords_index = self.index['com']
-            self._f_jacobian_coords_index = self.index['pos+energy']
+            # Particles6D
+            if self.vdim == 3:
+                assert self.n_cols_diagnostics >= 7, f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
+
+                self._f_coords_index = self.index['com']['6D']
+                self._f_jacobian_coords_index = self.index['pos+energy']['6D']
+
+            # Particles5D
+            elif self.vdim == 2:
+                assert self.n_cols_diagnostics >= 3, f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+
+                self._f_coords_index = self.index['com']['5D']
+                self._f_jacobian_coords_index = self.index['pos+energy']['5D']
 
         else:
             self._f_coords_index = self.index['coords']
@@ -279,7 +294,7 @@ class Particles(metaclass=ABCMeta):
         self._args_markers = MarkerArguments(
             self.markers,
             self.vdim,
-            self.bufferindex,
+            self.first_pusher_idx,
         )
 
         # Have at least 3 spare places in markers array
@@ -336,8 +351,29 @@ class Particles(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def bufferindex(self):
-        """Starting buffer marker index number
+    def first_diagnostics_idx(self):
+        """ Starting buffer marker index number for diagnostics.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def first_pusher_idx(self):
+        """ Starting buffer marker index number for pusher.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def n_cols_diagnostics(self):
+        """ Number of the diagnostics columns.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def n_cols_aux(self):
+        """ Number of the auxiliary columns.
         """
         pass
 
@@ -448,6 +484,12 @@ class Particles(metaclass=ABCMeta):
         """ Sorting boxes size parameters.
         """
         return self._sorting_params
+
+    @property
+    def equation_params(self):
+        """Parameters appearing in model equation due to Struphy normalization.
+        """
+        return self._equation_params
 
     @property
     def f_init(self):
@@ -576,8 +618,12 @@ class Particles(metaclass=ABCMeta):
         out['pos'] = slice(0, 3)  # positions
         out['vel'] = slice(3, 3 + self.vdim)  # velocities
         out['coords'] = slice(0, 3 + self.vdim)  # phasespace_coords
-        out['com'] = slice(8, 11)  # constants of motion
-        out['pos+energy'] = list(range(0, 3)) + [8]  # positions + energy
+        out['com'] = {}
+        out['com']['6D'] = slice(12, 15)  # constants of motion (Particles6D)
+        out['com']['5D'] = slice(8, 11)  # constants of motion (Particles5D)
+        out['pos+energy'] = {}
+        out['pos+energy']['6D'] = slice(9, 13)  # positions + energy
+        out['pos+energy']['5D'] = list(range(0, 3)) + [8]  # positions + energy
         out['weights'] = 3 + self.vdim  # weights
         out['s0'] = 4 + self.vdim  # sampling_density
         out['w0'] = 5 + self.vdim  # weights0
@@ -619,18 +665,6 @@ class Particles(metaclass=ABCMeta):
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3 + self.vdim)
         self._markers[~self.holes, self.index['coords']] = new
-
-    @property
-    def constants_of_motion(self):
-        """ Array holding the constants of motion of marker, excluding holes. The i-th row holds the i-th marker info.
-        """
-        return self.markers[~self.holes, self.index['com']]
-
-    @constants_of_motion.setter
-    def constants_of_motion(self, new):
-        assert isinstance(new, np.ndarray)
-        assert new.shape == (self.n_mks_loc, 3)
-        self._markers[~self.holes, self.index['com']] = new
 
     @property
     def weights(self):
@@ -1132,7 +1166,8 @@ class Particles(metaclass=ABCMeta):
             )
 
         if self._initialized_sorting and sort:
-            print("Sorting the markers after initial draw")
+            if self.mpi_rank == 0:
+                print("Sorting the markers after initial draw")
             self.mpi_sort_markers()
             self.do_sort()
 
@@ -1146,7 +1181,7 @@ class Particles(metaclass=ABCMeta):
         Sorts markers according to MPI domain decomposition.
 
         Markers are sent to the process corresponding to the alpha-weighted position
-        alpha*markers[:, 0:3] + (1 - alpha)*markers[:, buffer_idx:buffer_idx + 3].
+        alpha*markers[:, 0:3] + (1 - alpha)*markers[:, first_pusher_idx:first_pusher_idx + 3].
 
         Periodic boundary conditions are taken into account 
         when computing the alpha-weighted position.
@@ -1157,7 +1192,7 @@ class Particles(metaclass=ABCMeta):
             Whether to apply kinetic boundary conditions before sorting.
 
         alpha : tuple | list | int | float
-            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
+            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
             If int or float then alpha = (alpha, alpha, alpha). alpha must be between 0 and 1. 
 
         do_test : bool
@@ -1180,7 +1215,7 @@ class Particles(metaclass=ABCMeta):
             self.domain_decomp,
             self.mpi_rank,
             self.vdim,
-            self.bufferindex,
+            self.first_pusher_idx,
             alpha=alpha,
         )
 
@@ -1309,7 +1344,6 @@ class Particles(metaclass=ABCMeta):
             f_init /= self.f_init.velocity_jacobian_det(
                 *self.f_jacobian_coords.T,
             )
-
         # compute w0 and save at vdim + 5
         self.weights0 = f_init / self.sampling_density
 
@@ -1325,6 +1359,10 @@ class Particles(metaclass=ABCMeta):
         according to the algorithm in :ref:`control_var`.
         The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
+
+        # in case of CanonicalMaxwellian, evaluate constants_of_motion
+        if self.f0.coords == 'constants_of_motion':
+            self.save_constants_of_motion()
 
         f0 = self.f0(*self.f_coords.T)
 
@@ -1465,18 +1503,17 @@ class Particles(metaclass=ABCMeta):
             # indices or particles that are outside of the logical unit cube
             outside_inds = np.nonzero(self._is_outside)[0]
 
+            if len(outside_inds) == 0:
+                continue
+
             # apply boundary conditions
             if bc == 'remove':
 
-                if self.bc_refill == 'boundary_transfer':
-                    outside_inds = self.boundary_transfer(self._is_outside)
+                if self.bc_refill is not None:
+                    self.particle_refilling()
 
-                if self.bc_refill == 'particle_refilling':
-                    outside_inds = self.particle_refilling(self._is_outside)
-
-                self._markers[outside_inds, :-1] = -1.
-
-                self._n_lost_markers += len(outside_inds)
+                self._markers[self._is_outside, :-1] = -1.
+                self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
             elif bc == 'periodic':
                 self.markers[outside_inds, axis] = \
@@ -1487,32 +1524,32 @@ class Particles(metaclass=ABCMeta):
                 outside_left_inds = np.nonzero(self._is_outside_left)[0]
                 if newton:
                     self.markers[
-                        outside_right_inds,
-                        self.bufferindex + 3 + self.vdim + axis,
+                        outside_right_inds, self.first_pusher_idx + 3 + self.vdim + axis,
                     ] += 1.
                     self.markers[
-                        outside_left_inds,
-                        self.bufferindex + 3 + self.vdim + axis,
+                        outside_left_inds, self.first_pusher_idx + 3 + self.vdim + axis,
                     ] += -1.
                 else:
                     self.markers[
-                        :, self.bufferindex + 3 + self.vdim +
-                        axis,
+                        :, self.first_pusher_idx + 3 + self.vdim + axis,
                     ] = 0.
                     self.markers[
-                        outside_right_inds,
-                        self.bufferindex + 3 + self.vdim + axis,
+                        outside_right_inds, self.first_pusher_idx + 3 + self.vdim + axis,
                     ] = 1.
                     self.markers[
-                        outside_left_inds,
-                        self.bufferindex + 3 + self.vdim + axis,
+                        outside_left_inds, self.first_pusher_idx + 3 + self.vdim + axis,
                     ] = -1.
 
             elif bc == 'reflect':
+                self.markers[self._is_outside_left, axis] = 1e-4
+                self.markers[self._is_outside_right, axis] = 1 - 1e-4
+
                 reflect(
                     self.markers, self.domain.args_domain,
                     outside_inds, axis,
                 )
+
+                self.markers[self._is_outside, self.first_pusher_idx] = -1.
 
             else:
                 raise NotImplementedError('Given bc_type is not implemented!')
@@ -1572,85 +1609,148 @@ class Particles(metaclass=ABCMeta):
 
         self._loading_params['moments'] = new_moments
 
-    def boundary_transfer(self, is_outside):
-        """
-        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
+    def particle_refilling(self):
+        r"""
+        When particles move outside of the domain, refills them.
+        TODO: Currently only valid for HollowTorus geometry with AdhocTorus equilibrium.
 
-        When particles reach the inner boundary circle, transfer them to the opposite poloidal angle of the same magnetic flux surface.
+        In case of guiding-center orbit, refills particles at the opposite poloidal angle of the same magnetic flux surface.
+
+        .. math::
+
+            \theta_\text{refill} &= - \theta_\text{loss}
+            \\
+            \phi_\text{refill} &= -2 q(r_\text{loss}) \theta_\text{loss}
+
+        In case of full orbit, refills particles at the same gyro orbit until their guiding-centers are also outside of the domain.
+        When their guiding-centers also reach at the boundary, refills them as we did with guiding-center orbit.
+        """
+
+        for kind in self.bc_refill:
+
+            # sorting out particles which are out of the domain
+            if kind == 'inner':
+                outside_inds = np.nonzero(self._is_outside_left)[0]
+                self.markers[outside_inds, 0] = 1e-4
+                r_loss = self._domain.params_map['a1']
+
+            else:
+                outside_inds = np.nonzero(self._is_outside_right)[0]
+                self.markers[outside_inds, 0] = 1 - 1e-4
+                r_loss = 1.
+
+            if len(outside_inds) == 0:
+                continue
+
+            # in case of Particles6D, do gyro boundary transfer
+            if self.vdim == 3:
+
+                gyro_inside_inds = self.gyro_transfer(outside_inds)
+
+                # mark the particle as done for multiple step pushers
+                self.markers[outside_inds[gyro_inside_inds], self.first_pusher_idx] = -1.
+                self._is_outside[outside_inds[gyro_inside_inds]] = False
+
+                # exclude particles whose guiding center positions are still inside.
+                if len(gyro_inside_inds) > 0:
+                    outside_inds = outside_inds[~gyro_inside_inds]
+
+            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss
+            self.markers[outside_inds, 2] -= 2 * \
+                self.mhd_equil.q_r(r_loss)*self.markers[outside_inds, 1]
+
+            # theta_boudary_transfer = - theta_loss
+            self.markers[outside_inds, 1] = 1. - self.markers[outside_inds, 1]
+
+            # mark the particle as done for multiple step pushers
+            self.markers[outside_inds, self.first_pusher_idx] = -1.
+            self._is_outside[outside_inds] = False
+
+    def gyro_transfer(self, outside_inds):
+        r""" Refills particles at the same gyro orbit.
+        Their perpendicular velocity directions are also changed accordingly:
+
+        First, refills the particles at the other side of the cross point (between gyro circle and domain boundary),
+
+        .. math::
+
+            \theta_\text{refill} = \theta_\text{gc} - \left(\theta_\text{loss} - \theta_\text{gc} \right) \,.
+
+        Then changes the direction of the perpendicular velocity,
+
+        .. math::
+
+            \vec{v}_{\perp, \text{refill}} = \frac{\vec{\rho}_g}{|\vec{\rho}_g|} \times \vec{b}_0 |\vec{v}_{\perp, \text{loss}}| \,,
+
+        where :math:`\vec{\rho}_g = \vec{x}_\text{refill} - \vec{X}_\text{gc}` is the cartesian radial vector.
 
         Parameters
         ----------
+        outside_inds : np.array (int)
+            An array of indices of particles which are outside of the domain.
+
+        Returns
+        -------
+        out : np.array (bool)
+            An array of indices of particles where its guiding centers are outside of the domain. 
         """
-        # sorting out particles which are inside of the inner hole
-        smaller_than_rmin = self.markers[:, 0] < 0.
 
-        # exclude holes
-        smaller_than_rmin[self.holes] = False
+        # incoming markers must be "Particles6D".
+        assert self.vdim == 3
 
-        # indices or particles that are inside of the inner hole
-        transfer_inds = np.nonzero(smaller_than_rmin)[0]
+        #TODO: currently assumes periodic boundary condition along poloidal and toroidal angle
+        self.markers[outside_inds, 1:3] = self.markers[outside_inds, 1:3] % 1
 
-        self._markers[transfer_inds, 0] = 1e-8
+        v = self.markers[outside_inds, 3:6].T
 
-        # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
-        r_loss = self._markers[transfer_inds, 0] * \
-            (
-                1. - self._domain.params_map['a1']
-        ) + self._domain.params_map['a1']
+        # eval cartesian equilibrium magnetic field at the marker positions
+        b_cart, xyz = self.mhd_equil.b_cart(self.markers[outside_inds, :])
 
-        self._markers[transfer_inds, 2] -= 2 * \
-            self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+        # calculate magnetic field amplitude and normalized magnetic field
+        absB0 = np.sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
+        norm_b_cart = b_cart/absB0
 
-        # theta_boudary_transfer = - theta_loss
-        self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
+        # calculate parallel and perpendicular velocities
+        v_parallel = np.einsum('ij,ij->j', v, norm_b_cart)
+        v_perp = np.cross(norm_b_cart, np.cross(v, norm_b_cart, axis=0), axis=0)
+        v_perp_square = np.sqrt(v_perp[0]**2 + v_perp[1]**2 + v_perp[2]**2)
 
-        # mark the particle as done for multiple step pushers
-        self._markers[transfer_inds, 11] = -1.
+        assert np.all(np.isclose(v_perp, v - norm_b_cart*v_parallel))
 
-        is_outside[transfer_inds] = False
-        outside_inds = np.nonzero(is_outside)[0]
+        # calculate Larmor radius
+        Larmor_r = np.cross(norm_b_cart, v_perp, axis=0)/absB0*self._epsilon
 
-        return outside_inds
+        # transform cartesian coordinates to logical coordinates
+        # TODO: currently only possible with the geomoetry where its inverse map is defined.
+        assert hasattr(self.domain, 'inverse_map')
 
-    def particle_refilling(self, is_outside):
-        """
-        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
+        xyz -= Larmor_r
 
-        When particles reach the outter boundary of the poloidal plane, refills them to the opposite poloidal angle of the same magnetic flux surface.
+        gc_etas = self.domain.inverse_map(*xyz, bounded=False)
 
-        Parameters
-        ----------
-        """
-        # sorting out particles which are outside of the poloidal plane
-        smaller_than_rmin = self.markers[:, 0] > 1.
+        # gyro transfer
+        self.markers[outside_inds, 1] = (
+            gc_etas[1] -
+            (self.markers[outside_inds, 1] - gc_etas[1]) % 1
+        ) % 1
 
-        # exclude holes
-        smaller_than_rmin[self.holes] = False
+        new_xyz = self.domain(self.markers[outside_inds, :])
 
-        # indices or particles that are outside of the poloidal plane
-        transfer_inds = np.nonzero(smaller_than_rmin)[0]
+        # eval cartesian equilibrium magnetic field at the marker positions
+        b_cart = self.mhd_equil.b_cart(self.markers[outside_inds, :])[0]
 
-        self._markers[transfer_inds, 0] = 1. - 1e-8
+        # calculate magnetic field amplitude and normalized magnetic field
+        absB0 = np.sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
+        norm_b_cart = b_cart/absB0
 
-        # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
-        r_loss = self._markers[transfer_inds, 0] * \
-            (
-                1. - self._domain.params_map['a1']
-        ) + self._domain.params_map['a1']
+        Larmor_r = new_xyz - xyz
+        Larmor_r /= np.sqrt(Larmor_r[0]**2 + Larmor_r[1]**2 + Larmor_r[2]**2)
 
-        self._markers[transfer_inds, 2] -= 2 * \
-            self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+        new_v_perp = np.cross(Larmor_r, norm_b_cart, axis=0)*v_perp_square
 
-        # theta_boudary_transfer = - theta_loss
-        self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
+        self.markers[outside_inds, 3:6] = (norm_b_cart*v_parallel).T + new_v_perp.T
 
-        # mark the particle as done for multiple step pushers
-        self._markers[transfer_inds, 11] = -1.
-
-        is_outside[transfer_inds] = False
-        outside_inds = np.nonzero(is_outside)[0]
-
-        return outside_inds
+        return np.logical_and(1. > gc_etas[0], gc_etas[0] > 0.)
 
     class SortingBoxes:
         """Boxes used for the sorting of the particles.
@@ -1776,7 +1876,7 @@ def sendrecv_determine_mtbs(
     domain_decomp,
     mpi_rank,
     vdim,
-    buffer_index,
+    first_pusher_idx,
     alpha: list | tuple | np.ndarray = (1., 1., 1.),
 ):
     """
@@ -1799,11 +1899,11 @@ def sendrecv_determine_mtbs(
             Rank of calling MPI process.
 
         alpha : list | tuple
-            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
+            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
             alpha[i] must be between 0 and 1. 
 
-        buffer_index : int
-            The buffer index of the markers array.
+        first_pusher_idx : int
+            Starting buffer marker index number for pusher.
 
     Returns
     -------
@@ -1821,7 +1921,7 @@ def sendrecv_determine_mtbs(
         alpha = np.array(alpha, dtype=float)
     assert alpha.size == 3
     assert np.all(alpha >= 0.) and np.all(alpha <= 1.)
-    bi = buffer_index
+    bi = first_pusher_idx
     sorting_etas = np.mod(
         alpha*(
             markers[:, :3]

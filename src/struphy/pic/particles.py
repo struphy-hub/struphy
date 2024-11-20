@@ -57,13 +57,33 @@ class Particles6D(Particles):
         if 'bckgr_params' not in kwargs:
             kwargs['bckgr_params'] = self.default_bckgr_params()
 
+        # default number of diagnostics and auxiliary columns
+        if 'n_cols' not in kwargs:
+            self._n_cols_diagnostics = 0
+            self._n_cols_aux = 5
+
+        else:
+            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
+            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+
+            kwargs.pop('n_cols')
+
         super().__init__(name, Np, bc, loading, **kwargs)
+
+        # call projected mhd equilibrium in case of CanonicalMaxwellian
+        if kwargs['bckgr_params']['type'] == 'CanonicalMaxwellian':
+
+            self._absB0_h = self.projected_mhd_equil.absB0
+            self._b2_h = self.projected_mhd_equil.b2
+            self._derham = self.projected_mhd_equil.derham
+
+            self._epsilon = self.equation_params['epsilon']
 
     @property
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 24
+        return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
 
     @property
     def vdim(self):
@@ -72,10 +92,28 @@ class Particles6D(Particles):
         return 3
 
     @property
-    def bufferindex(self):
-        """Starting buffer marker index number
+    def first_diagnostics_idx(self):
+        """ Starting buffer marker index number for diagnostics.
         """
-        return 9
+        return 3 + self.vdim + 3
+
+    @property
+    def first_pusher_idx(self):
+        """ Starting buffer marker index number for pusher.
+        """
+        return 3 + self.vdim + 3 + self.n_cols_diagnostics
+
+    @property
+    def n_cols_diagnostics(self):
+        """ Number of the diagnostics columns.
+        """
+        return self._n_cols_diagnostics
+
+    @property
+    def n_cols_aux(self):
+        """ Number of the auxiliary columns.
+        """
+        return self._n_cols_aux
 
     @property
     def coords(self):
@@ -147,6 +185,85 @@ class Particles6D(Particles):
 
         return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
+    def save_constants_of_motion(self):
+        """
+        Calculate each markers' guiding center constants of motions
+        and assign them into diagnostics columns of marker array:
+
+        ================= ============== ======= ============ ============= ==============
+        diagnostics index | 0 | 1 | 2 |  |  3  | |    4     | |     5     | |     6      |
+        ================= ============== ======= ============ ============= ==============
+              value       guiding_center energy  magn. moment can. momentum para. velocity
+        ================= ============== ======= ============ ============= ==============
+
+        Only equilibrium magnetic field is considered.
+        """
+
+        # idx and slice
+        idx_gc_r = self.first_diagnostics_idx
+        slice_gc = slice(self.first_diagnostics_idx, self.first_diagnostics_idx + 3)
+        idx_energy = self.first_diagnostics_idx + 3
+        idx_can_momentum = self.first_diagnostics_idx + 5
+
+        # save cartesian positions
+        self.markers[~self.holes, slice_gc] = self.domain(
+            self.positions, change_out_order=True,
+        )
+
+        # eval guiding center phase space
+        utilities_kernels.eval_guiding_center_from_6d(
+            self.markers,
+            self._derham.args_derham,
+            self.domain.args_domain,
+            self.first_diagnostics_idx,
+            self._epsilon,
+            self._b2_h[0]._data,
+            self._b2_h[1]._data,
+            self._b2_h[2]._data,
+            self._absB0_h._data,
+        )
+
+        # apply domain inverse map to get logical guiding center positions
+        # TODO: currently only possible with the geometry where its inverse map is defined.
+        assert hasattr(self.domain, 'inverse_map')
+
+        self.markers[~self.holes, slice_gc] = self.domain.inverse_map(
+            *self.markers[~self.holes, slice_gc].T, change_out_order=True,
+        )
+
+        # eval energy
+        self.markers[~self.holes, idx_energy] = (
+            self.markers[~self.holes, 3]**2 +
+            self.markers[~self.holes, 4]**2 +
+            self.markers[~self.holes, 5]**2
+        )/(2)
+
+        # eval psi at etas
+        a1 = self.mhd_equil.domain.params_map['a1']
+        R0 = self.mhd_equil.params['R0']
+        B0 = self.mhd_equil.params['B0']
+
+        r = self.markers[~self.holes, idx_gc_r]*(1 - a1) + a1
+        self.markers[~self.holes, idx_can_momentum] = self.mhd_equil.psi_r(r)
+
+        # send particles to the guiding center positions
+        self.markers[~self.holes, self.first_pusher_idx:self.first_pusher_idx+3] = self.markers[~self.holes, slice_gc]
+        self.mpi_sort_markers(alpha=1)
+
+        utilities_kernels.eval_canonical_toroidal_moment_6d(
+            self.markers,
+            self._derham.args_derham,
+            self.first_diagnostics_idx,
+            self._epsilon,
+            B0,
+            R0,
+            self._absB0_h._data,
+        )
+
+        # send back and clear buffer
+        self.mpi_sort_markers()
+        self.markers[~self.holes, self.first_pusher_idx:self.first_pusher_idx+3] = 0
+
 
 class Particles5D(Particles):
     """
@@ -154,11 +271,11 @@ class Particles5D(Particles):
 
     The numpy marker array is as follows:
 
-    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
-    index  | 0 | 1 | 2 |     3        4       5      6      7      8          9             10            >=11
-    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========
-    value position (eta) v_parallel v_perp  weight   s0     w0   energy magn. moment toro. can. moment buffer
-    ===== ============== ========== ====== ======= ====== ====== ====== ============ ================= ==========   
+    ===== ============== ========== ====== ======= ====== ====== ==========
+    index  | 0 | 1 | 2 |     3        4       5      6      7       >=8
+    ===== ============== ========== ====== ======= ====== ====== ==========
+    value position (eta) v_parallel v_perp  weight   s0     w0   buffer
+    ===== ============== ========== ====== ======= ====== ====== ==========
 
     Parameters
     ----------
@@ -200,6 +317,17 @@ class Particles5D(Particles):
         if 'bckgr_params' not in kwargs:
             kwargs['bckgr_params'] = self.default_bckgr_params()
 
+        # default number of diagnostics and auxiliary columns
+        if 'n_cols' not in kwargs:
+            self._n_cols_diagnostics = 3
+            self._n_cols_aux = 12
+
+        else:
+            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
+            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+
+            kwargs.pop('n_cols')
+
         super().__init__(name, Np, bc, loading, **kwargs)
 
         # magnetic background
@@ -214,23 +342,43 @@ class Particles5D(Particles):
 
         self._tmp2 = self.derham.Vh['2'].zeros()
 
+        self._epsilon = self.equation_params['epsilon']
+
     @property
     def n_cols(self):
-        """Number of columns in markers array, i.e. the attributes of each marker.
+        """ Number of the columns at each markers.
         """
-        return 32
+        return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
 
     @property
     def vdim(self):
-        """Dimension of the velocity space.
+        """ Dimension of the velocity space.
         """
         return 2
 
     @property
-    def bufferindex(self):
-        """Starting buffer marker index number
+    def first_diagnostics_idx(self):
+        """ Starting buffer marker index number for diagnostics.
         """
-        return 11
+        return 3 + self.vdim + 3
+
+    @property
+    def first_pusher_idx(self):
+        """ Starting buffer marker index number for pusher.
+        """
+        return 3 + self.vdim + 3 + self.n_cols_diagnostics
+
+    @property
+    def n_cols_diagnostics(self):
+        """ Number of the diagnostics columns.
+        """
+        return self._n_cols_diagnostics
+
+    @property
+    def n_cols_aux(self):
+        """ Number of the auxiliary columns.
+        """
+        return self._n_cols_aux
 
     @property
     def magn_bckgr(self):
@@ -247,6 +395,11 @@ class Particles5D(Particles):
     def unit_b1_h(self):
         '''Discrete 1-form coefficients of B/|B|.'''
         return self._unit_b1_h
+
+    @property
+    def epsilon(self):
+        '''One of equation params, epsilon'''
+        return self._epsilon
 
     @property
     def coords(self):
@@ -349,67 +502,51 @@ class Particles5D(Particles):
 
         return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
-    def save_constants_of_motion(self, epsilon, abs_B0=None, f_coords='constants_of_motion', initial=False):
+    def save_constants_of_motion(self):
         """
-        Calculate each markers' constants of motion and assign them into markers[:,8:11].
+        Calculate each markers' energy and canonical toroidal momentum 
+        and assign them into diagnostics columns of marker array:
+
+        ================= ======= ============ =============
+        diagnostics index |  0  | |    1     | |     2     |
+        ================= ======= ============ =============
+              value       energy  magn. moment can. momentum
+        ================= ======= ============ =============
+
         Only equilibrium magnetic field is considered.
-
-        Parameters
-        ----------
-        epsilon : float
-            Guiding center scaling factor.
-
-        abs_B0 : BlockVector
-            FE coeffs of equilibrium magnetic field magnitude.
-
-        f_coords : str
-            Coordinates of the distribution function f0.
-
-        initial : bool
-            If True, magnetic moment is also calculated and saved.
         """
 
-        if abs_B0 is None:
-            abs_B0 = self.derham.P['0'](self.mhd_equil.absB0)
-
-        E0T = self.derham.extraction_ops['0'].transpose()
-        abs_B0 = E0T.dot(abs_B0)
-
-        if initial:
-            utilities_kernels.eval_magnetic_moment_5d(
-                self.markers,
-                self.derham.args_derham,
-                abs_B0._data,
-            )
+        # idx and slice
+        idx_can_momentum = self.first_diagnostics_idx + 2
 
         utilities_kernels.eval_energy_5d(
             self.markers,
             self.derham.args_derham,
-            abs_B0._data,
+            self.first_diagnostics_idx,
+            self.absB0_h._data,
         )
 
-        if f_coords == 'constants_of_motion':
+        # eval psi at etas
+        a1 = self.mhd_equil.domain.params_map['a1']
+        R0 = self.mhd_equil.params['R0']
+        B0 = self.mhd_equil.params['B0']
 
-            # eval psi at etas
-            a1 = self.mhd_equil.domain.params_map['a1']
-            R0 = self.mhd_equil.params['R0']
-            B0 = self.mhd_equil.params['B0']
+        r = self.markers[~self.holes, 0]*(1 - a1) + a1
+        self.markers[~self.holes, idx_can_momentum] = self.mhd_equil.psi_r(r)
 
-            r = self.markers[~self.holes, 0]*(1 - a1) + a1
-            self.markers[~self.holes, 10] = self.mhd_equil.psi_r(r)
-
-            utilities_kernels.eval_canonical_toroidal_moment_5d(
-                self.markers,
-                self.derham.args_derham,
-                epsilon,
-                B0,
-                R0,
-                abs_B0._data,
-            )
+        utilities_kernels.eval_canonical_toroidal_moment_5d(
+            self.markers,
+            self.derham.args_derham,
+            self.first_diagnostics_idx,
+            self.epsilon,
+            B0,
+            R0,
+            self.absB0_h._data,
+        )
 
     def save_magnetic_energy(self, b2):
         r"""
-        Calculate magnetic field energy at each particles' position and assign it into markers[:,8].
+        Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
 
         Parameters
         ----------
@@ -426,6 +563,7 @@ class Particles5D(Particles):
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
+            self.first_diagnostics_idx,
             self.absB0_h._data,
             self.unit_b1_h[0]._data,
             self.unit_b1_h[1]._data,
@@ -438,19 +576,27 @@ class Particles5D(Particles):
     def save_magnetic_background_energy(self):
         r"""
         Evaluate :math:`mu_p |B_0(\boldsymbol \eta_p)|` for each marker.
-        The result is stored at markers[:, 8].
+        The result is stored at markers[:, self.first_diagnostics_idx,].
         """
-
-        E0T = self.derham.extraction_ops['0'].transpose()
-
-        abs_B0 = E0T.dot(self.absB0_h)
-        abs_B0.update_ghost_regions()
 
         utilities_kernels.eval_magnetic_background_energy(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
-            abs_B0._data,
+            self.first_diagnostics_idx,
+            self.absB0_h._data,
+        )
+
+    def save_magnetic_moment(self):
+        r"""
+        Calculate magnetic moment of each particles and assign it into markers[:,self.first_diagnostics_idx,+1].
+        """
+
+        utilities_kernels.eval_magnetic_moment_5d(
+            self.markers,
+            self.derham.args_derham,
+            self.first_diagnostics_idx,
+            self.absB0_h._data,
         )
 
 
@@ -504,13 +650,24 @@ class Particles3D(Particles):
         if 'bckgr_params' not in kwargs:
             kwargs['bckgr_params'] = self.default_bckgr_params()
 
+        # default number of diagnostics and auxiliary columns
+        if 'n_cols' not in kwargs:
+            self._n_cols_diagnostics = 0
+            self._n_cols_aux = 5
+
+        else:
+            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
+            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+
+            kwargs.pop('n_cols')
+
         super().__init__(name, Np, bc, loading, **kwargs)
 
     @property
     def n_cols(self):
         """ Number of the columns at each markers.
         """
-        return 18
+        return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
 
     @property
     def vdim(self):
@@ -519,10 +676,28 @@ class Particles3D(Particles):
         return 0
 
     @property
-    def bufferindex(self):
-        """Starting buffer marker index number
+    def first_diagnostics_idx(self):
+        """ Starting buffer marker index number for diagnostics.
         """
-        return 6
+        return 3 + self.vdim + 3
+
+    @property
+    def first_pusher_idx(self):
+        """ Starting buffer marker index number for pusher.
+        """
+        return 3 + self.vdim + 3 + self.n_cols_diagnostics
+
+    @property
+    def n_cols_diagnostics(self):
+        """ Number of the diagnostics columns.
+        """
+        return self._n_cols_diagnostics
+
+    @property
+    def n_cols_aux(self):
+        """ Number of the auxiliary columns.
+        """
+        return self._n_cols_aux
 
     @property
     def coords(self):

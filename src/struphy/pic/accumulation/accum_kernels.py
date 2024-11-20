@@ -78,7 +78,7 @@ def hybrid_fA_density(
     args_domain: 'DomainArguments',
     mat: 'float[:,:,:,:,:,:]', Nel: 'int[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]',
     p_shape: 'int[:]', p_size: 'float[:]',
-):  # model specific argument
+):
     r"""
     Accumulates the values of density at quadrature points with the filling functions
 
@@ -201,7 +201,7 @@ def hybrid_fA_Arelated(
     vec1: 'float[:,:,:]',
     vec2: 'float[:,:,:]',
     vec3: 'float[:,:,:]',
-):  # model specific argument
+):
     r"""
     Accumulates into V1 with the filling functions
 
@@ -323,9 +323,9 @@ def linear_vlasov_maxwell_poisson(
     vec: 'float[:,:,:]',
     f0_values: 'float[:]',
     f0_params: 'float[:]',
-    alpha: 'float',  # model specific argument
+    alpha: 'float',
     kappa: 'float',
-):  # model specific argument
+):
     r"""
     Accumulates the charge density in V0 
 
@@ -587,14 +587,8 @@ def linear_vlasov_maxwell(
             args_derham,
             eta1, eta2, eta3,
             mat11, mat12, mat13, mat22, mat23, mat33,
-            filling_m[0, 0], filling_m[
-                0,
-                1,
-            ], filling_m[0, 2],
-            filling_m[1, 1], filling_m[
-                1,
-                2,
-            ], filling_m[2, 2],
+            filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+            filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
             vec1, vec2, vec3,
             filling_v[0], filling_v[1], filling_v[2],
         )
@@ -734,14 +728,8 @@ def vlasov_maxwell(
             args_derham,
             eta1, eta2, eta3,
             mat11, mat12, mat13, mat22, mat23, mat33,
-            filling_m[0, 0], filling_m[
-                0,
-                1,
-            ], filling_m[0, 2],
-            filling_m[1, 1], filling_m[
-                1,
-                2,
-            ], filling_m[2, 2],
+            filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+            filling_m[1, 1], filling_m[1, 2], filling_m[2, 2],
             vec1, vec2, vec3,
             filling_v[0], filling_v[1], filling_v[2],
         )
@@ -826,11 +814,11 @@ def delta_f_vlasov_maxwell(
     vec1: 'float[:,:,:]',
     vec2: 'float[:,:,:]',
     vec3: 'float[:,:,:]',
-    f0_values: 'float[:]',  # model specific argument
-    alpha: 'float',  # model specific argument
+    f0_values: 'float[:]',
+    alpha: 'float',
     kappa: 'float',
     substep: 'int',
-):  # model specific argument
+):
     r"""
     Accumulates vector into V1 with the filling functions
 
@@ -932,12 +920,11 @@ def delta_f_vlasov_maxwell_scn(
     vec1: 'float[:,:,:]',
     vec2: 'float[:,:,:]',
     vec3: 'float[:,:,:]',
-    # model specific argument
     f0_values: 'float[:]',
-    vth: 'float',  # model specific argument
-    alpha: 'float',  # model specific argument
+    vth: 'float',
+    alpha: 'float',
     kappa: 'float',
-):  # model specific argument
+):
     r"""
     Accumulates vector into V1 with the filling functions
 
@@ -1042,11 +1029,12 @@ def cc_lin_mhd_6d_1(
     mat12: 'float[:,:,:,:,:,:]',
     mat13: 'float[:,:,:,:,:,:]',
     mat23: 'float[:,:,:,:,:,:]',
-    b2_1: 'float[:,:,:]',   # model specific argument
-    b2_2: 'float[:,:,:]',   # model specific argument
-    b2_3: 'float[:,:,:]',   # model specific argument
+    b2_1: 'float[:,:,:]',
+    b2_2: 'float[:,:,:]',
+    b2_3: 'float[:,:,:]',
     basis_u: 'int', scale_mat: 'float',
-):  # model specific argument
+    boundary_cut: 'float',
+):
     r"""Accumulates into V1 with the filling functions
 
     .. math::
@@ -1088,6 +1076,10 @@ def cc_lin_mhd_6d_1(
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         # marker positions
@@ -1200,11 +1192,12 @@ def cc_lin_mhd_6d_2(
     vec1: 'float[:,:,:]',
     vec2: 'float[:,:,:]',
     vec3: 'float[:,:,:]',
-    b2_1: 'float[:,:,:]',   # model specific argument
-    b2_2: 'float[:,:,:]',   # model specific argument
-    b2_3: 'float[:,:,:]',   # model specific argument
+    b2_1: 'float[:,:,:]',
+    b2_2: 'float[:,:,:]',
+    b2_3: 'float[:,:,:]',
     basis_u: 'int', scale_mat: 'float', scale_vec: 'float',
-):  # model specific argument
+    boundary_cut: 'float',
+):
     r"""Accumulates into V1 with the filling functions
 
     .. math::
@@ -1257,6 +1250,10 @@ def cc_lin_mhd_6d_2(
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         # marker positions
@@ -1322,14 +1319,8 @@ def cc_lin_mhd_6d_2(
                 mat11, mat12, mat13,
                 mat22, mat23,
                 mat33,
-                filling_m[0, 0], filling_m[
-                    0,
-                    1,
-                ], filling_m[0, 2],
-                filling_m[
-                    1,
-                    1,
-                ], filling_m[1, 2],
+                filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+                filling_m[1, 1], filling_m[1, 2],
                 filling_m[2, 2],
                 vec1, vec2, vec3,
                 filling_v[0], filling_v[1], filling_v[2],
@@ -1361,14 +1352,8 @@ def cc_lin_mhd_6d_2(
                 mat11, mat12, mat13,
                 mat22, mat23,
                 mat33,
-                filling_m[0, 0], filling_m[
-                    0,
-                    1,
-                ], filling_m[0, 2],
-                filling_m[
-                    1,
-                    1,
-                ], filling_m[1, 2],
+                filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+                filling_m[1, 1], filling_m[1, 2],
                 filling_m[2, 2],
                 vec1, vec2, vec3,
                 filling_v[0], filling_v[1], filling_v[2],
@@ -1399,14 +1384,8 @@ def cc_lin_mhd_6d_2(
                 mat11, mat12, mat13,
                 mat22, mat23,
                 mat33,
-                filling_m[0, 0], filling_m[
-                    0,
-                    1,
-                ], filling_m[0, 2],
-                filling_m[
-                    1,
-                    1,
-                ], filling_m[1, 2],
+                filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+                filling_m[1, 1], filling_m[1, 2],
                 filling_m[2, 2],
                 vec1, vec2, vec3,
                 filling_v[0], filling_v[1], filling_v[2],
@@ -1478,6 +1457,7 @@ def pc_lin_mhd_6d_full(
     vec2_3: 'float[:,:,:]',
     vec3_3: 'float[:,:,:]',
     scale_mat: 'float', scale_vec: 'float',
+    boundary_cut: 'float',
 ):
     r"""Accumulates into V1 with the filling functions
 
@@ -1517,6 +1497,10 @@ def pc_lin_mhd_6d_full(
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         # marker positions
@@ -1572,14 +1556,8 @@ def pc_lin_mhd_6d_full(
             mat11_33, mat12_33, mat13_33,
             mat22_33, mat23_33,
             mat33_33,
-            filling_m[0, 0], filling_m[
-                0,
-                1,
-            ], filling_m[0, 2],
-            filling_m[
-                1,
-                1,
-            ], filling_m[1, 2],
+            filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+            filling_m[1, 1], filling_m[1, 2],
             filling_m[2, 2],
             vec1_1, vec2_1, vec3_1,
             vec1_2, vec2_2, vec3_2,
@@ -1641,6 +1619,7 @@ def pc_lin_mhd_6d(
     vec2_3: 'float[:,:,:]',
     vec3_3: 'float[:,:,:]',
     scale_mat: 'float', scale_vec: 'float',
+    boundary_cut: 'float',
 ):
     r"""Accumulates into V1 with the filling functions
 
@@ -1679,6 +1658,10 @@ def pc_lin_mhd_6d(
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         # marker positions
@@ -1725,14 +1708,8 @@ def pc_lin_mhd_6d(
             mat11_22, mat12_22, mat13_22,
             mat22_22, mat23_22,
             mat33_22,
-            filling_m[0, 0], filling_m[
-                0,
-                1,
-            ], filling_m[0, 2],
-            filling_m[
-                1,
-                1,
-            ], filling_m[1, 2],
+            filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+            filling_m[1, 1], filling_m[1, 2],
             filling_m[2, 2],
             vec1_1, vec2_1, vec3_1,
             vec1_2, vec2_2, vec3_2,

@@ -154,14 +154,14 @@ def push_vxb_analytic(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
 
     #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -276,14 +276,14 @@ def push_vxb_implicit(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
 
     #$ omp parallel firstprivate(b_prod) private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -896,6 +896,7 @@ def push_bxu_Hdiv(
     args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]',
+    boundary_cut: 'float',
 ):
     r'''Updates
 
@@ -936,6 +937,10 @@ def push_bxu_Hdiv(
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         # marker data
@@ -1001,6 +1006,7 @@ def push_bxu_Hcurl(
     args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     u1_1: 'float[:,:,:]', u1_2: 'float[:,:,:]', u1_3: 'float[:,:,:]',
+    boundary_cut: 'float',
 ):
     r'''Updates
 
@@ -1043,6 +1049,10 @@ def push_bxu_Hcurl(
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         # marker data
@@ -1110,6 +1120,7 @@ def push_bxu_H1vec(
     args_derham: 'DerhamArguments',
     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
     uv_1: 'float[:,:,:]', uv_2: 'float[:,:,:]', uv_3: 'float[:,:,:]',
+    boundary_cut: 'float',
 ):
     r'''Updates
 
@@ -1150,6 +1161,10 @@ def push_bxu_H1vec(
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         # marker data
@@ -1361,6 +1376,7 @@ def push_pc_GXu_full(
     GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
     GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
     GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]',
+    boundary_cut: 'float',
 ):
     r'''Updates
 
@@ -1397,8 +1413,13 @@ def push_pc_GXu_full(
     n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         eta1 = markers[ip, 0]
@@ -1467,6 +1488,7 @@ def push_pc_GXu(
     GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
     GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
     GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]',
+    boundary_cut: 'float',
 ):
     r'''Updates
 
@@ -1504,8 +1526,13 @@ def push_pc_GXu(
     n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         eta1 = markers[ip, 0]
@@ -1588,7 +1615,7 @@ def push_eta_stage(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -1604,7 +1631,7 @@ def push_eta_stage(
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -1629,7 +1656,7 @@ def push_eta_stage(
         markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] + \
             dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
     #$ omp end parallel
@@ -1685,7 +1712,7 @@ def push_pc_eta_rk4_Hcurl_full(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -1756,7 +1783,7 @@ def push_pc_eta_rk4_Hcurl_full(
 
         # update markers for the next stage
         markers[ip, 0:3] = (
-            markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
             cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
         )
 
@@ -1811,7 +1838,7 @@ def push_pc_eta_rk4_Hdiv_full(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -1880,7 +1907,7 @@ def push_pc_eta_rk4_Hdiv_full(
 
         # update markers for the next stage
         markers[ip, 0:3] = (
-            markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
             cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
         )
 
@@ -1934,7 +1961,7 @@ def push_pc_eta_rk4_H1vec_full(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -2002,7 +2029,7 @@ def push_pc_eta_rk4_H1vec_full(
 
         # update markers for the next stage
         markers[ip, 0:3] = (
-            markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
             cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
         )
 
@@ -2057,7 +2084,7 @@ def push_pc_eta_rk4_Hcurl(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -2129,7 +2156,7 @@ def push_pc_eta_rk4_Hcurl(
 
         # update markers for the next stage
         markers[ip, 0:3] = (
-            markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
             cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
         )
 
@@ -2184,7 +2211,7 @@ def push_pc_eta_rk4_Hdiv(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -2254,7 +2281,7 @@ def push_pc_eta_rk4_Hdiv(
 
         # update markers for the next stage
         markers[ip, 0:3] = (
-            markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
             cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
         )
 
@@ -2308,7 +2335,7 @@ def push_pc_eta_rk4_H1vec(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -2377,7 +2404,7 @@ def push_pc_eta_rk4_H1vec(
 
         # update markers for the next stage
         markers[ip, 0:3] = (
-            markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
             cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
         )
 
@@ -2819,7 +2846,7 @@ def push_deterministic_diffusion_stage(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -2881,7 +2908,7 @@ def push_deterministic_diffusion_stage(
         markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] + \
             dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
     #$ omp end parallel
