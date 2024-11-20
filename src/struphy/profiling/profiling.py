@@ -36,8 +36,8 @@ class ProfilingConfig:
             cls._instance = super().__new__(cls)
             cls._instance.likwid = False  # Default value (profiling disabled)
             cls._instance.simulation_label = ''
-            cls._instance.sample_duration = 0
-            cls._instance.sample_interval = 0
+            cls._instance.sample_duration = 0.1
+            cls._instance.sample_interval = 1.0
         return cls._instance
 
     @property
