@@ -183,9 +183,10 @@ class Pusher:
         markers[:, residual_idx:-1] = 0.
 
         if self.verbose:
-            rank = self.particles.derham.comm.Get_rank()
+            rank = self.particles.mpi_rank
             print(f'rank {rank}: starting {self.kernel} ...')
-            self.particles.derham.comm.Barrier()
+            if self.particles.mpi_comm is not None:
+                self.particles.derham.comm.Barrier()
 
         # if init_kernels is not empty, do spline evaluations at initial positions 0:3
         for ker_args in self.init_kernels:
@@ -216,7 +217,8 @@ class Pusher:
                 print(
                     f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
                 )
-                self.particles.derham.comm.Barrier()
+                if self.particles.mpi_comm is not None:
+                    self.particles.derham.comm.Barrier()
 
             n_not_converged[0] = self.particles.n_mks
             while True:
@@ -236,6 +238,7 @@ class Pusher:
                             apply_bc=False,
                             alpha=alpha[:3],
                         )
+
                     # evaluate
                     ker(
                         alpha,
@@ -263,6 +266,7 @@ class Pusher:
                 )
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
+                self.particles.update_holes()
 
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
@@ -280,11 +284,13 @@ class Pusher:
                         print(
                             f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
                         )
-                        self.particles.derham.comm.Barrier()
+                        if self.particles.mpi_comm is not None:
+                            self.particles.derham.comm.Barrier()
 
-                    self.particles.derham.comm.Allreduce(
-                        self._mpi_in_place, n_not_converged, op=self._mpi_sum,
-                    )
+                    if self.particles.mpi_comm is not None:
+                        self.particles.derham.comm.Allreduce(
+                            self._mpi_in_place, n_not_converged, op=self._mpi_sum,
+                        )
 
                     # take converged markers out of the loop
                     markers[self._converged_loc, first_pusher_idx] = -1.
@@ -292,7 +298,7 @@ class Pusher:
                 # maxiter=1 for explicit schemes
                 if k == self.maxiter:
                     if self.maxiter > 1:
-                        rank = self.particles.derham.comm.Get_rank()
+                        rank = self.particles.mpi_rank
                         print(
                             f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
                         )
@@ -320,7 +326,8 @@ class Pusher:
                 print(
                     f'rank {rank}: stage {stage + 1} of {self.n_stages} done.',
                 )
-                self.particles.derham.comm.Barrier()
+                if self.particles.mpi_comm is not None:
+                    self.particles.derham.comm.Barrier()
 
         # sort markers according to domain decomposition
         if self.mpi_sort == 'last':

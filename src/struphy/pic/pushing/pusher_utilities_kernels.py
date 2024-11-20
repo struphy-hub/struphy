@@ -15,7 +15,8 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 def reflect(
     markers: 'float[:,:]',
     args_domain: 'DomainArguments',
-    outside_inds: 'int[:]', axis: 'int',
+    outside_inds: 'int[:]',
+    axis: 'int',
 ):
     r'''
     Reflect the particles which are pushed outside of the logical cube.

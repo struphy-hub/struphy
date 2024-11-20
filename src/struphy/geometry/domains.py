@@ -3,6 +3,7 @@
 
 import numpy as np
 
+from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
 from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline
 from struphy.geometry.utilities import field_line_tracing
 
@@ -17,21 +18,21 @@ class Tokamak(PoloidalSplineTorus):
     ----------
     equilibrium : struphy.fields_background.mhd_equil.base.AxisymmMHDequilibrium
         The axisymmetric MHD equilibrium for which a flux-aligned grid shall be constructed (default: AdhocTorus).
-    Nel : list[int]
+    Nel : tuple[int]
         Number of cells in (radial, angular) direction to be used in spline mapping (default: [8, 32]).
-    p : list[int]
+    p : tuple[int]
         Spline degrees in (radial, angular) direction to be used in spline mapping (default: [2, 3]).
     psi_power : float
         Parametrization of radial flux coordinate :math:`\eta_1=\psi_{\mathrm{norm}}^p`, where :math:`\psi_{\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
-    psi_shifts : list[float]
+    psi_shifts : tuple[float]
         Start and end shifts of polidal flux in % --> cuts away regions at the axis and edge (default: [2., 2.])
     xi_param : str
         Parametrization of angular coordinate ("equal_angle", "equal_arc_length" or "sfl" (straight field line), default: "equal_angle").
     r0 : float
         Initial guess for radial distance from axis used in Newton root-finding method (default: 0.3).
-    Nel_pre : list[int]
+    Nel_pre : tuple[int]
         Number of cells in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [64, 256]).
-    p : list[int]
+    p : tuple[int]
         Spline degrees in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [3, 3]).
     tor_period : int
         Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1 --> full torus).
@@ -54,37 +55,43 @@ class Tokamak(PoloidalSplineTorus):
                 tor_period : 1           # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
 
-    def __init__(self, **params):
+    def __init__(
+        self,
+        equilibrium: AxisymmMHDequilibrium = None,
+        Nel: tuple = (8, 32),
+        p: tuple = (2, 3),
+        psi_power: float = 0.75,
+        psi_shifts: tuple = (0.01, 2.),
+        xi_param: str = 'equal_angle',
+        r0: float = 0.3,
+        Nel_pre: tuple = (64, 256),
+        p_pre: tuple = (3, 3),
+        tor_period: int = 1,
+    ):
 
-        from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
         from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
 
-        # set default
-        eq_default = EQDSKequilibrium()
+        # default MHD equilibrium
+        if equilibrium is None:
+            equilibrium = EQDSKequilibrium()
+        else:
+            assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
-        params_default = {
-            'equilibrium': eq_default,
-            'Nel': [8, 32],
-            'p': [2, 3],
-            'psi_power': 0.75,
-            'psi_shifts': [0.01, 2.],
-            'xi_param': 'equal_angle',
-            'r0': 0.3,
-            'Nel_pre': [64, 256],
-            'p_pre': [3, 3],
-            'tor_period': 1,
-        }
-
-        # check for compatibility of given MHD equilibrium
-        if 'equilibrium' in params:
-            assert isinstance(params['equilibrium'], AxisymmMHDequilibrium)
-
-        params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False,
+        params_map = Domain.prepare_params_map_new(
+            equilibrium=equilibrium,
+            Nel=Nel,
+            p=p,
+            psi_power=psi_power,
+            psi_shifts=psi_shifts,
+            xi_param=xi_param,
+            r0=r0,
+            Nel_pre=Nel_pre,
+            p_pre=p_pre,
+            tor_period=tor_period,
+            return_numpy=False,
         )
 
         # get control points via field tracing beetwenn fluxes [psi_s, psi_e)]
-
         # flux boundaries of mapping
         eq_mhd = params_map['equilibrium']
 
@@ -729,15 +736,17 @@ class HollowCylinder(Domain):
                 Lz : 4. # length of cylinder
     """
 
-    def __init__(self, **params):
+    def __init__(
+        self,
+        a1: float = .2,
+        a2: float = 1.,
+        Lz: float = 4.,
+    ):
 
         self._kind_map = 20
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {'a1': 0.2, 'a2': 1., 'Lz': 4.}
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default,
+        self._params_map, self._params_numpy = Domain.prepare_params_map_new(
+            a1=a1, a2=a2, Lz=Lz,
         )
 
         # periodicity in eta3-direction and pole at eta1=0
@@ -857,7 +866,7 @@ class HollowTorus(Domain):
         \,\,y= &\lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\sin(-2\pi\,\eta_3 / n)\,\,\\
         \,\,z= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin\left[\theta(\eta_1,\eta_2)\right]\,\,\end{bmatrix}
 
-    where
+    with the following possible poloidal angle parametrizations:
 
     .. math::
 
@@ -866,9 +875,9 @@ class HollowTorus(Domain):
         & 2\pi\,\eta_2\,, \quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{False}\,,
 
         &2\arctan\left[\sqrt{\frac{1 + \epsilon(\eta_1)}{1 - \epsilon(\eta_1)}}\,\tan\left(\pi\,\eta_2\right)\right]\quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{True}\,,
-        \end{aligned}\right.
 
-        &\epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
+        &\qquad \textrm {with}\qquad \epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
+        \end{aligned}\right.
 
     .. image:: ../../pics/mappings/hollow_torus.png
 

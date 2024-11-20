@@ -302,7 +302,7 @@ $$
 \end{aligned}
 $$
 
-These are 3x3 block matrices (implemented as [BlockLinearOperators](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#FEEC-data-structures)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
+These are 3x3 block matrices (implemented as [BlockLinearOperators](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
 
 $$
 \begin{align}
@@ -358,7 +358,7 @@ $$
  \end{aligned}
 $$
 
-where we inserted the PIC ansatz {eq}`eq:pic` in the last line. The result is a vector $\mathbf S = (S_{ijk}) \in \mathbb R^{N_0}$, that can be stored as a distributed [StencilVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#FEEC-data-structures) of the space $V_h^0$. We can write this in more compact notation by introducing the rectangular matrix
+where we inserted the PIC ansatz {eq}`eq:pic` in the last line. The result is a vector $\mathbf S = (S_{ijk}) \in \mathbb R^{N_0}$, that can be stored as a distributed [StencilVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures) of the space $V_h^0$. We can write this in more compact notation by introducing the rectangular matrix
 
 $$
  \mathbb L^0 \in \mathbb R^{N_0 \times N}\,,\qquad \mathbb L^0_{ijk,p} = \Lambda^0_{ijk}(\boldsymbol \eta_p) \in \mathbb R\,,
@@ -396,7 +396,7 @@ $$
 \end{aligned}
 $$
 
-where we inserted the PIC ansatz {eq}`eq:pic` in the last line. Here, it is important to realize that $\vec \Lambda^1_{\mu, ijk} \in \mathbb R^3$ is vector-valued, as defined in {ref}`geomFE`, and contracted with $DF^{-1}(\boldsymbol \eta_p) \, \mathbf v_p \in \mathbb R^3$ for each $\mu \in \{1, 2, 3\}$. The result of this is a vector $\mathbf S = (S^1_{ijk}, S^2_{ijk}, S^3_{ijk}) \in \mathbb R^{N_1}$, that can be stored as a distributed [BlockVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#FEEC-data-structures) of the space $V_h^1$.
+where we inserted the PIC ansatz {eq}`eq:pic` in the last line. Here, it is important to realize that $\vec \Lambda^1_{\mu, ijk} \in \mathbb R^3$ is vector-valued, as defined in {ref}`geomFE`, and contracted with $DF^{-1}(\boldsymbol \eta_p) \, \mathbf v_p \in \mathbb R^3$ for each $\mu \in \{1, 2, 3\}$. The result of this is a vector $\mathbf S = (S^1_{ijk}, S^2_{ijk}, S^3_{ijk}) \in \mathbb R^{N_1}$, that can be stored as a distributed [BlockVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures) of the space $V_h^1$.
  We can write this in more compact notation by introducing the matrix
 
 $$

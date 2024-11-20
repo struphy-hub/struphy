@@ -1,6 +1,7 @@
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.pic import utilities_kernels
@@ -182,6 +183,7 @@ class Particles6D(Particles):
             The 0-form sampling density.
         -------
         """
+        assert self.domain, f'self.domain must be set to call the sampling density 0-form.'
 
         return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
@@ -309,10 +311,9 @@ class Particles5D(Particles):
         Np: int,
         bc: list,
         loading: str,
+        projected_mhd_equil: ProjectedMHDequilibrium,
         **kwargs,
     ):
-
-        assert 'projected_mhd_equil' in kwargs
 
         if 'bckgr_params' not in kwargs:
             kwargs['bckgr_params'] = self.default_bckgr_params()
@@ -328,7 +329,11 @@ class Particles5D(Particles):
 
             kwargs.pop('n_cols')
 
-        super().__init__(name, Np, bc, loading, **kwargs)
+        super().__init__(
+            name, Np, bc, loading,
+            projected_mhd_equil=projected_mhd_equil,
+            **kwargs,
+        )
 
         # magnetic background
         if self.mhd_equil is not None:
@@ -341,8 +346,6 @@ class Particles5D(Particles):
         self._derham = self.projected_mhd_equil.derham
 
         self._tmp2 = self.derham.Vh['2'].zeros()
-
-        self._epsilon = self.equation_params['epsilon']
 
     @property
     def n_cols(self):
@@ -502,6 +505,17 @@ class Particles5D(Particles):
 
         return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
+    def draw_markers(self, sort: 'bool' = True):
+
+        super().draw_markers(sort=sort)
+
+        utilities_kernels.eval_magnetic_moment_5d(
+            self.markers,
+            self.derham.args_derham,
+            self.first_diagnostics_idx,
+            self._absB0_h._data,
+        )
+
     def save_constants_of_motion(self):
         """
         Calculate each markers' energy and canonical toroidal momentum 
@@ -533,6 +547,8 @@ class Particles5D(Particles):
 
         r = self.markers[~self.holes, 0]*(1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.mhd_equil.psi_r(r)
+
+        self._epsilon = self.equation_params['epsilon']
 
         utilities_kernels.eval_canonical_toroidal_moment_5d(
             self.markers,
