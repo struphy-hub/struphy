@@ -352,18 +352,22 @@ c_cronjob_install:
     - echo "Running pylint on individual files..."
     - |
       for file in $LINT_FILES; do
-        echo "Linting $file..."
-        echo "Linting $file..." >> lint_results/pylint_report.txt
-        # Run pylint and store output in a temporary file
-        pylint --score=y "$file" > temp_pylint_output.txt || true
-        # Append output to the main pylint report file
-        cat temp_pylint_output.txt >> lint_results/pylint_report.txt
-        # Extract and display the score line
-        grep 'Your code has been rated at' temp_pylint_output.txt
-        echo ""
-        echo "------------------------"
-        echo "------------------------" >> lint_results/pylint_report.txt
-        echo "------------------------" >> lint_results/pylint_report.txt
+        if [ -f "$file" ]; then
+          echo "Linting $file..."
+          echo "Linting $file..." >> lint_results/pylint_report.txt
+          # Run pylint and store output in a temporary file
+          pylint --score=y "$file" > temp_pylint_output.txt || true
+          # Append output to the main pylint report file
+          cat temp_pylint_output.txt >> lint_results/pylint_report.txt
+          # Extract and display the score line
+          grep 'Your code has been rated at' temp_pylint_output.txt
+          echo ""
+          echo "------------------------"
+          echo "------------------------" >> lint_results/pylint_report.txt
+          echo "------------------------" >> lint_results/pylint_report.txt
+        else
+          echo "File $file does not exist. Skipping..."
+        fi
       done
     - rm -f temp_pylint_output.txt
   artifacts:
