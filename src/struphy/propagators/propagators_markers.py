@@ -73,7 +73,7 @@ class PushEta(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.,
             n_stages=butcher.n_stages,
-            mpi_sort='last',
+            mpi_sort='each',
         )
 
     def __call__(self, dt):
@@ -267,6 +267,7 @@ class PushEtaPC(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.,
             n_stages=4,
+            mpi_sort='each',
         )
 
     def __call__(self, dt):
@@ -280,6 +281,10 @@ class PushEtaPC(Propagator):
             self._u[2].update_ghost_regions()
 
         self._pusher(dt)
+
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
 
 class PushGuidingCenterBxEstar(Propagator):
@@ -645,12 +650,6 @@ class PushGuidingCenterBxEstar(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
-
-            if self.particles[0].f0.coords == 'constants_of_motion':
-                self.particles[0].save_constants_of_motion(
-                    epsilon=self._epsilon, abs_B0=self._absB0,
-                )
-
             self.particles[0].update_weights()
 
 
@@ -1034,12 +1033,6 @@ class PushGuidingCenterParallel(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
-
-            if self.particles[0].f0.coords == 'constants_of_motion':
-                self.particles[0].save_constants_of_motion(
-                    epsilon=self._epsilon, abs_B0=self._absB0,
-                )
-
             self.particles[0].update_weights()
 
 

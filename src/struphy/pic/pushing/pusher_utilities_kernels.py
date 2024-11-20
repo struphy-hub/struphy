@@ -1,45 +1,30 @@
+from numpy import empty, floor, sqrt, zeros
 from pyccel.decorators import pure, stack_array
 
-from numpy import empty, sqrt, floor, zeros
-
-import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
+
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.bsplines.evaluation_kernels_3d import get_spans
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
-@stack_array('dfm', 'dfinv', 'dfinv_T', 'basis_normal', 'basis_normal_inv', 'norm_df', 'norm_dfinv_T', 'eta', 'eta_old', 'eta_boundary', 'v', 'v_logical', 'v_normal', 't')
-def reflect(markers: 'float[:,:]',
-            args_domain: 'DomainArguments',
-            outside_inds: 'int[:]', axis: 'int'):
-    '''
+@stack_array('dfm', 'dfinv', 'eta', 'v', 'v_logical')
+def reflect(
+    markers: 'float[:,:]',
+    args_domain: 'DomainArguments',
+    outside_inds: 'int[:]', axis: 'int',
+):
+    r'''
     Reflect the particles which are pushed outside of the logical cube.
 
-    Reflected particles' position:
-    e.g. axis == 0
+    .. math::
 
-                                       |
-                        o              |              o
-          (1 - eta1%1, eta2, eta3)     |      (eta1, eta2, eta3)
-                                       |
-
-    Reflected particles' velocity:
-    e.g. axis == 0
-
-    normalized basis vectors normal to the plane which is spanned by axis 1 and 2
-                   [DF^(-T)[0,0]/norm  DF[0,1]/norm  DF[0,2]/norm]
-    basis_normal = [DF^(-T)[1,0]/norm  DF[1,1]/norm  DF[1,2]/norm]
-                   [DF^(-T)[2,0]/norm  DF[2,1]/norm  DF[2,2]/norm]
-
-    v_nomral     = basis_normal  x  v
-
-    Reverse the v_normal, v_normal[0] = -v_normal[0]
-
-    For the application, see `struphy.pic.particles.Particles6D.mpi_sort_markers` and `struphy.pic.particles.apply_kinetic_bc`.
+        \hat{v} = DF^{-1} v \,, \\
+        \hat{v}_\text{reflected}[\text{axis}] = -1 * \hat{v} \,, \\
+        v_\text{reflected} = DF \hat{v}_\text{reflected} \,.
 
     Parameters
     ----------
@@ -59,80 +44,34 @@ def reflect(markers: 'float[:,:]',
     # allocate metric coeffs
     dfm = zeros((3, 3), dtype=float)
     dfinv = zeros((3, 3), dtype=float)
-    dfinv_T = zeros((3, 3), dtype=float)
-    basis_normal = zeros((3, 3), dtype=float)
-    basis_normal_inv = zeros((3, 3), dtype=float)
-    norm_df = empty(3, dtype=float)
 
     # marker position and velocity
     eta = empty(3, dtype=float)
-    eta_old = empty(3, dtype=float)
-    eta_boundary = empty(3, dtype=float)
     v = empty(3, dtype=float)
     v_logical = empty(3, dtype=float)
-    v_normal = empty(3, dtype=float)
 
     for ip in outside_inds:
 
         eta[:] = markers[ip, 0:3]
-        eta_old[:] = markers[ip, 9:12]
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta_old[0], eta_old[1], eta_old[2],
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta[0], eta[1], eta[2],
+            args_domain,
+            dfm,
+        )
 
         linalg_kernels.matrix_inv(dfm, dfinv)
 
         # pull back of the velocity
         linalg_kernels.matrix_vector(dfinv, v, v_logical)
 
-        if eta[axis] > 1.:
-            t = (1. - eta_old[axis])/v_logical[axis]
-            eta_boundary[:] = eta_old + t*v_logical
-
-            # assert allclose(eta_boundary[axis], 1.)
-
-        else:
-            t = (0. - eta_old[axis])/v[axis]
-            eta_boundary[:] = eta_old + t*v_logical
-
-            # assert allclose(eta_boundary[axis], 0.)
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta_boundary[0], eta_boundary[1], eta_boundary[2],
-                              args_domain,
-                              dfm)
-
-        # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_T)
-
-        # assemble normalized basis which is normal to the reflection plane
-        norm_df[0] = sqrt(dfm[0, 0]**2 + dfm[1, 0]**2 + dfm[2, 0]**2)
-        norm_df[1] = sqrt(dfm[0, 1]**2 + dfm[1, 1]**2 + dfm[2, 1]**2)
-        norm_df[2] = sqrt(dfm[0, 2]**2 + dfm[1, 2]**2 + dfm[2, 2]**2)
-
-        norm_dfinv_T = sqrt(dfinv_T[0, axis]**2 +
-                            dfinv_T[1, axis]**2 + dfinv_T[2, axis]**2)
-
-        basis_normal[:] = dfm/norm_df
-        basis_normal[:, axis] = dfinv_T[:, axis]/norm_dfinv_T
-
-        linalg_kernels.matrix_inv(basis_normal, basis_normal_inv)
-
-        # pull-back of velocity
-        linalg_kernels.matrix_vector(basis_normal_inv, v, v_normal)
-
         # reverse the velocity
-        v_normal[axis] = -v_normal[axis]
+        v_logical[axis] *= -1
 
-        # push-forward of velocity
-        linalg_kernels.matrix_vector(basis_normal, v_normal, v)
-
-        # update the particle positions
-        markers[ip, axis] = 1. - (markers[ip, axis]) % 1.
+        # push forwward of the velocity
+        linalg_kernels.matrix_vector(dfm, v_logical, v)
 
         # update the particle velocities
         markers[ip, 3:6] = v[:]
@@ -206,8 +145,10 @@ def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', u
 
         for i in range(length):
             if index_next > index:
-                tau_list[i] = (1.0 / Nel * (index + i + 1) -
-                               eta) / (eta_next - eta)
+                tau_list[i] = (
+                    1.0 / Nel * (index + i + 1) -
+                    eta
+                ) / (eta_next - eta)
             elif index > index_next:
                 tau_list[i] = (eta - 1.0 / Nel * (index - i)) / \
                     (eta - eta_next)
@@ -221,18 +162,20 @@ def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', u
 
 
 @stack_array('Nel')
-def aux_fun_x_v_stat_e(particle: 'float[:]',
-                       args_derham: 'DerhamArguments',
-                       args_domain: 'DomainArguments',
-                       n_quad1: 'int', n_quad2: 'int', n_quad3: 'int',
-                       dfm: 'float[:,:]', df_inv: 'float[:,:]',
-                       taus: 'float[:]',
-                       dt: 'float',
-                       loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
-                       weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
-                       e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                       kappa: 'float',
-                       eps: 'float[:]', maxiter: 'int') -> 'int':
+def aux_fun_x_v_stat_e(
+    particle: 'float[:]',
+    args_derham: 'DerhamArguments',
+    args_domain: 'DomainArguments',
+    n_quad1: 'int', n_quad2: 'int', n_quad3: 'int',
+    dfm: 'float[:,:]', df_inv: 'float[:,:]',
+    taus: 'float[:]',
+    dt: 'float',
+    loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
+    weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
+    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+    kappa: 'float',
+    eps: 'float[:]', maxiter: 'int',
+) -> 'int':
     """
     Auxiliary function for the pusher_x_v_static_efield, introduced to enable time-step splitting if scheme does not converge for the standard dt
 
@@ -299,18 +242,26 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
     v3_curr = v3
 
     # Use Euler method as a predictor for positions
-    evaluation_kernels.df(eta1, eta2, eta3,
-                          args_domain,
-                          dfm)
+    evaluation_kernels.df(
+        eta1, eta2, eta3,
+        args_domain,
+        dfm,
+    )
 
     linalg_kernels.matrix_inv(dfm, df_inv)
 
-    v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
-                       (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
-    v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
-                       (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
-    v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
-                       (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
+    v1_curv = kappa * (
+        df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
+        (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3)
+    )
+    v2_curv = kappa * (
+        df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
+        (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3)
+    )
+    v3_curv = kappa * (
+        df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
+        (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3)
+    )
 
     eta1_next = (eta1 + dt * v1_curv / 2.) % 1
     eta2_next = (eta2 + dt * v2_curv / 2.) % 1
@@ -336,23 +287,31 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
         v3_curr = v3_next
 
         # find Jacobian matrix
-        evaluation_kernels.df((eta1_curr + eta1)/2,
-                              (eta2_curr + eta2)/2,
-                              (eta3_curr + eta3)/2,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            (eta1_curr + eta1)/2,
+            (eta2_curr + eta2)/2,
+            (eta3_curr + eta3)/2,
+            args_domain,
+            dfm,
+        )
 
         # evaluate inverse Jacobian matrix
         linalg_kernels.matrix_inv(dfm, df_inv)
 
         # ======================================================================================
         # update the positions and place them back into the computational domain
-        v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
-                           (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
-        v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
-                           (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
-        v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
-                           (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
+        v1_curv = kappa * (
+            df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
+            (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3)
+        )
+        v2_curv = kappa * (
+            df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
+            (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3)
+        )
+        v3_curv = kappa * (
+            df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
+            (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3)
+        )
 
         # x_{n+1} = x_n + dt/2 * DF^{-1}(x_{n+1}/2 + x_n/2) * (v_{n+1} + v_n)
         eta1_next = (eta1 + dt * v1_curv / 2.) % 1
@@ -420,7 +379,8 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
 
                 # spline evaluation
                 span1, span2, span3 = get_spans(
-                    quad_pos1, quad_pos2, quad_pos3, args_derham)
+                    quad_pos1, quad_pos2, quad_pos3, args_derham,
+                )
 
                 # find global index where non-zero basis functions begin
                 ie1 = span1 - args_derham.pn[0]
@@ -436,10 +396,12 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                         bi2 = bi1 * args_derham.bn2[il2]
                         for il3 in range(pn3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * args_derham.bn3[il3] * e1_1[i1 - args_derham.starts[0] + pn1,
-                                                                    i2 -
-                                                                    args_derham.starts[1] + pn2,
-                                                                    i3 - args_derham.starts[2] + pn3]
+                            bi3 = bi2 * args_derham.bn3[il3] * e1_1[
+                                i1 - args_derham.starts[0] + pn1,
+                                i2 -
+                                args_derham.starts[1] + pn2,
+                                i3 - args_derham.starts[2] + pn3,
+                            ]
 
                             temp1 += bi3 * weight1[n]
 
@@ -464,7 +426,8 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
 
                 # spline evaluation
                 span1, span2, span3 = get_spans(
-                    quad_pos1, quad_pos2, quad_pos3, args_derham)
+                    quad_pos1, quad_pos2, quad_pos3, args_derham,
+                )
 
                 # find global index where non-zero basis functions begin
                 ie1 = span1 - args_derham.pn[0]
@@ -480,10 +443,12 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                         bi2 = bi1 * args_derham.bd2[il2]
                         for il3 in range(pn3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * args_derham.bn3[il3] * e1_2[i1 - args_derham.starts[0] + pn1,
-                                                                    i2 -
-                                                                    args_derham.starts[1] + pn2,
-                                                                    i3 - args_derham.starts[2] + pn3]
+                            bi3 = bi2 * args_derham.bn3[il3] * e1_2[
+                                i1 - args_derham.starts[0] + pn1,
+                                i2 -
+                                args_derham.starts[1] + pn2,
+                                i3 - args_derham.starts[2] + pn3,
+                            ]
 
                             temp2 += bi3 * weight2[n]
 
@@ -508,7 +473,8 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
 
                 # spline evaluation
                 span1, span2, span3 = get_spans(
-                    quad_pos1, quad_pos2, quad_pos3, args_derham)
+                    quad_pos1, quad_pos2, quad_pos3, args_derham,
+                )
 
                 # find global index where non-zero basis functions begin
                 ie1 = span1 - args_derham.pn[0]
@@ -524,23 +490,31 @@ def aux_fun_x_v_stat_e(particle: 'float[:]',
                         bi2 = bi1 * args_derham.bn2[il2]
                         for il3 in range(pd3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * args_derham.bd3[il3] * e1_3[i1 - args_derham.starts[0] + pn1,
-                                                                    i2 -
-                                                                    args_derham.starts[1] + pn2,
-                                                                    i3 - args_derham.starts[2] + pn3]
+                            bi3 = bi2 * args_derham.bd3[il3] * e1_3[
+                                i1 - args_derham.starts[0] + pn1,
+                                i2 -
+                                args_derham.starts[1] + pn2,
+                                i3 - args_derham.starts[2] + pn3,
+                            ]
 
                             temp3 += bi3 * weight3[n]
 
         # v_{n+1} = v_n + dt * DF^{-T}(x_n) * int_0^1 d tau ( E(x_n + tau*(x_{n+1} - x_n) ) )
-        v1_next = v1 + dt * kappa * (df_inv[0, 0] * temp1 +
-                                     df_inv[1, 0] * temp2 +
-                                     df_inv[2, 0] * temp3)
-        v2_next = v2 + dt * kappa * (df_inv[0, 1] * temp1 +
-                                     df_inv[1, 1] * temp2 +
-                                     df_inv[2, 1] * temp3)
-        v3_next = v3 + dt * kappa * (df_inv[0, 2] * temp1 +
-                                     df_inv[1, 2] * temp2 +
-                                     df_inv[2, 2] * temp3)
+        v1_next = v1 + dt * kappa * (
+            df_inv[0, 0] * temp1 +
+            df_inv[1, 0] * temp2 +
+            df_inv[2, 0] * temp3
+        )
+        v2_next = v2 + dt * kappa * (
+            df_inv[0, 1] * temp1 +
+            df_inv[1, 1] * temp2 +
+            df_inv[2, 1] * temp3
+        )
+        v3_next = v3 + dt * kappa * (
+            df_inv[0, 2] * temp1 +
+            df_inv[1, 2] * temp2 +
+            df_inv[2, 2] * temp3
+        )
 
         runs += 1
 

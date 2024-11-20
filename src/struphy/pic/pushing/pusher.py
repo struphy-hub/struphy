@@ -163,17 +163,21 @@ class Pusher:
         applies kinetic boundary conditions and performs MPI sorting.
         """
 
-        # some pointers
+        # some idx and slice
         markers = self.particles.markers
-        buffer_idx = self.particles.bufferindex
-        residual_idx = self.particles.args_markers.residual_idx
         vdim = self.particles.vdim
+        first_pusher_idx = self.particles.first_pusher_idx
+        first_shift_idx = self.particles.args_markers.first_shift_idx
+        residual_idx = self.particles.args_markers.residual_idx
+
+        init_slice = slice(first_pusher_idx, first_pusher_idx + 3 + vdim)
+        shift_slice = slice(first_shift_idx, first_shift_idx + 3)
 
         # save initial phase space coordinates
-        markers[:, buffer_idx:buffer_idx + 3 + vdim] = markers[:, :3 + vdim]
+        markers[:, init_slice] = markers[:, :3 + vdim]
 
         # set boundary shifts to zero
-        markers[:, buffer_idx + 3 + vdim: buffer_idx + 3 + vdim + 3] = 0.
+        markers[:, shift_slice] = 0.
 
         # clear buffer columns starting from residual index, dont clear ID (last column)
         markers[:, residual_idx:-1] = 0.
@@ -283,7 +287,7 @@ class Pusher:
                     )
 
                     # take converged markers out of the loop
-                    markers[self._converged_loc, buffer_idx] = -1.
+                    markers[self._converged_loc, first_pusher_idx] = -1.
 
                 # maxiter=1 for explicit schemes
                 if k == self.maxiter:

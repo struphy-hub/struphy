@@ -199,12 +199,6 @@ class VlasovAmpere(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
-
-            if self.particles[0].f0.coords == 'constants_of_motion':
-                self.particles[0].save_constants_of_motion(
-                    epsilon=self._epsilon, abs_B0=self._abs_b,
-                )
-
             self.particles[0].update_weights()
 
         # write new coeffs into self.variables
@@ -1089,6 +1083,18 @@ class PressureCoupling6D(Propagator):
             'verbose': False,
             'recycle': True,
         }
+        dct['filter'] = {
+            'use_filter': None,
+            'modes': (1),
+            'repeat': 1,
+            'alpha': 0.5,
+        }
+        dct['boundary_cut'] = {
+            'e1': 0.,
+            'e2': 0.,
+            'e3': 0.,
+        }
+        dct['turn_off'] = False
 
         if default:
             dct = descend_options_dict(dct, [])
@@ -1106,6 +1112,8 @@ class PressureCoupling6D(Propagator):
         u_space: str,
         solver: dict = options(default=True)['solver'],
         coupling_params: dict,
+        filter: dict = options(default=True)['filter'],
+        boundary_cut: dict = options(default=True)['boundary_cut'],
     ):
 
         super().__init__(particles, u)
@@ -1154,6 +1162,8 @@ class PressureCoupling6D(Propagator):
         self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
         self._scale_push = 1
 
+        self._boundary_cut_e1 = boundary_cut['e1']
+
         self._ACC = Accumulator(
             particles,
             'Hcurl',
@@ -1162,6 +1172,7 @@ class PressureCoupling6D(Propagator):
             self.domain.args_domain,
             add_vector=True,
             symmetry='pressure',
+            filter_params=filter,
         )
 
         self._tmp_g1 = self._G.codomain.zeros()
@@ -1174,6 +1185,7 @@ class PressureCoupling6D(Propagator):
             self._tmp_g1[0]._data, self._tmp_g1[1]._data, self._tmp_g1[2]._data,
             self._tmp_g2[0]._data, self._tmp_g2[1]._data, self._tmp_g2[2]._data,
             self._tmp_g3[0]._data, self._tmp_g3[1]._data, self._tmp_g3[2]._data,
+            self._boundary_cut_e1,
         )
 
         self._pusher = Pusher(
@@ -1197,12 +1209,21 @@ class PressureCoupling6D(Propagator):
             tol=solver['tol'],
             maxiter=solver['maxiter'],
             verbose=solver['verbose'],
+            recycle=solver['recycle'],
         )
 
         self.u_temp = u.space.zeros()
         self.u_temp2 = u.space.zeros()
         self._tmp = self._X.codomain.zeros()
         self._BV = u.space.zeros()
+
+        self._MAT = [
+            [self._ACC.operators[0], self._ACC.operators[1], self._ACC.operators[2]],
+            [self._ACC.operators[1], self._ACC.operators[3], self._ACC.operators[4]],
+            [self._ACC.operators[2], self._ACC.operators[4], self._ACC.operators[5]],
+        ]
+
+        self._GT_VEC = BlockVector(self.derham.Vh['v'])
 
     def __call__(self, dt):
 
@@ -1211,32 +1232,17 @@ class PressureCoupling6D(Propagator):
         un.update_ghost_regions()
 
         # acuumulate MAT and VEC
-        self._ACC(self._coupling_mat, self._coupling_vec)
+        self._ACC(self._coupling_mat, self._coupling_vec, self._boundary_cut_e1)
 
-        MAT = [
-            [self._ACC.operators[0].matrix, self._ACC.operators[1].matrix, self._ACC.operators[2].matrix],
-            [
-                self._ACC.operators[1].matrix, self._ACC.operators[3].matrix,
-                self._ACC.operators[4].matrix,
-            ],
-            [self._ACC.operators[2].matrix, self._ACC.operators[4].matrix, self._ACC.operators[5].matrix],
-        ]
-        VEC = [self._ACC.vectors[0], self._ACC.vectors[1], self._ACC.vectors[2]]
-
-        GT_VEC = BlockVector(
-            self.derham.Vh['v'],
-            blocks=[
-                self._GT.dot(VEC[0]),
-                self._GT.dot(VEC[1]),
-                self._GT.dot(VEC[2]),
-            ],
-        )
+        # update GT_VEC
+        for i in range(3):
+            self._GT_VEC[i] = self._GT.dot(self._ACC.vectors[i])
 
         # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         self._schur_solver.BC = -1/4 * \
-            self._XT @ self.GT_MAT_G(self.derham, MAT) @ self._X
+            self._XT @ self.GT_MAT_G(self.derham, self._MAT) @ self._X
 
-        self._BV = self._XT.dot(GT_VEC)*(-1/2)
+        self._BV = self._XT.dot(self._GT_VEC)*(-1/2)
 
         # update u (no tmps created here)
         un1, info = self._schur_solver(un, self._BV, dt, out=self.u_temp)
@@ -1260,6 +1266,10 @@ class PressureCoupling6D(Propagator):
 
         # write new coeffs into Propagator.variables
         max_du, = self.feec_vars_update(un1)
+
+        # update weights in case of control variate
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
 
         if self._info and self._rank == 0:
             print('Status     for StepPressurecoupling:', info['success'])
@@ -1385,6 +1395,19 @@ class CurrentCoupling6DCurrent(Propagator):
             'verbose': False,
             'recycle': True,
         }
+        dct['filter'] = {
+            'use_filter': None,
+            'modes': (1),
+            'repeat': 1,
+            'alpha': 0.5,
+        }
+        dct['boundary_cut'] = {
+            'e1': 0.,
+            'e2': 0.,
+            'e3': 0.,
+        }
+        dct['turn_off'] = False
+
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -1402,6 +1425,8 @@ class CurrentCoupling6DCurrent(Propagator):
         Ah: int = 1,
         epsilon: float = 1.,
         solver: dict = options(default=True)['solver'],
+        filter: dict = options(default=True)['filter'],
+        boundary_cut: dict = options(default=True)['boundary_cut'],
     ):
 
         super().__init__(particles, u)
@@ -1423,6 +1448,8 @@ class CurrentCoupling6DCurrent(Propagator):
         self._coupling_vec = Ah / Ab / epsilon
         self._scale_push = 1./epsilon
 
+        self._boundary_cut_e1 = boundary_cut['e1']
+
         # load accumulator
         self._accumulator = Accumulator(
             particles,
@@ -1432,46 +1459,41 @@ class CurrentCoupling6DCurrent(Propagator):
             self.domain.args_domain,
             add_vector=True,
             symmetry='symm',
+            filter_params=filter,
         )
 
-        if self.particles[0].control_variate:
+        # if self.particles[0].control_variate:
 
-            # control variate method is only valid with Maxwellian distributions
-            assert isinstance(self.particles[0].f0, Maxwellian)
+        #     # control variate method is only valid with Maxwellian distributions
+        #     assert isinstance(self.particles[0].f0, Maxwellian)
 
-            self._accumulator.init_control_variate(self.mass_ops)
+        #     self._accumulator.init_control_variate(self.mass_ops)
 
-            # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
-            quad_pts = [
-                quad_grid[nquad].points.flatten()
-                for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)
-            ]
+        #     # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
+        #     quad_pts = [quad_grid[nquad].points.flatten()
+        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-            uh0_cart = self.particles[0].f0.u
+        #     uh0_cart = self.particles[0].f0.u
 
-            self._nuh0_at_quad = self.domain.pull(
-                uh0_cart, *quad_pts, kind='v', squeeze_out=False, coordinates='logical',
-            )
+        #     self._nuh0_at_quad = self.domain.pull(
+        #         uh0_cart, *quad_pts, kind='v', squeeze_out=False, coordinates='logical')
 
-            self._nuh0_at_quad[0] *= self.domain.pull(
-                self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical',
-            )
-            self._nuh0_at_quad[1] *= self.domain.pull(
-                self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical',
-            )
-            self._nuh0_at_quad[2] *= self.domain.pull(
-                self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical',
-            )
+        #     self._nuh0_at_quad[0] *= self.domain.pull(
+        #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+        #     self._nuh0_at_quad[1] *= self.domain.pull(
+        #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+        #     self._nuh0_at_quad[2] *= self.domain.pull(
+        #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
 
-            # memory allocation for magnetic field at quadrature points
-            self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
-            self._b_quad2 = np.zeros_like(self._nuh0_at_quad[0])
-            self._b_quad3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     # memory allocation for magnetic field at quadrature points
+        #     self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad2 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad3 = np.zeros_like(self._nuh0_at_quad[0])
 
-            # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
-            self._vec1 = np.zeros_like(self._nuh0_at_quad[0])
-            self._vec2 = np.zeros_like(self._nuh0_at_quad[0])
-            self._vec3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
+        #     self._vec1 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec2 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec3 = np.zeros_like(self._nuh0_at_quad[0])
 
         # FEM spaces and basis extraction operators for u and b
         u_id = self.derham.space_to_form[u_space]
@@ -1508,6 +1530,7 @@ class CurrentCoupling6DCurrent(Propagator):
             self._u_avg2[0]._data,
             self._u_avg2[1]._data,
             self._u_avg2[2]._data,
+            self._boundary_cut_e1,
         )
 
         self._pusher = Pusher(
@@ -1537,6 +1560,7 @@ class CurrentCoupling6DCurrent(Propagator):
             tol=solver['tol'],
             maxiter=solver['maxiter'],
             verbose=solver['verbose'],
+            recycle=solver['recycle'],
         )
 
     def __call__(self, dt):
@@ -1556,49 +1580,40 @@ class CurrentCoupling6DCurrent(Propagator):
         # update ghost regions because of non-local access in accumulation kernel!
         self._b_full2.update_ghost_regions()
 
-        # perform accumulation (either with or without control variate)
-        if self.particles[0].control_variate:
+        # # perform accumulation (either with or without control variate)
+        # if self.particles[0].control_variate:
 
-            # evaluate magnetic field at quadrature points (in-place)
-            WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem['2'], self._b_full2,
-                out=[self._b_quad1, self._b_quad2, self._b_quad3],
-            )
+        #     # evaluate magnetic field at quadrature points (in-place)
+        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+        #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
-            self._vec1[:, :, :] = self._coupling_vec * \
-                (
-                    self._b_quad2 *
-                    self._nuh0_at_quad[2] - self._b_quad3*self._nuh0_at_quad[1]
-            )
-            self._vec2[:, :, :] = self._coupling_vec * \
-                (
-                    self._b_quad3 *
-                    self._nuh0_at_quad[0] - self._b_quad1*self._nuh0_at_quad[2]
-            )
-            self._vec3[:, :, :] = self._coupling_vec * \
-                (
-                    self._b_quad1 *
-                    self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0]
-            )
+        #     self._vec1[:, :, :] = self._coupling_vec * \
+        #         (self._b_quad2 *
+        #          self._nuh0_at_quad[2] - self._b_quad3*self._nuh0_at_quad[1])
+        #     self._vec2[:, :, :] = self._coupling_vec * \
+        #         (self._b_quad3 *
+        #          self._nuh0_at_quad[0] - self._b_quad1*self._nuh0_at_quad[2])
+        #     self._vec3[:, :, :] = self._coupling_vec * \
+        #         (self._b_quad1 *
+        #          self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0])
 
-            self._accumulator(
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                control_vec=[self._vec1, self._vec2, self._vec3],
-            )
-        else:
-            self._accumulator(
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-            )
+        #     self._accumulator(self._b_full2[0]._data,
+        #                       self._b_full2[1]._data,
+        #                       self._b_full2[2]._data,
+        #                       self._space_key_int,
+        #                       self._coupling_mat,
+        #                       self._coupling_vec,
+        #                       control_vec=[self._vec1, self._vec2, self._vec3])
+        # else:
+        self._accumulator(
+            self._b_full2[0]._data,
+            self._b_full2[1]._data,
+            self._b_full2[2]._data,
+            self._space_key_int,
+            self._coupling_mat,
+            self._coupling_vec,
+            self._boundary_cut_e1,
+        )
 
         # solve linear system for updated u coefficients (in-place)
         un1, info = self._schur_solver(
@@ -1683,9 +1698,14 @@ class CurrentCoupling5DCurlb(Propagator):
         }
         dct['filter'] = {
             'use_filter': None,
-            'modes': (0, 1),
-            'repeat': 3,
+            'modes': (1),
+            'repeat': 1,
             'alpha': 0.5,
+        }
+        dct['boundary_cut'] = {
+            'e1': 0.,
+            'e2': 0.,
+            'e3': 0.,
         }
         dct['turn_off'] = False
 
@@ -1710,6 +1730,7 @@ class CurrentCoupling5DCurlb(Propagator):
         filter: dict = options(default=True)['filter'],
         coupling_params: dict,
         epsilon: float = 1.,
+        boundary_cut: dict = options(default=True)['boundary_cut'],
     ):
 
         super().__init__(particles, u)
@@ -1737,6 +1758,8 @@ class CurrentCoupling5DCurlb(Propagator):
         self._coupling_mat = coupling_params['Ah'] / coupling_params['Ab']
         self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
         self._scale_push = 1
+
+        self._boundary_cut_e1 = boundary_cut['e1']
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops['0'].transpose()
@@ -1819,6 +1842,7 @@ class CurrentCoupling5DCurlb(Propagator):
             tol=solver['tol'],
             maxiter=solver['maxiter'],
             verbose=solver['verbose'],
+            recycle=solver['recycle'],
         )
 
     def __call__(self, dt):
@@ -1920,7 +1944,7 @@ class CurrentCoupling5DCurlb(Propagator):
             Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
             self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
             self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-            self._space_key_int, self._coupling_mat, self._coupling_vec, 0.,
+            self._space_key_int, self._coupling_mat, self._coupling_vec, self._boundary_cut_e1,
         )
 
         # update u coefficients
@@ -1944,9 +1968,6 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
-            self.particles[0].save_constants_of_motion(
-                epsilon=self._epsilon, abs_B0=self._absB0,
-            )
             self.particles[0].update_weights()
 
         if self._info and self._rank == 0:
@@ -2009,9 +2030,14 @@ class CurrentCoupling5DGradB(Propagator):
         dct['algo'] = ['rk4', 'forward_euler', 'heun2', 'rk2', 'heun3']
         dct['filter'] = {
             'use_filter': None,
-            'modes': (0, 1),
-            'repeat': 3,
+            'modes': (1),
+            'repeat': 1,
             'alpha': 0.5,
+        }
+        dct['boundary_cut'] = {
+            'e1': 0.,
+            'e2': 0.,
+            'e3': 0.,
         }
         dct['turn_off'] = False
 
@@ -2038,6 +2064,7 @@ class CurrentCoupling5DGradB(Propagator):
         filter: dict = options(default=True)['filter'],
         coupling_params: dict,
         epsilon: float = 1.,
+        boundary_cut: dict = options(default=True)['boundary_cut'],
     ):
 
         from psydac.linalg.solvers import inverse
@@ -2071,6 +2098,8 @@ class CurrentCoupling5DGradB(Propagator):
         self._coupling_vec = coupling_params['Ah'] / coupling_params['Ab']
         self._scale_push = 1
 
+        self._boundary_cut_e1 = boundary_cut['e1']
+
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops['0'].transpose()
         self._EuT = self.derham.extraction_ops[u_id].transpose()
@@ -2100,6 +2129,7 @@ class CurrentCoupling5DGradB(Propagator):
             tol=solver['tol'],
             maxiter=solver['maxiter'],
             verbose=solver['verbose'],
+            recycle=solver['recycle'],
         )
 
         # Call the accumulation and Pusher class
@@ -2327,7 +2357,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                 self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                 Egrad_PBb[0]._data, Egrad_PBb[1]._data, Egrad_PBb[2]._data,
-                self._space_key_int, self._coupling_mat, self._coupling_vec, 0.,
+                self._space_key_int, self._coupling_mat, self._coupling_vec, self._boundary_cut_e1,
             )
 
             # push particles
@@ -2346,7 +2376,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._unit_b2[0]._data, self._unit_b2[1]._data, self._unit_b2[2]._data,
                 self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
                 Eu[0]._data, Eu[1]._data, Eu[2]._data,
-                self._butcher.a, self._butcher.b, self._butcher.c, 0.,
+                self._butcher.a, self._butcher.b, self._butcher.c, self._boundary_cut_e1,
             )
 
             self.particles[0].mpi_sort_markers()
@@ -2384,9 +2414,6 @@ class CurrentCoupling5DGradB(Propagator):
 
         # update_weights
         if self.particles[0].control_variate:
-            self.particles[0].save_constants_of_motion(
-                epsilon=self._epsilon, abs_B0=self._absB0,
-            )
             self.particles[0].update_weights()
 
         if self._info and self._rank == 0:

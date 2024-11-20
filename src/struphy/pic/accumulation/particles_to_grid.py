@@ -219,18 +219,13 @@ class Accumulator:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
 
-                if self.filter_params["use_filter"] == 'fourier':
+                if self.filter_params["use_filter"] == 'fourier_in_tor':
 
-                    modes = self.filter_params["modes"]
-
-                    self.apply_toroidal_fourier_filter(vec, modes)
+                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
 
                 elif self.filter_params["use_filter"] == 'three_point':
 
-                    repeat = self.filter_params["repeat"]
-                    alpha = self.filter_params["alpha"]
-
-                    for count in range(repeat):
+                    for _ in range(self.filter_params["repeat"]):
                         for i in range(3):
                             filters.apply_three_point_filter(
                                 vec[i]._data,
@@ -239,7 +234,25 @@ class Accumulator:
                                 np.array(self.derham.p),
                                 np.array(self.derham.Vh[self.form][i].starts),
                                 np.array(self.derham.Vh[self.form][i].ends),
-                                alpha=alpha,
+                                alpha=self.filter_params["alpha"],
+                            )
+
+                        vec.update_ghost_regions()
+
+                elif self.filter_params["use_filter"] == 'hybrid':
+
+                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
+
+                    for _ in range(self.filter_params["repeat"]):
+                        for i in range(2):
+                            filters.apply_three_point_filter(
+                                vec[i]._data,
+                                np.array(self.derham.Nel),
+                                np.array(self.derham.spl_kind),
+                                np.array(self.derham.p),
+                                np.array(self.derham.Vh[self.form][i].starts),
+                                np.array(self.derham.Vh[self.form][i].ends),
+                                alpha=self.filter_params["alpha"],
                             )
 
                         vec.update_ghost_regions()

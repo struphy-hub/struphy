@@ -69,7 +69,7 @@ def push_gc_bxEstar_explicit_multistage(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -83,7 +83,7 @@ def push_gc_bxEstar_explicit_multistage(
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         eta1 = markers[ip, 0]
@@ -162,7 +162,7 @@ def push_gc_bxEstar_explicit_multistage(
         markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] + \
             dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
@@ -227,19 +227,19 @@ def push_gc_bxEstar_discrete_gradient_1st_order(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
-    shift_idx = args_markers.shift_idx
+    first_init_idx = args_markers.first_init_idx
+    first_shift_idx = args_markers.first_shift_idx
     residual_idx = args_markers.residual_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
         # check if marker is converged or a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
-        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
-        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx:first_shift_idx + 3]
+        eta_n[:] = markers[ip, first_init_idx:first_init_idx + 3]
 
         eta_mid[:] = (eta_k + eta_n)/2.
         eta_mid[:] = mod(eta_mid, 1.)
@@ -387,19 +387,19 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
-    shift_idx = args_markers.shift_idx
+    first_init_idx = args_markers.first_init_idx
+    first_shift_idx = args_markers.first_shift_idx
     residual_idx = args_markers.residual_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
         # check if marker is converged or a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
-        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
-        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx:first_shift_idx + 3]
+        eta_n[:] = markers[ip, first_init_idx:first_init_idx + 3]
 
         eta_mid[:] = (eta_k + eta_n)/2.
         eta_mid[:] = mod(eta_mid, 1.)
@@ -604,20 +604,20 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
-    shift_idx = args_markers.shift_idx
+    first_init_idx = args_markers.first_init_idx
+    first_shift_idx = args_markers.first_shift_idx
     residual_idx = args_markers.residual_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
         # check if marker is converged or a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         eta_k[:] = markers[ip, 0:3]
-        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
-        eta_k_shifted[:] = eta_k + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, first_init_idx:first_init_idx + 3]
+        eta_k_shifted[:] = eta_k + markers[ip, first_shift_idx:first_shift_idx + 3]
         eta_diff[:] = eta_k_shifted - eta_n
 
         v = markers[ip, 3]
@@ -810,7 +810,7 @@ def push_gc_Bstar_explicit_multistage(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -824,7 +824,7 @@ def push_gc_Bstar_explicit_multistage(
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         # if stage == 0.:
@@ -923,9 +923,9 @@ def push_gc_Bstar_explicit_multistage(
         markers[ip, first_free_idx + 3] += dt*b[stage]*k_v
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] + \
             dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
-        markers[ip, 3] = markers[ip, buffer_idx + 3] + dt * \
+        markers[ip, 3] = markers[ip, first_init_idx + 3] + dt * \
             a[stage]*k_v + last*markers[ip, first_free_idx + 3]
 
 
@@ -997,26 +997,26 @@ def push_gc_Bstar_discrete_gradient_1st_order(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
-    shift_idx = args_markers.shift_idx
+    first_init_idx = args_markers.first_init_idx
+    first_shift_idx = args_markers.first_shift_idx
     residual_idx = args_markers.residual_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
         # check if marker is converged or a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
-        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
-        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx:first_shift_idx + 3]
+        eta_n[:] = markers[ip, first_init_idx:first_init_idx + 3]
 
         eta_mid[:] = (eta_k + eta_n)/2.
         eta_mid[:] = mod(eta_mid, 1.)
         eta_diff[:] = eta_k - eta_n
 
         v_k = markers[ip, 3]
-        v_n = markers[ip, buffer_idx + 3]
+        v_n = markers[ip, first_init_idx + 3]
         v_mid = (v_k + v_n)/2.
         v_diff = v_k - v_n
 
@@ -1180,26 +1180,26 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
-    shift_idx = args_markers.shift_idx
+    first_init_idx = args_markers.first_init_idx
+    first_shift_idx = args_markers.first_shift_idx
     residual_idx = args_markers.residual_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
         # check if marker is converged or a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
-        eta_k[:] = markers[ip, 0:3] + markers[ip, shift_idx:shift_idx + 3]
-        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
+        eta_k[:] = markers[ip, 0:3] + markers[ip, first_shift_idx:first_shift_idx + 3]
+        eta_n[:] = markers[ip, first_init_idx:first_init_idx + 3]
 
         eta_mid[:] = (eta_k + eta_n)/2.
         eta_mid[:] = mod(eta_mid, 1.)
         eta_diff[:] = eta_k - eta_n
 
         v_k = markers[ip, 3]
-        v_n = markers[ip, buffer_idx + 3]
+        v_n = markers[ip, first_init_idx + 3]
         v_mid = (v_k + v_n)/2.
         v_diff = v_k - v_n
 
@@ -1434,24 +1434,24 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
-    shift_idx = args_markers.shift_idx
+    first_init_idx = args_markers.first_init_idx
+    first_shift_idx = args_markers.first_shift_idx
     residual_idx = args_markers.residual_idx
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
 
         # check if marker is converged or a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         eta_k[:] = markers[ip, 0:3]
-        eta_n[:] = markers[ip, buffer_idx:buffer_idx + 3]
-        eta_k_shifted[:] = eta_k + markers[ip, shift_idx:shift_idx + 3]
+        eta_n[:] = markers[ip, first_init_idx:first_init_idx + 3]
+        eta_k_shifted[:] = eta_k + markers[ip, first_shift_idx:first_shift_idx + 3]
         eta_diff[:] = eta_k_shifted - eta_n
 
         v_k = markers[ip, 3]
-        v_n = markers[ip, buffer_idx + 3]
+        v_n = markers[ip, first_init_idx + 3]
         v_diff = v_k - v_n
 
         mu = markers[ip, mu_idx]
@@ -1905,8 +1905,8 @@ def push_gc_cc_J1_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    # $ omp parallel private(ip, boundary_cut, eta, v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, u, e, curl_norm_b, norm_b1, b_star, tmp, abs_b_star_para)
-    # $ omp for
+    #$ omp parallel private(ip, boundary_cut, eta, v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, u, e, curl_norm_b, norm_b1, b_star, tmp, abs_b_star_para)
+    #$ omp for
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1991,7 +1991,7 @@ def push_gc_cc_J1_Hdiv(
 
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
-    # $ omp end parallel
+    #$ omp end parallel
 
 
 @stack_array('dfm', 'df_t', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
@@ -2042,7 +2042,7 @@ def push_gc_cc_J2_stage_H1vec(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -2056,7 +2056,7 @@ def push_gc_cc_J2_stage_H1vec(
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         eta1 = markers[ip, 0]
@@ -2163,7 +2163,7 @@ def push_gc_cc_J2_stage_H1vec(
         markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] - \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] - \
             dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
@@ -2216,7 +2216,7 @@ def push_gc_cc_J2_stage_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     mu_idx = args_markers.mu_idx
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -2227,12 +2227,12 @@ def push_gc_cc_J2_stage_Hdiv(
     else:
         last = 0.
 
-    # $ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
-    # $ omp for
+    #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
+    #$ omp for
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         eta1 = markers[ip, 0]
@@ -2343,7 +2343,7 @@ def push_gc_cc_J2_stage_Hdiv(
         markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] - \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] - \
             dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
-    # $ omp end parallel
+    #$ omp end parallel

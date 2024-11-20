@@ -66,7 +66,7 @@ class LinearMHDVlasovCC(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['b_field'] = 'Hdiv'
-        dct['fluid']['mhd'] = {'rho': 'L2', 'u': 'Hdiv', 'p': 'L2'}
+        dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
         dct['kinetic']['energetic_ions'] = 'Particles6D'
         return dct
 
@@ -81,12 +81,12 @@ class LinearMHDVlasovCC(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_fields.CurrentCoupling6DDensity: ['mhd_u'],
-            propagators_fields.ShearAlfven: ['mhd_u', 'b_field'],
-            propagators_coupling.CurrentCoupling6DCurrent: ['energetic_ions', 'mhd_u'],
+            propagators_fields.CurrentCoupling6DDensity: ['mhd_velocity'],
+            propagators_fields.ShearAlfven: ['mhd_velocity', 'b_field'],
+            propagators_coupling.CurrentCoupling6DCurrent: ['energetic_ions', 'mhd_velocity'],
             propagators_markers.PushEta: ['energetic_ions'],
             propagators_markers.PushVxB: ['energetic_ions'],
-            propagators_fields.Magnetosonic: ['mhd_rho', 'mhd_u', 'mhd_p'],
+            propagators_fields.Magnetosonic: ['mhd_density', 'mhd_velocity', 'mhd_pressure'],
         }
 
     __em_fields__ = species()['em_fields']
@@ -120,12 +120,12 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # extract necessary parameters
         u_space = params['fluid']['mhd']['options']['u_space']
-        params_shear_alfven = params['fluid']['mhd']['options']['ShearAlfven']['solver']
-        params_magnetosonic = params['fluid']['mhd']['options']['Magnetosonic']['solver']
-        algo_eta = params['kinetic']['energetic_ions']['options']['PushEta']['algo']
-        algo_vxb = params['kinetic']['energetic_ions']['options']['PushVxB']['algo']
-        params_density = params['fluid']['mhd']['options']['CurrentCoupling6DDensity']['solver']
-        params_current = params['kinetic']['energetic_ions']['options']['CurrentCoupling6DCurrent']['solver']
+        params_alfven = params['fluid']['mhd']['options']['ShearAlfven']
+        params_sonic = params['fluid']['mhd']['options']['Magnetosonic']
+        params_eta = params['kinetic']['energetic_ions']['options']['PushEta']
+        params_vxb = params['kinetic']['energetic_ions']['options']['PushVxB']
+        params_density = params['fluid']['mhd']['options']['CurrentCoupling6DDensity']
+        params_current = params['kinetic']['energetic_ions']['options']['CurrentCoupling6DCurrent']
 
         # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
@@ -157,57 +157,72 @@ class LinearMHDVlasovCC(StruphyModel):
             self._ones[:] = 1.
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.CurrentCoupling6DDensity] = {
-            'particles': self.pointer['energetic_ions'],
-            'u_space': u_space,
-            'b_eq': self._b_eq,
-            'b_tilde': self.pointer['b_field'],
-            'Ab': Ab,
-            'Ah': Ah,
-            'epsilon': epsilon,
-            'solver': params_density,
-        }
+        if params_density['turn_off']:
+            self._kwargs[propagators_fields.CurrentCoupling6DDensity] = None
+        else:
+            self._kwargs[propagators_fields.CurrentCoupling6DDensity] = {
+                'particles': self.pointer['energetic_ions'],
+                'u_space': u_space,
+                'b_eq': self._b_eq,
+                'b_tilde': self.pointer['b_field'],
+                'Ab': Ab,
+                'Ah': Ah,
+                'epsilon': epsilon,
+                'solver': params_density['solver'],
+                'filter': params_density['filter'],
+                'boundary_cut': params_density['boundary_cut'], }
 
-        self._kwargs[propagators_fields.ShearAlfven] = {
-            'u_space': u_space,
-            'solver': params_shear_alfven,
-        }
+        if params_alfven['turn_off']:
+            self._kwargs[propagators_fields.ShearAlfven] = None
+        else:
+            self._kwargs[propagators_fields.ShearAlfven] = {
+                'u_space': u_space,
+                'solver': params_alfven['solver'],
+            }
 
-        self._kwargs[propagators_coupling.CurrentCoupling6DCurrent] = {
-            'u_space': u_space,
-            'b_eq': self._b_eq,
-            'b_tilde': self.pointer['b_field'],
-            'Ab': Ab,
-            'Ah': Ah,
-            'epsilon': epsilon,
-            'solver': params_current,
-        }
+        if params_current['turn_off']:
+            self._kwargs[propagators_coupling.CurrentCoupling6DCurrent] = None
+        else:
+            self._kwargs[propagators_coupling.CurrentCoupling6DCurrent] = {
+                'u_space': u_space,
+                'b_eq': self._b_eq,
+                'b_tilde': self.pointer['b_field'],
+                'Ab': Ab,
+                'Ah': Ah,
+                'epsilon': epsilon,
+                'solver': params_current['solver'],
+                'filter': params_current['filter'],
+                'boundary_cut': params_current['boundary_cut'], }
 
-        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta}
+        self._kwargs[propagators_markers.PushEta] = {
+            'algo': params_eta['algo'],
+        }
 
         self._kwargs[propagators_markers.PushVxB] = {
-            'algo': algo_vxb,
+            'algo': params_vxb['algo'],
             'scale_fac': 1./epsilon,
             'b_eq': self._b_eq,
             'b_tilde': self.pointer['b_field'],
         }
 
-        self._kwargs[propagators_fields.Magnetosonic] = {
-            'u_space': u_space,
-            'b': self.pointer['b_field'],
-            'solver': params_magnetosonic,
-        }
+        if params_sonic['turn_off']:
+            self._kwargs[propagators_fields.Magnetosonic] = None
+        else:
+            self._kwargs[propagators_fields.Magnetosonic] = {
+                'u_space': u_space,
+                'b': self.pointer['b_field'],
+                'solver': params_sonic['solver'],
+            }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
         # Scalar variables to be saved during simulation:
-        self.add_scalar('en_U')
-        self.add_scalar('en_p')
-        self.add_scalar('en_B')
-        self.add_scalar('en_f')
-        self.add_scalar('en_B_tot')
-        self.add_scalar('en_tot')
+        self.add_scalar('en_U', compute='from_field')
+        self.add_scalar('en_p', compute='from_field')
+        self.add_scalar('en_B', compute='from_field')
+        self.add_scalar('en_f', compute='from_particles', species='energetic_ions')
+        self.add_scalar('en_tot', summands=['en_U', 'en_p', 'en_B', 'en_f'])
 
         # temporary vectors for scalar quantities:
         self._tmp_u = self.derham.Vh['2'].zeros()
@@ -215,6 +230,7 @@ class LinearMHDVlasovCC(StruphyModel):
         self._tmp_b1 = self.derham.Vh['2'].zeros()
         self._tmp_b2 = self.derham.Vh['2'].zeros()
         self._tmp = np.empty(1, dtype=float)
+        self._n_lost_particles = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
@@ -223,55 +239,35 @@ class LinearMHDVlasovCC(StruphyModel):
     def update_scalar_quantities(self):
 
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer['mhd_u'], out=self._tmp_u)
+        self._mass_ops.M2n.dot(self.pointer['mhd_velocity'], out=self._tmp_u)
         self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-        # Average scalars between clones
-        if self.derham.Nclones > 1:
-            scalars = np.array([self._tmp_u, self._tmp_b1], dtype=np.float64)
-
-            # Perform MPI Allreduce on the entire array
-            self.inter_comm.Allreduce(self._mpi_in_place, scalars, op=self._mpi_sum)
-
-            # Divide by the number of clones
-            scalars /= self.derham.Nclones
-
-            # Update the original variables with the new values
-            self._tmp_u, self._tmp_b1 = scalars
-
-        en_U = self.pointer['mhd_u'].dot(self._tmp_u)/2
+        en_U = self.pointer['mhd_velocity'].dot(self._tmp_u)/2
         en_B = self.pointer['b_field'].dot(self._tmp_b1)/2
-        en_p = self.pointer['mhd_p'].dot(self._ones)/(5/3 - 1)
+        en_p = self.pointer['mhd_pressure'].dot(self._ones)/(5/3 - 1)
 
         self.update_scalar('en_U', en_U)
         self.update_scalar('en_B', en_B)
         self.update_scalar('en_p', en_p)
-
-        # total magnetic field
-        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-
-        self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer['b_field']
-
-        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-
-        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
-
-        self.update_scalar('en_B_tot', en_Btot)
 
         # particles
         self._tmp[0] = self._Ah/self._Ab*self.pointer['energetic_ions'].markers_wo_holes[:, 6].dot(
             self.pointer['energetic_ions'].markers_wo_holes[:, 3]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 4]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 5]**2,
-        )/(2*self.pointer['energetic_ions'].n_mks)
-
-        self.derham.comm.Allreduce(
-            self._mpi_in_place, self._tmp, op=self._mpi_sum,
-        )
+        )/(2)
 
         self.update_scalar('en_f', self._tmp[0])
         self.update_scalar('en_tot', en_U + en_B + en_p + self._tmp[0])
+
+        # Print number of lost ions
+        self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
+        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+        if self.derham.comm.Get_rank() == 0:
+            print(
+                'ratio of lost particles: ',
+                self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100, '%',
+            )
 
 
 class LinearMHDVlasovPC(StruphyModel):
@@ -342,8 +338,7 @@ class LinearMHDVlasovPC(StruphyModel):
 
         dct['em_fields']['b_field'] = 'Hdiv'
         dct['fluid']['mhd'] = {
-            'density': 'L2',
-            'velocity': 'Hdiv', 'pressure': 'L2',
+            'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2',
         }
         dct['kinetic']['energetic_ions'] = 'Particles6D'
         return dct
@@ -394,10 +389,10 @@ class LinearMHDVlasovPC(StruphyModel):
 
         # extract necessary parameters
         u_space = params['fluid']['mhd']['options']['u_space']
-        params_alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
-        params_sonic_solver = params['fluid']['mhd']['options']['Magnetosonic']['solver']
-        params_vxb_algo = params['kinetic']['energetic_ions']['options']['PushVxB']['algo']
-        params_pc_solver = params['kinetic']['energetic_ions']['options']['PressureCoupling6D']['solver']
+        params_alfven = params['fluid']['mhd']['options']['ShearAlfven']
+        params_sonic = params['fluid']['mhd']['options']['Magnetosonic']
+        params_vxb = params['kinetic']['energetic_ions']['options']['PushVxB']
+        params_pressure = params['kinetic']['energetic_ions']['options']['PressureCoupling6D']
 
         # use perp model
         assert params['kinetic']['energetic_ions']['options']['PressureCoupling6D']['use_perp_model'] == params[
@@ -408,15 +403,15 @@ class LinearMHDVlasovPC(StruphyModel):
         # compute coupling parameters
         Ab = params['fluid']['mhd']['phys_params']['A']
         Ah = params['kinetic']['energetic_ions']['phys_params']['A']
-        kappa = 1. / self.equation_params['energetic_ions']['epsilon']
+        epsilon = self.equation_params['energetic_ions']['epsilon']
 
-        if abs(kappa - 1) < 1e-6:
-            kappa = 1.
+        if abs(epsilon - 1) < 1e-6:
+            epsilon = 1.
 
         self._coupling_params = {}
         self._coupling_params['Ab'] = Ab
         self._coupling_params['Ah'] = Ah
-        self._coupling_params['kappa'] = kappa
+        self._coupling_params['epsilon'] = epsilon
 
         # add control variate to mass_ops object
         if self.pointer['energetic_ions'].control_variate:
@@ -446,44 +441,54 @@ class LinearMHDVlasovPC(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             'b_tilde': self.pointer['b_field'],
             'b_eq': self._b_eq,
-            'algo': params_vxb_algo,
-            'scale_fac': kappa,
+            'algo': params_vxb['algo'],
+            'scale_fac': epsilon,
         }
 
-        self._kwargs[propagators_coupling.PressureCoupling6D] = {
-            'use_perp_model': use_perp_model,
-            'u_space': u_space,
-            'solver': params_pc_solver,
-            'coupling_params': self._coupling_params,
-        }
+        if params_pressure['turn_off']:
+            self._kwargs[propagators_coupling.PressureCoupling6D] = None
+        else:
+            self._kwargs[propagators_coupling.PressureCoupling6D] = {
+                'use_perp_model': use_perp_model,
+                'u_space': u_space,
+                'solver': params_pressure['solver'],
+                'coupling_params': self._coupling_params,
+                'filter': params_pressure['filter'],
+                'boundary_cut': params_pressure['boundary_cut'], }
 
-        self._kwargs[propagators_fields.ShearAlfven] = {
-            'u_space': u_space,
-            'solver': params_alfven_solver,
-        }
+        if params_alfven['turn_off']:
+            self._kwargs[propagators_fields.ShearAlfven] = None
+        else:
+            self._kwargs[propagators_fields.ShearAlfven] = {
+                'u_space': u_space,
+                'solver': params_alfven['solver'],
+            }
 
-        self._kwargs[propagators_fields.Magnetosonic] = {
-            'b': self.pointer['b_field'],
-            'u_space': u_space,
-            'solver': params_sonic_solver,
-        }
+        if params_sonic['turn_off']:
+            self._kwargs[propagators_fields.Magnetosonic] = None
+        else:
+            self._kwargs[propagators_fields.Magnetosonic] = {
+                'b': self.pointer['b_field'],
+                'u_space': u_space,
+                'solver': params_sonic['solver'],
+            }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
         # Scalar variables to be saved during simulation:
-        self.add_scalar('en_U')
-        self.add_scalar('en_p')
-        self.add_scalar('en_B')
-        self.add_scalar('en_f')
-        self.add_scalar('en_B_tot')
-        self.add_scalar('en_tot')
+        self.add_scalar('en_U', compute='from_field')
+        self.add_scalar('en_p', compute='from_field')
+        self.add_scalar('en_B', compute='from_field')
+        self.add_scalar('en_f', compute='from_particles', species='energetic_ions')
+        self.add_scalar('en_tot', summands=['en_U', 'en_p', 'en_B', 'en_f'])
 
         # temporary vectors for scalar quantities
         self._tmp_u = self.derham.Vh['2'].zeros()
         self._tmp_b1 = self.derham.Vh['2'].zeros()
         self._tmp_b2 = self.derham.Vh['2'].zeros()
         self._tmp = np.empty(1, dtype=float)
+        self._n_lost_particles = np.empty(1, dtype=float)
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
@@ -511,31 +516,24 @@ class LinearMHDVlasovPC(StruphyModel):
         self.update_scalar('en_B', en_B)
         self.update_scalar('en_p', en_p)
 
-        # total magnetic field
-        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-
-        self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer['b_field']
-
-        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-
-        en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
-
-        self.update_scalar('en_B_tot', en_Btot)
-
         # particles
         self._tmp[0] = self._coupling_params['Ah']/self._coupling_params['Ab']*self.pointer['energetic_ions'].markers_wo_holes[:, 6].dot(
             self.pointer['energetic_ions'].markers_wo_holes[:, 3]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 4]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 5]**2,
-        )/(2*self.pointer['energetic_ions'].n_mks)
-
-        self.derham.comm.Allreduce(
-            self._mpi_in_place, self._tmp, op=self._mpi_sum,
-        )
+        )/(2.)
 
         self.update_scalar('en_f', self._tmp[0])
         self.update_scalar('en_tot', en_U + en_B + en_p + self._tmp[0])
+
+        # Print number of lost ions
+        self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
+        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+        if self.derham.comm.Get_rank() == 0:
+            print(
+                'ratio of lost particles: ',
+                self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100, '%',
+            )
 
 
 class LinearMHDDriftkineticCC(StruphyModel):
@@ -768,7 +766,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 'filter': params_cc_gradB['filter'],
                 'coupling_params': self._coupling_params,
                 'epsilon': epsilon,
-            }
+                'boundary_cut': params_cc_gradB['boundary_cut'], }
 
         if params_cc_curlb['turn_off']:
             self._kwargs[propagators_coupling.CurrentCoupling5DCurlb] = None
@@ -785,7 +783,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 'filter': params_cc_curlb['filter'],
                 'coupling_params': self._coupling_params,
                 'epsilon': epsilon,
-            }
+                'boundary_cut': params_cc_curlb['boundary_cut'], }
 
         if params_density['turn_off']:
             self._kwargs[propagators_fields.CurrentCoupling5DDensity] = None
@@ -800,7 +798,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 'solver': params_density['solver'],
                 'coupling_params': self._coupling_params,
                 'epsilon': epsilon,
-            }
+                'boundary_cut': params_density['boundary_cut'], }
 
         if params_alfven['turn_off']:
             self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D] = None
@@ -814,7 +812,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 'filter': params_alfven['filter'],
                 'coupling_params': self._coupling_params,
                 'accumulated_magnetization': self.pointer['accumulated_magnetization'],
-            }
+                'boundary_cut': params_alfven['boundary_cut'], }
 
         if params_sonic['turn_off']:
             self._kwargs[propagators_fields.MagnetosonicCurrentCoupling5D] = None
@@ -828,7 +826,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 'solver': params_sonic['solver'],
                 'filter': params_sonic['filter'],
                 'coupling_params': self._coupling_params,
-            }
+                'boundary_cut': params_sonic['boundary_cut'], }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -838,9 +836,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.add_scalar('en_B', compute='from_field')
         self.add_scalar('en_fv', compute='from_particles', species='energetic_ions')
         self.add_scalar('en_fB', compute='from_particles', species='energetic_ions')
-        self.add_scalar('en_fv_lost', compute='from_particles', species='energetic_ions')
-        self.add_scalar('en_fB_lost', compute='from_particles', species='energetic_ions')
-        self.add_scalar('en_tot', summands=['en_U', 'en_p', 'en_B', 'en_fv', 'en_fB', 'en_fv_lost', 'en_fB_lost'])
+        # self.add_scalar('en_fv_lost', compute = 'from_particles', species='energetic_ions')
+        # self.add_scalar('en_fB_lost', compute = 'from_particles', species='energetic_ions')
+        # self.add_scalar('en_tot',summands = ['en_U','en_p','en_B','en_fv','en_fB','en_fv_lost','en_fB_lost'])
+        self.add_scalar('en_tot', summands=['en_U', 'en_p', 'en_B', 'en_fv', 'en_fB'])
 
         # things needed in update_scalar_quantities
         self._mpi_sum = SUM
@@ -852,8 +851,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
-        self._en_fv_lost = np.empty(1, dtype=float)
-        self._en_fB_lost = np.empty(1, dtype=float)
+        # self._en_fv_lost = np.empty(1, dtype=float)
+        # self._en_fB_lost = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
         self._tmp_u = self.derham.Vh['2'].zeros()
@@ -873,89 +872,43 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar('en_p', en_p)
         self.update_scalar('en_B', en_B)
 
-        # self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(
-        #     self._ones)/(5/3 - 1)
-        # self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(
-        #     self._mass_ops.M2.dot(self._b_eq, apply_bc=False))/2
-
-        # calculate particle kinetic energy
-        # for marker in self.pointer['energetic_ions'].markers:
-        #     if np.sum(marker) > 0:
-        #         print(self.derham.comm.Get_rank(), self.inter_comm.Get_rank(),marker[:10])
-        #         print(self.pointer['energetic_ions'].holes)
-        #         print('Ah_Ab',self._coupling_params['Ah'], self._coupling_params['Ab'])
-        #     #print(self.derham.comm.Get_rank(), self.pointer['energetic_ions'].markers)
-        # self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2) / (2*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
-
-        # Don't do averaging within each clone
         self._en_fv[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
             self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 3]**2,
         ) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
 
-        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv, op=self._mpi_sum)
-
         self.update_scalar('en_fv', self._en_fv[0])
 
         # self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.*self.pointer['energetic_ions'].n_mks)*self._coupling_params['Ah']/self._coupling_params['Ab']
+        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
 
-        # Don't do averaging within each clone
-        self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2,
-        ) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
-        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fv_lost, op=self._mpi_sum)
-
-        self.update_scalar('en_fv_lost', self._en_fv_lost[0])
+        # self.update_scalar('en_fv_lost', self._en_fv_lost[0])
 
         # calculate particle magnetic energy
         self.pointer['energetic_ions'].save_magnetic_energy(
             self.pointer['b_field'],
         )
 
-        # print(f"{len(self.pointer['energetic_ions'].markers) = }")
-
-        # self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
-        #     self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8])/self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
         self._en_fB[0] = self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 5].dot(
             self.pointer['energetic_ions'].markers[~self.pointer['energetic_ions'].holes, 8],
         )*self._coupling_params['Ah']/self._coupling_params['Ab']
-        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB, op=self._mpi_sum)
 
         self.update_scalar('en_fB', self._en_fB[0])
 
         # self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) / self.pointer['energetic_ions'].n_mks*self._coupling_params['Ah']/self._coupling_params['Ab']
-        self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-            self.pointer['energetic_ions']  .lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8],
-        ) * self._coupling_params['Ah']/self._coupling_params['Ab']
-        # self.derham.comm.Allreduce(self._mpi_in_place, self._en_fB_lost, op=self._mpi_sum)
+        #     self.pointer['energetic_ions']  .lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) * self._coupling_params['Ah']/self._coupling_params['Ab']
 
-        self.update_scalar('en_fB_lost', self._en_fB_lost[0])
-
-        # self.update_scalar('en_tot', en_U + en_p + en_B +
-        #                    self._en_fv[0] + self._en_fv_lost[0] + self._en_fB[0] + self._en_fB_lost[0])
-
-        # self.update_scalar('en_tot', en_U + en_B + en_p +
-        #                    self._en_fv[0] + self._en_fB[0])
+        # self.update_scalar('en_fB_lost', self._en_fB_lost[0])
 
         self.update_scalar('en_tot')
 
-        # # Print number of lost ions
-        # self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
-        # self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
-        # if self.derham.comm.Get_rank() == 0:
-        #     print('ratio of lost particles: ',
-        #           self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100, '%')
-
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-
-        dct['accumulated_magnetization'] = 'Hdiv'
-        return dct
-
-    __diagnostics__ = diagnostics_dct()
+        # Print number of lost ions
+        self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
+        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+        if self.derham.comm.Get_rank() == 0:
+            print(
+                'ratio of lost particles: ',
+                self._n_lost_particles[0]/self.pointer['energetic_ions'].n_mks*100, '%',
+            )
 
     @staticmethod
     def diagnostics_dct():

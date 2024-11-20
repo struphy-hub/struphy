@@ -202,7 +202,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     )
 
     start_time = time()
-    ACC(1., 1.)
+    ACC(1., 1., 0.)
 
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
