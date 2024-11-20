@@ -3,6 +3,9 @@
 Quickstart
 ==========
 
+Get familiar with Struphy objects using the notebook :ref:`tutorials`.
+What follows is an introduction to the CLI (command line interface) of Struphy.
+
 Get help on Struphy console commands::
 
     struphy -h
@@ -54,8 +57,8 @@ and the data of the kinetic particles is stored under::
 
     ls my_first_sim/post_processing/kinetic_data/
 
-Check out :ref:`Tutorial 2 - Data, post processing and standard plots <tutorials>`
-for a deeper discussion on Struphy data.
+Check out Tutorial 08 in :ref:`tutorials`
+for a deeper discussion on Struphy data and post processing.
 
 Our first simulation ran for just three time steps. Let us change the end-time of the simulation by opening the parameter file::
 
@@ -70,8 +73,6 @@ This time we ran for 20 time steps. The physical time unit of the run can be kno
 
     struphy units VlasovMaxwellOneSpecies -i test.yml
 
-Please refer to :ref:`Tutorial 1 - Run Struphy main file in a notebook <tutorials>` 
-for more information on the units used in Struphy.
 For completeness, let us post-process the data of the second run::
 
     struphy pproc -d another_sim

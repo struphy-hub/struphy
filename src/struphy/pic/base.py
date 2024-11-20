@@ -26,7 +26,7 @@ class Particles(metaclass=ABCMeta):
     Base class for particle species.
 
     The marker information is stored in a 2D numpy array, 
-    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#PIC-data-structures>`_.
+    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
 
     Parameters
     ----------
@@ -131,6 +131,8 @@ class Particles(metaclass=ABCMeta):
         )
         for bci in bc:
             assert bci in ('remove', 'reflect', 'periodic', 'refill')
+            if bci == 'reflect':
+                assert domain is not None, 'Reflecting boundary conditions require a domain.'
 
         if bc_refill is not None:
             for bc_refilli in bc_refill:
@@ -176,11 +178,6 @@ class Particles(metaclass=ABCMeta):
             self._Np = int(ppc*n_cells)
 
         assert self.Np >= self.mpi_size
-
-        # default domain
-        if domain is None:
-            from struphy.geometry.domains import Cuboid
-            domain = Cuboid()
 
         self._domain = domain
         self._mhd_equil = mhd_equil
@@ -1234,9 +1231,7 @@ class Particles(metaclass=ABCMeta):
         )
 
         # new holes and new number of holes and markers on process
-        self._holes[:] = self.markers[:, 0] == -1.
-        self._n_holes_loc = np.count_nonzero(self.holes)
-        self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
+        self.update_holes()
 
         # check if all markers are on the right process after sorting
         if do_test:
@@ -1868,6 +1863,12 @@ class Particles(metaclass=ABCMeta):
             self._sorting_boxes._next_index,
             self._sorting_boxes._cumul_next_index,
         )
+
+    def update_holes(self):
+        '''Compute new holes, new number of holes and markers on process'''
+        self._holes[:] = self.markers[:, 0] == -1.
+        self._n_holes_loc = np.count_nonzero(self.holes)
+        self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
 
 def sendrecv_determine_mtbs(

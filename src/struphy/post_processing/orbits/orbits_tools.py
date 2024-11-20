@@ -30,7 +30,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
       value  ID   guiding_center 
       ===== ===== =============
 
-    ``.txt`` file can be imported to e.g. Paraview, see `Tutorial 02 - Kinetic data <file:///home/spossann/git_repos/struphy/doc/_build/html/tutorials/tutorial_02_postproc_standard_plotting.html#Kinetic-data>`_ for details..
+    ``.txt`` file can be imported to e.g. Paraview, see `Tutorial 08 - Kinetic data <file:///home/spossann/git_repos/struphy/doc/_build/html/tutorials/tutorial_08_struphy_data_pproc.html#Kinetic-data>`_ for details..
 
     Parameters
     ----------

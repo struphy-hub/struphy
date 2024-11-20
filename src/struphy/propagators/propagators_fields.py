@@ -71,7 +71,10 @@ class Maxwell(Propagator):
         super().__init__(e, b)
 
         self._info = solver['info']
-        self._rank = self.derham.comm.Get_rank()
+        if self.derham.comm is not None:
+            self._rank = self.derham.comm.Get_rank()
+        else:
+            self._rank = 0
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1
@@ -2521,7 +2524,12 @@ class ImplicitDiffusion(Propagator):
         self._x0 = x0
         self._info = solver['info']
         stab_mat = getattr(self.mass_ops, stab_mat)
-        diffusion_mat = getattr(self.mass_ops, diffusion_mat)
+        if isinstance(diffusion_mat, str):
+            diffusion_mat = getattr(self.mass_ops, diffusion_mat)
+        else:
+            assert isinstance(diffusion_mat, WeightedMassOperator)
+            assert diffusion_mat.domain == self.derham.grad.codomain
+            assert diffusion_mat.codomain == self.derham.grad.codomain
 
         # Set lhs matrices (without dt)
         self._stab_mat = stab_mat

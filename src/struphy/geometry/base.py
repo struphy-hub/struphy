@@ -4,16 +4,15 @@
 
 from abc import ABCMeta, abstractmethod
 
-from struphy.geometry import evaluation_kernels, transform_kernels
-from struphy.linear_algebra import linalg_kron
-import struphy.bsplines.bsplines as bsp
-from struphy.pic.pushing.pusher_args_kernels import DomainArguments
-
+import h5py
+import numpy as np
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
-import h5py
-import numpy as np
+import struphy.bsplines.bsplines as bsp
+from struphy.geometry import evaluation_kernels, transform_kernels
+from struphy.linear_algebra import linalg_kron
+from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
 
 class Domain(metaclass=ABCMeta):
@@ -52,22 +51,28 @@ class Domain(metaclass=ABCMeta):
             self._p = p
             self._spl_kind = spl
 
-            self._NbaseN = [Nel + p - kind*p for Nel,
-                            p, kind in zip(Nel, p, spl)]
+            self._NbaseN = [
+                Nel + p - kind*p for Nel,
+                p, kind in zip(Nel, p, spl)
+            ]
 
             el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
 
-            self._T = [bsp.make_knots(el_b, p, kind)
-                       for el_b, p, kind in zip(el_b, p, spl)]
+            self._T = [
+                bsp.make_knots(el_b, p, kind)
+                for el_b, p, kind in zip(el_b, p, spl)
+            ]
 
-            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None]) %
-                          NbaseN for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)]
+            self._indN = [
+                (np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None]) %
+                NbaseN for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)
+            ]
 
             # extend to 3d for 2d IGA mappings
             if self._kind_map != 0:
 
-                self._Nel = self._Nel + [0]
-                self._p = self._p + [0]
+                self._Nel = (*self._Nel, 0)
+                self._p = (*self._p, 0)
                 self._NbaseN = self._NbaseN + [0]
 
                 self._T = self._T + [np.zeros((1,), dtype=float)]
@@ -83,21 +88,27 @@ class Domain(metaclass=ABCMeta):
 
             self._NbaseN = [0, 0, 0]
 
-            self._T = [np.zeros((1,), dtype=float),
-                       np.zeros((1,), dtype=float),
-                       np.zeros((1,), dtype=float)]
+            self._T = [
+                np.zeros((1,), dtype=float),
+                np.zeros((1,), dtype=float),
+                np.zeros((1,), dtype=float),
+            ]
 
-            self._indN = [np.zeros((1, 1), dtype=int),
-                          np.zeros((1, 1), dtype=int),
-                          np.zeros((1, 1), dtype=int)]
+            self._indN = [
+                np.zeros((1, 1), dtype=int),
+                np.zeros((1, 1), dtype=int),
+                np.zeros((1, 1), dtype=int),
+            ]
 
             self._cx = np.zeros((1, 1, 1), dtype=float)
             self._cy = np.zeros((1, 1, 1), dtype=float)
             self._cz = np.zeros((1, 1, 1), dtype=float)
 
-        self._transformation_ids = {'pull': 0,
-                                    'push': 1,
-                                    'tran': 2}
+        self._transformation_ids = {
+            'pull': 0,
+            'push': 1,
+            'tran': 2,
+        }
 
         # keys for performing pull-backs and push-forwards
         dict_pullpush = {
@@ -105,7 +116,7 @@ class Domain(metaclass=ABCMeta):
             '3': 1,
             '1': 10,
             '2': 11,
-            'v': 12
+            'v': 12,
         }
 
         # keys for performing transformation
@@ -120,19 +131,23 @@ class Domain(metaclass=ABCMeta):
             'v_to_1': 15,
             'v_to_2': 16,
             '1_to_v': 17,
-            '2_to_v': 18
+            '2_to_v': 18,
         }
 
-        self._dict_transformations = {'pull': dict_pullpush,
-                                      'push': dict_pullpush,
-                                      'tran': dict_tran}
+        self._dict_transformations = {
+            'pull': dict_pullpush,
+            'push': dict_pullpush,
+            'tran': dict_tran,
+        }
 
-        self._args_domain = DomainArguments(self.kind_map,
-                                            self.params_numpy,
-                                            np.array(self.p),
-                                            self.T[0], self.T[1], self.T[2],
-                                            self.indN[0], self.indN[1], self.indN[2],
-                                            self.cx, self.cy, self.cz)
+        self._args_domain = DomainArguments(
+            self.kind_map,
+            self.params_numpy,
+            np.array(self.p),
+            self.T[0], self.T[1], self.T[2],
+            self.indN[0], self.indN[1], self.indN[2],
+            self.cx, self.cy, self.cz,
+        )
 
     @property
     @abstractmethod
@@ -586,7 +601,8 @@ class Domain(metaclass=ABCMeta):
             out = np.empty((markers.shape[0], 3, 3), dtype=float)
 
             n_inside = evaluation_kernels.kernel_evaluate_pic(
-                markers, which, self.args_domain, out, remove_outside)
+                markers, which, self.args_domain, out, remove_outside,
+            )
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(1, 2, 0))
@@ -612,14 +628,17 @@ class Domain(metaclass=ABCMeta):
         else:
 
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                etas[0], etas[1], etas[2], flat_eval=False)
+                etas[0], etas[1], etas[2], flat_eval=False,
+            )
 
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = np.empty(
-                (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3), dtype=float)
+                (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3), dtype=float,
+            )
 
             evaluation_kernels.kernel_evaluate(
-                E1, E2, E3, which, self.args_domain, out, is_sparse_meshgrid)
+                E1, E2, E3, which, self.args_domain, out, is_sparse_meshgrid,
+            )
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(3, 4, 0, 1, 2))
@@ -700,21 +719,29 @@ class Domain(metaclass=ABCMeta):
             # coordinates (:, 3) and argument evaluation (without holes)
             if callable(a):
                 if coordinates == 'logical':
-                    A = Domain.prepare_arg(a, self(
-                        markers, change_out_order=True, remove_outside=remove_outside, identity_map=True))
+                    A = Domain.prepare_arg(
+                        a, self(
+                            markers, change_out_order=True, remove_outside=remove_outside, identity_map=True,
+                        ),
+                    )
                 else:
                     A = Domain.prepare_arg(
-                        a, self(markers, change_out_order=True, remove_outside=remove_outside))
+                        a, self(markers, change_out_order=True, remove_outside=remove_outside),
+                    )
 
             elif isinstance(a, (list, tuple)):
 
                 if callable(a[0]):
                     if coordinates == 'logical':
-                        A = Domain.prepare_arg(a, self(
-                            markers, change_out_order=True, remove_outside=remove_outside, identity_map=True))
+                        A = Domain.prepare_arg(
+                            a, self(
+                                markers, change_out_order=True, remove_outside=remove_outside, identity_map=True,
+                            ),
+                        )
                     else:
                         A = Domain.prepare_arg(
-                            a, self(markers, change_out_order=True, remove_outside=remove_outside))
+                            a, self(markers, change_out_order=True, remove_outside=remove_outside),
+                        )
                 else:
                     A = Domain.prepare_arg(a, markers)
 
@@ -731,7 +758,8 @@ class Domain(metaclass=ABCMeta):
             out = np.empty((markers.shape[0], 3), dtype=float)
 
             n_inside = transform_kernels.kernel_pullpush_pic(
-                A, markers, self._transformation_ids[which], kind_int, self.args_domain, out, remove_outside)
+                A, markers, self._transformation_ids[which], kind_int, self.args_domain, out, remove_outside,
+            )
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(1, 0))
@@ -755,22 +783,26 @@ class Domain(metaclass=ABCMeta):
 
             # convert evaluation points to 3d array of appropriate shape
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                etas[0], etas[1], etas[2], flat_eval=False)
+                etas[0], etas[1], etas[2], flat_eval=False,
+            )
 
             # convert input to be transformed (a) to 4d array of appropriate shape
             if coordinates == 'logical':
                 A = Domain.prepare_arg(
-                    a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs)
+                    a, E1, E2, E3, is_sparse_meshgrid=is_sparse_meshgrid, a_kwargs=a_kwargs,
+                )
             else:
                 X = self(E1, E2, E3)
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
             # call evaluation kernel
             out = np.empty(
-                (E1.shape[0], E2.shape[1], E3.shape[2], 3), dtype=float)
+                (E1.shape[0], E2.shape[1], E3.shape[2], 3), dtype=float,
+            )
 
             transform_kernels.kernel_pullpush(
-                A, E1, E2, E3, self._transformation_ids[which], kind_int, self.args_domain, is_sparse_meshgrid, out)
+                A, E1, E2, E3, self._transformation_ids[which], kind_int, self.args_domain, is_sparse_meshgrid, out,
+            )
 
             # move the (3, 3)-part to front
             out = np.transpose(out, axes=(3, 0, 1, 2))
@@ -921,9 +953,11 @@ class Domain(metaclass=ABCMeta):
                 E1, E2, E3 = arg_x, arg_y, arg_z
 
                 # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
-                if (arg_x.shape[1] == 1 and arg_x.shape[2] == 1 and
+                if (
+                    arg_x.shape[1] == 1 and arg_x.shape[2] == 1 and
                     arg_y.shape[0] == 1 and arg_y.shape[2] == 1 and
-                        arg_z.shape[0] == 1 and arg_z.shape[1] == 1):
+                        arg_z.shape[0] == 1 and arg_z.shape[1] == 1
+                ):
                     is_sparse_meshgrid = True
                 # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
 
@@ -979,7 +1013,8 @@ class Domain(metaclass=ABCMeta):
             else:
                 if is_sparse_meshgrid:
                     a_out = a_in(
-                        *np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)
+                        *np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs,
+                    )
                 else:
                     a_out = a_in(*Xs, **a_kwargs)
 
@@ -1004,12 +1039,22 @@ class Domain(metaclass=ABCMeta):
                 if callable(component):
 
                     if flat_eval:
-                        a_out += [component(Xs[0][:, 0], Xs[0]
-                                            [:, 1], Xs[0][:, 2], **a_kwargs)]
+                        a_out += [
+                            component(
+                                Xs[0][:, 0], Xs[0]
+                                [:, 1], Xs[0][:, 2], **a_kwargs,
+                            ),
+                        ]
                     else:
                         if is_sparse_meshgrid:
-                            a_out += [component(*np.meshgrid(Xs[0][:, 0, 0], Xs[1]
-                                                [0, :, 0], Xs[2][0, 0, :], indexing='ij'), **a_kwargs)]
+                            a_out += [
+                                component(
+                                    *np.meshgrid(
+                                        Xs[0][:, 0, 0], Xs[1]
+                                        [0, :, 0], Xs[2][0, 0, :], indexing='ij',
+                                    ), **a_kwargs,
+                                ),
+                            ]
                         else:
                             a_out += [component(*Xs, **a_kwargs)]
 
@@ -1077,7 +1122,8 @@ class Domain(metaclass=ABCMeta):
             assert a_out.ndim == 4
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
             a_out = np.ascontiguousarray(
-                np.transpose(a_out, axes=(1, 2, 3, 0)))
+                np.transpose(a_out, axes=(1, 2, 3, 0)),
+            )
 
         return a_out
 
@@ -1127,6 +1173,36 @@ class Domain(metaclass=ABCMeta):
         else:
             return params_map
 
+    @staticmethod
+    def prepare_params_map_new(return_numpy=True, **params):
+        """
+        Create parameter dictionary and numpy array.
+
+        Parameters
+        ----------
+        return_numpy : bool
+            Whether to return a numpy parameter array in addition to the always returned parameter dictionary.
+
+        params : kwargs
+            Mapping parameters.
+
+        Returns
+        -------
+        params : dict
+            Dictionary with default values for missing keys.
+
+        params_numpy : np.ndarray
+            Numpy array with parameters in params_map (if parameter is a float or int).
+        """
+        # parameter numpy array for pyccel kernel (order matters!)
+        if return_numpy:
+            params_numpy = []
+            for k, v in params.items():
+                params_numpy.append(v)
+            return params, np.array(params_numpy)
+        else:
+            return params
+
     # ================================
     def show(self, logical=False, grid_info=None, markers=None, marker_coords='logical', show_control_pts=False, figsize=(12, 5), save_dir=None):
         """
@@ -1159,8 +1235,10 @@ class Domain(metaclass=ABCMeta):
         import matplotlib.pyplot as plt
 
         is_not_cube = self.kind_map < 10 or self.kind_map > 19
-        torus_mappings = ('Tokamak', 'GVECunit', 'DESCunit',
-                          'IGAPolarTorus', 'HollowTorus')
+        torus_mappings = (
+            'Tokamak', 'GVECunit', 'DESCunit',
+            'IGAPolarTorus', 'HollowTorus',
+        )
 
         # plot domain without MPI decomposition and high resolution
         if grid_info is None:
@@ -1200,8 +1278,10 @@ class Domain(metaclass=ABCMeta):
                 if key not in {'cx', 'cy', 'cz'}:
                     tstr += key + ': ' + str(val) + '\n'
             ax.set_title(self.__class__.__name__ + ' at $\\eta_3=0$')
-            ax.text(.01, .99, tstr, ha='left',
-                    va='top', transform=ax.transAxes)
+            ax.text(
+                .01, .99, tstr, ha='left',
+                va='top', transform=ax.transAxes,
+            )
 
             # top view
             e3 = np.linspace(0., 1., 65)
@@ -1235,13 +1315,17 @@ class Domain(metaclass=ABCMeta):
             if is_not_cube:
                 # eta1-isolines
                 for i in range(e1.size):
-                    ax2.plot(X_pi[i, :], Z_pi[i, :],
-                             'tab:blue', alpha=.5, zorder=0)
+                    ax2.plot(
+                        X_pi[i, :], Z_pi[i, :],
+                        'tab:blue', alpha=.5, zorder=0,
+                    )
 
                 # eta3-isolines
                 for j in range(e2.size):
-                    ax2.plot(X_pi[:, j], Z_pi[:, j],
-                             'tab:blue', alpha=.5, zorder=0)
+                    ax2.plot(
+                        X_pi[:, j], Z_pi[:, j],
+                        'tab:blue', alpha=.5, zorder=0,
+                    )
 
             # magnetic axis
             ax2.plot(X_0[0, :], Z_0[0, :], 'tab:red', alpha=1., zorder=10)
@@ -1332,26 +1416,37 @@ class Domain(metaclass=ABCMeta):
 
             for i in range(grid_info.shape[0]):
 
-                e1 = np.linspace(grid_info[i, 0], grid_info[i, 1], int(
-                    grid_info[i, 2]) + 1)
-                e2 = np.linspace(grid_info[i, 3], grid_info[i, 4], int(
-                    grid_info[i, 5]) + 1)
+                e1 = np.linspace(
+                    grid_info[i, 0], grid_info[i, 1], int(
+                        grid_info[i, 2],
+                    ) + 1,
+                )
+                e2 = np.linspace(
+                    grid_info[i, 3], grid_info[i, 4], int(
+                        grid_info[i, 5],
+                    ) + 1,
+                )
 
                 if logical:
                     E1, E2 = np.meshgrid(e1, e2, indexing='ij')
 
                     # eta1-isolines
                     first_line = ax.plot(
-                        E1[0, :], E2[0, :], label='rank=' + str(i), alpha=.25)
+                        E1[0, :], E2[0, :], label='rank=' + str(i), alpha=.25,
+                    )
 
                     for j in range(e1.size):
-                        ax.plot(E1[j, :], E2[j, :],
-                                color=first_line[0].get_color(), alpha=.25)
+                        ax.plot(
+                            E1[j, :], E2[j, :],
+                            color=first_line[0].get_color(), alpha=.25,
+                        )
 
                     # eta2-isolines
                     for k in range(e2.size):
-                        ax.plot(E1[:, k], E2[:, k],
-                                color=first_line[0].get_color(), alpha=.25)
+                        ax.plot(
+                            E1[:, k], E2[:, k],
+                            color=first_line[0].get_color(), alpha=.25,
+                        )
 
                 else:
                     X = self(e1, e2, 0., squeeze_out=True)
@@ -1364,16 +1459,21 @@ class Domain(metaclass=ABCMeta):
 
                     # eta1-isolines
                     first_line = ax.plot(
-                        X[co1, 0, :], X[co2, 0, :], label='rank=' + str(i), alpha=.25)
+                        X[co1, 0, :], X[co2, 0, :], label='rank=' + str(i), alpha=.25,
+                    )
 
                     for j in range(e1.size):
-                        ax.plot(X[co1, j, :], X[co2, j, :],
-                                color=first_line[0].get_color(), alpha=.25)
+                        ax.plot(
+                            X[co1, j, :], X[co2, j, :],
+                            color=first_line[0].get_color(), alpha=.25,
+                        )
 
                     # eta2-isolines
                     for k in range(e2.size):
-                        ax.plot(X[co1, :, k], X[co2, :, k],
-                                color=first_line[0].get_color(), alpha=.25)
+                        ax.plot(
+                            X[co1, :, k], X[co2, :, k],
+                            color=first_line[0].get_color(), alpha=.25,
+                        )
 
         else:
             raise ValueError('given grid_info is not supported!')
@@ -1404,8 +1504,12 @@ class Domain(metaclass=ABCMeta):
                     tmp[:, 2] = 0.  # TODO: needed for eta3=0
                     X = self(tmp, remove_outside=True)
                 else:
-                    X = (markers[:, 0].copy(), markers[:,
-                         1].copy(), markers[:, 2].copy())
+                    X = (
+                        markers[:, 0].copy(), markers[
+                            :,
+                            1,
+                        ].copy(), markers[:, 2].copy(),
+                    )
 
                 ax.scatter(X[co1], X[co2], s=1, color='b')
 
@@ -1422,8 +1526,12 @@ class Domain(metaclass=ABCMeta):
                         tmp[:, 2] = 0.  # TODO: needed for eta3 = 0
                         X = self(tmp, remove_outside=True, squeeze_out=True)
                     else:
-                        X = (markers[:, i, 0].copy(), markers[:,
-                             i, 1].copy(), markers[:, i, 2].copy())
+                        X = (
+                            markers[:, i, 0].copy(), markers[
+                                :,
+                                i, 1,
+                            ].copy(), markers[:, i, 2].copy(),
+                        )
 
                     # ax.scatter(X[co1], X[co2], s=2, color=colors[i%len(colors)])
                     ax.scatter(X[co1], X[co2], s=2)
@@ -1457,19 +1565,21 @@ class Spline(Domain):
 
         z &= \sum_{ijk} c^z_{ijk} N_i(\eta_1) N_j(\eta_2) N_k(\eta_3)\,.
         \end{aligned}\right.
-
-    .. image:: ../pics/mappings/spline.png'''
+    '''
 
     def __init__(self, **params):
 
         self._kind_map = 0
 
         # set default
-        params_default = {'Nel': None, 'p': None,
-                          'spl_kind': None, 'cx': None, 'cy': None, 'cz': None}
+        params_default = {
+            'Nel': None, 'p': None,
+            'spl_kind': None, 'cx': None, 'cy': None, 'cz': None,
+        }
 
         params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False)
+            params, params_default, return_numpy=False,
+        )
 
         # get default control points from default GVEC equilibrium
         if params_map['cx'] is None or params_map['cy'] is None or params_map['cz'] is None:
@@ -1494,8 +1604,10 @@ class Spline(Domain):
         assert self.cz.ndim == 3
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple([self._params_map['Nel'][n] +
-                                (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(3)])
+        expected_shape = tuple([
+            self._params_map['Nel'][n] +
+            (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(3)
+        ])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -1536,27 +1648,31 @@ class Spline(Domain):
 
 class PoloidalSpline(Domain):
     r'''
-    Base class for all mappings that use a 2D spline representation :math:`S:(\eta_1, \eta_2) \to (q_1, q_2) \in \mathbb R^2` in the poloidal plane.
-    The full map F is obtained by defining :math:`(q_1, q_2, \eta_3) \mapsto (x, y, z)` in the sub-class.
+    Base class for all mappings that use a 2D spline representation 
+    :math:`S:(\eta_1, \eta_2) \to (R, Z) \in \mathbb R^2` in the poloidal plane:
 
     .. math:: 
 
-        S: (\eta_1, \eta_2) \mapsto (q_1, q_2) \textnormal{ as } \left\{\begin{aligned}
-        q_1 &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+        S: (\eta_1, \eta_2) \mapsto (R, Z) \textnormal{ as } \left\{\begin{aligned}
+        R &= \sum_{ij} c^R_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
 
-        q_2 &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,.
+        Z &= \sum_{ij} c^Z_{ij} N_i(\eta_1) N_j(\eta_2) \,.
         \end{aligned}\right.
 
-    .. image:: ../pics/mappings/xxx.png'''
+    The full map :math:`F: [0, 1]^3 \to \Omega` is obtained by defining :math:`(R, Z, \eta_3) \mapsto (x, y, z)` in the child class.
+    '''
 
     def __init__(self, **params):
 
         # set default
-        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
-                          'cx': None, 'cy': None}
+        params_default = {
+            'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+            'cx': None, 'cy': None,
+        }
 
         params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False)
+            params, params_default, return_numpy=False,
+        )
 
         # get default control points
         if params_map['cx'] is None or params_map['cy'] is None:
@@ -1565,7 +1681,8 @@ class PoloidalSpline(Domain):
             def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
 
             cx, cy = interp_mapping(
-                params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+                params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y,
+            )
 
             # make sure that control points at pole are all the same (eta1=0 there)
             cx[0] = 3.
@@ -1586,8 +1703,10 @@ class PoloidalSpline(Domain):
         assert self.cy.ndim == 2
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple([self._params_map['Nel'][n] +
-                                (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(2)])
+        expected_shape = tuple([
+            self._params_map['Nel'][n] +
+            (not self._params_map['spl_kind'][n])*self._params_map['p'][n] for n in range(2)
+        ])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -1631,26 +1750,28 @@ class PoloidalSplineStraight(PoloidalSpline):
     r'''
     .. math:: 
 
-        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
-        x &= \sum_{ij} c^x_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+        F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= R \,, 
 
-        y &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \,, 
+        y &= Z \,, 
 
         z &= L_z\eta_3\,.
         \end{aligned}\right.
-
-    .. image:: ../pics/mappings/poloidal_spline_straight.png'''
+    '''
 
     def __init__(self, **params):
 
         self._kind_map = 1
 
         # set default
-        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
-                          'cx': None, 'cy': None, 'Lz': 4.}
+        params_default = {
+            'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+            'cx': None, 'cy': None, 'Lz': 4.,
+        }
 
         params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False)
+            params, params_default, return_numpy=False,
+        )
 
         # get default control points
         if params_map['cx'] is None or params_map['cy'] is None:
@@ -1659,7 +1780,8 @@ class PoloidalSplineStraight(PoloidalSpline):
             def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
 
             cx, cy = interp_mapping(
-                params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+                params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y,
+            )
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 0.
@@ -1686,26 +1808,28 @@ class PoloidalSplineTorus(PoloidalSpline):
     r'''
     .. math:: 
 
-        F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
-        x &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \cos(2\pi\eta_3)  \,, 
+        F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= R \cos(2\pi\eta_3)  \,, 
 
-        y &= \sum_{ij} c^{R}_{ij} N_i(\eta_1) N_j(\eta_2) \sin(- 2\pi\eta_3) \,, 
+        y &= R \sin(- 2\pi\eta_3) \,, 
 
-        z &= \sum_{ij} c^{z}_{ij} N_i(\eta_1) N_j(\eta_2) \,.
+        z &= Z \,.
         \end{aligned}\right.
-
-    .. image:: ../pics/mappings/poloidal_spline_torus.png'''
+    '''
 
     def __init__(self, **params):
 
         self._kind_map = 2
 
         # set default
-        params_default = {'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
-                          'cx': None, 'cy': None, 'tor_period': 3}
+        params_default = {
+            'Nel': [8, 24], 'p': [2, 3], 'spl_kind': [False, True],
+            'cx': None, 'cy': None, 'tor_period': 3,
+        }
 
         params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False)
+            params, params_default, return_numpy=False,
+        )
 
         # get default control points
         if params_map['cx'] is None or params_map['cy'] is None:
@@ -1714,7 +1838,8 @@ class PoloidalSplineTorus(PoloidalSpline):
             def Y(eta1, eta2): return eta1 * np.sin(2*np.pi * eta2)
 
             cx, cy = interp_mapping(
-                params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+                params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y,
+            )
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 3.
@@ -1765,15 +1890,19 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
 
     # spline knot vectors
-    T = [bsp.make_knots(el_b, p, kind)
-         for el_b, p, kind in zip(el_b, p, spl_kind)]
+    T = [
+        bsp.make_knots(el_b, p, kind)
+        for el_b, p, kind in zip(el_b, p, spl_kind)
+    ]
 
     # greville points
     I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
 
     # 1D interpolation matrices
-    I_mat = [csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind))
-             for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
+    I_mat = [
+        csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind))
+        for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)
+    ]
 
     # 2D interpolation
     if len(Nel) == 2:
@@ -1782,9 +1911,11 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing='ij')
 
         cx = spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
-            NbaseN[0], NbaseN[1])
+            NbaseN[0], NbaseN[1],
+        )
         cy = spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
-            NbaseN[0], NbaseN[1])
+            NbaseN[0], NbaseN[1],
+        )
 
         return cx, cy
 
@@ -1795,11 +1926,14 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         I_pts = np.meshgrid(I_pts[0], I_pts[1], I_pts[2], indexing='ij')
 
         cx = spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2])
+            NbaseN[0], NbaseN[1], NbaseN[2],
+        )
         cy = spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2])
+            NbaseN[0], NbaseN[1], NbaseN[2],
+        )
         cz = spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2])
+            NbaseN[0], NbaseN[1], NbaseN[2],
+        )
 
         return cx, cy, cz
 
@@ -1849,8 +1983,10 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.
     for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, p, spl_kind):
         assert isinstance(x_grid, np.ndarray)
         assert sh == x_grid.size
-        assert np.all(np.roll(x_grid, 1)[1:] <
-                      x_grid[1:]) and x_grid[-1] > x_grid[-2]
+        assert np.all(
+            np.roll(x_grid, 1)[1:] <
+            x_grid[1:],
+        ) and x_grid[-1] > x_grid[-2]
         assert x_grid[0] == 0.
 
         if kind_i:
@@ -1865,7 +2001,8 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.
 
         else:
             assert np.abs(
-                x_grid[-1] - 1.) < 1e-14, 'Interpolation points must include x=1 for clamped interpolation.'
+                x_grid[-1] - 1.,
+            ) < 1e-14, 'Interpolation points must include x=1 for clamped interpolation.'
             # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
             if p_i == 1:
                 breaks = x_grid
@@ -1882,8 +2019,12 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.
 
         T += [bsp.make_knots(breaks, p_i, periodic=kind_i)]
 
-        indN += [(np.indices((breaks.size - 1, p_i + 1))[1] +
-                  np.arange(breaks.size - 1)[:, None]) % x_grid.size]
+        indN += [
+            (
+                np.indices((breaks.size - 1, p_i + 1))[1] +
+                np.arange(breaks.size - 1)[:, None]
+            ) % x_grid.size,
+        ]
 
         I_mat += [bsp.collocation_matrix(T[-1], p_i, x_grid, periodic=kind_i)]
 
