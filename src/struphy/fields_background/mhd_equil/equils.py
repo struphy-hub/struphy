@@ -2389,7 +2389,9 @@ class GVECequilibrium(LogicalMHDequilibrium):
 
         rmin = self._params['rmin']
         r_loc = rmin + eta1*(1. - rmin)
-        r = self._r(r_loc, eta2)
+        r = self._gvec.profiles.profile(r_loc, eta2, eta3, name='chi', flat_eval=flat_eval)/self._gvec.profiles.profile(1., name='chi')
+        #r = self._r(r_loc, eta2)
+        #r = r_loc
         if self._params['density_profile'] == 'pressure':
             return self._params['n0'] * self.p0(*etas)
         elif self._params['density_profile'] == 'parabolic':

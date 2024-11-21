@@ -263,6 +263,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
 
         # eta1-direction
         if bc[0][0]:
+            #avg_bc_stencil(vec_tp)
             apply_essential_bc_stencil(vec_tp, axis=0, ext=-1, order=0)
         if bc[0][1]:
             apply_essential_bc_stencil(vec_tp, axis=0, ext=+1, order=0)
@@ -292,6 +293,8 @@ def apply_essential_bc_to_array(space_id, vector, bc):
 
         # eta1-direction
         if bc[0][0]:
+            #avg_bc_stencil(vec_tp[1], no_flux=True)
+            #avg_bc_stencil(vec_tp[2])
             apply_essential_bc_stencil(vec_tp[1], axis=0, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=0, ext=-1, order=0)
         if bc[0][1]:
@@ -329,6 +332,7 @@ def apply_essential_bc_to_array(space_id, vector, bc):
 
         # eta1-direction
         if bc[0][0]:
+            # avg_bc_stencil(vec_tp[0], no_flux=True)
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=-1, order=0)
         if bc[0][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=+1, order=0)
@@ -358,43 +362,46 @@ def apply_essential_bc_to_array(space_id, vector, bc):
 
         # eta1-direction
         if bc[0][0]:
+            # avg_bc_stencil(vec_tp[0], no_flux=True)
+            # avg_bc_stencil(vec_tp[1], no_flux=True)
+            # avg_bc_stencil(vec_tp[2])
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=0, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[1], axis=0, ext=-1, order=0)
+            # apply_essential_bc_stencil(vec_tp[2], axis=0, ext=-1, order=0)
         if bc[0][1]:
             apply_essential_bc_stencil(vec_tp[0], axis=0, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=0, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=0, ext=+1, order=0)
+            #apply_essential_bc_stencil(vec_tp[1], axis=0, ext=+1, order=0)
+            #apply_essential_bc_stencil(vec_tp[2], axis=0, ext=+1, order=0)
 
         # eta2-direction
         if bc[1][0]:
-            apply_essential_bc_stencil(vec_tp[0], axis=1, ext=-1, order=0)
+            #apply_essential_bc_stencil(vec_tp[0], axis=1, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=1, ext=-1, order=0)
+            #apply_essential_bc_stencil(vec_tp[2], axis=1, ext=-1, order=0)
         if bc[1][1]:
-            apply_essential_bc_stencil(vec_tp[0], axis=1, ext=+1, order=0)
+            #apply_essential_bc_stencil(vec_tp[0], axis=1, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[1], axis=1, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[2], axis=1, ext=+1, order=0)
+            #apply_essential_bc_stencil(vec_tp[2], axis=1, ext=+1, order=0)
 
         # eta3-direction
         if bc[2][0]:
-            apply_essential_bc_stencil(vec_tp[0], axis=2, ext=-1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
+            #apply_essential_bc_stencil(vec_tp[0], axis=2, ext=-1, order=0)
+            #apply_essential_bc_stencil(vec_tp[1], axis=2, ext=-1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=-1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:,  0] = 0.
-                vector.pol[1][:,  0] = 0.
+                #vector.pol[0][:,  0] = 0.
+                #vector.pol[1][:,  0] = 0.
                 vector.pol[2][:,  0] = 0.
 
         if bc[2][1]:
-            apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
-            apply_essential_bc_stencil(vec_tp[1], axis=2, ext=+1, order=0)
+            #apply_essential_bc_stencil(vec_tp[0], axis=2, ext=+1, order=0)
+            #apply_essential_bc_stencil(vec_tp[1], axis=2, ext=+1, order=0)
             apply_essential_bc_stencil(vec_tp[2], axis=2, ext=+1, order=0)
 
             if isinstance(vector, PolarVector):
-                vector.pol[0][:, -1] = 0.
-                vector.pol[1][:, -1] = 0.
+                #vector.pol[0][:, -1] = 0.
+                #vector.pol[1][:, -1] = 0.
                 vector.pol[2][:, -1] = 0.
 
 
@@ -451,3 +458,48 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
     # generate the weight for generating the matrix
     kernels.hybrid_weight(*pads_out, *pts, *spans_out, nqs[0], nqs[1], nqs[2], wts[0], wts[1], wts[2],
                           weight_pre[0], weight_pre[1], weight_pre[2], accum_density._operators[0].matrix._data, *domain.args_map)
+
+
+
+def avg_bc_stencil(a, *, no_flux=False):
+    """ This function applies the homogeneous boundary condition to the Stencil objects,
+        by setting the boundary degrees of freedom to zero in the StencilVector,
+        and the corresponding rows in the StencilMatrix/StencilInterfaceMatrix to zeros.
+        If the identity keyword argument is set to True, the boundary diagonal terms are set to 1.
+
+    Parameters
+    ----------
+    a : StencilVector, StencilMatrix or StencilInterfaceMatrix
+        The matrix or the Vector to be modified.
+
+    axis : int
+        Axis of the boundary, i.e. the index of the coordinate which remains constant.
+
+    ext : int
+        Extremity of the boundary, it takes the value of -1 or 1.
+
+    order : int
+        All function derivatives up to `order` are set to zero
+        on the specified boundary. `order >= 0` is required.
+
+    identity : bool
+        If True, the diagonal terms corresponding to boundary coefficients are set to 1.
+    """
+
+    V = a.space
+
+    s1 = V.starts[0]
+    s2 = V.starts[1]
+    e2 = V.ends[1]
+    p1 = V.pads[0]
+    p2 = V.pads[1]
+    # loop on poloidal direction
+    for i3 in range(a._data.shape[2]):
+        avg = np.average(a._data[s1+p1,s2+p2:e2+p2+1,i3])
+        #print(a._data[s1+p1,s2+p2:e2+p2+1,i3], avg)
+
+        if no_flux:
+            a._data[s1+p1,:,i3] -= avg
+        else:
+            a._data[s1+p1,:,i3] = avg
+    a.update_ghost_regions()

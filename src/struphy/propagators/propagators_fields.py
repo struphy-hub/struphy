@@ -3022,7 +3022,7 @@ class VariationalDensityEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            P_boundary_op=self.derham.boundary_ops['2'],
             logical=False)
 
         self.Piu = BasisProjectionOperator(
@@ -3965,7 +3965,8 @@ class VariationalEntropyEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            P_boundary_op=self.derham.boundary_ops['2'],
+            
             logical=False)
 
         self.Piu = BasisProjectionOperator(
@@ -4739,7 +4740,7 @@ class VariationalMagFieldEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']),
+            P_boundary_op=self.derham.boundary_ops['1'],
             logical=False)
 
         self.Piu = BasisProjectionOperator(
