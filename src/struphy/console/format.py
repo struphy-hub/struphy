@@ -1,46 +1,46 @@
 """
-    Struphy Linting and Formatting Tools
+Struphy Linting and Formatting Tools
 
-    This module provides utilities to lint, format, and analyze Python files in struphy.
-    It is only accessible when compiling struphy in editable mode.
+This module provides utilities to lint, format, and analyze Python files in struphy.
+It is only accessible when compiling struphy in editable mode.
 
-    Functions
-    ---------
-    parse_path(directory)
-        Traverse a directory to find Python files, excluding '__XYZ__.py'.
+Functions
+---------
+parse_path(directory)
+    Traverse a directory to find Python files, excluding '__XYZ__.py'.
 
-    get_python_files(input_type, path=None)
-        Retrieve Python files based on the specified input type (all, path, staged, or branch).
+get_python_files(input_type, path=None)
+    Retrieve Python files based on the specified input type (all, path, staged, or branch).
 
-    struphy_lint(config, verbose)
-        Lint Python files based on the given type, using specified linters.
+struphy_lint(config, verbose)
+    Lint Python files based on the given type, using specified linters.
 
-    struphy_format(config, verbose, yes=False)
-        Format Python files with specified linters, optionally iterating multiple times.
+struphy_format(config, verbose, yes=False)
+    Format Python files with specified linters, optionally iterating multiple times.
 
-    print_stats_table(stats_list, linters, print_header=True, pathlen=0)
-        Print statistics for Python files in a tabular format.
+print_stats_table(stats_list, linters, print_header=True, pathlen=0)
+    Print statistics for Python files in a tabular format.
 
-    analyze_file(file_path, linters=["isort", "autopep8"], verbose=False)
-        Analyze a Python file, reporting on code structure and linter compliance.
+analyze_file(file_path, linters=["isort", "autopep8"], verbose=False)
+    Analyze a Python file, reporting on code structure and linter compliance.
 
-    print_file_stats(stats)
-        Display statistics of a single file in a readable format.
+print_file_stats(stats)
+    Display statistics of a single file in a readable format.
 
-    check_isort(file_path, verbose=False)
-        Check if a file is sorted according to isort.
+check_isort(file_path, verbose=False)
+    Check if a file is sorted according to isort.
 
-    check_autopep8(file_path, verbose=False)
-        Check if a file is formatted according to autopep8.
+check_autopep8(file_path, verbose=False)
+    Check if a file is formatted according to autopep8.
 
-    check_flake8(file_path, verbose=False)
-        Check if a file is formatted according to flake8.
+check_flake8(file_path, verbose=False)
+    Check if a file is formatted according to flake8.
 
-    get_pylint_score(file_path, verbose=False, pass_score)
-        Get pylint score for a file and determine if it passes.
+get_pylint_score(file_path, verbose=False, pass_score)
+    Get pylint score for a file and determine if it passes.
 
-    check_trailing_commas(file_path, verbose=False)
-        Check if a file is formatted according to add-trailing-comma.
+check_trailing_commas(file_path, verbose=False)
+    Check if a file is formatted according to add-trailing-comma.
 """
 
 import ast
@@ -359,9 +359,7 @@ def get_python_files(input_type, path=None):
         )
         files = git_output.strip().splitlines()
         python_files = [
-            os.path.join(repopath, f)
-            for f in files
-            if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
+            os.path.join(repopath, f) for f in files if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
         ]
 
         if not python_files:
@@ -381,9 +379,7 @@ def get_python_files(input_type, path=None):
 
         # python_files = [f for f in files if f.endswith(".py") and os.path.isfile(f)]
         python_files = [
-            os.path.join(repopath, f)
-            for f in files
-            if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
+            os.path.join(repopath, f) for f in files if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
         ]
 
         if not python_files:
@@ -456,9 +452,7 @@ def struphy_lint(config, verbose):
         print("-" * 40)
         check_ci_pass = True
     else:
-        skipped_ci_linters = [
-            ci_linter for ci_linter in ci_linters if ci_linter not in linters
-        ]
+        skipped_ci_linters = [ci_linter for ci_linter in ci_linters if ci_linter not in linters]
         print(
             f'The "Pass CI" check is skipped since not --linters {" ".join(skipped_ci_linters)} is used.',
         )
@@ -774,15 +768,9 @@ def analyze_file(file_path, linters=None, verbose=False):
 
     # Parse the AST
     tree = ast.parse(source_code)
-    stats["num_functions"] = sum(
-        isinstance(node, ast.FunctionDef) for node in ast.walk(tree)
-    )
-    stats["num_classes"] = sum(
-        isinstance(node, ast.ClassDef) for node in ast.walk(tree)
-    )
-    stats["num_variables"] = sum(
-        isinstance(node, (ast.Assign, ast.AnnAssign)) for node in ast.walk(tree)
-    )
+    stats["num_functions"] = sum(isinstance(node, ast.FunctionDef) for node in ast.walk(tree))
+    stats["num_classes"] = sum(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
+    stats["num_variables"] = sum(isinstance(node, (ast.Assign, ast.AnnAssign)) for node in ast.walk(tree))
 
     # Run code analysis tools
     # TODO: This should be a loop
