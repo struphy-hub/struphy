@@ -541,7 +541,6 @@ def run_linters_on_files(linters, python_files, flags, verbose):
         for python_file in python_files:
             print(f"Formatting {python_file}")
             linter_flags = flags.get(linter, [])
-            print(linter_flags)
             if isinstance(linter_flags[0], list):
                 # If linter_flags is a list, run each separately
                 for flag in linter_flags:
