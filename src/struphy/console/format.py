@@ -431,7 +431,7 @@ def struphy_lint(config, verbose):
     if input_type is None and path is not None:
         input_type = "path"
     # Define standard linters which will be checked in the CI
-    ci_linters = ["isort", "autopep8"]
+    ci_linters = ["ruff"]
     python_files = get_python_files(input_type, path)
     if len(python_files) == 0:
         sys.exit(0)
@@ -448,7 +448,7 @@ def struphy_lint(config, verbose):
 
     # Check if all ci_linters are included in linters
     if all(ci_linter in linters for ci_linter in ci_linters):
-        print("Passes CI if both isort and autopep8 passes")
+        print(f"Passes CI if {ci_linters} passes")
         print("-" * 40)
         check_ci_pass = True
     else:
@@ -608,7 +608,7 @@ def struphy_format(config, verbose, yes=False):
             # Check if any files still require changes
             if not files_require_formatting(
                 python_files,
-                [lint for lint in linters if not lint in skip_linters],
+                [lint for lint in linters if lint not in skip_linters],
             ):
                 print("All files are properly formatted.")
                 break
@@ -625,7 +625,7 @@ def struphy_format(config, verbose, yes=False):
         print("No Python files to format.")
 
 
-def print_stats_plain(stats, linters):
+def print_stats_plain(stats, linters, ci_linters=["ruff"]):
     """
     Print statistics for a single file in plain text format.
 
@@ -651,14 +651,15 @@ def print_stats_plain(stats, linters):
         print(f"  {linter}: {status}")
 
     # Check for CI pass status if both linters are present
-    if "isort" in linters and "autopep8" in linters:
-        passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
+    if all(linter in linters for linter in ci_linters):
+        # Check if all linters in ci_linters pass
+        passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
         ci_status = PASS_GREEN if passes_ci else FAIL_RED
         print(f"  Full CI check: {ci_status}")
     print("-" * 40)  # Divider between files
 
 
-def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
+def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_linters=["ruff"]):
     """
     Print statistics for Python files in a tabular format.
 
@@ -708,8 +709,8 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
 
         for linter in linters:
             row.append(PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED)
-        if "isort" in linters and "autopep8" in linters:
-            passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
+        if all(linter in linters for linter in ci_linters):
+            passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
             row.append(PASS_GREEN if passes_ci else FAIL_RED)
         table.append(row)
     if print_header:
