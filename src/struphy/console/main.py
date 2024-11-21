@@ -679,7 +679,7 @@ def struphy():
             "--linters",
             type=str,
             nargs='+',
-            default=["add-trailing-comma", "isort", "autopep8", "ruff"],
+            default=["ruff"],
             choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
             help="list of linters to use",
         )
