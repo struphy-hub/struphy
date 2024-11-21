@@ -85,7 +85,7 @@ def check_ruff(file_path, verbose=False):
     import subprocess
 
     result = subprocess.run(
-        ["ruff", "check", file_path],
+        ["ruff", "format", "--check", file_path],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
