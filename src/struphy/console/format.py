@@ -538,10 +538,12 @@ def files_require_formatting(python_files, linters):
 def run_linters_on_files(linters, python_files, flags, verbose):
     """Run each linter on the specified files with appropriate flags."""
     for linter in linters:
-        command = [linter] + flags.get(linter, []) + python_files
-        if verbose:
-            print(f"Running command: {' '.join(command)}")
-        subprocess.run(command, check=True)
+        for python_file in python_files:
+            command = [linter] + flags.get(linter, []) + [python_file]
+            print(f"Formatting {python_file}")
+            if verbose:
+                print(f"Running command: {' '.join(command)}")
+            subprocess.run(command, check=False)
 
 
 def struphy_format(config, verbose, yes=False):
@@ -587,7 +589,7 @@ def struphy_format(config, verbose, yes=False):
         "autopep8": ["--in-place"],
         "isort": [],
         "add-trailing-comma": ["--exit-zero-even-if-changed"],
-        "ruff": ["format"],
+        "ruff": ["check", "--fix"],
     }
 
     # Skip linting with add-trailing-comma since it disagrees with autopep8
