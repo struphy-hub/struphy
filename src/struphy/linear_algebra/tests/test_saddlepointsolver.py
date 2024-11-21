@@ -9,6 +9,8 @@ def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=F
     from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
     from struphy.feec.mass import WeightedMassOperators
     import numpy as np
+    from psydac.linalg.basic import InverseLinearOperator
+    from psydac.linalg.block import BlockLinearOperator, BlockVectorSpace, BlockVector
 
     from mpi4py import MPI
 
@@ -31,31 +33,53 @@ def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=F
     # create random input array
     x1_rdm_block, x1_rdm = create_equal_random_arrays(
         fem_spaces[1], seed=1568, flattened=True)
+    x2_rdm_block, x2_rdm = create_equal_random_arrays(
+        fem_spaces[1], seed=1568, flattened=True)
     y1_rdm_block, y1_rdm = create_equal_random_arrays(
         fem_spaces[3], seed=1568, flattened=True)
 
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain)
-    A = mass_mats.M2
-    print(f"A shape: {A.shape}, A type: {type(A)}")
-    B = derham.div
-    print(f"B shape: {B.shape}, B type: {type(B)}")
-    BT = B.transpose()
-    print(f"BT shape: {BT.shape}, BT type: {type(B)}")
-    x = derham.curl.dot(x1_rdm)
-    F = A.dot(x) + BT.dot(y1_rdm)
-    print(f"F shape: {F.shape}, F type: {type(F)}")
+    A11 = mass_mats.M2
+    A12 = A11.copy()*0
+    A22 = mass_mats.M2
+    B1 = derham.div
+    B1T = B1.transpose()
+    B2 = derham.div
+    B2T = B2.transpose()
+    x1 = derham.curl.dot(x1_rdm)
+    x2 = derham.curl.dot(x2_rdm)
+    F1 = A11.dot(x1) + B1T.dot(y1_rdm)
+    F2 = A22.dot(x2) + B2T.dot(y1_rdm)
+    print(f"A11 shape: {A11.shape}, A type: {type(A11)}")
+    print(f"B1 shape: {B1.shape}, B type: {type(B1)}")
+    print(f"B1T shape: {B1T.shape}, BT type: {type(B1T)}")
+    print(f"F1 shape: {F1.shape}, F type: {type(F1)}")
+    
+    print(f"A11 domain: {A11.domain}, codomain: {A11.codomain}")
+    print(f"A12 domain: {A12.domain}, codomain: {A12.codomain}")
+    print(f"BlockLinearOperator domain[0]: {derham.Vh['1'].spaces[0]}")
+    print(f"BlockLinearOperator domain[1]: {derham.Vh['1'].spaces[1]}")
+    
+    block_domainA = BlockVectorSpace(A11.domain, A22.domain)
+    block_codomainA = BlockVectorSpace(A11.codomain, A22.codomain)
+    block_domainB = BlockVectorSpace(B1.domain)
+
+    A = BlockLinearOperator(block_domainA, block_codomainA, blocks=[[A11, A12], [A12, A22]])
+    B = BlockVector(block_domainB, blocks = [[B1],[B2]])
+    F = BlockVector(block_domainB, blocks = [F1,F2])
+    
 
     # Create the Uzawa solver
     rho = 0.01  # Example descent parameter
-    tol = 1e-4
-    max_iter = 100
+    tol = 1e-6
+    max_iter = 1000
     pc = None  # No preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
     solver_name = 'cg'
     verbose = True
 
-    solver = SaddlePointSolver(A, B, F,
+    solver = SaddlePointSolverTest(A, B, F,
                                rho=rho,
                                solver_name=solver_name,
                                tol=tol,
@@ -65,20 +89,21 @@ def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=F
 
     x_uzawa, y_uzawa, info = solver()
 
-    print(f"x shape: {x.shape}, x type: {type(x)}")
+    print(f"x shape: {x1.shape}, x type: {type(x1)}")
     print(f"x_uzawa shape: {x_uzawa.shape}, x_uzawa type: {type(x_uzawa)}")
     print(f"y shape: {y1_rdm.shape}, y type: {type(y1_rdm)}")
     print(f"y_uzawa shape: {y_uzawa.shape}, y_uzawa type: {type(y_uzawa)}")
     print(f"Rank: {mpi_rank}")
     
-    Rx=x-x_uzawa
+    Rx=x1-x_uzawa
     Ry=y1_rdm-y_uzawa
     residualx_norm = np.linalg.norm(Rx.toarray())
     residualy_norm = np.linalg.norm(Ry.toarray())
     print(f"Residual x norm: {residualx_norm}")
     print(f"Residual y norm: {residualy_norm}")
+    
 
-    compare_arrays(x, x_uzawa.toarray(), mpi_rank, atol=1e-4)
+    compare_arrays(x1, x_uzawa.toarray(), mpi_rank, atol=1e-4)
     compare_arrays(y1_rdm, y_uzawa.toarray(), mpi_rank, atol=1e-4)
 
 

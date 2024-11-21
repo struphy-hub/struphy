@@ -1,4 +1,5 @@
 from psydac.linalg.basic import Vector, LinearOperator
+from psydac.linalg.block import BlockLinearOperator, BlockVectorSpace, BlockVector
 from psydac.linalg.solvers import inverse
 import numpy as np
 
@@ -59,18 +60,18 @@ class SaddlePointSolver:
     '''
 
     def __init__(self,
-                 A: LinearOperator,
-                 B: LinearOperator,
-                 F: Vector,
+                 A: BlockLinearOperator,
+                 B: BlockLinearOperator,
+                 F: BlockVector,
                  rho: float,
                  solver_name: str,
                  tol=1e-8,
                  max_iter=1000,
                  **solver_params):
 
-        assert isinstance(A, LinearOperator)
-        assert isinstance(B, LinearOperator)
-        assert isinstance(F, Vector)
+        assert isinstance(A, BlockLinearOperator)
+        assert isinstance(B, BlockLinearOperator)
+        assert isinstance(F, BlockVector)
         assert isinstance(rho, float)
 
         assert A.codomain == B.domain
@@ -96,6 +97,8 @@ class SaddlePointSolver:
 
         self._solverA = inverse(A, solver_name, tol=tol,
                                 maxiter=max_iter, **solver_params)
+        
+        self._Ainverse = self._solverA
 
         # Solution vectors
         self._P = B.codomain.zeros()
@@ -245,18 +248,18 @@ class SaddlePointSolverTest:
     '''
 
     def __init__(self,
-                 A: LinearOperator,
-                 B: LinearOperator,
-                 F: Vector,
+                 A: BlockLinearOperator,
+                 B: BlockLinearOperator,
+                 F: BlockVector,
                  rho: float,
                  solver_name: str,
                  tol=1e-8,
                  max_iter=1000,
                  **solver_params):
 
-        assert isinstance(A, LinearOperator)
-        assert isinstance(B, LinearOperator)
-        assert isinstance(F, Vector)
+        assert isinstance(A, BlockLinearOperator)
+        assert isinstance(B, BlockLinearOperator)
+        assert isinstance(F, BlockVector)
         assert isinstance(rho, float)
 
         # assert A.domain == B.domain
@@ -353,12 +356,8 @@ class SaddlePointSolverTest:
             Convergence information.
         '''
 
-        assert isinstance(self._F, Vector)
+        assert isinstance(self._F, BlockVector)
         assert self._F.space == self._A.domain
-
-        #use setter to update lhs matrix
-        self._solverA.linop = self._A
-        self._solveruzawa.linop = self._uzawa
 
         # Step 1: Compute potential P by solving B A^-1 Bᵀ  P = B A^-1 F
         P = (self._solveruzawa @ self._B @
@@ -372,6 +371,8 @@ class SaddlePointSolverTest:
         self._rhs += self._F
 
         U = self._solverA.dot(self._rhs)
+        
+        self._solverA.get
         
         print(f"Solved U with solverA")
 
