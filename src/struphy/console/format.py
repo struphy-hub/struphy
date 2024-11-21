@@ -548,7 +548,7 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                     command = [linter] + flag + [python_file]
                     if verbose:
                         print(f"Running command: {' '.join(command)}")
-                    
+
                     subprocess.run(command, check=False)
             else:
                 # If linter_flags is not a list, treat it as a single value
@@ -556,6 +556,7 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                 if verbose:
                     print(f"Running command: {' '.join(command)}")
                 subprocess.run(command, check=False)
+
 
 def struphy_format(config, verbose, yes=False):
     """
