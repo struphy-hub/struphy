@@ -119,3 +119,6 @@ combine_as_imports = true
 
 [tool.pylint]
 max-line-length=120
+
+[tool.ruff]
+line-length=120
