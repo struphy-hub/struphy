@@ -124,6 +124,8 @@ max-line-length=120
 line-length=120
 lint.ignore = [
     "E402",  # Module-level imports should be placed at the top of the file (before any other code)
+    "E701",  # Multiple statements on one line (colon)
+    "E711",  # Comparison to `None` should be `cond is None`
     "E712",  # Comparison to True, False, or None should be avoided (e.g., use `if variable:` instead of `if variable == True:`)
     "E713",  # Convert to `not in`
     "E721",  # Avoid comparing types directly with `type()` (e.g., use `isinstance()` instead of `type(variable) == list`)
