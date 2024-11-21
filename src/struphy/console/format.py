@@ -65,6 +65,37 @@ FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
 PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 
+def check_ruff(file_path, verbose=False):
+    """
+    Check if a file passes Ruff linting.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Python file.
+
+    verbose : bool, optional
+        If True, enables detailed output (default=False).
+
+    Returns
+    -------
+    bool
+        True if Ruff check passes, False otherwise.
+    """
+    import subprocess
+
+    result = subprocess.run(
+        ["ruff", "check", file_path],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if verbose:
+        print("stdout:", result.stdout.decode("utf-8"))
+        print("stderr:", result.stderr.decode("utf-8"))
+    return result.returncode == 0
+
+
 def check_isort(file_path, verbose=False):
     """
     Check if a file is sorted according to isort.
@@ -562,6 +593,7 @@ def struphy_format(config, verbose, yes=False):
         "autopep8": ["--in-place"],
         "isort": [],
         "add-trailing-comma": ["--exit-zero-even-if-changed"],
+        "ruff": ["format"],
     }
 
     # Skip linting with add-trailing-comma since it disagrees with autopep8
@@ -571,13 +603,6 @@ def struphy_format(config, verbose, yes=False):
         for iteration in range(iterations):
             if verbose:
                 print(f"Iteration {iteration + 1}: Running formatters...")
-
-            if iteration == 0:
-                linters_to_apply = linters
-            else:
-                linters_to_apply = [
-                    lint for lint in linters if not lint in skip_linters
-                ]
 
             run_linters_on_files(
                 linters,
@@ -739,6 +764,7 @@ def analyze_file(file_path, linters=None, verbose=False):
         "passes_flake8": False,
         "passes_pylint": False,
         "passes_add-trailing-comma": False,
+        "passes_ruff": False,
     }
 
     # Read the file content
@@ -759,6 +785,7 @@ def analyze_file(file_path, linters=None, verbose=False):
     )
 
     # Run code analysis tools
+    # TODO: This should be a loop
     if "isort" in linters:
         stats["passes_isort"] = check_isort(file_path, verbose=verbose)
     if "autopep8" in linters:
@@ -772,6 +799,11 @@ def analyze_file(file_path, linters=None, verbose=False):
         )
     if "add-trailing-comma" in linters:
         stats["passes_add-trailing-comma"] = check_trailing_commas(
+            file_path,
+            verbose=verbose,
+        )
+    if "ruff" in linters:
+        stats["passes_ruff"] = check_ruff(
             file_path,
             verbose=verbose,
         )

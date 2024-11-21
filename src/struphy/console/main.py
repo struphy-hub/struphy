@@ -679,8 +679,8 @@ def struphy():
             "--linters",
             type=str,
             nargs='+',
-            default=["add-trailing-comma", "isort", "autopep8"],
-            choices=["add-trailing-comma", "isort", "autopep8"],
+            default=["add-trailing-comma", "isort", "autopep8", "ruff"],
+            choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
             help="list of linters to use",
         )
         parser_format.add_argument(
@@ -702,8 +702,8 @@ def struphy():
             "--linters",
             type=str,
             nargs='+',
-            default=["isort", "autopep8"],
-            choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint"],
+            default=["ruff"],
+            choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint", "ruff"],
             help="list of linters to use",
         )
 
