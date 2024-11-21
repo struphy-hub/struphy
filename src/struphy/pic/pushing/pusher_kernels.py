@@ -1,35 +1,43 @@
 'Pusher kernels for full orbit (6D) particles.'
 
 
+from numpy import cos, empty, floor, log, shape, sin, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
+
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments, DerhamArguments, DomainArguments
-from struphy.bsplines.evaluation_kernels_3d import get_spans, eval_0form_spline_mpi, eval_1form_spline_mpi, eval_2form_spline_mpi, eval_3form_spline_mpi, eval_vectorfield_spline_mpi
-
-from numpy import zeros, empty, shape, sqrt, cos, sin, floor, log
+import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+from struphy.bsplines.evaluation_kernels_3d import (
+    eval_0form_spline_mpi,
+    eval_1form_spline_mpi,
+    eval_2form_spline_mpi,
+    eval_3form_spline_mpi,
+    eval_vectorfield_spline_mpi,
+    get_spans,
+)
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
 @stack_array('dfm', 'dfinv', 'dfinvt', 'e_form', 'e_cart')
-def push_v_with_efield(dt: float,
-                       stage: int,
-                       args_markers: 'MarkerArguments',
-                       args_derham: 'DerhamArguments',
-                       args_domain: 'DomainArguments',
-                       e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                       const: 'float'):
+def push_v_with_efield(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+    const: 'float',
+):
     r'''Updates particle velocities as
 
     .. math::
 
-        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = c * \bar{DF}^{-\top}  (\mathbb L^1)^\top \mathbf e
+        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = c \, \bar{DF}^{-\top}  (\mathbb L^1)^\top \mathbf e
 
     where :math:`\mathbf e \in \mathbb R^{N_1}` are given FE coefficients of the 1-form spline field
     and :math:`c \in \mathbb R` is some constant.
@@ -69,9 +77,11 @@ def push_v_with_efield(dt: float,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -82,12 +92,14 @@ def push_v_with_efield(dt: float,
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # electric field: 1-form components
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              e1_1,
-                              e1_2,
-                              e1_3,
-                              e_form)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_form,
+        )
 
         # electric field: Cartesian components
         linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
@@ -99,14 +111,16 @@ def push_v_with_efield(dt: float,
 
 
 @stack_array('dfm', 'b_form', 'b_cart', 'b_norm', 'v', 'vperp', 'vxb_norm', 'b_normxvperp')
-def push_vxb_analytic(dt: float,
-                      stage: int,
-                      args_markers: 'MarkerArguments',
-                      args_derham: 'DerhamArguments',
-                      args_domain: 'DomainArguments',
-                      b2_1: 'float[:,:,:]',
-                      b2_2: 'float[:,:,:]',
-                      b2_3: 'float[:,:,:]'):
+def push_vxb_analytic(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    b2_1: 'float[:,:,:]',
+    b2_2: 'float[:,:,:]',
+    b2_3: 'float[:,:,:]',
+):
     r'''Solves exactly the rotation
 
     .. math::
@@ -140,14 +154,14 @@ def push_vxb_analytic(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
 
     #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -156,9 +170,11 @@ def push_vxb_analytic(dt: float,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -167,12 +183,14 @@ def push_vxb_analytic(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # magnetic field 2-form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b2_1,
-                              b2_2,
-                              b2_3,
-                              b_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -204,14 +222,16 @@ def push_vxb_analytic(dt: float,
 
 
 @stack_array('dfm', 'b_form', 'b_cart', 'b_prod', 'v', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
-def push_vxb_implicit(dt: float,
-                      stage: int,
-                      args_markers: 'MarkerArguments',
-                      args_derham: 'DerhamArguments',
-                      args_domain: 'DomainArguments',
-                      b2_1: 'float[:,:,:]',
-                      b2_2: 'float[:,:,:]',
-                      b2_3: 'float[:,:,:]'):
+def push_vxb_implicit(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    b2_1: 'float[:,:,:]',
+    b2_2: 'float[:,:,:]',
+    b2_3: 'float[:,:,:]',
+):
     r'''Solves the rotation
 
     .. math::
@@ -256,14 +276,14 @@ def push_vxb_implicit(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
 
     #$ omp parallel firstprivate(b_prod) private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -272,9 +292,11 @@ def push_vxb_implicit(dt: float,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -283,12 +305,14 @@ def push_vxb_implicit(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # magnetic field 2-form
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b2_1,
-                              b2_2,
-                              b2_3,
-                              b_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -319,13 +343,15 @@ def push_vxb_implicit(dt: float,
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'rot_temp', 'b_form', 'b_cart', 'b_norm', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pxb_analytic(dt: float,
-                      stage: int,
-                      args_markers: 'MarkerArguments',
-                      args_derham: 'DerhamArguments',
-                      args_domain: 'DomainArguments',
-                      b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
-                      a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]'):
+def push_pxb_analytic(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+    a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]',
+):
     r'''Solves exactly the rotation
 
     .. math::
@@ -380,9 +406,11 @@ def push_pxb_analytic(dt: float,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         linalg_kernels.matrix_inv(dfm, dfinv)
         linalg_kernels.transpose(dfinv, dfinv_t)
@@ -393,20 +421,24 @@ def push_pxb_analytic(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # magnetic field: 2-form components
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b2_1,
-                              b2_2,
-                              b2_3,
-                              b_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
         # vector potential: 1-form components
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              a1_1,
-                              a1_2,
-                              a1_3,
-                              a_form)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            a1_1,
+            a1_2,
+            a1_3,
+            a_form,
+        )
 
         rot_temp[0] = dfinv_t[0, 0] * a_form[0] + \
             dfinv_t[0, 1] * a_form[1] + dfinv_t[0, 2] * a_form[2]
@@ -449,15 +481,17 @@ def push_pxb_analytic(dt: float,
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t')
-def push_hybrid_xp_lnn(dt: float,
-                       stage: int,
-                       args_markers: 'MarkerArguments',
-                       args_derham: 'DerhamArguments',
-                       args_domain: 'DomainArguments',
-                       p_shape: 'int[:]', p_size: 'float[:]', Nel: 'int[:]',
-                       pts1: 'float[:]', pts2: 'float[:]', pts3: 'float[:]',
-                       wts1: 'float[:]', wts2: 'float[:]', wts3: 'float[:]',
-                       weight: 'float[:,:,:,:,:,:]', thermal: 'float', n_quad: 'int[:]'):
+def push_hybrid_xp_lnn(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    p_shape: 'int[:]', p_size: 'float[:]', Nel: 'int[:]',
+    pts1: 'float[:]', pts2: 'float[:]', pts3: 'float[:]',
+    wts1: 'float[:]', wts2: 'float[:]', wts3: 'float[:]',
+    weight: 'float[:,:,:,:,:,:]', thermal: 'float', n_quad: 'int[:]',
+):
     r'''Solves exactly the rotation
 
     .. math::
@@ -513,9 +547,11 @@ def push_hybrid_xp_lnn(dt: float,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         linalg_kernels.matrix_inv(dfm, dfinv)
         linalg_kernels.transpose(dfinv, dfinv_t)
@@ -580,19 +616,25 @@ def push_hybrid_xp_lnn(dt: float,
                                 if temp4[0] < 0 and temp4[1] < 0 and temp4[2] < 0:
 
                                     valuexyz[0] = bsplines_kernels.convolution(
-                                        p_shape[0], grids_shapex, temp1[0])
+                                        p_shape[0], grids_shapex, temp1[0],
+                                    )
                                     dvaluexyz[0] = bsplines_kernels.convolution_der(
-                                        p_shape[0], grids_shapex, temp1[0])
+                                        p_shape[0], grids_shapex, temp1[0],
+                                    )
 
                                     valuexyz[1] = bsplines_kernels.piecewise(
-                                        p_shape[1], p_size[1], temp1[1] - eta2)
+                                        p_shape[1], p_size[1], temp1[1] - eta2,
+                                    )
                                     dvaluexyz[1] = bsplines_kernels.piecewise(
-                                        p_shape[2], p_size[2], temp1[2] - eta3)
+                                        p_shape[2], p_size[2], temp1[2] - eta3,
+                                    )
 
                                     valuexyz[2] = bsplines_kernels.piecewise_der(
-                                        p_shape[1], p_size[1], temp1[1] - eta2)
+                                        p_shape[1], p_size[1], temp1[1] - eta2,
+                                    )
                                     dvaluexyz[2] = bsplines_kernels.piecewise_der(
-                                        p_shape[2], p_size[2], temp1[2] - eta3)
+                                        p_shape[2], p_size[2], temp1[2] - eta3,
+                                    )
 
                                     temp8[0] = dvaluexyz[0] * \
                                         valuexyz[1] * valuexyz[2]
@@ -601,8 +643,10 @@ def push_hybrid_xp_lnn(dt: float,
                                     temp8[2] = valuexyz[0] * \
                                         valuexyz[1] * dvaluexyz[2]
 
-                                    ww[0] = weight[x_ii + il1, y_ii + il2, z_ii + il3,
-                                                   q1, q2, q3] * wts1[q1] * wts2[q2] * wts3[q3]
+                                    ww[0] = weight[
+                                        x_ii + il1, y_ii + il2, z_ii + il3,
+                                        q1, q2, q3,
+                                    ] * wts1[q1] * wts2[q2] * wts3[q3]
 
                                     temp6[0] = dfinv_t[0, 0]*temp8[0] + \
                                         dfinv_t[0, 1]*temp8[1] + \
@@ -625,13 +669,15 @@ def push_hybrid_xp_lnn(dt: float,
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b1', 'b2', 'b3', 'd1', 'd2', 'd3')
-def push_hybrid_xp_ap(dt: float,
-                      stage: int,
-                      args_markers: 'MarkerArguments',
-                      args_derham: 'DerhamArguments',
-                      args_domain: 'DomainArguments',
-                      pn1: int, pn2: int, pn3: int,
-                      a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]'):
+def push_hybrid_xp_ap(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    pn1: int, pn2: int, pn3: int,
+    a1_1: 'float[:,:,:]', a1_2: 'float[:,:,:]', a1_3: 'float[:,:,:]',
+):
     r'''Solves exactly the rotation
 
     .. math::
@@ -704,9 +750,11 @@ def push_hybrid_xp_ap(dt: float,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         linalg_kernels.matrix_inv(dfm, dfinv)
         linalg_kernels.transpose(dfinv, dfinv_t)
@@ -724,46 +772,78 @@ def push_hybrid_xp_ap(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         bsplines_kernels.basis_funs_all(
-            args_derham.tn1, pn1, e1, span1, l1, r1, b1, d1)
+            args_derham.tn1, pn1, e1, span1, l1, r1, b1, d1,
+        )
         bsplines_kernels.basis_funs_all(
-            args_derham.tn2, pn2, e2, span2, l2, r2, b2, d2)
+            args_derham.tn2, pn2, e2, span2, l2, r2, b2, d2,
+        )
         bsplines_kernels.basis_funs_all(
-            args_derham.tn3, pn3, e3, span3, l3, r3, b3, d3)
+            args_derham.tn3, pn3, e3, span3, l3, r3, b3, d3,
+        )
 
         # vector potential: 1-form components
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              a1_1,
-                              a1_2,
-                              a1_3,
-                              a_form)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            a1_1,
+            a1_2,
+            a1_3,
+            a_form,
+        )
 
         a_xx[0, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0] - 2, args_derham.pn[1], args_derham.pn[2], bdd1, args_derham.bn2, args_derham.bn3, span1, span2, span3, a1_1, args_derham.starts, int(1))
+            args_derham.pn[0] -
+            2, args_derham.pn[1], args_derham.pn[2], bdd1, args_derham.bn2, args_derham.bn3, span1, span2, span3, a1_1, args_derham.starts, int(
+                1,
+            ),
+        )
         a_xx[0, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0] - 1, args_derham.pn[1] - 1, args_derham.pn[2], args_derham.bd1, args_derham.bd2, args_derham.bn3, span1, span2, span3, a1_1, args_derham.starts, int(2))
+            args_derham.pn[0] - 1, args_derham.pn[1] -
+            1, args_derham.pn[2], args_derham.bd1, args_derham.bd2, args_derham.bn3, span1, span2, span3, a1_1, args_derham.starts, int(
+                2,
+            ),
+        )
         a_xx[0, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0] - 1, args_derham.pn[1], args_derham.pn[2] - 1, args_derham.bd1, args_derham.bn2, args_derham.bd3, span1, span2, span3, a1_1, args_derham.starts, int(3))
+            args_derham.pn[0] - 1, args_derham.pn[1], args_derham.pn[2] -
+            1, args_derham.bd1, args_derham.bn2, args_derham.bd3, span1, span2, span3, a1_1, args_derham.starts, int(3),
+        )
 
         a_xx[1, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0] - 1, args_derham.pn[1] - 1, args_derham.pn[2], args_derham.bd1, args_derham.bd2, args_derham.bn3, span1, span2, span3, a1_2, args_derham.starts, int(1))
+            args_derham.pn[0] - 1, args_derham.pn[1] -
+            1, args_derham.pn[2], args_derham.bd1, args_derham.bd2, args_derham.bn3, span1, span2, span3, a1_2, args_derham.starts, int(
+                1,
+            ),
+        )
         a_xx[1, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0], args_derham.pn[1] - 2, args_derham.pn[2], args_derham.bn1, bdd2, args_derham.bn3, span1, span2, span3, a1_2, args_derham.starts, int(2))
+            args_derham.pn[0], args_derham.pn[1] -
+            2, args_derham.pn[2], args_derham.bn1, bdd2, args_derham.bn3, span1, span2, span3, a1_2, args_derham.starts, int(
+                2,
+            ),
+        )
         a_xx[1, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0], args_derham.pn[1] - 1, args_derham.pn[2] - 1, args_derham.bn1, args_derham.bd2, args_derham.bd3, span1, span2, span3, a1_2, args_derham.starts, int(3))
+            args_derham.pn[0], args_derham.pn[1] - 1, args_derham.pn[2] -
+            1, args_derham.bn1, args_derham.bd2, args_derham.bd3, span1, span2, span3, a1_2, args_derham.starts, int(3),
+        )
 
         a_xx[2, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0] - 1, args_derham.pn[1], args_derham.pn[2] - 1, args_derham.bd1, args_derham.bn2, args_derham.bd3, span1, span2, span3, a1_3, args_derham.starts, int(1))
+            args_derham.pn[0] - 1, args_derham.pn[1], args_derham.pn[2] -
+            1, args_derham.bd1, args_derham.bn2, args_derham.bd3, span1, span2, span3, a1_3, args_derham.starts, int(1),
+        )
         a_xx[2, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0], args_derham.pn[1] - 1, args_derham.pn[2] - 1, args_derham.bn1, args_derham.bd2, args_derham.bd3, span1, span2, span3, a1_3, args_derham.starts, int(2))
+            args_derham.pn[0], args_derham.pn[1] - 1, args_derham.pn[2] -
+            1, args_derham.bn1, args_derham.bd2, args_derham.bd3, span1, span2, span3, a1_3, args_derham.starts, int(2),
+        )
         a_xx[2, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
-            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2] - 2, args_derham.bn1, args_derham.bn2, bdd3, span1, span2, span3, a1_3, args_derham.starts, int(3))
+            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2] -
+            2, args_derham.bn1, args_derham.bn2, bdd3, span1, span2, span3, a1_3, args_derham.starts, int(3),
+        )
 
         linalg_kernels.transpose(a_xx, a_xxtrans)
         linalg_kernels.matrix_matrix(a_xxtrans, dfinv, matrixp)
         linalg_kernels.matrix_matrix(dfinv_t, matrixp, matrixpp)  # left matrix
         linalg_kernels.matrix_matrix(
-            matrixpp, dfinv_t, matrixppp)  # right matrix
+            matrixpp, dfinv_t, matrixppp,
+        )  # right matrix
 
         lhs[0, 0] = 1.0 - dt*matrixpp[0, 0]
         lhs[0, 1] = - dt*matrixpp[0, 1]
@@ -808,13 +888,16 @@ def push_hybrid_xp_ap(dt: float,
 
 
 @stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart')
-def push_bxu_Hdiv(dt: float,
-                  stage: int,
-                  args_markers: 'MarkerArguments',
-                  args_derham: 'DerhamArguments',
-                  args_domain: 'DomainArguments',
-                  b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
-                  u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]'):
+def push_bxu_Hdiv(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+    u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]',
+    boundary_cut: 'float',
+):
     r'''Updates
 
     .. math::
@@ -856,15 +939,21 @@ def push_bxu_Hdiv(dt: float,
         if markers[ip, 0] == -1.:
             continue
 
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
+            continue
+
         # marker data
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -873,24 +962,28 @@ def push_bxu_Hdiv(dt: float,
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # magnetic field: 2-form components
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b2_1,
-                              b2_2,
-                              b2_3,
-                              b_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: 2-form components
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              u2_1,
-                              u2_2,
-                              u2_3,
-                              u_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u2_1,
+            u2_2,
+            u2_3,
+            u_form,
+        )
 
         linalg_kernels.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
@@ -905,13 +998,16 @@ def push_bxu_Hdiv(dt: float,
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart')
-def push_bxu_Hcurl(dt: float,
-                   stage: int,
-                   args_markers: 'MarkerArguments',
-                   args_derham: 'DerhamArguments',
-                   args_domain: 'DomainArguments',
-                   b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
-                   u1_1: 'float[:,:,:]', u1_2: 'float[:,:,:]', u1_3: 'float[:,:,:]'):
+def push_bxu_Hcurl(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+    u1_1: 'float[:,:,:]', u1_2: 'float[:,:,:]', u1_3: 'float[:,:,:]',
+    boundary_cut: 'float',
+):
     r'''Updates
 
     .. math::
@@ -955,15 +1051,21 @@ def push_bxu_Hcurl(dt: float,
         if markers[ip, 0] == -1.:
             continue
 
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
+            continue
+
         # marker data
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -974,24 +1076,28 @@ def push_bxu_Hcurl(dt: float,
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # magnetic field: 2-form components
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b2_1,
-                              b2_2,
-                              b2_3,
-                              b_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: 1-form components
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              u1_1,
-                              u1_2,
-                              u1_3,
-                              u_form)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u1_1,
+            u1_2,
+            u1_3,
+            u_form,
+        )
 
         # velocity field: Cartesian components
         linalg_kernels.matrix_vector(dfinv_t, u_form, u_cart)
@@ -1006,13 +1112,16 @@ def push_bxu_Hcurl(dt: float,
 
 
 @stack_array('dfm', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart')
-def push_bxu_H1vec(dt: float,
-                   stage: int,
-                   args_markers: 'MarkerArguments',
-                   args_derham: 'DerhamArguments',
-                   args_domain: 'DomainArguments',
-                   b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
-                   uv_1: 'float[:,:,:]', uv_2: 'float[:,:,:]', uv_3: 'float[:,:,:]'):
+def push_bxu_H1vec(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+    uv_1: 'float[:,:,:]', uv_2: 'float[:,:,:]', uv_3: 'float[:,:,:]',
+    boundary_cut: 'float',
+):
     r'''Updates
 
     .. math::
@@ -1054,15 +1163,21 @@ def push_bxu_H1vec(dt: float,
         if markers[ip, 0] == -1.:
             continue
 
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
+            continue
+
         # marker data
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -1071,24 +1186,28 @@ def push_bxu_H1vec(dt: float,
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # magnetic field: 2-form components
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b2_1,
-                              b2_2,
-                              b2_3,
-                              b_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart/det_df
 
         # velocity field: vector field components
-        eval_vectorfield_spline_mpi(span1, span2, span3,
-                                    args_derham,
-                                    uv_1,
-                                    uv_2,
-                                    uv_3,
-                                    u_form)
+        eval_vectorfield_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            uv_1,
+            uv_2,
+            uv_3,
+            u_form,
+        )
 
         # velocity field: Cartesian components
         linalg_kernels.matrix_vector(dfm, u_form, u_cart)
@@ -1103,16 +1222,18 @@ def push_bxu_H1vec(dt: float,
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'der1', 'der2', 'der3')
-def push_bxu_Hdiv_pauli(dt: float,
-                        stage: int,
-                        args_markers: 'MarkerArguments',
-                        args_derham: 'DerhamArguments',
-                        args_domain: 'DomainArguments',
-                        pn1: int, pn2: int, pn3: int,
-                        b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
-                        u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]',
-                        b0: 'float[:,:,:]',
-                        mu: 'float[:]'):
+def push_bxu_Hdiv_pauli(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    pn1: int, pn2: int, pn3: int,
+    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
+    u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]',
+    b0: 'float[:,:,:]',
+    mu: 'float[:]',
+):
     r'''Updates
 
     .. math::
@@ -1175,9 +1296,11 @@ def push_bxu_Hdiv_pauli(dt: float,
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -1192,12 +1315,14 @@ def push_bxu_Hdiv_pauli(dt: float,
         bsplines_kernels.b_der_splines_slim(args_derham.tn3, args_derham.pn[2], eta3, span3, args_derham.bn3, der3)
 
         # magnetic field: 2-form components
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              b2_1,
-                              b2_2,
-                              b2_3,
-                              b_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
         # magnetic field: Cartesian components
         linalg_kernels.matrix_vector(dfm, b_form, b_cart)
@@ -1205,22 +1330,27 @@ def push_bxu_Hdiv_pauli(dt: float,
 
         # magnetic field: evaluation of gradient (vector field)
         b_diff[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], der1, args_derham.bn2, args_derham.bn3, span1, span2, span3, b0, args_derham.starts)
+            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], der1, args_derham.bn2, args_derham.bn3, span1, span2, span3, b0, args_derham.starts,
+        )
         b_diff[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], args_derham.bn1, der2, args_derham.bn3, span1, span2, span3, b0, args_derham.starts)
+            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], args_derham.bn1, der2, args_derham.bn3, span1, span2, span3, b0, args_derham.starts,
+        )
         b_diff[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
-            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], args_derham.bn1, args_derham.bn2, der3, span1, span2, span3, b0, args_derham.starts)
+            args_derham.pn[0], args_derham.pn[1], args_derham.pn[2], args_derham.bn1, args_derham.bn2, der3, span1, span2, span3, b0, args_derham.starts,
+        )
 
         # magnetic field: evaluation of gradient (Cartesian components)
         linalg_kernels.matrix_vector(dfinv_t, b_diff, b_grad)
 
         # velocity field: 2-form components
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              u2_1,
-                              u2_2,
-                              u2_3,
-                              u_form)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u2_1,
+            u2_2,
+            u2_3,
+            u_form,
+        )
 
         linalg_kernels.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart/det_df
@@ -1237,14 +1367,17 @@ def push_bxu_Hdiv_pauli(dt: float,
     #$ omp end parallel
 
 
-def push_pc_GXu_full(dt: float,
-                     stage: int,
-                     args_markers: 'MarkerArguments',
-                     args_derham: 'DerhamArguments',
-                     args_domain: 'DomainArguments',
-                     GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
-                     GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
-                     GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]'):
+def push_pc_GXu_full(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
+    GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
+    GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]',
+    boundary_cut: 'float',
+):
     r'''Updates
 
     .. math::
@@ -1280,8 +1413,13 @@ def push_pc_GXu_full(dt: float,
     n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         eta1 = markers[ip, 0]
@@ -1290,9 +1428,11 @@ def push_pc_GXu_full(dt: float,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -1302,26 +1442,32 @@ def push_pc_GXu_full(dt: float,
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # Evaluate grad(X(u, v)) at the particle positions
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              GXu_11,
-                              GXu_12,
-                              GXu_13,
-                              GXu[0, :])
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            GXu_11,
+            GXu_12,
+            GXu_13,
+            GXu[0, :],
+        )
 
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              GXu_21,
-                              GXu_22,
-                              GXu_23,
-                              GXu[1, :])
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            GXu_21,
+            GXu_22,
+            GXu_23,
+            GXu[1, :],
+        )
 
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              GXu_31,
-                              GXu_32,
-                              GXu_33,
-                              GXu[2, :])
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            GXu_31,
+            GXu_32,
+            GXu_33,
+            GXu[2, :],
+        )
 
         e[0] = GXu[0, 0] * v[0] + GXu[1, 0] * v[1] + GXu[2, 0] * v[2]
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1] + GXu[2, 1] * v[2]
@@ -1333,14 +1479,17 @@ def push_pc_GXu_full(dt: float,
         markers[ip, 3:6] -= dt*e_cart/2.
 
 
-def push_pc_GXu(dt: float,
-                stage: int,
-                args_markers: 'MarkerArguments',
-                args_derham: 'DerhamArguments',
-                args_domain: 'DomainArguments',
-                GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
-                GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
-                GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]'):
+def push_pc_GXu(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
+    GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
+    GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]',
+    boundary_cut: 'float',
+):
     r'''Updates
 
     .. math::
@@ -1377,8 +1526,13 @@ def push_pc_GXu(dt: float,
     n_markers = args_markers.n_markers
 
     for ip in range(n_markers):
+
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
+            continue
+
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1. - boundary_cut:
             continue
 
         eta1 = markers[ip, 0]
@@ -1387,9 +1541,11 @@ def push_pc_GXu(dt: float,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -1399,19 +1555,23 @@ def push_pc_GXu(dt: float,
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # Evaluate grad(X(u, v)) at the particle positions
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              GXu_11,
-                              GXu_12,
-                              GXu_13,
-                              GXu[0, :])
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            GXu_11,
+            GXu_12,
+            GXu_13,
+            GXu[0, :],
+        )
 
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              GXu_21,
-                              GXu_22,
-                              GXu_23,
-                              GXu[1, :])
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            GXu_21,
+            GXu_22,
+            GXu_23,
+            GXu[1, :],
+        )
 
         e[0] = GXu[0, 0] * v[0] + GXu[1, 0] * v[1]
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1]
@@ -1424,14 +1584,15 @@ def push_pc_GXu(dt: float,
 
 
 @stack_array('dfm', 'dfinv', 'v', 'k')
-def push_eta_stage(dt: float,
-                   stage: int,
-                   args_markers: 'MarkerArguments',
-                   args_derham: 'DerhamArguments',
-                   args_domain: 'DomainArguments',
-                   a: 'float[:]',
-                   b: 'float[:]',
-                   c: 'float[:]'):
+def push_eta_stage(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    a: 'float[:]',
+    b: 'float[:]',
+    c: 'float[:]',
+):
     r'''Single stage of a s-stage Runge-Kutta solve of
 
     .. math::
@@ -1454,7 +1615,7 @@ def push_eta_stage(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -1470,7 +1631,7 @@ def push_eta_stage(dt: float,
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, buffer_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.:
             continue
 
         e1 = markers[ip, 0]
@@ -1479,9 +1640,11 @@ def push_eta_stage(dt: float,
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # evaluate inverse Jacobian matrix
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -1493,19 +1656,21 @@ def push_eta_stage(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] + \
             dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
     #$ omp end parallel
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hcurl_full(dt: float,
-                               stage: int,
-                               args_markers: 'MarkerArguments',
-                               args_derham: 'DerhamArguments',
-                               args_domain: 'DomainArguments',
-                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+def push_pc_eta_rk4_Hcurl_full(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
+):
     r'''Fourth order Runge-Kutta solve of
 
     .. math::
@@ -1547,7 +1712,7 @@ def push_pc_eta_rk4_Hcurl_full(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -1580,9 +1745,11 @@ def push_pc_eta_rk4_Hcurl_full(dt: float,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -1596,12 +1763,14 @@ def push_pc_eta_rk4_Hcurl_full(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # U-field
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              u_1,
-                              u_2,
-                              u_3,
-                              u)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u_1,
+            u_2,
+            u_3,
+            u,
+        )
 
         # transform to vector field
         linalg_kernels.matrix_vector(ginv, u, k_u)
@@ -1613,17 +1782,21 @@ def push_pc_eta_rk4_Hcurl_full(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
-                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
+            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
+        )
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hdiv_full(dt: float,
-                              stage: int,
-                              args_markers: 'MarkerArguments',
-                              args_derham: 'DerhamArguments',
-                              args_domain: 'DomainArguments',
-                              u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+def push_pc_eta_rk4_Hdiv_full(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
+):
     r'''Fourth order Runge-Kutta solve of
 
     .. math::
@@ -1665,7 +1838,7 @@ def push_pc_eta_rk4_Hdiv_full(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -1695,9 +1868,11 @@ def push_pc_eta_rk4_Hdiv_full(dt: float,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -1712,12 +1887,14 @@ def push_pc_eta_rk4_Hdiv_full(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # U-field
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              u_1,
-                              u_2,
-                              u_3,
-                              u)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u_1,
+            u_2,
+            u_3,
+            u,
+        )
 
         # transform to vector field
         k_u[:] = u/det_df
@@ -1729,17 +1906,21 @@ def push_pc_eta_rk4_Hdiv_full(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
-                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
+            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
+        )
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v')
-def push_pc_eta_rk4_H1vec_full(dt: float,
-                               stage: int,
-                               args_markers: 'MarkerArguments',
-                               args_derham: 'DerhamArguments',
-                               args_domain: 'DomainArguments',
-                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+def push_pc_eta_rk4_H1vec_full(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
+):
     r'''Fourth order Runge-Kutta solve of
 
     .. math::
@@ -1780,7 +1961,7 @@ def push_pc_eta_rk4_H1vec_full(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -1813,9 +1994,11 @@ def push_pc_eta_rk4_H1vec_full(dt: float,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -1829,12 +2012,14 @@ def push_pc_eta_rk4_H1vec_full(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # U-field
-        eval_vectorfield_spline_mpi(span1, span2, span3,
-                                    args_derham,
-                                    u_1,
-                                    u_2,
-                                    u_3,
-                                    u)
+        eval_vectorfield_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u_1,
+            u_2,
+            u_3,
+            u,
+        )
 
         # sum contribs
         k[:] = k_v + u
@@ -1843,17 +2028,21 @@ def push_pc_eta_rk4_H1vec_full(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
-                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
+            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
+        )
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hcurl(dt: float,
-                          stage: int,
-                          args_markers: 'MarkerArguments',
-                          args_derham: 'DerhamArguments',
-                          args_domain: 'DomainArguments',
-                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+def push_pc_eta_rk4_Hcurl(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
+):
     r'''Fourth order Runge-Kutta solve of
 
     .. math::
@@ -1895,7 +2084,7 @@ def push_pc_eta_rk4_Hcurl(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -1928,9 +2117,11 @@ def push_pc_eta_rk4_Hcurl(dt: float,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -1944,12 +2135,14 @@ def push_pc_eta_rk4_Hcurl(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # U-field
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              u_1,
-                              u_2,
-                              u_3,
-                              u)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u_1,
+            u_2,
+            u_3,
+            u,
+        )
         u[2] = 0.
 
         # transform to vector field
@@ -1962,17 +2155,21 @@ def push_pc_eta_rk4_Hcurl(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
-                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
+            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
+        )
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v', 'k_u')
-def push_pc_eta_rk4_Hdiv(dt: float,
-                         stage: int,
-                         args_markers: 'MarkerArguments',
-                         args_derham: 'DerhamArguments',
-                         args_domain: 'DomainArguments',
-                         u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+def push_pc_eta_rk4_Hdiv(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
+):
     r'''Fourth order Runge-Kutta solve of
 
     .. math::
@@ -2014,7 +2211,7 @@ def push_pc_eta_rk4_Hdiv(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -2044,9 +2241,11 @@ def push_pc_eta_rk4_Hdiv(dt: float,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
@@ -2061,12 +2260,14 @@ def push_pc_eta_rk4_Hdiv(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # U-field
-        eval_2form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              u_1,
-                              u_2,
-                              u_3,
-                              u)
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u_1,
+            u_2,
+            u_3,
+            u,
+        )
         u[2] = 0.
 
         # transform to vector field
@@ -2079,17 +2280,21 @@ def push_pc_eta_rk4_Hdiv(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
-                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
+            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
+        )
 
 
 @stack_array('dfm', 'dfinv', 'dfinv_t', 'ginv', 'v', 'u', 'k', 'k_v')
-def push_pc_eta_rk4_H1vec(dt: float,
-                          stage: int,
-                          args_markers: 'MarkerArguments',
-                          args_derham: 'DerhamArguments',
-                          args_domain: 'DomainArguments',
-                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+def push_pc_eta_rk4_H1vec(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
+):
     r'''Fourth order Runge-Kutta solve of
 
     .. math::
@@ -2130,7 +2335,7 @@ def push_pc_eta_rk4_H1vec(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # assign factor of k for each stage
@@ -2163,9 +2368,11 @@ def push_pc_eta_rk4_H1vec(dt: float,
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(e1, e2, e3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            e1, e2, e3,
+            args_domain,
+            dfm,
+        )
 
         # metric coeffs
         linalg_kernels.matrix_inv(dfm, dfinv)
@@ -2179,12 +2386,14 @@ def push_pc_eta_rk4_H1vec(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # U-field
-        eval_vectorfield_spline_mpi(span1, span2, span3,
-                                    args_derham,
-                                    u_1,
-                                    u_2,
-                                    u_3,
-                                    u)
+        eval_vectorfield_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            u_1,
+            u_2,
+            u_3,
+            u,
+        )
         u[2] = 0.
 
         # sum contribs
@@ -2194,18 +2403,22 @@ def push_pc_eta_rk4_H1vec(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += k*nk/6.
 
         # update markers for the next stage
-        markers[ip, 0:3] = (markers[ip, buffer_idx:buffer_idx + 3] + dt*k/2 *
-                            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last)
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx:first_init_idx + 3] + dt*k/2 *
+            cont + dt*markers[ip, first_free_idx:first_free_idx + 3] * last
+        )
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
-def push_weights_with_efield_lin_va(dt: float,
-                                    stage: int,
-                                    args_markers: 'MarkerArguments',
-                                    args_derham: 'DerhamArguments',
-                                    args_domain: 'DomainArguments',
-                                    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                                    f0_values: 'float[:]', kappa: 'float', vth: 'float'):
+def push_weights_with_efield_lin_va(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+    f0_values: 'float[:]', kappa: 'float', vth: 'float',
+):
     r'''
     updates the single weights in the e_W substep of the linear Vlasov Ampère system with delta-f;
     c.f. :class:`~struphy.propagators.propagators_coupling.EfieldWeights`.
@@ -2253,9 +2466,11 @@ def push_weights_with_efield_lin_va(dt: float,
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # Compute Jacobian matrix
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # invert Jacobian matrix
         linalg_kernels.matrix_inv(dfm, df_inv)
@@ -2264,12 +2479,14 @@ def push_weights_with_efield_lin_va(dt: float,
         linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              e1_1,
-                              e1_2,
-                              e1_3,
-                              e_vec)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_vec,
+        )
 
         # w_{n+1} = w_n + dt / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
         update = (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2]) * \
@@ -2280,14 +2497,16 @@ def push_weights_with_efield_lin_va(dt: float,
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
-def push_weights_with_efield_lin_vm(dt: float,
-                                    stage: int,
-                                    args_markers: 'MarkerArguments',
-                                    args_derham: 'DerhamArguments',
-                                    args_domain: 'DomainArguments',
-                                    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                                    f0_values: 'float[:]', f0_params: 'float[:]',
-                                    n_markers_tot: 'int', kappa: 'float'):
+def push_weights_with_efield_lin_vm(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+    f0_values: 'float[:]', f0_params: 'float[:]',
+    n_markers_tot: 'int', kappa: 'float',
+):
     r'''
     updates the single weights in the e_W substep of the Vlasov Maxwell system with delta-f;
     c.f. struphy.propagators.propagators.StepEfieldWeights
@@ -2343,9 +2562,11 @@ def push_weights_with_efield_lin_vm(dt: float,
         f0 = f0_values[ip]
 
         # Compute Jacobian matrix
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # invert Jacobian matrix
         linalg_kernels.matrix_inv(dfm, df_inv)
@@ -2354,12 +2575,14 @@ def push_weights_with_efield_lin_vm(dt: float,
         linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              e1_1,
-                              e1_2,
-                              e1_3,
-                              e_vec)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_vec,
+        )
 
         # w_{n+1} = w_n + dt * kappa / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
         update = (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2]) * \
@@ -2370,14 +2593,16 @@ def push_weights_with_efield_lin_vm(dt: float,
 
 
 @stack_array('dfm', 'df_inv', 'v', 'df_inv_v', 'e_vec')
-def push_weights_with_efield_delta_f_vm(dt: float,
-                                        stage: int,
-                                        args_markers: 'MarkerArguments',
-                                        args_derham: 'DerhamArguments',
-                                        args_domain: 'DomainArguments',
-                                        e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                                        f0_values: 'float[:]', vth: 'float',
-                                        kappa: 'float', substep: 'int'):
+def push_weights_with_efield_delta_f_vm(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+    f0_values: 'float[:]', vth: 'float',
+    kappa: 'float', substep: 'int',
+):
     r"""
     updates the single weights in one of the e_W substep of the Vlasov Maxwell system;
     c.f. struphy.propagators.propagators.StepEfieldWeights
@@ -2431,9 +2656,11 @@ def push_weights_with_efield_delta_f_vm(dt: float,
         f0 = f0_values[ip]
 
         # Compute Jacobian matrix
-        evaluation_kernels.df(eta1, eta2, eta3,
-                              args_domain,
-                              dfm)
+        evaluation_kernels.df(
+            eta1, eta2, eta3,
+            args_domain,
+            dfm,
+        )
 
         # compute shifted and stretched velocity
         v[0] = markers[ip, 3]
@@ -2445,16 +2672,20 @@ def push_weights_with_efield_delta_f_vm(dt: float,
         linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              e1_1,
-                              e1_2,
-                              e1_3,
-                              e_vec)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_vec,
+        )
 
-        update = kappa * (df_inv_v[0] * e_vec[0] +
-                          df_inv_v[1] * e_vec[1] +
-                          df_inv_v[2] * e_vec[2])
+        update = kappa * (
+            df_inv_v[0] * e_vec[0] +
+            df_inv_v[1] * e_vec[1] +
+            df_inv_v[2] * e_vec[2]
+        )
         if substep == 0:
             # w_p += dt * kappa / s_0 * (DL^{-1} v_p) * e_vec
             # with e_vec = e(0) - dt / 2 * M_1^{-1} accum_vec
@@ -2470,16 +2701,18 @@ def push_weights_with_efield_delta_f_vm(dt: float,
 
 
 @stack_array('particle', 'dfm', 'df_inv', 'taus')
-def push_x_v_static_efield(dt: float,
-                           stage: int,
-                           args_markers: 'MarkerArguments',
-                           args_derham: 'DerhamArguments',
-                           args_domain: 'DomainArguments',
-                           loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
-                           weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
-                           e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                           kappa: 'float',
-                           eps: 'float[:]', maxiter: int):
+def push_x_v_static_efield(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
+    weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
+    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
+    kappa: 'float',
+    eps: 'float[:]', maxiter: int,
+):
     r"""
     particle pusher for ODE
 
@@ -2520,13 +2753,16 @@ def push_x_v_static_efield(dt: float,
 
     # number of quadrature points in direction 1
     n_quad1 = int(
-        floor((args_derham.pn[0] - 1) * args_derham.pn[1] * args_derham.pn[2] / 2 + 1))
+        floor((args_derham.pn[0] - 1) * args_derham.pn[1] * args_derham.pn[2] / 2 + 1),
+    )
     # number of quadrature points in direction 2
     n_quad2 = int(
-        floor(args_derham.pn[0] * (args_derham.pn[1] - 1) * args_derham.pn[2] / 2 + 1))
+        floor(args_derham.pn[0] * (args_derham.pn[1] - 1) * args_derham.pn[2] / 2 + 1),
+    )
     # number of quadrature points in direction 3
     n_quad3 = int(
-        floor(args_derham.pn[0] * args_derham.pn[1] * (args_derham.pn[2] - 1) / 2 + 1))
+        floor(args_derham.pn[0] * args_derham.pn[1] * (args_derham.pn[2] - 1) / 2 + 1),
+    )
 
     # Create array for storing the tau values
     taus = empty(20, dtype=float)
@@ -2548,7 +2784,8 @@ def push_x_v_static_efield(dt: float,
             k += 1
             if k == 5:
                 print(
-                    'Splitting the time steps into 4 has not been enough, aborting the iteration.')
+                    'Splitting the time steps into 4 has not been enough, aborting the iteration.',
+                )
                 print()
                 break
 
@@ -2557,17 +2794,19 @@ def push_x_v_static_efield(dt: float,
             dt2 = dt/k
 
             for _ in range(k):
-                temp = pusher_utilities_kernels.aux_fun_x_v_stat_e(particle,
-                                                                   args_derham,
-                                                                   args_domain,
-                                                                   n_quad1, n_quad2, n_quad3,
-                                                                   dfm, df_inv,
-                                                                   taus,
-                                                                   dt2,
-                                                                   loc1, loc2, loc3, weight1, weight2, weight3,
-                                                                   e1_1, e1_2, e1_3,
-                                                                   kappa,
-                                                                   eps, maxiter)
+                temp = pusher_utilities_kernels.aux_fun_x_v_stat_e(
+                    particle,
+                    args_derham,
+                    args_domain,
+                    n_quad1, n_quad2, n_quad3,
+                    dfm, df_inv,
+                    taus,
+                    dt2,
+                    loc1, loc2, loc3, weight1, weight2, weight3,
+                    e1_1, e1_2, e1_3,
+                    kappa,
+                    eps, maxiter,
+                )
                 run = run + temp
 
         # write the results in the particles array
@@ -2577,15 +2816,17 @@ def push_x_v_static_efield(dt: float,
 
 
 @stack_array('ginv', 'k', 'tmp', 'pi_du_value')
-def push_deterministic_diffusion_stage(dt: float,
-                                       stage: int,
-                                       args_markers: 'MarkerArguments',
-                                       args_derham: 'DerhamArguments',
-                                       args_domain: 'DomainArguments',
-                                       pi_u: 'float[:,:,:]',
-                                       pi_grad_u1: 'float[:,:,:]', pi_grad_u2: 'float[:,:,:]', pi_grad_u3: 'float[:,:,:]',
-                                       diffusion_coeff: float,
-                                       a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+def push_deterministic_diffusion_stage(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    args_derham: 'DerhamArguments',
+    pi_u: 'float[:,:,:]',
+    pi_grad_u1: 'float[:,:,:]', pi_grad_u2: 'float[:,:,:]', pi_grad_u3: 'float[:,:,:]',
+    diffusion_coeff: float,
+    a: 'float[:]', b: 'float[:]', c: 'float[:]',
+):
     r'''Single stage of a s-stage Runge-Kutta solve of
 
     .. math::
@@ -2605,7 +2846,7 @@ def push_deterministic_diffusion_stage(dt: float,
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    buffer_idx = args_markers.buffer_idx
+    first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
     # get number of stages
@@ -2634,24 +2875,30 @@ def push_deterministic_diffusion_stage(dt: float,
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
         # density function: 0-form components
-        pi_u_value = eval_0form_spline_mpi(span1,
-                                           span2,
-                                           span3,
-                                           args_derham,
-                                           pi_u)
+        pi_u_value = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            pi_u,
+        )
 
         # gradient of the density function: 1-form components
-        eval_1form_spline_mpi(span1, span2, span3,
-                              args_derham,
-                              pi_grad_u1,
-                              pi_grad_u2,
-                              pi_grad_u3,
-                              pi_du_value)
+        eval_1form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            pi_grad_u1,
+            pi_grad_u2,
+            pi_grad_u3,
+            pi_du_value,
+        )
 
         # evaluate Metric tensor, result in gm
-        evaluation_kernels.g_inv(e1, e2, e3,
-                                 args_domain,
-                                 ginv)
+        evaluation_kernels.g_inv(
+            e1, e2, e3,
+            args_domain,
+            ginv,
+        )
 
         # updating k
         tmp = - diffusion_coeff * pi_du_value / pi_u_value
@@ -2661,19 +2908,20 @@ def push_deterministic_diffusion_stage(dt: float,
         markers[ip, first_free_idx:first_free_idx + 3] += dt*b[stage]*k
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, buffer_idx:buffer_idx + 3] + \
+        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] + \
             dt*a[stage]*k + last*markers[ip, first_free_idx:first_free_idx + 3]
 
     #$ omp end parallel
 
 
-def push_random_diffusion_stage(dt: float,
-                                stage: int,
-                                args_markers: 'MarkerArguments',
-                                args_derham: 'DerhamArguments',
-                                args_domain: 'DomainArguments',
-                                noise: 'float[:,:]', diffusion_coeff: float,
-                                a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+def push_random_diffusion_stage(
+    dt: float,
+    stage: int,
+    args_markers: 'MarkerArguments',
+    args_domain: 'DomainArguments',
+    noise: 'float[:,:]', diffusion_coeff: float,
+    a: 'float[:]', b: 'float[:]', c: 'float[:]',
+):
     r'''Single stage of a s-stage Runge-Kutta solve of
 
     .. math::

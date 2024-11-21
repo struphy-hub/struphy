@@ -29,6 +29,7 @@ Struphy is an object-oriented code. The concept of `inheritance <https://www.w3s
 is heavily used in its basic design; it enables the streamlined addition of new models/features to Struphy.
 For details, please check
 
+* :ref:`tutorials`
 * :ref:`add_model`
 
 Model discretization is based on finite element exterior calculus (FEEC) for the fluid/field quantities
