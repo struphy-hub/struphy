@@ -25,7 +25,7 @@ def read_state(libpath=STRUPHY_LIBPATH):
         with open(state_file, 'r') as f:
             state = yaml.load(f, Loader=yaml.FullLoader)
     except FileNotFoundError as e:
-        print(f"Error {e}: The file '{state_file}' was not found.")
+        print(f"The state file '{state_file}' was not found. Creating a new one.")
         state = {}
     except yaml.YAMLError as e:
         print(f"Error {e}: parsing the YAML file")
