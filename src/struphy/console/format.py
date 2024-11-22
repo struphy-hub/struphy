@@ -923,13 +923,20 @@ def parse_json_file_to_html(json_file_path, html_output_path):
                         'message':message,
                         'url':url,
                     }
-            #df = pd.DataFrame([[f"<a href='{data[code]['url']}' target='_blank'><code>{code}</code></a>", data[code]['message'], data[code]['count']] for code in data.keys()])
-            # df = pd.DataFrame([[code, data[code]['message'], data[code]['count']] for code in data.keys()])
-            df = pd.DataFrame([[code, data[code]['count']] for code in data.keys()])
             
-            df.columns = ['Code',
-                        #   'Message',
-                          'Count']
+            combined_data = {}
+            for code, info in data.items():
+                count = info['count']
+                if count in combined_data:
+                    combined_data[count]['codes'].append(code)
+                else:
+                    combined_data[count] = {
+                        'codes': [code],
+                    }
+            df = pd.DataFrame([
+                {'Count': count, 'Code(s)': ", ".join(info['codes'])}
+                for count, info in combined_data.items()
+            ])
             df = df.sort_values('Count', ascending=False)
             # print(df.to_html())
             pd.set_option('colheader_justify', 'center')   # FOR TABLE <th>
