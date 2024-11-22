@@ -502,12 +502,14 @@ def generate_report(python_files, linters=["ruff"], verbose=False):
     for linter in linters:
         if linter == "ruff":
             for python_file in python_files:
-                report_json_filename = "ruff_report.json"
-                report_html_filename = "ruff_report.html"
+                report_json_filename = "code_analysis_report.json"
+                report_html_filename = "code_analysis_report.html"
                 command = ["ruff", "check", "--preview", "--select", "ALL", "--output-format", "json", "-o", report_json_filename] + python_files
                 
                 subprocess.run(command, check=False)
                 parse_json_file_to_html(report_json_filename, report_html_filename)
+                if os.path.exists(report_json_filename):
+                    os.remove(report_json_filename)
                 sys.exit(0)
 def confirm_formatting(python_files, linters, yes):
     """Confirm with the user whether to format the listed Python files."""
@@ -863,7 +865,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
         html_content.append("<head>")
         html_content.append("<meta charset='UTF-8'>")
         html_content.append("<meta name='viewport' content='width=device-width, initial-scale=1.0'>")
-        html_content.append("<title>Code Issues Report</title>")
+        html_content.append("<title>Code Analysis Report</title>")
         html_content.append("<style>")
         html_content.append(
             """
