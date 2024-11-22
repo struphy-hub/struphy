@@ -227,7 +227,7 @@ class Accumulator:
 
                     for _ in range(self.filter_params["repeat"]):
                         for i in range(3):
-                            filters.apply_three_point_filter(
+                            filters.apply_three_point_filter_3d(
                                 vec[i]._data,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
@@ -245,7 +245,7 @@ class Accumulator:
 
                     for _ in range(self.filter_params["repeat"]):
                         for i in range(2):
-                            filters.apply_three_point_filter(
+                            filters.apply_three_point_filter_2d(
                                 vec[i]._data,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
