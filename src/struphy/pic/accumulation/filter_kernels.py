@@ -1,16 +1,17 @@
 'Filtering kernels'
 
 
+from numpy import empty, ones, shape, zeros
 from pyccel.decorators import stack_array
-
-from numpy import zeros, empty, shape, ones
 
 
 @stack_array('vec_copy', 'mask1d', 'mask', 'top', 'i_bottom', 'i_top', 'fi', 'ir')
-def apply_three_point_filter_3d(vec: 'float[:,:,:]',
-                                Nel: 'int[:]', spl_kind: 'bool[:]',
-                                pn: 'int[:]', starts: 'int[:]', ends: 'int[:]',
-                                alpha: 'float'):
+def apply_three_point_filter_3d(
+    vec: 'float[:,:,:]',
+    Nel: 'int[:]', spl_kind: 'bool[:]',
+    pn: 'int[:]', starts: 'int[:]', ends: 'int[:]',
+    alpha: 'float',
+):
     r'''
     Applying three point filter to the spline coefficients of the accumulated vector (``._data`` of the StencilVector):
 
@@ -116,11 +117,14 @@ def apply_three_point_filter_3d(vec: 'float[:,:,:]',
 
                 vec[pn[0]+i, pn[1]+j, pn[2]+k] = tmp
 
+
 @stack_array('vec_copy', 'mask1d', 'mask', 'top', 'i_bottom', 'i_top', 'fi', 'ir')
-def apply_three_point_filter_2d(vec: 'float[:,:,:]',
-                                Nel: 'int[:]', spl_kind: 'bool[:]',
-                                pn: 'int[:]', starts: 'int[:]', ends: 'int[:]',
-                                alpha: 'float'):
+def apply_three_point_filter_2d(
+    vec: 'float[:,:,:]',
+    Nel: 'int[:]', spl_kind: 'bool[:]',
+    pn: 'int[:]', starts: 'int[:]', ends: 'int[:]',
+    alpha: 'float',
+):
     r'''
     Applying three point filter to the spline coefficients of the accumulated vector (``._data`` of the StencilVector) in eta1 and eta2 directions:
 
