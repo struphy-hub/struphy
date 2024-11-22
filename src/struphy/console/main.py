@@ -748,6 +748,12 @@ def struphy():
             choices=["table", "plain"],
             help="specify the format of the output: 'table' for tabular output or 'plain' for regular output",
         )
+        
+        parser_lint.add_argument(
+            "--report",
+            action="store_true",
+            help="Write the output to a report file",
+        )
 
     # parse argument
     argcomplete.autocomplete(parser)
