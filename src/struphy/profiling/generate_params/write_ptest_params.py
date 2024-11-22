@@ -71,7 +71,6 @@ def generate_parameter_files(
                     filename_vars[f"{k.replace('.', '_')}_{i}"] = vi
             else:
                 filename_vars[k.replace(".", "_")] = v
-
         filename = filename_template.format(**filename_vars)
 
         # Set the projectname in the parameter file
@@ -101,13 +100,41 @@ def mpi_scan(
     """
     modifications_list = []
     for mpi in mpi_values:
-        modifications = {"setup.mpi": mpi}
+        modifications = {"setup.mpi": mpi, "grid.Nclones": 1}
         if extra_modifications:
             modifications.update(extra_modifications)
         modifications_list.append(modifications)
     generate_parameter_files(
         base_parameters, modifications_list, filename_template, params_prefix,
     )
+
+def mpi_nclones_scan(
+    base_parameters,
+    mpi_values,
+    filename_template,
+    extra_modifications=None,
+    params_prefix="params_",
+):
+    """
+    Generate parameter files for different MPI values.
+
+    Parameters:
+    - base_parameters: dict, base parameters of the model
+    - mpi_values: list, list of MPI values to scan
+    - filename_template: str, template for the output filename
+    - extra_modifications: dict, additional modifications to apply
+    """
+    modifications_list = []
+    for mpi in mpi_values:
+        Nclones = int(mpi / 72)
+        modifications = {"setup.mpi": mpi, "grid.Nclones": Nclones}
+        if extra_modifications:
+            modifications.update(extra_modifications)
+        modifications_list.append(modifications)
+    generate_parameter_files(
+        base_parameters, modifications_list, filename_template, params_prefix,
+    )
+
 
 
 def generate_ptest_params():
@@ -119,7 +146,7 @@ def generate_ptest_params():
     parser.add_argument(
         "--prefix",
         type=str,
-        default="params_CI_",
+        default="params_",
         help="Path matching the params to run",
     )
 
@@ -127,7 +154,8 @@ def generate_ptest_params():
 
     params_prefix = args.prefix
 
-    mpi_values = [8, 16, 32, 48, 64, 72]
+    # mpi_values = [8, 16, 32, 48, 64, 72]
+    mpi_values = [72 * _i for _i in [1,2,4,8,16,32,64]]
     # Save LIKWID configuration
     for mpi_val in mpi_values:
         parameter_file = f"{i_path}/likwid_config_mpi{mpi_val}.yml"
@@ -139,14 +167,19 @@ def generate_ptest_params():
         save_parameter_file(yaml_data["likwid_config"], parameter_file)
 
     # Define models and their parameters
-    for model in ["Maxwell", "Vlasov"]:  # , 'LinearMHDDriftkineticCC']:
+    for model in [
+                # "Maxwell",
+                # "Vlasov",
+                'LinearMHDDriftkineticCC',
+                'LinearMHDVlasovCC',
+                ]:
         # base_params = yaml_data[f"params_{model}"]
         base_params = copy.deepcopy(yaml_data[f"params_{model}"])
         base_params["setup"] = {}
         base_params["setup"]["model"] = model
         # MPI values to scan
 
-        filename_template = f"{i_path}/{params_prefix}{model}_mpi{{setup_mpi}}.yml"
+        filename_template = f"{i_path}/{params_prefix}{model}_Nclones{{grid_Nclones}}_mpi{{setup_mpi}}.yml"
         extra_modifications = None
         mpi_scan(
             base_params,
@@ -155,10 +188,17 @@ def generate_ptest_params():
             extra_modifications,
             params_prefix,
         )
-
+        
+        mpi_nclones_scan(
+            base_params,
+            mpi_values,
+            filename_template,
+            extra_modifications,
+            params_prefix,
+        )
     # grid value scan
-    mpi_values = [72]
-    grid_values = [[16, 16, 16], [32, 32, 32], [64, 64, 64]]
+    # mpi_values = [72]
+    # grid_values = [[16, 16, 16], [32, 32, 32], [64, 64, 64]]
 
     # Define models and their parameters
     # for model in ["Vlasov", 'Maxwell']:
@@ -174,3 +214,4 @@ def generate_ptest_params():
 
 if __name__ == "__main__":
     generate_ptest_params()
+    
