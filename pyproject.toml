@@ -144,5 +144,7 @@ lint.ignore = [
     "F822",  # Undefined name in __all__
     "F823",  # Local variable name referenced before assignment
     "F841",  # Local variable name assigned to but never used
+    "D211",  # Checks for docstrings on class definitions that are preceded by a blank line
+    "D213",  # Checks for docstring summary lines that are not positioned on the second physical line of the docstring
 ]
 
