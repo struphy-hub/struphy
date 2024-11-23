@@ -10,6 +10,13 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpa
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
+from psydac.linalg.basic import LinearSolver
+from psydac.linalg.stencil import StencilVector
+from psydac.linalg.basic import IdentityOperator
+from struphy.feec import preconditioner
+from struphy.propagators.base import Propagator
+
+
 import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
@@ -913,6 +920,7 @@ class Magnetosonic(Propagator):
             print('Maxdiff up for Magnetosonic:', max_du)
             print('Maxdiff p3 for Magnetosonic:', max_dp)
             print()
+
 
 
 class MagnetosonicUniform(Propagator):
