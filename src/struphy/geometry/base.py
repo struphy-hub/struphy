@@ -7,7 +7,7 @@ from abc import ABCMeta, abstractmethod
 import h5py
 import numpy as np
 from scipy.sparse import csc_matrix, kron
-from scipy.sparse.linalg import splu, spsolve
+from scipy.sparse.linalg import spsolve
 
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
@@ -1942,105 +1942,3 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
         return 0.
 
-
-def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.ndarray):
-    """
-    n-dimensional tensor-product spline interpolation with discrete input. 
-
-    The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
-    The last element must be g[-1] = 1 for clamped interpolation and g[-1] < 1 for periodic interpolation.
-
-    Parameters
-    -----------
-    p : list[int]
-        Spline degree.
-
-    grids_1d : list[array]
-        Interpolation points in [0, 1].
-
-    spl_kind : list[bool]
-        True: periodic splines, False: clamped splines.
-
-    values: array
-        Function values at interpolation points. values.shape = (grid1.size, ..., gridn.size).
-
-    Returns
-    --------
-    coeffs : np.array
-        spline coefficients as nd array.
-
-    T : list[array]
-        Knot vector of spline interpolant.
-
-    indN : list[array]
-        Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-    """
-
-    T = []
-    indN = []
-    I_mat = []
-    I_LU = []
-    for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, p, spl_kind):
-        assert isinstance(x_grid, np.ndarray)
-        assert sh == x_grid.size
-        assert np.all(
-            np.roll(x_grid, 1)[1:] <
-            x_grid[1:],
-        ) and x_grid[-1] > x_grid[-2]
-        assert x_grid[0] == 0.
-
-        if kind_i:
-            assert x_grid[-1] < 1., 'Interpolation points must be <1 for periodic interpolation.'
-            breaks = np.ones(x_grid.size + 1)
-
-            if p_i % 2 == 0:
-                breaks[1:-1] = (x_grid[1:] + np.roll(x_grid, 1)[1:]) / 2.
-                breaks[0] = 0.
-            else:
-                breaks[:-1] = x_grid
-
-        else:
-            assert np.abs(
-                x_grid[-1] - 1.,
-            ) < 1e-14, 'Interpolation points must include x=1 for clamped interpolation.'
-            # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
-            if p_i == 1:
-                breaks = x_grid
-            elif p_i % 2 == 0:
-                breaks = x_grid[p_i//2 - 1:-p_i//2].copy()
-            else:
-                breaks = x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy()
-
-            # cells must be in interval [0, 1]
-            breaks[0] = 0.
-            breaks[-1] = 1.
-
-        # breaks = np.linspace(0., 1., x_grid.size - (not kind_i)*p_i + 1)
-
-        T += [bsp.make_knots(breaks, p_i, periodic=kind_i)]
-
-        indN += [
-            (
-                np.indices((breaks.size - 1, p_i + 1))[1] +
-                np.arange(breaks.size - 1)[:, None]
-            ) % x_grid.size,
-        ]
-
-        I_mat += [bsp.collocation_matrix(T[-1], p_i, x_grid, periodic=kind_i)]
-
-        I_LU += [splu(csc_matrix(I_mat[-1]))]
-
-    # dimension check
-    for I, x_grid in zip(I_mat, grids_1d):
-        assert I.shape[0] == x_grid.size
-        assert I.shape[0] == I.shape[1]
-
-    # solve system
-    if len(p) == 1:
-        return I_LU[0].solve(values), T, indN
-    if len(p) == 2:
-        return linalg_kron.kron_lusolve_2d(I_LU, values), T, indN
-    elif len(p) == 3:
-        return linalg_kron.kron_lusolve_3d(I_LU, values), T, indN
-    else:
-        raise AssertionError("Only dimensions < 4 are supported.")
