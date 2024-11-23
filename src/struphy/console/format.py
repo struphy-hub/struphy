@@ -51,7 +51,6 @@ import subprocess
 import sys
 import tempfile
 
-import argparse
 import json
 import pandas as pd
 import os
@@ -834,6 +833,84 @@ def analyze_file(file_path, linters=None, verbose=False):
         )
     return stats
 
+def generate_html_table_from_combined_data(combined_data, sort_descending=True):
+    """
+    Generate an HTML table directly from the combined_data dictionary.
+
+    :param combined_data: Dictionary with counts as keys and 'Codes' as a list of codes.
+    :param sort_descending: Whether to sort the counts in descending order.
+    :return: An HTML string containing the table.
+    """
+    # Sort the data by count
+    sorted_counts = sorted(combined_data.keys(), reverse=sort_descending)
+    
+    # Start building the HTML table
+    # <title>Code Analysis Report</title>
+    html = '''
+    <html>
+    <head>
+        <style>
+            table {
+                border-collapse: collapse;
+                width: 80%;
+                margin: 20px auto;
+                font-family: Arial, sans-serif;
+            }
+            th, td {
+                border: 1px solid #ddd;
+                text-align: left;
+                padding: 8px;
+                vertical-align: top;
+            }
+            th {
+                background-color: #f4f4f4;
+            }
+            tr:nth-child(even) {
+                background-color: #fafafa;
+            }
+            tr:hover {
+                background-color: #f1f1f1;
+            }
+            td {
+                word-wrap: break-word;
+            }
+        </style>
+    </head>
+    <body>
+        <table>
+            <thead>
+                <tr>
+                    <th>Count</th>
+                    <th>Code(s)</th>
+                </tr>
+            </thead>
+            <tbody>
+    '''
+    
+    # Populate the table rows
+    for count in sorted_counts:
+        codes_list = combined_data[count]['Codes']
+        codes_str = ", ".join(codes_list)
+        html += f'''
+                <tr>
+                    <td>{count}</td>
+                    <td>{codes_str}</td>
+                </tr>
+        '''
+    
+    # Close the HTML table
+    html += '''
+            </tbody>
+        </table>
+    </body>
+    </html>
+    '''
+    
+    return html
+
+
+
+
 def parse_json_file_to_html(json_file_path, html_output_path):
     """
     Parses a JSON file containing code issues, groups them by filename,
@@ -865,7 +942,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
         html_content.append("<head>")
         html_content.append("<meta charset='UTF-8'>")
         html_content.append("<meta name='viewport' content='width=device-width, initial-scale=1.0'>")
-        html_content.append("<title>Code Analysis Report</title>")
+        # html_content.append("<title>Code Analysis Report</title>")
         html_content.append("<style>")
         html_content.append(
             """
@@ -910,7 +987,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
             print(f"Parsing {filename}")
             # Start foldable section for the file
             html_content.append(f"<details>")
-            html_content.append(f"<summary>File: <code>{filename}</code></summary>")
+            html_content.append(f"<summary>File: <code>{filename.replace(LIBPATH,'src/struphy')}</code></summary>")
 
             data = {}
             for issue in issues:
@@ -918,42 +995,27 @@ def parse_json_file_to_html(json_file_path, html_output_path):
                 message = issue.get("message", "No message")
                 url = issue.get("url", "No URL provided")
                 if code in data:
-                    data[code]['count'] += 1
+                    data[code]['Count'] += 1
                 else:
                     data[code] = {
-                        'count':1,
-                        'message':message,
+                        'Count':1,
+                        'Message':message,
                         'url':url,
                     }
             
             combined_data = {}
             for code, info in data.items():
-                count = info['count']
+                count = info['Count']
+                url = info['url']
+                link = f"<a href='{url}' target='_blank'><code>{code}</code></a>"
                 if count in combined_data:
-                    combined_data[count]['codes'].append(code)
+                    combined_data[count]['Codes'].append(link)
                 else:
                     combined_data[count] = {
-                        'codes': [code],
+                        'Codes': [link],
                     }
-            df = pd.DataFrame([
-                {'Count': count, 'Code(s)': ", ".join(info['codes'])}
-                for count, info in combined_data.items()
-            ])
-            df = df.sort_values('Count', ascending=False)
-            # print(df.to_html())
-            pd.set_option('colheader_justify', 'center')   # FOR TABLE <th>
-
-            html_string = '''
-            <html>
-            <head><title>HTML Pandas Dataframe with CSS</title></head>
-            <link rel="stylesheet" type="text/css" href="df_style.css"/>
-            <body>
-                {table}
-            </body>
-            </html>.
-            '''
-            html_content.append(html_string.format(table=df.to_html(classes='table-style', index=False)))
-            # html_content.append(df.to_html(index=False))
+            # Generate the HTML table
+            html_content.append(generate_html_table_from_combined_data(combined_data, sort_descending=True))
             for issue in issues:
                 code = issue.get("code", "Unknown code")
                 message = issue.get("message", "No message")
@@ -969,7 +1031,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
                 html_content.append("<div class='issue'>")
                 html_content.append(f"<p class='issue-header'>")
                 html_content.append(f"<a href='{url}' target='_blank'><code>{code}</code></a> <span class='error'>{message}</span><br>")
-                html_content.append(f"<code>{filename}:{row}:{column}</code><br>")
+                html_content.append(f"<code>{filename.replace(LIBPATH,'src/struphy')}:{row}:{column}</code><br>")
                 html_content.append("</p>")
 
                 # Read the file and extract the code snippet
@@ -1057,22 +1119,3 @@ def parse_json_file_to_html(json_file_path, html_output_path):
         print(f"Error: Failed to parse JSON file. {e}")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
-
-
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser(description="Convert a JSON file to an HTML report.")
-#     parser.add_argument(
-#         '-i', 
-#         '--input', 
-#         required=True, 
-#         help="Path to the input JSON file."
-#     )
-#     parser.add_argument(
-#         '-o', 
-#         '--output', 
-#         default='ruff_report.html', 
-#         help="Path to the output HTML file (default: ruff_report.html)."
-#     )
-    
-#     args = parser.parse_args()
-#     parse_json_file_to_html(args.input, args.output)
