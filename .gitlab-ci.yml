@@ -185,91 +185,37 @@ c_cronjob_install:
 ### LINT STAGE ###
 ##################
 
-# Template for linting Python files with flake8 and pylint
-.lint_template:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
-  script:
-    - date
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
-    - module list
-    - python3 --version
-    - source env_$CI_PIPELINE_ID/bin/activate
-    - pip list
-    # Install linters
-    - pip install flake8 pylint
-    # Check if any Python files were found to lint
-    - if [ -z "$LINT_FILES" ]; then echo "No files to lint."; exit 0; fi
-    - mkdir -p lint_results/
-    # Lint with flake8
-    - flake8 $LINT_FILES > lint_results/flake8_report.txt || true
-    # Lint with pylint and display the score for each file
-    - echo "Running pylint on individual files..."
-    - |
-      for file in $LINT_FILES; do
-        if [ -f "$file" ]; then
-          echo "Linting $file..."
-          echo "Linting $file..." >> lint_results/pylint_report.txt
-          # Run pylint and store output in a temporary file
-          pylint --score=y "$file" > temp_pylint_output.txt || true
-          # Append output to the main pylint report file
-          cat temp_pylint_output.txt >> lint_results/pylint_report.txt
-          # Extract and display the score line
-          grep 'Your code has been rated at' temp_pylint_output.txt
-          echo ""
-          echo "------------------------"
-          echo "------------------------" >> lint_results/pylint_report.txt
-          echo "------------------------" >> lint_results/pylint_report.txt
-        else
-          echo "File $file does not exist. Skipping..."
-        fi
-      done
-    - rm -f temp_pylint_output.txt
-  artifacts:
-    paths:
-      - lint_results/
-    expire_in: 30 days
-  allow_failure: true
-
-# Generate linting reports with pylint and flake8 of full repo
 # Run in weekly CI pipeline only
-full_repo_lint_reports:
+lint_full_repo_report:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   stage: lint
-  extends:
-    - .lint_template
+  needs: ['ci_vars']
   rules:
     # Only run full lint report with pylint and flake8 on the scheduled CI pipeline
     - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
     - if: $CI_PIPELINE_SOURCE == "schedule"
   before_script:
-    # Find all .py files, excluding those with __XYZ__ in their path
-    - LINT_FILES=$(find src/struphy -name "*.py" ! -path "*__*__*")
-    - echo "All Python files for full lint:"
-    - echo "$LINT_FILES"
-
-# Generate linting reports with pylint and flake8 of files changed in the current branch
-# Don't run the check in the scheduled CI pipeline
-branch_lint_reports:
-  extends:
-    - .lint_template
-  stage: lint
-  rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  before_script:
-    # Get changed Python files between the current branch and origin/devel
-    - LINT_FILES=$(git diff --name-only origin/devel...HEAD | grep -E '\.py$' | grep -v '__[^/]*__' || true)
-    - echo "Changed Python files:"
-    - echo "$LINT_FILES"
+    - date
+    - python3.11 -m venv env_struphy_lint
+  script:
+    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
+    - pip install --upgrade pip
+    - pip list
+    - ls
+    - pwd
+    - pip install -e . # We have to install struphy in editable mode for struphy lint to work
+    - struphy
+    - struphy lint all --report
+    - mkdir -p lint_reports
+    - mv *.html lint_reports/
+  allow_failure: true
+  artifacts:
+    paths:
+      - lint_reports/
+    expire_in: 1 week
 
 # Lint struphy with `struphy lint`
-lint_struphy:
+lint_branch:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   stage: lint
   needs: ['ci_vars']
@@ -297,6 +243,41 @@ lint_struphy:
     # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint branch --output-format plain
   allow_failure: true
+
+# Lint struphy with `struphy lint`
+lint_branch_report:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+  stage: lint
+  needs: ['ci_vars']
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    - date
+    - python3.11 -m venv env_struphy_lint
+  script:
+    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
+    - pip install --upgrade pip
+    - pip list
+    - ls
+    - pwd
+    - pip install -e . # We have to install struphy in editable mode for struphy lint to work
+    - struphy
+    - struphy lint branch --report
+    - mkdir -p lint_reports
+    - mv *.html lint_reports/
+  allow_failure: true
+  artifacts:
+    paths:
+      - lint_reports/
+    expire_in: 1 week
 
 ##################
 ### TEST STAGE ###
