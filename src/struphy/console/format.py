@@ -60,6 +60,8 @@ from tabulate import tabulate
 
 import struphy
 
+import time
+
 LIBPATH = struphy.__path__[0]
 
 GREEN_COLOR = "\033[92m"
@@ -406,7 +408,7 @@ def get_python_files(input_type, path=None):
     return python_files
 
 
-def struphy_lint(config, verbose, report=False):
+def struphy_lint(config, verbose):
     """
     Lint Python files based on the given configuration and specified linters.
 
@@ -449,9 +451,9 @@ def struphy_lint(config, verbose, report=False):
     )
     print("\n")
 
-    if report:
+    if output_format == "report":
         generate_report(python_files, linters=linters, verbose=verbose)
-
+        sys.exit(0)
 
     max_pathlen = max(len(os.path.relpath(file_path)) for file_path in python_files)
     stats_list = []
@@ -497,19 +499,33 @@ def struphy_lint(config, verbose, report=False):
     print("Not all CI linters were checked, unknown if all files will pass CI")
     sys.exit(1)
 
+
 def generate_report(python_files, linters=["ruff"], verbose=False):
     for linter in linters:
         if linter == "ruff":
             for python_file in python_files:
                 report_json_filename = "code_analysis_report.json"
                 report_html_filename = "code_analysis_report.html"
-                command = ["ruff", "check", "--preview", "--select", "ALL", "--output-format", "json", "-o", report_json_filename] + python_files
-                
+                command = [
+                    "ruff",
+                    "check",
+                    "--preview",
+                    "--select",
+                    "ALL",
+                    "--ignore",
+                    "D211,D213",
+                    "--output-format",
+                    "json",
+                    "-o",
+                    report_json_filename,
+                ] + python_files
                 subprocess.run(command, check=False)
                 parse_json_file_to_html(report_json_filename, report_html_filename)
                 if os.path.exists(report_json_filename):
                     os.remove(report_json_filename)
                 sys.exit(0)
+
+
 def confirm_formatting(python_files, linters, yes):
     """Confirm with the user whether to format the listed Python files."""
     print(
@@ -833,82 +849,47 @@ def analyze_file(file_path, linters=None, verbose=False):
         )
     return stats
 
+
+import json
+import os
+import time
+from collections import defaultdict
+import re
+
+
+def replace_backticks_with_code_tags(text):
+    """
+    Recursively replaces inline backticks with <code> tags.
+    Handles multiple or nested occurrences.
+
+    Args:
+        text (str): Input string with backticks to be replaced.
+
+    Returns:
+        str: Formatted string with <code> tags.
+    """
+    # Regular expression to match text inside single backtick pairs
+    pattern = r"`([^`]*)`"
+
+    # Replace one level of backticks with <code> tags
+    new_text = re.sub(pattern, r"<code>\1</code>", text)
+
+    # If additional backticks are found, process recursively
+    if "`" in new_text:
+        return replace_backticks_with_code_tags(new_text)
+
+    return new_text
+
+
 def generate_html_table_from_combined_data(combined_data, sort_descending=True):
-    """
-    Generate an HTML table directly from the combined_data dictionary.
-
-    :param combined_data: Dictionary with counts as keys and 'Codes' as a list of codes.
-    :param sort_descending: Whether to sort the counts in descending order.
-    :return: An HTML string containing the table.
-    """
-    # Sort the data by count
-    sorted_counts = sorted(combined_data.keys(), reverse=sort_descending)
-    
-    # Start building the HTML table
-    # <title>Code Analysis Report</title>
-    html = '''
-    <html>
-    <head>
-        <style>
-            table {
-                border-collapse: collapse;
-                width: 80%;
-                margin: 20px auto;
-                font-family: Arial, sans-serif;
-            }
-            th, td {
-                border: 1px solid #ddd;
-                text-align: left;
-                padding: 8px;
-                vertical-align: top;
-            }
-            th {
-                background-color: #f4f4f4;
-            }
-            tr:nth-child(even) {
-                background-color: #fafafa;
-            }
-            tr:hover {
-                background-color: #f1f1f1;
-            }
-            td {
-                word-wrap: break-word;
-            }
-        </style>
-    </head>
-    <body>
-        <table>
-            <thead>
-                <tr>
-                    <th>Count</th>
-                    <th>Code(s)</th>
-                </tr>
-            </thead>
-            <tbody>
-    '''
-    
-    # Populate the table rows
-    for count in sorted_counts:
-        codes_list = combined_data[count]['Codes']
-        codes_str = ", ".join(codes_list)
-        html += f'''
-                <tr>
-                    <td>{count}</td>
-                    <td>{codes_str}</td>
-                </tr>
-        '''
-    
-    # Close the HTML table
-    html += '''
-            </tbody>
-        </table>
-    </body>
-    </html>
-    '''
-    
+    html = "<table class='table-style'>"
+    html += "<thead><tr><th>Count</th><th>Codes</th></tr></thead><tbody>"
+    sorted_items = sorted(combined_data.items(), reverse=sort_descending)
+    for count, info in sorted_items:
+        codes_links = ", ".join(info["Codes"])
+        html += f"<tr><td>{count}</td><td>{codes_links}</td></tr>"
+    html += "</tbody></table>"
     return html
-
-
 
 
 def parse_json_file_to_html(json_file_path, html_output_path):
@@ -921,6 +902,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
         json_file_path (str): The path to the JSON file containing code issues.
         html_output_path (str): The path where the HTML report will be saved.
     """
+
     try:
         with open(json_file_path, "r") as file:
             data = json.load(file)
@@ -937,88 +919,225 @@ def parse_json_file_to_html(json_file_path, html_output_path):
 
         # Start building the HTML content
         html_content = []
-        html_content.append("<!DOCTYPE html>")
-        html_content.append("<html lang='en'>")
-        html_content.append("<head>")
-        html_content.append("<meta charset='UTF-8'>")
-        html_content.append("<meta name='viewport' content='width=device-width, initial-scale=1.0'>")
-        # html_content.append("<title>Code Analysis Report</title>")
+        html_content.extend(
+            [
+                "<!DOCTYPE html>",
+                "<html lang='en'>",
+                "<head>",
+                "<meta charset='UTF-8'>",
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
+                "<title>Code Analysis Report</title>",
+            ]
+        )
+
+        # Include external CSS and JS libraries
+        html_content.extend(
+            [
+                "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css'>",
+                "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css'>",
+                "<script src='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js'></script>",
+                "<script>hljs.configure({ignoreUnescapedHTML: true}); hljs.highlightAll();</script>",
+            ]
+        )
+
+        # Custom CSS for light mode and code prettification
         html_content.append("<style>")
         html_content.append(
             """
-            body { font-family: Arial, sans-serif; }
-            code { font-family: Consolas, 'Courier New', monospace; }
-            pre { background-color: #f8f8f8; padding: 10px; border: 1px solid #ddd; }
-            .error { color: red; }
-            details { margin-bottom: 20px; }
-            summary { font-size: 1.2em; font-weight: bold; }
-            .issue { margin-bottom: 20px; }
-            .issue-header { font-weight: bold; }
-            .fix { margin-left: 20px; }
-            /* includes alternating gray and white with on-hover color */
-            .table-style {
-                font-size: 11pt; 
-                font-family: Arial;
-                border-collapse: collapse; 
-                border: 1px solid silver;
-
-            }
-
-            .table-style td, th {
-                padding: 5px;
-            }
-
-            .table-style tr:nth-child(even) {
-                background: #E0E0E0;
-            }
-
-            .table-style tr:hover {
-                background: silver;
-                cursor: pointer;
-            }
-        """
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    margin: 20px;
+    background-color: #ffffff; /* Light background */
+    color: #333333; /* Dark text color */
+}
+h1 {
+    color: #333333;
+    font-size: 2em;
+}
+a {
+    color: #3273dc;
+}
+code {
+    font-family: 'Fira Code', Consolas, 'Courier New', monospace;
+}
+pre {
+    background-color: #f5f5f5; /* Light grey background */
+    padding: 15px;
+    border-radius: 5px;
+    overflow: auto;
+    position: relative;
+    color: #333333;
+}
+.error {
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+details {
+    margin-bottom: 20px;
+}
+summary {
+    font-size: 1.2em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 10px;
+    background-color: #f5f5f5;
+    color: #333333;
+    border-radius: 5px;
+}
+summary:hover {
+    background-color: #e5e5e5;
+}
+.issue {
+    margin-bottom: 20px;
+}
+.issue-header {
+    font-weight: bold;
+}
+.fix {
+    margin-left: 20px;
+}
+.table-style {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    color: #333333;
+}
+.table-style th, .table-style td {
+    border: 1px solid #dddddd;
+    padding: 10px;
+    text-align: left;
+}
+.table-style th {
+    background-color: #f5f5f5;
+}
+.table-style tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+.table-style tr:hover {
+    background-color: #f1f1f1;
+}
+/* Highlighted code segment */
+.highlighted-code, mark {
+    background-color: #ff3860;
+    color: #000000;
+    padding: 0;
+    border-radius: 0;
+}
+/* Line numbers */
+.line-number {
+    position: absolute;
+    left: -10px;
+    width: 40px;
+    text-align: right;
+    padding-right: 10px;
+    color: #999999;
+    user-select: none;
+}
+.code-line {
+    display: block;
+    position: relative;
+    padding-left: 50px;
+    margin: 0;
+    line-height: 1.2; /* Adjust line height to reduce spacing */
+}
+nav ul {
+    margin-top: 20px;
+}
+nav li {
+    margin-bottom: 5px;
+}
+footer {
+    margin-top: 40px;
+    text-align: center;
+    color: #999999;
+}
+"""
         )
         html_content.append("</style>")
-        html_content.append("</head>")
-        html_content.append("<body>")
-        html_content.append("<h1>Code Issues Report</h1>")
+
+        # JavaScript to initialize Highlight.js with custom options
+        html_content.append(
+            """
+<script>
+document.addEventListener('DOMContentLoaded', (event) => {
+    hljs.configure({ignoreUnescapedHTML: true});
+    document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+    });
+});
+</script>
+"""
+        )
+
+        html_content.extend(["</head>", "<body>", "<h1>Code Issues Report</h1>"])
+
+        # Add summary statistics
+        total_issues = sum(len(issues) for issues in issues_by_file.values())
+        total_files = len(issues_by_file)
+        html_content.append(
+            f"""
+<section>
+    <p><strong>Total Issues:</strong> {total_issues}</p>
+    <p><strong>Number of files:</strong> {total_files}</p>
+</section>
+"""
+        )
+
+        # Navigation menu
+        #         html_content.append("<nav><ul style='list-style: none; padding: 0;'>")
+        #         for filename in issues_by_file.keys():
+        #             anchor = filename.replace(LIBPATH, 'src/struphy').replace('/', '_').replace('\\', '_')
+        #             display_name = filename.replace(LIBPATH, 'src/struphy')
+        #             html_content.append(f"""
+        # <li>
+        #     <a href='#{anchor}'>{display_name}</a>
+        # </li>
+        # """)
+        #         html_content.append("</ul></nav>")
 
         for filename, issues in issues_by_file.items():
             print(f"Parsing {filename}")
             # Start foldable section for the file
-            html_content.append(f"<details>")
-            html_content.append(f"<summary>File: <code>{filename.replace(LIBPATH,'src/struphy')}</code></summary>")
+            anchor = filename.replace(LIBPATH, "src/struphy").replace("/", "_").replace("\\", "_")
+            display_name = filename.replace(LIBPATH, "src/struphy")
+            html_content.append(
+                f"""
+<details id='{anchor}'>
+    <summary>File: <code>{display_name}</code></summary>
+"""
+            )
 
-            data = {}
+            issue_data = {}
             for issue in issues:
                 code = issue.get("code", "Unknown code")
-                message = issue.get("message", "No message")
+                message = replace_backticks_with_code_tags(issue.get("message", "No message"))
                 url = issue.get("url", "No URL provided")
-                if code in data:
-                    data[code]['Count'] += 1
+                if code in issue_data:
+                    issue_data[code]["Count"] += 1
                 else:
-                    data[code] = {
-                        'Count':1,
-                        'Message':message,
-                        'url':url,
+                    issue_data[code] = {
+                        "Count": 1,
+                        "Message": message,
+                        "url": url,
                     }
-            
+
             combined_data = {}
-            for code, info in data.items():
-                count = info['Count']
-                url = info['url']
+            for code, info in issue_data.items():
+                count = info["Count"]
+                url = info["url"]
                 link = f"<a href='{url}' target='_blank'><code>{code}</code></a>"
                 if count in combined_data:
-                    combined_data[count]['Codes'].append(link)
+                    combined_data[count]["Codes"].append(link)
                 else:
                     combined_data[count] = {
-                        'Codes': [link],
+                        "Codes": [link],
                     }
             # Generate the HTML table
             html_content.append(generate_html_table_from_combined_data(combined_data, sort_descending=True))
+
             for issue in issues:
                 code = issue.get("code", "Unknown code")
-                message = issue.get("message", "No message")
+                message = replace_backticks_with_code_tags(issue.get("message", "No message"))
                 location = issue.get("location", {})
                 row = location.get("row", None)
                 column = location.get("column", None)
@@ -1029,83 +1148,86 @@ def parse_json_file_to_html(json_file_path, html_output_path):
                 url = issue.get("url", "No URL provided")
 
                 html_content.append("<div class='issue'>")
-                html_content.append(f"<p class='issue-header'>")
-                html_content.append(f"<a href='{url}' target='_blank'><code>{code}</code></a> <span class='error'>{message}</span><br>")
-                html_content.append(f"<code>{filename.replace(LIBPATH,'src/struphy')}:{row}:{column}</code><br>")
+                html_content.append("<p class='issue-header'>")
+                html_content.append(
+                    f"<strong>Issue:</strong> "
+                    f"<a href='{url}' target='_blank'><code>{code}</code></a> - "
+                    f"<span class='error'>{message}</span><br>"
+                    f"<strong>Location:</strong> "
+                    f"<code>{display_name}:{row}:{column}</code><br>"
+                )
                 html_content.append("</p>")
 
                 # Read the file and extract the code snippet
                 if os.path.exists(filename) and row is not None:
                     with open(filename, "r") as source_file:
                         lines = source_file.readlines()
+                        total_lines = len(lines)
                         # Adjust indices for zero-based indexing
-                        start_line = max(row - 3, 0)
-                        end_line = min(row + 2, len(lines))
+                        context_radius = 2  # Number of lines before and after the issue line
+                        start_line = max(row - context_radius - 1, 0)
+                        end_line = min(row + context_radius, total_lines)
                         snippet_lines = lines[start_line:end_line]
 
-                        # Build the code snippet with line numbers
-                        code_snippet = ""
+                        # Build the code snippet
+                        code_lines = []
                         for idx, line_content in enumerate(snippet_lines, start=start_line + 1):
                             line_content = line_content.rstrip("\n")
-                            # Escape HTML special characters
+                            # Fix HTML special characters
                             line_content = line_content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                            # Mark the problematic line
-                            if idx == row:
-                                if column is not None and end_column is not None and idx == end_row:
-                                    # Highlight the problematic part in the line
-                                    start_col = column - 1  # Adjust for zero-based indexing
-                                    end_col = end_column - 1
-                                    # Ensure indices are within the line length
-                                    start_col = max(start_col, 0)
-                                    end_col = min(end_col, len(line_content))
-                                    before = line_content[:start_col]
-                                    problem = line_content[start_col:end_col]
-                                    after = line_content[end_col:]
-                                    highlighted_line = f"{before}<span class='error'>{problem}</span>{after}"
-                                    code_snippet += f"{idx}: {highlighted_line}\n"
-                                else:
-                                    # Highlight the entire line
-                                    highlighted_line = f"<span class='error'>{line_content}</span>"
-                                    code_snippet += f"{idx}: {highlighted_line}\n"
-                            else:
-                                code_snippet += f"{idx}: {line_content}\n"
+                            # Highlight the error
+                            if idx == row and column is not None and end_column is not None:
+                                start_col = column - 1  # Adjust for zero-based indexing
+                                end_col = end_column - 1
 
-                        html_content.append("<pre><code>")
-                        html_content.append(code_snippet)
-                        html_content.append("</code></pre>")
+                                start_col = max(start_col, 0)
+                                end_col = min(end_col, len(line_content))
+
+                                before = line_content[:start_col]
+                                problem = line_content[start_col:end_col]
+                                after = line_content[end_col:]
+                                # Wrap the problematic part with <mark>
+                                highlighted_line = f"{before}<mark>{problem}</mark>{after}"
+                                code_lines.append((idx, highlighted_line))
+                            else:
+                                code_lines.append((idx, line_content))
+                        # Make code block with line numbers
+                        html_content.append("<pre>")
+                        for line_number, line_content in code_lines:
+                            html_content.append(
+                                # f"<div class='code-line'><span class='line-number'>"
+                                # f"{line_number}</span>{line_content}</div>"
+                                f"{line_number}:  {line_content}"
+                            )
+                        html_content.append("</pre>")
                     # Include fix details if available
                     if fix:
                         html_content.append("<div class='fix'>")
-                        html_content.append(f"<p>Fix Available (<code>{fix.get('applicability', 'Unknown')}</code>): <code>ruff check --select ALL --fix {filename}</code></p>")
-                        html_content.append(f"<p>Applicability: <code>{fix.get('applicability', 'Unknown')}</code></p>")
-                        # html_content.append("<p>Edits:</p>")
-                        # html_content.append("<ul>")
-                        # for edit in fix.get("edits", []):
-                        #     edit_content = edit.get("content", "No content")
-                        #     edit_content = edit_content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                        #     edit_location = edit.get("location", {})
-                        #     edit_row = edit_location.get("row", "Unknown row")
-                        #     edit_column = edit_location.get("column", "Unknown column")
-                        #     html_content.append("<li>")
-                        #     html_content.append(f"Content: <span class='error'>{edit_content}</span><br>")
-                        #     html_content.append(
-                        #         f"Location: Row <code>{edit_row}</code>, Column <code>{edit_column}</code>"
-                        #     )
-                        #     html_content.append("</li>")
-                        # html_content.append("</ul>")
+                        html_content.append(
+                            f"<p>Fix Available (<code>{fix.get('applicability', 'Unknown')}</code>): "
+                            f"<code>ruff check --select ALL --fix {display_name}</code></p>"
+                        )
                         html_content.append("</div>")
                 else:
                     html_content.append(
-                        f"<p>Cannot read file <code>{filename}</code> or invalid row <code>{row}</code>.</p>"
+                        f"<p>Cannot read file <code>{filename}</code> or invalid row " f"<code>{row}</code>.</p>"
                     )
 
-                html_content.append("</div>")  # Close issue div
+                html_content.append("</div>")
                 html_content.append("<hr>")
 
             html_content.append("</details>")
 
-        html_content.append("</body>")
-        html_content.append("</html>")
+        # Footer
+        html_content.append(
+            f"""
+<footer>
+    <p>Generated by on {time.strftime("%Y-%m-%d %H:%M:%S")}</p>
+</footer>
+"""
+        )
+
+        html_content.extend(["</body>", "</html>"])
 
         # Write the HTML content to the output file
         with open(html_output_path, "w") as html_file:
@@ -1113,8 +1235,8 @@ def parse_json_file_to_html(json_file_path, html_output_path):
 
         print(f"HTML report generated at {html_output_path}")
 
-    except FileNotFoundError:
-        print(f"Error: File not found at {json_file_path}")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
     except json.JSONDecodeError as e:
         print(f"Error: Failed to parse JSON file. {e}")
     except Exception as e:

@@ -745,14 +745,8 @@ def struphy():
             "--output-format",
             type=str,
             default="table",
-            choices=["table", "plain"],
-            help="specify the format of the output: 'table' for tabular output or 'plain' for regular output",
-        )
-        
-        parser_lint.add_argument(
-            "--report",
-            action="store_true",
-            help="Write the output to a report file",
+            choices=["table", "plain", "report"],
+            help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
         )
 
     # parse argument

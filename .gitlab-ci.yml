@@ -205,7 +205,7 @@ lint_full_repo_report:
     - pwd
     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
     - struphy
-    - struphy lint all --report
+    - struphy lint all --output-format report
     - mkdir -p lint_reports
     - mv *.html lint_reports/
   allow_failure: true
@@ -270,7 +270,7 @@ lint_branch_report:
     - pwd
     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
     - struphy
-    - struphy lint branch --report
+    - struphy lint branch --output-format report
     - mkdir -p lint_reports
     - mv *.html lint_reports/
   allow_failure: true

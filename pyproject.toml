@@ -135,7 +135,7 @@ lint.ignore = [
     "E742",  # Do not define classes named 'l', 'O', or 'I'
     "E743",  # Do not define functions named 'l', 'O', or 'I'
     "E902",  # IOError
-    "E999",  # SyntaxError
+    # "E999",  # SyntaxError
     "F401",  # Module imported but unused
     "F403",  # 'from module import *' used; unable to detect undefined names
     "F405",  # Name may be undefined, or defined from star imports: module
