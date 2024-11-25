@@ -683,3 +683,21 @@ class HydroParticles(Particles):
 
         return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
+    def eval_density(self, eta1 ,eta2 ,eta3, h=0.2):
+        """ Density function as 0 form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        h : float
+            Support radius of the smoothing kernel.    
+        
+        Returns
+        -------
+        out : array-like
+            The 0-form density.
+        -------
+        """
+        return self(eta1 ,eta2 ,eta3, self.index['weights'], h=h)

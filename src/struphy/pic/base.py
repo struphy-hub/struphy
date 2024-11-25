@@ -13,7 +13,8 @@ from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles, initialize_neighbours
 from struphy.pic.sph_eval_kernels import naive_evaluation, naive_evaluation_3d, box_based_evaluation, box_based_evaluation_3d
-from struphy.kinetic_background import maxwellians, sph_backgrounds
+from struphy.kinetic_background import maxwellians
+from struphy.fields_background.fluid_equils import equils as fluid_equils
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.output_handling import DataContainer
 
@@ -156,32 +157,38 @@ class Particles(metaclass=ABCMeta):
                 print(
                     f'\n{fi} is not in bckgr_params; default background parameters are used.')
             if self.marker_params['loading']['moments']=='degenerate':
-                module = sph_backgrounds
+                equils = getattr(fluid_equils, fi_type)
+                equils.domain = self.domain
+                if self._f0 is None:
+                    self._f0 = lambda eta : equils.n0(*eta)
+                else:
+                    self._f0 = self._f0 + (lambda eta : equils.n0(*eta))
             else :
-                module = maxwellians
-
-            #Kinetic case
-            if self._f0 is None:
-                self._f0 = getattr(module, fi_type)(
-                    maxw_params=maxw_params,
-                    mhd_equil=pass_mhd_equil,
-                    braginskii_equil=pass_braginskii_equil
-                )
-            else:
-                self._f0 = self._f0 + getattr(module, fi_type)(
-                    maxw_params=maxw_params,
-                    mhd_equil=pass_mhd_equil,
-                    braginskii_equil=pass_braginskii_equil
-                )
+                if self._f0 is None:
+                    self._f0 = getattr(maxwellians, fi_type)(
+                        maxw_params=maxw_params,
+                        mhd_equil=pass_mhd_equil,
+                        braginskii_equil=pass_braginskii_equil
+                    )
+                else:
+                    self._f0 = self._f0 + getattr(maxwellians, fi_type)(
+                        maxw_params=maxw_params,
+                        mhd_equil=pass_mhd_equil,
+                        braginskii_equil=pass_braginskii_equil
+                    )
 
         # set coordinates of the background distribution
-        if self.f0.coords == 'constants_of_motion':
-            self._f_coords_index = self.index['com']
-            self._f_jacobian_coords_index = self.index['pos+energy']
-
-        else:
+        if self.marker_params['loading']['moments']=='degenerate':
             self._f_coords_index = self.index['coords']
             self._f_jacobian_coords_index = self.index['coords']
+        else:
+            if self.f0.coords == 'constants_of_motion':
+                self._f_coords_index = self.index['com']
+                self._f_jacobian_coords_index = self.index['pos+energy']
+
+            else:
+                self._f_coords_index = self.index['coords']
+                self._f_jacobian_coords_index = self.index['coords']
 
         # Marker arguments for kernels
         self._args_markers = MarkerArguments(self.markers,
@@ -854,21 +861,14 @@ class Particles(metaclass=ABCMeta):
                             pert_params = pp_copy[fi]
 
                     if self._f_init is None:
-                        self._f_init = getattr(sph_backgrounds, fi_type)(
-                            maxw_params=bp_copy[fi],
-                            pert_params=pert_params,
-                            mhd_equil=self.mhd_equil,
-                            braginskii_equil=self.braginskii_equil
+                        self._f_init = getattr(fluid_equils, fi_type)(
+                            **bp_copy[fi]
                         )
                     else:
-                        self._f_init = self._f_init + getattr(sph_backgrounds, fi_type)(
-                            maxw_params=bp_copy[fi],
-                            pert_params=pert_params,
-                            mhd_equil=self.mhd_equil,
-                            braginskii_equil=self.braginskii_equil
+                        self._f_init = self._f_init + getattr(fluid_equils, fi_type)(
+                            **bp_copy[fi]
                         )
-
-                self.velocities = self._f_init.u(*self.phasespace_coords[:, 0:3].T).T
+                self.velocities = np.array(self._f_init.u_xyz(*self.phasespace_coords[:, 0:3].T)).T
 
             else:
                 # inverse transform sampling in velocity space
@@ -1089,7 +1089,11 @@ class Particles(metaclass=ABCMeta):
 
 
         # evaluate initial distribution function
-        f_init = self.f_init(*self.f_coords.T)
+        if self.marker_params['loading']['moments']=='degenerate':
+            f_init = self.f_init.n0(self.f_coords)
+
+        else :
+            f_init = self.f_init(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == 'vol':
@@ -1438,7 +1442,6 @@ class Particles(metaclass=ABCMeta):
             self._neighbours = np.zeros((self._n_boxes, 27), dtype=int)
             initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
             # A particle on box i only sees particles in boxes that belong to neighbours[i]
-            print(self._neighbours)
             self._swap_line_1 = np.zeros(self._markers.shape[1])
             self._swap_line_2 = np.zeros(self._markers.shape[1])
 
