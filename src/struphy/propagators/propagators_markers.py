@@ -12,7 +12,7 @@ from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
-from struphy.pic.particles import Particles3D, Particles5D, Particles6D
+from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import ButcherTableau, Pusher
 from struphy.polar.basic import PolarVector
@@ -47,7 +47,7 @@ class PushEta(Propagator):
 
     def __init__(
         self,
-        particles: Particles6D,
+        particles: Particles6D | ParticlesSPH,
         *,
         algo: str = options(default=True)['algo'],
         density_field : StencilVector | None = None,

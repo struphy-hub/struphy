@@ -3,7 +3,7 @@ import numpy as np
 from mpi4py import MPI
 from time import time
 from struphy.feec.psydac_derham import Derham
-from struphy.pic.particles import HydroParticles
+from struphy.pic.particles import ParticlesSPH
 
 import pytest
 
@@ -40,7 +40,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
                                'n1' : 0.1},
                 'pforms' : ['vol', None]}
 
-    particles = HydroParticles(
+    particles = ParticlesSPH(
         'test_particles', 
         Np = Np,
         bc = ['periodic','periodic','periodic'],

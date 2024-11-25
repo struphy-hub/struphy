@@ -389,8 +389,6 @@ class Maxwellian(KineticBackground):
             assert v.shape == u.shape, f'{v.shape = } but {u.shape = }'
 
         if not polar:
-            if vth[0]<1e-16:
-                raise ValueError('Singular')
             out = 1./vth * 1./np.sqrt(2.*np.pi) * \
                 np.exp(-(v - u)**2/(2.*vth**2))
         else:
