@@ -773,7 +773,7 @@ class Particles3D(Particles):
         return self.domain.transform(self.svol(eta1, eta2, eta3), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
 
-class HydroParticles(Particles):
+class ParticlesSPH(Particles):
     """
     A class for initializing particles in SPH models.
 
@@ -796,8 +796,18 @@ class HydroParticles(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'Constant6D',
-                'Constant6D': {}}
+        return {'type': 'ConstantVelocity',
+                'ConstantVelocity': {}}
+    
+    def loading_params_default(self,):
+        defaults_params = {
+            'seed': 1234,
+            'dir_particles': None,
+            'moments': 'degenerate',
+            'spatial': 'uniform',
+            'initial': None,
+        }
+        return defaults_params
 
     def __init__(
         self,

@@ -17,7 +17,7 @@ class ConstantVelocity(FluidEquilibrium):
         params_default = {'ux': 1.,
                           'uy': 1.,
                           'uz': 1.,
-                          'n0': 1.,
+                          'n': 1.,
                           'n1': 0.,
                           'density_profile' : 'affine',
                           'p0': 1.}
@@ -53,6 +53,6 @@ class ConstantVelocity(FluidEquilibrium):
         """ Number density.
         """
         if self.params['density_profile']=='constant':
-            return self.params['n0'] + 0 * x
+            return self.params['n'] + 0 * x
         elif self.params['density_profile']=='affine':
-            return self.params['n0'] + self.params['n1'] * x
+            return self.params['n'] + self.params['n1'] * x

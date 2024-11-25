@@ -1126,7 +1126,7 @@ class PressureLessSPH(StruphyModel):
     def species():
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
-        dct['kinetic']['p_fluid'] = 'HydroParticles'
+        dct['kinetic']['p_fluid'] = 'ParticlesSPH'
         return dct
 
     @staticmethod
@@ -1172,7 +1172,6 @@ class PressureLessSPH(StruphyModel):
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
-                                                     'bc_type': p_fluid_params['markers']['bc']['type'],
                                                      'density_field': self.pointer['projected_density']}
 
         # Initialize propagators used in splitting substeps

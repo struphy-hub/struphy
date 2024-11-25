@@ -204,13 +204,7 @@ class Particles(metaclass=ABCMeta):
         self._pert_params = pert_params
 
         # default loading parameters
-        loading_params_default = {
-            'seed': 1234,
-            'dir_particles': None,
-            'moments': None,
-            'spatial': 'uniform',
-            'initial': None,
-        }
+        loading_params_default = self.loading_params_default()
 
         self._loading_params = set_defaults(
             loading_params, loading_params_default,
@@ -344,6 +338,16 @@ class Particles(metaclass=ABCMeta):
         Must contain at least a keyword 'type' with corresponding value a valid choice of background.
         """
         pass
+
+    def loading_params_default(self,):
+        defaults_params = {
+            'seed': 1234,
+            'dir_particles': None,
+            'moments': None,
+            'spatial': 'uniform',
+            'initial': None,
+        }
+        return defaults_params
 
     @abstractmethod
     def svol(self, eta1, eta2, eta3, *v):
@@ -1610,6 +1614,12 @@ class Particles(metaclass=ABCMeta):
     def auto_sampling_params(self):
         """ Automatically determine sampling parameters from the background given
         """
+
+
+        print(self.loading_params)
+        if self.loading_params['moments']=='degenerate':
+            return
+
         bckgr_type = self.bckgr_params['type']
         if not isinstance(bckgr_type, list):
             bckgr_type = [bckgr_type]
@@ -1986,7 +1996,7 @@ class Particles(metaclass=ABCMeta):
                                         self._sorting_boxes.nz,
                                         self._sorting_boxes._boxes,
                                         self._sorting_boxes._neighbours,
-                                        self.derham.domain_array[self.mpi_rank],
+                                        self.domain_decomp[self.mpi_rank],
                                         self.holes,
                                         index,
                                         h,
