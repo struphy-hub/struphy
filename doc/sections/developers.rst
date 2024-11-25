@@ -23,7 +23,7 @@ necessary for HPC applications.
 
     subsections/git_workflow
     subsections/adding_model
-    subsections/coding_conventions
+    subsections/write_prop
     subsections/data_structures
     subsections/change_doc
 

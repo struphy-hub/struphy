@@ -3,7 +3,7 @@
 Struphy data structures
 -----------------------
 
-Check out `Tutorial 06 - Struphy data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html>`_
+Check out `Tutorial 07 - Struphy data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_07_data_structures.html>`_
 for a hands-on introduction.
 
 

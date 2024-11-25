@@ -85,6 +85,21 @@ Merging must be done instead of rebasing if
 
 **The golden rule of rebasing: only rebase a private branch!** This means you rebase **before** publishing your feature branch to the repository.
 
+Developers are encouraged to use `pre-commit <https://pre-commit.com>`_ hooks to prevent the inclusion of large 
+or improperly formatted files and avoid committing unresolved merge conflicts. 
+When committing, these hooks will automatically check the code to ensure it meets the project's standards. 
+After installing Struphy, the pre-commit hooks can be activated with::
+
+    pre-commit install
+
+The checks will now be run on every commit. You can keep the hooks up-to-date with the latest config by running::
+
+    pre-commit autoupdate 
+    
+You can disable them via::
+
+    pre-commit uninstall
+
 When you are done coding the new feature, create a new remote branch and push your changes::
 
     git push -u origin <feature>
@@ -140,9 +155,9 @@ This means you rebase **before** publishing your feature branch to the repositor
 
 ``git status`` will show which files have to be looked at ("both modified").
 
-[Visual Studio Code](https://code.visualstudio.com/) provides a very useful interface for resolving merge conflicts. When opening a file "both modified" you will see something like this:
+`Visual Studio Code <https://code.visualstudio.com/>`_ provides a very useful interface for resolving merge conflicts. When opening a file "both modified" you will see something like this:
 
-.. image:: ../pics/vscode_rebase.png
+.. image:: ../../pics/vscode_rebase.png
 
 **HEAD (current state)** is the ``devel`` branch (!) in green, and blue is from your feature commit. 
 The merge conflict is resolved by clicking either "Accept Current Change" (``devel``) or "Accept Incoming Change" (``<feature>``).
@@ -185,11 +200,62 @@ Continuous integration
 ^^^^^^^^^^^^^^^^^^^^^^
 
 `Continuous integration (CI) <https://gitlab.mpcdf.mpg.de/help/ci/index.md>`_ stands for the automatic building and testing of the code.
-On gitlab this is done through the `.gitlab-ci.yml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L82>`_ 
-file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
+On gitlab this is done through the `.gitlab-ci.yml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml>`_ 
+file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_). 
+A Struphy pipeline consists of the following mandatory stages:
 
-In struphy, testing is done with Python's ``pytest`` package. 
-All Struphy models (classes in the modules ``models/fluid.py``, ``models/kinetic.py``, ``models/hybrid.py`` and ``models/toy.py``)
-are tested automatically for all available options and on different mappings.
+* startup
+* linting
+* build
+* install
+* test
 
-See `here <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/tests/test_binning.py?ref_type=heads>`_ for a template of a unit test.
+The successful completion of these stages is necessary for merging code into ``devel``.
+See the `Struphy pipelines <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/pipelines>`_ for recent tests.
+
+In Struphy, much of the testing is done with Python's `pytest <https://docs.pytest.org/en/stable/>`_ package. 
+See `here <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/tests/test_binning.py?ref_type=heads>`_ 
+for a template of a unit test.
+
+
+.. _conventions:
+
+Formatting standards
+^^^^^^^^^^^^^^^^^^^^
+
+Struphy enforces the following formatting standards:
+
+* `autopep8 <https://github.com/hhatto/autopep8>`_
+* `isort <https://github.com/PyCQA/isort>`_
+
+These standards are checked in the "linting" stage of the CI. When coding locally in a feature branch, 
+you can check the formatting via::
+
+    struphy lint branch
+
+(Note that ``branch`` is meant literally, i.e. not the branch name). This will lead to an output like::
+
+    $ struphy lint branch
+    The following files will be linted with ['isort', 'autopep8']
+    ---------------------------------------------------------------
+    /raven/u/maxlin/git_repos/struphy/src/struphy/console/format.py
+    /raven/u/maxlin/git_repos/struphy/src/struphy/console/main.py
+
+
+    Passes CI if both isort and autopep8 passes
+    ----------------------------------------
+    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
+    |             File               |   Lines |   Funcs |   Classes |   Vars | isort   | autopep8   | Passes CI   |
+    +================================+=========+=========+===========+========+=========+============+=============+
+    | src/struphy/console/format.py  |     774 |      15 |         0 |     88 | PASS    | FAIL       | FAIL        |
+    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
+    | src/struphy/console/main.py    |    1068 |       6 |         2 |     89 | PASS    | PASS       | PASS        |
+    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
+    Not all files will pass CI
+
+In order to format the files that would not pass the CI::
+
+    struphy format branch
+
+You should format before pushing to origin. 
+Available options can be seen under ``struphy format -h`` and ``struphy lint -h``, respectively.

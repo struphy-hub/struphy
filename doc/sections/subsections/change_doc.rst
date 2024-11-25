@@ -10,11 +10,6 @@ Tutorial notebooks in ``doc/tutorials/``.
 
 In order to build the ``.html`` file of the documentation,
 `Pandoc <https://pandoc.org/>`_ needs to be installed on your system (for notebook conversion).
-To convert the tutorial notebooks to ``.html``, you need first to generate the data by running::
-
-    struphy test tutorials
-
-This run will take some time, but has to be executed only once.
 
 Changes to the documentation can be reviewed in the browser (e.g. firefox)::
 
