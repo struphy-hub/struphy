@@ -1118,8 +1118,8 @@ class PressureLessSPH(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
 
-    This is discretized by particles going in straight lines:
-        
+    This is discretized by particles going in straight lines.
+
     '''
 
     @staticmethod

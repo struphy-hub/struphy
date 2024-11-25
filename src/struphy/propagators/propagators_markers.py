@@ -45,12 +45,14 @@ class PushEta(Propagator):
             dct = descend_options_dict(dct, [])
         return dct
 
-    def __init__(self,
-                 particles: Particles6D,
-                 *,
-                 algo: str = options(default=True)['algo'],
-                 bc_type: list = ['reflect', 'periodic', 'periodic'],
-                 density_field : StencilVector | None = None):
+    def __init__(
+        self,
+        particles: Particles6D,
+        *,
+        algo: str = options(default=True)['algo'],
+        density_field : StencilVector | None = None,
+    ):
+
 
         # base class constructor call
         super().__init__(particles)
@@ -66,14 +68,16 @@ class PushEta(Propagator):
             butcher.c,
         )
 
-        self._pusher = Pusher(particles,
-                              kernel,
-                              args_kernel,
-                              self.derham.args_derham,
-                              self.domain.args_domain,
-                              alpha_in_kernel=1.,
-                              n_stages=butcher.n_stages,
-                              mpi_sort='last')
+        self._pusher = Pusher(
+            particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=1.,
+            n_stages=butcher.n_stages,
+            mpi_sort='each',
+        )
+
         
         self._eval_density = False
         if density_field is not None:

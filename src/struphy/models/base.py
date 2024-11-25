@@ -1961,7 +1961,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 Plasma parameters for each species.
         """
 
-        from struphy.kinetic_background import maxwellians, sph_backgrounds
+        from struphy.kinetic_background import maxwellians
+        from struphy.fields_background.fluid_equils import equils as fluid_equils
 
         pparams = {}
 
@@ -2125,9 +2126,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         print(
                             f'\n{fi} is not in tmp_params; default background parameters are used.',
                         )
-
-                    if val['params']['markers']['loading']['moments']=='degenerate':
-                        module = sph_backgrounds
+                    print(val['params'])
+                    if val['params']['markers']['loading_params']['moments']=='degenerate':
+                        module = fluid_equils
                     else :
                         module = maxwellians
                     if tmp is None:
