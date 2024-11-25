@@ -24,10 +24,11 @@ Outdated resources:
 - https://shocksolution.com/microfluidics-and-biotechnology/visualization/python-vtk-paraview/  
 """
 
-class vtkWriter():
+
+class vtkWriter:
     """Usage `from struphy.io.out.paraview.vtk_writer import vtkWriter`"""
 
-    def __init__(self, format: str='vtu'):
+    def __init__(self, format: str = "vtu"):
         """Initialize vtkWriter object.
 
         Parameters
@@ -50,13 +51,13 @@ class vtkWriter():
         # Writes .vtp
         self.vtp_writer = vtk.vtkXMLPolyDataWriter()
 
-        if format == 'vtu':
+        if format == "vtu":
             self.writer = self.vtu_writer
-        elif format == 'vtr':
+        elif format == "vtr":
             self.writer = self.vtr_writer
         # Others not implemented.
         else:
-            raise NotImplementedError('.{} ParaView file format not implemented.'.format(format))
+            raise NotImplementedError(".{} ParaView file format not implemented.".format(format))
 
     def write(self, directory: str, filename: str, ugrid):
         """Write the `vtkUnstructuredGrid` object into a `.vtu` file.
@@ -79,8 +80,8 @@ class vtkWriter():
         writer = self.writer
         writer.SetInputDataObject(ugrid)
 
-        filepath = os.path.join(directory, filename + '.' + writer.GetDefaultFileExtension())
-        os.makedirs(directory, exist_ok=True) # Make sure directory exists.
+        filepath = os.path.join(directory, filename + "." + writer.GetDefaultFileExtension())
+        os.makedirs(directory, exist_ok=True)  # Make sure directory exists.
         writer.SetFileName(filepath)
         success = writer.Write()
 

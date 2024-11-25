@@ -12,22 +12,21 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 
 
-@stack_array('e', 'v')
-def set_particles_symmetric_3d_3v(numbers: 'float[:,:]', markers: 'float[:,:]'):
-
+@stack_array("e", "v")
+def set_particles_symmetric_3d_3v(numbers: "float[:,:]", markers: "float[:,:]"):
     from numpy import shape, zeros
 
     e = zeros(3, dtype=float)
     v = zeros(3, dtype=float)
 
-    np = 64*shape(numbers)[0]
+    np = 64 * shape(numbers)[0]
 
     for i_part in range(np):
         ip = i_part % 64
 
         if ip == 0:
-            e[:] = numbers[int(i_part/64), 0:3]
-            v[:] = numbers[int(i_part/64), 3:6]
+            e[:] = numbers[int(i_part / 64), 0:3]
+            v[:] = numbers[int(i_part / 64), 3:6]
 
         elif ip % 32 == 0:
             v[2] = 1 - v[2]
@@ -51,22 +50,21 @@ def set_particles_symmetric_3d_3v(numbers: 'float[:,:]', markers: 'float[:,:]'):
         markers[i_part, 3:6] = v
 
 
-@stack_array('e', 'v')
-def set_particles_symmetric_2d_3v(numbers: 'float[:,:]', markers: 'float[:,:]'):
-
+@stack_array("e", "v")
+def set_particles_symmetric_2d_3v(numbers: "float[:,:]", markers: "float[:,:]"):
     from numpy import shape, zeros
 
     e = zeros(2, dtype=float)
     v = zeros(3, dtype=float)
 
-    np = 32*shape(numbers)[0]
+    np = 32 * shape(numbers)[0]
 
     for i_part in range(np):
         ip = i_part % 32
 
         if ip == 0:
-            e[:] = numbers[int(i_part/32), 0:2]
-            v[:] = numbers[int(i_part/32), 2:5]
+            e[:] = numbers[int(i_part / 32), 0:2]
+            v[:] = numbers[int(i_part / 32), 2:5]
 
         elif ip % 16 == 0:
             v[2] = 1 - v[2]
@@ -85,4 +83,3 @@ def set_particles_symmetric_2d_3v(numbers: 'float[:,:]', markers: 'float[:,:]'):
 
         markers[i_part, 1:3] = e
         markers[i_part, 3:6] = v
-

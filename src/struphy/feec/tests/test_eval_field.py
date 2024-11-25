@@ -4,11 +4,11 @@ import numpy as np
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 10]])
-@pytest.mark.parametrize('p', [[3, 2, 4]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
+@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("p", [[3, 2, 4]])
+@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
 def test_eval_field(Nel, p, spl_kind):
-    '''Compares distributed array spline evaluation in Field object with legacy code.'''
+    """Compares distributed array spline evaluation in Field object with legacy code."""
 
     from struphy.geometry.base import Domain
     from struphy.feec.psydac_derham import Derham
@@ -24,41 +24,55 @@ def test_eval_field(Nel, p, spl_kind):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # fem field objects
-    p0 = derham.create_field('pressure', 'H1')
-    E1 = derham.create_field('e_field', 'Hcurl')
-    B2 = derham.create_field('b_field', 'Hdiv')
-    n3 = derham.create_field('density', 'L2')
-    uv = derham.create_field('velocity', 'H1vec')
+    p0 = derham.create_field("pressure", "H1")
+    E1 = derham.create_field("e_field", "Hcurl")
+    B2 = derham.create_field("b_field", "Hdiv")
+    n3 = derham.create_field("density", "L2")
+    uv = derham.create_field("velocity", "H1vec")
 
     # initialize fields with sin/cos
-    comps = {'pressure':  '0',
-             'e_field': ['1', '1', '1'],
-             'b_field': ['2', '2', '2'],
-             'density':  '3',
-             'velocity': ['v', 'v', 'v']}
+    comps = {
+        "pressure": "0",
+        "e_field": ["1", "1", "1"],
+        "b_field": ["2", "2", "2"],
+        "density": "3",
+        "velocity": ["v", "v", "v"],
+    }
 
-    init_params = {'type': 'ModesCos',
-                   'ModesCos': {'comps': comps,
-                                'ls': {'pressure': [0],
-                                       'e_field': [[0], [0], [0]],
-                                       'b_field': [[0], [0], [0]],
-                                       'density': [0],
-                                       'velocity': [[0], [0], [0]], },
-                                'ms': {'pressure': [0],
-                                       'e_field': [[0], [0], [0]],
-                                       'b_field': [[0], [0], [0]],
-                                       'density': [0],
-                                       'velocity': [[0], [0], [0]], },
-                                'ns': {'pressure': [1],
-                                       'e_field': [[1], [1], [1]],
-                                       'b_field': [[1], [1], [1]],
-                                       'density': [1],
-                                       'velocity': [[1], [1], [1]], },
-                                'amps': {'pressure': [5.],
-                                         'e_field': [[5.], [5.], [5.]],
-                                         'b_field': [[5.], [5.], [5.]],
-                                         'density': [5.],
-                                         'velocity': [[5.], [5.], [5.]], }}}
+    init_params = {
+        "type": "ModesCos",
+        "ModesCos": {
+            "comps": comps,
+            "ls": {
+                "pressure": [0],
+                "e_field": [[0], [0], [0]],
+                "b_field": [[0], [0], [0]],
+                "density": [0],
+                "velocity": [[0], [0], [0]],
+            },
+            "ms": {
+                "pressure": [0],
+                "e_field": [[0], [0], [0]],
+                "b_field": [[0], [0], [0]],
+                "density": [0],
+                "velocity": [[0], [0], [0]],
+            },
+            "ns": {
+                "pressure": [1],
+                "e_field": [[1], [1], [1]],
+                "b_field": [[1], [1], [1]],
+                "density": [1],
+                "velocity": [[1], [1], [1]],
+            },
+            "amps": {
+                "pressure": [5.0],
+                "e_field": [[5.0], [5.0], [5.0]],
+                "b_field": [[5.0], [5.0], [5.0]],
+                "density": [5.0],
+                "velocity": [[5.0], [5.0], [5.0]],
+            },
+        },
+    }
 
     p0.initialize_coeffs(init_params)
     E1.initialize_coeffs(init_params)
@@ -72,8 +86,7 @@ def test_eval_field(Nel, p, spl_kind):
     eta3 = np.linspace(0, 1, 17)
 
     # arrays for legacy evaluation
-    arr1, arr2, arr3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-        eta1, eta2, eta3)
+    arr1, arr2, arr3, is_sparse_meshgrid = Domain.prepare_eval_pts(eta1, eta2, eta3)
     tmp = np.zeros_like(arr1)
 
     ######
@@ -86,10 +99,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(p0.vector, coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
+    evaluate_matrix(
+        derham.Vh_fem["0"].knots[0],
+        derham.Vh_fem["0"].knots[1],
+        derham.Vh_fem["0"].knots[2],
+        p[0],
+        p[1],
+        p[2],
+        derham.indN[0],
+        derham.indN[1],
+        derham.indN[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        0,
+    )
     val_legacy = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -107,10 +133,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(E1.vector[0], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0] - 1, p[1], p[2],
-                    derham.indD[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 11)
+    evaluate_matrix(
+        derham.Vh_fem["3"].knots[0],
+        derham.Vh_fem["0"].knots[1],
+        derham.Vh_fem["0"].knots[2],
+        p[0] - 1,
+        p[1],
+        p[2],
+        derham.indD[0],
+        derham.indN[1],
+        derham.indN[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        11,
+    )
     val_legacy_1 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -121,10 +160,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(E1.vector[1], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1] - 1, p[2],
-                    derham.indN[0], derham.indD[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 12)
+    evaluate_matrix(
+        derham.Vh_fem["0"].knots[0],
+        derham.Vh_fem["3"].knots[1],
+        derham.Vh_fem["0"].knots[2],
+        p[0],
+        p[1] - 1,
+        p[2],
+        derham.indN[0],
+        derham.indD[1],
+        derham.indN[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        12,
+    )
     val_legacy_2 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -135,10 +187,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(E1.vector[2], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0], p[1], p[2] - 1,
-                    derham.indN[0], derham.indN[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 13)
+    evaluate_matrix(
+        derham.Vh_fem["0"].knots[0],
+        derham.Vh_fem["0"].knots[1],
+        derham.Vh_fem["3"].knots[2],
+        p[0],
+        p[1],
+        p[2] - 1,
+        derham.indN[0],
+        derham.indN[1],
+        derham.indD[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        13,
+    )
     val_legacy_3 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -158,10 +223,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(B2.vector[0], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0], p[1] - 1, p[2] - 1,
-                    derham.indN[0], derham.indD[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 21)
+    evaluate_matrix(
+        derham.Vh_fem["0"].knots[0],
+        derham.Vh_fem["3"].knots[1],
+        derham.Vh_fem["3"].knots[2],
+        p[0],
+        p[1] - 1,
+        p[2] - 1,
+        derham.indN[0],
+        derham.indD[1],
+        derham.indD[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        21,
+    )
     val_legacy_1 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -172,10 +250,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(B2.vector[1], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0] - 1, p[1], p[2] - 1,
-                    derham.indD[0], derham.indN[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 22)
+    evaluate_matrix(
+        derham.Vh_fem["3"].knots[0],
+        derham.Vh_fem["0"].knots[1],
+        derham.Vh_fem["3"].knots[2],
+        p[0] - 1,
+        p[1],
+        p[2] - 1,
+        derham.indD[0],
+        derham.indN[1],
+        derham.indD[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        22,
+    )
     val_legacy_2 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -186,10 +277,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(B2.vector[2], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0] - 1, p[1] - 1, p[2],
-                    derham.indD[0], derham.indD[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 23)
+    evaluate_matrix(
+        derham.Vh_fem["3"].knots[0],
+        derham.Vh_fem["3"].knots[1],
+        derham.Vh_fem["0"].knots[2],
+        p[0] - 1,
+        p[1] - 1,
+        p[2],
+        derham.indD[0],
+        derham.indD[1],
+        derham.indN[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        23,
+    )
     val_legacy_3 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -209,10 +313,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(n3.vector, coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['3'].knots[0], derham.Vh_fem['3'].knots[1], derham.Vh_fem['3'].knots[2],
-                    p[0] - 1, p[1] - 1, p[2] - 1,
-                    derham.indD[0], derham.indD[1], derham.indD[2],
-                    coeffs, arr1, arr2, arr3, tmp, 3)
+    evaluate_matrix(
+        derham.Vh_fem["3"].knots[0],
+        derham.Vh_fem["3"].knots[1],
+        derham.Vh_fem["3"].knots[2],
+        p[0] - 1,
+        p[1] - 1,
+        p[2] - 1,
+        derham.indD[0],
+        derham.indD[1],
+        derham.indD[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        3,
+    )
     val_legacy = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -230,10 +347,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(uv.vector[0], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
+    evaluate_matrix(
+        derham.Vh_fem["0"].knots[0],
+        derham.Vh_fem["0"].knots[1],
+        derham.Vh_fem["0"].knots[2],
+        p[0],
+        p[1],
+        p[2],
+        derham.indN[0],
+        derham.indN[1],
+        derham.indN[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        0,
+    )
     val_legacy_1 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -244,10 +374,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(uv.vector[1], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
+    evaluate_matrix(
+        derham.Vh_fem["0"].knots[0],
+        derham.Vh_fem["0"].knots[1],
+        derham.Vh_fem["0"].knots[2],
+        p[0],
+        p[1],
+        p[2],
+        derham.indN[0],
+        derham.indN[1],
+        derham.indN[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        0,
+    )
     val_legacy_2 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -258,10 +401,23 @@ def test_eval_field(Nel, p, spl_kind):
     compare_arrays(uv.vector[2], coeffs, rank)
 
     # legacy evaluation
-    evaluate_matrix(derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
-                    p[0], p[1], p[2],
-                    derham.indN[0], derham.indN[1], derham.indN[2],
-                    coeffs, arr1, arr2, arr3, tmp, 0)
+    evaluate_matrix(
+        derham.Vh_fem["0"].knots[0],
+        derham.Vh_fem["0"].knots[1],
+        derham.Vh_fem["0"].knots[2],
+        p[0],
+        p[1],
+        p[2],
+        derham.indN[0],
+        derham.indN[1],
+        derham.indN[2],
+        coeffs,
+        arr1,
+        arr2,
+        arr3,
+        tmp,
+        0,
+    )
     val_legacy_3 = np.squeeze(tmp.copy())
     tmp[:] = 0
 
@@ -272,5 +428,5 @@ def test_eval_field(Nel, p, spl_kind):
     assert np.allclose(val3, val_legacy_3)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_eval_field([8, 9, 10], [3, 2, 4], [False, False, True])

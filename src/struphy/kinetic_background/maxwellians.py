@@ -1,5 +1,4 @@
-'Maxwellian (Gaussian) distributions in velocity space.'
-
+"Maxwellian (Gaussian) distributions in velocity space."
 
 import numpy as np
 
@@ -11,7 +10,7 @@ from struphy.kinetic_background.base import CanonicalMaxwellian, KineticBackgrou
 
 
 class Maxwellian3D(Maxwellian):
-    r""" A :class:`~struphy.kinetic_background.base.Maxwellian` depending on three (:math:`n=3`) Cartesian velocities.
+    r"""A :class:`~struphy.kinetic_background.base.Maxwellian` depending on three (:math:`n=3`) Cartesian velocities.
 
     Parameters
     ----------
@@ -30,63 +29,64 @@ class Maxwellian3D(Maxwellian):
 
     @classmethod
     def default_maxw_params(cls):
-        """ Default parameters dictionary defining constant moments of the Maxwellian.
-        """
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
         return {
-            'n': 1.,
-            'u1': 0.,
-            'u2': 0.,
-            'u3': 0.,
-            'vth1': 1.,
-            'vth2': 1.,
-            'vth3': 1.,
+            "n": 1.0,
+            "u1": 0.0,
+            "u2": 0.0,
+            "u3": 0.0,
+            "vth1": 1.0,
+            "vth2": 1.0,
+            "vth3": 1.0,
         }
 
     def __init__(
         self,
         maxw_params: dict = {
-            'n': 1.,
-            'u1': 0.,
-            'u2': 0.,
-            'u3': 0.,
-            'vth1': 1.,
-            'vth2': 1.,
-            'vth3': 1.,
+            "n": 1.0,
+            "u1": 0.0,
+            "u2": 0.0,
+            "u3": 0.0,
+            "vth1": 1.0,
+            "vth2": 1.0,
+            "vth3": 1.0,
         },
         pert_params: dict = None,
         mhd_equil: MHDequilibrium = None,
         braginskii_equil: BraginskiiEquilibrium = None,
     ):
-
         # Set background parameters
         self._maxw_params = self.default_maxw_params()
 
         if maxw_params is not None:
             assert isinstance(maxw_params, dict)
             self._maxw_params = set_defaults(
-                maxw_params, self.default_maxw_params(),
+                maxw_params,
+                self.default_maxw_params(),
             )
 
         # check if mhd or braginskii is needed
         for key, val in self.maxw_params.items():
-            if val == 'mhd':
+            if val == "mhd":
                 assert isinstance(
-                    mhd_equil, MHDequilibrium,
-                ), f'MHD equilibrium must be passed to compute {key}.'
+                    mhd_equil,
+                    MHDequilibrium,
+                ), f"MHD equilibrium must be passed to compute {key}."
 
-            if val == 'braginskii':
+            if val == "braginskii":
                 assert isinstance(
-                    braginskii_equil, BraginskiiEquilibrium,
-                ), f'Braginskii equilibrium must be passed to compute {key}.'
+                    braginskii_equil,
+                    BraginskiiEquilibrium,
+                ), f"Braginskii equilibrium must be passed to compute {key}."
 
         # Set parameters for perturbation
         self._pert_params = pert_params
 
         if self.pert_params is not None:
             assert isinstance(pert_params, dict)
-            assert 'type' in self.pert_params, '"type" is mandatory in perturbation dictionary.'
-            ptype = self.pert_params['type']
-            assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
+            assert "type" in self.pert_params, '"type" is mandatory in perturbation dictionary.'
+            ptype = self.pert_params["type"]
+            assert ptype in self.pert_params, f"{ptype} is mandatory in perturbation dictionary."
             self._pert_type = ptype
 
         # MHD and Braginskii equilibrium
@@ -95,57 +95,52 @@ class Maxwellian3D(Maxwellian):
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {
-            'n': 1.,
-            'u': [1., 1., 1.],
-            'vth': [1., 1., 1.],
+            "n": 1.0,
+            "u": [1.0, 1.0, 1.0],
+            "vth": [1.0, 1.0, 1.0],
         }
 
     @property
     def coords(self):
-        """ Coordinates of the Maxwellian6D, :math:`(v_1, v_2, v_3)`.
-        """
-        return 'cartesian'
+        """Coordinates of the Maxwellian6D, :math:`(v_1, v_2, v_3)`."""
+        return "cartesian"
 
     @property
     def maxw_params(self):
-        """ Parameters dictionary defining constant moments of the Maxwellian.
-        """
+        """Parameters dictionary defining constant moments of the Maxwellian."""
         return self._maxw_params
 
     @property
     def pert_params(self):
-        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian3D.maxw_params`.
-        """
+        """Parameters dictionary defining the perturbations of the :meth:`~Maxwellian3D.maxw_params`."""
         return self._pert_params
 
     @property
     def mhd_equil(self):
-        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        """One of :mod:`~struphy.fields_background.mhd_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._mhd_equil
 
     @property
     def braginskii_equil(self):
-        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        """One of :mod:`~struphy.fields_background.braginskii_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._braginskii_equil
 
     @property
     def vdim(self):
-        """Dimension of the velocity space.
-        """
+        """Dimension of the velocity space."""
         return 3
 
     @property
     def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp).
-        """
+        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
         return [False, False, False]
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation from Maxwellian6D('cartesian') to Particles6D('cartesian').
+        """Jacobian determinant of the velocity coordinate transformation from Maxwellian6D('cartesian') to Particles6D('cartesian').
 
         Input parameters should be slice of 2d numpy marker array. (i.e. *self.phasespace_coords.T)
 
@@ -169,29 +164,27 @@ class Maxwellian3D(Maxwellian):
         assert eta3.ndim == 1
         assert len(v) == 3
 
-        return 1. + 0*eta1
+        return 1.0 + 0 * eta1
 
     @property
     def volume_form(self):
-        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
-        """
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         return False
 
     @property
     def moment_factors(self):
-        """Collection of factors multiplied onto the defined moments n, u, and vth.
-        """
+        """Collection of factors multiplied onto the defined moments n, u, and vth."""
         return self._moment_factors
 
     @moment_factors.setter
     def moment_factors(self, **kwargs):
         for kw, arg in kwargs:
-            if kw in {'u', 'vth'}:
+            if kw in {"u", "vth"}:
                 assert len(arg) == 3
             self._moment_factors[kw] = arg
 
     def n(self, eta1, eta2, eta3):
-        """ Density as background + perturbation.
+        """Density as background + perturbation.
 
         Parameters
         ----------
@@ -213,7 +206,8 @@ class Maxwellian3D(Maxwellian):
         if eta1.ndim == 1:
             etas = [
                 np.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1,
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
@@ -227,19 +221,19 @@ class Maxwellian3D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background density
-        if self.maxw_params['n'] == 'mhd':
+        if self.maxw_params["n"] == "mhd":
             res = self.mhd_equil.n0(*etas)
 
-            assert np.all(res > 0.), 'Number density must be positive!'
+            assert np.all(res > 0.0), "Number density must be positive!"
 
-        elif self.maxw_params['n'] == 'braginskii':
+        elif self.maxw_params["n"] == "braginskii":
             res = self.braginskii_equil.n0(*etas)
 
-            assert np.all(res > 0.), 'Number density must be positive!'
+            assert np.all(res > 0.0), "Number density must be positive!"
 
-        elif isinstance(self.maxw_params['n'], dict):
-            type = self.maxw_params['n']['type']
-            params = self.maxw_params['n'][type]
+        elif isinstance(self.maxw_params["n"], dict):
+            type = self.maxw_params["n"]["type"]
+            params = self.maxw_params["n"][type]
             nfun = getattr(perturbations, type)(**params)
 
             if eta1.ndim == 1:
@@ -249,19 +243,19 @@ class Maxwellian3D(Maxwellian):
 
         else:
             if eta1.ndim == 1:
-                res = self.maxw_params['n'] + 0.*eta1
+                res = self.maxw_params["n"] + 0.0 * eta1
             else:
-                res = self.maxw_params['n'] + 0.*etas[0]
+                res = self.maxw_params["n"] + 0.0 * etas[0]
 
         # Add perturbation if parameters are given and if density is to be perturbed
-        if self.pert_params is not None and 'n' in self.pert_params[self._pert_type]['comps']:
+        if self.pert_params is not None and "n" in self.pert_params[self._pert_type]["comps"]:
             n_pert_params = {}
             for key, item in self.pert_params[self._pert_type].items():
                 # Skip the comps entry
-                if key == 'comps':
-                    assert item['n'] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                if key == "comps":
+                    assert item["n"] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                     continue
-                n_pert_params[key] = item['n']
+                n_pert_params[key] = item["n"]
 
             perturbation = getattr(perturbations, self._pert_type)(
                 **n_pert_params,
@@ -272,10 +266,10 @@ class Maxwellian3D(Maxwellian):
             else:
                 res += perturbation(*etas)
 
-        return res * self.moment_factors['n']
+        return res * self.moment_factors["n"]
 
     def u(self, eta1, eta2, eta3):
-        """ Mean velocities as background + perturbation.
+        """Mean velocities as background + perturbation.
 
         Parameters
         ----------
@@ -297,7 +291,8 @@ class Maxwellian3D(Maxwellian):
         if eta1.ndim == 1:
             etas = [
                 np.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1,
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
@@ -311,71 +306,65 @@ class Maxwellian3D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background velocity
-        if (
-            self.maxw_params['u1'] == 'mhd' or
-            self.maxw_params['u2'] == 'mhd' or
-                self.maxw_params['u3'] == 'mhd'
-        ):
-
+        if self.maxw_params["u1"] == "mhd" or self.maxw_params["u2"] == "mhd" or self.maxw_params["u3"] == "mhd":
             tmp = self.mhd_equil.j_cart(*etas)[0] / self.mhd_equil.n0(*etas)
 
         if (
-            self.maxw_params['u1'] == 'braginskii' or
-            self.maxw_params['u2'] == 'braginskii' or
-                self.maxw_params['u3'] == 'braginskii'
+            self.maxw_params["u1"] == "braginskii"
+            or self.maxw_params["u2"] == "braginskii"
+            or self.maxw_params["u3"] == "braginskii"
         ):
-
             tmp2 = self.braginskii_equil.u_cart(*etas)
 
         res = [None, None, None]
 
-        if self.maxw_params['u1'] == 'mhd':
+        if self.maxw_params["u1"] == "mhd":
             res[0] = tmp[0]
 
-        elif self.maxw_params['u1'] == 'braginskii':
+        elif self.maxw_params["u1"] == "braginskii":
             res[0] = tmp2[0]
 
         else:
             if eta1.ndim == 1:
-                res[0] = self.maxw_params['u1'] + 0.*eta1
+                res[0] = self.maxw_params["u1"] + 0.0 * eta1
             else:
-                res[0] = self.maxw_params['u1'] + 0.*etas[0]
+                res[0] = self.maxw_params["u1"] + 0.0 * etas[0]
 
-        if self.maxw_params['u2'] == 'mhd':
+        if self.maxw_params["u2"] == "mhd":
             res[1] = tmp[1]
 
-        elif self.maxw_params['u2'] == 'braginskii':
+        elif self.maxw_params["u2"] == "braginskii":
             res[1] = tmp2[1]
 
         else:
             if eta1.ndim == 1:
-                res[1] = self.maxw_params['u2'] + 0.*eta1
+                res[1] = self.maxw_params["u2"] + 0.0 * eta1
             else:
-                res[1] = self.maxw_params['u2'] + 0.*etas[0]
+                res[1] = self.maxw_params["u2"] + 0.0 * etas[0]
 
-        if self.maxw_params['u3'] == 'mhd':
+        if self.maxw_params["u3"] == "mhd":
             res[2] = tmp[2]
 
-        elif self.maxw_params['u3'] == 'braginskii':
+        elif self.maxw_params["u3"] == "braginskii":
             res[2] = tmp2[2]
 
         else:
             if eta1.ndim == 1:
-                res[2] = self.maxw_params['u3'] + 0.*eta1
+                res[2] = self.maxw_params["u3"] + 0.0 * eta1
             else:
-                res[2] = self.maxw_params['u3'] + 0.*etas[0]
+                res[2] = self.maxw_params["u3"] + 0.0 * etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
-            comps = ['u1', 'u2', 'u3']
+            comps = ["u1", "u2", "u3"]
             for i, comp in enumerate(comps):
-                if comp in self.pert_params[self._pert_type]['comps']:
+                if comp in self.pert_params[self._pert_type]["comps"]:
                     # Add perturbation if it is in comps list
                     u_pert_params = {}
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
-                        if key == 'comps':
-                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                        if key == "comps":
+                            assert item[comp] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                             continue
                         u_pert_params[key] = item[comp]
 
@@ -388,10 +377,10 @@ class Maxwellian3D(Maxwellian):
                     else:
                         res[i] += perturbation(*etas)
 
-        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['u'])]
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors["u"])]
 
     def vth(self, eta1, eta2, eta3):
-        """ Thermal velocities as background + perturbation.
+        """Thermal velocities as background + perturbation.
 
         Parameters
         ----------
@@ -413,7 +402,8 @@ class Maxwellian3D(Maxwellian):
         if eta1.ndim == 1:
             etas = [
                 np.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1,
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
@@ -427,76 +417,69 @@ class Maxwellian3D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background thermal velocity
-        if (
-            self.maxw_params['vth1'] == 'mhd' or
-            self.maxw_params['vth2'] == 'mhd' or
-                self.maxw_params['vth3'] == 'mhd'
-        ):
-
+        if self.maxw_params["vth1"] == "mhd" or self.maxw_params["vth2"] == "mhd" or self.maxw_params["vth3"] == "mhd":
             tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
-            assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
+            assert np.all(tmp > 0.0), "Thermal velocity must be positive!"
 
         if (
-            self.maxw_params['vth1'] == 'brginskii' or
-            self.maxw_params['vth2'] == 'braginskii' or
-                self.maxw_params['vth3'] == 'braginskii'
+            self.maxw_params["vth1"] == "brginskii"
+            or self.maxw_params["vth2"] == "braginskii"
+            or self.maxw_params["vth3"] == "braginskii"
         ):
-
             tmp2 = np.sqrt(
-                self.braginskii_equil.p0(*etas) /
-                self.braginskii_equil.n0(*etas),
+                self.braginskii_equil.p0(*etas) / self.braginskii_equil.n0(*etas),
             )
-            assert np.all(tmp2 > 0.), 'Thermal velocity must be positive!'
+            assert np.all(tmp2 > 0.0), "Thermal velocity must be positive!"
 
         res = [None, None, None]
 
-        if self.maxw_params['vth1'] == 'mhd':
+        if self.maxw_params["vth1"] == "mhd":
             res[0] = tmp
 
-        elif self.maxw_params['vth1'] == 'braginskii':
+        elif self.maxw_params["vth1"] == "braginskii":
             res[0] = tmp2
 
         else:
             if eta1.ndim == 1:
-                res[0] = self.maxw_params['vth1'] + 0.*eta1
+                res[0] = self.maxw_params["vth1"] + 0.0 * eta1
             else:
-                res[0] = self.maxw_params['vth1'] + 0.*etas[0]
+                res[0] = self.maxw_params["vth1"] + 0.0 * etas[0]
 
-        if self.maxw_params['vth2'] == 'mhd':
+        if self.maxw_params["vth2"] == "mhd":
             res[1] = tmp
 
-        elif self.maxw_params['vth2'] == 'braginskii':
+        elif self.maxw_params["vth2"] == "braginskii":
             res[1] = tmp2
 
         else:
             if eta1.ndim == 1:
-                res[1] = self.maxw_params['vth2'] + 0.*eta1
+                res[1] = self.maxw_params["vth2"] + 0.0 * eta1
             else:
-                res[1] = self.maxw_params['vth2'] + 0.*etas[0]
+                res[1] = self.maxw_params["vth2"] + 0.0 * etas[0]
 
-        if self.maxw_params['vth3'] == 'mhd':
+        if self.maxw_params["vth3"] == "mhd":
             res[2] = tmp
 
-        elif self.maxw_params['vth3'] == 'braginskii':
+        elif self.maxw_params["vth3"] == "braginskii":
             res[2] = tmp2
 
         else:
             if eta1.ndim == 1:
-                res[2] = self.maxw_params['vth3'] + 0.*eta1
+                res[2] = self.maxw_params["vth3"] + 0.0 * eta1
             else:
-                res[2] = self.maxw_params['vth3'] + 0.*etas[0]
+                res[2] = self.maxw_params["vth3"] + 0.0 * etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
-            comps = ['vth1', 'vth2', 'vth3']
+            comps = ["vth1", "vth2", "vth3"]
             for i, comp in enumerate(comps):
-                if comp in self.pert_params[self._pert_type]['comps']:
+                if comp in self.pert_params[self._pert_type]["comps"]:
                     # Add perturbation if it is in comps list
                     vth_pert_params = {}
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
-                        if key == 'comps':
-                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                        if key == "comps":
+                            assert item[comp] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                             continue
                         vth_pert_params[key] = item[comp]
 
@@ -509,18 +492,18 @@ class Maxwellian3D(Maxwellian):
                     else:
                         res[i] += perturbation(*etas)
 
-        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['vth'])]
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors["vth"])]
 
 
 class GyroMaxwellian2D(Maxwellian):
-    r""" A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
-    two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`, 
+    r"""A gyrotropic :class:`~struphy.kinetic_background.base.Maxwellian` depending on
+    two velocities :math:`(v_\parallel, v_\perp)`, :math:`n=2`,
     where :math:`v_\parallel = \matbf v \cdot \mathbf b_0` and :math:`v_\perp`
     is the radial component of a polar coordinate system perpendicular
     to the magentic direction :math:`\mathbf b_0`.
 
     Parameters
-    ----------    
+    ----------
     maxw_params : dict
         Parameters for the kinetic background.
 
@@ -528,7 +511,7 @@ class GyroMaxwellian2D(Maxwellian):
         Parameters for the kinetic perturbation added to the background.
 
     volume_form : bool
-        Whether to represent the Maxwellian as a volume form; 
+        Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
 
@@ -541,60 +524,61 @@ class GyroMaxwellian2D(Maxwellian):
 
     @classmethod
     def default_maxw_params(cls):
-        """ Default parameters dictionary defining constant moments of the Maxwellian.
-        """
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
         return {
-            'n': 1.,
-            'u_para': 0.,
-            'u_perp': 0.,
-            'vth_para': 1.,
-            'vth_perp': 1.,
+            "n": 1.0,
+            "u_para": 0.0,
+            "u_perp": 0.0,
+            "vth_para": 1.0,
+            "vth_perp": 1.0,
         }
 
     def __init__(
         self,
         maxw_params: dict = {
-            'n': 1.,
-            'u_para': 0.,
-            'u_perp': 0.,
-            'vth_para': 1.,
-            'vth_perp': 1.,
+            "n": 1.0,
+            "u_para": 0.0,
+            "u_perp": 0.0,
+            "vth_para": 1.0,
+            "vth_perp": 1.0,
         },
         pert_params: dict = None,
         volume_form: bool = True,
         mhd_equil: MHDequilibrium = None,
         braginskii_equil: BraginskiiEquilibrium = None,
     ):
-
         # Set background parameters
         self._maxw_params = self.default_maxw_params()
 
         if maxw_params is not None:
             assert isinstance(maxw_params, dict)
             self._maxw_params = set_defaults(
-                maxw_params, self.default_maxw_params(),
+                maxw_params,
+                self.default_maxw_params(),
             )
 
         # check if mhd is needed
         for key, val in self.maxw_params.items():
-            if val == 'mhd':
+            if val == "mhd":
                 assert isinstance(
-                    mhd_equil, MHDequilibrium,
-                ), f'MHD equilibrium must be passed to compute {key}.'
+                    mhd_equil,
+                    MHDequilibrium,
+                ), f"MHD equilibrium must be passed to compute {key}."
 
-            if val == 'braginskii':
+            if val == "braginskii":
                 assert isinstance(
-                    braginskii_equil, BraginskiiEquilibrium,
-                ), f'Braginskii equilibrium must be passed to compute {key}.'
+                    braginskii_equil,
+                    BraginskiiEquilibrium,
+                ), f"Braginskii equilibrium must be passed to compute {key}."
 
         # Set parameters for perturbation
         self._pert_params = pert_params
 
         if self.pert_params is not None:
             assert isinstance(pert_params, dict)
-            assert 'type' in self.pert_params, '"type" is mandatory in perturbation dictionary.'
-            ptype = self.pert_params['type']
-            assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
+            assert "type" in self.pert_params, '"type" is mandatory in perturbation dictionary.'
+            ptype = self.pert_params["type"]
+            assert ptype in self.pert_params, f"{ptype} is mandatory in perturbation dictionary."
             self._pert_type = ptype
 
         # volume form represenation
@@ -606,53 +590,48 @@ class GyroMaxwellian2D(Maxwellian):
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {
-            'n': 1.,
-            'u': [1., 1.],
-            'vth': [1., 1.],
+            "n": 1.0,
+            "u": [1.0, 1.0],
+            "vth": [1.0, 1.0],
         }
 
     @property
     def coords(self):
-        """ Coordinates of the Maxwellian5D, :math:`(v_\parallel, v_\perp)`.
-        """
-        return 'vpara_vperp'
+        """Coordinates of the Maxwellian5D, :math:`(v_\parallel, v_\perp)`."""
+        return "vpara_vperp"
 
     @property
     def maxw_params(self):
-        """ Parameters dictionary defining constant moments of the Maxwellian.
-        """
+        """Parameters dictionary defining constant moments of the Maxwellian."""
         return self._maxw_params
 
     @property
     def pert_params(self):
-        """ Parameters dictionary defining the perturbations of the :meth:`~GyroMaxwellian2D.maxw_params`.
-        """
+        """Parameters dictionary defining the perturbations of the :meth:`~GyroMaxwellian2D.maxw_params`."""
         return self._pert_params
 
     @property
     def mhd_equil(self):
-        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        """One of :mod:`~struphy.fields_background.mhd_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._mhd_equil
 
     @property
     def braginskii_equil(self):
-        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        """One of :mod:`~struphy.fields_background.braginskii_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._braginskii_equil
 
     @property
     def vdim(self):
-        """Dimension of the velocity space.
-        """
+        """Dimension of the velocity space."""
         return 2
 
     @property
     def is_polar(self):
-        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp).
-        """
+        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
         return [False, True]
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
@@ -700,31 +679,29 @@ class GyroMaxwellian2D(Maxwellian):
         absB0 = self.mhd_equil.absB0(etas)
 
         # J = v_perp/B
-        jacobian_det = v[1]/absB0
+        jacobian_det = v[1] / absB0
 
         return jacobian_det
 
     @property
     def volume_form(self):
-        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|).
-        """
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
         return self._volume_form
 
     @property
     def moment_factors(self):
-        """Collection of factors multiplied onto the defined moments n, u, and vth.
-        """
+        """Collection of factors multiplied onto the defined moments n, u, and vth."""
         return self._moment_factors
 
     @moment_factors.setter
     def moment_factors(self, **kwargs):
         for kw, arg in kwargs:
-            if kw in {'u', 'vth'}:
+            if kw in {"u", "vth"}:
                 assert len(arg) == 2
             self._moment_factors[kw] = arg
 
     def n(self, eta1, eta2, eta3):
-        """ Density as background + perturbation.
+        """Density as background + perturbation.
 
         Parameters
         ----------
@@ -746,7 +723,8 @@ class GyroMaxwellian2D(Maxwellian):
         if eta1.ndim == 1:
             etas = [
                 np.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1,
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
@@ -760,19 +738,19 @@ class GyroMaxwellian2D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background density
-        if self.maxw_params['n'] == 'mhd':
+        if self.maxw_params["n"] == "mhd":
             res = self.mhd_equil.n0(*etas)
 
-            assert np.all(res > 0.), 'Number density must be positive!'
+            assert np.all(res > 0.0), "Number density must be positive!"
 
-        elif self.maxw_params['n'] == 'braginskii':
+        elif self.maxw_params["n"] == "braginskii":
             res = self.braginskii_equil.n0(*etas)
 
-            assert np.all(res > 0.), 'Number density must be positive!'
+            assert np.all(res > 0.0), "Number density must be positive!"
 
-        elif isinstance(self.maxw_params['n'], dict):
-            type = self.maxw_params['n']['type']
-            params = self.maxw_params['n'][type]
+        elif isinstance(self.maxw_params["n"], dict):
+            type = self.maxw_params["n"]["type"]
+            params = self.maxw_params["n"][type]
             nfun = getattr(perturbations, type)(**params)
 
             if eta1.ndim == 1:
@@ -782,21 +760,21 @@ class GyroMaxwellian2D(Maxwellian):
 
         else:
             if eta1.ndim == 1:
-                res = self.maxw_params['n'] + 0.*eta1
+                res = self.maxw_params["n"] + 0.0 * eta1
 
             else:
-                res = self.maxw_params['n'] + 0.*etas[0]
+                res = self.maxw_params["n"] + 0.0 * etas[0]
 
         # Add perturbation if parameters are given and if density is to be perturbed
         if self.pert_params is not None:
-            if 'n' in self.pert_params[self._pert_type]['comps']:
+            if "n" in self.pert_params[self._pert_type]["comps"]:
                 n_pert_params = {}
                 for key, item in self.pert_params[self._pert_type].items():
                     # Skip the comps entry
-                    if key == 'comps':
-                        assert item['n'] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                    if key == "comps":
+                        assert item["n"] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                         continue
-                    n_pert_params[key] = item['n']
+                    n_pert_params[key] = item["n"]
 
                 perturbation = getattr(perturbations, self._pert_type)(
                     **n_pert_params,
@@ -807,10 +785,10 @@ class GyroMaxwellian2D(Maxwellian):
                 else:
                     res += perturbation(*etas)
 
-        return res * self.moment_factors['n']
+        return res * self.moment_factors["n"]
 
     def u(self, eta1, eta2, eta3):
-        """ Mean velocities as background + perturbation.
+        """Mean velocities as background + perturbation.
 
         Parameters
         ----------
@@ -832,7 +810,8 @@ class GyroMaxwellian2D(Maxwellian):
         if eta1.ndim == 1:
             etas = [
                 np.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1,
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
@@ -846,21 +825,13 @@ class GyroMaxwellian2D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background velocity
-        if (
-            self.maxw_params['u_para'] == 'mhd' or
-            self.maxw_params['u_perp'] == 'mhd'
-        ):
-
+        if self.maxw_params["u_para"] == "mhd" or self.maxw_params["u_perp"] == "mhd":
             tmp_jv = self.mhd_equil.jv(*etas) / self.mhd_equil.n0(*etas)
             tmp_unit_b1 = self.mhd_equil.unit_b1(*etas)
             # j_parallel = jv.b1
             j_para = sum([ji * bi for ji, bi in zip(tmp_jv, tmp_unit_b1)])
 
-        if (
-            self.maxw_params['u_para'] == 'braginskii' or
-            self.maxw_params['u_perp'] == 'braginskii'
-        ):
-
+        if self.maxw_params["u_para"] == "braginskii" or self.maxw_params["u_perp"] == "braginskii":
             tmp_uv = self.braginskii_equil.uv(
                 *etas,
             ) / self.braginskii_equil.n0(*etas)
@@ -870,41 +841,41 @@ class GyroMaxwellian2D(Maxwellian):
 
         res = [None, None]
 
-        if self.maxw_params['u_para'] == 'mhd':
+        if self.maxw_params["u_para"] == "mhd":
             res[0] = j_para
-        elif self.maxw_params['u_para'] == 'braginskii':
+        elif self.maxw_params["u_para"] == "braginskii":
             res[0] = u_para
         else:
             if eta1.ndim == 1:
-                res[0] = self.maxw_params['u_para'] + 0.*eta1
+                res[0] = self.maxw_params["u_para"] + 0.0 * eta1
             else:
-                res[0] = self.maxw_params['u_para'] + 0.*etas[0]
+                res[0] = self.maxw_params["u_para"] + 0.0 * etas[0]
 
-        if self.maxw_params['u_perp'] == 'mhd':
+        if self.maxw_params["u_perp"] == "mhd":
             raise NotImplementedError(
-                'A shift in v_perp is not yet implemented.',
+                "A shift in v_perp is not yet implemented.",
             )
-        elif self.maxw_params['u_perp'] == 'braginskii':
+        elif self.maxw_params["u_perp"] == "braginskii":
             raise NotImplementedError(
-                'A shift in v_perp is not yet implemented.',
+                "A shift in v_perp is not yet implemented.",
             )
         else:
             if eta1.ndim == 1:
-                res[1] = self.maxw_params['u_perp'] + 0.*eta1
+                res[1] = self.maxw_params["u_perp"] + 0.0 * eta1
             else:
-                res[1] = self.maxw_params['u_perp'] + 0.*etas[0]
+                res[1] = self.maxw_params["u_perp"] + 0.0 * etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
-            comps = ['u_para', 'u_perp']
+            comps = ["u_para", "u_perp"]
             for i, comp in enumerate(comps):
-                if comp in self.pert_params[self._pert_type]['comps']:
+                if comp in self.pert_params[self._pert_type]["comps"]:
                     # Add perturbation if it is in comps list
                     u_pert_params = {}
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
-                        if key == 'comps':
-                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                        if key == "comps":
+                            assert item[comp] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                             continue
                         u_pert_params[key] = item[comp]
 
@@ -917,10 +888,10 @@ class GyroMaxwellian2D(Maxwellian):
                     else:
                         res[i] += perturbation(*etas)
 
-        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['u'])]
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors["u"])]
 
     def vth(self, eta1, eta2, eta3):
-        """ Thermal velocities as background + perturbation.
+        """Thermal velocities as background + perturbation.
 
         Parameters
         ----------
@@ -942,7 +913,8 @@ class GyroMaxwellian2D(Maxwellian):
         if eta1.ndim == 1:
             etas = [
                 np.concatenate(
-                    (eta1[:, None], eta2[:, None], eta3[:, None]), axis=1,
+                    (eta1[:, None], eta2[:, None], eta3[:, None]),
+                    axis=1,
                 ),
             ]
         # assuming that input comes from meshgrid.
@@ -956,58 +928,49 @@ class GyroMaxwellian2D(Maxwellian):
             etas = (eta1, eta2, eta3)
 
         # set background thermal velocity
-        if (
-            self.maxw_params['vth_para'] == 'mhd' or
-            self.maxw_params['vth_perp'] == 'mhd'
-        ):
-
+        if self.maxw_params["vth_para"] == "mhd" or self.maxw_params["vth_perp"] == "mhd":
             tmp = np.sqrt(self.mhd_equil.p0(*etas) / self.mhd_equil.n0(*etas))
-            assert np.all(tmp > 0.), 'Thermal velocity must be positive!'
+            assert np.all(tmp > 0.0), "Thermal velocity must be positive!"
 
-        if (
-            self.maxw_params['vth_para'] == 'braginskii' or
-            self.maxw_params['vth_perp'] == 'braginskii'
-        ):
-
+        if self.maxw_params["vth_para"] == "braginskii" or self.maxw_params["vth_perp"] == "braginskii":
             tmp2 = np.sqrt(
-                self.braginskii_equil.p0(*etas) /
-                self.braginskii_equil.n0(*etas),
+                self.braginskii_equil.p0(*etas) / self.braginskii_equil.n0(*etas),
             )
-            assert np.all(tmp2 > 0.), 'Thermal velocity must be positive!'
+            assert np.all(tmp2 > 0.0), "Thermal velocity must be positive!"
 
         res = [None, None]
 
-        if self.maxw_params['vth_para'] == 'mhd':
+        if self.maxw_params["vth_para"] == "mhd":
             res[0] = tmp
-        elif self.maxw_params['vth_para'] == 'braginskii':
+        elif self.maxw_params["vth_para"] == "braginskii":
             res[0] = tmp2
         else:
             if eta1.ndim == 1:
-                res[0] = self.maxw_params['vth_para'] + 0.*eta1
+                res[0] = self.maxw_params["vth_para"] + 0.0 * eta1
             else:
-                res[0] = self.maxw_params['vth_para'] + 0.*etas[0]
+                res[0] = self.maxw_params["vth_para"] + 0.0 * etas[0]
 
-        if self.maxw_params['vth_perp'] == 'mhd':
+        if self.maxw_params["vth_perp"] == "mhd":
             res[1] = tmp
-        elif self.maxw_params['vth_perp'] == 'braginskii':
+        elif self.maxw_params["vth_perp"] == "braginskii":
             res[1] = tmp2
         else:
             if eta1.ndim == 1:
-                res[1] = self.maxw_params['vth_perp'] + 0.*eta1
+                res[1] = self.maxw_params["vth_perp"] + 0.0 * eta1
             else:
-                res[1] = self.maxw_params['vth_perp'] + 0.*etas[0]
+                res[1] = self.maxw_params["vth_perp"] + 0.0 * etas[0]
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
-            comps = ['vth_para', 'vth_perp']
+            comps = ["vth_para", "vth_perp"]
             for i, comp in enumerate(comps):
-                if comp in self.pert_params[self._pert_type]['comps']:
+                if comp in self.pert_params[self._pert_type]["comps"]:
                     # Add perturbation if it is in comps list
                     vth_pert_params = {}
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
-                        if key == 'comps':
-                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                        if key == "comps":
+                            assert item[comp] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                             continue
                         vth_pert_params[key] = item[comp]
 
@@ -1020,11 +983,11 @@ class GyroMaxwellian2D(Maxwellian):
                     else:
                         res[i] += perturbation(*etas)
 
-        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors['vth'])]
+        return [re * mom_fac for re, mom_fac in zip(res, self.moment_factors["vth"])]
 
 
 class CanonicalMaxwellian(CanonicalMaxwellian):
-    r""" A :class:`~struphy.kinetic_background.base.CanonicalMaxwellian`.
+    r"""A :class:`~struphy.kinetic_background.base.CanonicalMaxwellian`.
 
     Parameters
     ----------
@@ -1040,34 +1003,33 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
     @classmethod
     def default_maxw_params(cls):
-        """ Default parameters dictionary defining constant moments of the Maxwellian.
-        """
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
         return {
-            'n': 1.,
-            'vth': 1.,
-            'type': 'Particles5D',
+            "n": 1.0,
+            "vth": 1.0,
+            "type": "Particles5D",
         }
 
     def __init__(
         self,
         maxw_params: dict = {
-            'n': 1.,
-            'vth': 1.,
-            'type': 'Particles5D',
+            "n": 1.0,
+            "vth": 1.0,
+            "type": "Particles5D",
         },
         pert_params: dict = None,
         volume_form: bool = True,
         mhd_equil: MHDequilibrium = None,
         braginskii_equil: BraginskiiEquilibrium = None,
     ):
-
         # Set background parameters
         self._maxw_params = self.default_maxw_params()
 
         if maxw_params is not None:
             assert isinstance(maxw_params, dict)
             self._maxw_params = set_defaults(
-                maxw_params, self.default_maxw_params(),
+                maxw_params,
+                self.default_maxw_params(),
             )
 
         # Set parameters for perturbation
@@ -1075,9 +1037,9 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
         if self.pert_params is not None:
             assert isinstance(pert_params, dict)
-            assert 'type' in self.pert_params, '"type" is mandatory in perturbation dictionary.'
-            ptype = self.pert_params['type']
-            assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
+            assert "type" in self.pert_params, '"type" is mandatory in perturbation dictionary.'
+            ptype = self.pert_params["type"]
+            assert ptype in self.pert_params, f"{ptype} is mandatory in perturbation dictionary."
             self._pert_type = ptype
 
         self._mhd_equil = mhd_equil
@@ -1087,77 +1049,69 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
-            'n': 1.,
-            'vth': 1.,
+            "n": 1.0,
+            "vth": 1.0,
         }
 
     @property
     def coords(self):
-        """ Coordinates of the CanonicalMaxwellian, :math:`(\epsilon, \mu, \psi_c)`.
-        """
-        return 'constants_of_motion'
+        """Coordinates of the CanonicalMaxwellian, :math:`(\epsilon, \mu, \psi_c)`."""
+        return "constants_of_motion"
 
     @property
     def maxw_params(self):
-        """ Parameters dictionary defining constant moments of the Maxwellian.
-        """
+        """Parameters dictionary defining constant moments of the Maxwellian."""
         return self._maxw_params
 
     @property
     def pert_params(self):
-        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian5D.maxw_params`.
-        """
+        """Parameters dictionary defining the perturbations of the :meth:`~Maxwellian5D.maxw_params`."""
         return self._pert_params
 
     @property
     def mhd_equil(self):
-        """ One of :mod:`~struphy.fields_background.mhd_equil.equils` 
+        """One of :mod:`~struphy.fields_background.mhd_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._mhd_equil
 
     @property
     def braginskii_equil(self):
-        """ One of :mod:`~struphy.fields_background.braginskii_equil.equils` 
+        """One of :mod:`~struphy.fields_background.braginskii_equil.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._braginskii_equil
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
-        r"""TODO
-        """
+        r"""TODO"""
 
         assert eta1.ndim == 1
         assert eta2.ndim == 1
         assert eta3.ndim == 1
 
-        if self.maxw_params['type'] == 'Particles6D':
-
-            return np.sqrt(2.*energy) * 4. * np.pi
+        if self.maxw_params["type"] == "Particles6D":
+            return np.sqrt(2.0 * energy) * 4.0 * np.pi
 
         else:
             # call equilibrium
             etas = (np.vstack((eta1, eta2, eta3)).T).copy()
             absB0 = self.mhd_equil.absB0(etas)
 
-            return np.sqrt(energy) * 2. * np.sqrt(2.) / absB0
+            return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
 
     @property
     def volume_form(self):
-        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|).
-        """
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
         return self._volume_form
 
     @property
     def moment_factors(self):
-        """Collection of factors multiplied onto the defined moments n, u, and vth.
-        """
+        """Collection of factors multiplied onto the defined moments n, u, and vth."""
         return self._moment_factors
 
     @moment_factors.setter
     def moment_factors(self, **kwargs):
         for kw, arg in kwargs:
-
             self._moment_factors[kw] = arg
 
     def rc(self, psic):
@@ -1187,9 +1141,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         """
 
         # calculate rc²
-        rc_squared = (psic - self.mhd_equil.psi_range[0])/(
-            self.mhd_equil.psi_range[1] - self.mhd_equil.psi_range[0]
-        )
+        rc_squared = (psic - self.mhd_equil.psi_range[0]) / (self.mhd_equil.psi_range[1] - self.mhd_equil.psi_range[0])
 
         # sorting out indices of negative rc²
         neg_index = np.logical_not(rc_squared >= 0)
@@ -1204,7 +1156,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         return rc
 
     def n(self, psic):
-        """ Density as background + perturbation.
+        """Density as background + perturbation.
 
         Parameters
         ----------
@@ -1224,26 +1176,26 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
             psic = psic[0, 0, :]
 
         # set background density
-        if isinstance(self.maxw_params['n'], dict):
-            type = self.maxw_params['n']['type']
-            params = self.maxw_params['n'][type]
+        if isinstance(self.maxw_params["n"], dict):
+            type = self.maxw_params["n"]["type"]
+            params = self.maxw_params["n"][type]
             nfun = getattr(perturbations, type)(**params)
 
             res = nfun(eta1=self.rc(psic))
 
         else:
-            res = self.maxw_params['n'] + 0.*psic
+            res = self.maxw_params["n"] + 0.0 * psic
 
         # Add perturbation if parameters are given and if density is to be perturbed
         if self.pert_params is not None:
-            if 'n' in self.pert_params[self._pert_type]['comps']:
+            if "n" in self.pert_params[self._pert_type]["comps"]:
                 n_pert_params = {}
                 for key, item in self.pert_params[self._pert_type].items():
                     # Skip the comps entry
-                    if key == 'comps':
-                        assert item['n'] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                    if key == "comps":
+                        assert item["n"] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                         continue
-                    n_pert_params[key] = item['n']
+                    n_pert_params[key] = item["n"]
 
                 perturbation = getattr(perturbations, self._pert_type)(
                     **n_pert_params,
@@ -1251,10 +1203,10 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
                 res += perturbation(psic)
 
-        return res * self.moment_factors['n']
+        return res * self.moment_factors["n"]
 
     def vth(self, psic):
-        """ Thermal velocities as background + perturbation.
+        """Thermal velocities as background + perturbation.
 
         Parameters
         ----------
@@ -1273,19 +1225,19 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         if psic.ndim == 3:
             psic = psic[0, 0, :]
 
-        res = self.maxw_params['vth'] + 0.*psic
+        res = self.maxw_params["vth"] + 0.0 * psic
 
         # Add perturbation if parameters are given
         if self.pert_params is not None:
-            comps = ['vth']
+            comps = ["vth"]
             for i, comp in enumerate(comps):
-                if comp in self.pert_params[self._pert_type]['comps']:
+                if comp in self.pert_params[self._pert_type]["comps"]:
                     # Add perturbation if it is in comps list
                     vth_pert_params = {}
                     for key, item in self.pert_params[self._pert_type].items():
                         # Skip the comps entry
-                        if key == 'comps':
-                            assert item[comp] == '0', 'Moment perturbations must be passed as 0-forms to Maxwellians.'
+                        if key == "comps":
+                            assert item[comp] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
                             continue
                         vth_pert_params[key] = item[comp]
 
@@ -1295,31 +1247,28 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
 
                     res += perturbation(psic)
 
-        return res * self.moment_factors['vth']
+        return res * self.moment_factors["vth"]
 
 
 class Constant(KineticBackground):
-    r""" Base class for a constant distribution function on the unit cube. 
-
-    """
+    r"""Base class for a constant distribution function on the unit cube."""
 
     @classmethod
     def default_maxw_params(cls):
-        """ Default parameters dictionary defining the constant value of the constant background.
-        """
+        """Default parameters dictionary defining the constant value of the constant background."""
         return {
-            'n': 5.,
+            "n": 5.0,
         }
 
     def __init__(self, maxw_params=None, pert_params=None, mhd_equil=None, braginskii_equil=None):
-
         # Set background parameters
         self._maxw_params = self.default_maxw_params()
 
         if maxw_params is not None:
             assert isinstance(maxw_params, dict)
             self._maxw_params = set_defaults(
-                maxw_params, self.default_maxw_params(),
+                maxw_params,
+                self.default_maxw_params(),
             )
 
         # Set parameters for perturbation
@@ -1327,56 +1276,49 @@ class Constant(KineticBackground):
 
         if self.pert_params is not None:
             assert isinstance(pert_params, dict)
-            assert 'type' in self.pert_params, '"type" is mandatory in perturbation dictionary.'
-            ptype = self.pert_params['type']
-            assert ptype in self.pert_params, f'{ptype} is mandatory in perturbation dictionary.'
+            assert "type" in self.pert_params, '"type" is mandatory in perturbation dictionary.'
+            ptype = self.pert_params["type"]
+            assert ptype in self.pert_params, f"{ptype} is mandatory in perturbation dictionary."
             self._pert_type = ptype
 
     @property
     def maxw_params(self):
-        """ Parameters dictionary defining constant moments of the Maxwellian.
-        """
+        """Parameters dictionary defining constant moments of the Maxwellian."""
         return self._maxw_params
 
     @property
     def pert_params(self):
-        """ Parameters dictionary defining the perturbations of the :meth:`~Maxwellian6D.maxw_params`.
-        """
+        """Parameters dictionary defining the perturbations of the :meth:`~Maxwellian6D.maxw_params`."""
         return self._pert_params
 
     @property
     def coords(self):
-        """ Coordinates of the constant background.
-        """
+        """Coordinates of the constant background."""
         return None
 
     @property
     def vdim(self):
-        """ Dimension of the velocity space (vdim = 0).
-        """
+        """Dimension of the velocity space (vdim = 0)."""
         return 0
 
     @property
     def is_polar(self):
-        """ List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp).
-        """
+        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
         return []
 
     @property
     def volume_form(self):
-        """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
-        """
+        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         return False
 
     @property
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """ Jacobian determinant of the velocity coordinate transformation.
-        """
-        return 1.
+        """Jacobian determinant of the velocity coordinate transformation."""
+        return 1.0
 
     @property
     def n(self, *etas):
-        """ Number density (0-form). 
+        """Number density (0-form).
 
         Parameters
         ----------
@@ -1387,11 +1329,11 @@ class Constant(KineticBackground):
         -------
         A numpy.array with the density evaluated at evaluation points (same shape as etas).
         """
-        return self.maxw_params['n'] + 0 * etas[0]
+        return self.maxw_params["n"] + 0 * etas[0]
 
     @property
     def u(self, *etas):
-        """ Mean velocities (Cartesian components evaluated at x = F(eta)).
+        """Mean velocities (Cartesian components evaluated at x = F(eta)).
 
         Parameters
         ----------
@@ -1402,10 +1344,10 @@ class Constant(KineticBackground):
         -------
         A list[float] (background values) or a list[numpy.array] of the evaluated velocities.
         """
-        return [0.*etas[0], 0.*etas[0], 0.*etas[0]]
+        return [0.0 * etas[0], 0.0 * etas[0], 0.0 * etas[0]]
 
     def __call__(self, eta1, eta2, eta3):
-        """ Evaluates the constant function.
+        """Evaluates the constant function.
 
         There are two use-cases for this function in the code:
             1.) Evaluating for particles (inputs are all of length N_p)
@@ -1428,18 +1370,18 @@ class Constant(KineticBackground):
         assert np.shape(eta1) == np.shape(eta2) == np.shape(eta3)
 
         # set background density
-        res = self.maxw_params['n']
+        res = self.maxw_params["n"]
 
-        assert np.all(res > 0.), 'Number density must be positive!'
+        assert np.all(res > 0.0), "Number density must be positive!"
 
         # Add perturbation if parameters are given and if density is to be perturbed
-        if self.pert_params is not None and 'density' in self.pert_params[self._pert_type]['comps']:
+        if self.pert_params is not None and "density" in self.pert_params[self._pert_type]["comps"]:
             n_pert_params = {}
             for key, item in self.pert_params[self._pert_type].items():
                 # Skip the comps entry
-                if key == 'comps':
+                if key == "comps":
                     continue
-                n_pert_params[key] = item['density']
+                n_pert_params[key] = item["density"]
 
             perturbation = getattr(perturbations, self._pert_type)(
                 **n_pert_params,
@@ -1447,4 +1389,4 @@ class Constant(KineticBackground):
 
             res += perturbation(eta1, eta2, eta3)
 
-        return res + 0.*eta1
+        return res + 0.0 * eta1

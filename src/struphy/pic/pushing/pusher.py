@@ -1,5 +1,4 @@
-'Accelerated particle pushing.'
-
+"Accelerated particle pushing."
 
 import numpy as np
 from mpi4py.MPI import IN_PLACE, SUM
@@ -31,9 +30,9 @@ class Pusher:
     Notes
     -----
 
-    For iterative methods with iteration index :math:`k`, spline evaluations at positions 
+    For iterative methods with iteration index :math:`k`, spline evaluations at positions
     :math:`\alpha_i \eta_{p,i}^{n+1,k} + (1 - \alpha_i) \eta_{p,i}^n`
-    for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]` 
+    for :math:`i=1, 2, 3` and different :math:`\alpha_i \in [0,1]`
     need particle MPI sorting in between.
     This requires calling dedicated ``eval_kernels`` during the iteration. Here are some
     rules to follow for iterative solvers:
@@ -59,7 +58,7 @@ class Pusher:
     alpha_in_kernel: float | int | tuple | list
         For i=0,1,2, the spline/geometry evaluations in kernel are at
         alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
-        If float or int or then alpha = (alpha, alpha, alpha). 
+        If float or int or then alpha = (alpha, alpha, alpha).
         alpha must be between 0 and 1.
         alpha[i]=0 means that evaluation is at the initial positions (time n),
         stored at markers[:, buffer_idx + i].
@@ -70,8 +69,8 @@ class Pusher:
 
     eval_kernels : dict
         Keys: evaluation kernels for splines before the pusher kernel is called.
-        Values: optional arguments and weighting parameters alpha for 
-        sorting (before evaluation), according to 
+        Values: optional arguments and weighting parameters alpha for
+        sorting (before evaluation), according to
         alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i] for i=0,1,2.
         alpha must be between 0 and 1, see :meth:`~struphy.pic.base.Particles.mpi_sort_markers`.
 
@@ -106,14 +105,13 @@ class Pusher:
         eval_kernels: dict = {},
         n_stages: int = 1,
         maxiter: int = 1,
-        tol: float = 1.e-8,
+        tol: float = 1.0e-8,
         mpi_sort: str = None,
         verbose: bool = False,
     ):
-
         self._particles = particles
         self._kernel = kernel
-        self._newton = 'newton' in kernel.__name__
+        self._newton = "newton" in kernel.__name__
         self._args_kernel = args_kernel
         self._args_domain = args_domain
 
@@ -133,8 +131,9 @@ class Pusher:
 
             # check marker array column number
             assert isinstance(comps, np.ndarray)
-            assert column_nr + \
-                comps.size < particles.n_cols, f'{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!'
+            assert (
+                column_nr + comps.size < particles.n_cols
+            ), f"{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!"
 
         # prepare and check eval_kernels
         for ker_args in eval_kernels:
@@ -144,8 +143,9 @@ class Pusher:
 
             # check marker array column number
             assert isinstance(comps, np.ndarray)
-            assert column_nr + \
-                comps.size < particles.n_cols, f'{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!'
+            assert (
+                column_nr + comps.size < particles.n_cols
+            ), f"{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!"
 
         self._init_kernels = init_kernels
         self._eval_kernels = eval_kernels
@@ -154,12 +154,12 @@ class Pusher:
         self._mpi_in_place = IN_PLACE
 
         self._residuals = np.zeros(self.particles.markers.shape[0])
-        self._converged_loc = self._residuals == 1.
-        self._not_converged_loc = self._residuals == 0.
+        self._converged_loc = self._residuals == 1.0
+        self._not_converged_loc = self._residuals == 0.0
 
     def __call__(self, dt: float):
         """
-        Applies the chosen pusher kernel by a time step dt, 
+        Applies the chosen pusher kernel by a time step dt,
         applies kinetic boundary conditions and performs MPI sorting.
         """
 
@@ -174,17 +174,17 @@ class Pusher:
         shift_slice = slice(first_shift_idx, first_shift_idx + 3)
 
         # save initial phase space coordinates
-        markers[:, init_slice] = markers[:, :3 + vdim]
+        markers[:, init_slice] = markers[:, : 3 + vdim]
 
         # set boundary shifts to zero
-        markers[:, shift_slice] = 0.
+        markers[:, shift_slice] = 0.0
 
         # clear buffer columns starting from residual index, dont clear ID (last column)
-        markers[:, residual_idx:-1] = 0.
+        markers[:, residual_idx:-1] = 0.0
 
         if self.verbose:
             rank = self.particles.mpi_rank
-            print(f'rank {rank}: starting {self.kernel} ...')
+            print(f"rank {rank}: starting {self.kernel} ...")
             if self.particles.mpi_comm is not None:
                 self.particles.derham.comm.Barrier()
 
@@ -196,7 +196,7 @@ class Pusher:
             add_args = ker_args[3]
 
             ker(
-                np.array([0., 0., 0., 0., 0., 0.]),
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                 column_nr,
                 comps,
                 self.particles.args_markers,
@@ -206,16 +206,15 @@ class Pusher:
 
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
-
             # start iteration (maxiter=1 for explicit schemes)
             n_not_converged = np.empty(1, dtype=int)
             n_not_converged[0] = self.particles.n_mks_loc
             k = 0
 
             if self.verbose and self.maxiter > 1:
-                max_res = 1.
+                max_res = 1.0
                 print(
-                    f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                    f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                 )
                 if self.particles.mpi_comm is not None:
                     self.particles.derham.comm.Barrier()
@@ -272,7 +271,7 @@ class Pusher:
                 if self.maxiter > 1:
                     self._residuals[:] = markers[:, residual_idx]
                     max_res = np.max(self._residuals)
-                    if max_res < 0.:
+                    if max_res < 0.0:
                         max_res = None
                     self._converged_loc[:] = self._residuals < self._tol
                     self._not_converged_loc[:] = ~self._converged_loc
@@ -282,28 +281,30 @@ class Pusher:
 
                     if self.verbose:
                         print(
-                            f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                            f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                         )
                         if self.particles.mpi_comm is not None:
                             self.particles.derham.comm.Barrier()
 
                     if self.particles.mpi_comm is not None:
                         self.particles.derham.comm.Allreduce(
-                            self._mpi_in_place, n_not_converged, op=self._mpi_sum,
+                            self._mpi_in_place,
+                            n_not_converged,
+                            op=self._mpi_sum,
                         )
 
                     # take converged markers out of the loop
-                    markers[self._converged_loc, first_pusher_idx] = -1.
+                    markers[self._converged_loc, first_pusher_idx] = -1.0
 
                 # maxiter=1 for explicit schemes
                 if k == self.maxiter:
                     if self.maxiter > 1:
                         rank = self.particles.mpi_rank
                         print(
-                            f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                            f"rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                         )
                     # sort markers according to domain decomposition
-                    if self.mpi_sort == 'each':
+                    if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
                             self.particles.mpi_sort_markers()
                         else:
@@ -313,7 +314,7 @@ class Pusher:
                 # check for convergence
                 if n_not_converged[0] == 0:
                     # sort markers according to domain decomposition
-                    if self.mpi_sort == 'each' :
+                    if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
                             self.particles.mpi_sort_markers()
                         else:
@@ -324,13 +325,13 @@ class Pusher:
             # print stage info
             if self.verbose:
                 print(
-                    f'rank {rank}: stage {stage + 1} of {self.n_stages} done.',
+                    f"rank {rank}: stage {stage + 1} of {self.n_stages} done.",
                 )
                 if self.particles.mpi_comm is not None:
                     self.particles.derham.comm.Barrier()
 
         # sort markers according to domain decomposition
-        if self.mpi_sort == 'last':
+        if self.mpi_sort == "last":
             if self.particles.mpi_comm is not None:
                 self.particles.mpi_sort_markers(do_test=True)
             else:
@@ -338,61 +339,52 @@ class Pusher:
 
     @property
     def particles(self):
-        """ Particle object.
-        """
+        """Particle object."""
         return self._particles
 
     @property
     def kernel(self):
-        """ The pyccelized pusher kernel.
-        """
+        """The pyccelized pusher kernel."""
         return self._kernel
 
     @property
     def init_kernels(self):
-        """ A dict of kernels for initial spline evaluation before iteration.
-        """
+        """A dict of kernels for initial spline evaluation before iteration."""
         return self._init_kernels
 
     @property
     def eval_kernels(self):
-        """ A dict of kernels for spline evaluation before execution of kernel during iteration. 
-        """
+        """A dict of kernels for spline evaluation before execution of kernel during iteration."""
         return self._eval_kernels
 
     @property
     def args_kernel(self):
-        """ Optional arguments for kernel.
-        """
+        """Optional arguments for kernel."""
         return self._args_kernel
 
     @property
     def args_domain(self):
-        """ Mandatory Domain arguments.
-        """
+        """Mandatory Domain arguments."""
         return self._args_domain
 
     @property
     def n_stages(self):
-        """ Number of stages of the pusher.
-        """
+        """Number of stages of the pusher."""
         return self._n_stages
 
     @property
     def maxiter(self):
-        """ Maximum number of iterations (=1 for explicit pushers).
-        """
+        """Maximum number of iterations (=1 for explicit pushers)."""
         return self._maxiter
 
     @property
     def tol(self):
-        """ Iteration terminates when residual<tol.
-        """
+        """Iteration terminates when residual<tol."""
         return self._tol
 
     @property
     def mpi_sort(self):
-        """ When to do MPI sorting:
+        """When to do MPI sorting:
         * None : no sorting at all.
         * each : sort markers after each stage.
         * last : sort markers after last stage.
@@ -401,14 +393,13 @@ class Pusher:
 
     @property
     def verbose(self):
-        """ Print more info.
-        """
+        """Print more info."""
         return self._verbose
 
 
 class ButcherTableau:
     r"""
-    Butcher tableau for explicit s-stage Runge-Kutta methods. 
+    Butcher tableau for explicit s-stage Runge-Kutta methods.
 
     The Butcher tableau has the form
 
@@ -425,39 +416,38 @@ class ButcherTableau:
     @staticmethod
     def available_methods():
         meth_avail = [
-            'rk4',
-            'forward_euler',
-            'heun2',
-            'rk2',
-            'heun3',
+            "rk4",
+            "forward_euler",
+            "heun2",
+            "rk2",
+            "heun3",
         ]
         return meth_avail
 
-    def __init__(self, algo: str = 'rk4'):
-
+    def __init__(self, algo: str = "rk4"):
         # choose algorithm
-        if algo == 'forward_euler':
+        if algo == "forward_euler":
             a = []
-            b = [1.]
-            c = [0.]
-        elif algo == 'heun2':
-            a = [1.]
-            b = [1/2, 1/2]
-            c = [0., 1.]
-        elif algo == 'rk2':
-            a = [1/2]
-            b = [0., 1.]
-            c = [0., 1/2]
-        elif algo == 'heun3':
-            a = [1/3, 2/3]
-            b = [1/4, 0., 3/4]
-            c = [0., 1/3, 2/3]
-        elif algo == 'rk4':
-            a = [1/2, 1/2, 1.]
-            b = [1/6, 1/3, 1/3, 1/6]
-            c = [0., 1/2, 1/2, 1.]
+            b = [1.0]
+            c = [0.0]
+        elif algo == "heun2":
+            a = [1.0]
+            b = [1 / 2, 1 / 2]
+            c = [0.0, 1.0]
+        elif algo == "rk2":
+            a = [1 / 2]
+            b = [0.0, 1.0]
+            c = [0.0, 1 / 2]
+        elif algo == "heun3":
+            a = [1 / 3, 2 / 3]
+            b = [1 / 4, 0.0, 3 / 4]
+            c = [0.0, 1 / 3, 2 / 3]
+        elif algo == "rk4":
+            a = [1 / 2, 1 / 2, 1.0]
+            b = [1 / 6, 1 / 3, 1 / 3, 1 / 6]
+            c = [0.0, 1 / 2, 1 / 2, 1.0]
         else:
-            raise NotImplementedError('Chosen algorithm is not implemented.')
+            raise NotImplementedError("Chosen algorithm is not implemented.")
 
         self._b = np.array(b)
         self._c = np.array(c)
@@ -471,30 +461,26 @@ class ButcherTableau:
         assert self._a.size == self._n_stages - 1
 
         # add zero for last stage
-        self._a = np.array(list(self._a) + [0.])
+        self._a = np.array(list(self._a) + [0.0])
 
     __available_methods__ = available_methods()
 
     @property
     def a(self):
-        """ Characteristic coefficients of the method (see tableau in class docstring).
-        """
+        """Characteristic coefficients of the method (see tableau in class docstring)."""
         return self._a
 
     @property
     def b(self):
-        """ Characteristic coefficients of the method (see tableau in class docstring).
-        """
+        """Characteristic coefficients of the method (see tableau in class docstring)."""
         return self._b
 
     @property
     def c(self):
-        """ Characteristic coefficients of the method (see tableau in class docstring).
-        """
+        """Characteristic coefficients of the method (see tableau in class docstring)."""
         return self._c
 
     @property
     def n_stages(self):
-        """ Number of stages of the s-stage Runge-Kutta method.
-        """
+        """Number of stages of the s-stage Runge-Kutta method."""
         return self._n_stages

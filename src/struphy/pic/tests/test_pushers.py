@@ -2,20 +2,26 @@ import pytest
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
+@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    'mapping', [
+    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+)
+@pytest.mark.parametrize(
+    "mapping",
+    [
         [
-            'Colella', {
-                'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.,
+            "Colella",
+            {
+                "Lx": 2.0,
+                "Ly": 3.0,
+                "alpha": 0.1,
+                "Lz": 4.0,
             },
         ],
     ],
 )
 def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
-
     import numpy as np
     from mpi4py import MPI
 
@@ -30,7 +36,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print('')
+    print("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -40,24 +46,21 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
-        print('Domain decomposition : \n', derham.domain_array)
+        print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [
-        Spline_space_1d(Nel, p, spl_kind)
-        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
-    ]
+    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
 
     space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
-    seed = int(np.random.rand()*1000)
-    loader_params = {'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    seed = int(np.random.rand() * 1000)
+    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        'energetic_ions',
+        "energetic_ions",
         Np=None,
-        bc=['periodic', 'periodic', 'periodic'],
-        loading='pseudo_random',
+        bc=["periodic", "periodic", "periodic"],
+        loading="pseudo_random",
         loading_params=loader_params,
         comm=comm,
         domain_array=derham.domain_array,
@@ -79,21 +82,32 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['0'], seed=1234, flattened=True,
+        derham.Vh_fem["0"],
+        seed=1234,
+        flattened=True,
     )
     b2_eq_str, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=2345, flattened=True,
+        derham.Vh_fem["2"],
+        seed=2345,
+        flattened=True,
     )
 
     b2_str, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=3456, flattened=True,
+        derham.Vh_fem["2"],
+        seed=3456,
+        flattened=True,
     )
 
     # create legacy struphy pusher and psydac based pusher
     pusher_str = Pusher_str(
-        domain, space, space.extract_0(
+        domain,
+        space,
+        space.extract_0(
             b0_eq_str,
-        ), space.extract_2(b2_eq_str), basis_u=2, bc_pos=0,
+        ),
+        space.extract_2(b2_eq_str),
+        basis_u=2,
+        bc_pos=0,
     )
 
     pusher_psy = Pusher_psy(
@@ -106,7 +120,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
             b2_eq_psy[2]._data + b2_psy[2]._data,
         ),
         domain.args_domain,
-        alpha_in_kernel=1.,
+        alpha_in_kernel=1.0,
     )
 
     # compare if markers are the same BEFORE push
@@ -124,20 +138,26 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
+@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    'mapping', [
+    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+)
+@pytest.mark.parametrize(
+    "mapping",
+    [
         [
-            'Colella', {
-                'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.,
+            "Colella",
+            {
+                "Lx": 2.0,
+                "Ly": 3.0,
+                "alpha": 0.1,
+                "Lz": 4.0,
             },
         ],
     ],
 )
 def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
-
     import numpy as np
     from mpi4py import MPI
 
@@ -152,7 +172,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print('')
+    print("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -162,24 +182,21 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
-        print('Domain decomposition : \n', derham.domain_array)
+        print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [
-        Spline_space_1d(Nel, p, spl_kind)
-        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
-    ]
+    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
 
     space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
-    seed = int(np.random.rand()*1000)
-    loader_params = {'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    seed = int(np.random.rand() * 1000)
+    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        'energetic_ions',
+        "energetic_ions",
         Np=None,
-        bc=['periodic', 'periodic', 'periodic'],
-        loading='pseudo_random',
+        bc=["periodic", "periodic", "periodic"],
+        loading="pseudo_random",
         loading_params=loader_params,
         comm=comm,
         domain_array=derham.domain_array,
@@ -201,24 +218,37 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field and velocity field
     b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['0'], seed=1234, flattened=True,
+        derham.Vh_fem["0"],
+        seed=1234,
+        flattened=True,
     )
     b2_eq_str, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=2345, flattened=True,
+        derham.Vh_fem["2"],
+        seed=2345,
+        flattened=True,
     )
 
     b2_str, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=3456, flattened=True,
+        derham.Vh_fem["2"],
+        seed=3456,
+        flattened=True,
     )
     u2_str, u2_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=4567, flattened=True,
+        derham.Vh_fem["2"],
+        seed=4567,
+        flattened=True,
     )
 
     # create legacy struphy pusher and psydac based pusher
     pusher_str = Pusher_str(
-        domain, space, space.extract_0(
+        domain,
+        space,
+        space.extract_0(
             b0_eq_str,
-        ), space.extract_2(b2_eq_str), basis_u=2, bc_pos=0,
+        ),
+        space.extract_2(b2_eq_str),
+        basis_u=2,
+        bc_pos=0,
     )
     mu0_str = np.zeros(markers_str.shape[1], dtype=float)
     pow_str = np.zeros(markers_str.shape[1], dtype=float)
@@ -234,10 +264,10 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
             u2_psy[0]._data,
             u2_psy[1]._data,
             u2_psy[2]._data,
-            0.,
+            0.0,
         ),
         domain.args_domain,
-        alpha_in_kernel=1.,
+        alpha_in_kernel=1.0,
     )
 
     # compare if markers are the same BEFORE push
@@ -255,20 +285,26 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
+@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    'mapping', [
+    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+)
+@pytest.mark.parametrize(
+    "mapping",
+    [
         [
-            'Colella', {
-                'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.,
+            "Colella",
+            {
+                "Lx": 2.0,
+                "Ly": 3.0,
+                "alpha": 0.1,
+                "Lz": 4.0,
             },
         ],
     ],
 )
 def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
-
     import numpy as np
     from mpi4py import MPI
 
@@ -283,7 +319,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print('')
+    print("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -293,24 +329,21 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
-        print('Domain decomposition : \n', derham.domain_array)
+        print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [
-        Spline_space_1d(Nel, p, spl_kind)
-        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
-    ]
+    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
 
     space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
-    seed = int(np.random.rand()*1000)
-    loader_params = {'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    seed = int(np.random.rand() * 1000)
+    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        'energetic_ions',
+        "energetic_ions",
         Np=None,
-        bc=['periodic', 'periodic', 'periodic'],
-        loading='pseudo_random',
+        bc=["periodic", "periodic", "periodic"],
+        loading="pseudo_random",
         loading_params=loader_params,
         comm=comm,
         domain_array=derham.domain_array,
@@ -332,24 +365,37 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['0'], seed=1234, flattened=True,
+        derham.Vh_fem["0"],
+        seed=1234,
+        flattened=True,
     )
     b2_eq_str, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=2345, flattened=True,
+        derham.Vh_fem["2"],
+        seed=2345,
+        flattened=True,
     )
 
     b2_str, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=3456, flattened=True,
+        derham.Vh_fem["2"],
+        seed=3456,
+        flattened=True,
     )
     u1_str, u1_psy = create_equal_random_arrays(
-        derham.Vh_fem['1'], seed=4567, flattened=True,
+        derham.Vh_fem["1"],
+        seed=4567,
+        flattened=True,
     )
 
     # create legacy struphy pusher and psydac based pusher
     pusher_str = Pusher_str(
-        domain, space, space.extract_0(
+        domain,
+        space,
+        space.extract_0(
             b0_eq_str,
-        ), space.extract_2(b2_eq_str), basis_u=1, bc_pos=0,
+        ),
+        space.extract_2(b2_eq_str),
+        basis_u=1,
+        bc_pos=0,
     )
     mu0_str = np.zeros(markers_str.shape[1], dtype=float)
     pow_str = np.zeros(markers_str.shape[1], dtype=float)
@@ -365,10 +411,10 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
             u1_psy[0]._data,
             u1_psy[1]._data,
             u1_psy[2]._data,
-            0.,
+            0.0,
         ),
         domain.args_domain,
-        alpha_in_kernel=1.,
+        alpha_in_kernel=1.0,
     )
 
     # compare if markers are the same BEFORE push
@@ -386,20 +432,26 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
+@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    'mapping', [
+    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+)
+@pytest.mark.parametrize(
+    "mapping",
+    [
         [
-            'Colella', {
-                'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.,
+            "Colella",
+            {
+                "Lx": 2.0,
+                "Ly": 3.0,
+                "alpha": 0.1,
+                "Lz": 4.0,
             },
         ],
     ],
 )
 def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
-
     import numpy as np
     from mpi4py import MPI
 
@@ -414,7 +466,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print('')
+    print("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -424,24 +476,21 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
-        print('Domain decomposition : \n', derham.domain_array)
+        print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [
-        Spline_space_1d(Nel, p, spl_kind)
-        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
-    ]
+    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
 
     space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
-    seed = int(np.random.rand()*1000)
-    loader_params = {'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    seed = int(np.random.rand() * 1000)
+    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        'energetic_ions',
+        "energetic_ions",
         Np=None,
-        bc=['periodic', 'periodic', 'periodic'],
-        loading='pseudo_random',
+        bc=["periodic", "periodic", "periodic"],
+        loading="pseudo_random",
         loading_params=loader_params,
         comm=comm,
         domain_array=derham.domain_array,
@@ -463,24 +512,37 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['0'], seed=1234, flattened=True,
+        derham.Vh_fem["0"],
+        seed=1234,
+        flattened=True,
     )
     b2_eq_str, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=2345, flattened=True,
+        derham.Vh_fem["2"],
+        seed=2345,
+        flattened=True,
     )
 
     b2_str, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=3456, flattened=True,
+        derham.Vh_fem["2"],
+        seed=3456,
+        flattened=True,
     )
     uv_str, uv_psy = create_equal_random_arrays(
-        derham.Vh_fem['v'], seed=4567, flattened=True,
+        derham.Vh_fem["v"],
+        seed=4567,
+        flattened=True,
     )
 
     # create legacy struphy pusher and psydac based pusher
     pusher_str = Pusher_str(
-        domain, space, space.extract_0(
+        domain,
+        space,
+        space.extract_0(
             b0_eq_str,
-        ), space.extract_2(b2_eq_str), basis_u=0, bc_pos=0,
+        ),
+        space.extract_2(b2_eq_str),
+        basis_u=0,
+        bc_pos=0,
     )
     mu0_str = np.zeros(markers_str.shape[1], dtype=float)
     pow_str = np.zeros(markers_str.shape[1], dtype=float)
@@ -496,10 +558,10 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
             uv_psy[0]._data,
             uv_psy[1]._data,
             uv_psy[2]._data,
-            0.,
+            0.0,
         ),
         domain.args_domain,
-        alpha_in_kernel=1.,
+        alpha_in_kernel=1.0,
     )
 
     # compare if markers are the same BEFORE push
@@ -517,20 +579,26 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
+@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    'mapping', [
+    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+)
+@pytest.mark.parametrize(
+    "mapping",
+    [
         [
-            'Colella', {
-                'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.,
+            "Colella",
+            {
+                "Lx": 2.0,
+                "Ly": 3.0,
+                "alpha": 0.1,
+                "Lz": 4.0,
             },
         ],
     ],
 )
 def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
-
     import numpy as np
     from mpi4py import MPI
 
@@ -545,7 +613,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print('')
+    print("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -555,24 +623,21 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
-        print('Domain decomposition : \n', derham.domain_array)
+        print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [
-        Spline_space_1d(Nel, p, spl_kind)
-        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
-    ]
+    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
 
     space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
-    seed = int(np.random.rand()*1000)
-    loader_params = {'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    seed = int(np.random.rand() * 1000)
+    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        'energetic_ions',
+        "energetic_ions",
         Np=None,
-        bc=['periodic', 'periodic', 'periodic'],
-        loading='pseudo_random',
+        bc=["periodic", "periodic", "periodic"],
+        loading="pseudo_random",
         loading_params=loader_params,
         comm=comm,
         domain_array=derham.domain_array,
@@ -594,24 +659,37 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['0'], seed=1234, flattened=True,
+        derham.Vh_fem["0"],
+        seed=1234,
+        flattened=True,
     )
     b2_eq_str, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=2345, flattened=True,
+        derham.Vh_fem["2"],
+        seed=2345,
+        flattened=True,
     )
 
     b2_str, b2_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=3456, flattened=True,
+        derham.Vh_fem["2"],
+        seed=3456,
+        flattened=True,
     )
     u2_str, u2_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=4567, flattened=True,
+        derham.Vh_fem["2"],
+        seed=4567,
+        flattened=True,
     )
 
     # create legacy struphy pusher and psydac based pusher
     pusher_str = Pusher_str(
-        domain, space, space.extract_0(
+        domain,
+        space,
+        space.extract_0(
             b0_eq_str,
-        ), space.extract_2(b2_eq_str), basis_u=2, bc_pos=0,
+        ),
+        space.extract_2(b2_eq_str),
+        basis_u=2,
+        bc_pos=0,
     )
     mu0_str = np.random.rand(markers_str.shape[1])
     pow_str = np.zeros(markers_str.shape[1], dtype=float)
@@ -632,7 +710,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
             mu0_str,
         ),
         domain.args_domain,
-        alpha_in_kernel=1.,
+        alpha_in_kernel=1.0,
     )
 
     # compare if markers are the same BEFORE push
@@ -650,20 +728,26 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize('p', [[2, 3, 1], [1, 2, 3]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True], [False, False, True], [True, True, True]])
+@pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
+@pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    'mapping', [
+    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+)
+@pytest.mark.parametrize(
+    "mapping",
+    [
         [
-            'Colella', {
-                'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.,
+            "Colella",
+            {
+                "Lx": 2.0,
+                "Ly": 3.0,
+                "alpha": 0.1,
+                "Lz": 4.0,
             },
         ],
     ],
 )
 def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
-
     import numpy as np
     from mpi4py import MPI
 
@@ -679,7 +763,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    print('')
+    print("")
 
     # domain object
     domain_class = getattr(domains, mapping[0])
@@ -689,24 +773,21 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
-        print('Domain decomposition : \n', derham.domain_array)
+        print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [
-        Spline_space_1d(Nel, p, spl_kind)
-        for Nel, p, spl_kind in zip(Nel, p, spl_kind)
-    ]
+    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
 
     space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
-    seed = int(np.random.rand()*1000)
-    loader_params = {'seed': seed, 'moments': [0., 0., 0., 1., 1., 1.], 'spatial': 'uniform'}
+    seed = int(np.random.rand() * 1000)
+    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        'energetic_ions',
+        "energetic_ions",
         Np=None,
-        bc=['periodic', 'periodic', 'periodic'],
-        loading='pseudo_random',
+        bc=["periodic", "periodic", "periodic"],
+        loading="pseudo_random",
         loading_params=loader_params,
         comm=comm,
         domain_array=derham.domain_array,
@@ -728,27 +809,36 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     # create random FEM coefficients for magnetic field
     b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['0'], seed=1234, flattened=True,
+        derham.Vh_fem["0"],
+        seed=1234,
+        flattened=True,
     )
     b2_eq_str, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem['2'], seed=2345, flattened=True,
+        derham.Vh_fem["2"],
+        seed=2345,
+        flattened=True,
     )
 
     # create legacy struphy pusher and psydac based pusher
     pusher_str = Pusher_str(
-        domain, space, space.extract_0(
+        domain,
+        space,
+        space.extract_0(
             b0_eq_str,
-        ), space.extract_2(b2_eq_str), basis_u=0, bc_pos=0,
+        ),
+        space.extract_2(b2_eq_str),
+        basis_u=0,
+        bc_pos=0,
     )
 
-    butcher = ButcherTableau('rk4')
+    butcher = ButcherTableau("rk4")
 
     pusher_psy = Pusher_psy(
         particles,
         pusher_kernels.push_eta_stage,
         (butcher.a, butcher.b, butcher.c),
         domain.args_domain,
-        alpha_in_kernel=1.,
+        alpha_in_kernel=1.0,
         n_stages=butcher.n_stages,
     )
 
@@ -767,15 +857,15 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     sendcounts = np.zeros(size, dtype=int)
     displacements = np.zeros(size, dtype=int)
-    accum_sendcounts = 0.
+    accum_sendcounts = 0.0
 
-    for i in range(size) :
-        sendcounts[i] = n_mks_load[i]*3
+    for i in range(size):
+        sendcounts[i] = n_mks_load[i] * 3
         displacements[i] = accum_sendcounts
         accum_sendcounts += sendcounts[i]
 
-    all_particles_psy = np.zeros((int(accum_sendcounts)*3,), dtype=float)
-    all_particles_str = np.zeros((int(accum_sendcounts)*3,), dtype=float)
+    all_particles_psy = np.zeros((int(accum_sendcounts) * 3,), dtype=float)
+    all_particles_str = np.zeros((int(accum_sendcounts) * 3,), dtype=float)
 
     comm.Barrier()
     comm.Allgatherv(np.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
@@ -788,7 +878,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(unique_psy, unique_str)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # test_push_vxb_analytic([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     # test_push_bxu_Hdiv([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
@@ -800,9 +890,17 @@ if __name__ == '__main__':
     # test_push_bxu_Hdiv_pauli([8, 9, 5], [2, 3, 1], [False, True, True], ['Colella', {
     #     'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}], False)
     test_push_eta_rk4(
-        [8, 9, 5], [4, 2, 3], [False, True, True], [
-            'Colella', {
-                'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.,
+        [8, 9, 5],
+        [4, 2, 3],
+        [False, True, True],
+        [
+            "Colella",
+            {
+                "Lx": 2.0,
+                "Ly": 2.0,
+                "alpha": 0.1,
+                "Lz": 4.0,
             },
-        ], False,
+        ],
+        False,
     )

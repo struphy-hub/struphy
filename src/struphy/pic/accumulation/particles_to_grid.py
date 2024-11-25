@@ -1,6 +1,5 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
-
 import numpy as np
 from mpi4py import MPI
 from psydac.linalg.block import BlockVector
@@ -17,7 +16,7 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 
 class Accumulator:
     r"""
-    Struphy accumulation (block) matrices and vectors 
+    Struphy accumulation (block) matrices and vectors
 
     .. math::
 
@@ -25,8 +24,8 @@ class Accumulator:
         \\[2mm]
         V &= (V^\mu)_\mu\,,\qquad &&V^\mu \in \mathbb R^{\mathbb N^\alpha_\mu}\,,
 
-    where :math:`N^\alpha_\mu` denotes the dimension of the :math:`\mu`-th component 
-    of the :class:`~struphy.feec.psydac_derham.Derham` space 
+    where :math:`N^\alpha_\mu` denotes the dimension of the :math:`\mu`-th component
+    of the :class:`~struphy.feec.psydac_derham.Derham` space
     :math:`V_h^\alpha` (:math:`\mu,\nu = 1,2,3` for vector-valued spaces),
     with entries obtained by summing over all particles :math:`p`,
 
@@ -85,10 +84,11 @@ class Accumulator:
         symmetry: str = None,
         filter_params: dict = {
             "use_filter": None,
-            "modes": None, "repeat": None, "alpha": None,
+            "modes": None,
+            "repeat": None,
+            "alpha": None,
         },
     ):
-
         self._particles = particles
         self._space_id = space_id
         self._kernel = kernel
@@ -214,17 +214,14 @@ class Accumulator:
 
         # apply filter
         if self.filter_params["use_filter"] is not None:
-
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
 
-                if self.filter_params["use_filter"] == 'fourier_in_tor':
-
+                if self.filter_params["use_filter"] == "fourier_in_tor":
                     self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
 
-                elif self.filter_params["use_filter"] == 'three_point':
-
+                elif self.filter_params["use_filter"] == "three_point":
                     for _ in range(self.filter_params["repeat"]):
                         for i in range(3):
                             filters.apply_three_point_filter(
@@ -239,8 +236,7 @@ class Accumulator:
 
                         vec.update_ghost_regions()
 
-                elif self.filter_params["use_filter"] == 'hybrid':
-
+                elif self.filter_params["use_filter"] == "hybrid":
                     self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
 
                     for _ in range(self.filter_params["repeat"]):
@@ -258,17 +254,18 @@ class Accumulator:
                         vec.update_ghost_regions()
 
                 else:
-                    raise NotImplemented(
-                        'The type of filter must be fourier or three_point.',
+                    raise NotImplementedError(
+                        "The type of filter must be fourier or three_point.",
                     )
 
             vec_finished = True
 
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
-
                 self.derham.inter_comm.Allreduce(
-                    MPI.IN_PLACE, data_array, op=MPI.SUM,
+                    MPI.IN_PLACE,
+                    data_array,
+                    op=MPI.SUM,
                 )
 
                 data_array /= self.derham.Nclones
@@ -276,14 +273,18 @@ class Accumulator:
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
             self._get_L2dofs(
-                args_control["control_vec"], dofs=self._vectors[0], clear=False,
+                args_control["control_vec"],
+                dofs=self._vectors[0],
+                clear=False,
             )
             vec_finished = True
 
         # add analytical contribution (control variate) to matrix and finish
         if "control_mat" in args_control:
             self._operators[0].assemble(
-                weights=args_control["control_mat"], clear=False, verbose=False,
+                weights=args_control["control_mat"],
+                clear=False,
+                verbose=False,
             )
             mat_finished = True
 
@@ -300,7 +301,6 @@ class Accumulator:
                 op.matrix.update_ghost_regions()
 
             if self.symmetry == "symm":
-
                 self._operators[0].matrix[0, 1].transpose(
                     out=self._operators[0].matrix[1, 0],
                 )
@@ -312,19 +312,18 @@ class Accumulator:
                 )
 
             elif self.symmetry == "asym":
-
                 self._operators[0].matrix[0, 1].transpose(
                     out=self._operators[0].matrix[1, 0],
                 )
-                self._operators[0].matrix[1, 0] *= (-1)
+                self._operators[0].matrix[1, 0] *= -1
                 self._operators[0].matrix[0, 2].transpose(
                     out=self._operators[0].matrix[2, 0],
                 )
-                self._operators[0].matrix[2, 0] *= (-1)
+                self._operators[0].matrix[2, 0] *= -1
                 self._operators[0].matrix[1, 2].transpose(
                     out=self._operators[0].matrix[2, 1],
                 )
-                self._operators[0].matrix[2, 1] *= (-1)
+                self._operators[0].matrix[2, 1] *= -1
 
             elif self.symmetry == "pressure":
                 for i in range(6):
@@ -424,21 +423,20 @@ class Accumulator:
         tor_Nel = self.derham.Nel[2]
 
         # Nel along the toroidal direction must be equal or bigger than 2*maximum mode
-        assert tor_Nel >= 2*max(modes)
+        assert tor_Nel >= 2 * max(modes)
 
         pn = self.derham.p
         ir = np.empty(3, dtype=int)
 
         if (tor_Nel % 2) == 0:
-            vec_temp = np.zeros(int(tor_Nel/2) + 1, dtype=complex)
+            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
         else:
-            vec_temp = np.zeros(int((tor_Nel-1)/2) + 1, dtype=complex)
+            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
 
         # no domain decomposition along the toroidal direction
         assert self.derham.domain_decomposition.nprocs[2] == 1
 
         for axis in range(3):
-
             starts = self.derham.Vh[ſelf.form][axis].starts
             ends = self.derham.Vh[self.form][axis].ends
 
@@ -449,12 +447,11 @@ class Accumulator:
             # filtering
             for i in range(ir[0]):
                 for j in range(ir[1]):
-
                     vec_temp[:] = 0
                     vec_temp[modes] = rfft(
-                        vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]],
+                        vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]],
                     )[modes]
-                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
+                    vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
 
             vec.update_ghost_regions()
 
@@ -489,7 +486,6 @@ class AccumulatorVector:
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
     ):
-
         self._particles = particles
         self._space_id = space_id
         self._kernel = kernel
@@ -579,9 +575,10 @@ class AccumulatorVector:
 
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
-
                 self.derham.inter_comm.Allreduce(
-                    MPI.IN_PLACE, data_array, op=MPI.SUM,
+                    MPI.IN_PLACE,
+                    data_array,
+                    op=MPI.SUM,
                 )
 
                 data_array /= self.derham.Nclones
@@ -589,7 +586,9 @@ class AccumulatorVector:
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
             self._get_L2dofs(
-                args_control["control_vec"], dofs=self._vectors[0], clear=False,
+                args_control["control_vec"],
+                dofs=self._vectors[0],
+                clear=False,
             )
             vec_finished = True
 

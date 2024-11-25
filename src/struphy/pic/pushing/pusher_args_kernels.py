@@ -1,5 +1,5 @@
 class MarkerArguments:
-    '''Holds the mandatory arguments pertaining to :class:`~struphy.pic.base.Particles` 
+    """Holds the mandatory arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle pusher kernels.
 
     Paramaters
@@ -12,15 +12,14 @@ class MarkerArguments:
 
     first_pusher_idx : int
         Starting buffer marker index number for pusher.
-    '''
+    """
 
     def __init__(
         self,
-        markers: 'float[:, :]',
+        markers: "float[:, :]",
         vdim: int,
         first_pusher_idx: int,
     ):
-
         self.markers = markers
         self.vdim = vdim
         self.n_markers = markers.shape[0]
@@ -38,7 +37,7 @@ class MarkerArguments:
 
 
 class DerhamArguments:
-    '''Holds the mandatory arguments pertaining to :class:`~struphy.feec.psydac_derham.Derham` passed to particle pusher kernels.
+    """Holds the mandatory arguments pertaining to :class:`~struphy.feec.psydac_derham.Derham` passed to particle pusher kernels.
 
     Paramaters
     ----------
@@ -50,21 +49,22 @@ class DerhamArguments:
 
     starts : array[int]
         Start indices (current MPI process) of :class:`~struphy.feec.psydac_derham.Derham`.
-    '''
+    """
 
     def __init__(
         self,
-        pn: 'int[:]',
-        tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-        starts: 'int[:]',
-        bn1: 'float[:]',
-        bn2: 'float[:]',
-        bn3: 'float[:]',
-        bd1: 'float[:]',
-        bd2: 'float[:]',
-        bd3: 'float[:]',
+        pn: "int[:]",
+        tn1: "float[:]",
+        tn2: "float[:]",
+        tn3: "float[:]",
+        starts: "int[:]",
+        bn1: "float[:]",
+        bn2: "float[:]",
+        bn3: "float[:]",
+        bd1: "float[:]",
+        bd2: "float[:]",
+        bd3: "float[:]",
     ):
-
         self.pn = pn
         self.tn1 = tn1
         self.tn2 = tn2
@@ -79,7 +79,7 @@ class DerhamArguments:
 
 
 class DomainArguments:
-    '''Holds the mandatory arguments pertaining to :class:`~struphy.geometry.base.Domain` passed to particle pusher kernels.
+    """Holds the mandatory arguments pertaining to :class:`~struphy.geometry.base.Domain` passed to particle pusher kernels.
 
     Paramaters
     ----------
@@ -100,18 +100,23 @@ class DomainArguments:
 
     cx, cy, cz : array[float]
         Spline coefficients (control points) of :class:`~struphy.geometry.base.Domain`.
-    '''
+    """
 
     def __init__(
         self,
         kind_map: int,
-        params: 'float[:]',
-        p: 'int[:]',
-        t1: 'float[:]', t2: 'float[:]', t3: 'float[:]',
-        ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
-        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+        params: "float[:]",
+        p: "int[:]",
+        t1: "float[:]",
+        t2: "float[:]",
+        t3: "float[:]",
+        ind1: "int[:,:]",
+        ind2: "int[:,:]",
+        ind3: "int[:,:]",
+        cx: "float[:,:,:]",
+        cy: "float[:,:,:]",
+        cz: "float[:,:,:]",
     ):
-
         self.kind_map = kind_map
         self.params = params
         self.p = p
