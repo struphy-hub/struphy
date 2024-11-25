@@ -5259,7 +5259,8 @@ class VariationalViscosity(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if (err < tol**2 and it>0) or np.isnan(err):
+                #force at least one iteration
                 break
 
             deds = self.__dener_ds(
@@ -5742,7 +5743,7 @@ class VariationalResistivity(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if (err < tol**2 and it>0) or np.isnan(err):
                 break
 
             deds = self.__dener_ds(
