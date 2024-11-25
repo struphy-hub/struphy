@@ -94,7 +94,7 @@ class PushEta(Propagator):
 
         if self._eval_density:
             eval_density = lambda eta1, eta2, eta3 : self._particles[0](eta1, eta2, eta3, index = self._particles[0].index['weights'])
-            self._density_field = self.derham.P['3'](eval_density)
+            self.derham.P['3'](eval_density, out=self._density_field)
 
 
 class PushVxB(Propagator):
