@@ -264,7 +264,7 @@ class Particles(metaclass=ABCMeta):
 
                 print(
                     f'\n{fi} is not in bckgr_params; default background parameters are used.')
-            if self.marker_params['loading']['moments']=='degenerate':
+            if self.loading_params['moments']=='degenerate':
                 equils = getattr(fluid_equils, fi_type)
                 equils.domain = self.domain
                 if self._f0 is None:
@@ -286,7 +286,7 @@ class Particles(metaclass=ABCMeta):
                     )
 
         # set coordinates of the background distribution
-        if self.f0.coords == 'constants_of_motion':
+        if self.loading_params['moments'] !='degenerate' and self.f0.coords == 'constants_of_motion':
             # Particles6D
             if self.vdim == 3:
                 assert self.n_cols_diagnostics >= 7, f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
@@ -300,7 +300,7 @@ class Particles(metaclass=ABCMeta):
 
                 self._f_coords_index = self.index['com']['5D']
                 self._f_jacobian_coords_index = self.index['pos+energy']['5D']
-        if self.marker_params['loading']['moments']=='degenerate':
+        if self.loading_params['moments']=='degenerate':
             self._f_coords_index = self.index['coords']
             self._f_jacobian_coords_index = self.index['coords']
         else:
@@ -1121,7 +1121,7 @@ class Particles(metaclass=ABCMeta):
                 )
 
             # initial velocities:
-            if self.marker_params['loading']['moments']=='degenerate':
+            if self.loading_params['moments']=='degenerate':
 
                 bckgr_type = self.bckgr_params['type']
                 bp_copy = copy.deepcopy(self.bckgr_params)
@@ -1154,9 +1154,9 @@ class Particles(metaclass=ABCMeta):
             else:
                 # inverse transform sampling in velocity space
                 u_mean = np.array(
-                    self.marker_params['loading']['moments'][:self.vdim])
+                    self.loading_params['moments'][:self.vdim])
                 v_th = np.array(
-                    self.marker_params['loading']['moments'][self.vdim:])
+                    self.loading_params['moments'][self.vdim:])
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
@@ -1352,7 +1352,7 @@ class Particles(metaclass=ABCMeta):
                             bp_copy[fi] = {'n': 0.}
 
         # Get the initialization function and pass the correct arguments
-        if self.marker_params['loading']['moments']!='degenerate':
+        if self.loading_params['moments']!='degenerate':
             # In SPH case f_init is set in draw_markers
             self._f_init = None
             for fi in bckgr_type:
@@ -1383,7 +1383,7 @@ class Particles(metaclass=ABCMeta):
 
 
         # evaluate initial distribution function
-        if self.marker_params['loading']['moments']=='degenerate':
+        if self.loading_params['moments']=='degenerate':
             f_init = self.f_init.n0(self.f_coords)
 
         else :
@@ -1660,7 +1660,7 @@ class Particles(metaclass=ABCMeta):
         new_moments += [*np.mean(us, axis=0)]
         new_moments += [*(np.max(vths, axis=0) + np.max(np.abs(us), axis=0) - np.mean(us, axis=0))]
 
-        self._loading_params['moments'] = new_moments
+        self.loading_params['moments'] = new_moments
 
     def particle_refilling(self):
         r"""
@@ -1902,7 +1902,7 @@ class Particles(metaclass=ABCMeta):
                                self._sorting_boxes.nz,
                                self._sorting_boxes._boxes,
                                self._sorting_boxes._next_index, 
-                               self.derham.domain_array[self.mpi_rank])
+                               self.domain_decomp[self.mpi_rank])
 
     def do_sort(self):
         """Assign the particles to boxes and then sort them."""
@@ -1968,7 +1968,7 @@ class Particles(metaclass=ABCMeta):
                                      self._sorting_boxes.nz,
                                      self._sorting_boxes._boxes,
                                      self._sorting_boxes._neighbours,
-                                     self.derham.domain_array[self.mpi_rank],
+                                     self.domain_decomp[self.mpi_rank],
                                      self.holes,
                                      index,
                                      h,

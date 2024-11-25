@@ -799,30 +799,30 @@ class HydroParticles(Particles):
         return {'type': 'Constant6D',
                 'Constant6D': {}}
 
-    def __init__(self,
-                 name: str,
-                 derham: Derham,
-                 *,
-                 domain: Domain = None,
-                 mhd_equil: MHDequilibrium = None,
-                 braginskii_equil: BraginskiiEquilibrium = None,
-                 bckgr_params: dict = None,
-                 pert_params: dict = None,
-                 sorting_params: dict = None,
-                 **marker_params):
+    def __init__(
+        self,
+        name: str,
+        Np: int,
+        bc: list,
+        loading: str,
+        **kwargs,
+    ):
 
-        if bckgr_params is None:
-            bckgr_params = self.default_bckgr_params()
+        if 'bckgr_params' not in kwargs:
+            kwargs['bckgr_params'] = self.default_bckgr_params()
 
-        super().__init__(name,
-                         derham,
-                         domain=domain,
-                         mhd_equil=mhd_equil,
-                         braginskii_equil=braginskii_equil,
-                         bckgr_params=bckgr_params,
-                         pert_params=pert_params,
-                         sorting_params=sorting_params,
-                         **marker_params)
+        # default number of diagnostics and auxiliary columns
+        if 'n_cols' not in kwargs:
+            self._n_cols_diagnostics = 0
+            self._n_cols_aux = 5
+
+        else:
+            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
+            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+
+            kwargs.pop('n_cols')
+
+        super().__init__(name, Np, bc, loading, **kwargs)
 
     @property
     def n_cols(self):
@@ -835,6 +835,30 @@ class HydroParticles(Particles):
         """ Dimension of the velocity space.
         """
         return 3
+    
+    @property
+    def first_diagnostics_idx(self):
+        """ Starting buffer marker index number for diagnostics.
+        """
+        return 3 + self.vdim + 3
+
+    @property
+    def first_pusher_idx(self):
+        """ Starting buffer marker index number for pusher.
+        """
+        return 3 + self.vdim + 3 + self.n_cols_diagnostics
+    
+    @property
+    def n_cols_diagnostics(self):
+        """ Number of the diagnostics columns.
+        """
+        return self._n_cols_diagnostics
+
+    @property
+    def n_cols_aux(self):
+        """ Number of the auxiliary columns.
+        """
+        return self._n_cols_aux
 
     @property
     def bufferindex(self):
