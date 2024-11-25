@@ -165,7 +165,7 @@ class SumKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f1.is_polar
-    
+
     @property
     def volume_form(self):
         """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
@@ -263,7 +263,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
         """ List of booleans. True if the velocity coordinates are polar coordinates.
         """
         return self._f.is_polar
-    
+
     @property
     def volume_form(self):
         """ Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian).
@@ -376,7 +376,7 @@ class Maxwellian(KineticBackground):
 
         polar : bool
             True if the velocity coordinate is the radial one of polar coordinates (v >= 0).
-            
+
         volume_form : bool
             If True, the polar Gaussian is multiplied by the polar velocity Jacobian |v|.
 
@@ -389,12 +389,14 @@ class Maxwellian(KineticBackground):
             assert v.shape == u.shape, f'{v.shape = } but {u.shape = }'
 
         if not polar:
-            out = 1./vth * 1./np.sqrt(2.*np.pi) * np.exp(-(v - u)**2/(2.*vth**2))
+            out = 1./vth * 1./np.sqrt(2.*np.pi) * \
+                np.exp(-(v - u)**2/(2.*vth**2))
         else:
             assert np.all(v >= 0.)
             out = 1./vth**2 * np.exp(-(v - u)**2/(2.*vth**2))
-            if volume_form: out *= v
-            
+            if volume_form:
+                out *= v
+
         return out
 
     def __call__(self, *args):
@@ -425,7 +427,7 @@ class Maxwellian(KineticBackground):
         shape0 = np.shape(args[0])
         for i, arg in enumerate(args):
             assert np.shape(arg) == shape0, \
-                    f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
+                f'Argument {i} has {np.shape(arg) = }, but must be {shape0 = }.'
             assert np.ndim(arg) == 1 or np.ndim(
                 arg) == 3 + self.vdim, f'{np.ndim(arg) = } not allowed for Maxwellian evaluation.'  # flat or meshgrid evaluation
 
@@ -466,8 +468,8 @@ class Maxwellian(KineticBackground):
                 u = us[i]
                 vth = vths[i]
 
-            res *= self.gaussian(v, 
-                                 u=u, 
+            res *= self.gaussian(v,
+                                 u=u,
                                  vth=vth,
                                  polar=self.is_polar[i],
                                  volume_form=self.volume_form)

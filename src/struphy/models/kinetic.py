@@ -1,8 +1,9 @@
 import numpy as np
-from struphy.models.base import StruphyModel
+
 from struphy.kinetic_background.base import KineticBackground
-from struphy.propagators import propagators_fields, propagators_coupling, propagators_markers
+from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 
 
 class VlasovAmpereOneSpecies(StruphyModel):
@@ -99,8 +100,10 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushEta: ['species1'],
-                propagators_coupling.VlasovAmpere: ['e_field', 'species1']}
+        return {
+            propagators_markers.PushEta: ['species1'],
+            propagators_coupling.VlasovAmpere: ['e_field', 'species1'],
+        }
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -113,13 +116,19 @@ class VlasovAmpereOneSpecies(StruphyModel):
     @classmethod
     def options(cls):
         dct = super().options()
-        cls.add_option(species=['em_fields'],
-                       option=propagators_fields.ImplicitDiffusion,
-                       dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='verification',
-                       option={'use': False, 'kappa': 1.}, dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='Z0',
-                       option=-1., dct=dct)
+        cls.add_option(
+            species=['em_fields'],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=['kinetic', 'species1'], key='verification',
+            option={'use': False, 'kappa': 1.}, dct=dct,
+        )
+        cls.add_option(
+            species=['kinetic', 'species1'], key='Z0',
+            option=-1., dct=dct,
+        )
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -127,7 +136,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # get species paramaters
         species1_params = params['kinetic']['species1']
@@ -136,13 +145,15 @@ class VlasovAmpereOneSpecies(StruphyModel):
         if species1_params['options']['verification']['use']:
             self.kappa = species1_params['options']['verification']['kappa']
             print(
-                f'\n!!! Verification run: equation parameters set to {self.kappa = }.')
+                f'\n!!! Verification run: equation parameters set to {self.kappa = }.',
+            )
         else:
             self.kappa = self.equation_params['species1']['kappa']
 
         # Check if it is control-variate method
         self._control_variate = (
-            species1_params['markers']['type'] == 'control_variate')
+            species1_params['markers']['type'] == 'control_variate'
+        )
 
         # set background density factor
         Z0 = species1_params['options']['Z0']
@@ -162,11 +173,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
         params_coupling = params['em_fields']['options']['VlasovAmpere']['solver']
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
-                                                     'bc_type': species1_params['markers']['bc']['type']}
+        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta}
 
-        self._kwargs[propagators_coupling.VlasovAmpere] = {'c1': self.kappa**2,
-                                                           'solver': params_coupling}
+        self._kwargs[propagators_coupling.VlasovAmpere] = {
+            'c1': self.kappa**2,
+            'solver': params_coupling,
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -207,11 +219,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(self.pointer['species1'],
-                                         'H1',
-                                         accum_kernels.charge_density_0form,
-                                         self.derham,
-                                         self.domain.args_domain)
+        charge_accum = AccumulatorVector(
+            self.pointer['species1'],
+            'H1',
+            accum_kernels.charge_density_0form,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
 
         charge_accum(self.pointer['species1'].vdim)
 
@@ -226,7 +240,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
             sigma_2=0.,
             sigma_3=1.,
             rho=self.kappa**2 * charge_accum.vectors[0],
-            solver=self._poisson_params)
+            solver=self._poisson_params,
+        )
 
         # Solve with dt=1. and compute electric field
         if self._rank == 0:
@@ -246,13 +261,16 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # kappa^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = self.kappa**2 / (2 * self.pointer['species1'].n_mks) * \
-            np.dot(self.pointer['species1'].markers_wo_holes[:, 3]**2 +
-                   self.pointer['species1'].markers_wo_holes[:, 4]**2 +
-                   self.pointer['species1'].markers_wo_holes[:, 5]**2,
-                   self.pointer['species1'].markers_wo_holes[:, 6])
+            np.dot(
+                self.pointer['species1'].markers_wo_holes[:, 3]**2 +
+                self.pointer['species1'].markers_wo_holes[:, 4]**2 +
+                self.pointer['species1'].markers_wo_holes[:, 5]**2,
+                self.pointer['species1'].markers_wo_holes[:, 6],
+        )
         if self.comm is not None:
             self.comm.Allreduce(
-                self._mpi_in_place, self._tmp, op=self._mpi_sum)
+                self._mpi_in_place, self._tmp, op=self._mpi_sum,
+            )
         self.update_scalar('en_f', self._tmp[0])
 
         # en_tot = en_w + en_e
@@ -367,10 +385,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.Maxwell: ['e_field', 'b_field'],
-                propagators_markers.PushEta: ['species1'],
-                propagators_markers.PushVxB: ['species1'],
-                propagators_coupling.VlasovAmpere: ['e_field', 'species1']}
+        return {
+            propagators_fields.Maxwell: ['e_field', 'b_field'],
+            propagators_markers.PushEta: ['species1'],
+            propagators_markers.PushVxB: ['species1'],
+            propagators_coupling.VlasovAmpere: ['e_field', 'species1'],
+        }
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -383,13 +403,19 @@ class VlasovMaxwellOneSpecies(StruphyModel):
     @classmethod
     def options(cls):
         dct = super().options()
-        cls.add_option(species=['em_fields'],
-                       option=propagators_fields.ImplicitDiffusion,
-                       dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='verification',
-                       option={'use': False, 'alpha': 1., 'epsilon': -1.}, dct=dct)
-        cls.add_option(species=['kinetic', 'species1'], key='Z0',
-                       option=-1., dct=dct)
+        cls.add_option(
+            species=['em_fields'],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=['kinetic', 'species1'], key='verification',
+            option={'use': False, 'alpha': 1., 'epsilon': -1.}, dct=dct,
+        )
+        cls.add_option(
+            species=['kinetic', 'species1'], key='Z0',
+            option=-1., dct=dct,
+        )
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -397,7 +423,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # get species paramaters
         species1_params = params['kinetic']['species1']
@@ -407,7 +433,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             self._alpha = species1_params['options']['verification']['alpha']
             self._epsilon = species1_params['options']['verification']['epsilon']
             print(
-                f'\n!!! Verification run: equation parameters set to {self._alpha = } and {self._epsilon = }.')
+                f'\n!!! Verification run: equation parameters set to {self._alpha = } and {self._epsilon = }.',
+            )
         else:
             self._alpha = self.equation_params['species1']['alpha']
             self._epsilon = self.equation_params['species1']['epsilon']
@@ -420,12 +447,15 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         self.pointer['species1'].f0.moment_factors['n'] = - Z0/Z
         self.pointer['species1'].f0.moment_factors['u'] = [
-            self._epsilon/self._alpha**2]*3
+            self._epsilon/self._alpha**2,
+        ]*3
 
         # Initialize background magnetic field from MHD equilibrium
-        b_backgr = self.derham.P['2']([self.mhd_equil.b2_1,
-                                       self.mhd_equil.b2_2,
-                                       self.mhd_equil.b2_3])
+        b_backgr = self.derham.P['2']([
+            self.mhd_equil.b2_1,
+            self.mhd_equil.b2_2,
+            self.mhd_equil.b2_3,
+        ])
 
         # propagator parameters
         params_maxwell = params['em_fields']['options']['Maxwell']['solver']
@@ -437,17 +467,20 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.Maxwell] = {'solver': params_maxwell}
 
-        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta,
-                                                     'bc_type': species1_params['markers']['bc']['type']}
+        self._kwargs[propagators_markers.PushEta] = {'algo': algo_eta}
 
-        self._kwargs[propagators_markers.PushVxB] = {'algo': algo_vxb,
-                                                     'scale_fac': 1./self._epsilon,
-                                                     'b_eq': b_backgr,
-                                                     'b_tilde': self.pointer['b_field']}
+        self._kwargs[propagators_markers.PushVxB] = {
+            'algo': algo_vxb,
+            'scale_fac': 1./self._epsilon,
+            'b_eq': b_backgr,
+            'b_tilde': self.pointer['b_field'],
+        }
 
-        self._kwargs[propagators_coupling.VlasovAmpere] = {'c1': self._alpha**2/self._epsilon,
-                                                           'c2': 1./self._epsilon,
-                                                           'solver': params_coupling}
+        self._kwargs[propagators_coupling.VlasovAmpere] = {
+            'c1': self._alpha**2/self._epsilon,
+            'c2': 1./self._epsilon,
+            'solver': params_coupling,
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -486,11 +519,13 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         #     [True] + [False]*5, [np.linspace(0, 1, 32)])
 
         # accumulate charge density
-        charge_accum = AccumulatorVector(self.pointer['species1'],
-                                         "H1",
-                                         accum_kernels.charge_density_0form,
-                                         self.derham,
-                                         self.domain.args_domain)
+        charge_accum = AccumulatorVector(
+            self.pointer['species1'],
+            "H1",
+            accum_kernels.charge_density_0form,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
 
         charge_accum(self.pointer['species1'].vdim)
 
@@ -505,7 +540,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             sigma_2=0.,
             sigma_3=1.,
             rho=self._alpha**2 / self._epsilon * charge_accum.vectors[0],
-            solver=self._poisson_params)
+            solver=self._poisson_params,
+        )
 
         # Solve with dt=1. and compute electric field
         if self._rank == 0:
@@ -528,13 +564,16 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = self._alpha**2 / (2 * self.pointer['species1'].n_mks) * \
-            np.dot(self.pointer['species1'].markers_wo_holes[:, 3]**2 +
-                   self.pointer['species1'].markers_wo_holes[:, 4] ** 2 +
-                   self.pointer['species1'].markers_wo_holes[:, 5]**2,
-                   self.pointer['species1'].markers_wo_holes[:, 6])
+            np.dot(
+                self.pointer['species1'].markers_wo_holes[:, 3]**2 +
+                self.pointer['species1'].markers_wo_holes[:, 4] ** 2 +
+                self.pointer['species1'].markers_wo_holes[:, 5]**2,
+                self.pointer['species1'].markers_wo_holes[:, 6],
+        )
         if self.comm is not None:
             self.comm.Allreduce(
-                self._mpi_in_place, self._tmp, op=self._mpi_sum)
+                self._mpi_in_place, self._tmp, op=self._mpi_sum,
+            )
         self.update_scalar('en_f', self._tmp[0])
 
         # en_tot = en_w + en_e + en_b
@@ -649,14 +688,18 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
     @classmethod
     def options(cls):
         dct = super().options()
-        cls.add_option(species=['em_fields'],
-                       key=['solvers', 'poisson'],
-                       option=propagators_fields.ImplicitDiffusion,
-                       dct=dct)
-        cls.add_option(species=['kinetic', 'species1'],
-                       key='verification',
-                       option={'use': True, 'kappa': 1., 'alpha': 1.},
-                       dct=dct)
+        cls.add_option(
+            species=['em_fields'],
+            key=['solvers', 'poisson'],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=['kinetic', 'species1'],
+            key='verification',
+            option={'use': True, 'kappa': 1., 'alpha': 1.},
+            dct=dct,
+        )
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -664,17 +707,29 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
+
+        from struphy.kinetic_background import maxwellians
 
         # prelim
         self._electron_params = params['kinetic']['species1']
+        # kinetic background params
+        bckgr_params = self._electron_params['background']
+        bckgr_type = bckgr_params['type']
 
-        # Assert Maxwellian background
-        assert self._electron_params['background']['type'] == 'Maxwellian3D', \
-            "The background distribution function must be a uniform Maxwellian!"
+        # Assert Maxwellian background (if list, the first entry is taken)
+        if isinstance(bckgr_type, list):
+            assert bckgr_type[0][:-2] == 'Maxwellian3D', \
+                "The background distribution function must be a uniform Maxwellian!"
+            self._f0 = getattr(maxwellians, bckgr_type[0][:-2])(
+                maxw_params=bckgr_params[bckgr_type[0]],
+            )
+        else:
+            assert self._electron_params['background']['type'] == 'Maxwellian3D', \
+                "The background distribution function must be a uniform Maxwellian!"
+            self._f0 = self.pointer['species1'].f0
 
         # Assert uniformity of the Maxwellian background
-        self._f0 = self.pointer['species1'].f0
         assert self._f0.maxw_params['u1'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
         assert self._f0.maxw_params['u2'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
         assert self._f0.maxw_params['u3'] == 0., "The background Maxwellian cannot have shifts in velocity space!"
@@ -691,14 +746,16 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.alpha = spec_params['options']['verification']['alpha']
             if self._rank == 0:
                 print(
-                    f"\n!!! Verification run: equation parameters set to {self.kappa = }, {self.alpha = }.\n")
+                    f"\n!!! Verification run: equation parameters set to {self.kappa = }, {self.alpha = }.\n",
+                )
         else:
             self.kappa = self.equation_params['species1']['kappa']
             self.alpha = self.equation_params['species1']['alpha']
 
         # allocate memory for evaluating f0 in energy computation
         self._f0_values = np.zeros(
-            self.pointer['species1'].markers.shape[0], dtype=float)
+            self.pointer['species1'].markers.shape[0], dtype=float,
+        )
 
         # ====================================================================================
         # Create pointers to background electric potential and field
@@ -724,14 +781,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._kwargs[propagators_markers.PushEta] = {
             'algo': algo_eta,
-            'bc_type': self._electron_params['markers']['bc']['type']
         }
 
         # Only add PushVinEfield if e-field is non-zero, otherwise it is more expensive
         if not np.all(self._e_background[0]._data < 1e-14) or not np.all(self._e_background[1]._data < 1e-14) or not np.all(self._e_background[2]._data < 1e-14):
             self._kwargs[propagators_markers.PushVinEfield] = {
                 'e_field': self._e_background,
-                'kappa': self.kappa
+                'kappa': self.kappa,
             }
         else:
             self._kwargs[propagators_markers.PushVinEfield] = None
@@ -740,7 +796,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             'alpha': self.alpha,
             'kappa': self.kappa,
             'f0': self._f0,
-            'solver': params_coupling
+            'solver': params_coupling,
         }
 
         # Only add PushVxB if megnetic field is not zero
@@ -780,11 +836,13 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         super().initialize_from_params()
 
         # Accumulate charge density
-        charge_accum = AccumulatorVector(self.pointer['species1'],
-                                         "H1",
-                                         accum_kernels.charge_density_0form,
-                                         self.derham,
-                                         self.domain.args_domain)
+        charge_accum = AccumulatorVector(
+            self.pointer['species1'],
+            "H1",
+            accum_kernels.charge_density_0form,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
 
         charge_accum(self.pointer['species1'].vdim)
 
@@ -796,7 +854,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             sigma_2=0.,
             sigma_3=1.,
             rho=self.kappa * charge_accum.vectors[0],
-            solver=self._poisson_params)
+            solver=self._poisson_params,
+        )
 
         # Solve with dt=1. and compute electric field
         if self._rank == 0:
@@ -827,13 +886,15 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.alpha**2 * self.vth**2 / (2 * self.pointer['species1'].n_mks) * \
             np.dot(
                 self.pointer['species1'].markers_wo_holes[:, 6]**2,  # w_p^2
-                self.pointer['species1'].markers_wo_holes[:, 7] / \
-                self._f0_values[~self.pointer['species1']
-                                .holes]  # s_{0,p} / f_{0,p}
+                self.pointer['species1'].markers_wo_holes[:, 7] /
+                self._f0_values[
+                    ~self.pointer['species1']
+                    .holes
+                ],  # s_{0,p} / f_{0,p}
         )
 
         self.derham.comm.Allreduce(
-            self._mpi_in_place, self._tmp, op=self._mpi_sum
+            self._mpi_in_place, self._tmp, op=self._mpi_sum,
         )
 
         self.update_scalar('en_w', self._tmp[0])
@@ -909,9 +970,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.ImplicitDiffusion: ['phi'],
-                propagators_markers.PushGuidingCenterBxEstar: ['ions'],
-                propagators_markers.PushGuidingCenterParallel: ['ions']}
+        return {
+            propagators_fields.ImplicitDiffusion: ['phi'],
+            propagators_markers.PushGuidingCenterBxEstar: ['ions'],
+            propagators_markers.PushGuidingCenterParallel: ['ions'],
+        }
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -924,8 +987,10 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     @classmethod
     def options(cls):
         dct = super().options()
-        cls.add_option(species=['kinetic', 'ions'], key='verification',
-                       option={'use': False, 'epsilon': 1.}, dct=dct)
+        cls.add_option(
+            species=['kinetic', 'ions'], key='verification',
+            option={'use': False, 'epsilon': 1.}, dct=dct,
+        )
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -933,7 +998,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, inter_comm=inter_comm)
 
-        from mpi4py.MPI import SUM, IN_PLACE
+        from mpi4py.MPI import IN_PLACE, SUM
+
         from struphy.feec.projectors import L2Projector
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
@@ -952,11 +1018,13 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             magn_bckgr = self.mhd_equil
 
         # Poisson right-hand side
-        charge_accum = AccumulatorVector(self.pointer['ions'],
-                                         "H1",
-                                         accum_kernels_gc.gc_density_0form,
-                                         self.derham,
-                                         self.domain.args_domain)
+        charge_accum = AccumulatorVector(
+            self.pointer['ions'],
+            "H1",
+            accum_kernels_gc.gc_density_0form,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
 
         rho = (charge_accum, self.pointer['ions'])
 
@@ -973,28 +1041,35 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         if ions_params['options']['verification']['use']:
             self.epsilon = ions_params['options']['verification']['epsilon']
             print(
-                f'\n!!! Verification run: equation parameters set to {self.epsilon = }.')
+                f'\n!!! Verification run: equation parameters set to {self.epsilon = }.',
+            )
         else:
             self.epsilon = self.equation_params['ions']['epsilon']
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ImplicitDiffusion] = {'sigma_1': 1. / self.epsilon**2 / Z,  # set to zero for Landau damping test
-                                                              'sigma_2': 0.,
-                                                              'sigma_3': 1. / self.epsilon,
-                                                              'stab_mat': 'M0ad',
-                                                              'diffusion_mat': 'M1gyro',
-                                                              'rho': rho,
-                                                              'solver': solver_params}
+        self._kwargs[propagators_fields.ImplicitDiffusion] = {
+            'sigma_1': 1. / self.epsilon**2 / Z,  # set to zero for Landau damping test
+            'sigma_2': 0.,
+            'sigma_3': 1. / self.epsilon,
+            'stab_mat': 'M0ad',
+            'diffusion_mat': 'M1gyro',
+            'rho': rho,
+            'solver': solver_params,
+        }
 
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {'phi': self.pointer['phi'],
-                                                                      'evaluate_e_field': True,
-                                                                      'epsilon': self.epsilon/Z,
-                                                                      'algo': ions_params['options']['PushGuidingCenterBxEstar']['algo']}
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
+            'phi': self.pointer['phi'],
+            'evaluate_e_field': True,
+            'epsilon': self.epsilon/Z,
+            'algo': ions_params['options']['PushGuidingCenterBxEstar']['algo'],
+        }
 
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {'phi': self.pointer['phi'],
-                                                                       'evaluate_e_field': True,
-                                                                       'epsilon': self.epsilon/Z,
-                                                                       'algo': ions_params['options']['PushGuidingCenterParallel']['algo']}
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
+            'phi': self.pointer['phi'],
+            'evaluate_e_field': True,
+            'epsilon': self.epsilon/Z,
+            'algo': ions_params['options']['PushGuidingCenterParallel']['algo'],
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -1022,7 +1097,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # energy from adiabatic electrons
         self.mass_ops.M0ad.dot(self.pointer['phi'], out=self._tmp2)
         en_phi = self.pointer['phi'].dot(
-            self._tmp2) / (2. * self.epsilon**2)
+            self._tmp2,
+        ) / (2. * self.epsilon**2)
 
         # for Landau damping test
         # en_phi = 0.
@@ -1032,11 +1108,14 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
         self._tmp3[0] = 1/self.pointer['ions'].n_mks * np.sum(
-            self.pointer['ions'].weights * self.pointer['ions'].velocities[:, 0]**2 / 2. + self.pointer['ions'].markers[~self.pointer['ions'].holes, 8])
+            self.pointer['ions'].weights * self.pointer['ions'].velocities[:, 0]**2 /
+            2. + self.pointer['ions'].markers[~self.pointer['ions'].holes, 8],
+        )
 
         if self.comm is not None:
             self.comm.Allreduce(
-                self._mpi_in_place, self._tmp3, op=self._mpi_sum)
+                self._mpi_in_place, self._tmp3, op=self._mpi_sum,
+            )
 
         self.update_scalar('en_phi', en_phi + en_phi1)
         self.update_scalar('en_particles', self._tmp3[0])

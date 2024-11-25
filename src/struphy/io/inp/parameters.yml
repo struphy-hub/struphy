@@ -83,16 +83,15 @@ kinetic :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         markers :
-            type    : full_f # full_f, control_variate, or delta_f
-            ppc     : null  # number of markers per 3d grid cell
             Np      : 1000 # alternative if ppc = null, total number of markers
+            ppc     : null  # number of markers per 3d grid cell
+            bc      : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+            type    : full_f # full_f, control_variate, or delta_f
             eps     : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc : 
-                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
-            loading :
-                type          : pseudo_random # particle loading mechanism 
+            loading : pseudo_random # particle loading mechanism 
+            loading_params :
                 seed          : 1234 # seed for random number generator
-                moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                # moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec. Are now automatically generated.
                 spatial       : uniform # uniform or disc
                 dir_particles : 'path_to_particles' # directory of particles if loaded externally
         save_data :
@@ -113,3 +112,8 @@ kinetic :
                     n : '0' # perturbation function given as 0-form 
                 ms : # poloidal mode numbers
                     n : [1, 3] # two poloidal modes for the density
+        sorting:
+            nx: 2
+            ny: 2
+            nz: 2
+            eps: 0.1

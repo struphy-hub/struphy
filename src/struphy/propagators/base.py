@@ -2,6 +2,7 @@
 
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 
 
@@ -24,6 +25,7 @@ class Propagator(metaclass=ABCMeta):
             :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
         """
         from psydac.linalg.basic import Vector
+
         from struphy.pic.particles import Particles
 
         self._feec_vars = []
@@ -36,7 +38,8 @@ class Propagator(metaclass=ABCMeta):
                 self._particles += [var]
             else:
                 ValueError(
-                    f'Variable {var} must be of type "Vector" or "Particles".')
+                    f'Variable {var} must be of type "Vector" or "Particles".',
+                )
 
         # for iterative particle push
         self._init_kernels = []
@@ -58,8 +61,8 @@ class Propagator(metaclass=ABCMeta):
 
     @property
     def init_kernels(self):
-        """ List of initialization kernels for evaluation at
-        :math:`\boldsymbol eta^n`
+        r""" List of initialization kernels for evaluation at
+        :math:`\boldsymbol \eta^n`
         in an iterative :class:`~struphy.pic.pushing.pusher.Pusher`.
         """
         return self._init_kernels
@@ -96,7 +99,8 @@ class Propagator(metaclass=ABCMeta):
         """ Derham spaces and projectors.
         """
         assert hasattr(
-            self, '_derham'), 'Derham not set. Please do obj.derham = ...'
+            self, '_derham',
+        ), 'Derham not set. Please do obj.derham = ...'
         return self._derham
 
     @derham.setter
@@ -144,7 +148,8 @@ class Propagator(metaclass=ABCMeta):
         """ MHD equilibrium projected on 3d Derham sequence with commuting projectors.
         """
         assert hasattr(
-            self, '_projected_mhd_equil'), 'Projected MHD equilibrium not set.'
+            self, '_projected_mhd_equil',
+        ), 'Projected MHD equilibrium not set.'
         return self._projected_mhd_equil
 
     @projected_mhd_equil.setter
@@ -185,8 +190,6 @@ class Propagator(metaclass=ABCMeta):
             A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.
         """
 
-
-        
         diffs = []
 
         for i, new in enumerate(variables_new):
@@ -203,64 +206,70 @@ class Propagator(metaclass=ABCMeta):
             self.feec_vars[i].update_ghost_regions()
 
         return diffs
-    
-    def add_init_kernel(self,
-                        kernel,
-                        column_nr: int,
-                        comps: tuple | int,
-                        args_init: tuple):
+
+    def add_init_kernel(
+        self,
+        kernel,
+        column_nr: int,
+        comps: tuple | int,
+        args_init: tuple,
+    ):
         '''Add an initialization kernel to self.init_kernels.
-        
+
         Parameters
         ----------
         kernel : pyccel func
             The kernel function.
-            
+
         column_nr : int
             The column index at which the result is stored in marker array.
-            
+
         comps : tuple | int
             None or (0) for scalar-valued function evaluation. 
             In vector valued case, allows to specify which components to save 
             at column_nr:column_nr + len(comps).
-            
+
         args_init : tuple
             The arguments for the kernel function.
         '''
         if comps is None:
-            comps = np.array([0]) # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
             comps = np.array(comps, dtype=int)
-        
-        self._init_kernels += [(kernel,
-                                column_nr,
-                                comps,
-                                args_init)]
-        
-    def add_eval_kernel(self,
-                        kernel,
-                        column_nr: int,
-                        comps: tuple | int,
-                        args_eval: tuple,
-                        alpha: float | int | tuple | list = 1.):
+
+        self._init_kernels += [(
+            kernel,
+            column_nr,
+            comps,
+            args_init,
+        )]
+
+    def add_eval_kernel(
+        self,
+        kernel,
+        column_nr: int,
+        comps: tuple | int,
+        args_eval: tuple,
+        alpha: float | int | tuple | list = 1.,
+    ):
         '''Add an evaluation kernel to self.eval_kernels.
-        
+
         Parameters
         ----------
         kernel : pyccel func
             The kernel function. 
-            
+
         column_nr : int
             The column index at which the result is stored in marker array.
-            
+
         comps : tuple | int
             None for scalar-valued function evaluation. In vecotr valued case,
             allows to specify which components to save 
             at column_nr:column_nr + len(comps).
-            
+
         args_init : tuple
             The arguments for the kernel function.
-            
+
         alpha : float | int | tuple | list
             Evaluations in kernel are at the weighted average
             alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i],
@@ -271,14 +280,16 @@ class Propagator(metaclass=ABCMeta):
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = [alpha]*6
         alpha = np.array(alpha)
-        
+
         if comps is None:
-            comps = np.array([0]) # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
             comps = np.array(comps, dtype=int)
-        
-        self._eval_kernels += [(kernel,
-                                alpha,
-                                column_nr,
-                                comps,
-                                args_eval)]
+
+        self._eval_kernels += [(
+            kernel,
+            alpha,
+            column_nr,
+            comps,
+            args_eval,
+        )]
