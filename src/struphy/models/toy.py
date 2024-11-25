@@ -1104,7 +1104,22 @@ class RandomParticleDiffusion(StruphyModel):
 
 
 class PressureLessSPH(StruphyModel):
-    r'''Pressureless fluid with smoothed particle hydrodynamics
+    r'''Pressureless fluid discretized with smoothed particle hydrodynamics
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+        \\[4mm]
+        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = 0 \,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_markers.PushEta`
+
+    This is discretized by particles going in straight lines:
+        
     '''
 
     @staticmethod
