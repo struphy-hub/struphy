@@ -1,24 +1,24 @@
+import copy
+import os
 from abc import ABCMeta, abstractmethod
 
-import struphy
-import os
-import yaml
-import numpy as np
 import h5py
+import numpy as np
 import scipy.special as sp
-import copy
+from mpi4py.MPI import Intracomm
+from sympy.ntheory import factorint
 
-from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.pusher_utilities_kernels import reflect
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
-from struphy.kinetic_background import maxwellians
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.io.output_handling import DataContainer
-
-from struphy.feec.psydac_derham import Derham
-from struphy.geometry.base import Domain
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+from struphy.geometry.base import Domain
+from struphy.io.output_handling import DataContainer
+from struphy.kinetic_background import maxwellians
+from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
+from struphy.pic.pushing.pusher_utilities_kernels import reflect
+from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles
 
 
 class Particles(metaclass=ABCMeta):
@@ -26,24 +26,52 @@ class Particles(metaclass=ABCMeta):
     Base class for particle species.
 
     The marker information is stored in a 2D numpy array, 
-    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#PIC-data-structures>`_.
+    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
 
     Parameters
     ----------
     name : str
         Name of particle species.
 
-    derham : Derham
-        Struphy Derham object. 
+    Np : int
+        Number of particles.
+
+    bc : list
+        Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
+
+    loading : str
+        Drawing of markers; either 'pseudo_random', 'sobol_standard',
+        'sobol_antithetic', 'external' or 'restart'.
+
+    eps : float
+        Size of buffer (as fraction of total size, default=.25) in markers array.
+
+    type : str
+        Either 'full_f' (default), 'control_variate' or 'delta_f'.
+
+    loading_params : dict
+        Parameterts for loading, see defaults below.
+
+    bc_refill : list
+        Either 'inner' or 'outer'.
+
+    sorting_params : dict
+        Sorting boxes size parameters.
+
+    comm : mpi4py.MPI.Intracomm
+        MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
+
+    inter_comm : mpi4py.MPI.Intracomm
+        MPI communicator (between clones if domain cloning is used, otherwise None)
 
     domain : Domain
         Struphy domain object.
 
     mhd_equil : MHDequilibrium
-        Struphy MHD equilibrium object
+        Struphy MHD equilibrium object.
 
     braginskii_equil : BraginskiiEquilibrium
-        Struphy Braginskii equilibrium object
+        Struphy Braginskii equilibrium object.
 
     bckgr_params : dict
         Kinetic background parameters.
@@ -51,58 +79,135 @@ class Particles(metaclass=ABCMeta):
     pert_params : dict
         Kinetic perturbation parameters.
 
-    marker_params : dict
-        Marker parameters for loading.
+    domain_array : np.array
+        Holds info on the domain decomposition, see :class:`~struphy.feec.psydac_derham.Derham`.
+
+    ppc : int
+        Particles per cell (optional).
+
+    projected_mhd_equil : ProjectedMHDequilibrium
+        Struphy MHD equilibrium projected into a discrete Derham complex.
+
     """
 
-    def __init__(self,
-                 name: str,
-                 derham: Derham,
-                 *,
-                 domain: Domain = None,
-                 mhd_equil: MHDequilibrium = None,
-                 braginskii_equil: BraginskiiEquilibrium = None,
-                 bckgr_params: dict = None,
-                 pert_params: dict = None,
-                 **marker_params):
+    def __init__(
+        self,
+        name: str,
+        Np: int,
+        bc: list,
+        loading: str,
+        *,
+        type: str = 'full_f',
+        eps: float = .25,
+        loading_params: dict = None,
+        bc_refill: str = None,
+        sorting_params: dict = None,
+        equation_params: dict = None,
+        comm: Intracomm = None,
+        inter_comm: Intracomm = None,
+        domain: Domain = None,
+        mhd_equil: MHDequilibrium = None,
+        braginskii_equil: BraginskiiEquilibrium = None,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+        domain_array: np.ndarray = None,
+        ppc: int = None,
+        projected_mhd_equil: ProjectedMHDequilibrium = None,
+    ):
 
-        if domain is None:
-            from struphy.geometry.domains import Cuboid
-            domain = Cuboid()
-        
         self._name = name
-        self._derham = derham
+
+        assert type in (
+            'full_f',
+            'control_variate',
+            'delta_f',
+        )
+        assert loading in (
+            'pseudo_random',
+            'sobol_standard',
+            'sobol_antithetic',
+            'external',
+            'restart',
+        )
+        for bci in bc:
+            assert bci in ('remove', 'reflect', 'periodic', 'refill')
+            if bci == 'reflect':
+                assert domain is not None, 'Reflecting boundary conditions require a domain.'
+
+        if bc_refill is not None:
+            for bc_refilli in bc_refill:
+                assert bc_refilli in ('outer', 'inner')
+
+        self._type = type
+        self._loading = loading
+        self._bc = bc
+        self._bc_refill = bc_refill
+        self._eps = eps
+
+        # check for mpi communicator
+        self._mpi_comm = comm
+        if self.mpi_comm is None:
+            self._mpi_size = 1
+            self._mpi_rank = 0
+        else:
+            self._mpi_size = self.mpi_comm.Get_size()
+            self._mpi_rank = self.mpi_comm.Get_rank()
+
+        # check for domain cloning
+        self._inter_comm = inter_comm
+        if self.inter_comm is None:
+            self._Nclones = 1
+        else:
+            self._Nclones = self.inter_comm.Get_size()
+
+        # domain decomposition for MPI
+        if domain_array is None:
+            self._domain_decomp = self._get_domain_decomp()
+        else:
+            self._domain_decomp = domain_array
+
+        # total number of cells (equal to mpi_size if no grid)
+        n_cells = np.sum(np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
+
+        # total number of markers (Np) and particles per cell (ppc)
+        if ppc is None:
+            self._Np = int(Np)
+            self._ppc = Np/n_cells
+        else:
+            self._ppc = ppc
+            self._Np = int(ppc*n_cells)
+
+        assert self.Np >= self.mpi_size
+
         self._domain = domain
         self._mhd_equil = mhd_equil
+        self._projected_mhd_equil = projected_mhd_equil
         self._braginskii_equil = braginskii_equil
-        
-        self._mpi_comm = derham.comm
-        self._mpi_size = derham.comm.Get_size()
-        self._mpi_rank = derham.comm.Get_rank()
 
+        # background and perturbations
         if bckgr_params is None:
             bckgr_params = {'type': 'Maxwellian3D'}
 
         self._bckgr_params = bckgr_params
         self._pert_params = pert_params
 
-        marker_params_default = {
-            'type': 'full_f',
-            'ppc': None,
-            'Np': 4,
-            'eps': .25,
-            'bc': {'type': ['periodic', 'periodic', 'periodic']},
-            'loading': {'type': 'pseudo_random',
-                        'seed': 1234,
-                        'dir_particles': None,
-                        'moments': [0., 0., 0., 1., 1., 1.],
-                        'spatial': 'uniform'},
+        # default loading parameters
+        loading_params_default = {
+            'seed': 1234,
+            'dir_particles': None,
+            'moments': None,
+            'spatial': 'uniform',
+            'initial': None,
         }
 
-        self._marker_params = set_defaults(
-            marker_params, marker_params_default)
+        self._loading_params = set_defaults(
+            loading_params, loading_params_default,
+        )
 
-        self._domain_decomp = derham.domain_array
+        if self.loading_params['moments'] is None:
+            self.auto_sampling_params()
+
+        self._equation_params = equation_params
 
         # background p-form description (default: None, which means 0-form)
         if 'pforms' in bckgr_params:
@@ -122,8 +227,7 @@ class Particles(metaclass=ABCMeta):
         self._is_outside = np.zeros(n_rows, dtype=bool)
 
         # Check if control variate
-        self._control_variate = (
-            self.marker_params['type'] == 'control_variate')
+        self._control_variate = self.type == 'control_variate'
 
         # set background function
         bckgr_type = bckgr_params['type']
@@ -147,38 +251,65 @@ class Particles(metaclass=ABCMeta):
                 pass_braginskii_equil = None
 
                 print(
-                    f'\n{fi} is not in bckgr_params; default background parameters are used.')
+                    f'\n{fi} is not in bckgr_params; default background parameters are used.',
+                )
 
             if self._f0 is None:
                 self._f0 = getattr(maxwellians, fi_type)(
                     maxw_params=maxw_params,
                     mhd_equil=pass_mhd_equil,
-                    braginskii_equil=pass_braginskii_equil
+                    braginskii_equil=pass_braginskii_equil,
                 )
             else:
                 self._f0 = self._f0 + getattr(maxwellians, fi_type)(
                     maxw_params=maxw_params,
                     mhd_equil=pass_mhd_equil,
-                    braginskii_equil=pass_braginskii_equil
+                    braginskii_equil=pass_braginskii_equil,
                 )
 
         # set coordinates of the background distribution
         if self.f0.coords == 'constants_of_motion':
-            self._f_coords_index = self.index['com']
-            self._f_jacobian_coords_index = self.index['pos+energy']
+            # Particles6D
+            if self.vdim == 3:
+                assert self.n_cols_diagnostics >= 7, f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
+
+                self._f_coords_index = self.index['com']['6D']
+                self._f_jacobian_coords_index = self.index['pos+energy']['6D']
+
+            # Particles5D
+            elif self.vdim == 2:
+                assert self.n_cols_diagnostics >= 3, f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+
+                self._f_coords_index = self.index['com']['5D']
+                self._f_jacobian_coords_index = self.index['pos+energy']['5D']
 
         else:
             self._f_coords_index = self.index['coords']
             self._f_jacobian_coords_index = self.index['coords']
 
         # Marker arguments for kernels
-        self._args_markers = MarkerArguments(self.markers,
-                                             self.vdim,
-                                             self.bufferindex)
+        self._args_markers = MarkerArguments(
+            self.markers,
+            self.vdim,
+            self.first_pusher_idx,
+        )
 
         # Have at least 3 spare places in markers array
         assert self.args_markers.first_free_idx + 2 < self.n_cols - \
             1, f'{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!'
+
+        # initialize the sorting
+        self._sorting_params = sorting_params
+        self._initialized_sorting = False
+        if sorting_params is not None:
+            self._init_sorting_boxes(
+                sorting_params['nx'],
+                sorting_params['ny'],
+                sorting_params['nz'],
+                sorting_params['eps'],
+            )
+            self._initialized_sorting = True
+            self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
 
     @classmethod
     @abstractmethod
@@ -217,8 +348,29 @@ class Particles(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def bufferindex(self):
-        """Starting buffer marker index number
+    def first_diagnostics_idx(self):
+        """ Starting buffer marker index number for diagnostics.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def first_pusher_idx(self):
+        """ Starting buffer marker index number for pusher.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def n_cols_diagnostics(self):
+        """ Number of the diagnostics columns.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def n_cols_aux(self):
+        """ Number of the auxiliary columns.
         """
         pass
 
@@ -235,48 +387,49 @@ class Particles(metaclass=ABCMeta):
         return self._name
 
     @property
-    def bckgr_params(self):
-        """ Kinetic background parameters.
+    def type(self):
+        """ Compzation of weights: 'full_f', 'control_variate' or 'delta_f'.
         """
-        return self._bckgr_params
+        return self._type
 
     @property
-    def pert_params(self):
-        """ Kinetic perturbation parameters.
+    def loading(self):
+        """ Type of particle loading.
         """
-        return self._pert_params
+        return self._loading
 
     @property
-    def marker_params(self):
-        """ Parameters for markers.
+    def bc(self):
+        """ List of particle boundary conditions in each direction.
         """
-        return self._marker_params
+        return self._bc
 
     @property
-    def f_init(self):
-        assert hasattr(self, '_f_init'), AttributeError(
-            'The method "initialize_weights" has not yet been called.')
-        return self._f_init
-
-    @property
-    def f0(self):
-        assert hasattr(self, '_f0'), AttributeError(
-            'No background distribution available, maybe this is a full-f model?')
-        return self._f0
-
-    @property
-    def control_variate(self):
-        '''Boolean for whether to use the :ref:`control_var` during time stepping.'''
-        return self._control_variate
-
-    @property
-    def domain_decomp(self):
-        """ Array containing domain decomposition information.
+    def bc_refill(self):
+        """ How to re-enter particles if bc is 'refill'.
         """
-        return self._domain_decomp
+        return self._bc_refill
 
     @property
-    def comm(self):
+    def Np(self):
+        """ Total number of markers/particles.
+        """
+        return self._Np
+
+    @property
+    def ppc(self):
+        """ Particles per cell (=Np if no grid is present).
+        """
+        return self._ppc
+
+    @property
+    def eps(self):
+        """ Relative size of buffer in markers array.
+        """
+        return self._eps
+
+    @property
+    def mpi_comm(self):
         """ MPI communicator.
         """
         return self._mpi_comm
@@ -292,6 +445,79 @@ class Particles(metaclass=ABCMeta):
         """ Rank of current process.
         """
         return self._mpi_rank
+
+    @property
+    def inter_comm(self):
+        """ MPI communicator between clones.
+        """
+        return self._inter_comm
+
+    @property
+    def Nclones(self):
+        """ Number of clones.
+        """
+        return self._Nclones
+
+    @property
+    def bckgr_params(self):
+        """ Kinetic background parameters.
+        """
+        return self._bckgr_params
+
+    @property
+    def pert_params(self):
+        """ Kinetic perturbation parameters.
+        """
+        return self._pert_params
+
+    @property
+    def loading_params(self):
+        """ Parameters for marker loading.
+        """
+        return self._loading_params
+
+    @property
+    def sorting_params(self):
+        """ Sorting boxes size parameters.
+        """
+        return self._sorting_params
+
+    @property
+    def equation_params(self):
+        """Parameters appearing in model equation due to Struphy normalization.
+        """
+        return self._equation_params
+
+    @property
+    def f_init(self):
+        assert hasattr(self, '_f_init'), AttributeError(
+            'The method "initialize_weights" has not yet been called.',
+        )
+        return self._f_init
+
+    @property
+    def f0(self):
+        assert hasattr(self, '_f0'), AttributeError(
+            'No background distribution available, maybe this is a full-f model?',
+        )
+        return self._f0
+
+    @property
+    def control_variate(self):
+        '''Boolean for whether to use the :ref:`control_var` during time stepping.'''
+        return self._control_variate
+
+    @property
+    def domain_decomp(self):
+        """
+        A 2d array[float] of shape (comm.Get_size(), 9). The row index denotes the process number and
+        for n=0,1,2:
+
+            * domain_decomp[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
+            * domain_decomp[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+            * domain_decomp[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
+        """
+        return self._domain_decomp
 
     @property
     def n_mks(self):
@@ -346,12 +572,6 @@ class Particles(metaclass=ABCMeta):
         return self.markers[~self.holes]
 
     @property
-    def derham(self):
-        """ :class:`~struphy.feec.psydac_derham.Derham`
-        """
-        return self._derham
-
-    @property
     def domain(self):
         """ From :mod:`struphy.geometry.domains`.
         """
@@ -362,6 +582,12 @@ class Particles(metaclass=ABCMeta):
         """ From :mod:`struphy.fields_background.mhd_equil.equils`.
         """
         return self._mhd_equil
+
+    @property
+    def projected_mhd_equil(self):
+        '''MHD equilibrium projected on 3d Derham sequence with commuting projectors.
+        '''
+        return self._projected_mhd_equil
 
     @property
     def braginskii_equil(self):
@@ -389,8 +615,12 @@ class Particles(metaclass=ABCMeta):
         out['pos'] = slice(0, 3)  # positions
         out['vel'] = slice(3, 3 + self.vdim)  # velocities
         out['coords'] = slice(0, 3 + self.vdim)  # phasespace_coords
-        out['com'] = slice(8, 11)  # constants of motion
-        out['pos+energy'] = list(range(0, 3)) + [8] # positions + energy
+        out['com'] = {}
+        out['com']['6D'] = slice(12, 15)  # constants of motion (Particles6D)
+        out['com']['5D'] = slice(8, 11)  # constants of motion (Particles5D)
+        out['pos+energy'] = {}
+        out['pos+energy']['6D'] = slice(9, 13)  # positions + energy
+        out['pos+energy']['5D'] = list(range(0, 3)) + [8]  # positions + energy
         out['weights'] = 3 + self.vdim  # weights
         out['s0'] = 4 + self.vdim  # sampling_density
         out['w0'] = 5 + self.vdim  # weights0
@@ -432,18 +662,6 @@ class Particles(metaclass=ABCMeta):
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3 + self.vdim)
         self._markers[~self.holes, self.index['coords']] = new
-
-    @property
-    def constants_of_motion(self):
-        """ Array holding the constants of motion of marker, excluding holes. The i-th row holds the i-th marker info.
-        """
-        return self.markers[~self.holes, self.index['com']]
-
-    @constants_of_motion.setter
-    def constants_of_motion(self, new):
-        assert isinstance(new, np.ndarray)
-        assert new.shape == (self.n_mks_loc, 3)
-        self._markers[~self.holes, self.index['com']] = new
 
     @property
     def weights(self):
@@ -534,7 +752,7 @@ class Particles(metaclass=ABCMeta):
         '''Collection of mandatory arguments for pusher kernels.
         '''
         return self._args_markers
-    
+
     @property
     def f_jacobian_coords(self):
         """ Coordinates of the velocity jacobian determinant of the distribution fuction.
@@ -548,9 +766,66 @@ class Particles(metaclass=ABCMeta):
     def f_jacobian_coords(self, new):
         assert isinstance(new, np.ndarray)
         if isinstance(self.f_jacobian_coords_index, list):
-            self.markers[np.ix_(~self.holes, self.f_jacobian_coords_index)] = new
+            self.markers[
+                np.ix_(
+                    ~self.holes, self.f_jacobian_coords_index,
+                )
+            ] = new
         else:
             self.markers[~self.holes, self.f_jacobian_coords_index] = new
+
+    def _get_domain_decomp(self):
+        """
+        Compute domain decomposition for mesh-less methods (no Derham object).
+
+        Returns
+        -------
+        dom_arr : np.ndarray
+            A 2d array of shape (#MPI processes, 9). The row index denotes the process rank. The columns are for n=0,1,2: 
+                - arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
+                - arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+                - arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
+        """
+
+        dom_arr = np.zeros((self.mpi_size, 9), dtype=float)
+
+        # factorize mpi size
+        factors = factorint(self.mpi_size)
+        factors_vec = []
+        for fac, multiplicity in factors.items():
+            for m in range(multiplicity):
+                factors_vec += [fac]
+
+        # processes in each direction
+        nprocs = [1, 1, 1]
+        for m, fac in enumerate(factors_vec):
+            mm = m % 3
+            nprocs[mm] *= fac
+
+        assert np.prod(nprocs) == self.mpi_size
+
+        # domain decomposition
+        breaks = [np.linspace(0., 1., nproc + 1) for nproc in nprocs]
+
+        # fill domain array
+        for n in range(self.mpi_size):
+            # determine (ijk box index) corresponding to n (inverse flattening)
+            i = n // (nprocs[1]*nprocs[2])
+            nn = n % (nprocs[1]*nprocs[2])
+            j = nn // nprocs[2]
+            k = nn % nprocs[2]
+
+            dom_arr[n, 0] = breaks[0][i]
+            dom_arr[n, 1] = breaks[0][i + 1]
+            dom_arr[n, 2] = 1
+            dom_arr[n, 3] = breaks[1][j]
+            dom_arr[n, 4] = breaks[1][j + 1]
+            dom_arr[n, 5] = 1
+            dom_arr[n, 6] = breaks[2][k]
+            dom_arr[n, 7] = breaks[2][k + 1]
+            dom_arr[n, 8] = 1
+
+        return dom_arr
 
     def create_marker_array(self):
         """ Create marker array :attr:`~struphy.pic.base.Particles.markers`.
@@ -558,50 +833,42 @@ class Particles(metaclass=ABCMeta):
 
         # number of cells on current process
         n_cells_loc = np.prod(
-            self._domain_decomp[self._mpi_rank, 2::3], dtype=int)
-
-        # total number of cells
-        n_cells = np.sum(
-            np.prod(self._domain_decomp[:, 2::3], axis=1, dtype=int))
-
-        # number of markers to load on each process (depending on relative domain size)
-        if self.marker_params['ppc'] is not None:
-            assert isinstance(self.marker_params['ppc'], int)
-            ppc = self.marker_params['ppc']
-            Np = ppc*n_cells
-        else:
-            Np = self.marker_params['Np']
-            assert isinstance(Np, int)
-            ppc = Np/n_cells
-
-        Np = int(Np)
-        assert Np >= self._mpi_size
+            self.domain_decomp[self.mpi_rank, 2::3], dtype=int,
+        )
 
         # array of number of markers on each process at loading stage
-        self._n_mks_load = np.zeros(self._mpi_size, dtype=int)
-        self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]),
-                                 self._n_mks_load)
+        self._n_mks_load = np.zeros(self.mpi_size, dtype=int)
+
+        if self.mpi_comm is not None:
+            self.mpi_comm.Allgather(
+                np.array([int(self.ppc*n_cells_loc)]),
+                self._n_mks_load,
+            )
+        else:
+            self._n_mks_load[0] = int(self.ppc*n_cells_loc)
 
         # add deviation from Np to rank 0
-        self._n_mks_load[0] += Np - np.sum(self._n_mks_load)
+        self._n_mks_load[0] += self.Np - np.sum(self._n_mks_load)
 
         # check if all markers are there
-        assert np.sum(self._n_mks_load) == Np
-        self._n_mks = Np
+        assert np.sum(self._n_mks_load) == self.Np
+        self._n_mks = self.Np
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self._n_mks_load[self._mpi_rank]
 
         # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
-        n_rows = round(n_mks_load_loc *
-                       (1 + 1/np.sqrt(n_mks_load_loc) + self.marker_params['eps']))
+        n_rows = round(
+            n_mks_load_loc *
+            (1 + 1/np.sqrt(n_mks_load_loc) + self.eps),
+        )
         self._markers = np.zeros((n_rows, self.n_cols), dtype=float)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(n_rows*0.5), 10), dtype=float)
 
-    def draw_markers(self):
+    def draw_markers(self, sort: 'bool' = True):
         r""" 
         Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
         In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
@@ -669,6 +936,13 @@ class Particles(metaclass=ABCMeta):
             v_\perp = \sqrt{- \ln(1-r)}\sqrt{2}v_\mathrm{th} + u \,.
 
         All needed parameters can be set in the parameter file, see :ref:`params_yml`.
+
+        An initial sorting will be performed if sort is given as True (default) and sorting_params were given to the init.
+
+        Parameters
+        ----------
+        sort : Bool
+            Wether to sort the particules in boxes after initial drawing (only if sorting params were passed)
         """
 
         # number of markers on the local process at loading stage
@@ -687,66 +961,79 @@ class Particles(metaclass=ABCMeta):
 
         if self.mpi_rank == 0:
             print('\nMARKERS:')
-            for key, val in self.marker_params.items():
-                if 'loading' not in key and 'derham' not in key and 'domain' not in key:
-                    print((key + ' :').ljust(25), val)
+            print(('name:').ljust(25), self.name)
+            print(('Np:').ljust(25), self.Np)
+            print(('bc:').ljust(25), self.bc)
+            print(('loading:').ljust(25), self.loading)
+            print(('type:').ljust(25), self.type)
+            print(('domain_decomp[0]:').ljust(25), self.domain_decomp[0])
+            print(('ppc:').ljust(25), self.ppc)
+            print(('bc_refill:').ljust(25), self.bc_refill)
+            print(('sorting_params:').ljust(25), self.sorting_params)
 
         # load markers from external .hdf5 file
-        if self.marker_params['loading']['type'] == 'external':
+        if self.loading == 'external':
 
             if self.mpi_rank == 0:
                 file = h5py.File(
-                    self.marker_params['loading']['dir_markers'], 'r')
+                    self.loading_params['dir_external'], 'r',
+                )
                 print('Loading markers from file: '.ljust(25), file)
 
-                self._markers[:n_mks_load_cum_sum[0], :
-                              ] = file['markers'][:n_mks_load_cum_sum[0], :]
+                self._markers[
+                    :n_mks_load_cum_sum[0], :,
+                ] = file['markers'][:n_mks_load_cum_sum[0], :]
 
                 for i in range(1, self._mpi_size):
                     self._mpi_comm.Send(
-                        file['markers'][n_mks_load_cum_sum[i - 1]:n_mks_load_cum_sum[i], :], dest=i, tag=123)
+                        file['markers'][n_mks_load_cum_sum[i - 1]:n_mks_load_cum_sum[i], :], dest=i, tag=123,
+                    )
 
                 file.close()
             else:
                 recvbuf = np.zeros(
-                    (n_mks_load_loc, self.markers.shape[1]), dtype=float)
+                    (n_mks_load_loc, self.markers.shape[1]), dtype=float,
+                )
                 self._mpi_comm.Recv(recvbuf, source=0, tag=123)
                 self._markers[:n_mks_load_loc, :] = recvbuf
 
         # load markers from restart .hdf5 file
-        elif self.marker_params['loading']['type'] == 'restart':
+        elif self.loading == 'restart':
 
-            libpath = struphy.__path__[0]
+            import struphy.utils.utils as utils
 
-            with open(os.path.join(libpath, 'state.yml')) as f:
-                state = yaml.load(f, Loader=yaml.FullLoader)
+            # Read struphy state file
+            state = utils.read_state()
 
             o_path = state['o_path']
 
-            if self.marker_params['loading']['dir_particles_abs'] is None:
+            if self.loading_params['dir_particles_abs'] is None:
                 data_path = os.path.join(
-                    o_path, self.marker_params['loading']['dir_particles'])
+                    o_path, self.loading_params['dir_particles'],
+                )
             else:
-                data_path = self.marker_params['loading']['dir_particles_abs']
+                data_path = self.loading_params['dir_particles_abs']
 
-            data = DataContainer(data_path, comm=self.comm)
+            data = DataContainer(data_path, comm=self.mpi_comm)
 
-            self.markers[:, :] = data.file['restart/' +
-                                           self.marker_params['loading']['key']][-1, :, :]
+            self.markers[:, :] = data.file[
+                'restart/' +
+                self.loading_params['key']
+            ][-1, :, :]
 
         # load fresh markers
         else:
 
             if self.mpi_rank == 0:
                 print('\nLoading fresh markers:')
-                for key, val in self.marker_params['loading'].items():
+                for key, val in self.loading_params.items():
                     print((key + ' :').ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
-            if self.marker_params['loading']['type'] == 'pseudo_random':
-                
+            if self.loading == 'pseudo_random':
+
                 # Set seed
-                _seed = self.marker_params['loading']['seed']
+                _seed = self.loading_params['seed']
                 if _seed is not None:
                     np.random.seed(_seed)
                 # Draw pseudo_random markers
@@ -755,20 +1042,22 @@ class Particles(metaclass=ABCMeta):
                 # for the first domain in each clone has the same markers independent
                 # of the number of clones
                 for i in range(self._mpi_size):
-                    for iclone in range(self.derham.Nclones):  
-                        temp = np.random.rand(self.n_mks_load[i], 3 + self.vdim) 
+                    for iclone in range(self.Nclones):
+                        temp = np.random.rand(
+                            self.n_mks_load[i], 3 + self.vdim,
+                        )
                         if i == self._mpi_rank:
-                            if self.derham.Nclones == 1:
+                            if self.Nclones == 1:
                                 self.phasespace_coords = temp
                                 break_outer_loop = True
-                                #print(iclone,self._mpi_rank)
+                                # print(iclone,self._mpi_rank)
                                 break
                             else:
-                                if iclone == self.derham.inter_comm.Get_rank():
+                                if iclone == self.inter_comm.Get_rank():
                                     self.phasespace_coords = temp
                                     break_outer_loop = True
 
-                                    #print('b',iclone,self._mpi_rank)
+                                    # print('b',iclone,self._mpi_rank)
                                     break
                     # Check the flag variable to break the outer loop
                     if break_outer_loop:
@@ -778,66 +1067,80 @@ class Particles(metaclass=ABCMeta):
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif self.marker_params['loading']['type'] == 'sobol_standard':
+            elif self.loading == 'sobol_standard':
 
                 self.phasespace_coords = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank])
+                    3 + self.vdim, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank],
+                )
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif self.marker_params['loading']['type'] == 'sobol_antithetic':
+            elif self.loading == 'sobol_antithetic':
 
                 assert self.vdim == 3, NotImplementedError(
-                    '"sobol_antithetic" requires vdim=3 at the moment.')
+                    '"sobol_antithetic" requires vdim=3 at the moment.',
+                )
 
                 temp_markers = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]//64)
+                    3 + self.vdim, n_mks_load_loc//64, 1000 +
+                    (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]//64,
+                )
 
                 sampling_kernels.set_particles_symmetric_3d_3v(
-                    temp_markers, self.markers)
+                    temp_markers, self.markers,
+                )
 
             # 4. Wrong specification
             else:
                 raise ValueError(
-                    'Specified particle loading method does not exist!')
+                    'Specified particle loading method does not exist!',
+                )
 
             # inverse transform sampling in velocity space
             u_mean = np.array(
-                self.marker_params['loading']['moments'][:self.vdim])
+                self.loading_params['moments'][:self.vdim],
+            )
             v_th = np.array(
-                self.marker_params['loading']['moments'][self.vdim:])
+                self.loading_params['moments'][self.vdim:],
+            )
 
             # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
             if self.vdim == 3:
                 self.velocities = sp.erfinv(
-                    2*self.velocities - 1)*np.sqrt(2)*v_th + u_mean
+                    2*self.velocities - 1,
+                )*np.sqrt(2)*v_th + u_mean
             # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
             elif self.vdim == 2:
-                self.markers[:n_mks_load_loc, 3] = sp.erfinv(
-                    2*self.velocities[:, 0] - 1)*np.sqrt(2)*v_th[0] + u_mean[0]
+                self._markers[:n_mks_load_loc, 3] = sp.erfinv(
+                    2*self.velocities[:, 0] - 1,
+                )*np.sqrt(2)*v_th[0] + u_mean[0]
 
-                self.markers[:n_mks_load_loc, 4] = np.sqrt(
-                    -1*np.log(1-self.velocities[:, 1]))*np.sqrt(2)*v_th[1] + u_mean[1]
+                self._markers[:n_mks_load_loc, 4] = np.sqrt(
+                    -1*np.log(1-self.velocities[:, 1]),
+                )*np.sqrt(2)*v_th[1] + u_mean[1]
             elif self.vdim == 0:
                 pass
             else:
                 raise NotImplementedError(
-                    'Inverse transform sampling of given vdim is not implemented!')
+                    'Inverse transform sampling of given vdim is not implemented!',
+                )
 
             # inversion method for drawing uniformly on the disc
-            self._spatial = self.marker_params['loading']['spatial']
+            self._spatial = self.loading_params['spatial']
             if self._spatial == 'disc':
                 self._markers[:n_mks_load_loc, 0] = np.sqrt(
-                    self.markers[:n_mks_load_loc, 0])
+                    self._markers[:n_mks_load_loc, 0],
+                )
             else:
                 assert self._spatial == 'uniform', f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
 
             # set markers ID in last column
             self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[
-                self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
+                self._mpi_rank
+            ] + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
-            if 'initial' in self.marker_params['loading']:
-                specific_markers = self.marker_params['loading']['initial']
+            if self.loading_params['initial'] is not None:
+                specific_markers = self.loading_params['initial']
 
                 counter = 0
                 for i in range(len(specific_markers)):
@@ -845,8 +1148,10 @@ class Particles(metaclass=ABCMeta):
 
                         for j in range(3+self.vdim):
                             if specific_markers[i][j] is not None:
-                                self._markers[counter,
-                                              j] = specific_markers[i][j]
+                                self._markers[
+                                    counter,
+                                    j,
+                                ] = specific_markers[i][j]
 
                         counter += 1
 
@@ -854,17 +1159,26 @@ class Particles(metaclass=ABCMeta):
             n_mks_load_loc = self._n_mks_load[self._mpi_rank]
 
             assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
-                self._holes[n_mks_load_loc:])
+                self._holes[n_mks_load_loc:],
+            )
 
-    def mpi_sort_markers(self,
-                         apply_bc: bool = True,
-                         alpha: tuple | list | int | float = 1.,
-                         do_test=False):
+        if self._initialized_sorting and sort:
+            if self.mpi_rank == 0:
+                print("Sorting the markers after initial draw")
+            self.mpi_sort_markers()
+            self.do_sort()
+
+    def mpi_sort_markers(
+        self,
+        apply_bc: bool = True,
+        alpha: tuple | list | int | float = 1.,
+        do_test=False,
+    ):
         """ 
         Sorts markers according to MPI domain decomposition.
 
         Markers are sent to the process corresponding to the alpha-weighted position
-        alpha*markers[:, 0:3] + (1 - alpha)*markers[:, buffer_idx:buffer_idx + 3].
+        alpha*markers[:, 0:3] + (1 - alpha)*markers[:, first_pusher_idx:first_pusher_idx + 3].
 
         Periodic boundary conditions are taken into account 
         when computing the alpha-weighted position.
@@ -875,14 +1189,14 @@ class Particles(metaclass=ABCMeta):
             Whether to apply kinetic boundary conditions before sorting.
 
         alpha : tuple | list | int | float
-            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
+            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
             If int or float then alpha = (alpha, alpha, alpha). alpha must be between 0 and 1. 
 
         do_test : bool
             Check if all markers are on the right process after sorting.
         """
 
-        self.comm.Barrier()
+        self.mpi_comm.Barrier()
 
         # before sorting, apply kinetic bc
         if apply_bc:
@@ -898,35 +1212,40 @@ class Particles(metaclass=ABCMeta):
             self.domain_decomp,
             self.mpi_rank,
             self.vdim,
-            self.bufferindex,
-            alpha=alpha)
+            self.first_pusher_idx,
+            alpha=alpha,
+        )
 
         # determine where to send markers_to_be_sent
         send_info, send_list = sendrecv_get_destinations(
-            markers_to_be_sent, sorting_etas, self.domain_decomp, self.mpi_size)
+            markers_to_be_sent, sorting_etas, self.domain_decomp, self.mpi_size,
+        )
 
         # transpose send_info
-        recv_info = sendrecv_all_to_all(send_info, self.comm)
+        recv_info = sendrecv_all_to_all(send_info, self.mpi_comm)
 
         # send and receive markers
-        sendrecv_markers(send_list, recv_info, hole_inds_after_send,
-                         self._markers, self.comm)
+        sendrecv_markers(
+            send_list, recv_info, hole_inds_after_send,
+            self._markers, self.mpi_comm,
+        )
 
         # new holes and new number of holes and markers on process
-        self._holes = self.markers[:, 0] == -1.
-        self._n_holes_loc = np.count_nonzero(self.holes)
-        self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
+        self.update_holes()
 
         # check if all markers are on the right process after sorting
         if do_test:
-            all_on_right_proc = np.all(np.logical_and(
-                self.positions > self.domain_decomp[self.mpi_rank, 0::3],
-                self.positions < self.domain_decomp[self.mpi_rank, 1::3]))
+            all_on_right_proc = np.all(
+                np.logical_and(
+                    self.positions > self.domain_decomp[self.mpi_rank, 0::3],
+                    self.positions < self.domain_decomp[self.mpi_rank, 1::3],
+                ),
+            )
 
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
-        self.comm.Barrier()
+        self.mpi_comm.Barrier()
 
     def initialize_weights(self):
         r"""
@@ -955,14 +1274,31 @@ class Particles(metaclass=ABCMeta):
         if not isinstance(bckgr_type, list):
             bckgr_type = [bckgr_type]
 
-        # For delta-f set markers only as perturbation
-        if self.marker_params['type'] == 'delta_f':
+        # Prepare delta-f perturbation parameters
+        if self.type == 'delta_f':
             for fi in bckgr_type:
-                # Take out background by setting its density to zero
-                if fi in bp_copy:
-                    bp_copy[fi]['n'] = 0.
+                if fi[-2] == '_':
+                    fi_type = fi[:-2]
                 else:
-                    bp_copy[fi] = {'n': 0.}
+                    fi_type = fi
+
+                if pp_copy is not None:
+                    # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
+                    if fi in pp_copy.keys():
+                        if "use_background_n" in pp_copy[fi].keys():
+                            if not pp_copy[fi]["use_background_n"]:
+                                if fi in bp_copy:
+                                    bp_copy[fi]['n'] = 0.
+                                else:
+                                    bp_copy[fi] = {'n': 0.}
+                        else:
+                            bp_copy[fi]['n'] = 0.
+
+                    else:
+                        if fi in bp_copy:
+                            bp_copy[fi]['n'] = 0.
+                        else:
+                            bp_copy[fi] = {'n': 0.}
 
         # Get the initialization function and pass the correct arguments
         self._f_init = None
@@ -972,21 +1308,25 @@ class Particles(metaclass=ABCMeta):
             else:
                 fi_type = fi
 
+            pert_params = pp_copy
+            if pp_copy is not None:
+                if fi in pp_copy.keys():
+                    pert_params = pp_copy[fi]
+
             if self._f_init is None:
                 self._f_init = getattr(maxwellians, fi_type)(
                     maxw_params=bp_copy[fi],
-                    pert_params=pp_copy,
+                    pert_params=pert_params,
                     mhd_equil=self.mhd_equil,
-                    braginskii_equil=self.braginskii_equil
+                    braginskii_equil=self.braginskii_equil,
                 )
             else:
                 self._f_init = self._f_init + getattr(maxwellians, fi_type)(
                     maxw_params=bp_copy[fi],
-                    pert_params=pp_copy,
+                    pert_params=pert_params,
                     mhd_equil=self.mhd_equil,
-                    braginskii_equil=self.braginskii_equil
+                    braginskii_equil=self.braginskii_equil,
                 )
-        # TODO: allow for different perturbations for different backgrounds
 
         # evaluate initial distribution function
         f_init = self.f_init(*self.f_coords.T)
@@ -996,8 +1336,9 @@ class Particles(metaclass=ABCMeta):
             f_init /= self.domain.jacobian_det(self.markers_wo_holes)
 
         if self.pforms[1] == 'vol':
-            f_init /= self.f_init.velocity_jacobian_det(*self.f_jacobian_coords.T)
-
+            f_init /= self.f_init.velocity_jacobian_det(
+                *self.f_jacobian_coords.T,
+            )
         # compute w0 and save at vdim + 5
         self.weights0 = f_init / self.sampling_density
 
@@ -1013,6 +1354,10 @@ class Particles(metaclass=ABCMeta):
         according to the algorithm in :ref:`control_var`.
         The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
+
+        # in case of CanonicalMaxwellian, evaluate constants_of_motion
+        if self.f0.coords == 'constants_of_motion':
+            self.save_constants_of_motion()
 
         f0 = self.f0(*self.f_coords.T)
 
@@ -1067,13 +1412,17 @@ class Particles(metaclass=ABCMeta):
         _weights0 /= self.domain.jacobian_det(self.markers_wo_holes)
         # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-        f_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
-                                 bins=bin_edges,
-                                 weights=_weights0)[0]
+        f_slice = np.histogramdd(
+            self.markers_wo_holes[:, slicing],
+            bins=bin_edges,
+            weights=_weights0,
+        )[0]
 
-        df_slice = np.histogramdd(self.markers_wo_holes[:, slicing],
-                                  bins=bin_edges,
-                                  weights=_weights)[0]
+        df_slice = np.histogramdd(
+            self.markers_wo_holes[:, slicing],
+            bins=bin_edges,
+            weights=_weights,
+        )[0]
 
         f_slice /= self.n_mks * bin_vol
         df_slice /= self.n_mks * bin_vol
@@ -1106,7 +1455,7 @@ class Particles(metaclass=ABCMeta):
 
         labels = {
             0: r'$\eta_1$', 1: r'$\eta_2$', 2: r'$\eta_3$',
-            3: '$v_1$', 4: '$v_2$', 5: '$v_3$'
+            3: '$v_1$', 4: '$v_2$', 5: '$v_3$',
         }
         indices = np.nonzero(components)[0]
 
@@ -1133,7 +1482,7 @@ class Particles(metaclass=ABCMeta):
             for a Newton step or for a strandard (explicit or Picard) step.
         """
 
-        for axis, bc in enumerate(self.marker_params['bc']['type']):
+        for axis, bc in enumerate(self.bc):
 
             # determine particles outside of the logical unit cube
             self._is_outside_right[:] = self.markers[:, axis] > 1.
@@ -1143,23 +1492,23 @@ class Particles(metaclass=ABCMeta):
             self._is_outside_left[self.holes] = False
 
             self._is_outside[:] = np.logical_or(
-                self._is_outside_right, self._is_outside_left)
+                self._is_outside_right, self._is_outside_left,
+            )
 
             # indices or particles that are outside of the logical unit cube
             outside_inds = np.nonzero(self._is_outside)[0]
 
+            if len(outside_inds) == 0:
+                continue
+
             # apply boundary conditions
             if bc == 'remove':
 
-                if self.marker_params['bc']['remove']['boundary_transfer']:
-                    outside_inds = self.boundary_transfer(self._is_outside)
+                if self.bc_refill is not None:
+                    self.particle_refilling()
 
-                if self.marker_params['bc']['remove']['particle_refilling']:
-                    outside_inds = self.particle_refilling(self._is_outside)
-
-                self._markers[outside_inds, :-1] = -1.
-
-                self._n_lost_markers += len(outside_inds)
+                self._markers[self._is_outside, :-1] = -1.
+                self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
             elif bc == 'periodic':
                 self.markers[outside_inds, axis] = \
@@ -1169,110 +1518,368 @@ class Particles(metaclass=ABCMeta):
                 outside_right_inds = np.nonzero(self._is_outside_right)[0]
                 outside_left_inds = np.nonzero(self._is_outside_left)[0]
                 if newton:
-                    self.markers[outside_right_inds,
-                                self.bufferindex + 3 + self.vdim + axis] += 1.
-                    self.markers[outside_left_inds,
-                                self.bufferindex + 3 + self.vdim + axis] += -1.
+                    self.markers[
+                        outside_right_inds, self.first_pusher_idx + 3 + self.vdim + axis,
+                    ] += 1.
+                    self.markers[
+                        outside_left_inds, self.first_pusher_idx + 3 + self.vdim + axis,
+                    ] += -1.
                 else:
-                    self.markers[:, self.bufferindex + 3 + self.vdim + axis] = 0.
-                    self.markers[outside_right_inds,
-                                self.bufferindex + 3 + self.vdim + axis] = 1.
-                    self.markers[outside_left_inds,
-                                self.bufferindex + 3 + self.vdim + axis] = -1.
+                    self.markers[
+                        :, self.first_pusher_idx + 3 + self.vdim + axis,
+                    ] = 0.
+                    self.markers[
+                        outside_right_inds, self.first_pusher_idx + 3 + self.vdim + axis,
+                    ] = 1.
+                    self.markers[
+                        outside_left_inds, self.first_pusher_idx + 3 + self.vdim + axis,
+                    ] = -1.
 
             elif bc == 'reflect':
-                reflect(self.markers, self.domain.args_domain,
-                        outside_inds, axis)
+                self.markers[self._is_outside_left, axis] = 1e-4
+                self.markers[self._is_outside_right, axis] = 1 - 1e-4
+
+                reflect(
+                    self.markers, self.domain.args_domain,
+                    outside_inds, axis,
+                )
+
+                self.markers[self._is_outside, self.first_pusher_idx] = -1.
 
             else:
                 raise NotImplementedError('Given bc_type is not implemented!')
 
-    def boundary_transfer(self, is_outside):
+    def auto_sampling_params(self):
+        """ Automatically determine sampling parameters from the background given
         """
-        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
+        bckgr_type = self.bckgr_params['type']
+        if not isinstance(bckgr_type, list):
+            bckgr_type = [bckgr_type]
 
-        When particles reach the inner boundary circle, transfer them to the opposite poloidal angle of the same magnetic flux surface.
+        ns = []
+        us = []
+        vths = []
+
+        for fi in bckgr_type:
+            if fi[-2] == '_':
+                fi_type = fi[:-2]
+            else:
+                fi_type = fi
+
+            us.append([])
+            vths.append([])
+
+            bckgr = getattr(maxwellians, fi_type)
+            default_maxw_params = bckgr.default_maxw_params()
+
+            for key in default_maxw_params.keys():
+                if key[0] == 'n':
+                    if key in self.bckgr_params[fi].keys():
+                        ns += [self.bckgr_params[fi][key]]
+                    else:
+                        ns += [1.]
+
+                elif key[0] == 'u':
+                    if key in self.bckgr_params[fi].keys():
+                        us[-1] += [self.bckgr_params[fi][key]]
+                    else:
+                        us[-1] += [0.]
+
+                elif key[0] == 'v':
+                    if key in self.bckgr_params[fi].keys():
+                        vths[-1] += [self.bckgr_params[fi][key]]
+                    else:
+                        vths[-1] += [1.]
+
+        assert len(ns) == len(us) == len(vths)
+
+        ns = np.array(ns)
+        us = np.array(us)
+        vths = np.array(vths)
+
+        new_moments = []
+
+        new_moments += [*np.mean(us, axis=0)]
+        new_moments += [*(np.max(vths, axis=0) + np.max(np.abs(us), axis=0) - np.mean(us, axis=0))]
+
+        self._loading_params['moments'] = new_moments
+
+    def particle_refilling(self):
+        r"""
+        When particles move outside of the domain, refills them.
+        TODO: Currently only valid for HollowTorus geometry with AdhocTorus equilibrium.
+
+        In case of guiding-center orbit, refills particles at the opposite poloidal angle of the same magnetic flux surface.
+
+        .. math::
+
+            \theta_\text{refill} &= - \theta_\text{loss}
+            \\
+            \phi_\text{refill} &= -2 q(r_\text{loss}) \theta_\text{loss}
+
+        In case of full orbit, refills particles at the same gyro orbit until their guiding-centers are also outside of the domain.
+        When their guiding-centers also reach at the boundary, refills them as we did with guiding-center orbit.
+        """
+
+        for kind in self.bc_refill:
+
+            # sorting out particles which are out of the domain
+            if kind == 'inner':
+                outside_inds = np.nonzero(self._is_outside_left)[0]
+                self.markers[outside_inds, 0] = 1e-4
+                r_loss = self._domain.params_map['a1']
+
+            else:
+                outside_inds = np.nonzero(self._is_outside_right)[0]
+                self.markers[outside_inds, 0] = 1 - 1e-4
+                r_loss = 1.
+
+            if len(outside_inds) == 0:
+                continue
+
+            # in case of Particles6D, do gyro boundary transfer
+            if self.vdim == 3:
+
+                gyro_inside_inds = self.gyro_transfer(outside_inds)
+
+                # mark the particle as done for multiple step pushers
+                self.markers[outside_inds[gyro_inside_inds], self.first_pusher_idx] = -1.
+                self._is_outside[outside_inds[gyro_inside_inds]] = False
+
+                # exclude particles whose guiding center positions are still inside.
+                if len(gyro_inside_inds) > 0:
+                    outside_inds = outside_inds[~gyro_inside_inds]
+
+            # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss
+            self.markers[outside_inds, 2] -= 2 * \
+                self.mhd_equil.q_r(r_loss)*self.markers[outside_inds, 1]
+
+            # theta_boudary_transfer = - theta_loss
+            self.markers[outside_inds, 1] = 1. - self.markers[outside_inds, 1]
+
+            # mark the particle as done for multiple step pushers
+            self.markers[outside_inds, self.first_pusher_idx] = -1.
+            self._is_outside[outside_inds] = False
+
+    def gyro_transfer(self, outside_inds):
+        r""" Refills particles at the same gyro orbit.
+        Their perpendicular velocity directions are also changed accordingly:
+
+        First, refills the particles at the other side of the cross point (between gyro circle and domain boundary),
+
+        .. math::
+
+            \theta_\text{refill} = \theta_\text{gc} - \left(\theta_\text{loss} - \theta_\text{gc} \right) \,.
+
+        Then changes the direction of the perpendicular velocity,
+
+        .. math::
+
+            \vec{v}_{\perp, \text{refill}} = \frac{\vec{\rho}_g}{|\vec{\rho}_g|} \times \vec{b}_0 |\vec{v}_{\perp, \text{loss}}| \,,
+
+        where :math:`\vec{\rho}_g = \vec{x}_\text{refill} - \vec{X}_\text{gc}` is the cartesian radial vector.
 
         Parameters
         ----------
+        outside_inds : np.array (int)
+            An array of indices of particles which are outside of the domain.
+
+        Returns
+        -------
+        out : np.array (bool)
+            An array of indices of particles where its guiding centers are outside of the domain. 
         """
-        # sorting out particles which are inside of the inner hole
-        smaller_than_rmin = self.markers[:, 0] < 0.
 
-        # exclude holes
-        smaller_than_rmin[self.holes] = False
+        # incoming markers must be "Particles6D".
+        assert self.vdim == 3
 
-        # indices or particles that are inside of the inner hole
-        transfer_inds = np.nonzero(smaller_than_rmin)[0]
+        #TODO: currently assumes periodic boundary condition along poloidal and toroidal angle
+        self.markers[outside_inds, 1:3] = self.markers[outside_inds, 1:3] % 1
 
-        self._markers[transfer_inds, 0] = 1e-8
+        v = self.markers[outside_inds, 3:6].T
 
-        # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
-        r_loss = self._markers[transfer_inds, 0] * \
-            (1. - self._domain.params_map['a1']
-             ) + self._domain.params_map['a1']
+        # eval cartesian equilibrium magnetic field at the marker positions
+        b_cart, xyz = self.mhd_equil.b_cart(self.markers[outside_inds, :])
 
-        self._markers[transfer_inds, 2] -= 2 * \
-            self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+        # calculate magnetic field amplitude and normalized magnetic field
+        absB0 = np.sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
+        norm_b_cart = b_cart/absB0
 
-        # theta_boudary_transfer = - theta_loss
-        self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
+        # calculate parallel and perpendicular velocities
+        v_parallel = np.einsum('ij,ij->j', v, norm_b_cart)
+        v_perp = np.cross(norm_b_cart, np.cross(v, norm_b_cart, axis=0), axis=0)
+        v_perp_square = np.sqrt(v_perp[0]**2 + v_perp[1]**2 + v_perp[2]**2)
 
-        # mark the particle as done for multiple step pushers
-        self._markers[transfer_inds, 11] = -1.
+        assert np.all(np.isclose(v_perp, v - norm_b_cart*v_parallel))
 
-        is_outside[transfer_inds] = False
-        outside_inds = np.nonzero(is_outside)[0]
+        # calculate Larmor radius
+        Larmor_r = np.cross(norm_b_cart, v_perp, axis=0)/absB0*self._epsilon
 
-        return outside_inds
+        # transform cartesian coordinates to logical coordinates
+        # TODO: currently only possible with the geomoetry where its inverse map is defined.
+        assert hasattr(self.domain, 'inverse_map')
 
-    def particle_refilling(self, is_outside):
-        """
-        Still draft. ONLY valid for the poloidal geometry with AdhocTorus equilibrium (eta1: clamped r-direction, eta2: periodic theta-direction). 
+        xyz -= Larmor_r
 
-        When particles reach the outter boundary of the poloidal plane, refills them to the opposite poloidal angle of the same magnetic flux surface.
+        gc_etas = self.domain.inverse_map(*xyz, bounded=False)
+
+        # gyro transfer
+        self.markers[outside_inds, 1] = (
+            gc_etas[1] -
+            (self.markers[outside_inds, 1] - gc_etas[1]) % 1
+        ) % 1
+
+        new_xyz = self.domain(self.markers[outside_inds, :])
+
+        # eval cartesian equilibrium magnetic field at the marker positions
+        b_cart = self.mhd_equil.b_cart(self.markers[outside_inds, :])[0]
+
+        # calculate magnetic field amplitude and normalized magnetic field
+        absB0 = np.sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
+        norm_b_cart = b_cart/absB0
+
+        Larmor_r = new_xyz - xyz
+        Larmor_r /= np.sqrt(Larmor_r[0]**2 + Larmor_r[1]**2 + Larmor_r[2]**2)
+
+        new_v_perp = np.cross(Larmor_r, norm_b_cart, axis=0)*v_perp_square
+
+        self.markers[outside_inds, 3:6] = (norm_b_cart*v_parallel).T + new_v_perp.T
+
+        return np.logical_and(1. > gc_etas[0], gc_etas[0] > 0.)
+
+    class SortingBoxes:
+        """Boxes used for the sorting of the particles.
+
+        Represented as a 2D array of integers, 
+        each line of the array corespond to one box, 
+        and all the non (-1) entries of line i are the particles in the i-th box
 
         Parameters
         ----------
-        """
-        # sorting out particles which are outside of the poloidal plane
-        smaller_than_rmin = self.markers[:, 0] > 1.
+        nx : int
+            number of boxes in the x direction.
 
-        # exclude holes
-        smaller_than_rmin[self.holes] = False
+        ny : int
+            number of boxes in the y direction.
 
-        # indices or particles that are outside of the poloidal plane
-        transfer_inds = np.nonzero(smaller_than_rmin)[0]
+        nz : int
+            number of boxes in the z direction.
 
-        self._markers[transfer_inds, 0] = 1. - 1e-8
+        markers : 2D numpy.array
+            marker array of the particles.
 
-        # phi_boundary_transfer = phi_loss - 2*q(r_loss)*theta_loss
-        r_loss = self._markers[transfer_inds, 0] * \
-            (1. - self._domain.params_map['a1']
-             ) + self._domain.params_map['a1']
+        box_index : int
+            Column index of the particles array to store the box number, counted from 
+            the end (e.g. -2 for the second-to-last).
 
-        self._markers[transfer_inds, 2] -= 2 * \
-            self._mhd_equil.q_r(r_loss)*self._markers[transfer_inds, 1]
+        eps : float
+            additional buffer space in the size of the boxes"""
 
-        # theta_boudary_transfer = - theta_loss
-        self._markers[transfer_inds, 1] = 1. - self.markers[transfer_inds, 1]
+        def __init__(self, nx: 'int', ny: 'int', nz: 'int', markers: 'float[:,:]', box_index: 'int' = -2, eps: 'float' = 0.1):
+            assert isinstance(nx, int)
+            assert isinstance(ny, int)
+            assert isinstance(nz, int)
+            self._nx = nx
+            self._ny = ny
+            self._nz = nz
+            self._markers = markers
+            self._box_index = box_index
+            self._eps = eps
+            self._set_boxes()
 
-        # mark the particle as done for multiple step pushers
-        self._markers[transfer_inds, 11] = -1.
+        @property
+        def nx(self):
+            return self._nx
 
-        is_outside[transfer_inds] = False
-        outside_inds = np.nonzero(is_outside)[0]
+        @property
+        def ny(self):
+            return self._ny
 
-        return outside_inds
+        @property
+        def nz(self):
+            return self._nz
+
+        @property
+        def box_index(self):
+            return self._box_index
+
+        def _set_boxes(self):
+            """"(Re)set the box structure."""
+            n_particles = self._markers.shape[0]
+            self._n_boxes = self._nx*self._ny*self._nz
+            n_mkr = int(n_particles/self._n_boxes)+1
+            eps = self._eps
+            n_rows = round(
+                n_mkr *
+                (1 + 1/np.sqrt(n_mkr)+eps),
+            )
+            # cartesian boxes
+            self._boxes = np.zeros((self._n_boxes, n_rows), dtype=int)
+            self._next_index = np.zeros((self._n_boxes+1), dtype=int)
+            self._cumul_next_index = np.zeros((self._n_boxes+2), dtype=int)
+            self._swap_line_1 = np.zeros(self._markers.shape[1])
+            self._swap_line_2 = np.zeros(self._markers.shape[1])
+
+    def _init_sorting_boxes(self, nx, ny, nz, eps):
+        """Initialize the SortingBoxes."""
+        self._sorting_boxes = self.SortingBoxes(
+            nx, ny, nz, self._markers, eps=eps,
+        )
+
+    def sort_boxed_particles_numpy(self):
+        """Sort the particles by box using numpy.sort."""
+        sorting_axis = self._sorting_boxes.box_index
+        self._argsort_array[:] = self._markers[:, sorting_axis].argsort(
+        )
+        self._markers[:, :] = self._markers[self._argsort_array]
+
+    def do_sort(self):
+        """Assign the particles to boxes and then sort them."""
+        nx = self._sorting_boxes.nx
+        ny = self._sorting_boxes.ny
+        nz = self._sorting_boxes.nz
+        nboxes = nx*ny*nz
+        domain_array_loc = self.domain_decomp[self.mpi_rank]
+
+        put_particles_in_boxes(
+            self._markers,
+            self.holes,
+            self._sorting_boxes.nx,
+            self._sorting_boxes.ny,
+            self._sorting_boxes.nz,
+            self._sorting_boxes._boxes,
+            self._sorting_boxes._next_index, domain_array_loc,
+        )
+
+        # We could either use numpy routine or kernel to sort
+        # Kernel seems to be 3x faster
+        # self.sort_boxed_particles_numpy()
+
+        sort_boxed_particles(
+            self._markers,
+            self._sorting_boxes._swap_line_1,
+            self._sorting_boxes._swap_line_2,
+            nboxes+1,
+            self._sorting_boxes._next_index,
+            self._sorting_boxes._cumul_next_index,
+        )
+
+    def update_holes(self):
+        '''Compute new holes, new number of holes and markers on process'''
+        self._holes[:] = self.markers[:, 0] == -1.
+        self._n_holes_loc = np.count_nonzero(self.holes)
+        self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
 
-def sendrecv_determine_mtbs(markers,
-                            holes,
-                            domain_decomp,
-                            mpi_rank,
-                            vdim,
-                            buffer_index,
-                            alpha: list | tuple | np.ndarray = (1., 1., 1.)):
+def sendrecv_determine_mtbs(
+    markers,
+    holes,
+    domain_decomp,
+    mpi_rank,
+    vdim,
+    first_pusher_idx,
+    alpha: list | tuple | np.ndarray = (1., 1., 1.),
+):
     """
     Determine which markers have to be sent from current process and put them in a new array. 
     Corresponding rows in markers array become holes and are therefore set to -1.
@@ -1293,11 +1900,11 @@ def sendrecv_determine_mtbs(markers,
             Rank of calling MPI process.
 
         alpha : list | tuple
-            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, buffer_idx + i].
+            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
             alpha[i] must be between 0 and 1. 
 
-        buffer_index : int
-            The buffer index of the markers array.
+        first_pusher_idx : int
+            Starting buffer marker index number for pusher.
 
     Returns
     -------
@@ -1315,15 +1922,20 @@ def sendrecv_determine_mtbs(markers,
         alpha = np.array(alpha, dtype=float)
     assert alpha.size == 3
     assert np.all(alpha >= 0.) and np.all(alpha <= 1.)
-    bi = buffer_index
-    sorting_etas = np.mod(alpha*(markers[:, :3]
-                                 + markers[:, bi + 3 + vdim:bi + 3 + vdim + 3])
-                          + (1. - alpha)*markers[:, bi:bi + 3], 1.)
+    bi = first_pusher_idx
+    sorting_etas = np.mod(
+        alpha*(
+            markers[:, :3]
+            + markers[:, bi + 3 + vdim:bi + 3 + vdim + 3]
+        )
+        + (1. - alpha)*markers[:, bi:bi + 3], 1.,
+    )
 
     # check which particles are on the current process domain
     is_on_proc_domain = np.logical_and(
         sorting_etas > domain_decomp[mpi_rank, 0::3],
-        sorting_etas < domain_decomp[mpi_rank, 1::3])
+        sorting_etas < domain_decomp[mpi_rank, 1::3],
+    )
 
     # to stay on the current process, all three columns must be True
     can_stay = np.all(is_on_proc_domain, axis=1)
@@ -1380,7 +1992,8 @@ def sendrecv_get_destinations(markers_to_be_sent, sorting_etas, domain_decomp, m
 
         conds = np.logical_and(
             sorting_etas > domain_decomp[i, 0::3],
-            sorting_etas < domain_decomp[i, 1::3])
+            sorting_etas < domain_decomp[i, 1::3],
+        )
 
         send_to_i = np.nonzero(np.all(conds, axis=1))[0]
         send_info[i] = send_to_i.size
@@ -1464,8 +2077,12 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
                 # check if data has been received
                 if req.Test():
 
-                    markers[hole_inds_after_send[first_hole[i] +
-                                                 np.arange(recv_info[i])]] = recvbufs[i]
+                    markers[
+                        hole_inds_after_send[
+                            first_hole[i] +
+                            np.arange(recv_info[i])
+                        ]
+                    ] = recvbufs[i]
 
                     test_reqs.pop()
                     reqs[i] = None

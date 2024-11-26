@@ -1,3 +1,5 @@
+.. _domains_avail:
+
 Available domains
 -----------------
 

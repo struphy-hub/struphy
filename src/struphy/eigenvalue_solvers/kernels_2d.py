@@ -86,12 +86,14 @@ def kernel_l2error(nel: 'int[:]', p: 'int[:]', nq: 'int[:]', w1: 'float[:,:]', w
                     for il1 in range(p[0] + 1 - ni[0]):
                         for il2 in range(p[1] + 1 - ni[1]):
 
-                            bi += c1[ind_basei1[ie1, il1], ind_basei2[ie2, il2], 0] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
+                            bi += c1[ind_basei1[ie1, il1], ind_basei2[ie2, il2], 0] * \
+                                bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
 
                     for jl1 in range(p[0] + 1 - nj[0]):
                         for jl2 in range(p[1] + 1 - nj[1]):
 
-                            bj += c2[ind_basej1[ie1, jl1], ind_basej2[ie2, jl2], 0] * bj1[ie1, jl1, 0, q1] * bj2[ie2, jl2, 0, q2]
+                            bj += c2[ind_basej1[ie1, jl1], ind_basej2[ie2, jl2], 0] * \
+                                bj1[ie1, jl1, 0, q1] * bj2[ie2, jl2, 0, q2]
 
                     # compare this value to exact one and add contribution to error in element
                     error[ie1, ie2] += wvol * (bi - mat_f1[ie1, q1, ie2, q2]) * (bj - mat_f2[ie1, q1, ie2, q2])
@@ -117,7 +119,10 @@ def kernel_evaluate_2form(nel: 'int[:]', n3: 'int', p: 'int[:]', ns: 'int[:]', n
                         for il1 in range(p[0] + 1 - ns[0]):
                             for il2 in range(p[1] + 1 - ns[1]):
 
-                                b_eva[ie1, q1, ie2, q2, ie3] += b_coeff[ind_base1[ie1, il1], ind_base2[ie2, il2], ie3] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
+                                b_eva[ie1, q1, ie2, q2, ie3] += b_coeff[
+                                    ind_base1[ie1, il1],
+                                    ind_base2[ie2, il2], ie3,
+                                ] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
     #$ omp end parallel
 
     ierr = 0

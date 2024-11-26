@@ -1,9 +1,11 @@
 'Mapped domains (single patch).'
 
 
-from struphy.geometry.base import Domain, Spline, PoloidalSplineStraight, PoloidalSplineTorus
-from struphy.geometry.utilities import field_line_tracing
 import numpy as np
+
+from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
+from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline
+from struphy.geometry.utilities import field_line_tracing
 
 
 class Tokamak(PoloidalSplineTorus):
@@ -16,21 +18,21 @@ class Tokamak(PoloidalSplineTorus):
     ----------
     equilibrium : struphy.fields_background.mhd_equil.base.AxisymmMHDequilibrium
         The axisymmetric MHD equilibrium for which a flux-aligned grid shall be constructed (default: AdhocTorus).
-    Nel : list[int]
+    Nel : tuple[int]
         Number of cells in (radial, angular) direction to be used in spline mapping (default: [8, 32]).
-    p : list[int]
+    p : tuple[int]
         Spline degrees in (radial, angular) direction to be used in spline mapping (default: [2, 3]).
     psi_power : float
         Parametrization of radial flux coordinate :math:`\eta_1=\psi_{\mathrm{norm}}^p`, where :math:`\psi_{\mathrm{norm}}` is the normalized poloidal flux (default: 0.75).
-    psi_shifts : list[float]
+    psi_shifts : tuple[float]
         Start and end shifts of polidal flux in % --> cuts away regions at the axis and edge (default: [2., 2.])
     xi_param : str
         Parametrization of angular coordinate ("equal_angle", "equal_arc_length" or "sfl" (straight field line), default: "equal_angle").
     r0 : float
         Initial guess for radial distance from axis used in Newton root-finding method (default: 0.3).
-    Nel_pre : list[int]
+    Nel_pre : tuple[int]
         Number of cells in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [64, 256]).
-    p : list[int]
+    p : tuple[int]
         Spline degrees in (radial, angular) direction of pre-mapping needed for equal_arc_length and sfl parametrizations (default: [3, 3]).
     tor_period : int
         Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 1 --> full torus).
@@ -53,34 +55,43 @@ class Tokamak(PoloidalSplineTorus):
                 tor_period : 1           # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
 
-    def __init__(self, **params):
+    def __init__(
+        self,
+        equilibrium: AxisymmMHDequilibrium = None,
+        Nel: tuple = (8, 32),
+        p: tuple = (2, 3),
+        psi_power: float = 0.75,
+        psi_shifts: tuple = (0.01, 2.),
+        xi_param: str = 'equal_angle',
+        r0: float = 0.3,
+        Nel_pre: tuple = (64, 256),
+        p_pre: tuple = (3, 3),
+        tor_period: int = 1,
+    ):
 
-        from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
         from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
 
-        # set default
-        eq_default = EQDSKequilibrium()
+        # default MHD equilibrium
+        if equilibrium is None:
+            equilibrium = EQDSKequilibrium()
+        else:
+            assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
-        params_default = {'equilibrium': eq_default,
-                          'Nel': [8, 32],
-                          'p': [2, 3],
-                          'psi_power': 0.75,
-                          'psi_shifts': [0.01, 2.],
-                          'xi_param': 'equal_angle',
-                          'r0': 0.3,
-                          'Nel_pre': [64, 256],
-                          'p_pre': [3, 3],
-                          'tor_period': 1}
-
-        # check for compatibility of given MHD equilibrium
-        if 'equilibrium' in params:
-            assert isinstance(params['equilibrium'], AxisymmMHDequilibrium)
-
-        params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False)
+        params_map = Domain.prepare_params_map_new(
+            equilibrium=equilibrium,
+            Nel=Nel,
+            p=p,
+            psi_power=psi_power,
+            psi_shifts=psi_shifts,
+            xi_param=xi_param,
+            r0=r0,
+            Nel_pre=Nel_pre,
+            p_pre=p_pre,
+            tor_period=tor_period,
+            return_numpy=False,
+        )
 
         # get control points via field tracing beetwenn fluxes [psi_s, psi_e)]
-
         # flux boundaries of mapping
         eq_mhd = params_map['equilibrium']
 
@@ -89,11 +100,13 @@ class Tokamak(PoloidalSplineTorus):
         psi_s = psi0 + params_map['psi_shifts'][0]*0.01*(psi1 - psi0)
         psi_e = psi1 - params_map['psi_shifts'][1]*0.01*(psi1 - psi0)
 
-        cx, cy = field_line_tracing(eq_mhd.psi, eq_mhd.psi_axis_RZ[0], eq_mhd.psi_axis_RZ[1],
-                                    psi_s, psi_e,
-                                    params_map['Nel'], params_map['p'],
-                                    psi_power=params_map['psi_power'], xi_param=params_map['xi_param'],
-                                    Nel_pre=params_map['Nel_pre'], p_pre=params_map['p_pre'], r0=params_map['r0'])
+        cx, cy = field_line_tracing(
+            eq_mhd.psi, eq_mhd.psi_axis_RZ[0], eq_mhd.psi_axis_RZ[1],
+            psi_s, psi_e,
+            params_map['Nel'], params_map['p'],
+            psi_power=params_map['psi_power'], xi_param=params_map['xi_param'],
+            Nel_pre=params_map['Nel_pre'], p_pre=params_map['p_pre'], r0=params_map['r0'],
+        )
 
         # add control points to parameters dictionary
         params_map['cx'] = cx
@@ -161,9 +174,10 @@ class GVECunit(Spline):
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
 
-        params_map = {'Nel': gvec_equil.params['Nel'],
-                      'p': gvec_equil.params['p'],
-                      }
+        params_map = {
+            'Nel': gvec_equil.params['Nel'],
+            'p': gvec_equil.params['p'],
+        }
 
         if gvec_equil.params['use_nfp']:
             params_map['spl_kind'] = (False, True, False)
@@ -183,7 +197,8 @@ class GVECunit(Spline):
             return gvec_equil.gvec.f(_rmin + e1*(1. - _rmin), e2, e3)[2]
 
         cx, cy, cz = interp_mapping(
-            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)
+            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z,
+        )
 
         params_map['cx'] = cx
         params_map['cy'] = cy
@@ -229,9 +244,10 @@ class DESCunit(Spline):
         # expose to methods
         self._desc_equil = desc_equil
 
-        params_map = {'Nel': desc_equil.params['Nel'],
-                      'p': desc_equil.params['p'],
-                      }
+        params_map = {
+            'Nel': desc_equil.params['Nel'],
+            'p': desc_equil.params['p'],
+        }
 
         if desc_equil.eq.NFP > 1 and desc_equil.use_nfp:
             params_map['spl_kind'] = (False, True, False)
@@ -255,7 +271,8 @@ class DESCunit(Spline):
             return desc_equil.desc_eval('Z', e1, e2, e3, nfp=nfp)
 
         cx, cy, cz = interp_mapping(
-            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z)
+            params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y, Z,
+        )
 
         params_map['cx'] = cx
         params_map['cy'] = cy
@@ -312,7 +329,8 @@ class IGAPolarCylinder(PoloidalSplineStraight):
         params_default = {'Nel': [8, 24], 'p': [2, 3], 'a': 1., 'Lz': 4.}
 
         params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False)
+            params, params_default, return_numpy=False,
+        )
 
         # get control points
         def X(eta1, eta2): return params_map['a'] * \
@@ -321,7 +339,8 @@ class IGAPolarCylinder(PoloidalSplineStraight):
             eta1 * np.sin(2*np.pi * eta2)
 
         cx, cy = interp_mapping(
-            params_map['Nel'], params_map['p'], [False, True], X, Y)
+            params_map['Nel'], params_map['p'], [False, True], X, Y,
+        )
 
         # make sure that control points at pole are all the same (eta1=0 there)
         cx[0] = 0.
@@ -394,11 +413,15 @@ class IGAPolarTorus(PoloidalSplineTorus):
         from struphy.geometry.base import interp_mapping
 
         # set default
-        params_default = {'Nel': [8, 24], 'p': [
-            2, 3], 'a': 1., 'R0': 3., 'sfl': False, 'tor_period': 3}
+        params_default = {
+            'Nel': [8, 24], 'p': [
+                2, 3,
+            ], 'a': 1., 'R0': 3., 'sfl': False, 'tor_period': 3,
+        }
 
         params_map = Domain.prepare_params_map(
-            params, params_default, return_numpy=False)
+            params, params_default, return_numpy=False,
+        )
 
         # get control points
         if params_map['sfl']:
@@ -414,7 +437,8 @@ class IGAPolarTorus(PoloidalSplineTorus):
             eta1 * np.sin(theta(eta1, eta2))
 
         cx, cy = interp_mapping(
-            params_map['Nel'], params_map['p'], [False, True], R, Z)
+            params_map['Nel'], params_map['p'], [False, True], R, Z,
+        )
 
         # make sure that control points at pole are all the same (eta1=0 there)
         cx[0] = params_map['R0']
@@ -492,11 +516,14 @@ class Cuboid(Domain):
         self._kind_map = 10
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {'l1': 0., 'r1': 2., 'l2': 0.,
-                          'r2': 3., 'l3': 0., 'r3': 6.}
+        params_default = {
+            'l1': 0., 'r1': 2., 'l2': 0.,
+            'r2': 3., 'l3': 0., 'r3': 6.,
+        }
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -570,7 +597,8 @@ class Orthogonal(Domain):
         params_default = {'Lx': 2., 'Ly': 3., 'alpha': 0.1, 'Lz': 6.}
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -644,7 +672,8 @@ class Colella(Domain):
         params_default = {'Lx': 2., 'Ly': 3., 'alpha': 0.1, 'Lz': 6.}
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -707,15 +736,18 @@ class HollowCylinder(Domain):
                 Lz : 4. # length of cylinder
     """
 
-    def __init__(self, **params):
+    def __init__(
+        self,
+        a1: float = .2,
+        a2: float = 1.,
+        Lz: float = 4.,
+    ):
 
         self._kind_map = 20
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {'a1': 0.2, 'a2': 1., 'Lz': 4.}
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+        self._params_map, self._params_numpy = Domain.prepare_params_map_new(
+            a1=a1, a2=a2, Lz=Lz,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -793,7 +825,8 @@ class PoweredEllipticCylinder(Domain):
         params_default = {'rx': 1., 'ry': 2., 'Lz': 6., 's': 0.5}
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -833,7 +866,7 @@ class HollowTorus(Domain):
         \,\,y= &\lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\sin(-2\pi\,\eta_3 / n)\,\,\\
         \,\,z= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin\left[\theta(\eta_1,\eta_2)\right]\,\,\end{bmatrix}
 
-    where
+    with the following possible poloidal angle parametrizations:
 
     .. math::
 
@@ -842,9 +875,9 @@ class HollowTorus(Domain):
         & 2\pi\,\eta_2\,, \quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{False}\,,
 
         &2\arctan\left[\sqrt{\frac{1 + \epsilon(\eta_1)}{1 - \epsilon(\eta_1)}}\,\tan\left(\pi\,\eta_2\right)\right]\quad &&\textnormal{if}\quad \textnormal{sfl}=\textnormal{True}\,,
-        \end{aligned}\right.
 
-        &\epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
+        &\qquad \textrm {with}\qquad \epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
+        \end{aligned}\right.
 
     .. image:: ../../pics/mappings/hollow_torus.png
 
@@ -880,11 +913,14 @@ class HollowTorus(Domain):
         self._kind_map = 22
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {'a1': 0.1, 'a2': 1.,
-                          'R0': 3., 'sfl': False, 'tor_period': 3}
+        params_default = {
+            'a1': 0.1, 'a2': 1.,
+            'R0': 3., 'sfl': False, 'tor_period': 3,
+        }
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = True
@@ -915,6 +951,29 @@ class HollowTorus(Domain):
     @property
     def periodic_eta3(self):
         return self._periodic_eta3
+
+    def inverse_map(self, x, y, z, bounded=True, change_out_order=False):
+        """Analytical inverse map of HollowTorus"""
+
+        mr = np.sqrt(x**2 + y**2) - self.params_map['R0']
+
+        eta3 = np.arctan2(-y, x) % (2*np.pi/self.params_map['tor_period'])/(2*np.pi)*self.params_map['tor_period']
+        eta2 = np.arctan2(z, mr) % (2*np.pi)/(2*np.pi)
+        eta1 = (z/np.sin(2*np.pi*eta2) - self.params_map['a1'])/(self.params_map['a2'] - self.params_map['a1'])
+
+        if bounded:
+            eta1[eta1 > 1] = 1.
+            eta1[eta1 < 0] = 0.
+            assert np.all(np.logical_and(eta1 >= 0, eta1 <= 1))
+
+        assert np.all(np.logical_and(eta2 >= 0, eta2 <= 1))
+        assert np.all(np.logical_and(eta3 >= 0, eta3 <= 1))
+
+        if change_out_order:
+            return np.transpose((eta1, eta2, eta3))
+
+        else:
+            return eta1, eta2, eta3
 
 
 class ShafranovShiftCylinder(Domain):
@@ -962,7 +1021,8 @@ class ShafranovShiftCylinder(Domain):
         params_default = {'rx': 1., 'ry': 1., 'Lz': 4., 'delta': 0.2}
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -1036,7 +1096,8 @@ class ShafranovSqrtCylinder(Domain):
         params_default = {'rx': 1., 'ry': 1., 'Lz': 4., 'delta': 0.2}
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False
@@ -1115,11 +1176,14 @@ class ShafranovDshapedCylinder(Domain):
         self._kind_map = 32
 
         # set default parameters and remove wrong/not needed keys
-        params_default = {'R0': 2., 'Lz': 3., 'delta_x': 0.1, 'delta_y': 0.,
-                          'delta_gs': 0.33, 'epsilon_gs': 0.32, 'kappa_gs': 1.7}
+        params_default = {
+            'R0': 2., 'Lz': 3., 'delta_x': 0.1, 'delta_y': 0.,
+            'delta_gs': 0.33, 'epsilon_gs': 0.32, 'kappa_gs': 1.7,
+        }
 
         self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params, params_default)
+            params, params_default,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = False

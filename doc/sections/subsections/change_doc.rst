@@ -10,12 +10,8 @@ Tutorial notebooks in ``doc/tutorials/``.
 
 In order to build the ``.html`` file of the documentation,
 `Pandoc <https://pandoc.org/>`_ needs to be installed on your system (for notebook conversion).
-To convert the tutorial notebooks to ``.html``, you need first to generate the data by running::
 
-    struphy test tutorials
-
-If you make changes to docstrings, the ``.rst`` files or the tutorial notebooks, 
-you can review them in your browser (e.g. firefox)::
+Changes to the documentation can be reviewed in the browser (e.g. firefox)::
 
     cd doc
     make html

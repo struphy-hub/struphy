@@ -1,9 +1,11 @@
 import numpy as np
 from mpi4py import MPI
 
+import inspect
+
 from psydac.linalg.stencil import StencilVector, StencilMatrix, StencilDiagonalMatrix
 from psydac.linalg.block import BlockVector, BlockLinearOperator
-from psydac.linalg.basic import Vector, IdentityOperator
+from psydac.linalg.basic import Vector, IdentityOperator, LinearOperator
 
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
@@ -48,7 +50,7 @@ class WeightedMassOperators:
         self._matrix_free = matrix_free
 
         if 'eq_mhd' in weights:
-            self._selected_weight = 'eq_mhd' # default is to use mhd_equil for weights
+            self._selected_weight = 'eq_mhd'  # default is to use mhd_equil for weights
         elif len(weights) > 0:
             self._selected_weight = list(weights.keys())[0]
         else:
@@ -59,7 +61,7 @@ class WeightedMassOperators:
 
     @property
     def derham(self):
-        """ Discrete de Rham sequence on the logical unit cube. 
+        """ Discrete de Rham sequence on the logical unit cube.
         """
         return self._derham
 
@@ -73,12 +75,823 @@ class WeightedMassOperators:
     def weights(self):
         '''Dictionary of objects that provide access to callables that can serve as weight functions.'''
         return self._weights
-    
+
     @property
     def selected_weight(self):
         '''String identifying one key of "weigths". This key is used when selecting weight functions.'''
         return self._selected_weight
-    
+
+    @selected_weight.setter
+    def selected_weight(self, new):
+        assert new in self.weights
+        self._selected_weight = new
+
+    #######################################################################
+    # Mass matrices related to L2-scalar products in all 3d derham spaces #
+    #######################################################################
+
+    @property
+    def M0(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^0_{ijk, mno} = \int \Lambda^0_{ijk}\,  \Lambda^0_{mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+        """
+        if not hasattr(self, '_M0'):
+            self._M0 = self.create_weighted_mass('H1',
+                                                 'H1',
+                                                 weights=['sqrt_g'],
+                                                 name='M0',
+                                                 assemble=True)
+        return self._M0
+
+    @property
+    def M1(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+        """
+
+        if not hasattr(self, '_M1'):
+
+            self._M1 = self.create_weighted_mass('Hcurl',
+                                                 'Hcurl',
+                                                 weights=['Ginv', 'sqrt_g'],
+                                                 name='M1',
+                                                 assemble=True)
+
+        return self._M1
+
+    @property
+    def M2(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
+        """
+
+        if not hasattr(self, '_M2'):
+            self._M2 = self.create_weighted_mass('Hdiv',
+                                                 'Hdiv',
+                                                 weights=['G', '1/sqrt_g'],
+                                                 name='M2',
+                                                 assemble=True)
+
+        return self._M2
+
+    @property
+    def M3(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^3_{ijk, mno} = \int \Lambda^3_{ijk}\,  \Lambda^3_{mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
+        """
+
+        if not hasattr(self, '_M3'):
+            self._M3 = self.create_weighted_mass('L2',
+                                                 'L2',
+                                                 weights=['1/sqrt_g'],
+                                                 name='M3',
+                                                 assemble=True)
+
+        return self._M3
+
+    @property
+    def Mv(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^v_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+        """
+
+        if not hasattr(self, '_Mv'):
+            self._Mv = self.create_weighted_mass('H1vec',
+                                                 'H1vec',
+                                                 weights=['G', 'sqrt_g'],
+                                                 name='Mv',
+                                                 assemble=True)
+
+        return self._Mv
+
+    ######################################
+    # Predefined weighted mass operators #
+    ######################################
+    @property
+    def M1n(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
+        """
+
+        if not hasattr(self, '_M1n'):
+            self._M1n = self.create_weighted_mass('Hcurl',
+                                                  'Hcurl',
+                                                  weights=[
+                                                      'Ginv', 'sqrt_g', 'eq_n0'],
+                                                  name='M1n',
+                                                  assemble=True)
+
+        return self._M1n
+
+    @property
+    def M2n(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{2,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
+
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
+        """
+
+        if not hasattr(self, '_M2n'):
+            self._M2n = self.create_weighted_mass('Hdiv',
+                                                  'Hdiv',
+                                                  weights=[
+                                                      'G', '1/sqrt_g', 'eq_n0'],
+                                                  name='M2n',
+                                                  assemble=True)
+
+        return self._M2n
+
+    @property
+    def Mvn(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{v,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
+        """
+
+        if not hasattr(self, '_Mvn'):
+            self._Mvn = self.create_weighted_mass('H1vec',
+                                                  'H1vec',
+                                                  weights=[
+                                                      'G', 'sqrt_g', 'eq_n0'],
+                                                  name='Mvn',
+                                                  assemble=True)
+
+        return self._Mvn
+
+    @property
+    def M1ninv(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{1,\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)} \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
+        """
+
+        if not hasattr(self, '_M1ninv'):
+            self._M1ninv = self.create_weighted_mass('Hcurl',
+                                                     'Hcurl',
+                                                     weights=[
+                                                         'Ginv', 'sqrt_g', '1/eq_n0'],
+                                                     name='M1ninv', assemble=True)
+
+        return self._M1ninv
+
+    @property
+    def M1J(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{1,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, J^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec J^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`J^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium current density (2-form).
+        """
+
+        if not hasattr(self, '_M1J'):
+
+            rot_J = RotationMatrix(
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
+                self.weights[self.selected_weight].j2_3)
+
+            self._M1J = self.create_weighted_mass('Hdiv',
+                                                  'Hcurl',
+                                                  weights=['Ginv', rot_J],
+                                                  name='M1J',
+                                                  assemble=True)
+
+        return self._M1J
+
+    @property
+    def M2J(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{2,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, J^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec J^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`J^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium current density (2-form).
+        """
+
+        if not hasattr(self, '_M2J'):
+
+            rot_J = RotationMatrix(
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
+                self.weights[self.selected_weight].j2_3)
+
+            self._M2J = self.create_weighted_mass('Hdiv',
+                                                  'Hdiv',
+                                                  weights=[rot_J, '1/sqrt_g'],
+                                                  name='M2J',
+                                                  assemble=True)
+
+        return self._M2J
+
+    @property
+    def MvJ(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{v,J}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^v_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, J^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec J^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`J^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium current density (2-form).
+        """
+
+        if not hasattr(self, '_MvJ'):
+
+            rot_J = RotationMatrix(
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
+                self.weights[self.selected_weight].j2_3)
+
+            self._MvJ = self.create_weighted_mass('Hdiv',
+                                                  'H1vec',
+                                                  weights=[rot_J],
+                                                  name='MvJ',
+                                                  assemble=True)
+
+        return self._MvJ
+
+    @property
+    def M2B(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, B^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, '_M2B'):
+
+            a_eq = self.derham.P['1']([self.weights[self.selected_weight].a1_1,
+                                       self.weights[self.selected_weight].a1_2,
+                                       self.weights[self.selected_weight].a1_3])
+
+            tmp_a2 = self.derham.curl.dot(a_eq)
+            b02fun = self.derham.create_field('b02', 'Hdiv')
+            b02fun.vector = tmp_a2
+
+            def b02funx(x, y, z): return b02fun(
+                x, y, z, squeeze_output=True, local=True)[0]
+
+            def b02funy(x, y, z): return b02fun(
+                x, y, z, squeeze_output=True, local=True)[1]
+            def b02funz(x, y, z): return b02fun(
+                x, y, z, squeeze_output=True, local=True)[2]
+
+            rot_B = RotationMatrix(
+                b02funx, b02funy, b02funz)
+
+            self._M2B = self.create_weighted_mass('Hdiv',
+                                                  'Hdiv',
+                                                  weights=[rot_B, '1/sqrt_g'],
+                                                  name='M2B',
+                                                  assemble=True)
+
+        return self._M2B
+
+    @property
+    def M2Bn(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{2,BN}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, B^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, '_M2Bn'):
+
+            a_eq = self.derham.P['1']([self.weights[self.selected_weight].a1_1,
+                                       self.weights[self.selected_weight].a1_2,
+                                       self.weights[self.selected_weight].a1_3])
+
+            tmp_a2 = self.derham.Vh['2'].zeros()
+            self.derham.curl.dot(a_eq, out=tmp_a2)
+            b02fun = self.derham.create_field('b02', 'Hdiv')
+            b02fun.vector = tmp_a2
+
+            def b02funx(x, y, z): return b02fun(
+                x, y, z, squeeze_output=True, local=True)[0]
+
+            def b02funy(x, y, z): return b02fun(
+                x, y, z, squeeze_output=True, local=True)[1]
+            def b02funz(x, y, z): return b02fun(
+                x, y, z, squeeze_output=True, local=True)[2]
+
+            rot_B = RotationMatrix(
+                b02funx, b02funy, b02funz)
+
+            self._M2Bn = self.create_weighted_mass('Hdiv',
+                                                   'Hdiv',
+                                                   weights=[
+                                                       rot_B, '1/sqrt_g', 'eq_n0'],
+                                                   name='M2Bn',
+                                                   assemble=True)
+
+        return self._M2Bn
+
+    @property
+    def M1Bninv(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{1,B\frac{1}{n}}_{(\mu,ijk), (\nu,mno)} = \int \frac{1}{n^0_{\textnormal{eq}}(\boldsymbol \eta)}\, \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \mathcal R^J_{\alpha, \gamma}\, G^{-1}_{\gamma,\nu}\, \vec{\Lambda}^1_{\nu, mno} \, \sqrt g\,  \textnormal d \boldsymbol\eta. 
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, B^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, '_M1Bninv'):
+
+            rot_B = RotationMatrix(
+                self.weights[self.selected_weight].b2_1,
+                self.weights[self.selected_weight].b2_2,
+                self.weights[self.selected_weight].b2_3)
+
+            self._M1Bninv = self.create_weighted_mass('Hcurl',
+                                                      'Hcurl',
+                                                      weights=[
+                                                          'Ginv', rot_B, 'Ginv', 'sqrt_g', '1/eq_n0'],
+                                                      name='M1Bninv', assemble=True)
+
+        return self._M1Bninv
+
+    @property
+    def M1perp(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{1, \perp}_{(\mu, ijk), (\nu, mno)} = \int \vec{\Lambda}^1_{\mu, ijk}\, DF^{-1} \begin{pmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 0 \end{pmatrix} DF^{-\top} \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+
+        """
+        if not hasattr(self, '_M1perp'):
+            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+
+            self._M1perp = self.create_weighted_mass('Hcurl',
+                                                     'Hcurl',
+                                                     weights=[
+                                                         'DFinv', D, 'DFinv', 'sqrt_g'],
+                                                     name='M1perp',
+                                                     assemble=True)
+
+        return self._M1perp
+
+    @property
+    def M0ad(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^0_{ijk, mno} = \int \Lambda^0_{ijk}\,  \Lambda^0_{mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
+        """
+
+        if not hasattr(self, '_M0ad'):
+
+            self._M0ad = self.create_weighted_mass('H1',
+                                                   'H1',
+                                                   weights=['eq_n0', 'sqrt_g'],
+                                                   name='M0ad',
+                                                   assemble=True)
+
+        return self._M0ad
+
+    @property
+    def M1gyro(self):
+        r"""
+        Mass matrix 
+
+        .. math::
+
+            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \Lambda^1_{\mu,ijk}\, G^{-1}_{\mu,\nu}\, \Lambda^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+
+        where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
+        """
+
+        if not hasattr(self, '_M1gyro'):
+            D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+
+            self._M1gyro = self.create_weighted_mass('Hcurl',
+                                                     'Hcurl',
+                                                     weights=[
+                                                         'eq_n0', '1/eq_absB0', '1/eq_absB0', D, 'Ginv', D, 'sqrt_g'],
+                                                     name='M1gyro',
+                                                     assemble=True)
+
+            # 1/eq_absB0**2 written twice instead of square
+
+        return self._M1gyro
+
+    #######################################
+    # Wrapper around WeightedMassOperator #
+    #######################################
+    def create_weighted_mass(self,
+                             V_id: str,
+                             W_id: str,
+                             *,
+                             name: str = None,
+                             weights: list | str = None,
+                             assemble: bool = False,
+                             transposed: bool = False):
+        r'''Weighted mass matrix :math:`V^\alpha_h \to V^\beta_h` with given (matrix-valued) weight function :math:`W(\boldsymbol \eta)`:
+
+        .. math::
+
+            \mathbb M_{(\mu, ijk), (\nu, mno)}(W) = \int \Lambda^\beta_{\mu, ijk}\, W_{\mu,\nu}(\boldsymbol \eta)\,  \Lambda^\alpha_{\nu, mno} \,  \textnormal d \boldsymbol\eta. 
+
+        Here, :math:`\alpha \in \{0, 1, 2, 3, v\}` indicates the domain and :math:`\beta \in \{0, 1, 2, 3, v\}` indicates the co-domain 
+        of the operator.
+
+        Parameters
+        ----------
+        V_id : str
+            Specifier for the domain of the operator ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
+
+        W_id : str
+            Specifier for the co-domain of the operator ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
+
+        name: str
+            Name of the operator.
+
+        weights : None | str | list
+            Information about the weights/block structure of the operator. 
+            Four cases are possible:
+
+            1. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
+            2. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
+            3. ``1D list`` : 1d list consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d list: ``weights=['<name>']``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.mhd_equil.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
+            4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
+
+        assemble: bool
+            Whether to assemble the weighted mass matrix, i.e. computes the integrals with 
+            :class:`~struphy.feec.mass.WeightedMassOperators.assemble`
+
+        transposed: bool
+            Whether to assemble the transposed operator.
+
+        Returns
+        -------
+        out : A WeightedMassOperator object.
+
+        '''
+
+        self._transposed = transposed
+        self._assemble = assemble
+
+        # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
+        def G(e1, e2, e3):
+            '''Metric tensor callable.'''
+            return self.domain.metric(e1, e2, e3, change_out_order=True)
+
+        def Ginv(e1, e2, e3):
+            '''Inverse metric tensor callable.'''
+            return self.domain.metric_inv(e1, e2, e3, change_out_order=True)
+
+        def sqrt_g(e1, e2, e3):
+            '''Jacobian determinant callable.'''
+
+            return abs(self.domain.jacobian_det(e1, e2, e3))
+
+        def DFinv(e1, e2, e3):
+            '''Inverse Jacobian callable.'''
+            return self.domain.jacobian_inv(e1, e2, e3, change_out_order=True)
+
+        if isinstance(weights, (str, type(None))):  # Case 2 and Case 3
+            fun = weights
+        elif isinstance(weights, list) and all(isinstance(i, list) for i in weights):  # Case 4 (2D list)
+            fun = weights
+        else:  # Case 1 (1D list)
+            weights_rank2 = []
+            weights_rank0 = []
+            operations = []
+            listinput = False
+
+            for n, f in enumerate(weights):
+                if isinstance(f, str):
+                    # Input in weights are string
+                    if 'eq_' in f:
+                        f_components = f.split('q_')
+                        f_call = getattr(
+                            self.weights[self.selected_weight], f_components[-1])
+                    elif '/' in f:
+                        f_components = f.split('/')
+                        if f_components[-1] == 'G':
+                            f_call = G
+                        elif f_components[-1] == 'Ginv':
+                            f_call = Ginv
+                        elif f_components[-1] == 'DFinv':
+                            f_call = DFinv
+                        elif f_components[-1] == 'sqrt_g':
+                            f_call = sqrt_g
+                        else:
+                            raise NotImplementedError(
+                                f'The option {f} is not available.')
+                    else:
+                        if f == 'G':
+                            f_call = G
+                        elif f == 'Ginv':
+                            f_call = Ginv
+                        elif f == 'DFinv':
+                            f_call = DFinv
+                        elif f == 'sqrt_g':
+                            f_call = sqrt_g
+                        else:
+                            raise NotImplementedError(
+                                f'The option {f} is not available.')
+
+                elif isinstance(f, list):
+                    assert len(f) == 3
+                    for fi in f:
+                        assert len(fi) == 3
+                    f_call = f
+                    listinput = True
+                else:
+                    assert callable(f)
+                    # Input is a a matrix or a Rotation matrix etc.
+                    f_call = f
+
+                rank = self._get_range_rank(f_call)
+
+                if rank == 2:
+                    weights_rank2.append(f_call)
+
+                elif rank == 0:
+                    weights_rank0.append(f_call)
+                    if '/' in weights[n]:
+                        operations += ['/']
+                    else:
+                        operations += ['*']
+
+            assert len(operations) == len(weights_rank0)
+
+            if weights_rank2:
+                # Matrix list non-empty
+                assert V_id in ('Hcurl', 'Hdiv', 'H1vec')
+                assert W_id in ('Hcurl', 'Hdiv', 'H1vec')
+            else:
+                # Matrix list empty
+                assert V_id in ('H1', 'L2')
+                assert W_id in ('H1', 'L2')
+
+            # Matrix operations first
+            if weights_rank2:
+                # if matrix exits
+                fun = []
+                if listinput == True and len(weights_rank2) == 1:
+                    for m in range(3):
+                        fun += [[]]
+                        for n in range(3):
+                            fun[-1] += [lambda e1, e2, e3, m=m,
+                                        n=n: self._matrix_operate(e1, e2, e3, *weights_rank2)[m][n]]
+                else:
+                    for m in range(3):
+                        fun += [[]]
+                        for n in range(3):
+                            fun[-1] += [lambda e1, e2, e3, m=m,
+                                        n=n: self._matrix_operate(e1, e2, e3, *weights_rank2)[:, :, :, m, n]]
+                # Scalar operations second
+                if weights_rank0:
+                    # fun has been generated before, now operation with scalars secondd
+                    for f2, op in zip(weights_rank0, operations):
+                        for m, row in enumerate(fun):
+                            for n, f in enumerate(row):
+                                fun[m][n] = lambda e1, e2, e3, f=f, op=op, f2=f2, m=m, n=n: self._operate(
+                                    f, f2, op, e1, e2, e3)
+
+            # only rank 0 weights were given
+            elif weights_rank0:
+                # fun hast not been generated before
+                if operations[0] == '*':
+                    fun = [[lambda e1, e2, e3: weights_rank0[0](e1, e2, e3)]]
+                elif operations[0] == '/':
+                    fun = [[lambda e1, e2, e3: 1. /
+                            weights_rank0[0](e1, e2, e3)]]
+
+                for f2, op in zip(weights_rank0[1:], operations[1:]):
+                    fun = [[lambda e1, e2, e3, f=fun[0][0], op=op,
+                            f2=f2: self._operate(f, f2, op, e1, e2, e3)]]
+
+        V_id = self.derham.space_to_form[V_id]
+        W_id = self.derham.space_to_form[W_id]
+
+        out = WeightedMassOperator(self.derham.Vh_fem[V_id],
+                                   self.derham.Vh_fem[W_id],
+                                   V_extraction_op=self.derham.extraction_ops[V_id],
+                                   W_extraction_op=self.derham.extraction_ops[W_id],
+                                   V_boundary_op=self.derham.boundary_ops[V_id],
+                                   W_boundary_op=self.derham.boundary_ops[W_id],
+                                   weights_info=fun,
+                                   transposed=self._transposed,
+                                   matrix_free=self._matrix_free)
+
+        if self._assemble:
+            out.assemble(name=name)
+
+        return out
+
+    def _get_range_rank(self, func):
+        '''Determine the rank of the range of the callable func.
+        func must be defined on the unit cube.'''
+        if callable(func):
+            if isinstance(func, RotationMatrix):
+                out = len(func._cross_mask)-1
+            else:
+                dummy_eta = (0., 0., 0.)
+                val = func(*dummy_eta)
+                assert isinstance(val, np.ndarray)
+                out = len(val.shape) - 3
+        else:
+            if isinstance(func, list):
+                out = len(func)-1
+            else:
+                assert isinstance(func, float) or isinstance(func, int)
+                out = 0
+        return out
+
+    def _matrix_operate(self, e1, e2, e3, *ops):
+        ''' Composed evaluation of arbitrary number of rank2 operators (nested list or callable).'''
+        if isinstance(ops[0], list):
+            out = ops[0]
+        else:
+            out = ops[0](e1, e2, e3)  # is 5 array
+        for op in ops[1:]:
+            if isinstance(op, list):
+                out = out @ op
+            else:
+                out = out @ op(e1, e2, e3)
+        return out
+
+    def _operate(self, f1, f2, op, e1, e2, e3):
+        assert callable(f1)
+        assert callable(f2)
+        assert op in ('*', '/', '+', '-', '@')
+
+        if op == '*':
+            out = f1(e1, e2, e3) * f2(e1, e2, e3)
+        elif op == '/':
+            out = f1(e1, e2, e3) / f2(e1, e2, e3)
+        elif op == '+':
+            out = f1(e1, e2, e3) + f2(e1, e2, e3)
+        elif op == '-':
+            out = f1(e1, e2, e3) - f2(e1, e2, e3)
+        elif op == '@':
+            out = (f1(e1, e2, e3)@f2(e1, e2, e3))[:, :, :]
+
+        return out
+
+
+class WeightedMassOperatorsOldForTesting:
+    r"""
+    Collection of pre-defined :class:`struphy.feec.mass.WeightedMassOperator`.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence on the logical unit cube.
+
+    domain : :ref:`avail_mappings`
+        Mapping from logical unit cube to physical domain and corresponding metric coefficients.
+
+    **weights : dict
+        Objects to access callables that can serve as weight functions.
+
+    matrix_free : bool
+        If set to true will not compute the matrix associated with the operator but directly compute the product when called
+
+    Notes
+    -----
+    Possible choices for key-value pairs in **weights** are, at the moment:
+
+    - ``eq_mhd``: :class:`~struphy.fields_background.mhd_equil.base.MHDequilibrium`
+    """
+
+    def __init__(self, derham, domain, matrix_free=False, **weights):
+
+        self._derham = derham
+        self._domain = domain
+        self._weights = weights
+        self._matrix_free = matrix_free
+
+        if 'eq_mhd' in weights:
+            self._selected_weight = 'eq_mhd'  # default is to use mhd_equil for weights
+        elif len(weights) > 0:
+            self._selected_weight = list(weights.keys())[0]
+        else:
+            self._selected_weight = None
+
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+
+    @property
+    def derham(self):
+        """ Discrete de Rham sequence on the logical unit cube.
+        """
+        return self._derham
+
+    @property
+    def domain(self):
+        """ Mapping from the logical unit cube to the physical domain with corresponding metric coefficients.
+        """
+        return self._domain
+
+    @property
+    def weights(self):
+        '''Dictionary of objects that provide access to callables that can serve as weight functions.'''
+        return self._weights
+
+    @property
+    def selected_weight(self):
+        '''String identifying one key of "weigths". This key is used when selecting weight functions.'''
+        return self._selected_weight
+
     @selected_weight.setter
     def selected_weight(self, new):
         assert new in self.weights
@@ -95,6 +908,7 @@ class WeightedMassOperators:
 
     def sqrt_g(self, e1, e2, e3):
         '''Jacobian determinant callable.'''
+
         return abs(self.domain.jacobian_det(e1, e2, e3))
 
     def DFinv(self, e1, e2, e3):
@@ -107,7 +921,7 @@ class WeightedMassOperators:
     @property
     def M0(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
@@ -116,21 +930,22 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M0'):
             fun = [[lambda e1, e2, e3: self.sqrt_g(e1, e2, e3)]]
-            self._M0 = self.assemble_weighted_mass(fun, 'H1', 'H1', name='M0')
+            self._M0 = self._assemble_weighted_mass(fun, 'H1', 'H1', name='M0')
 
         return self._M0
 
     @property
     def M1(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^1_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
         """
 
         if not hasattr(self, '_M1'):
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -138,7 +953,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
 
-            self._M1 = self.assemble_weighted_mass(
+            self._M1 = self._assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1')
 
         return self._M1
@@ -146,14 +961,15 @@ class WeightedMassOperators:
     @property
     def M2(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^2_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
         """
 
         if not hasattr(self, '_M2'):
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -161,7 +977,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
-            self._M2 = self.assemble_weighted_mass(
+            self._M2 = self._assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2')
 
         return self._M2
@@ -169,7 +985,7 @@ class WeightedMassOperators:
     @property
     def M3(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
@@ -177,22 +993,24 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M3'):
+
             fun = [[lambda e1, e2, e3: 1. / self.sqrt_g(e1, e2, e3)]]
-            self._M3 = self.assemble_weighted_mass(fun, 'L2', 'L2', name='M3')
+            self._M3 = self._assemble_weighted_mass(fun, 'L2', 'L2', name='M3')
 
         return self._M3
 
     @property
     def Mv(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^v_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^v_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^v_{\mu,ijk}\, G\, \vec{\Lambda}^v_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
         """
 
         if not hasattr(self, '_Mv'):
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -200,7 +1018,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: self.G(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
 
-            self._Mv = self.assemble_weighted_mass(
+            self._Mv = self._assemble_weighted_mass(
                 fun, 'H1vec', 'H1vec', name='Mv')
 
         return self._Mv
@@ -211,16 +1029,17 @@ class WeightedMassOperators:
     @property
     def M1n(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{1,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^1_{\mu,ijk}\, G^{-1}\, \vec{\Lambda}^1_{\nu, mno} \sqrt g\,  \textnormal d \boldsymbol\eta.
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
 
         if not hasattr(self, '_M1n'):
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -228,7 +1047,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
                         e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3)]
 
-            self._M1n = self.assemble_weighted_mass(
+            self._M1n = self._assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1n')
 
         return self._M1n
@@ -236,16 +1055,17 @@ class WeightedMassOperators:
     @property
     def M2n(self):
         r"""
-        Mass matrix 
+        Mass matrix
 
         .. math::
 
-            \mathbb M^{2,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta. 
+            \mathbb M^{2,n}_{(\mu,ijk), (\nu,mno)} = \int n^0_{\textnormal{eq}}(\boldsymbol \eta) \vec{\Lambda}^2_{\mu,ijk}\, G\, \vec{\Lambda}^2_{\nu, mno} \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
 
         where :math:`n^0_{\textnormal{eq}}(\boldsymbol \eta)` is an MHD equilibrium density (0-form).
         """
 
         if not hasattr(self, '_M2n'):
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -253,7 +1073,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(
                         e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3)]
 
-            self._M2n = self.assemble_weighted_mass(
+            self._M2n = self._assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2n')
 
         return self._M2n
@@ -271,6 +1091,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_Mvn'):
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -278,7 +1099,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
                         e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3)]
 
-            self._Mvn = self.assemble_weighted_mass(
+            self._Mvn = self._assemble_weighted_mass(
                 fun, 'H1vec', 'H1vec', name='Mvn')
 
         return self._Mvn
@@ -296,6 +1117,7 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M1ninv'):
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -303,7 +1125,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.sqrt_g(
                         e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3)]
 
-            self._M1ninv = self.assemble_weighted_mass(
+            self._M1ninv = self._assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1ninv')
 
         return self._M1ninv
@@ -329,7 +1151,9 @@ class WeightedMassOperators:
         if not hasattr(self, '_M1J'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
+                self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -338,7 +1162,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: (self.Ginv(e1, e2, e3) @ rot_J(e1, e2, e3))[:, :, :, m, n]]
 
-            self._M1J = self.assemble_weighted_mass(
+            self._M1J = self._assemble_weighted_mass(
                 fun, 'Hdiv', 'Hcurl', name='M1J')
 
         return self._M1J
@@ -364,7 +1188,9 @@ class WeightedMassOperators:
         if not hasattr(self, '_M2J'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
+                self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -373,7 +1199,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_J(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
-            self._M2J = self.assemble_weighted_mass(
+            self._M2J = self._assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2J')
 
         return self._M2J
@@ -399,7 +1225,9 @@ class WeightedMassOperators:
         if not hasattr(self, '_MvJ'):
 
             rot_J = RotationMatrix(
-                self.weights[self.selected_weight].j2_1, self.weights[self.selected_weight].j2_2, self.weights[self.selected_weight].j2_3)
+                self.weights[self.selected_weight].j2_1,
+                self.weights[self.selected_weight].j2_2,
+                self.weights[self.selected_weight].j2_3)
 
             fun = []
             for m in range(3):
@@ -408,7 +1236,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_J(e1, e2, e3)[:, :, :, m, n]]
 
-            self._MvJ = self.assemble_weighted_mass(
+            self._MvJ = self._assemble_weighted_mass(
                 fun, 'Hdiv', 'H1vec', name='MvJ')
 
         return self._MvJ
@@ -460,7 +1288,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
-            self._M2B = self.assemble_weighted_mass(
+            self._M2B = self._assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2B')
 
         return self._M2B
@@ -483,7 +1311,7 @@ class WeightedMassOperators:
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
 
-        if not hasattr(self, '_M2BN'):
+        if not hasattr(self, '_M2BN'):  # typo M2BN instead of M2Bn??
 
             a_eq = self.derham.P['1']([self.weights[self.selected_weight].a1_1,
                                        self.weights[self.selected_weight].a1_2,
@@ -505,6 +1333,7 @@ class WeightedMassOperators:
             # self.weights[self.selected_weight].b2_1, self.weights[self.selected_weight].b2_2, self.weights[self.selected_weight].b2_3)
             rot_B = RotationMatrix(
                 b02funx, b02funy, b02funz)
+
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -512,7 +1341,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / (self.sqrt_g(e1, e2, e3) * self.weights[self.selected_weight].n0(e1, e2, e3))]
 
-            self._M2BN = self.assemble_weighted_mass(
+            self._M2BN = self._assemble_weighted_mass(
                 fun, 'Hdiv', 'Hdiv', name='M2Bn')
 
         return self._M2BN
@@ -547,7 +1376,7 @@ class WeightedMassOperators:
                     fun[-1] += [lambda e1, e2, e3, m=m,
                                 n=n: (self.Ginv(e1, e2, e3) @ rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n] * (self.sqrt_g(e1, e2, e3) / self.weights[self.selected_weight].n0(e1, e2, e3))]
 
-            self._M1Bninv = self.assemble_weighted_mass(
+            self._M1Bninv = self._assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1Bninv')
 
         return self._M1Bninv
@@ -565,14 +1394,15 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M1perp'):
             self.D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.DFinv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.DFinv(e1, e2, e3)[:, :, :, n, m]*self.sqrt_g(
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: (self.DFinv(e1, e2, e3) @ self.D @ self.DFinv(e1, e2, e3))[:, :, :, m, n]*self.sqrt_g(
                         e1, e2, e3)]
 
-            self._M1perp = self.assemble_weighted_mass(
+            self._M1perp = self._assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1perp')
 
         return self._M1perp
@@ -588,13 +1418,15 @@ class WeightedMassOperators:
         """
 
         if not hasattr(self, '_M0ad'):
+
             fun = [[lambda e1, e2, e3: self.weights[self.selected_weight].n0(
-                e1, e2, e3)  * self.sqrt_g(e1, e2, e3)]]
-            self._M0ad = self.assemble_weighted_mass(
+                e1, e2, e3) * self.sqrt_g(e1, e2, e3)]]
+
+            self._M0ad = self._assemble_weighted_mass(
                 fun, 'H1', 'H1', name='M0ad')
 
         return self._M0ad
-    
+
     @property
     def M1gyro(self):
         r"""
@@ -609,22 +1441,30 @@ class WeightedMassOperators:
 
         if not hasattr(self, '_M1gyro'):
             self.D = [[1, 0, 0], [0, 1, 0], [0, 0, 0]]
+
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights[self.selected_weight].n0(e1, e2, e3) / self.weights[self.selected_weight].absB0(e1, e2, e3)**2 * self.D[m][n] * self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.sqrt_g(
-                        e1, e2, e3)]
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights[self.selected_weight].n0(e1, e2, e3) / self.weights[self.selected_weight].absB0(
+                        e1, e2, e3)**2 * (self.D @ self.Ginv(e1, e2, e3) @ self.D)[:, :, :, m, n] * self.sqrt_g(e1, e2, e3)]
 
-            self._M1gyro = self.assemble_weighted_mass(
+            # fun = []
+            # for m in range(3):
+            #     fun += [[]]
+            #     for n in range(3):
+            #         fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights[self.selected_weight].n0(e1, e2, e3) / self.weights[self.selected_weight].absB0(e1, e2, e3)**2 * self.D[m][n] * self.Ginv(e1, e2, e3)[:, :, :, m, n] * self.D[m][n] * self.sqrt_g(e1, e2, e3)]
+
+            self._M1gyro = self._assemble_weighted_mass(
                 fun, 'Hcurl', 'Hcurl', name='M1gyro')
 
         return self._M1gyro
 
-    #######################################
-    # Wrapper around WeightedMassOperator #
-    #######################################
-    def assemble_weighted_mass(self, fun: list, V_id: str, W_id: str, name=None):
+    def _assemble_weighted_mass(self,
+                                fun: list,
+                                V_id: str,
+                                W_id: str,
+                                name=None):
         r""" Weighted mass matrix :math:`V^\alpha_h \to V^\beta_h` with given (matrix-valued) weight function :math:`W(\boldsymbol \eta)`:
 
         .. math::
@@ -733,7 +1573,7 @@ class WeightedMassOperator(LinOpWithTransp):
     weights_info : NoneType | str | list
         Information about the weights/block structure of the operator. 
         Three cases are possible:
-        
+
         1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
         2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
         3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
@@ -745,13 +1585,13 @@ class WeightedMassOperator(LinOpWithTransp):
         If set to true will not compute the matrix associated with the operator but directly compute the product when called
     """
 
-    def __init__(self, V, W, 
-                 V_extraction_op=None, 
-                 W_extraction_op=None, 
-                 V_boundary_op=None, 
-                 W_boundary_op=None, 
-                 weights_info=None, 
-                 transposed=False, 
+    def __init__(self, V, W,
+                 V_extraction_op=None,
+                 W_extraction_op=None,
+                 V_boundary_op=None,
+                 W_boundary_op=None,
+                 weights_info=None,
+                 transposed=False,
                  matrix_free=False):
 
         # only for M1 Mac users
@@ -789,6 +1629,7 @@ class WeightedMassOperator(LinOpWithTransp):
             self._W_boundary_op = IdentityOperator(
                 self._W_extraction_op.codomain)
 
+        self._weights_info = weights_info
         self._transposed = transposed
         self._matrix_free = matrix_free
 
@@ -998,26 +1839,30 @@ class WeightedMassOperator(LinOpWithTransp):
 
             self._weights = tmp_weights
 
-        # ===============================================
+        self._W_extraction_op_T = self._W_extraction_op.T
+        self._W_boundary_op_T = self._W_boundary_op.T
+        self._V_extraction_op_T = self._V_extraction_op.T
+        self._V_boundary_op_T = self._V_boundary_op.T
 
-        # some shortcuts
-        BW = self._W_boundary_op
-        BV = self._V_boundary_op
-
-        EW = self._W_extraction_op
-        EV = self._V_extraction_op
-
+        # TODO: maybe remove since this is done in the .dot() explicitly
         # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
-        if transposed:
-            self._M = EV @ self._mat @ EW.T
-            self._M0 = BV @ self._M @ BW.T
+        if self._transposed:
+            self._M = self._V_extraction_op @ self._mat @ self._W_extraction_op_T
+            self._M0 = self._V_boundary_op @ self._M @ self._W_boundary_op_T
         else:
-            self._M = EW @ self._mat @ EV.T
-            self._M0 = BW @ self._M @ BV.T
+            self._M = self._W_extraction_op @ self._mat @ self._V_extraction_op_T
+            self._M0 = self._W_boundary_op @ self._M @ self._V_boundary_op_T
 
         # set domain and codomain
         self._domain = self._M.domain
         self._codomain = self._M.codomain
+
+        # allocate temporaries for .dot()
+        self._temp_WB = self._W_boundary_op.domain.zeros()
+        self._temp_WE = self._W_extraction_op.domain.zeros()
+        self._temp_VB = self._V_boundary_op.domain.zeros()
+        self._temp_VE = self._V_extraction_op.domain.zeros()
+        self._temp_mat = self._mat.domain.zeros()
 
         # load assembly kernel
         if not self._matrix_free:
@@ -1073,8 +1918,7 @@ class WeightedMassOperator(LinOpWithTransp):
         return self._weights
 
     def dot(self, v, out=None, apply_bc=True):
-        """
-        Dot product of the operator with a vector.
+        """ Dot product of the operator with a vector.
 
         Parameters
         ----------
@@ -1098,21 +1942,33 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # newly created output vector
         if out is None:
-            if apply_bc:
-                out = self._M0.dot(v)
-            else:
-                out = self._M.dot(v)
-
-        # in-place dot-product (result is written to out)
+            out = self.codomain.zeros()
         else:
-
             assert isinstance(out, Vector)
             assert out.space == self.codomain
 
-            if apply_bc:
-                self._M0.dot(v, out=out)
+        if apply_bc:
+            if self._transposed:
+                self._W_boundary_op_T.dot(v, out=self._temp_WB)
+                self._W_extraction_op_T.dot(self._temp_WB, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                self._V_extraction_op.dot(self._temp_VE, out=self._temp_VB)
+                out = self._V_boundary_op.dot(self._temp_VB, out=out)
             else:
-                self._M.dot(v, out=out)
+                self._V_boundary_op_T.dot(v, out=self._temp_VB)
+                self._V_extraction_op_T.dot(self._temp_VB, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                self._W_extraction_op.dot(self._temp_WE, out=self._temp_WB)
+                out = self._W_boundary_op.dot(self._temp_WB, out=out)
+        else:
+            if self._transposed:
+                self._W_extraction_op_T.dot(v, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_VE)
+                out = self._V_extraction_op.dot(self._temp_VE, out=out)
+            else:
+                self._V_extraction_op_T.dot(v, out=self._temp_mat)
+                self._mat.dot(self._temp_mat, out=self._temp_WE)
+                out = self._W_extraction_op.dot(self._temp_WE, out=out)
 
         return out
 
@@ -1161,7 +2017,7 @@ class WeightedMassOperator(LinOpWithTransp):
     def assemble(self, weights=None, clear=True, verbose=True, name=None):
         r"""
         Assembles the weighted mass matrix, i.e. computes the integrals
-        
+
         .. math::
 
             \mathbb M^{\beta \alpha}_{(\mu,ijk),(\nu,mno)} = \int_{[0, 1]^3} \Lambda^\beta_{\mu,ijk} \, A_{\mu,\nu} \, \Lambda^\alpha_{\nu,mno} \, \textnormal d^3 \boldsymbol\eta\,.
@@ -1367,6 +2223,68 @@ class WeightedMassOperator(LinOpWithTransp):
 
             if rank == 0 and verbose:
                 print('Done.')
+
+    def copy(self, out=None):
+        """Create a copy of self, that can potentially be stored in a given WeightedMassOperator.
+
+        Parameters
+        ----------
+        out : WeightedMassOperator(optional)
+            The existing WeightedMassOperator in which we want to copy self.
+        """
+        if out is not None:
+            assert isinstance(out, WeightedMassOperator)
+            assert out.domain is self.domain
+            assert out.codomain is self.codomain
+        else:
+            out = WeightedMassOperator(
+                V=self._V,
+                W=self._W,
+                V_extraction_op=self._V_extraction_op,
+                W_extraction_op=self._W_extraction_op,
+                V_boundary_op=self._V_boundary_op,
+                W_boundary_op=self._W_boundary_op,
+                weights_info=self._weights_info,
+                transposed=self._transposed,
+                matrix_free=self._matrix_free,
+            )
+
+        self._mat.copy(out=out._mat)
+        return out
+
+    def __imul__(self, a):
+        self._mat *= a
+        return self
+
+    def __iadd__(self, M):
+        assert M.domain is self.domain
+        assert M.codomain is self.codomain
+
+        if isinstance(M, WeightedMassOperator):
+            self._mat += M._mat
+            return self
+
+        elif isinstance(M, LinearOperator):
+            self._mat += M
+            return self
+
+        else:
+            return LinearOperator.__add__(self, M)
+
+    def __isub__(self, M):
+        assert M.domain is self.domain
+        assert M.codomain is self.codomain
+
+        if isinstance(M, WeightedMassOperator):
+            self._mat -= M._mat
+            return self
+
+        elif isinstance(M, LinearOperator):
+            self._mat -= M
+            return self
+
+        else:
+            return LinOpWithTransp.__sub__(self, M)
 
     @staticmethod
     def eval_quad(W, coeffs, out=None):

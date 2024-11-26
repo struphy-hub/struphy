@@ -17,6 +17,7 @@ def derive_units(
     * Length (m)
     * Magnetic field (T)
     * Number density (10^20 1/m^3)
+    * Thermal energy (keV), optional
 
     Velocity unit is defined here:
 
@@ -50,7 +51,7 @@ def derive_units(
         Unit of internal energy (in keV). Only in effect if the velocity scale is set to 'thermal'.
 
     velocity_scale : str
-        Velocity scale to be used ("alfvén", "cyclotron" or "light").
+        Velocity scale to be used ("alfvén", "cyclotron", "light" or "thermal").
 
     Returns
     -------
@@ -108,6 +109,7 @@ def derive_units(
         assert (
             A_bulk is not None
         ), 'Need bulk species to choose velocity scale "thermal".'
+        assert kBT is not None
         units["v"] = np.sqrt(kBT * 1000 * e / (mH * A_bulk))
 
     # time (s)
@@ -519,7 +521,7 @@ def pre_processing(
 
         # create output folder if it does not exit
         if not os.path.exists(path_out):
-            os.mkdir(path_out)
+            os.makedirs(path_out, exist_ok=True)
             print("Created folder " + path_out)
 
         # create data folder in output folder if it does not exist

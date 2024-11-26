@@ -1,35 +1,28 @@
 #!/usr/bin/env python3
 
-from sympde.topology import Cube
-from sympde.topology import Derham as Derham_psy
-
-from psydac.api.discretization import discretize
-from psydac.fem.vector import VectorFemSpace
-from psydac.feec.global_projectors import Projector_H1vec
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
-from psydac.linalg.basic import IdentityOperator
-
-from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.projectors import CommutingProjector
-from struphy.polar.basic import PolarDerhamSpace
-from struphy.polar.extraction_operators import PolarExtractionBlocksC1
-from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
-from struphy.polar.basic import PolarVector
-from struphy.initial import perturbations
-from struphy.initial import eigenfunctions
-from struphy.initial import utilities
-from struphy.geometry.base import Domain
-from struphy.bsplines import evaluation_kernels_3d as eval_3d
-from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.feec.projectors import CommutingProjectorLocal, select_quasi_points
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
-
 import numpy as np
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
+from psydac.api.discretization import discretize
+from psydac.feec.global_projectors import Projector_H1vec
+from psydac.fem.vector import VectorFemSpace
+from psydac.linalg.basic import IdentityOperator
+from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
+from sympde.topology import Cube, Derham as Derham_psy
+
+from struphy.bsplines import evaluation_kernels_3d as eval_3d
+from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
+from struphy.feec.linear_operators import BoundaryOperator
+from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal, select_quasi_points
+from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.geometry.base import Domain
+from struphy.initial import eigenfunctions, perturbations, utilities
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
+from struphy.polar.basic import PolarDerhamSpace, PolarVector
+from struphy.polar.extraction_operators import PolarExtractionBlocksC1
+from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 
 
 class Derham:
@@ -65,7 +58,7 @@ class Derham:
 
     comm : mpi4py.MPI.Intracomm
         MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
-    
+
     inter_comm : mpi4py.MPI.Intracomm
         MPI communicator (between clones if domain cloning is used, otherwise None)
 
@@ -86,21 +79,23 @@ class Derham:
         Mapping from logical unit cube to physical domain (only needed in case of polar splines polar_ck=1).
     """
 
-    def __init__(self,
-                 Nel: list | tuple,
-                 p: list | tuple,
-                 spl_kind: list | tuple,
-                 *,
-                 dirichlet_bc: list | tuple = None,
-                 nquads: list | tuple = None,
-                 nq_pr: list | tuple = None,
-                 comm: Intracomm = None,
-                 inter_comm: Intracomm = None,
-                 mpi_dims_mask: list = None,
-                 with_projectors: bool = True,
-                 polar_ck: int = -1,
-                 local_projectors: bool = False,
-                 domain: Domain = None):
+    def __init__(
+        self,
+        Nel: list | tuple,
+        p: list | tuple,
+        spl_kind: list | tuple,
+        *,
+        dirichlet_bc: list | tuple = None,
+        nquads: list | tuple = None,
+        nq_pr: list | tuple = None,
+        comm: Intracomm = None,
+        inter_comm: Intracomm = None,
+        mpi_dims_mask: list = None,
+        with_projectors: bool = True,
+        polar_ck: int = -1,
+        local_projectors: bool = False,
+        domain: Domain = None,
+    ):
 
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
         assert len(Nel) == 3
@@ -115,8 +110,10 @@ class Derham:
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == 3
             # make sure that boundary conditions are compatible with spline space
-            assert np.all([bc == [False, False]
-                          for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
+            assert np.all([
+                bc == [False, False]
+                for i, bc in enumerate(dirichlet_bc) if spl_kind[i]
+            ])
 
         self._dirichlet_bc = dirichlet_bc
 
@@ -141,16 +138,17 @@ class Derham:
             self._Nclones = 1
         else:
             self._Nclones = self._inter_comm.Get_size()
-            
 
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
         self._polar_ck = polar_ck
 
         # Psydac symbolic logical domain (unit cube)
-        self._domain_log = Cube('C', bounds1=(0, 1),
-                                bounds2=(0, 1),
-                                bounds3=(0, 1))
+        self._domain_log = Cube(
+            'C', bounds1=(0, 1),
+            bounds2=(0, 1),
+            bounds3=(0, 1),
+        )
 
         # Psydac symbolic Derham
         self._derham_symb = Derham_psy(self._domain_log)
@@ -161,20 +159,25 @@ class Derham:
             ncells=Nel,
             comm=self._comm,
             periodic=self.spl_kind,
-            mpi_dims_mask=mpi_dims_mask)
+            mpi_dims_mask=mpi_dims_mask,
+        )
 
         # Psydac discrete de Rham, projectors and derivatives
-        _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=self.p, nquads=self.nquads)
+        _derham = discretize(
+            self._derham_symb, self._domain_log_h,
+            degree=self.p, nquads=self.nquads,
+        )
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
         # expose name-to-form dict
-        self._space_to_form = {'H1': '0',
-                               'Hcurl': '1',
-                               'Hdiv': '2',
-                               'L2': '3',
-                               'H1vec': 'v'}
+        self._space_to_form = {
+            'H1': '0',
+            'Hcurl': '1',
+            'Hdiv': '2',
+            'L2': '3',
+            'H1vec': 'v',
+        }
 
         _projectors = _derham.projectors(nquads=self.nq_pr)
 
@@ -212,7 +215,8 @@ class Derham:
             # FEM space and projector
             if sp_form == 'v':
                 self._Vh_fem[sp_form] = VectorFemSpace(
-                    _derham.V0, _derham.V0, _derham.V0)
+                    _derham.V0, _derham.V0, _derham.V0,
+                )
                 self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
             else:
                 self._Vh_fem[sp_form] = getattr(_derham, 'V' + str(i))
@@ -259,25 +263,32 @@ class Derham:
                     self._quad_grid_spans[sp_form] += [[]]
                     self._quad_grid_bases[sp_form] += [[]]
                     # space iterates over each of the spatial coordinates.
-                    for d, (space, s, e, quad_grid, nquad) in enumerate(zip(comp_space.spaces,
-                                                                            comp_space.vector_space.starts,
-                                                                            comp_space.vector_space.ends,
-                                                                            comp_space._quad_grids,
-                                                                            comp_space.nquads)):
+                    for d, (space, s, e, quad_grid, nquad) in enumerate(
+                        zip(
+                            comp_space.spaces,
+                            comp_space.vector_space.starts,
+                            comp_space.vector_space.ends,
+                            comp_space._quad_grids,
+                            comp_space.nquads,
+                        ),
+                    ):
 
                         self._nbasis[sp_form][-1] += [space.nbasis]
                         self._spline_types[sp_form][-1] += [space.basis]
                         self._spline_types_pyccel[sp_form][-1] += [
-                            int(space.basis == 'M')]
+                            int(space.basis == 'M'),
+                        ]
 
                         if local_projectors:
                             ptsloc, wtsloc = get_pts_and_wts_quasi(
-                                space, polar_shift=d == 0 and self.polar_ck == 1)
+                                space, polar_shift=d == 0 and self.polar_ck == 1,
+                            )
                             self._proj_loc_grid_pts[sp_form][-1] += [ptsloc]
                             self._proj_loc_grid_wts[sp_form][-1] += [wtsloc]
 
                         pts, wts, subs = get_pts_and_wts(
-                            space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
+                            space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1,
+                        )
                         self._proj_grid_subs[sp_form][-1] += [subs]
 
                         self._proj_grid_pts[sp_form][-1] += [pts]
@@ -285,34 +296,44 @@ class Derham:
                         self._quad_grid_pts[sp_form][-1] += [quad_grid[nquad].points]
                         self._quad_grid_wts[sp_form][-1] += [quad_grid[nquad].weights]
                         self._quad_grid_spans[sp_form][-1] += [
-                            quad_grid[nquad].spans]
+                            quad_grid[nquad].spans,
+                        ]
                         self._quad_grid_bases[sp_form][-1] += [
-                            quad_grid[nquad].basis]
+                            quad_grid[nquad].basis,
+                        ]
 
                     self._spline_types_pyccel[sp_form][-1] = np.array(
-                        self._spline_types_pyccel[sp_form][-1])
+                        self._spline_types_pyccel[sp_form][-1],
+                    )
             # In this case we are working with a scalar valued space
             else:
                 # space iterates over each of the spatial coordinates.
-                for d, (space, s, e, quad_grid, nquad) in enumerate(zip(fem_space.spaces,
-                                                                        fem_space.vector_space.starts,
-                                                                        fem_space.vector_space.ends,
-                                                                        fem_space._quad_grids,
-                                                                        fem_space.nquads)):
+                for d, (space, s, e, quad_grid, nquad) in enumerate(
+                    zip(
+                        fem_space.spaces,
+                        fem_space.vector_space.starts,
+                        fem_space.vector_space.ends,
+                        fem_space._quad_grids,
+                        fem_space.nquads,
+                    ),
+                ):
 
                     self._nbasis[sp_form] += [space.nbasis]
                     self._spline_types[sp_form] += [space.basis]
                     self._spline_types_pyccel[sp_form] += [
-                        int(space.basis == 'M')]
+                        int(space.basis == 'M'),
+                    ]
 
                     if local_projectors:
                         ptsloc, wtsloc = get_pts_and_wts_quasi(
-                            space, polar_shift=d == 0 and self.polar_ck == 1)
+                            space, polar_shift=d == 0 and self.polar_ck == 1,
+                        )
                         self._proj_loc_grid_pts[sp_form] += [ptsloc]
                         self._proj_loc_grid_wts[sp_form] += [wtsloc]
 
                     pts, wts, subs = get_pts_and_wts(
-                        space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1)
+                        space, s, e, n_quad=self.nq_pr[d], polar_shift=d == 0 and self.polar_ck == 1,
+                    )
                     self._proj_grid_subs[sp_form] += [subs]
                     self._proj_grid_pts[sp_form] += [pts]
                     self._proj_grid_wts[sp_form] += [wts]
@@ -323,26 +344,42 @@ class Derham:
                     self._quad_grid_bases[sp_form] += [quad_grid[nquad].basis]
 
                 self._spline_types_pyccel[sp_form] = np.array(
-                    self._spline_types_pyccel[sp_form])
+                    self._spline_types_pyccel[sp_form],
+                )
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
 
         # index arrays
-        self._indN = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(
-            space.ncells)[:, None]) % space.nbasis for space in self._Vh_fem['0'].spaces]
-        self._indD = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(
-            space.ncells)[:, None]) % space.nbasis for space in self._Vh_fem['3'].spaces]
+        self._indN = [
+            (
+                np.indices((space.ncells, space.degree + 1))[1] + np.arange(
+                    space.ncells,
+                )[:, None]
+            ) % space.nbasis for space in self._Vh_fem['0'].spaces
+        ]
+        self._indD = [
+            (
+                np.indices((space.ncells, space.degree + 1))[1] + np.arange(
+                    space.ncells,
+                )[:, None]
+            ) % space.nbasis for space in self._Vh_fem['3'].spaces
+        ]
 
         # distribute info on domain decomposition
         self._domain_decomposition = self._Vh['0'].cart.domain_decomposition
 
         self._domain_array = self._get_domain_array()
-        self._breaks_loc = [self.breaks[k][self.domain_decomposition.starts[k]:
-                                           self.domain_decomposition.ends[k] + 2] for k in range(3)]
+        self._breaks_loc = [
+            self.breaks[k][
+                self.domain_decomposition.starts[k]:
+                self.domain_decomposition.ends[k] + 2
+            ] for k in range(3)
+        ]
 
         self._index_array = self._get_index_array(
-            self._domain_decomposition)
+            self._domain_decomposition,
+        )
         self._index_array_N = self._get_index_array(self._Vh['0'].cart)
         self._index_array_D = self._get_index_array(self._Vh['3'].cart)
 
@@ -366,7 +403,8 @@ class Derham:
         if local_projectors:
             # Allways call get_weights_local_projector with the grid points and discrete vector space of 0-forms
             self._wij, self._whij = get_weights_local_projector(
-                self._proj_loc_grid_pts['0'], self.Vh_fem['0'])
+                self._proj_loc_grid_pts['0'], self.Vh_fem['0'],
+            )
 
         for i, (sp_id, sp_form) in enumerate(self.space_to_form.items()):
             vec_space = self._Vh[sp_form]
@@ -378,7 +416,8 @@ class Derham:
 
                 self._extraction_ops[sp_form] = IdentityOperator(pol_space)
                 self._dofs_extraction_ops[sp_form] = IdentityOperator(
-                    pol_space)
+                    pol_space,
+                )
 
             # C^1 polar spline case
             else:
@@ -386,10 +425,12 @@ class Derham:
                 pol_space = PolarDerhamSpace(self, sp_id)
 
                 self._extraction_ops[sp_form] = PolarExtractionOperator(
-                    vec_space, pol_space, ck_blocks.e_ten_to_pol[sp_form])
+                    vec_space, pol_space, ck_blocks.e_ten_to_pol[sp_form],
+                )
 
                 self._dofs_extraction_ops[sp_form] = PolarExtractionOperator(
-                    vec_space, pol_space, ck_blocks.p_ten_to_pol[sp_form], ck_blocks.p_ten_to_ten[sp_form])
+                    vec_space, pol_space, ck_blocks.p_ten_to_pol[sp_form], ck_blocks.p_ten_to_ten[sp_form],
+                )
 
             self._Vh_pol[sp_form] = pol_space
 
@@ -398,25 +439,31 @@ class Derham:
                 self._boundary_ops[sp_form] = IdentityOperator(pol_space)
             else:
                 self._boundary_ops[sp_form] = BoundaryOperator(
-                    pol_space, sp_id, self.dirichlet_bc)
+                    pol_space, sp_id, self.dirichlet_bc,
+                )
 
             # ------ Assemble projectors ------
             if with_projectors:
                 if local_projectors:
                     fem_space = self.Vh_fem[sp_form]
                     self._Ploc[sp_form] = CommutingProjectorLocal(
-                        sp_id, sp_form, fem_space, self._proj_loc_grid_pts[sp_form], self._proj_loc_grid_wts[sp_form], self._wij, self._whij)
+                        sp_id, sp_form, fem_space, self._proj_loc_grid_pts[sp_form], self._proj_loc_grid_wts[sp_form], self._wij, self._whij,
+                    )
                 self._P[sp_form] = CommutingProjector(
-                    self._P[sp_form], self._dofs_extraction_ops[sp_form], self._extraction_ops[sp_form], self._boundary_ops[sp_form])
+                    self._P[sp_form], self._dofs_extraction_ops[sp_form], self._extraction_ops[sp_form], self._boundary_ops[sp_form],
+                )
 
         # set discrete derivatives with polar linear operators
         if self.polar_ck == 1:
             self._grad = PolarLinearOperator(
-                self._Vh_pol['0'], self._Vh_pol['1'], self._grad, ck_blocks.grad_pol_to_ten, ck_blocks.grad_pol_to_pol, ck_blocks.grad_e3)
+                self._Vh_pol['0'], self._Vh_pol['1'], self._grad, ck_blocks.grad_pol_to_ten, ck_blocks.grad_pol_to_pol, ck_blocks.grad_e3,
+            )
             self._curl = PolarLinearOperator(
-                self._Vh_pol['1'], self._Vh_pol['2'], self._curl, ck_blocks.curl_pol_to_ten, ck_blocks.curl_pol_to_pol, ck_blocks.curl_e3)
+                self._Vh_pol['1'], self._Vh_pol['2'], self._curl, ck_blocks.curl_pol_to_ten, ck_blocks.curl_pol_to_pol, ck_blocks.curl_e3,
+            )
             self._div = PolarLinearOperator(
-                self._Vh_pol['2'], self._Vh_pol['3'], self._div, ck_blocks.div_pol_to_ten, ck_blocks.div_pol_to_pol, ck_blocks.div_e3)
+                self._Vh_pol['2'], self._Vh_pol['3'], self._div, ck_blocks.div_pol_to_ten, ck_blocks.div_pol_to_pol, ck_blocks.div_e3,
+            )
 
         # set discrete derivatives with and without boundary operators
         self._grad_bcfree = self._grad
@@ -428,17 +475,19 @@ class Derham:
         self._div = self._boundary_ops['3'] @ self._div @ self._boundary_ops['2'].T
 
         # collect arguments for kernels
-        self._args_derham = DerhamArguments(np.array(self.p),
-                                            self.Vh_fem['0'].knots[0],
-                                            self.Vh_fem['0'].knots[1],
-                                            self.Vh_fem['0'].knots[2],
-                                            np.array(self.Vh['0'].starts),
-                                            np.empty(self.p[0] + 1, dtype=float),
-                                            np.empty(self.p[1] + 1, dtype=float),
-                                            np.empty(self.p[2] + 1, dtype=float),
-                                            np.empty(self.p[0], dtype=float),
-                                            np.empty(self.p[1], dtype=float),
-                                            np.empty(self.p[2], dtype=float))
+        self._args_derham = DerhamArguments(
+            np.array(self.p),
+            self.Vh_fem['0'].knots[0],
+            self.Vh_fem['0'].knots[1],
+            self.Vh_fem['0'].knots[2],
+            np.array(self.Vh['0'].starts),
+            np.empty(self.p[0] + 1, dtype=float),
+            np.empty(self.p[1] + 1, dtype=float),
+            np.empty(self.p[2] + 1, dtype=float),
+            np.empty(self.p[0], dtype=float),
+            np.empty(self.p[1], dtype=float),
+            np.empty(self.p[2], dtype=float),
+        )
 
     @property
     def Nel(self):
@@ -476,7 +525,7 @@ class Derham:
         """ List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.
         """
         return self._nq_pr
-    
+
     @property
     def Nclones(self):
         """ Number of clones
@@ -488,10 +537,10 @@ class Derham:
         """ MPI communicator.
         """
         return self._comm
-    
+
     @property
     def inter_comm(self):
-        """ MPI communicator between the clones.
+        """ MPI communicator between clones.
         """
         return self._inter_comm
 
@@ -779,7 +828,8 @@ class Derham:
 
         for etas, space_1d, end in zip(grids_1d, self.Vh_fem['0'].spaces, self.Vh['0'].ends):
             span, bn, bd = self._get_span_and_basis_for_eval_mpi(
-                etas, space_1d, end)
+                etas, space_1d, end,
+            )
             spans += [span]
             bns += [bn]
             bds += [bd]
@@ -804,7 +854,7 @@ class Derham:
         """
 
         # MPI info
-        if self.comm is not None:
+        if self.comm:
             nproc = self.comm.Get_size()
         else:
             nproc = 1
@@ -989,7 +1039,8 @@ class Derham:
 
                 else:
                     raise ValueError(
-                        'Wrong value for component; must be 0 or 1 or 2 !')
+                        'Wrong value for component; must be 0 or 1 or 2 !',
+                    )
 
             neigh_inds = np.array(neigh_inds)
 
@@ -999,7 +1050,8 @@ class Derham:
             # find ranks (row index of domain_array) which agree in start/end indices
             index_temp = np.squeeze(self.index_array[:, inds])
             unique_ranks = np.where(
-                np.equal(index_temp, neigh_inds[inds]).all(1))[0]
+                np.equal(index_temp, neigh_inds[inds]).all(1),
+            )[0]
 
             # if any row satisfies condition, return its index (=rank of neighbour)
             if len(unique_ranks) != 0:
@@ -1116,21 +1168,27 @@ class Derham:
                 self._pads = self._space.vector_space.pads
             else:
                 self._gl_s = [
-                    comp.starts for comp in self._space.vector_space.spaces]
+                    comp.starts for comp in self._space.vector_space.spaces
+                ]
                 self._gl_e = [
-                    comp.ends for comp in self._space.vector_space.spaces]
+                    comp.ends for comp in self._space.vector_space.spaces
+                ]
                 self._pads = [
-                    comp.pads for comp in self._space.vector_space.spaces]
+                    comp.pads for comp in self._space.vector_space.spaces
+                ]
 
             # dimensions in each direction
             # self._nbasis = derham.nbasis[self._space_key]
 
             if self._space_id in {'H1', 'L2'}:
                 self._nbasis = tuple(
-                    [space.nbasis for space in self._space.spaces])
+                    [space.nbasis for space in self._space.spaces],
+                )
             else:
-                self._nbasis = [tuple([space.nbasis for space in vec_space.spaces])
-                                for vec_space in self._space.spaces]
+                self._nbasis = [
+                    tuple([space.nbasis for space in vec_space.spaces])
+                    for vec_space in self._space.spaces
+                ]
 
         @property
         def name(self):
@@ -1213,7 +1271,8 @@ class Derham:
 
                         assert isinstance(value[0], np.ndarray)
                         assert isinstance(
-                            value[1], (StencilVector, np.ndarray))
+                            value[1], (StencilVector, np.ndarray),
+                        )
 
                         self._vector.pol[0][:] = value[0][:]
 
@@ -1227,7 +1286,8 @@ class Derham:
 
                             assert isinstance(value[n][0], np.ndarray)
                             assert isinstance(
-                                value[n][1], (StencilVector, np.ndarray))
+                                value[n][1], (StencilVector, np.ndarray),
+                            )
 
                             self._vector.pol[n][:] = value[n][0][:]
 
@@ -1322,7 +1382,8 @@ class Derham:
             if self.bckgr_params is None and self.pert_params is None:
                 # apply boundary operator (in-place)
                 self.derham.boundary_ops[self.space_key].dot(
-                    self._vector.copy(), out=self._vector)
+                    self._vector.copy(), out=self._vector,
+                )
 
                 self._vector.update_ghost_regions()
                 return
@@ -1336,7 +1397,8 @@ class Derham:
                     self.bckgr_params['type'] = [self.bckgr_params['type']]
                 else:
                     assert isinstance(
-                        self.bckgr_params['type'], list), f'The type of initial condition must be null or str or list.'
+                        self.bckgr_params['type'], list,
+                    ), f'The type of initial condition must be null or str or list.'
 
                 # extract the components that have a background
                 for _type in self.bckgr_params['type']:
@@ -1345,8 +1407,10 @@ class Derham:
                         pass
                     else:
                         if self.space_id in {'H1', 'L2'}:
-                            tmp_list = [self.bckgr_params[_type]
-                                        ['comps'][self.name]]
+                            tmp_list = [
+                                self.bckgr_params[_type]
+                                ['comps'][self.name],
+                            ]
                         else:
                             tmp_list = self.bckgr_params[_type]['comps'][self.name]
 
@@ -1374,7 +1438,8 @@ class Derham:
                         fun = []
                         for i, _v in enumerate(_val):
                             assert isinstance(_v, float) or isinstance(
-                                _v, int) or _v is None
+                                _v, int,
+                            ) or _v is None
 
                         if _val[0] is not None:
                             fun += [lambda e1, e2, e3: _val[0] + 0.*e1]
@@ -1397,16 +1462,20 @@ class Derham:
                     assert mhd_equil is not None
                     mhd_var = _params['comps'][self.name]
                     assert mhd_var in dir(
-                        MHDequilibrium), f'{mhd_var = } is not an attribute of MHDequilibrium.'
+                        MHDequilibrium,
+                    ), f'{mhd_var = } is not an attribute of MHDequilibrium.'
 
                     if self.space_id in {'H1', 'L2'}:
                         fun = getattr(mhd_equil, mhd_var)
                     else:
                         assert (mhd_var + '_1') in dir(
-                            MHDequilibrium), f'{(mhd_var + "_1") = } is not an attribute of MHDequilibrium.'
-                        fun = [getattr(mhd_equil, mhd_var + '_1'),
-                               getattr(mhd_equil, mhd_var + '_2'),
-                               getattr(mhd_equil, mhd_var + '_3')]
+                            MHDequilibrium,
+                        ), f'{(mhd_var + "_1") = } is not an attribute of MHDequilibrium.'
+                        fun = [
+                            getattr(mhd_equil, mhd_var + '_1'),
+                            getattr(mhd_equil, mhd_var + '_2'),
+                            getattr(mhd_equil, mhd_var + '_3'),
+                        ]
 
                 # peform projection
                 self.vector += self.derham.P[self.space_key](fun)
@@ -1420,7 +1489,8 @@ class Derham:
                     self.pert_params['type'] = [self.pert_params['type']]
                 else:
                     assert isinstance(
-                        self.pert_params['type'], list), f'The type of initial condition must be null or str or list.'
+                        self.pert_params['type'], list,
+                    ), f'The type of initial condition must be null or str or list.'
 
                 # extract the components to be perturbed
                 for _type in self.pert_params['type']:
@@ -1429,8 +1499,10 @@ class Derham:
                         pass
                     else:
                         if self.space_id in {'H1', 'L2'}:
-                            pert_comps_list = [self.pert_params[_type]
-                                               ['comps'][self.name]]
+                            pert_comps_list = [
+                                self.pert_params[_type]
+                                ['comps'][self.name],
+                            ]
                         else:
                             pert_comps_list = self.pert_params[_type]['comps'][self.name]
 
@@ -1489,7 +1561,8 @@ class Derham:
 
                         # pullback callable
                         fun = TransformedPformComponent(
-                            fun_tmp, fun_basis, self.space_key, domain=domain)
+                            fun_tmp, fun_basis, self.space_key, domain=domain,
+                        )
 
                     elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
 
@@ -1518,13 +1591,17 @@ class Derham:
                                         pert_type_params_comp[axis][keys] = vals
 
                                 fun_tmp[axis] = fun_class(
-                                    **pert_type_params_comp[axis])
+                                    **pert_type_params_comp[axis],
+                                )
 
                         # pullback callable
                         fun = []
                         for n, fform in enumerate(fun_basis):
-                            fun += [TransformedPformComponent(
-                                fun_tmp, fform, self.space_key, comp=n, domain=domain)]
+                            fun += [
+                                TransformedPformComponent(
+                                    fun_tmp, fform, self.space_key, comp=n, domain=domain,
+                                ),
+                            ]
 
                     # peform projection
                     self.vector += self.derham.P[self.space_key](fun)
@@ -1534,7 +1611,8 @@ class Derham:
 
                     # select class
                     funs = getattr(eigenfunctions, pert_types[0])(
-                        self.derham, **_params)
+                        self.derham, **_params,
+                    )
 
                     # select eigenvector and set coefficients
                     if hasattr(funs, self.name):
@@ -1548,7 +1626,8 @@ class Derham:
 
                     # select class
                     o_data = getattr(utilities, pert_types[0])(
-                        self.derham, self.name, species, **_params)
+                        self.derham, self.name, species, **_params,
+                    )
 
                     if isinstance(self.vector, StencilVector):
                         self.vector._data[:] += o_data.vector
@@ -1559,7 +1638,8 @@ class Derham:
 
             # apply boundary operator (in-place)
             self.derham.boundary_ops[self.space_key].dot(
-                self._vector.copy(), out=self._vector)
+                self._vector.copy(), out=self._vector,
+            )
 
             # update ghost regions
             self._vector.update_ghost_regions()
@@ -1615,21 +1695,25 @@ class Derham:
 
             if isinstance(vec, StencilVector):
 
-                assert [span.size for span in spans] == [base.shape[0]
-                                                         for base in bases]
+                assert [span.size for span in spans] == [
+                    base.shape[0]
+                    for base in bases
+                ]
 
                 if out is None:
                     out = np.empty([span.size for span in spans], dtype=float)
                 else:
                     assert out.shape == tuple([span.size for span in spans])
 
-                eval_spline_mpi_tensor_product_fixed(*spans,
-                                                     *bases,
-                                                     vec._data,
-                                                     self.derham.spline_types_pyccel[self.space_key],
-                                                     np.array(self.derham.p),
-                                                     np.array(self.starts),
-                                                     out)
+                eval_spline_mpi_tensor_product_fixed(
+                    *spans,
+                    *bases,
+                    vec._data,
+                    self.derham.spline_types_pyccel[self.space_key],
+                    np.array(self.derham.p),
+                    np.array(self.starts),
+                    out,
+                )
 
             else:
                 out_is_none = False
@@ -1639,25 +1723,34 @@ class Derham:
 
                 for i in range(3):
 
-                    assert [span.size for span in spans] == [base.shape[0]
-                                                             for base in bases[i]]
+                    assert [span.size for span in spans] == [
+                        base.shape[0]
+                        for base in bases[i]
+                    ]
 
                     if out_is_none:
-                        out += np.empty([span.size for span in spans],
-                                        dtype=float)
+                        out += np.empty(
+                            [span.size for span in spans],
+                            dtype=float,
+                        )
                     else:
                         assert out[i].shape == tuple(
-                            [span.size for span in spans])
+                            [span.size for span in spans],
+                        )
 
-                    eval_spline_mpi_tensor_product_fixed(*spans,
-                                                         *bases[i],
-                                                         vec[i]._data,
-                                                         self.derham.spline_types_pyccel[self.space_key][i],
-                                                         np.array(
-                                                             self.derham.p),
-                                                         np.array(
-                                                             self.starts[i]),
-                                                         out[i])
+                    eval_spline_mpi_tensor_product_fixed(
+                        *spans,
+                        *bases[i],
+                        vec[i]._data,
+                        self.derham.spline_types_pyccel[self.space_key][i],
+                        np.array(
+                            self.derham.p,
+                        ),
+                        np.array(
+                            self.starts[i],
+                        ),
+                        out[i],
+                    )
 
             return out
 
@@ -1692,7 +1785,8 @@ class Derham:
 
             # all eval points
             E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                eta1, eta2, eta3)
+                eta1, eta2, eta3,
+            )
 
             # check if eval points are "interior points" in domain_array; if so, add small offset
             dom_arr = self.derham.domain_array
@@ -1718,11 +1812,14 @@ class Derham:
 
             # True for eval points on current process
             E1_on_proc = np.logical_and(
-                E1 >= dom_arr[rank, 0], E1 <= dom_arr[rank, 1])
+                E1 >= dom_arr[rank, 0], E1 <= dom_arr[rank, 1],
+            )
             E2_on_proc = np.logical_and(
-                E2 >= dom_arr[rank, 3], E2 <= dom_arr[rank, 4])
+                E2 >= dom_arr[rank, 3], E2 <= dom_arr[rank, 4],
+            )
             E3_on_proc = np.logical_and(
-                E3 >= dom_arr[rank, 6], E3 <= dom_arr[rank, 7])
+                E3 >= dom_arr[rank, 6], E3 <= dom_arr[rank, 7],
+            )
 
             # flag eval points not on current process
             E1[~E1_on_proc] = -1.
@@ -1731,12 +1828,18 @@ class Derham:
 
             # prepare arrays for AllReduce
             if tmp is None:
-                tmp = np.zeros((E1.shape[0], E2.shape[1],
-                                E3.shape[2]), dtype=float)
+                tmp = np.zeros(
+                    (
+                        E1.shape[0], E2.shape[1],
+                        E3.shape[2],
+                    ), dtype=float,
+                )
             else:
                 assert isinstance(tmp, np.ndarray)
-                assert tmp.shape == (E1.shape[0], E2.shape[1],
-                                     E3.shape[2])
+                assert tmp.shape == (
+                    E1.shape[0], E2.shape[1],
+                    E3.shape[2],
+                )
                 assert tmp.dtype.type is np.float64
                 tmp[:] = 0.
 
@@ -1752,17 +1855,22 @@ class Derham:
 
                 if is_sparse_meshgrid:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil._data, kind,
-                                                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+                    eval_3d.eval_spline_mpi_sparse_meshgrid(
+                        E1, E2, E3, self._vector_stencil._data, kind,
+                        np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp,
+                    )
                 else:
                     # eval_mpi needs flagged arrays E1, E2, E3 as input
-                    eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil._data, kind,
-                                                   np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp)
+                    eval_3d.eval_spline_mpi_matrix(
+                        E1, E2, E3, self._vector_stencil._data, kind,
+                        np.array(self.derham.p), T1, T2, T3, np.array(self.starts), tmp,
+                    )
 
                 if self.derham.comm is not None:
                     if local == False:
                         self.derham.comm.Allreduce(
-                            MPI.IN_PLACE, tmp, op=MPI.SUM)
+                            MPI.IN_PLACE, tmp, op=MPI.SUM,
+                        )
 
                 # all processes have all values
                 if out is None:
@@ -1785,16 +1893,21 @@ class Derham:
                 for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
 
                     if is_sparse_meshgrid:
-                        eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self._vector_stencil[n]._data, kind,
-                                                                np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                        eval_3d.eval_spline_mpi_sparse_meshgrid(
+                            E1, E2, E3, self._vector_stencil[n]._data, kind,
+                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp,
+                        )
                     else:
-                        eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self._vector_stencil[n]._data, kind,
-                                                       np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp)
+                        eval_3d.eval_spline_mpi_matrix(
+                            E1, E2, E3, self._vector_stencil[n]._data, kind,
+                            np.array(self.derham.p), T1, T2, T3, np.array(self.starts[n]), tmp,
+                        )
 
                     if self.derham.comm is not None:
                         if local == False:
                             self.derham.comm.Allreduce(
-                                MPI.IN_PLACE, tmp, op=MPI.SUM)
+                                MPI.IN_PLACE, tmp, op=MPI.SUM,
+                            )
 
                     # all processes have all values
                     if out_is_None:
@@ -1852,15 +1965,20 @@ class Derham:
 
             # local shape without ghost regions
             if n == None:
-                _shape = (self._gl_e[0] + 1 - self._gl_s[0], self._gl_e
-                          [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2])
+                _shape = (
+                    self._gl_e[0] + 1 - self._gl_s[0], self._gl_e
+                    [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2],
+                )
             else:
-                _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
-                          [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
+                _shape = (
+                    self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
+                    [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2],
+                )
 
             if direction == 'e1':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], direction=direction, amp=amp, seed=seed)
+                    _shape[0], direction=direction, amp=amp, seed=seed,
+                )
                 for j in range(_shape[1]):
                     for k in range(_shape[2]):
                         vec[sli[0], gl_s[1] + j, gl_s[2] + k] += _amps
@@ -1868,39 +1986,45 @@ class Derham:
 
             elif direction == 'e2':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[1], direction=direction, amp=amp, seed=seed)
+                    _shape[1], direction=direction, amp=amp, seed=seed,
+                )
                 for j in range(_shape[0]):
                     for k in range(_shape[2]):
                         vec[gl_s[0] + j, sli[1], gl_s[2] + k] += _amps
 
             elif direction == 'e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[2], direction=direction, amp=amp, seed=seed)
+                    _shape[2], direction=direction, amp=amp, seed=seed,
+                )
                 for j in range(_shape[0]):
                     for k in range(_shape[1]):
                         vec[gl_s[0] + j, gl_s[1] + k, sli[2]] += _amps
 
             elif direction == 'e1e2':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], _shape[1], direction=direction, amp=amp, seed=seed)
+                    _shape[0], _shape[1], direction=direction, amp=amp, seed=seed,
+                )
                 for j in range(_shape[2]):
                     vec[sli[0], sli[1], gl_s[2] + j] += _amps
 
             elif direction == 'e1e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], _shape[2], direction=direction, amp=amp, seed=seed)
+                    _shape[0], _shape[2], direction=direction, amp=amp, seed=seed,
+                )
                 for j in range(_shape[1]):
                     vec[sli[0], gl_s[1] + j, sli[2]] += _amps
 
             elif direction == 'e2e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[1], _shape[2], direction=direction, amp=amp, seed=seed)
+                    _shape[1], _shape[2], direction=direction, amp=amp, seed=seed,
+                )
                 for j in range(_shape[0]):
                     vec[gl_s[0] + j, sli[1], sli[2]] += _amps
 
             elif direction == 'e1e2e3':
                 _amps = self._tmp_noise_for_mpi(
-                    _shape[0], _shape[1], _shape[2], direction=direction, amp=amp, seed=seed)
+                    _shape[0], _shape[1], _shape[2], direction=direction, amp=amp, seed=seed,
+                )
                 vec[sli[0], sli[1], sli[2]] += _amps
 
             else:
@@ -1983,7 +2107,8 @@ class Derham:
             inds_current = []
             for n in range(3):
                 mid_pt_current = (
-                    domain_array[rank, 3*n] + domain_array[rank, 3*n + 1]) / 2.
+                    domain_array[rank, 3*n] + domain_array[rank, 3*n + 1]
+                ) / 2.
                 inds_current += [np.argmin(np.abs(mid_points[n] - mid_pt_current))]
 
             # loop over processes
@@ -1992,8 +2117,10 @@ class Derham:
                 # 3d index of process i from mid points
                 inds = []
                 for n in range(3):
-                    mid_pt = (domain_array[i, 3*n] +
-                              domain_array[i, 3*n + 1]) / 2.
+                    mid_pt = (
+                        domain_array[i, 3*n] +
+                        domain_array[i, 3*n + 1]
+                    ) / 2.
                     inds += [np.argmin(np.abs(mid_points[n] - mid_pt))]
 
                 if already_drawn[inds[0], inds[1], inds[2]]:
@@ -2016,33 +2143,45 @@ class Derham:
                 else:
 
                     if direction == 'e1':
-                        tmp_arrays[inds[0]] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp
+                        tmp_arrays[inds[0]] = (
+                            np.random.rand(
+                                *shapes,
+                            ) - .5
+                        ) * 2. * amp
                         already_drawn[inds[0], :, :] = True
                         _amps[:] = tmp_arrays[inds[0]]
                     elif direction == 'e2':
-                        tmp_arrays[inds[1]] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp
+                        tmp_arrays[inds[1]] = (
+                            np.random.rand(
+                                *shapes,
+                            ) - .5
+                        ) * 2. * amp
                         already_drawn[:, inds[1], :] = True
                         _amps[:] = tmp_arrays[inds[1]]
                     elif direction == 'e3':
-                        tmp_arrays[inds[2]] = (np.random.rand(
-                            *shapes) - .5) * 2. * amp
+                        tmp_arrays[inds[2]] = (
+                            np.random.rand(
+                                *shapes,
+                            ) - .5
+                        ) * 2. * amp
                         already_drawn[:, :, inds[2]] = True
                         _amps[:] = tmp_arrays[inds[2]]
                     elif direction == 'e1e2':
                         tmp_arrays[inds[0]][inds[1]] = (
-                            np.random.rand(*shapes) - .5) * 2. * amp
+                            np.random.rand(*shapes) - .5
+                        ) * 2. * amp
                         already_drawn[inds[0], inds[1], :] = True
                         _amps[:] = tmp_arrays[inds[0]][inds[1]]
                     elif direction == 'e1e3':
                         tmp_arrays[inds[0]][inds[2]] = (
-                            np.random.rand(*shapes) - .5) * 2. * amp
+                            np.random.rand(*shapes) - .5
+                        ) * 2. * amp
                         already_drawn[inds[0], :, inds[2]] = True
                         _amps[:] = tmp_arrays[inds[0]][inds[2]]
                     elif direction == 'e2e3':
                         tmp_arrays[inds[1]][inds[2]] = (
-                            np.random.rand(*shapes) - .5) * 2. * amp
+                            np.random.rand(*shapes) - .5
+                        ) * 2. * amp
                         already_drawn[:, inds[1], inds[2]] = True
                         _amps[:] = tmp_arrays[inds[1]][inds[2]]
                     elif direction == 'e1e2e3':
@@ -2065,9 +2204,12 @@ class TransformedPformComponent:
         Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
 
     fun_basis : str
-        In which basis fun is represented: either a p-form, then '0' or '3' for scalar and 'v', '1' or '2' for vector-valued,
-        'physical' when defined on the physical (mapped) domain, and 'norm' when given in the normalized
-        contra-variant basis (:math:`\delta_i / |\delta_i|`).
+        In which basis fun is represented: either a p-form, 
+        then '0' or '3' for scalar 
+        and 'v', '1' or '2' for vector-valued,
+        'physical' when defined on the physical (mapped) domain, 
+        'physical_at_eta' when given the Cartesian components defined on the logical domain, 
+        and 'norm' when given in the normalized contra-variant basis (:math:`\delta_i / |\delta_i|`).
 
     out_form : str
         The p-form representation of the output: '0', '1', '2' '3' or 'v'.
@@ -2131,19 +2273,23 @@ class TransformedPformComponent:
 
             if self._is_scalar:
                 out = self._domain.pull(
-                    self._fun, eta1, eta2, eta3, kind=self._out_form)
+                    self._fun, eta1, eta2, eta3, kind=self._out_form,
+                )
             else:
                 out = self._domain.pull(
-                    self._fun, eta1, eta2, eta3, kind=self._out_form)[self._comp]
+                    self._fun, eta1, eta2, eta3, kind=self._out_form,
+                )[self._comp]
 
         elif self._fun_basis == 'physical_at_eta':
 
             if self._is_scalar:
                 out = self._domain.pull(
-                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical')
+                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical',
+                )
             else:
                 out = self._domain.pull(
-                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical')[self._comp]
+                    self._fun, eta1, eta2, eta3, kind=self._out_form, coordinates='logical',
+                )[self._comp]
 
         else:
 
@@ -2151,10 +2297,12 @@ class TransformedPformComponent:
 
             if self._is_scalar:
                 out = self._domain.transform(
-                    self._fun, eta1, eta2, eta3, kind=dict_tran)
+                    self._fun, eta1, eta2, eta3, kind=dict_tran,
+                )
             else:
                 out = self._domain.transform(
-                    self._fun, eta1, eta2, eta3, kind=dict_tran)[self._comp]
+                    self._fun, eta1, eta2, eta3, kind=dict_tran,
+                )[self._comp]
 
         return out
 
@@ -2223,14 +2371,20 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
 
         # Make union of Greville and break points
         tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
-            np.round_(union_breaks, decimals=14))
+            np.round_(union_breaks, decimals=14),
+        )
 
         tmp = list(tmp)
         tmp.sort()
         tmp_a = np.array(tmp)
 
-        x_grid = tmp_a[np.logical_and(tmp_a >= np.min(
-            histopol_loc) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14)]
+        x_grid = tmp_a[
+            np.logical_and(
+                tmp_a >= np.min(
+                    histopol_loc,
+                ) - 1e-14, tmp_a <= np.max(histopol_loc) + 1e-14,
+            )
+        ]
 
         # determine subinterval index (= 0 or 1):
         subs = np.zeros(x_grid[:-1].size, dtype=int)
@@ -2399,7 +2553,8 @@ def get_span_and_basis(pts, space):
             x = pts[n, nq] % (1. + 1e-14)
             span_tmp = bsp.find_span(T, p, x)
             basis[n, nq, :] = bsp.basis_funs_all_ders(
-                T, p, x, span_tmp, 0, normalization=space.basis)
+                T, p, x, span_tmp, 0, normalization=space.basis,
+            )
             span[n, nq] = span_tmp  # % space.nbasis
 
     return span, basis
@@ -2426,6 +2581,7 @@ def get_weights_local_projector(pts, fem_space):
         List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for histopolation.
     '''
     import psydac.core.bsplines as bsp
+
     # wij[space_direction][i][j]
     wij = []
     # whij[space_direction][i][j]
@@ -2457,7 +2613,8 @@ def get_weights_local_projector(pts, fem_space):
             minicol = colmatrix[xstart:xend, bstart]
             while (counter < 2*p-1):
                 minicol = np.column_stack(
-                    (minicol, colmatrix[xstart:xend, (bstart+counter) % Nbasis]))
+                    (minicol, colmatrix[xstart:xend, (bstart+counter) % Nbasis]),
+                )
                 counter += 1
 
             # We need to consider the case in which our minicollocation matrix ends up being just one number
@@ -2541,8 +2698,10 @@ def get_weights_local_projector(pts, fem_space):
 
                 i = p-1
                 whats = [wijaux[i][0], wijaux[i][0]+wijaux[i][1]]
-                whats.append(wijaux[i][0]+wijaux[i][1] +
-                             wijaux[i][2]-wijaux[i+1][0])
+                whats.append(
+                    wijaux[i][0]+wijaux[i][1] +
+                    wijaux[i][2]-wijaux[i+1][0],
+                )
                 for j in range(3, 2*p-1):
                     whats.append(whats[j-1]+wijaux[i][j]-wijaux[i+1][j-2])
                 whats.append(whats[2*p-2]-wijaux[i+1][2*p-3])

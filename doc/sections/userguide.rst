@@ -3,7 +3,12 @@
 Userguide
 =========
 
-Struphy can be conveniently used from the console. The overall help is displayed by typing::
+There are two basic modes of how Struphy can be used:
+
+1. in Python programs, as for instance described in the notebook :ref:`tutorials`
+2. via the Struphy CLI (command line interface)
+
+In the CLI the overall help is displayed by typing::
 
     struphy -h
 

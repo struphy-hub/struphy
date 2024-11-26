@@ -1,76 +1,36 @@
-## Version 2.3.1
+## Version 2.3.3
+
+Diff to previous release: Merge requests !568 - !591 
 
 
-### Core changes
+### User news
 
-* Addition of `Particles3D` class. !517
+* Bug fixes !577, !582, !587.
 
-* Addition of `Constant` background function. !517
+* More flexible kinetic initialization: The parameters file now allows for perturbations for each kinetic background when multiple backgrounds are given. !559
 
-* New psydac v0.1.13: removed `igakit` from `pyproject.toml` (will not be installed anymore). !517
+* Enbale addition of constant pressure to GVEC equilibrium. ! 569
 
-* New kinetic_background base class `CanonicalMaxwellian` and its test were added. !512
+* Enhanced post-processing for 6D orbit data (calculation of guiding center positions, constants of motion). !550
 
-* Parallelized the DOFs evaluation for the local projection operators. !509
+* New particle sorting: done by assigning particles to boxes that subdivide the domain and then sorting according to the box number. !565
 
-* Added new base class `KineticBackground` with the magic methods `__add__`, `__mul__`, `__rmul__` and `__sub__`.
-The Maxwellians now inherit this base class, class `Maxwellian(KineticBackground)`. In the parameter file, this enables to specify multiple backgrounds of the same type by appending _1, _2 etc. to the type name. !510
+* FEEC diagnotics and Accumulation filtering: By adding staticmethod `diagnostics_dct()` at the model class, we can save a FEEC variable for a specific diagnostics. !534
 
-* Modification at Particles5D marker array indexing. New property (abstractmethod) `bufferindex` is added at `Particles` class. !507
+* Automatic sampling parameters: Keyword moments can now be omitted from the parameters file for an automatic importance sampling. !583
 
-* Added dispersion relation `FluidSlabITG`, Tutorial 11 on dispersion relations, `BraginskiiEquilibrium` in new folder and `self.braginskii_equil` to `StruphyModel`. !506
-
-* Several changes to streamline `PolarSplines`. !501
-
-* Implementation of local commuting projection operators bsed on quasi-inter/histopolation. Added the `CommutingProjectorLocal` class to projectors.py !494
-
-* Implemented Particle refilling: So far, it only transfers the particle to the opposite poloidal angle θ\thetaθ but now it also considers the toroidal angle ϕ\phiϕ in order to put the particle at the same magnetic flux surface (`particle_refilling`). !499
-
-* Add a new `SchurSolver` to for the variational propagators. !498
-
-* Changed the abstract methods for `LogicalMHDequilibrium` from `b2`, `j2` to covariant `b1` and `j1`. !495
-
-* Added the new classes `DESCunit` and `DESCequilibrium` to interface to the [DESC equilibirum code](https://github.com/PlasmaControl/DESC). !495
-
-* Add the entropy interfaces `s0` and `s3` to `MHDequilibrium`. !497
-
-* Re-factored `ImplicitDiffusion` propagator; the right-hand side can now be a list of `StencilVector` or (`Auccumulator`, `Particles`)-tuple. !496
-
-* New propagator `propagators_fields.AdiabaticPhi`. !479
-
-* `WeightedMassOperators` has the new attribute `selected_weight` which can be set to change the object from which the weights are taken (usually `eq_mhd` or `eq_braginskii`, but more in the future). !479
-
-* New method `MHDequilibrium.curl_unit_b_dot_b0` for the curvature as a 0-form. !479
-
-* Renaming of kinetic backgrounds: `Maxwellian6D` -> `Maxwellian3D` and `Maxwellian5D` -> `GyroMaxwellian2D` !479
-
-* New key `kBT` in the parameter `units`; this is used only if the velocity scale is set to `thermal`, which is a new option. !479
-
-* `StruphyModel.update_distribution_functions()` now always calculates full-f and delta-f binnings from the weights `w0` and `w`, repsectively. The function `Particles.binning()` has been adapted accordingly. !479
-
-* Renamed `Particles.f_backgr` -> `Particles.f0`. !479
+* New notebook Tutorials. !589 
 
 
-### Model specific changes 
+### Developer news
 
-* Addition of `DeterministicParticleDiffusion` and `RandomParticleDiffusion` models, along with corresponding propagators. !517
+* New factory function `WeightedMassOperators.create_weighted_mass()`. This is to be used instead of `WeightedMassOperator()` when creating a new one. !545
 
-* Add viscous and resistive terms to fluid and MHD models resulting in the two new models `ViscousFluid` and `ViscoresistiveMHD`. !513
+*  Add pre-commit hooks. !573
 
-* Implemented implicit forms in the transport operators of `Variational` models. !503
+* Two new CLI commands, `struphy lint` and `struphy format`, to check code statistics and enforce code formatting compliance. !574
 
-* New model `LinearVlasovAmpereOneSpecies` based Hamiltonian delta-f approach. !504
+* Remove Derham dependency from Particles: re-factoring of `Particles` class and `Pusher` class. !584 
 
-* Several updates to `Variational` models to run itpa test cases. !501
-
-* Implemented control variate calculation for 5D hybrid model `LinearMHDDriftkineticCC`. !489
-
-* The model `DriftKineticElectrostaticAdiabatic` has been added. !479
-
-
-### Documentation, tutorials, testing, etc.
-
-* Add a `VariationalMHD` test to Tutorial 04. !511
-
-
+* Preparation for `LinearMHDVlasovCC` and `PC` with `CanonicalMaxwellian`, and renewing Particle columns indexing. !580
 

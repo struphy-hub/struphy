@@ -11,6 +11,7 @@ FEEC modules
     subsections/feec_projectors
     subsections/feec_weightedmass
     subsections/feec_basisops
+    subsections/feec_projected_mhd
     subsections/feec_linalg
 
 

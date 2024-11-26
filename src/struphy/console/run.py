@@ -7,6 +7,7 @@ def struphy_run(model,
                 batch_abs=None,
                 runtime=300,
                 save_step=1,
+                sort_step=0,
                 restart=False,
                 mpi=1,
                 debug=False,
@@ -76,17 +77,22 @@ def struphy_run(model,
     import shutil
     import os
     import struphy
+    import struphy.utils.utils as utils
     import yaml
 
     libpath = struphy.__path__[0]
 
-    # Struphy paths
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
+    # Struphy paths
     i_path = state['i_path']
     o_path = state['o_path']
     b_path = state['b_path']
+
+    assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
+    if batch is not None or batch_abs is not None:
+        assert os.path.exists(b_path), f"The path '{b_path}' does not exist. Set path with `struphy --set-b PATH`"
 
     # create absolute i/o paths
     if input_abs is None:
@@ -172,7 +178,10 @@ def struphy_run(model,
                 '--runtime',
                 str(runtime),
                 '-s',
-                str(save_step)]
+                str(save_step),
+                '--sort-step',
+                str(sort_step)]
+    
     cmd_cprofile = ['-m',
                     'cProfile',
                     '-o',
@@ -195,7 +204,8 @@ def struphy_run(model,
                        '--mem',
                        '2000'] + cmd_python + cprofile*cmd_cprofile + cmd_main
         elif likwid:
-            command = likwid_command + cmd_python + cprofile*cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"] + ['--likwid']
+            cmd_main[0] = f"{libpath}/{cmd_main[0]}"
+            command = likwid_command + cmd_python + cprofile*cmd_cprofile + cmd_main + ['--likwid']
         else:
             print('\nLaunching main() in normal mode ...')
             command = ['mpirun',

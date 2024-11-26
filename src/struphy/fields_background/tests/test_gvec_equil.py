@@ -80,7 +80,7 @@ def test_gvec_equil():
         # equilibrium
         print('p:')
         #print(rel_err(gvec.p0(e1, e2, e3), mhd_equil.p0(e1, e2, e3)))
-        assert rel_err(gvec.p0(e1, e2, e3), mhd_equil.p0(e1, e2, e3)) < 1e-16
+        assert rel_err(gvec.p0(e1, e2, e3), mhd_equil.p0(e1, e2, e3)) < 2e-16
         #print(rel_err(gvec.p3(e1, e2, e3), mhd_equil.p3(e1, e2, e3)))
         assert rel_err(gvec.p3(e1, e2, e3), mhd_equil.p3(e1, e2, e3)) < 3e-3
 

@@ -7,6 +7,7 @@ def main(
     runtime: int = 300,
     save_step: int = 1,
     supress_out: bool = False,
+    sort_step: int = 0
 ):
     """
     Run a Struphy model.
@@ -33,6 +34,10 @@ def main(
 
     supress_out : bool
         Whether to supress screen output during time integration.
+        
+    sort_step: int, optional
+        Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
+
     """
 
     from struphy.models.base import StruphyModel
@@ -49,6 +54,9 @@ def main(
     import os
 
     from mpi4py import MPI
+
+    if sort_step:
+        from struphy.pic.base import Particles
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -195,6 +203,19 @@ def main(
                 )
                 print()
             break
+        
+        if sort_step and time_state['index'][0] % sort_step == 0:
+            t0 = time.time()
+            for key, val in model.pointer.items():
+                if isinstance(val, Particles):
+                    val.do_sort()
+            t1 = time.time()
+            if rank == 0 and not supress_out:
+                message = 'Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}'.format(
+                    run_time_now * 60, t1 - t0
+                )
+                print(message, end='\n')
+                print()
 
         # perform one time step dt
         t0 = time.time()
@@ -269,6 +290,8 @@ def main(
                 print(message, end='\n')
                 model.print_scalar_quantities()
                 print()
+
+
     # ===================================================================
 
     with open(path_out + '/meta.txt', 'a') as f:
@@ -289,7 +312,6 @@ if __name__ == '__main__':
     import argparse
     import os
     import struphy
-    import yaml
     from struphy.profiling.profiling import (
         ProfileRegion,
         set_likwid,
@@ -297,10 +319,10 @@ if __name__ == '__main__':
         pylikwid_markerclose,
     )
 
-    libpath = struphy.__path__[0]
+    import struphy.utils.utils as utils
 
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
     o_path = state['o_path']
 
@@ -357,6 +379,15 @@ if __name__ == '__main__':
         default=1,
     )
 
+    # sort step
+    parser.add_argument(
+        '--sort-step',
+        type=int,
+        metavar='N',
+        help='sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)',
+        default=0,
+    )
+
     # supress screen output
     parser.add_argument(
         '--supress-out',
@@ -386,5 +417,6 @@ if __name__ == '__main__':
             runtime=args.runtime,
             save_step=args.save_step,
             supress_out=args.supress_out,
+            sort_step=args.sort_step
         )
     pylikwid_markerclose()

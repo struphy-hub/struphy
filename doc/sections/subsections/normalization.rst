@@ -26,6 +26,8 @@ In particular, in the section :ref:`units` the user can set
 
 * the unit of **number density** :math:`\hat n`, expressed in :math:`\mathbf{10^{20}\,m^{-3}}`.
 
+* optional: the unit of **thermal energy** :math:`k_\textnormal{B} \hat T`, expressed in **keV**.
+
 This immediately gives meaning to the numerical values of
 these quantities appearing in the parameter file. Additionally,
 
@@ -33,21 +35,27 @@ these quantities appearing in the parameter file. Additionally,
 
 is hard coded for each model
 under the attribute :attr:`~struphy.models.base.StruphyModel.velocity_scale`.
-There are currently three possibilities:
+There are four possibilities:
 
-1. ``Speed of light``, :math:`\hat v = c`,
+1. speed of ``light``, :math:`\hat v = c`.
 
-2. ``Alfvén`` speed of the bulk species, 
+2. ``alfvén`` speed of the bulk species, 
 
 .. math::
     
-    \hat v = v_\textnormal{A, bulk} := \sqrt{\hat B^2 / (m_\textnormal{bulk} \hat n \mu_0)}\,,
+    \hat v = v_\textnormal{A, bulk} := \sqrt{\hat B^2 / (m_\textnormal{bulk} \hat n \mu_0)}\,.
 
-3. ``Cyclotron`` speed of the bulk species, 
+3. ``cyclotron`` speed of the bulk species, 
 
 .. math::
     
     \hat v = v_\textnormal{c, bulk} := \hat x \Omega_\textnormal{c, bulk}/(2\pi) = \hat x\, q_\textnormal{bulk} \hat B /(m_\textnormal{bulk}2\pi)\,.
+
+4. ``thermal`` velocity of the bulk species,
+
+.. math::
+
+    \hat v = \sqrt{\frac{k_\textnormal{B} \hat T}{m_\textnormal{bulk}}}\,.
 
 Several additional units are derived internally from the above basic units, 
 in the function :func:`~struphy.io.setup.derive_units`. In particular,
@@ -84,5 +92,3 @@ can be inspected via::
     struphy units MODEL -i FILE
 
 We refer to :ref:`disc_example` for an example of how to derive a normalization for a physics model.
-In addition, `Tutorial 01 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_01_units_run_main.html#Struphy-normalization-(units)>`_ 
-provides some insights into the use of Struphy units.
