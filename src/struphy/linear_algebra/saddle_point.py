@@ -102,6 +102,7 @@ class SaddlePointSolver:
 
         self._solverA = inverse(A, solver_name, tol=tol,
                                 maxiter=max_iter, **solver_params)
+        
 
         # Solution vectors
         self._P = B.codomain.zeros()
@@ -207,7 +208,8 @@ class SaddlePointSolver:
         print(f"P shape: {self._P.shape}, P type: {type(self._P)}")
         print(f"U shape: {self._U.shape}, U type: {type(self._U)}")
         print(f"R shape: {self._R.shape}, R type: {type(self._R)}")
-        return self._U, self._P, {'converged': False, 'iterations': self._max_iter, 'residual_norm': residual_norm}
+        return self._U, self._P, self._solverA._info, self._residual_norms
+        #return self._U, self._P, {'converged': False, 'iterations': self._max_iter, 'residual_norm': residual_norm}
 
 
 class SaddlePointSolverTest:
@@ -294,7 +296,7 @@ class SaddlePointSolverTest:
         # Allocate memory for matrices used in solving the Schur system
         # self._Ainverse = A.copy()
         self._rhs = F.copy()
-        # self._uzawa = B.codomain.zeros()
+        # self._schur = B.codomain.zeros()
 
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
@@ -306,12 +308,15 @@ class SaddlePointSolverTest:
                                 maxiter=max_iter, **solver_params)
         
         print(f"SolverA done")
+        
+        
+        solver_params.pop('pc')
 
-        self._uzawa = self._B @ self._solverA @ self._BT
-        self._solveruzawa = inverse(
-            self._uzawa, solver_name, tol=tol, maxiter=max_iter, **solver_params)
+        self._schur = self._B @ self._solverA @ self._BT
+        self._solverschur = inverse(
+            self._schur, solver_name, tol=tol, maxiter=max_iter, **solver_params)
 
-        print(f"Solver Uzawa done")
+        print(f"Solver schur done")
         # Solution vectors
         self._P = B.codomain.zeros()
         self._U = A.codomain.zeros()
@@ -376,16 +381,15 @@ class SaddlePointSolverTest:
         assert isinstance(self._F, BlockVector)
         assert self._F.space == self._A.domain
         
-        #use setter to update lhs matrix
-        self._solverA.linop = self._A
-        self._solveruzawa.linop = self._uzawa
+        # #use setter to update lhs matrix
+        # self._solverA.linop = self._A
+        # self._solverschur.linop = self._schur
 
-
+        Matrixproduct=self._solverschur @ self._B @ self._solverA
         # Step 1: Compute potential P by solving B A^-1 Bᵀ  P = B A^-1 F
-        P = (self._solveruzawa @ self._B @
-             self._solverA).dot(self._F)
+        P = Matrixproduct.dot(self._F)
         
-        print(f"Solved P with solveruzawa and solverA")
+        print(f"Solved P with solverschur and solverA")
 
         # Step 2: Compute velocity by solving A U  = F - Bᵀ P
         self._rhs *= 0
@@ -398,7 +402,9 @@ class SaddlePointSolverTest:
         # Return with info if maximum iterations reached
         print(f"P shape: {P.shape}, P type: {type(P)}")
         print(f"U shape: {U.shape}, U type: {type(U)}")
-        return self._U, self._P, self._solverA._info
+        print(self._solverA._info)
+        print(self._solverschur._info)
+        return U, P, self._solverA._info
     
 class SaddlePointSolverNoCG:
     '''Solves for math:`\left( \matrix{
@@ -563,7 +569,7 @@ class SaddlePointSolverNoCG:
         # Initialize P to zero or given initial guess
         self._P = P_init if P_init is not None else self._P
 
-        for iteration in range(200):#range(self._max_iter):
+        for iteration in range(self._max_iter):
             # Step 1: Compute velocity U by solving A U = -Bᵀ P + F
             self._rhs *= 0
             self._rhs -= self._B.transpose().dot(self._P)
@@ -580,6 +586,7 @@ class SaddlePointSolverNoCG:
             # Check for convergence based on residual norm
             if residual_norm < self._tol:
                 return self._U, self._P, self._solverA._info, self._residual_norms
+
 
             self._P += self._rho*self._R
 

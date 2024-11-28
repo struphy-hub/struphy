@@ -1,16 +1,16 @@
 
-def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Test saddle-point-solver with manufactured solutions.'''
 
-    from struphy.linear_algebra.saddle_point import SaddlePointSolver, SaddlePointSolverNoCG #, SaddlePointSolverTest
-    from struphy.linear_algebra.saddle_point_uzawa import SaddlePointSolverTest
-
+    from struphy.linear_algebra.saddle_point import SaddlePointSolver, SaddlePointSolverNoCG, SaddlePointSolverTest
+    
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
     from struphy.feec.mass import WeightedMassOperators
     import numpy as np
     import time
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
 
     from mpi4py import MPI
 
@@ -39,28 +39,30 @@ def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=F
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain)
     A = mass_mats.M2
-    print(f"A shape: {A.shape}, A type: {type(A)}")
+    #print(f"A shape: {A.shape}, A type: {type(A)}")
     B = derham.div
-    print(f"B shape: {B.shape}, B type: {type(B)}")
+    #print(f"B shape: {B.shape}, B type: {type(B)}")
     BT = B.transpose()
-    print(f"BT shape: {BT.shape}, BT type: {type(B)}")
+    #print(f"BT shape: {BT.shape}, BT type: {type(B)}")
     x = derham.curl.dot(x1_rdm)
     F = A.dot(x) + BT.dot(y1_rdm)
-    print(f"F shape: {F.shape}, F type: {type(F)}")
+    #print(f"F shape: {F.shape}, F type: {type(F)}")
+    
+    M2pre = MassMatrixPreconditioner(mass_mats.M2)
 
     # Create the Uzawa solver
-    rho = 0.0001  # Example descent parameter
+    rho = 0.001  # Example descent parameter
     tol = 1e-5
     max_iter = 1000
-    pc = None  # No preconditioner
+    pc = M2pre  # No preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
-    solver_name = 'cg'
+    solver_name = 'pcg'
     verbose = True
     
     start_time = time.time()
     
     #SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
-    method_for_solving = 'SaddlePointSolverNoCG'
+    #method_for_solving = 'SaddlePointSolverNoCG'
     if method_for_solving == 'SaddlePointSolverTest':
         solver = SaddlePointSolverTest(A, B, F,
                                 rho=rho,
@@ -131,8 +133,15 @@ def _plot_residual_norms(residual_norms):
 
 
 if __name__ == '__main__':
-    test_saddlepointsolver([5, 6, 7],
+    test_saddlepointsolver('SaddlePointSolverTest',
+                           [5, 6, 7],
                            [2, 2, 3],
                            [True, False, True],
                            [[False,  True], [True, False], [False, False]],
-                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
+                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+    test_saddlepointsolver('SaddlePointSolver',
+                           [5, 6, 7],
+                           [2, 2, 3],
+                           [True, False, True],
+                           [[False,  True], [True, False], [False, False]],
+                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)

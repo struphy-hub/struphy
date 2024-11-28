@@ -1,16 +1,17 @@
 
-def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Test saddle-point-solver with manufactured solutions.'''
 
-    from struphy.linear_algebra.saddle_point import SaddlePointSolver, SaddlePointSolverTest
+    from struphy.linear_algebra.saddle_point import SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.feec.utilities import create_equal_random_arrays, compare_arrays
     from struphy.feec.mass import WeightedMassOperators
     import numpy as np
-    from psydac.linalg.basic import InverseLinearOperator
+    import time
     from psydac.linalg.block import BlockLinearOperator, BlockVectorSpace, BlockVector
+    from struphy.feec.preconditioner import MassMatrixPreconditioner
 
     from mpi4py import MPI
 
@@ -41,8 +42,8 @@ def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=F
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain)
     A11 = mass_mats.M2
-    A12 = A11.copy()*0
-    A12*=0
+    A12 = None
+    A21=A12
     A22 = mass_mats.M2
     B1 = derham.div
     B1T = B1.transpose()
@@ -52,86 +53,125 @@ def test_saddlepointsolver(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=F
     x2 = derham.curl.dot(x2_rdm)
     F1 = A11.dot(x1) + B1T.dot(y1_rdm)
     F2 = A22.dot(x2) + B2T.dot(y1_rdm)
-    print(f"A11 shape: {A11.shape}, A11 type: {type(A11)}")
-    print(f"A12 shape: {A12.shape}, A12 type: {type(A12)}")
-    print(f"A22 shape: {A22.shape}, A22 type: {type(A22)}")
-    print(f"B1 shape: {B1.shape}, B1 type: {type(B1)}")
-    print(f"B1T shape: {B1T.shape}, B1T type: {type(B1T)}")
-    print(f"F1 shape: {F1.shape}, F1 type: {type(F1)}")
+
+    if A12 is not None:
+        assert A11.codomain == A12.codomain
+    if A21 is not None:
+        assert A22.codomain == A21.codomain
+    assert B1.codomain == B2.codomain
+    if A12 is not None:
+        assert A11.domain== A12.domain == B1.domain
+    if A21 is not None:
+        assert A21.domain== A22.domain == B2.domain     
+    assert A22.domain == B2.domain
+    assert A11.domain == B1.domain
     
-    print(f"A11 domain: {A11.domain}, codomain: {A11.codomain}")
-    print(f"A12 domain: {A12.domain}, codomain: {A12.codomain}")
-    print(f"A12 domain: {A12.domain}, codomain: {A12.codomain}")
-    print(f"BlockLinearOperator domain[0]: {derham.Vh['1'].spaces[0]}")
-    print(f"BlockLinearOperator domain[1]: {derham.Vh['1'].spaces[1]}")
-    
-    block_domainA = A11.domain
-    block_codomainA = A11.codomain
-    
-    block_domainB =  BlockVectorSpace(B1.domain)
-    block_codomainB = BlockVectorSpace(B1.codomain)
-    block_domainAtest = BlockVectorSpace(A11.domain, A22.domain)
-    block_codomainAtest = BlockVectorSpace(A11.codomain, A22.codomain)
-    
-    print(f"B1 domain: {B1.domain}, B1T domain: {B1T.domain} ")
-    
-    assert A11.domain == A12.domain
-    assert A11.codomain == A12.codomain
-    assert A22.domain == A11.domain
-    assert A22.codomain == A11.codomain
-    # assert A22.domain == block_domainAtest
-    # assert A22.codomain == block_codomainAtest
-    
-    blocks = {
-        (0, 0): A11,
-        (0, 1): A11,
-        (1, 0): A11,
-        (1, 1): A11,
-    }
+    block_domainA = BlockVectorSpace(A11.domain, A22.domain)
+    block_codomainA = block_domainA  
+    block_domainB =  block_domainA
+    block_codomainB = B2.codomain
+    blocks = [[A11, A12],[A21, A22]]
     A = BlockLinearOperator(block_domainA, block_codomainA, blocks=blocks)
-    B = BlockLinearOperator(block_domainB, block_codomainB, blocks = [[B1],[B2]])
-    # F = BlockVector(block_domainB, blocks = [F1,F2])
+    B = BlockLinearOperator(block_domainB, block_codomainB, blocks = [[B1, B2]])
+    F = BlockVector(block_domainA, blocks = [F1,F2])
+    x = BlockVector(block_domainA, blocks = [x1,x2])
     
+    M2preblock = MassMatrixPreconditioner(mass_mats.M2)
+    M2pre = BlockLinearOperator(block_domainA, block_codomainA, blocks = [[M2preblock, None],[None, M2preblock]])
 
     # Create the Uzawa solver
-    rho = 0.01  # Example descent parameter
-    tol = 1e-6
+    rho = 0.0005  # Example descent parameter
+    tol = 1e-5
     max_iter = 1000
-    pc = None  # No preconditioner
+    pc = M2pre # No preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
-    solver_name = 'cg'
-    verbose = True
-
-    solver = SaddlePointSolverTest(A, B, F,
-                               rho=rho,
-                               solver_name=solver_name,
-                               tol=tol,
-                               max_iter=max_iter,
-                               verbose=verbose,
-                               pc=pc)
-
-    x_uzawa, y_uzawa, info = solver()
-
-    print(f"x shape: {x1.shape}, x type: {type(x1)}")
-    print(f"x_uzawa shape: {x_uzawa.shape}, x_uzawa type: {type(x_uzawa)}")
-    print(f"y shape: {y1_rdm.shape}, y type: {type(y1_rdm)}")
-    print(f"y_uzawa shape: {y_uzawa.shape}, y_uzawa type: {type(y_uzawa)}")
-    print(f"Rank: {mpi_rank}")
+    solver_name = 'pcg'
+    verbose = False
     
-    Rx=x1-x_uzawa
+    start_time = time.time()
+
+     #SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
+    #method_for_solving = 'SaddlePointSolverTest'
+    if method_for_solving == 'SaddlePointSolverTest':
+        solver = SaddlePointSolverTest(A, B, F,
+                                rho=rho,
+                                solver_name=solver_name,
+                                tol=tol,
+                                max_iter=max_iter,
+                                verbose=verbose,
+                                pc=pc)
+        x_uzawa, y_uzawa, info = solver()
+    elif method_for_solving == 'SaddlePointSolver':
+        solver = SaddlePointSolver(A, B, F,
+                                rho=rho,
+                                solver_name=solver_name,
+                                tol=tol,
+                                max_iter=max_iter,
+                                verbose=verbose,
+                                pc=pc)
+        x_uzawa, y_uzawa, info, residual_norms = solver()
+        if show_plots == True:
+            _plot_residual_norms(residual_norms)
+    elif method_for_solving == 'SaddlePointSolverNoCG':
+        solver = SaddlePointSolverNoCG(A, B, F,
+                                rho=rho,
+                                solver_name=solver_name,
+                                tol=tol,
+                                max_iter=max_iter,
+                                verbose=verbose,
+                                pc=pc)
+        x_uzawa, y_uzawa, info, residual_norms = solver()
+        if show_plots == True:
+            _plot_residual_norms(residual_norms)
+            
+    end_time = time.time()
+
+    # print(f"x shape: {x.shape}, x type: {type(x)}")
+    # print(f"x1 shape: {x1.shape}, x1 type: {type(x1)}")
+    # print(f"x_uzawa shape: {x_uzawa.shape}, x_uzawa type: {type(x_uzawa)}")
+    # print(f"y shape: {y1_rdm.shape}, y type: {type(y1_rdm)}")
+    # print(f"y_uzawa shape: {y_uzawa.shape}, y_uzawa type: {type(y_uzawa)}")
+    # print(f"Rank: {mpi_rank}")
+    
+    elapsed_time = end_time - start_time
+    print(f"Method execution time: {elapsed_time:.6f} seconds")
+    Rx=x-x_uzawa
     Ry=y1_rdm-y_uzawa
     residualx_norm = np.linalg.norm(Rx.toarray())
     residualy_norm = np.linalg.norm(Ry.toarray())
     print(f"Residual x norm: {residualx_norm}")
     print(f"Residual y norm: {residualy_norm}")
     
-
-    compare_arrays(x1, x_uzawa.toarray(), mpi_rank, atol=1e-4)
+    
+    compare_arrays(x1, x_uzawa[0].toarray(), mpi_rank, atol=1e-4)
+    compare_arrays(x2, x_uzawa[1].toarray(), mpi_rank, atol=1e-4)
     compare_arrays(y1_rdm, y_uzawa.toarray(), mpi_rank, atol=1e-4)
-
+    
+    
+def _plot_residual_norms(residual_norms):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    
+    plt.figure(figsize=(8, 6))
+    plt.plot(residual_norms, label="Residual Norm")
+    plt.yscale('log')  # Use logarithmic scale for better visualization
+    plt.xlabel("Iteration")
+    plt.ylabel("Residual Norm")
+    plt.title("Convergence of Residual Norm")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("residual_norms_plot.png")
 
 if __name__ == '__main__':
-    test_saddlepointsolver([5, 6, 7],
+    test_saddlepointsolver('SaddlePointSolverTest',
+                           [5, 6, 7],
+                           [2, 2, 3],
+                           [True, False, True],
+                           [[False,  True], [True, False], [False, False]],
+                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+    test_saddlepointsolver('SaddlePointSolver',
+                           [5, 6, 7],
                            [2, 2, 3],
                            [True, False, True],
                            [[False,  True], [True, False], [False, False]],
