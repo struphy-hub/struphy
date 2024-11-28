@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 import h5py
 import numpy as np
 import scipy.special as sp
+from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
@@ -157,8 +158,10 @@ class Particles(metaclass=ABCMeta):
         self._inter_comm = inter_comm
         if self.inter_comm is None:
             self._Nclones = 1
+            self._clone_rank = 0
         else:
             self._Nclones = self.inter_comm.Get_size()
+            self._clone_rank = self.inter_comm.Get_rank()
 
         # domain decomposition for MPI
         if domain_array is None:
@@ -311,6 +314,15 @@ class Particles(metaclass=ABCMeta):
             self._initialized_sorting = True
             self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
 
+        # create buffers for mpi_sort_markers
+        self._sorting_etas = np.zeros(self._markers.shape, dtype=float)
+        self._is_on_proc_domain = np.zeros((self._markers.shape[0], 3), dtype=bool)
+        self._can_stay = np.zeros(self._markers.shape[0], dtype=bool)
+        self._reqs = [None] * self.mpi_size
+        self._recvbufs = [None] * self.mpi_size
+        self._send_to_i = [None] * self.mpi_size
+        self._send_list = [None] * self.mpi_size
+
     @classmethod
     @abstractmethod
     def default_bckgr_params(cls):
@@ -457,6 +469,12 @@ class Particles(metaclass=ABCMeta):
         """ Number of clones.
         """
         return self._Nclones
+
+    @property
+    def clone_rank(self):
+        """ Clone rank of current process.
+        """
+        return self._clone_rank
 
     @property
     def bckgr_params(self):
@@ -1030,40 +1048,64 @@ class Particles(metaclass=ABCMeta):
                     print((key + ' :').ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
+            #TODO: assumes all clones have same number of particles
             if self.loading == 'pseudo_random':
 
-                # Set seed
+                # set seed
                 _seed = self.loading_params['seed']
                 if _seed is not None:
                     np.random.seed(_seed)
-                # Draw pseudo_random markers
-                break_outer_loop = False
-                # The inner loop is over number of clones so that the set of markers
-                # for the first domain in each clone has the same markers independent
-                # of the number of clones
-                for i in range(self._mpi_size):
-                    for iclone in range(self.Nclones):
-                        temp = np.random.rand(
-                            self.n_mks_load[i], 3 + self.vdim,
-                        )
-                        if i == self._mpi_rank:
-                            if self.Nclones == 1:
-                                self.phasespace_coords = temp
-                                break_outer_loop = True
-                                # print(iclone,self._mpi_rank)
-                                break
-                            else:
-                                if iclone == self.inter_comm.Get_rank():
-                                    self.phasespace_coords = temp
-                                    break_outer_loop = True
 
-                                    # print('b',iclone,self._mpi_rank)
-                                    break
-                    # Check the flag variable to break the outer loop
-                    if break_outer_loop:
-                        break
-                # print(f"{break_outer_loop = }")
-                # exit()
+                # counting integers
+                num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
+                num_loaded_particles = 0     # number of particles already loaded (each clone)
+                chunk_size = 10000  # TODO: number of particle chunk
+                total_num_particles_to_load = np.sum(self.n_mks_load)
+
+                while num_loaded_particles < int(total_num_particles_to_load*self.Nclones):
+
+                    # Generate a chunk of random particles
+                    num_to_add = min(chunk_size, int(total_num_particles_to_load*self.Nclones) - num_loaded_particles)
+                    temp = np.random.rand(num_to_add, 3 + self.vdim)
+
+                    # check which particles are on the current process domain
+                    is_on_proc_domain = np.logical_and(
+                        temp[:, :3] > self.domain_decomp[self.mpi_rank, 0::3],
+                        temp[:, :3] < self.domain_decomp[self.mpi_rank, 1::3],
+                    )
+
+                    valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
+
+                    valid_particles = temp[valid_idx]
+                    valid_particles = np.array_split(valid_particles, self.Nclones)[self.clone_rank]
+                    num_valid = valid_particles.shape[0]
+
+                    # Add the valid particles to the phasespace_coords array
+                    self.markers[
+                        num_loaded_particles_loc : num_loaded_particles_loc +
+                        num_valid, :3 + self.vdim,
+                    ] = valid_particles
+                    num_loaded_particles += num_to_add
+                    num_loaded_particles_loc += num_valid
+
+                # make sure all particles are loaded
+                assert np.sum(self.n_mks_load) == int(num_loaded_particles/self.Nclones)
+
+                # set new n_mks_load
+                self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
+                n_mks_load_loc = num_loaded_particles_loc
+
+                if self.mpi_comm is not None:
+                    self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
+
+                n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+
+                assert np.sum(self.n_mks_load) == int(num_loaded_particles/self.Nclones)
+
+                # set new holes in markers array to -1
+                self.markers[num_loaded_particles_loc:, :] = -1.
+                self.update_holes()
+
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
@@ -1195,7 +1237,6 @@ class Particles(metaclass=ABCMeta):
         do_test : bool
             Check if all markers are on the right process after sorting.
         """
-
         self.mpi_comm.Barrier()
 
         # before sorting, apply kinetic bc
@@ -1206,29 +1247,19 @@ class Particles(metaclass=ABCMeta):
             alpha = (alpha, alpha, alpha)
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
-        markers_to_be_sent, hole_inds_after_send, sorting_etas = sendrecv_determine_mtbs(
-            self._markers,
-            self._holes,
-            self.domain_decomp,
-            self.mpi_rank,
-            self.vdim,
-            self.first_pusher_idx,
-            alpha=alpha,
-        )
+        hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
 
         # determine where to send markers_to_be_sent
-        send_info, send_list = sendrecv_get_destinations(
-            markers_to_be_sent, sorting_etas, self.domain_decomp, self.mpi_size,
-        )
+        send_info = self.sendrecv_get_destinations(send_inds)
+
+        # set new holes in markers array to -1
+        self.markers[send_inds] = -1.
 
         # transpose send_info
-        recv_info = sendrecv_all_to_all(send_info, self.mpi_comm)
+        recv_info = self.sendrecv_all_to_all(send_info)
 
         # send and receive markers
-        sendrecv_markers(
-            send_list, recv_info, hole_inds_after_send,
-            self._markers, self.mpi_comm,
-        )
+        self.sendrecv_markers(recv_info, hole_inds_after_send)
 
         # new holes and new number of holes and markers on process
         self.update_holes()
@@ -1870,219 +1901,159 @@ class Particles(metaclass=ABCMeta):
         self._n_holes_loc = np.count_nonzero(self.holes)
         self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
+    def sendrecv_determine_mtbs(
+        self,
+        alpha: list | tuple | np.ndarray = (1., 1., 1.),
+    ):
+        """
+        Determine which markers have to be sent from current process and put them in a new array. 
+        Corresponding rows in markers array become holes and are therefore set to -1.
+        This can be done purely with numpy functions (fast, vectorized).
 
-def sendrecv_determine_mtbs(
-    markers,
-    holes,
-    domain_decomp,
-    mpi_rank,
-    vdim,
-    first_pusher_idx,
-    alpha: list | tuple | np.ndarray = (1., 1., 1.),
-):
-    """
-    Determine which markers have to be sent from current process and put them in a new array. 
-    Corresponding rows in markers array become holes and are therefore set to -1.
-    This can be done purely with numpy functions (fast, vectorized).
+        Parameters
+        ----------
+            alpha : list | tuple
+                For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
+                alpha[i] must be between 0 and 1. 
 
-    Parameters
-    ----------
-        markers : array[float]
-            Local markers array of shape (n_mks_loc + n_holes_loc, :).
+        Returns
+        -------
+            hole_inds_after_send : array[int]
+                Indices of empty columns in markers after send.
 
-        holes : array[bool]
-            Local array stating whether a row in the markers array is empty (i.e. a hole) or not.
-
-        domain_decomp : array[float]
-            2d array of shape (mpi_size, 9) defining the domain of each process.
-
-        mpi_rank : int
-            Rank of calling MPI process.
-
-        alpha : list | tuple
-            For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
-            alpha[i] must be between 0 and 1. 
-
-        first_pusher_idx : int
-            Starting buffer marker index number for pusher.
-
-    Returns
-    -------
-        markers_to_be_sent : array[float]
-            Markers of shape (n_send, :) to be sent.
-
-        hole_inds_after_send : array[int]
-            Indices of empty columns in markers after send.
-
-        sorting_etas : array[float]
-            Eta-values of shape (n_send, :) according to which the sorting is performed.
-    """
-    # position that determines the sorting (including periodic shift of boundary conditions)
-    if not isinstance(alpha, np.ndarray):
-        alpha = np.array(alpha, dtype=float)
-    assert alpha.size == 3
-    assert np.all(alpha >= 0.) and np.all(alpha <= 1.)
-    bi = first_pusher_idx
-    sorting_etas = np.mod(
-        alpha*(
-            markers[:, :3]
-            + markers[:, bi + 3 + vdim:bi + 3 + vdim + 3]
-        )
-        + (1. - alpha)*markers[:, bi:bi + 3], 1.,
-    )
-
-    # check which particles are on the current process domain
-    is_on_proc_domain = np.logical_and(
-        sorting_etas > domain_decomp[mpi_rank, 0::3],
-        sorting_etas < domain_decomp[mpi_rank, 1::3],
-    )
-
-    # to stay on the current process, all three columns must be True
-    can_stay = np.all(is_on_proc_domain, axis=1)
-
-    # holes can stay, too
-    can_stay[holes] = True
-
-    # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
-    send_inds = np.nonzero(~can_stay)[0]
-
-    hole_inds_after_send = np.nonzero(np.logical_or(~can_stay, holes))[0]
-
-    # New array for sending particles.
-    # TODO: do not create new array, but just return send_inds?
-    # Careful: just markers[send_ids] already creates a new array in memory
-    markers_to_be_sent = markers[send_inds]
-
-    # set new holes in markers array to -1
-    markers[send_inds] = -1.
-
-    return markers_to_be_sent, hole_inds_after_send, sorting_etas[send_inds]
-
-
-def sendrecv_get_destinations(markers_to_be_sent, sorting_etas, domain_decomp, mpi_size):
-    """
-    Determine to which process particles have to be sent.
-
-    Parameters
-    ----------
-        markers_to_be_sent : array[float]
-            Markers of shape (n_send, :) to be sent.
-
-        domain_decomp : array[float]
-            2d array of shape (mpi_size, 9) defining the domain of each process.
-
-        mpi_size : int
-            Total number of MPI processes.
-
-    Returns
-    -------
-        send_info : array[int]
-            Amount of particles sent to i-th process.
-
-        send_list : list[array]
-            Particles sent to i-th process.
-    """
-
-    # One entry for each process
-    send_info = np.zeros(mpi_size, dtype=int)
-    send_list = []
-
-    # TODO: do not loop over all processes, start with neighbours and work outwards (using while)
-    for i in range(mpi_size):
-
-        conds = np.logical_and(
-            sorting_etas > domain_decomp[i, 0::3],
-            sorting_etas < domain_decomp[i, 1::3],
+            sorting_etas : array[float]
+                Eta-values of shape (n_send, :) according to which the sorting is performed.
+        """
+        # position that determines the sorting (including periodic shift of boundary conditions)
+        if not isinstance(alpha, np.ndarray):
+            alpha = np.array(alpha, dtype=float)
+        assert alpha.size == 3
+        assert np.all(alpha >= 0.) and np.all(alpha <= 1.)
+        bi = self.first_pusher_idx
+        self._sorting_etas = np.mod(
+            alpha*(
+                self.markers[:, :3]
+                + self.markers[:, bi + 3 + self.vdim:bi + 3 + self.vdim + 3]
+            )
+            + (1. - alpha)*self.markers[:, bi:bi + 3], 1.,
         )
 
-        send_to_i = np.nonzero(np.all(conds, axis=1))[0]
-        send_info[i] = send_to_i.size
+        # check which particles are on the current process domain
+        self._is_on_proc_domain = np.logical_and(
+            self._sorting_etas > self.domain_decomp[self.mpi_rank, 0::3],
+            self._sorting_etas < self.domain_decomp[self.mpi_rank, 1::3],
+        )
 
-        send_list += [markers_to_be_sent[send_to_i]]
+        # to stay on the current process, all three columns must be True
+        self._can_stay = np.all(self._is_on_proc_domain, axis=1)
 
-    return send_info, send_list
+        # holes can stay, too
+        self._can_stay[self.holes] = True
 
+        # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
+        send_inds = np.nonzero(~self._can_stay)[0]
 
-def sendrecv_all_to_all(send_info, comm):
-    """
-    Distribute info on how many markers will be sent/received to/from each process via all-to-all.
+        hole_inds_after_send = np.nonzero(np.logical_or(~self._can_stay, self.holes))[0]
 
-    Parameters
-    ----------
-        send_info : array[int]
-            Amount of markers to be sent to i-th process.
+        return hole_inds_after_send, send_inds
 
-        comm : Intracomm
-            MPI communicator from mpi4py.MPI.Intracomm.
+    def sendrecv_get_destinations(self, send_inds):
+        """
+        Determine to which process particles have to be sent.
 
-    Returns
-    -------
-        recv_info : array[int]
-            Amount of marticles to be received from i-th process.
-    """
+        Parameters
+        ----------
+            send_inds : array[int]
+                 Indices of particles which will be sent. 
+        Returns
+        -------
+            send_info : array[int]
+                Amount of particles sent to i-th process.
+        """
 
-    recv_info = np.zeros(comm.Get_size(), dtype=int)
+        # One entry for each process
+        send_info = np.zeros(self.mpi_size, dtype=int)
 
-    comm.Alltoall(send_info, recv_info)
+        # TODO: do not loop over all processes, start with neighbours and work outwards (using while)
+        for i in range(self.mpi_size):
 
-    return recv_info
+            conds = np.logical_and(
+                self._sorting_etas[send_inds] > self.domain_decomp[i, 0::3],
+                self._sorting_etas[send_inds] < self.domain_decomp[i, 1::3],
+            )
 
+            self._send_to_i[i] = np.nonzero(np.all(conds, axis=1))[0]
+            send_info[i] = self._send_to_i[i].size
 
-def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
-    """
-    Use non-blocking communication. In-place modification of markers
+            self._send_list[i] = self.markers[send_inds][self._send_to_i[i]]
 
-    Parameters
-    ----------
-        send_list : list[array]
-            Markers to be sent to i-th process.
+        return send_info
 
-        recv_info : array[int]
-            Amount of markers to be received from i-th process.
+    def sendrecv_all_to_all(self, send_info):
+        """
+        Distribute info on how many markers will be sent/received to/from each process via all-to-all.
 
-        hole_inds_after_send : array[int]
-            Indices of empty rows in markers after send.
+        Parameters
+        ----------
+            send_info : array[int]
+                Amount of markers to be sent to i-th process.
 
-        markers : array[float]
-            Local markers array of shape (n_mks_loc + n_holes_loc, :).
+        Returns
+        -------
+            recv_info : array[int]
+                Amount of marticles to be received from i-th process.
+        """
 
-        comm : Intracomm
-            MPI communicator from mpi4py.MPI.Intracomm.
-    """
+        recv_info = np.zeros(self.mpi_size, dtype=int)
 
-    # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
-    first_hole = np.cumsum(recv_info) - recv_info
+        self.mpi_comm.Alltoall(send_info, recv_info)
 
-    # Initialize send and receive commands
-    reqs = []
-    recvbufs = []
-    for i, (data, N_recv) in enumerate(zip(send_list, list(recv_info))):
-        if i == comm.Get_rank():
-            reqs += [None]
-            recvbufs += [None]
-        else:
-            comm.Isend(data, dest=i, tag=comm.Get_rank())
+        return recv_info
 
-            recvbufs += [np.zeros((N_recv, markers.shape[1]), dtype=float)]
-            reqs += [comm.Irecv(recvbufs[-1], source=i, tag=i)]
+    def sendrecv_markers(self, recv_info, hole_inds_after_send):
+        """
+        Use non-blocking communication. In-place modification of markers
 
-    # Wait for buffer, then put markers into holes
-    test_reqs = [False] * (recv_info.size - 1)
-    while len(test_reqs) > 0:
-        # loop over all receive requests
-        for i, req in enumerate(reqs):
-            if req is None:
-                continue
+        Parameters
+        ----------
+            recv_info : array[int]
+                Amount of markers to be received from i-th process.
+
+            hole_inds_after_send : array[int]
+                Indices of empty rows in markers after send.
+        """
+
+        # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
+        first_hole = np.cumsum(recv_info) - recv_info
+
+        # Initialize send and receive commands
+        for i, (data, N_recv) in enumerate(zip(self._send_list, list(recv_info))):
+            if i == self.mpi_rank:
+                self._reqs[i] = None
+                self._recvbufs[i] = None
             else:
-                # check if data has been received
-                if req.Test():
+                self.mpi_comm.Isend(data, dest=i, tag=self.mpi_rank)
 
-                    markers[
-                        hole_inds_after_send[
-                            first_hole[i] +
-                            np.arange(recv_info[i])
-                        ]
-                    ] = recvbufs[i]
+                self._recvbufs[i] = np.zeros((N_recv, self.markers.shape[1]), dtype=float)
+                self._reqs[i] = self.mpi_comm.Irecv(self._recvbufs[i], source=i, tag=i)
 
-                    test_reqs.pop()
-                    reqs[i] = None
+        # Wait for buffer, then put markers into holes
+        test_reqs = [False] * (recv_info.size - 1)
+        while len(test_reqs) > 0:
+            # loop over all receive requests
+            for i, req in enumerate(self._reqs):
+                if req is None:
+                    continue
+                else:
+                    # check if data has been received
+                    if req.Test():
+
+                        self.markers[
+                            hole_inds_after_send[
+                                first_hole[i] +
+                                np.arange(recv_info[i])
+                            ]
+                        ] = self._recvbufs[i]
+
+                        test_reqs.pop()
+                        self._reqs[i] = None
