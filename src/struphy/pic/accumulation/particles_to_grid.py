@@ -244,7 +244,7 @@ class Accumulator:
                     self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
 
                     for _ in range(self.filter_params["repeat"]):
-                        for i in range(2):
+                        for i in range(3):
                             filters.apply_three_point_filter_2d(
                                 vec[i]._data,
                                 np.array(self.derham.Nel),
