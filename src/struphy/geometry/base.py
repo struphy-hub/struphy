@@ -1921,19 +1921,15 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
     # 3D interpolation
     elif len(Nel) == 3:
-        I = kron(I_mat[0], kron(I_mat[1], I_mat[2]), format='csc')
+        I_LU = [splu(mat) for mat in I_mat]
 
-        I_pts = np.meshgrid(I_pts[0], I_pts[1], I_pts[2], indexing='ij')
+        x_size = X(I_pts[0], I_pts[1], I_pts[2])
+        y_size = Y(I_pts[0], I_pts[1], I_pts[2])
+        z_size = Z(I_pts[0], I_pts[1], I_pts[2])
 
-        cx = spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2],
-        )
-        cy = spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2],
-        )
-        cz = spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2],
-        )
+        cx = linalg_kron.kron_lusolve_3d(I_LU, x_size)
+        cy = linalg_kron.kron_lusolve_3d(I_LU, y_size)
+        cz = linalg_kron.kron_lusolve_3d(I_LU, z_size)
 
         return cx, cy, cz
 

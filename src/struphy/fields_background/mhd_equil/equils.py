@@ -2,6 +2,7 @@
 
 
 import warnings
+from time import time
 
 import numpy as np
 
@@ -2555,7 +2556,9 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         import os
 
+        t = time()
         import desc
+        print(f"DESC import: {time()-t} seconds")
         from mpi4py import MPI
 
         import struphy
@@ -2600,12 +2603,14 @@ class DESCequilibrium(LogicalMHDequilibrium):
         else:
             eq_name = self._params['eq_name']
 
+        t = time()
         # desc object
         if eq_name is None:
             self._eq = desc.examples.get("W7-X")
         else:
             self._eq = desc.io.load(eq_name)
 
+        print(f"Eq. load: {time()-t} seconds")
         self._rmin = params['rmin']
         self._use_nfp = params['use_nfp']
 
@@ -2962,6 +2967,11 @@ class DESCequilibrium(LogicalMHDequilibrium):
         from desc.grid import Grid
 
         warnings.filterwarnings("ignore")
+        ttime = time()
+        # Fix issue 353 with float dummy etas
+        e1 = np.array([e1]) if isinstance(e1, float) else e1
+        e2 = np.array([e2]) if isinstance(e2, float) else e2
+        e3 = np.array([e3]) if isinstance(e3, float) else e3
 
         # transform input grids
         if e1.ndim == 3:
@@ -3051,7 +3061,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         # make c-contiguous
         out = np.ascontiguousarray(out)
-
+        print(f"desc_eval for {var}: {time()-ttime} seconds")
         return out
 
 
