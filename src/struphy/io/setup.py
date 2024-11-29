@@ -150,10 +150,10 @@ def setup_domain_and_equil(params: dict, units: dict = None):
         The equilibrium object.
     """
 
-    from struphy.geometry import domains
-    from struphy.fields_background.mhd_equil import equils as mhd_equils
     from struphy.fields_background.braginskii_equil import equils as braginskii_equils
+    from struphy.fields_background.mhd_equil import equils as mhd_equils
     from struphy.fields_background.mhd_equil.base import LogicalMHDequilibrium
+    from struphy.geometry import domains
 
     if 'mhd_equilibrium' in params:
 
@@ -162,7 +162,8 @@ def setup_domain_and_equil(params: dict, units: dict = None):
 
         if mhd_type in ('EQDSKequilibrium', 'GVECequilibrium', 'DESCequilibrium'):
             equil = mhd_class(
-                units=units, **params['mhd_equilibrium'][mhd_type])
+                units=units, **params['mhd_equilibrium'][mhd_type],
+            )
         else:
             equil = mhd_class(**params['mhd_equilibrium'][mhd_type])
 
@@ -176,7 +177,8 @@ def setup_domain_and_equil(params: dict, units: dict = None):
 
             if dom_type == 'Tokamak':
                 domain = dom_class(
-                    **params['geometry'][dom_type], equilibrium=equil)
+                    **params['geometry'][dom_type], equilibrium=equil,
+                )
             else:
                 domain = dom_class(**params["geometry"][dom_type])
 
@@ -193,7 +195,8 @@ def setup_domain_and_equil(params: dict, units: dict = None):
         br_eq_class = getattr(braginskii_equils, br_eq_type)
 
         equil = br_eq_class(
-            **params['braginskii_equilibrium'][br_eq_type])
+            **params['braginskii_equilibrium'][br_eq_type],
+        )
         equil.domain = domain
 
     # no equilibrium (just load domain)
@@ -255,18 +258,20 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     else:
         comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
 
-    derham = Derham(Nel,
-                    p,
-                    spl_kind,
-                    dirichlet_bc=dirichlet_bc,
-                    nquads=nq_el,
-                    nq_pr=nq_pr,
-                    comm=comm,
-                    inter_comm=inter_comm,
-                    mpi_dims_mask=mpi_dims_mask,
-                    with_projectors=True,
-                    polar_ck=polar_ck,
-                    domain=domain)
+    derham = Derham(
+        Nel,
+        p,
+        spl_kind,
+        dirichlet_bc=dirichlet_bc,
+        nquads=nq_el,
+        nq_pr=nq_pr,
+        comm=comm,
+        inter_comm=inter_comm,
+        mpi_dims_mask=mpi_dims_mask,
+        with_projectors=True,
+        polar_ck=polar_ck,
+        domain=domain,
+    )
 
     if comm_world_rank == 0:
         print("\nDERHAM:")
@@ -276,8 +281,10 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
         print(f"hom. Dirichlet bc:".ljust(25), dirichlet_bc)
         print(f"GL quad pts (L2):".ljust(25), nq_el)
         print(f"GL quad pts (hist):".ljust(25), nq_pr)
-        print("MPI proc. per dir.:".ljust(25),
-              derham.domain_decomposition.nprocs)
+        print(
+            "MPI proc. per dir.:".ljust(25),
+            derham.domain_decomposition.nprocs,
+        )
         print("use polar splines:".ljust(25), derham.polar_ck == 1)
         print("domain on process 0:".ljust(25), derham.domain_array[0])
 
@@ -319,7 +326,7 @@ def setup_domain_cloning(comm, params, Nclones):
     if size % Nclones != 0:
         if rank == 0:
             print(
-                f"Total number of ranks ({size}) is not divisible by the number of clones ({Nclones})."
+                f"Total number of ranks ({size}) is not divisible by the number of clones ({Nclones}).",
             )
         MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
 
@@ -336,7 +343,7 @@ def setup_domain_cloning(comm, params, Nclones):
 
     # Gather information from all ranks to the rank 0 process
     clone_info = comm.gather(
-        (rank, clone_color, local_rank, inter_comm.Get_rank()), root=0
+        (rank, clone_color, local_rank, inter_comm.Get_rank()), root=0,
     )
 
     if rank == 0 and Nclones > 1:
@@ -357,61 +364,60 @@ def setup_domain_cloning(comm, params, Nclones):
     if 'Nclones' not in params['grid']:
         params['grid']['Nclones'] = 1
 
-    marker_keys = ['ppc', 'Np']
     current_rank = inter_comm.Get_rank()
     clone_particle_info = {'clone': current_rank, current_rank: {}}
     # Process kinetic parameters if present
-    if 'kinetic' in params:
+    if 'kinetic' in params and 'grid' in params:
         for species_name, species_data in params['kinetic'].items():
+
+            markers = species_data.get('markers')
+            Np = markers.get('Np')
+            ppc = markers.get('ppc')
+
             clone_particle_info[current_rank][species_name] = {
                 'ppc': None,
                 'Np': None,
+                'Np_original': Np,
+                'ppc_original': ppc,
             }
-            markers = species_data.get('markers', {})
-            for marker_key in marker_keys:
-                marker_value = markers.get(marker_key)
-                clone_particle_info[current_rank][species_name][
-                    marker_key + '_original'
-                ] = marker_value
-                if (
-                    marker_value is not None
-                    and 'grid' in params
-                    and params['grid'].get('Nclones')
-                ):
-                    n_clones = params['grid']['Nclones']
-                    # Calculate the base value and remainder
-                    base_value = marker_value // n_clones
-                    remainder = marker_value % n_clones
 
-                    # Distribute the values
-                    new_marker_values = [base_value] * Nclones
-                    for i in range(remainder):
-                        new_marker_values[i] += 1
+            n_clones = params['grid']['Nclones']
+            # Calculate the base value and remainder
+            base_value = Np // n_clones
+            remainder = Np % n_clones
 
-                    # Assign the corresponding value to the current task
-                    task_marker_value = new_marker_values[inter_comm.Get_rank(
-                    )]
+            # Distribute the values
+            new_Np = [base_value] * Nclones
+            for i in range(remainder):
+                new_Np[i] += 1
 
-                    # Update the params for the current task
-                    clone_particle_info[current_rank][species_name][
-                        marker_key
-                    ] = task_marker_value
-                    params['kinetic'][species_name]['markers'][
-                        marker_key
-                    ] = task_marker_value
+            # Assign the corresponding value to the current task
+            task_Np = new_Np[inter_comm.Get_rank()]
+
+            # Update the params for the current task
+            clone_particle_info[current_rank][species_name]['Np'] = task_Np
+            params['kinetic'][species_name]['markers']['Np'] = task_Np
+
+            # Update ppc
+            task_ppc = task_Np / np.prod(params['grid']['Nel'])
+            clone_particle_info[current_rank][species_name]['ppc'] = task_ppc
+            params['kinetic'][species_name]['markers']['ppc'] = task_ppc
 
     # Gather the data from all processes
     all_clone_particle_info = comm.gather(clone_particle_info, root=0)
 
     # If the current process is the root, compile and print the message
     if rank == 0 and Nclones > 1:
+        marker_keys = ['Np', 'ppc']
         data = {ci['clone']: ci[ci['clone']] for ci in all_clone_particle_info}
         clone_ids = set([ci['clone'] for ci in all_clone_particle_info])
         species_list = list(data[0].keys())
 
         # Prepare breakline
-        breakline = "-" * (6 + 30 * len(species_list)
-                           * len(marker_keys)) + '\n'
+        breakline = "-" * (
+            6 + 30 * len(species_list)
+            * len(marker_keys)
+        ) + '\n'
 
         # Prepare the header
         header = "Particle counting:\nClone  "
@@ -444,16 +450,8 @@ def setup_domain_cloning(comm, params, Nclones):
         for species_name in species_list:
             for marker_key in marker_keys:
                 sum_value = column_sums[species_name][marker_key]
-                old_value = clone_particle_info[current_rank][species_name][
-                    marker_key + '_original'
-                ]
-                if not sum_value == old_value:
-                    print(
-                        f"{current_rank = }",
-                        params['kinetic']['energetic_ions']['markers']['Np'],
-                    )
-                    print(column_sums[species_name])
-                assert sum_value == old_value
+                old_value = clone_particle_info[current_rank][species_name][marker_key + '_original']
+                assert sum_value == old_value, f"{sum_value = } and {old_value = }"
                 sum_row += f"| {str(sum_value):30} "
 
         # Print the final message
@@ -507,13 +505,15 @@ def pre_processing(
         The simulation parameters.
     """
 
+    import datetime
+    import glob
     import os
     import shutil
-    import datetime
     import sysconfig
-    import glob
+
     import yaml
-    from struphy.models import fluid, kinetic, hybrid, toy
+
+    from struphy.models import fluid, hybrid, kinetic, toy
 
     # prepare output folder
     if mpi_rank == 0:
@@ -585,12 +585,39 @@ def pre_processing(
 
     if not "Nclones" in params["grid"].keys():
         params["grid"]["Nclones"] = 1
-    if mpi_rank == 0:
 
+    # Ensure that both ppc Np
+    if 'kinetic' in params:
+        total_cells = np.prod(params['grid']['Nel'])
+        for species_name, species_data in params['kinetic'].items():
+            markers = species_data.get('markers')
+            ppc = markers.get('ppc')
+            Np = markers.get('Np')
+
+            assert ppc is not None or Np is not None, f"Either 'ppc' or 'Np' must be set for species '{species_name}'"
+
+            if ppc is None:
+                ppc = float(Np / total_cells)
+                markers['ppc'] = ppc
+            elif Np is None:
+                assert isinstance(ppc, int), "ppc must be an integer"
+                Np = int(ppc * total_cells)
+                markers['Np'] = Np
+            else:
+                # Both ppc and Np are provided; check for consistency
+                expected_Np = ppc * total_cells
+                assert np.isclose(
+                    Np, expected_Np,
+                ), "Inconsistent 'ppc' and 'Np' for species '{species_name}, 'Np' should be {expected_Np}, but is {Np}"
+
+    if mpi_rank == 0:
         # copy parameter file to output folder
         if parameters_path != os.path.join(path_out, "parameters.yml"):
-            shutil.copy2(parameters_path, os.path.join(
-                path_out, "parameters.yml"))
+            shutil.copy2(
+                parameters_path, os.path.join(
+                    path_out, "parameters.yml",
+                ),
+            )
 
         # print simulation info
         print("\nMETADATA:")
@@ -609,19 +636,22 @@ def pre_processing(
         with open(path_out + "/meta.txt", "w") as f:
             f.write(
                 "date of simulation: ".ljust(
-                    30) + str(datetime.datetime.now()) + "\n"
+                    30,
+                ) + str(datetime.datetime.now()) + "\n",
             )
             f.write("platform: ".ljust(30) + sysconfig.get_platform() + "\n")
             f.write(
                 "python version: ".ljust(
-                    30) + sysconfig.get_python_version() + "\n"
+                    30,
+                ) + sysconfig.get_python_version() + "\n",
             )
             f.write("model_name: ".ljust(30) + model_name + "\n")
             f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
             f.write("output folder:".ljust(30) + path_out + "\n")
             f.write("restart:".ljust(30) + str(restart) + "\n")
             f.write(
-                "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n")
+                "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n",
+            )
             f.write("save interval (steps):".ljust(30) + str(save_step) + "\n")
 
     return params
@@ -703,7 +733,7 @@ def descend_options_dict(
                     out[keys[0]][keys[1]][key] = val[0]
                 else:
                     raise ValueError(
-                        f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}."
+                        f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}.",
                     )
 
             # add one parameter dict for each option in the list
@@ -725,7 +755,7 @@ def descend_options_dict(
                         d_copy[keys[0]][keys[1]][key] = param
                     else:
                         raise ValueError(
-                            f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}."
+                            f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}.",
                         )
                     out_sublist += [d_copy]
                 out += [out_sublist]
