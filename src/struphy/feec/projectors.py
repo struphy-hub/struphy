@@ -1,22 +1,34 @@
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector, BlockLinearOperator
-from psydac.linalg.kron import KroneckerStencilMatrix
-from psydac.linalg.basic import Vector, IdentityOperator
-from psydac.linalg.solvers import inverse
-from psydac.fem.tensor import TensorFemSpace
-from psydac.feec.global_projectors import GlobalProjector
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-
-from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.feec import preconditioner
-from struphy.feec.preconditioner import ProjectorPreconditioner
-from struphy.feec import mass_kernels
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.feec.basis_projection_kernels import get_dofs_local_1_form_e1_component, get_dofs_local_1_form_e2_component, get_dofs_local_1_form_e3_component, solve_local_0_form, solve_local_1_form, get_dofs_local_2_form_e1_component, get_dofs_local_2_form_e2_component, get_dofs_local_2_form_e3_component, solve_local_2_form, solve_local_3_form, solve_local_0V_form, get_dofs_local_3_form
-from struphy.polar.basic import PolarVector
+import time
 
 import numpy as np
-import time
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.feec.global_projectors import GlobalProjector
+from psydac.fem.tensor import TensorFemSpace
+from psydac.linalg.basic import IdentityOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
+from psydac.linalg.kron import KroneckerStencilMatrix
+from psydac.linalg.solvers import inverse
+from psydac.linalg.stencil import StencilVector
+
+from struphy.feec import mass_kernels, preconditioner
+from struphy.feec.basis_projection_kernels import (
+    get_dofs_local_1_form_e1_component,
+    get_dofs_local_1_form_e2_component,
+    get_dofs_local_1_form_e3_component,
+    get_dofs_local_2_form_e1_component,
+    get_dofs_local_2_form_e2_component,
+    get_dofs_local_2_form_e3_component,
+    get_dofs_local_3_form,
+    solve_local_0_form,
+    solve_local_0V_form,
+    solve_local_1_form,
+    solve_local_2_form,
+    solve_local_3_form,
+)
+from struphy.feec.preconditioner import ProjectorPreconditioner
+from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.polar.basic import PolarVector
+from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class CommutingProjector:
@@ -66,13 +78,15 @@ class CommutingProjector:
             self._dofs_extraction_op = dofs_extraction_op
         else:
             self._dofs_extraction_op = IdentityOperator(
-                self.space.vector_space)
+                self.space.vector_space,
+            )
 
         if base_extraction_op is not None:
             self._base_extraction_op = base_extraction_op
         else:
             self._base_extraction_op = IdentityOperator(
-                self.space.vector_space)
+                self.space.vector_space,
+            )
 
         if boundary_op is not None:
             self._boundary_op = boundary_op
@@ -87,7 +101,8 @@ class CommutingProjector:
             if isinstance(projector_tensor.imat_kronecker, KroneckerStencilMatrix):
                 self._imat = projector_tensor.imat_kronecker.tostencil()
                 self._imat.set_backend(
-                    PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                    PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+                )
             else:
 
                 b11 = projector_tensor.imat_kronecker.blocks[0][0].tostencil()
@@ -97,12 +112,15 @@ class CommutingProjector:
                 b33 = projector_tensor.imat_kronecker.blocks[2][2].tostencil()
                 b33.set_backend(PSYDAC_BACKEND_GPYCCEL, precompiled=True)
 
-                blocks = [[b11, None, None],
-                          [None, b22, None],
-                          [None, None, b33]]
+                blocks = [
+                    [b11, None, None],
+                    [None, b22, None],
+                    [None, None, b33],
+                ]
 
                 self._imat = BlockLinearOperator(
-                    self.space.vector_space, self.space.vector_space, blocks)
+                    self.space.vector_space, self.space.vector_space, blocks,
+                )
 
         else:
 
@@ -129,26 +147,34 @@ class CommutingProjector:
 
         # preconditioner ID * P * I^(-1) * E^T * ID^T and B * P * I^(-1) * E^T * B^T for iterative polar projections
         self._pc = ProjectorPreconditioner(
-            self, transposed=False, apply_bc=False)
+            self, transposed=False, apply_bc=False,
+        )
         self._pc0 = ProjectorPreconditioner(
-            self, transposed=False, apply_bc=True)
+            self, transposed=False, apply_bc=True,
+        )
 
         # transposed
         self._pcT = ProjectorPreconditioner(
-            self, transposed=True, apply_bc=False)
+            self, transposed=True, apply_bc=False,
+        )
         self._pc0T = ProjectorPreconditioner(
-            self, transposed=True, apply_bc=True)
+            self, transposed=True, apply_bc=True,
+        )
 
         # linear solver used for polar projections
         if self._is_polar:
             self._polar_solver = inverse(
-                self._I, 'pbicgstab', pc=self._pc, tol=1e-14, maxiter=1000, verbose=False)
+                self._I, 'pbicgstab', pc=self._pc, tol=1e-14, maxiter=1000, verbose=False,
+            )
             self._polar_solver0 = inverse(
-                self._I0, 'pbicgstab', pc=self._pc0, tol=1e-14, maxiter=1000, verbose=False)
+                self._I0, 'pbicgstab', pc=self._pc0, tol=1e-14, maxiter=1000, verbose=False,
+            )
             self._polar_solverT = inverse(
-                self._IT, 'pbicgstab', pc=self._pcT, tol=1e-14, maxiter=1000, verbose=False)
+                self._IT, 'pbicgstab', pc=self._pcT, tol=1e-14, maxiter=1000, verbose=False,
+            )
             self._polar_solver0T = inverse(
-                self._I0T, 'pbicgstab', pc=self._pc0T, tol=1e-14, maxiter=1000, verbose=False)
+                self._I0T, 'pbicgstab', pc=self._pc0T, tol=1e-14, maxiter=1000, verbose=False,
+            )
         else:
             self._polar_solver = None
 
@@ -238,7 +264,7 @@ class CommutingProjector:
         """
         return self._pc0T
 
-    def solve(self, rhs, transposed=False, apply_bc=False, out=None):
+    def solve(self, rhs, transposed=False, apply_bc=False, out=None, x0=None):
         """
         Solves the linear system I * x = rhs, resp. I^T * x = rhs for x, where I is the composite inter-/histopolation matrix.
 
@@ -269,11 +295,15 @@ class CommutingProjector:
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
+                    self._polar_solver0T.set_options(x0=x0)
                     x = self._polar_solver0T.solve(
-                        self._boundary_op.T.dot(rhs), out=out)
+                        self._boundary_op.T.dot(rhs), out=out,
+                    )
                 else:
+                    self._polar_solverT.set_options(x0=x0)
                     x = self._polar_solverT.solve(
-                        self._boundary_op.T.dot(rhs), out=out)
+                        self._boundary_op.T.dot(rhs), out=out,
+                    )
             # standard (tensor product) case (Kronecker solver)
             else:
                 if apply_bc:
@@ -284,11 +314,15 @@ class CommutingProjector:
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
+                    self._polar_solver0.set_options(x0=x0)
                     x = self._polar_solver0.solve(
-                        self._boundary_op.T.dot(rhs), out=out)
+                        self._boundary_op.T.dot(rhs), out=out,
+                    )
                 else:
+                    self._polar_solver.set_options(x0=x0)
                     x = self._polar_solver.solve(
-                        self._boundary_op.T.dot(rhs), out=out)
+                        self._boundary_op.T.dot(rhs), out=out,
+                    )
             # standard (tensor product) case (Kronecker solver)
             else:
                 if apply_bc:
@@ -321,10 +355,12 @@ class CommutingProjector:
         # get dofs on tensor-product grid + apply polar DOF extraction operator
         if dofs is None:
             dofs = self.dofs_extraction_op.dot(
-                self.projector_tensor(fun, dofs_only=True))
+                self.projector_tensor(fun, dofs_only=True),
+            )
         else:
             self.dofs_extraction_op.dot(
-                self.projector_tensor(fun, dofs_only=True), out=dofs)
+                self.projector_tensor(fun, dofs_only=True), out=dofs,
+            )
 
         # apply boundary operator
         if apply_bc:
@@ -355,8 +391,10 @@ class CommutingProjector:
         coeffs : psydac.linalg.basic.vector
             The FEM spline coefficients after projection.
         """
-        return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), transposed=False,
-                          apply_bc=apply_bc, out=out)
+        return self.solve(
+            self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), transposed=False,
+            apply_bc=apply_bc, out=out,
+        )
 
 
 class CommutingProjectorLocal:
@@ -565,11 +603,14 @@ class CommutingProjectorLocal:
 
             BoS = "S"
             IoH = ["I", "I", "I"]
-            split_points(BoS, IoH, 0, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                         self._periodic, [], self._localpts, self._original_pts_size, self._index_translation)
+            split_points(
+                BoS, IoH, 0, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                self._periodic, [], self._localpts, self._original_pts_size, self._index_translation,
+            )
 
             self._meshgrid = np.meshgrid(
-                *[pt for pt in self._localpts], indexing='ij')
+                *[pt for pt in self._localpts], indexing='ij',
+            )
 
         elif space_id == 'H1vec':
             for n, space in enumerate(fem_space.spaces):
@@ -600,35 +641,44 @@ class CommutingProjectorLocal:
                     self._index_translationx = []
                     self._original_pts_sizex = np.zeros((3), dtype=int)
 
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
-                    ], self._localptsx, self._original_pts_sizex, self._index_translationx)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
+                        ], self._localptsx, self._original_pts_sizex, self._index_translationx,
+                    )
                     # meshgrid for x component
                     self._meshgridx = np.meshgrid(
-                        *[pt for pt in self._localptsx], indexing='ij')
+                        *[pt for pt in self._localptsx], indexing='ij',
+                    )
 
                 elif (h == 1):
                     self._localptsy = []
                     self._index_translationy = []
                     self._original_pts_sizey = np.zeros((3), dtype=int)
 
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
-                    ], self._localptsy, self._original_pts_sizey, self._index_translationy)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
+                        ], self._localptsy, self._original_pts_sizey, self._index_translationy,
+                    )
 
                     # meshgrid for y component
                     self._meshgridy = np.meshgrid(
-                        *[pt for pt in self._localptsy], indexing='ij')
+                        *[pt for pt in self._localptsy], indexing='ij',
+                    )
 
                 elif (h == 2):
                     self._localptsz = []
                     self._index_translationz = []
                     self._original_pts_sizez = np.zeros((3), dtype=int)
 
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
-                    ], self._localptsz, self._original_pts_sizez, self._index_translationz)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split, self._periodic, [
+                        ], self._localptsz, self._original_pts_sizez, self._index_translationz,
+                    )
 
                     # meshgrid for z component
                     self._meshgridz = np.meshgrid(
-                        *[pt for pt in self._localptsz], indexing='ij')
+                        *[pt for pt in self._localptsz], indexing='ij',
+                    )
 
         elif space_id == 'Hcurl':
             for n, space in enumerate(fem_space.spaces):
@@ -663,12 +713,15 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["H", "I", "I"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                        self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx,
+                    )
 
                     # meshgrid for x component
                     self._meshgridx = np.meshgrid(
-                        *[pt for pt in self._localptsx], indexing='ij')
+                        *[pt for pt in self._localptsx], indexing='ij',
+                    )
 
                 elif (h == 1):
                     self._localptsy = []
@@ -693,12 +746,15 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["I", "H", "I"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                        self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy,
+                    )
 
                     # meshgrid for y component
                     self._meshgridy = np.meshgrid(
-                        *[pt for pt in self._localptsy], indexing='ij')
+                        *[pt for pt in self._localptsy], indexing='ij',
+                    )
 
                 elif (h == 2):
                     self._localptsz = []
@@ -723,12 +779,15 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["I", "I", "H"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                        self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz,
+                    )
 
                     # meshgrid for z component
                     self._meshgridz = np.meshgrid(
-                        *[pt for pt in self._localptsz], indexing='ij')
+                        *[pt for pt in self._localptsz], indexing='ij',
+                    )
 
         elif space_id == 'Hdiv':
             for n, space in enumerate(fem_space.spaces):
@@ -768,12 +827,15 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["I", "H", "H"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                        self._periodic, self._whij, self._localptsx, self._original_pts_sizex, self._index_translationx,
+                    )
 
                     # meshgrid for x component
                     self._meshgridx = np.meshgrid(
-                        *[pt for pt in self._localptsx], indexing='ij')
+                        *[pt for pt in self._localptsx], indexing='ij',
+                    )
 
                 elif (h == 1):
                     self._localptsy = []
@@ -803,12 +865,15 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["H", "I", "H"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                        self._periodic, self._whij, self._localptsy, self._original_pts_sizey, self._index_translationy,
+                    )
 
                     # meshgrid for y component
                     self._meshgridy = np.meshgrid(
-                        *[pt for pt in self._localptsy], indexing='ij')
+                        *[pt for pt in self._localptsy], indexing='ij',
+                    )
 
                 elif (h == 2):
                     self._localptsz = []
@@ -837,12 +902,15 @@ class CommutingProjectorLocal:
                     shift = [shift1, shift2, shift3]
 
                     IoH = ["H", "H", "I"]
-                    split_points(BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                                 self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz)
+                    split_points(
+                        BoS, IoH, h, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                        self._periodic, self._whij, self._localptsz, self._original_pts_sizez, self._index_translationz,
+                    )
 
                     # meshgrid for z component
                     self._meshgridz = np.meshgrid(
-                        *[pt for pt in self._localptsz], indexing='ij')
+                        *[pt for pt in self._localptsz], indexing='ij',
+                    )
 
             # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the x component of the vector function
             self._GLweightsx = np.tensordot(wts[0][1][0], wts[0][2][0], axes=0)
@@ -901,15 +969,21 @@ class CommutingProjectorLocal:
 
             npts_split = [self._npts[0]+1, self._npts[1]+1, self._npts[2]+1]
 
-            split_points(BoS, IoH, 0, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
-                         self._periodic, self._whij, self._localpts, self._original_pts_size, self._index_translation)
+            split_points(
+                BoS, IoH, 0, lenj, shift, self._pts, self._starts, self._ends, self._p, npts_split,
+                self._periodic, self._whij, self._localpts, self._original_pts_size, self._index_translation,
+            )
 
             self._meshgrid = np.meshgrid(
-                *[pt for pt in self._localpts], indexing='ij')
+                *[pt for pt in self._localpts], indexing='ij',
+            )
 
             # Tensor product matrix of the Gauss-Legendre quadrature weigths to evaluate the function
-            self._GLweights = np.tensordot(np.tensordot(
-                wts[0][0], wts[1][0], axes=0), wts[2][0], axes=0)
+            self._GLweights = np.tensordot(
+                np.tensordot(
+                    wts[0][0], wts[1][0], axes=0,
+                ), wts[2][0], axes=0,
+            )
 
     @property
     def space_id(self):
@@ -973,16 +1047,22 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, StencilVector)
 
-            solve_local_0_form(self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
-                               self._periodic, p1, p2, p3, self._wij[0], self._wij[1], self._wij[2], rhs, out._data)
+            solve_local_0_form(
+                self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[
+                    0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
+                self._periodic, p1, p2, p3, self._wij[0], self._wij[1], self._wij[2], rhs, out._data,
+            )
         elif (self._space_key == "1"):
             if out is None:
                 out = self._domain.zeros()
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_1_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
-                               self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
+            solve_local_1_form(
+                self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[
+                    1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
+                self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data,
+            )
 
         elif (self._space_key == "2"):
             if out is None:
@@ -990,8 +1070,11 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_2_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
-                               self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
+            solve_local_2_form(
+                self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[
+                    1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3, self._wij[0],
+                self._wij[1], self._wij[2], self._whij[0], self._whij[1], self._whij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data,
+            )
 
         elif (self._space_key == "3"):
             if out is None:
@@ -999,8 +1082,11 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, StencilVector)
 
-            solve_local_3_form(self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
-                               self._periodic, p1, p2, p3, self._whij[0], self._whij[1], self._whij[2], rhs, out._data)
+            solve_local_3_form(
+                self._original_pts_size[0], self._original_pts_size[1], self._original_pts_size[2], self._index_translation[
+                    0], self._index_translation[1], self._index_translation[2], self._starts, self._ends, self._pds, self._npts,
+                self._periodic, p1, p2, p3, self._whij[0], self._whij[1], self._whij[2], rhs, out._data,
+            )
 
         elif (self._space_key == "v"):
 
@@ -1009,12 +1095,16 @@ class CommutingProjectorLocal:
             else:
                 assert isinstance(out, BlockVector)
 
-            solve_local_0V_form(self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3,
-                                self._wij[0], self._wij[1], self._wij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data)
+            solve_local_0V_form(
+                self._original_pts_sizex, self._original_pts_sizey, self._original_pts_sizez, self._index_translationx[0], self._index_translationx[1], self._index_translationx[2], self._index_translationy[0], self._index_translationy[
+                    1], self._index_translationy[2], self._index_translationz[0], self._index_translationz[1], self._index_translationz[2], self._nsp, self._starts, self._ends, self._pds, self._npts, self._periodic, p1, p2, p3,
+                self._wij[0], self._wij[1], self._wij[2], rhs[0], rhs[1], rhs[2], out[0]._data, out[1]._data, out[2]._data,
+            )
 
         else:
             raise Exception(
-                "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.")
+                "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.",
+            )
 
         # Finally we update the ghost regions
         if isinstance(out, StencilVector):
@@ -1044,11 +1134,15 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the x component
                 f0, f1, f2 = fun(*self._meshgridx)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
-                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsx[0])[0], np.shape(
+                        self._localptsx[1],
+                    )[0], np.shape(self._localptsx[2])[0],
+                ))
 
                 get_dofs_local_1_form_e1_component(
-                    f0, self._p[0], self._wts[0][0][0], f_eval_aux)
+                    f0, self._p[0], self._wts[0][0][0], f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1059,11 +1153,15 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f0, f1, f2 = fun(*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
-                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsy[0])[0], np.shape(
+                        self._localptsy[1],
+                    )[0], np.shape(self._localptsy[2])[0],
+                ))
 
                 get_dofs_local_1_form_e2_component(
-                    f1, self._p[1], self._wts[1][1][0], f_eval_aux)
+                    f1, self._p[1], self._wts[1][1][0], f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1074,16 +1172,21 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the z component
                 f0, f1, f2 = fun(*self._meshgridz)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
-                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsz[0])[0], np.shape(
+                        self._localptsz[1],
+                    )[0], np.shape(self._localptsz[2])[0],
+                ))
 
                 get_dofs_local_1_form_e3_component(
-                    f2, self._p[2], self._wts[2][2][0], f_eval_aux)
+                    f2, self._p[2], self._wts[2][2][0], f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
             else:
                 assert len(
-                    fun) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
+                    fun,
+                ) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
 
                 f_eval = []
                 ############################
@@ -1093,11 +1196,15 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the x component
                 f0 = fun[0](*self._meshgridx)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
-                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsx[0])[0], np.shape(
+                        self._localptsx[1],
+                    )[0], np.shape(self._localptsx[2])[0],
+                ))
 
                 get_dofs_local_1_form_e1_component(
-                    f0, self._p[0], self._wts[0][0][0], f_eval_aux)
+                    f0, self._p[0], self._wts[0][0][0], f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1108,11 +1215,15 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f1 = fun[1](*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
-                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsy[0])[0], np.shape(
+                        self._localptsy[1],
+                    )[0], np.shape(self._localptsy[2])[0],
+                ))
 
                 get_dofs_local_1_form_e2_component(
-                    f1, self._p[1], self._wts[1][1][0], f_eval_aux)
+                    f1, self._p[1], self._wts[1][1][0], f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1122,11 +1233,15 @@ class CommutingProjectorLocal:
 
                 # Evaluation of the function to compute the z component
                 f2 = fun[2](*self._meshgridz)
-                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
-                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsz[0])[0], np.shape(
+                        self._localptsz[1],
+                    )[0], np.shape(self._localptsz[2])[0],
+                ))
 
                 get_dofs_local_1_form_e3_component(
-                    f2, self._p[2], self._wts[2][2][0], f_eval_aux)
+                    f2, self._p[2], self._wts[2][2][0], f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1141,11 +1256,15 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the x component
                 f0, f1, f2 = fun(*self._meshgridx)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
-                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsx[0])[0], np.shape(
+                        self._localptsx[1],
+                    )[0], np.shape(self._localptsx[2])[0],
+                ))
 
                 get_dofs_local_2_form_e1_component(
-                    f0, self._p[1], self._p[2], self._GLweightsx, f_eval_aux)
+                    f0, self._p[1], self._p[2], self._GLweightsx, f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1155,11 +1274,15 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f0, f1, f2 = fun(*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
-                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsy[0])[0], np.shape(
+                        self._localptsy[1],
+                    )[0], np.shape(self._localptsy[2])[0],
+                ))
 
                 get_dofs_local_2_form_e2_component(
-                    f1, self._p[0], self._p[2], self._GLweightsy, f_eval_aux)
+                    f1, self._p[0], self._p[2], self._GLweightsy, f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1169,16 +1292,21 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the z component
                 f0, f1, f2 = fun(*self._meshgridz)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
-                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsz[0])[0], np.shape(
+                        self._localptsz[1],
+                    )[0], np.shape(self._localptsz[2])[0],
+                ))
 
                 get_dofs_local_2_form_e3_component(
-                    f2, self._p[0], self._p[1], self._GLweightsz, f_eval_aux)
+                    f2, self._p[0], self._p[1], self._GLweightsz, f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
             else:
                 assert len(
-                    fun) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
+                    fun,
+                ) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
 
                 f_eval = []
                 ############################
@@ -1187,11 +1315,15 @@ class CommutingProjectorLocal:
 
                 # Evaluation of the function to compute the x component
                 f0 = fun[0](*self._meshgridx)
-                f_eval_aux = np.zeros((np.shape(self._localptsx[0])[0], np.shape(
-                    self._localptsx[1])[0], np.shape(self._localptsx[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsx[0])[0], np.shape(
+                        self._localptsx[1],
+                    )[0], np.shape(self._localptsx[2])[0],
+                ))
 
                 get_dofs_local_2_form_e1_component(
-                    f0, self._p[1], self._p[2], self._GLweightsx, f_eval_aux)
+                    f0, self._p[1], self._p[2], self._GLweightsx, f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1201,11 +1333,15 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the y component
                 f1 = fun[1](*self._meshgridy)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsy[0])[0], np.shape(
-                    self._localptsy[1])[0], np.shape(self._localptsy[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsy[0])[0], np.shape(
+                        self._localptsy[1],
+                    )[0], np.shape(self._localptsy[2])[0],
+                ))
 
                 get_dofs_local_2_form_e2_component(
-                    f1, self._p[0], self._p[2], self._GLweightsy, f_eval_aux)
+                    f1, self._p[0], self._p[2], self._GLweightsy, f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
@@ -1215,23 +1351,31 @@ class CommutingProjectorLocal:
                 # Evaluation of the function to compute the z component
                 f2 = fun[2](*self._meshgridz)
 
-                f_eval_aux = np.zeros((np.shape(self._localptsz[0])[0], np.shape(
-                    self._localptsz[1])[0], np.shape(self._localptsz[2])[0]))
+                f_eval_aux = np.zeros((
+                    np.shape(self._localptsz[0])[0], np.shape(
+                        self._localptsz[1],
+                    )[0], np.shape(self._localptsz[2])[0],
+                ))
 
                 get_dofs_local_2_form_e3_component(
-                    f2, self._p[0], self._p[1], self._GLweightsz, f_eval_aux)
+                    f2, self._p[0], self._p[1], self._GLweightsz, f_eval_aux,
+                )
 
                 f_eval.append(f_eval_aux)
 
         # Erase. I have verified by hand the correct functioning of get_dofs for "3"
         elif (self._space_key == "3"):
-            f_eval = np.zeros((np.shape(self._localpts[0])[0], np.shape(
-                self._localpts[1])[0], np.shape(self._localpts[2])[0]))
+            f_eval = np.zeros((
+                np.shape(self._localpts[0])[0], np.shape(
+                    self._localpts[1],
+                )[0], np.shape(self._localpts[2])[0],
+            ))
             # Evaluation of the function at all Gauss-Legendre quadrature points
             faux = fun(*self._meshgrid)
 
             get_dofs_local_3_form(
-                faux, self._p[0], self._p[1], self._p[2], self._GLweights, f_eval)
+                faux, self._p[0], self._p[1], self._p[2], self._GLweights, f_eval,
+            )
 
         elif (self._space_key == "v"):
             if callable(fun):
@@ -1244,7 +1388,8 @@ class CommutingProjectorLocal:
                 f_eval.append(f2)
             else:
                 assert len(
-                    fun) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
+                    fun,
+                ) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
 
                 f_eval = []
                 f_eval.append(fun[0](*self._meshgridx))
@@ -1253,7 +1398,8 @@ class CommutingProjectorLocal:
 
         else:
             raise Exception(
-                "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.")
+                "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.",
+            )
 
         return f_eval
 
@@ -1309,11 +1455,12 @@ class L2Projector:
 
         assert space_id in ('H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec')
 
-        params_default = {'type': ('pcg', 'MassMatrixPreconditioner'),
-                          'tol': 1.e-14,
-                          'maxiter': 500,
-                          'info': False,
-                          'verbose': False, }
+        params_default = {
+            'type': ('pcg', 'MassMatrixPreconditioner'),
+            'tol': 1.e-14,
+            'maxiter': 500,
+            'info': False,
+            'verbose': False, }
 
         set_defaults(params, params_default)
 
@@ -1331,14 +1478,21 @@ class L2Projector:
 
         if space_id in ('H1', 'L2'):
             self._quad_grid_mesh = np.meshgrid(
-                *[pt.flatten() for pt in self.quad_grid_pts], indexing='ij')
+                *[pt.flatten() for pt in self.quad_grid_pts], indexing='ij',
+            )
             self._geom_weights = self.Mmat.weights[0][0](*self.quad_grid_mesh)
         else:
             self._quad_grid_mesh = []
             self._tmp = []  # tmp for matrix-vector product of geom_weights with fun
             for pts in self.quad_grid_pts:
-                self._quad_grid_mesh += [np.meshgrid(*[pt.flatten()
-                                                     for pt in pts], indexing='ij')]
+                self._quad_grid_mesh += [
+                    np.meshgrid(
+                        *[
+                            pt.flatten()
+                            for pt in pts
+                        ], indexing='ij',
+                    ),
+                ]
                 self._tmp += [np.zeros_like(self.quad_grid_mesh[-1][0])]
             # geometric weights evaluated at quadrature grid
             self._geom_weights = []
@@ -1357,9 +1511,11 @@ class L2Projector:
             self._tensor_fem_spaces = [self.space]
             self._wts_l = [self.mass_ops.derham.quad_grid_wts[self.space_key]]
             self._spans_l = [
-                self.mass_ops.derham.quad_grid_spans[self.space_key]]
+                self.mass_ops.derham.quad_grid_spans[self.space_key],
+            ]
             self._bases_l = [
-                self.mass_ops.derham.quad_grid_bases[self.space_key]]
+                self.mass_ops.derham.quad_grid_bases[self.space_key],
+            ]
         else:
             self._tensor_fem_spaces = self.space.spaces
             self._wts_l = self.mass_ops.derham.quad_grid_wts[self.space_key]
@@ -1374,12 +1530,14 @@ class L2Projector:
             pc = pc_class(self.Mmat)
 
         # solver
-        self._solver = inverse(self.Mmat,
-                               self.params['type'][0],
-                               pc=pc,
-                               tol=self.params['tol'],
-                               maxiter=self.params['maxiter'],
-                               verbose=self.params['verbose'])
+        self._solver = inverse(
+            self.Mmat,
+            self.params['type'][0],
+            pc=pc,
+            tol=self.params['tol'],
+            maxiter=self.params['maxiter'],
+            verbose=self.params['verbose'],
+        )
 
     @property
     def mass_ops(self):
@@ -1489,11 +1647,13 @@ class L2Projector:
             fun_weights = fun(*self._quad_grid_mesh)
         elif isinstance(fun, np.ndarray):
             assert fun.shape == self._quad_grid_mesh[
-                0].shape, f'Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape = } instead.'
+                0
+            ].shape, f'Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape = } instead.'
             fun_weights = fun
         else:
             assert len(
-                fun) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
+                fun,
+            ) == 3, f'List input only for vector-valued spaces of size 3, but {len(fun) = }.'
             fun_weights = []
             # loop over rows (different meshes)
             for mesh in self._quad_grid_mesh:
@@ -1504,11 +1664,13 @@ class L2Projector:
                         fun_weights[-1] += [f(*mesh)]
                     elif isinstance(f, np.ndarray):
                         assert f.shape == mesh[
-                            0].shape, f'Expected shape {mesh[0].shape}, got {f.shape = } instead.'
+                            0
+                        ].shape, f'Expected shape {mesh[0].shape}, got {f.shape = } instead.'
                         fun_weights[-1] += [f]
                     else:
                         raise ValueError(
-                            f'Expected callable or numpy array, got {type(f) = } instead.')
+                            f'Expected callable or numpy array, got {type(f) = } instead.',
+                        )
 
         # check output vector
         if dofs is None:
@@ -1542,24 +1704,34 @@ class L2Projector:
                     block._data[:] = 0.
 
         # loop over components (just one for scalar spaces)
-        for a, (fem_space, spans, wts, basis, mat_w) in enumerate(zip(self._tensor_fem_spaces,
-                                                                      self._spans_l,
-                                                                      self._wts_l,
-                                                                      self._bases_l,
-                                                                      tot_weights)):
+        for a, (fem_space, spans, wts, basis, mat_w) in enumerate(
+            zip(
+                self._tensor_fem_spaces,
+                self._spans_l,
+                self._wts_l,
+                self._bases_l,
+                tot_weights,
+            ),
+        ):
             # indices
             starts = [int(start) for start in fem_space.vector_space.starts]
             pads = fem_space.vector_space.pads
 
             if isinstance(dofs, StencilVector):
-                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
-                                           *wts, *basis, mat_w, dofs._data)
+                mass_kernels.kernel_3d_vec(
+                    *spans, *fem_space.degree, *starts, *pads,
+                    *wts, *basis, mat_w, dofs._data,
+                )
             elif isinstance(dofs, PolarVector):
-                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
-                                           *wts, *basis, mat_w, dofs.tp._data)
+                mass_kernels.kernel_3d_vec(
+                    *spans, *fem_space.degree, *starts, *pads,
+                    *wts, *basis, mat_w, dofs.tp._data,
+                )
             else:
-                mass_kernels.kernel_3d_vec(*spans, *fem_space.degree, *starts, *pads,
-                                           *wts, *basis, mat_w, dofs[a]._data)
+                mass_kernels.kernel_3d_vec(
+                    *spans, *fem_space.degree, *starts, *pads,
+                    *wts, *basis, mat_w, dofs[a]._data,
+                )
 
         # exchange assembly data (accumulate ghost regions) and update ghost regions
         dofs.exchange_assembly_data()
@@ -1705,13 +1877,15 @@ def split_points(BoS, IoH, h, lenj, shift, pts, starts, ends, p, npts, periodic,
             original_pts_size.append(np.shape(pt)[0])
             if IoH[n] == "I":
                 localpts = np.full(
-                    (np.shape(pt)[0]), fill_value=-1, dtype=float)
+                    (np.shape(pt)[0]), fill_value=-1, dtype=float,
+                )
             elif IoH[n] == "H":
                 localpts = np.full((np.shape(pt)), fill_value=-1, dtype=float)
             for i in range(starts[n], ends[n]+1):
 
                 startj1, endj1 = select_quasi_points(
-                    i, p[n], npts[n], periodic[n])
+                    i, p[n], npts[n], periodic[n],
+                )
 
                 for j1 in range(lenj[n]):
                     if (startj1+j1 < np.shape(pt)[0]):
@@ -1732,7 +1906,8 @@ def split_points(BoS, IoH, h, lenj, shift, pts, starts, ends, p, npts, periodic,
             localptsout.append(np.array(localpts))
 
             mini_indextranslation = np.full(
-                (np.shape(pt)[0]), fill_value=-1, dtype=int)
+                (np.shape(pt)[0]), fill_value=-1, dtype=int,
+            )
             for i, j in enumerate(localpos):
                 mini_indextranslation[j] = i
 
@@ -1743,14 +1918,16 @@ def split_points(BoS, IoH, h, lenj, shift, pts, starts, ends, p, npts, periodic,
             original_pts_size[n] = np.shape(pt)[0]
             if IoH[n] == "I":
                 localpts = np.full(
-                    (np.shape(pt)[0]), fill_value=-1, dtype=float)
+                    (np.shape(pt)[0]), fill_value=-1, dtype=float,
+                )
             elif IoH[n] == "H":
                 localpts = np.full((np.shape(pt)), fill_value=-1, dtype=float)
 
             for i in range(starts[h][n], ends[h][n]+1):
 
                 startj1, endj1 = select_quasi_points(
-                    i, p[n], npts[n], periodic[0][n])
+                    i, p[n], npts[n], periodic[0][n],
+                )
 
                 for j1 in range(lenj[n]):
                     if (startj1+j1 < np.shape(pt)[0]):
@@ -1772,9 +1949,11 @@ def split_points(BoS, IoH, h, lenj, shift, pts, starts, ends, p, npts, periodic,
             localptsout.append(np.array(localpts))
 
             mini_indextranslation = np.full(
-                (np.shape(pt)[0]), fill_value=-1, dtype=int)
+                (np.shape(pt)[0]), fill_value=-1, dtype=int,
+            )
             for i, j in enumerate(localpos):
                 mini_indextranslation[j] = i
 
             index_translation.append(
-                np.array(mini_indextranslation))
+                np.array(mini_indextranslation),
+            )
