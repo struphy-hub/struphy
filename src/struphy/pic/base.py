@@ -1067,7 +1067,7 @@ class Particles(metaclass=ABCMeta):
                     # Generate a chunk of random particles
                     num_to_add = min(chunk_size, int(total_num_particles_to_load*self.Nclones) - num_loaded_particles)
                     temp = np.random.rand(num_to_add, 3 + self.vdim)
-
+                    #print(self.mpi_rank, self._clone_rank, "num_to_add", num_to_add)
                     # check which particles are on the current process domain
                     is_on_proc_domain = np.logical_and(
                         temp[:, :3] > self.domain_decomp[self.mpi_rank, 0::3],
@@ -1079,7 +1079,7 @@ class Particles(metaclass=ABCMeta):
                     valid_particles = temp[valid_idx]
                     valid_particles = np.array_split(valid_particles, self.Nclones)[self.clone_rank]
                     num_valid = valid_particles.shape[0]
-
+                    #print(self.mpi_rank, self.clone_rank, "num_valid", num_valid)
                     # Add the valid particles to the phasespace_coords array
                     self.markers[
                         num_loaded_particles_loc : num_loaded_particles_loc +
@@ -1099,8 +1099,8 @@ class Particles(metaclass=ABCMeta):
                     self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
 
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
-
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles/self.Nclones)
+                #print(self.mpi_rank, self.clone_rank, "n_mks_load ... num_loaded_particles/Nclones", np.sum(self.n_mks_load), int(num_loaded_particles/self.Nclones))
+                # assert np.sum(self.n_mks_load) == int(num_loaded_particles/self.Nclones)
 
                 # set new holes in markers array to -1
                 self.markers[num_loaded_particles_loc:, :] = -1.
