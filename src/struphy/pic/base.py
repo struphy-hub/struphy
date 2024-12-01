@@ -1744,7 +1744,7 @@ class Particles(metaclass=ABCMeta):
         assert np.all(np.isclose(v_perp, v - norm_b_cart*v_parallel))
 
         # calculate Larmor radius
-        Larmor_r = np.cross(norm_b_cart, v_perp, axis=0)/absB0*self._epsilon
+        Larmor_r = np.cross(norm_b_cart, v_perp, axis=0)/absB0*self._equation_params['epsilon']
 
         # transform cartesian coordinates to logical coordinates
         # TODO: currently only possible with the geomoetry where its inverse map is defined.
