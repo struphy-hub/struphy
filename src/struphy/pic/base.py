@@ -1437,11 +1437,18 @@ class Particles(metaclass=ABCMeta):
         _weights0 = self.weights0
         _weights = self.weights
 
-        _weights /= self.domain.jacobian_det(self.markers_wo_holes)
-        # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+        if components[3+self.vdim+3]:
+            _weights /= self.domain.jacobian_det(self.markers[~self.holes, self.first_diagnostics_idx:])
+            # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-        _weights0 /= self.domain.jacobian_det(self.markers_wo_holes)
-        # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+            _weights0 /= self.domain.jacobian_det(self.markers[~self.holes, self.first_diagnostics_idx:])
+            # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+        else:
+            _weights /= self.domain.jacobian_det(self.markers_wo_holes)
+            # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+
+            _weights0 /= self.domain.jacobian_det(self.markers_wo_holes)
+            # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
         f_slice = np.histogramdd(
             self.markers_wo_holes[:, slicing],
