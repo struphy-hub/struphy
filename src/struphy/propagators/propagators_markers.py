@@ -47,7 +47,7 @@ class PushEta(Propagator):
 
     def __init__(
         self,
-        particles: Particles,
+        particles: Particles6D,
         *,
         algo: str = options(default=True)['algo'],
     ):
@@ -118,6 +118,11 @@ class PushVxB(Propagator):
         b_eq: BlockVector | PolarVector,
         b_tilde: BlockVector | PolarVector = None,
     ):
+
+        # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
+        assert b_eq.space == self.derham.Vh['2']
+        if b_tilde is not None:
+            assert b_tilde.space == self.derham.Vh['2']
 
         # base class constructor call
         super().__init__(particles)
@@ -1047,7 +1052,7 @@ class PushVinEfield(Propagator):
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DF^{-T} \mathbf{E}(\boldsymbol \eta_p)  \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DF^{-\top} \hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
 
     which is solved analytically.
     '''

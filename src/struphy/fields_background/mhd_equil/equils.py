@@ -53,23 +53,22 @@ class HomogenSlab(CartesianMHDequilibrium):
                 n0   : 1. # number density     
     """
 
-    def __init__(self, **params):
+    def __init__(
+        self,
+        B0x: float = 0.,
+        B0y: float = 0.,
+        B0z: float = 1.,
+        beta: float = .1,
+        n0: float = 1.,
+    ):
 
-        params_default = {
-            'B0x': 0.,
-            'B0y': 0.,
-            'B0z': 1.,
-            'beta': .1,
-            'n0': 1.,
-        }
-
-        self._params = set_defaults(params, params_default)
-
-    @property
-    def params(self):
-        """ Parameters dictionary.
-        """
-        return self._params
+        self.set_params(
+            B0x=B0x,
+            B0y=B0y,
+            B0z=B0z,
+            beta=beta,
+            n0=n0,
+        )
 
     # ===============================================================
     #                  profiles on physical domain
@@ -1768,17 +1767,15 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     Parameters
     ----------
-    units : dict
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
     rel_path : bool
         Whether file is relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or is an absolute path (default: True).
     file : str
         Path to eqdsk file (default: "AUGNLED_g031213.00830.high").
     data_type : int
         0: there is no space between data, 1: there is space between data (default: 0).
-    p_for_psi : list[int]
+    p_for_psi : tuple[int]
         Spline degrees in (R, Z) directions used for interpolation of psi data (default: [3, 3]).
-    psi_resolution : list[float]
+    psi_resolution : tuple[float]
         Resolution of psi data in (R, Z) directions in %, e.g. [50., 50.] uses every second psi data point (default: [25., 6.25]).
     p_for_flux : int
         Spline degree in psi direction used for interpolation of 1d functions that depend on psi: f=f(psi) (default: 3).
@@ -1790,6 +1787,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         2nd shape factor for ion number density profile n = n(psi) (default: 0.).
     na : float
         Ion number density at plasma boundary (default: 1.).
+    units : dict
+        All Struphy units. If None, no rescaling of EQDSK output is performed.
 
     Note
     ----
@@ -1810,13 +1809,31 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
                 na              : 1.  # number density at last closed flux surface
     """
 
-    def __init__(self, units=None, **params):
+    def __init__(
+        self,
+        rel_path: bool = True,
+        file: str = None,
+        data_type: int = 0,
+        p_for_psi: tuple = (3, 3),
+        psi_resolution: tuple = (25., 6.25),
+        p_for_flux: int = 3,
+        flux_resolution: float = 50.,
+        n1: float = 2.,
+        n2: float = 1.,
+        na: float = .2,
+        units=None,
+    ):
 
         from scipy.interpolate import RectBivariateSpline, UnivariateSpline
         from scipy.optimize import minimize
 
         import struphy
         from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
+
+        # default input file
+        if file is None:
+            file = 'AUGNLED_g031213.00830.high'
+            print(f'EQDSK: taking default file {file}.')
 
         # no rescaling if units are not provided
         if units is None:
@@ -1832,30 +1849,28 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         self._units = units
 
-        params_default = {
-            'rel_path': True,
-            'file': 'AUGNLED_g031213.00830.high',
-            'data_type': 0,
-            'p_for_psi': [3, 3],
-            'psi_resolution': [25., 6.25],
-            'p_for_flux': 3,
-            'flux_resolution': 50.,
-            'n1': 2.,
-            'n2': 1.,
-            'na': .2,
-        }
+        self.set_params(
+            rel_path=rel_path,
+            file=file,
+            data_type=data_type,
+            p_for_psi=p_for_psi,
+            psi_resolution=psi_resolution,
+            p_for_flux=p_for_flux,
+            flux_resolution=flux_resolution,
+            n1=n1,
+            n2=n2,
+            na=na,
+        )
 
-        self._params = set_defaults(params, params_default)
-
-        if self._params['rel_path']:
+        if self.params['rel_path']:
             _path = struphy.__path__[0] + \
                 '/fields_background/mhd_equil/eqdsk/data/' + \
-                self._params['file']
+                self.params['file']
         else:
-            _path = self._params['file']
+            _path = self.params['file']
 
         eqdsk = readeqdsk.Geqdsk()
-        eqdsk.openFile(_path, data_type=self._params['data_type'])
+        eqdsk.openFile(_path, data_type=self.params['data_type'])
 
         # Number of horizontal R grid points
         nR = eqdsk.data['nw'][0]
@@ -1904,13 +1919,13 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         Z = np.linspace(self._z_range[0], self._z_range[1], nZ)
 
         smooth_steps = [
-            int(1/(self._params['psi_resolution'][0]*0.01)),
-            int(1/(self._params['psi_resolution'][1]*0.01)),
+            int(1/(self.params['psi_resolution'][0]*0.01)),
+            int(1/(self.params['psi_resolution'][1]*0.01)),
         ]
 
         self._psi_i = RectBivariateSpline(
             R[::smooth_steps[0]], Z[::smooth_steps[1]], psi[::smooth_steps[0], ::smooth_steps[1]],
-            kx=self._params['p_for_psi'][0], ky=self._params['p_for_psi'][1],
+            kx=self.params['p_for_psi'][0], ky=self.params['p_for_psi'][1],
             s=0.,
         )
 
@@ -1928,19 +1943,19 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         # interpolate toroidal field function, pressure profile and q-profile on unifrom flux grid from axis to boundary
         flux_grid = np.linspace(self._psi0, self._psi1, g_profile.size)
 
-        smooth_step = int(1/(self._params['flux_resolution']*0.01))
+        smooth_step = int(1/(self.params['flux_resolution']*0.01))
 
         self._g_i = UnivariateSpline(
             flux_grid[::smooth_step], g_profile[::smooth_step],
-            k=self._params['p_for_flux'], s=0., ext=3,
+            k=self.params['p_for_flux'], s=0., ext=3,
         )
         self._p_i = UnivariateSpline(
             flux_grid[::smooth_step], p_profile[::smooth_step],
-            k=self._params['p_for_flux'], s=0., ext=3,
+            k=self.params['p_for_flux'], s=0., ext=3,
         )
         self._q_i = UnivariateSpline(
             flux_grid[::smooth_step], q_profile[::smooth_step],
-            k=self._params['p_for_flux'], s=0., ext=3,
+            k=self.params['p_for_flux'], s=0., ext=3,
         )
 
     @property
@@ -2056,7 +2071,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         assert der >= 0 and der <= 1, 'Only first derivative available!'
 
-        n1, n2, na = self._params['n1'], self._params['n2'], self._params['na']
+        n1, n2, na = self.params['n1'], self.params['n2'], self.params['na']
 
         psi_norm = (psi - self._psi0)/(self._psi1 - self._psi0)
 

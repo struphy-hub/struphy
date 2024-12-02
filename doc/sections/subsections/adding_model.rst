@@ -113,9 +113,7 @@ There are four options for the ``velocity_scale``:
 
 The choice corresponds to setting the velocity unit :math:`\hat v` of the :ref:`normalization`.
 This then sets the time unit :math:`\hat t = \hat x / \hat v`, where :math:`\hat x` is the 
-unit of length specified through the parameter file. Consult
-`Tutorial 01 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_01_units_run_main.html#Struphy-normalization-(units)>`_ 
-for more details on the Struphy normalization.
+unit of length specified through the parameter file.
 
 
 .. _add_prop:

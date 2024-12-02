@@ -180,69 +180,9 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, verbose=False, monit
         from struphy.models.tests.test_xxpproc import test_pproc_codes
         test_pproc_codes(group=group)
 
-    elif 'tutorials' in group:
-        pymon_file = os.path.join(pymon_abs, '.pymon_tutorials')
-        if os.path.isfile(pymon_file):
-            os.remove(pymon_file)
-
-        if n is None:
-            test_only = ''
-        else:
-            test_only = str(n).zfill(2)
-
-        cmd = [
-            'mpirun',
-            '-n',
-            str(mpi),
-            'pytest',
-            '-k',
-            test_only,
-            '-s',
-            '--with-mpi',
-            '--restrict-scope-to',
-            'function',
-            '--db',
-            '_pymon/.pymon_tutorials',
-            '--description',
-            f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
-            '--tag',
-            f'struphy={importlib.metadata.version("struphy")}',
-            '--tag',
-            f'pyccel={pyccel.__version__}',
-            'tutorials/',
-            '--no-monitor'*(not monitor),
-        ]
-
-        if fast:
-            subprocess.run(
-                cmd + ['--fast'],
-                check=True, cwd=libpath,
-            )
-        else:
-            subprocess.run(
-                cmd,
-                check=True, cwd=libpath,
-            )
-
-        # retcode = pytest.main(['-k',
-        #                        test_only,
-        #                        '-s',
-        #                        '--restrict-scope-to',
-        #                        'function' + ' --no-monitor'*(not monitor),
-        #                        '--db',
-        #                        os.path.join(
-        #                            libpath, '_pymon/.pymon_tutorials'),
-        #                        '--description',
-        #                        f'language={state["last_used_language"]}, compiler={state["last_used_compiler"]}, omp_pic={state["last_used_omp_pic"]}, omp_feec={state["last_used_omp_feec"]}',
-        #                        '--tag',
-        #                        f'struphy={importlib.metadata.version("struphy")}',
-        #                        '--tag',
-        #                        f'pyccel={pyccel.__version__}',
-        #                        os.path.join(libpath, 'tutorials')])
-
     elif 'timings' in group:
 
-        for gr in ['unit', 'models', 'tutorials']:
+        for gr in ['unit', 'models']:
             _file = os.path.join(pymon_abs, '.pymon_' + gr)
             if os.path.isfile(_file):
                 pymon_html_json(gr, verbose=verbose)
@@ -317,7 +257,7 @@ def pymon_html_json(group, verbose=False):
     Parameters
     ----------
     group : str
-        One of "unit", "models", "tutorials" or "pproc".
+        One of "unit", "models" or "pproc".
     '''
 
     libpath = struphy.__path__[0]

@@ -599,24 +599,6 @@ c_model_cronjob_tests:
       - env_$CI_PIPELINE_ID/
     expire_in: 1 day
 
-c_tutorial_tests:
-  stage: test
-  rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
-      when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  script:
-    - pwd
-    - ls -1a
-    - struphy compile --status
-    - struphy test tutorials --fast
-
 # Cron-job Fortran install, after c tests:
 fortran_cronjob_install:
   stage: test
@@ -661,19 +643,6 @@ fortran_model_tests:
     - ls -1a
     - struphy compile --status
     - struphy test models --fast
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
-
-fortran_tutorial_tests:
-  stage: test
-  needs: ["fortran_cronjob_install"]
-  rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  script:
-    - pwd
-    - ls -1a
-    - struphy compile --status
-    - struphy test tutorials
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
@@ -999,8 +968,6 @@ pages:
     - struphy -h
     - struphy compile --status
     - struphy compile -y
-    - struphy test tutorials
-    - ls $(python3 -c "import struphy as _; print(_.__path__[0])")/io/out
     #- struphy test timings
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
     - cd doc ; make html

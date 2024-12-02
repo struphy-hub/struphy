@@ -639,7 +639,7 @@ def struphy():
             prog, max_help_position=30,
         ),
         help='run Struphy tests',
-        description='Run available unit tests or test Struphy models or tutorials.',
+        description='Run available unit tests or test Struphy models.',
     )
 
     parser_test.add_argument(
@@ -648,7 +648,6 @@ def struphy():
         choices=list_models +
         ['models'] +
         ['unit'] +
-        ['tutorials'] +
         ['timings'] +
         ['fluid'] +
         ['kinetic'] +
@@ -659,8 +658,7 @@ def struphy():
         help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                 \nc) "unit" for performing unit tests \
-                                \nd) "tutorials" for notebook tutorials, see `https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html`_ \
-                                \ne) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',
+                                \nd) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',
     )
     parser_test.add_argument(
         '-b', '--batch',

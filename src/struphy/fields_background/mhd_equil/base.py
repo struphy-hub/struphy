@@ -2,6 +2,7 @@
 
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
@@ -14,7 +15,21 @@ class MHDequilibrium(metaclass=ABCMeta):
     or `AxisymmMHDequilibrium`.
     The base class provides transformations of callables to different representations or coordinates.
     For logical equilibria, the methods bv, jv, p0 and n0 are overidden by the child class.   
-    """    
+    """
+
+    @property
+    def params(self):
+        """ Parameters dictionary.
+        """
+        return self._params
+
+    def set_params(self, **params):
+        '''Generates self.params dictionary.'''
+        self._params = params
+
+    #########################
+    # Equilibrium callables #
+    #########################
 
     def absB0(self, *etas, squeeze_out=False):
         """ 0-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3.
@@ -46,8 +61,10 @@ class MHDequilibrium(metaclass=ABCMeta):
     def b_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        b_out = self.domain.push(self.bv(*etas, squeeze_out=False), *etas,
-                                 kind='v', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        b_out = self.domain.push(
+            self.bv(*etas, squeeze_out=False), *etas,
+            kind='v', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out,
+        )
         return b_out, self.domain(*etas, squeeze_out=squeeze_out)
 
     def unit_b1(self, *etas, squeeze_out=False):
@@ -95,9 +112,13 @@ class MHDequilibrium(metaclass=ABCMeta):
         j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
         gradB, xyz = self.gradB_cart(*etas, squeeze_out=squeeze_out)
         absB = self.absB0(*etas, squeeze_out=squeeze_out)
-        out = np.array([j[0]/absB + (b[1]*gradB[2] - b[2]*gradB[1])/absB**2,
-                        j[1]/absB + (b[2]*gradB[0] - b[0]*gradB[2])/absB**2,
-                        j[2]/absB + (b[0]*gradB[1] - b[1]*gradB[0])/absB**2], dtype=float)
+        out = np.array(
+            [
+                j[0]/absB + (b[1]*gradB[2] - b[2]*gradB[1])/absB**2,
+                j[1]/absB + (b[2]*gradB[0] - b[0]*gradB[2])/absB**2,
+                j[2]/absB + (b[0]*gradB[1] - b[1]*gradB[0])/absB**2,
+            ], dtype=float,
+        )
         return out, xyz
 
     def curl_unit_b_dot_b0(self, *etas, squeeze_out=False):
@@ -151,8 +172,10 @@ class MHDequilibrium(metaclass=ABCMeta):
     def j_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of equilibrium current evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        j_out = self.domain.push(self.jv(*etas, squeeze_out=False), *etas,
-                                 kind='v', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        j_out = self.domain.push(
+            self.jv(*etas, squeeze_out=False), *etas,
+            kind='v', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out,
+        )
         return j_out, self.domain(*etas, squeeze_out=squeeze_out)
 
     def gradB1(self, *etas, squeeze_out=False):
@@ -174,8 +197,10 @@ class MHDequilibrium(metaclass=ABCMeta):
     def gradB_cart(self, *etas, squeeze_out=False):
         """ Cartesian components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z).
         """
-        gradB_out = self.domain.push(self.gradB1(*etas, squeeze_out=False), *etas,
-                                     kind='1', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out)
+        gradB_out = self.domain.push(
+            self.gradB1(*etas, squeeze_out=False), *etas,
+            kind='1', a_kwargs={'squeeze_out': False}, squeeze_out=squeeze_out,
+        )
         return gradB_out, self.domain(*etas)
 
     def p0(self, *etas, squeeze_out=False):
@@ -209,7 +234,7 @@ class MHDequilibrium(metaclass=ABCMeta):
         n = self.n0(*etas)
         s = n * np.log(p/(2/3*np.power(n, 5/3)))
         return self.domain.pull(s, *etas, kind='0', squeeze_out=squeeze_out)
-    
+
     def s3_monoatomic(self, *etas, squeeze_out=False):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
@@ -225,13 +250,12 @@ class MHDequilibrium(metaclass=ABCMeta):
         n = self.n0(*etas)
         s = n * np.log(p/(2/5*np.power(n, 7/5)))
         return self.domain.pull(s, *etas, kind='0', squeeze_out=squeeze_out)
-    
+
     def s3_diatomic(self, *etas, squeeze_out=False):
         """ 3-form equilibrium entropy density on logical cube [0, 1]^3.
             Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
         """
         return self.domain.transform(self.s0_diatomic(*etas, squeeze_out=False), *etas, kind='0_to_3', a_kwargs={'squeeze_out' : False}, squeeze_out=squeeze_out)
-
 
     ###################
     # Single components
@@ -344,7 +368,7 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def j2_3(self, *etas, squeeze_out=False):
         return self.j2(*etas, squeeze_out=squeeze_out)[2]
-    
+
     def jv_1(self, *etas, squeeze_out=False):
         return self.jv(*etas, squeeze_out=squeeze_out)[0]
 
@@ -371,7 +395,7 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def gradB2_3(self, *etas, squeeze_out=False):
         return self.gradB2(*etas, squeeze_out=squeeze_out)[2]
-    
+
     def gradBv_1(self, *etas, squeeze_out=False):
         return self.gradBv(*etas, squeeze_out=squeeze_out)[0]
 
@@ -398,7 +422,7 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def curl_unit_b2_3(self, *etas, squeeze_out=False):
         return self.curl_unit_b2(*etas, squeeze_out=squeeze_out)[2]
-    
+
     def curl_unit_bv_1(self, *etas, squeeze_out=False):
         return self.curl_unit_bv(*etas, squeeze_out=squeeze_out)[0]
 
@@ -425,8 +449,10 @@ class MHDequilibrium(metaclass=ABCMeta):
 
         import struphy
 
-        torus_mappings = ('Tokamak', 'GVECunit', 'DESCunit',
-                          'IGAPolarTorus', 'HollowTorus')
+        torus_mappings = (
+            'Tokamak', 'GVECunit', 'DESCunit',
+            'IGAPolarTorus', 'HollowTorus',
+        )
 
         e1 = np.linspace(0.0001, 1, n1)
         e2 = np.linspace(0, 1, n2)
@@ -446,11 +472,11 @@ class MHDequilibrium(metaclass=ABCMeta):
         det_df = self.domain.jacobian_det(e1, e2, e3)
         p = self.p0(e1, e2, e3)
         print('Computation of pressure done.')
-        
+
         #ori 240624
         n_dens = self.n0(e1, e2, e3)
         print('Computation of density done.')
-        
+
         absB = self.absB0(e1, e2, e3)
         print('Computation of abs(B) done.')
         j_cart, xyz = self.j_cart(e1, e2, e3)
@@ -459,8 +485,10 @@ class MHDequilibrium(metaclass=ABCMeta):
 
         _path = struphy.__path__[0] + \
             '/fields_background/mhd_equil/gvec/output/'
-        gridToVTK(_path + 'vtk/gvec_equil', x, y, z,
-                  pointData={'det_df': det_df, 'pressure': p, 'absB': absB})
+        gridToVTK(
+            _path + 'vtk/gvec_equil', x, y, z,
+            pointData={'det_df': det_df, 'pressure': p, 'absB': absB},
+        )
         print('Generation of vtk files done.')
 
         # show params
@@ -495,11 +523,15 @@ class MHDequilibrium(metaclass=ABCMeta):
             for i in range(pc1.shape[0]):
                 for j in range(pc1.shape[1] - 1):
                     if i < pc1.shape[0] - 1:
-                        ax.plot([pc1[i, j], pc1[i + 1, j]],
-                                [pc2[i, j], pc2[i + 1, j]], 'b', linewidth=.6)
+                        ax.plot(
+                            [pc1[i, j], pc1[i + 1, j]],
+                            [pc2[i, j], pc2[i + 1, j]], 'b', linewidth=.6,
+                        )
                     if j < pc1.shape[1] - 1:
-                        ax.plot([pc1[i, j], pc1[i, j + 1]],
-                                [pc2[i, j], pc2[i, j + 1]], 'b', linewidth=.6)
+                        ax.plot(
+                            [pc1[i, j], pc1[i, j + 1]],
+                            [pc2[i, j], pc2[i, j + 1]], 'b', linewidth=.6,
+                        )
 
             ax.scatter(pc1[0, 0], pc2[0, 0], 20, 'red', zorder=10)
             # ax.scatter(pc1[0, 32], pc2[0, 32], 20, 'red', zorder=10)
@@ -508,7 +540,8 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Poloidal plane at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Poloidal plane at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]),
+            )
 
         # top view
         e1 = np.linspace(0, 1, n1)  # radial coordinate in [0, 1]
@@ -539,15 +572,21 @@ class MHDequilibrium(metaclass=ABCMeta):
             for i in range(tc1.shape[0]):
                 for j in range(tc1.shape[1] - 1):
                     if i < tc1.shape[0] - 1:
-                        ax.plot([tc1[i, j], tc1[i + 1, j]],
-                                [tc2[i, j], tc2[i + 1, j]], 'b', linewidth=.6)
+                        ax.plot(
+                            [tc1[i, j], tc1[i + 1, j]],
+                            [tc2[i, j], tc2[i + 1, j]], 'b', linewidth=.6,
+                        )
                     if j < tc1.shape[1] - 1:
                         if i == 0:
-                            ax.plot([tc1[i, j], tc1[i, j + 1]],
-                                    [tc2[i, j], tc2[i, j + 1]], 'r', linewidth=1)
+                            ax.plot(
+                                [tc1[i, j], tc1[i, j + 1]],
+                                [tc2[i, j], tc2[i, j + 1]], 'r', linewidth=1,
+                            )
                         else:
-                            ax.plot([tc1[i, j], tc1[i, j + 1]],
-                                    [tc2[i, j], tc2[i, j + 1]], 'b', linewidth=.6)
+                            ax.plot(
+                                [tc1[i, j], tc1[i, j + 1]],
+                                [tc2[i, j], tc2[i, j + 1]], 'b', linewidth=.6,
+                            )
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis('equal')
@@ -580,7 +619,8 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Jacobian determinant at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Jacobian determinant at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]),
+            )
             fig.colorbar(map, ax=ax, location='right')
 
         # pressure
@@ -610,9 +650,10 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Pressure at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Pressure at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]),
+            )
             fig.colorbar(map, ax=ax, location='right')
-        
+
         # density
         fig = plt.figure(figsize=(15, np.ceil(n_planes/2) * 6.5))
         for n in range(n_planes):
@@ -640,7 +681,8 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Equilibrium density at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Equilibrium density at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]),
+            )
             fig.colorbar(map, ax=ax, location='right')
 
         # magnetic field strength
@@ -670,7 +712,8 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Magnetic field strength at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Magnetic field strength at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]),
+            )
             fig.colorbar(map, ax=ax, location='right')
 
         # current density
@@ -700,7 +743,8 @@ class MHDequilibrium(metaclass=ABCMeta):
             ax.set_ylabel(l2)
             ax.axis('equal')
             ax.set_title(
-                'Current density (abs) at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]))
+                'Current density (abs) at $\eta_3$={0:4.3f}'.format(e3[int(n*jump)]),
+            )
             fig.colorbar(map, ax=ax, location='right')
 
 
@@ -898,15 +942,23 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
 
         R, Phi, Z = self.inverse_map(x, y, z)
 
-        RabsB = np.sqrt(self.psi(R, Z, dZ=1)**2 +
-                        self.g_tor(R, Z)**2 + self.psi(R, Z, dR=1)**2)
+        RabsB = np.sqrt(
+            self.psi(R, Z, dZ=1)**2 +
+            self.g_tor(R, Z)**2 + self.psi(R, Z, dR=1)**2,
+        )
 
         # at phi = 0° (gradB = grad(absB))
-        gradBR = -RabsB/R**2 + (self.psi(R, Z, dZ=1)*self.psi(R, Z, dR=1,
-                                dZ=1) + self.psi(R, Z, dR=1)*self.psi(R, Z, dR=2))/RabsB/R
+        gradBR = -RabsB/R**2 + (
+            self.psi(R, Z, dZ=1)*self.psi(
+                R, Z, dR=1,
+                dZ=1,
+            ) + self.psi(R, Z, dR=1)*self.psi(R, Z, dR=2)
+        )/RabsB/R
         gradBP = 0.
-        gradBZ = (self.psi(R, Z, dZ=1)*self.psi(R, Z, dZ=2) +
-                  self.psi(R, Z, dR=1)*self.psi(R, Z, dR=1, dZ=1))/RabsB/R
+        gradBZ = (
+            self.psi(R, Z, dZ=1)*self.psi(R, Z, dZ=2) +
+            self.psi(R, Z, dR=1)*self.psi(R, Z, dR=1, dZ=1)
+        )/RabsB/R
 
         # push-forward to Cartesian components
         gradBx = gradBR*np.cos(Phi) - gradBP*np.sin(Phi)
