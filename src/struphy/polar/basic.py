@@ -1,10 +1,8 @@
-from psydac.linalg.basic import VectorSpace, Vector
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
-
-from mpi4py import MPI
-
 import numpy as np
+from mpi4py import MPI
+from psydac.linalg.basic import Vector, VectorSpace
+from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
 
 
 class PolarDerhamSpace(VectorSpace):
@@ -28,7 +26,8 @@ class PolarDerhamSpace(VectorSpace):
             'Number of elements in eta2 must be a multiple of 3'
 
         assert derham.p[0] > 1 and derham.p[
-            1] > 1, 'Spline degrees in (eta1, eta2) must be at least two'
+            1
+        ] > 1, 'Spline degrees in (eta1, eta2) must be at least two'
 
         # other properties
         self._dtype = float
@@ -50,7 +49,8 @@ class PolarDerhamSpace(VectorSpace):
             self._n_polar = (3,)
             self._n_rings = (2,)
             self._dimension = (
-                (self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0])*self.n[2]
+                (self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0]
+            )*self.n[2]
             self._n2 = (self.n[1],)
             self._n3 = (self.n[2],)
             self._type_of_basis_3 = (derham.spline_types['0'][2],)
@@ -66,9 +66,11 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = dim1 + dim2 + dim3
             self._n2 = (self.n[1], self.d[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.d[2])
-            self._type_of_basis_3 = (derham.spline_types['1'][0][2],
-                                     derham.spline_types['1'][1][2],
-                                     derham.spline_types['1'][2][2])
+            self._type_of_basis_3 = (
+                derham.spline_types['1'][0][2],
+                derham.spline_types['1'][1][2],
+                derham.spline_types['1'][2][2],
+            )
         elif space_id == 'Hdiv':
             self._n_polar = (2, 0, 0)
             self._n_rings = (2, 1, 1)
@@ -81,14 +83,17 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = dim1 + dim2 + dim3
             self._n2 = (self.d[1], self.n[1], self.d[1])
             self._n3 = (self.d[2], self.d[2], self.n[2])
-            self._type_of_basis_3 = (derham.spline_types['2'][0][2],
-                                     derham.spline_types['2'][1][2],
-                                     derham.spline_types['2'][2][2])
+            self._type_of_basis_3 = (
+                derham.spline_types['2'][0][2],
+                derham.spline_types['2'][1][2],
+                derham.spline_types['2'][2][2],
+            )
         elif space_id == 'L2':
             self._n_polar = (0,)
             self._n_rings = (1,)
             self._dimension = (
-                (self.d[0] - self.n_rings[0])*self.d[1] + self.n_polar[0])*self.d[2]
+                (self.d[0] - self.n_rings[0])*self.d[1] + self.n_polar[0]
+            )*self.d[2]
             self._n2 = (self.d[1],)
             self._n3 = (self.d[2],)
             self._type_of_basis_3 = (derham.spline_types['3'][2],)
@@ -96,12 +101,15 @@ class PolarDerhamSpace(VectorSpace):
             self._n_polar = (3, 3, 3)
             self._n_rings = (2, 2, 2)
             self._dimension = (
-                ((self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0])*self.n[2]) * 3
+                ((self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0])*self.n[2]
+            ) * 3
             self._n2 = (self.n[1], self.n[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.n[2])
-            self._type_of_basis_3 = (derham.spline_types['v'][0][2],
-                                     derham.spline_types['v'][1][2],
-                                     derham.spline_types['v'][2][2])
+            self._type_of_basis_3 = (
+                derham.spline_types['v'][0][2],
+                derham.spline_types['v'][1][2],
+                derham.spline_types['v'][2][2],
+            )
         else:
             raise ValueError('Space not supported.')
 
@@ -204,9 +212,9 @@ class PolarDerhamSpace(VectorSpace):
         """ Tuple holding type of spline basis (B-splines or M-splines), for each component.
         """
         return self._type_of_basis_3
-    
+
     @property
-    def parallel( self ):
+    def parallel(self):
         return self._parallel
 
     def zeros(self):
@@ -214,6 +222,10 @@ class PolarDerhamSpace(VectorSpace):
         Creates an element of the vector space filled with zeros.
         """
         return PolarVector(self)
+
+    def axpy(self, a, x, y):
+        y += a * x
+        pass
 
 
 class PolarVector(Vector):
@@ -288,7 +300,8 @@ class PolarVector(Vector):
                 self._tp[n][:] = v[n][:]
         else:
             raise ValueError(
-                'Attribute can only be set with instances of either StencilVector or BlockVector!')
+                'Attribute can only be set with instances of either StencilVector or BlockVector!',
+            )
 
         self.set_tp_coeffs_to_zero()
 
@@ -309,8 +322,10 @@ class PolarVector(Vector):
         out = self.tp.dot(v.tp)
 
         # polar part
-        out += sum([a1.flatten().dot(a2.flatten())
-                   for a1, a2 in zip(self.pol, v.pol)])
+        out += sum([
+            a1.flatten().dot(a2.flatten())
+            for a1, a2 in zip(self.pol, v.pol)
+        ])
 
         return out
 
@@ -341,8 +356,10 @@ class PolarVector(Vector):
             s1, s2, s3 = self.space.starts
             e1, e2, e3 = self.space.ends
 
-            out = self.tp.toarray()[self.space.n_rings[0] *
-                                    self.space.n[1]*self.space.n3[0]:]
+            out = self.tp.toarray()[
+                self.space.n_rings[0] *
+                self.space.n[1]*self.space.n3[0]:
+            ]
 
             # allreduce tensor-product part
             if self.space.comm is not None and allreduce:
@@ -351,12 +368,18 @@ class PolarVector(Vector):
             out = np.concatenate((self.pol[0].flatten(), out))
 
         else:
-            out1 = self.tp[0].toarray()[self.space.n_rings[0] *
-                                        self.space.n[1]*self.space.n3[0]:]
-            out2 = self.tp[1].toarray()[self.space.n_rings[1] *
-                                        self.space.n[1]*self.space.n3[1]:]
-            out3 = self.tp[2].toarray()[self.space.n_rings[2] *
-                                        self.space.n[1]*self.space.n3[2]:]
+            out1 = self.tp[0].toarray()[
+                self.space.n_rings[0] *
+                self.space.n[1]*self.space.n3[0]:
+            ]
+            out2 = self.tp[1].toarray()[
+                self.space.n_rings[1] *
+                self.space.n[1]*self.space.n3[1]:
+            ]
+            out3 = self.tp[2].toarray()[
+                self.space.n_rings[2] *
+                self.space.n[1]*self.space.n3[2]:
+            ]
 
             # allreduce tensor-product part
             if self.space.comm is not None and allreduce:
@@ -364,9 +387,11 @@ class PolarVector(Vector):
                 self.space.comm.Allreduce(MPI.IN_PLACE, out2, op=MPI.SUM)
                 self.space.comm.Allreduce(MPI.IN_PLACE, out3, op=MPI.SUM)
 
-            out = np.concatenate((self.pol[0].flatten(), out1,
-                                  self.pol[1].flatten(), out2,
-                                  self.pol[2].flatten(), out3))
+            out = np.concatenate((
+                self.pol[0].flatten(), out1,
+                self.pol[1].flatten(), out2,
+                self.pol[2].flatten(), out3,
+            ))
 
         return out
 
@@ -515,7 +540,7 @@ class PolarVector(Vector):
         #self._tp.update_ghost_regions(direction=direction)
         self._tp.update_ghost_regions()
 
-            # def update_ghost_regions(self, *, direction=None):
+        # def update_ghost_regions(self, *, direction=None):
     def exchange_assembly_data(self):
         """
         Exchange assembly data before performing non-local access to vector
@@ -558,4 +583,5 @@ def set_tp_rings_to_zero(v, n_rings):
                 v[n][:n_rings[n], :, :] = 0.
     else:
         raise ValueError(
-            'Input vector must be an instance of StencilVector of BlockVector!')
+            'Input vector must be an instance of StencilVector of BlockVector!',
+        )
