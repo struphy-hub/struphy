@@ -39,70 +39,67 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain)
     A = mass_mats.M2
-    #print(f"A shape: {A.shape}, A type: {type(A)}")
     B = derham.div
-    #print(f"B shape: {B.shape}, B type: {type(B)}")
     BT = B.transpose()
-    #print(f"BT shape: {BT.shape}, BT type: {type(B)}")
     x = derham.curl.dot(x1_rdm)
     F = A.dot(x) + BT.dot(y1_rdm)
-    #print(f"F shape: {F.shape}, F type: {type(F)}")
     
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
 
-    # Create the Uzawa solver
+    # Create the solver
     rho = 0.001  # Example descent parameter
     tol = 1e-5
     max_iter = 1000
-    pc = M2pre  # No preconditioner
+    pc = M2pre  # Preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
     solver_name = 'pcg'
-    verbose = True
+    verbose = False
+    
     
     start_time = time.time()
     
     #SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
-    #method_for_solving = 'SaddlePointSolverNoCG'
     if method_for_solving == 'SaddlePointSolverTest':
+        count = 0
         solver = SaddlePointSolverTest(A, B, F,
                                 rho=rho,
                                 solver_name=solver_name,
                                 tol=tol,
                                 max_iter=max_iter,
                                 verbose=verbose,
-                                pc=pc)
+                                pc=pc,
+                                count=count)
         x_uzawa, y_uzawa, info = solver()
     elif method_for_solving == 'SaddlePointSolver':
+        count = 0
         solver = SaddlePointSolver(A, B, F,
                                 rho=rho,
                                 solver_name=solver_name,
                                 tol=tol,
                                 max_iter=max_iter,
                                 verbose=verbose,
-                                pc=pc)
+                                pc=pc,
+                                count=count)
         x_uzawa, y_uzawa, info, residual_norms = solver()
         if show_plots == True:
             _plot_residual_norms(residual_norms)
     elif method_for_solving == 'SaddlePointSolverNoCG':
+        count = 0
         solver = SaddlePointSolverNoCG(A, B, F,
                                 rho=rho,
                                 solver_name=solver_name,
                                 tol=tol,
                                 max_iter=max_iter,
                                 verbose=verbose,
-                                pc=pc)
+                                pc=pc,
+                                count=count)
         x_uzawa, y_uzawa, info, residual_norms = solver()
         if show_plots == True:
             _plot_residual_norms(residual_norms)
 
     end_time = time.time()
 
-    print(f"x shape: {x.shape}, x type: {type(x)}")
-    print(f"x_uzawa shape: {x_uzawa.shape}, x_uzawa type: {type(x_uzawa)}")
-    print(f"y shape: {y1_rdm.shape}, y type: {type(y1_rdm)}")
-    print(f"y_uzawa shape: {y_uzawa.shape}, y_uzawa type: {type(y_uzawa)}")
-    print(f"Rank: {mpi_rank}") 
-    print(info)
+    print(f"{method_for_solving}{info}")
     
     elapsed_time = end_time - start_time
     print(f"Method execution time: {elapsed_time:.6f} seconds")

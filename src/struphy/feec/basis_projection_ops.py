@@ -418,6 +418,28 @@ class BasisProjectionOperators:
                 fun, 'Hdiv', 'Hcurl', name='S21')
 
         return self._S21
+    
+    @property
+    def S21p(self):
+        r'''Basis projection operator 
+
+        .. math::
+
+            \mathcal{S}^{21p}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^1_{(\mu, ijk)} \left[ \frac{G_{\mu, \nu}}{\sqrt{g}} \Lambda^2_{(\nu, mno)} \right] \,.
+        '''
+        if not hasattr(self, '_S21p'):
+
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
+
+            self._S21p = self.assemble_basis_projection_operator(
+                fun, 'Hdiv', 'Hcurl', name='S21p')
+
+        return self._S21p
+
 
     @property
     def Uv(self):

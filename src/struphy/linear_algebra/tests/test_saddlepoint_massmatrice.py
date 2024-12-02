@@ -12,6 +12,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     import time
     from psydac.linalg.block import BlockLinearOperator, BlockVectorSpace, BlockVector
     from struphy.feec.preconditioner import MassMatrixPreconditioner
+    from struphy.fields_background.mhd_equil.equils import ShearedSlab, ScrewPinch
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
 
     from mpi4py import MPI
 
@@ -30,6 +32,45 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
                   derham.Vh_fem['2'],
                   derham.Vh_fem['3'],
                   derham.Vh_fem['v']]
+    
+    # load MHD equilibrium
+    if mapping[0] == 'Cuboid':
+        eq_mhd = ShearedSlab(**{'a': (mapping[1]['r1'] - mapping[1]['l1']),
+                                'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi),
+                                'B0': 1.0, 'q0': 1.05,
+                                'q1': 1.8, 'n1': 3.0,
+                                'n2': 4.0, 'na': 0.0,
+                                'beta': .1})
+
+    elif mapping[0] == 'Colella':
+        eq_mhd = ShearedSlab(**{'a': mapping[1]['Lx'],
+                                'R0': mapping[1]['Lz']/(2*np.pi),
+                                'B0': 1.0,
+                                'q0': 1.05,
+                                'q1': 1.8,
+                                'n1': 3.0,
+                                'n2': 4.0,
+                                'na': 0.0,
+                                'beta': .1})
+
+        if show_plots:
+            eq_mhd.plot_profiles()
+
+    elif mapping[0] == 'HollowCylinder':
+        eq_mhd = ScrewPinch(**{'a': mapping[1]['a2'],
+                               'R0': 3.,
+                               'B0': 1.0,
+                               'q0': 1.05,
+                               'q1': 1.8,
+                               'n1': 3.0,
+                               'n2': 4.0,
+                               'na': 0.0,
+                               'beta': .1})
+
+        if show_plots:
+            eq_mhd.plot_profiles()
+
+    eq_mhd.domain = domain
 
     # create random input array
     x1_rdm_block, x1_rdm = create_equal_random_arrays(
@@ -40,14 +81,35 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         fem_spaces[3], seed=1568, flattened=True)
 
     # mass matrices object
-    mass_mats = WeightedMassOperators(derham, domain)
-    A11 = mass_mats.M2
+    mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
+    hodge_mats = BasisProjectionOperators(derham, domain)
+    
+    # Change order of input in callable
+    M2R = mass_mats.M2 #mass_mats.M2B
+    M2 = mass_mats.M2
+    Hodge = hodge_mats.S21p
+    C = derham.curl
+    D = derham.div
+    G = derham.grad
+    M3 = mass_mats.M3
+    nu = 0.1
+    delt = 0.01
+    
+    print(f"{C.shape =}")
+    print(f"{Hodge.shape =}")
+    print(f"{G.shape =}")
+    print(f"{D.shape =}")
+    print(f"{M2R.shape =}")
+    print(f"{M3.shape =}")
+    
+
+    A11 = mass_mats.M2/delt - M2R + nu*(D.transpose() @ M3 @ D)
     A12 = None
-    A21=A12
-    A22 = mass_mats.M2
-    B1 = derham.div
+    A21 = A12
+    A22 =  M2R + nu*(Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge)
+    B1 = -M3 @ D
     B1T = B1.transpose()
-    B2 = derham.div
+    B2 = M3 @ D
     B2T = B2.transpose()
     x1 = derham.curl.dot(x1_rdm)
     x2 = derham.curl.dot(x2_rdm)
@@ -81,11 +143,11 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     # Create the solver
     rho = 0.0005  # Example descent parameter
-    tol = 1e-6
+    tol = 1e-5
     max_iter = 1000
-    pc = None #M2pre # Preconditioner
+    pc = M2pre # Preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
-    solver_name = 'cg'
+    solver_name = 'pcg'
     verbose = False
     
     start_time = time.time()
@@ -164,12 +226,12 @@ def _plot_residual_norms(residual_norms):
     plt.savefig("residual_norms_plot.png")
 
 if __name__ == '__main__':
-    test_saddlepointsolver('SaddlePointSolverTest',
-                           [5, 6, 7],
-                           [2, 2, 3],
-                           [True, False, True],
-                           [[False,  True], [True, False], [False, False]],
-                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+    # test_saddlepointsolver('SaddlePointSolverTest',
+    #                        [5, 6, 7],
+    #                        [2, 2, 3],
+    #                        [True, False, True],
+    #                        [[False,  True], [True, False], [False, False]],
+    #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
     test_saddlepointsolver('SaddlePointSolver',
                            [5, 6, 7],
                            [2, 2, 3],
