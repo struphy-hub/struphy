@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.3.2"
+version = "2.3.3"
 readme = "README.md"
 requires-python = ">=3.10, <3.12"
 license = {file = "LICENSE"}

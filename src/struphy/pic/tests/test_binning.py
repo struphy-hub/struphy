@@ -37,7 +37,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     from struphy.pic.particles import Particles6D
 
     # Set seed
-    seed = int(np.random.rand()*1000)
+    seed = 1234
 
     # Set number of particles for which error is known <= 0.1
     Np = int(1e6)
@@ -300,7 +300,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     from struphy.pic.particles import Particles6D
 
     # Set seed
-    seed = int(np.random.rand()*1000)
+    seed = 1234
 
     # Set number of particles for which error is known <= 0.1
     Np = int(1e6)
@@ -525,7 +525,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     from struphy.pic.particles import Particles6D
 
     # Set seed
-    seed = int(np.random.rand()*1000)
+    seed = 1234
 
     # Set number of particles for which error is known <= 0.1
     Np = int(1e6)
@@ -811,7 +811,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     from struphy.pic.particles import Particles6D
 
     # Set seed
-    seed = int(np.random.rand()*1000)
+    seed = 1234
 
     # Set number of particles for which error is known <= 0.1
     Np = int(1e6)

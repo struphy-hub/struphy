@@ -1,18 +1,16 @@
 import numpy as np
 from mpi4py import MPI
-
-from psydac.linalg.stencil import StencilMatrix
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.basic import Vector, IdentityOperator, LinearOperator
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
+from psydac.linalg.stencil import StencilMatrix
 
-from struphy.feec.psydac_derham import get_pts_and_wts
-from struphy.feec.psydac_derham import get_span_and_basis
-from struphy.feec.projectors import CommutingProjector
-from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec import basis_projection_kernels
+from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
+from struphy.feec.projectors import CommutingProjector
+from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace
 
@@ -44,7 +42,8 @@ class BasisProjectionOperators:
         if np.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
             if derham.comm.Get_rank() == 0:
                 print(
-                    f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).')
+                    f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).',
+                )
 
         self._derham = derham
         self._domain = domain
@@ -107,7 +106,8 @@ class BasisProjectionOperators:
         if not hasattr(self, '_K0'):
             fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].p0(e1, e2, e3)]]
             self._K0 = self.assemble_basis_projection_operator(
-                fun, 'H1', 'H1', name='K0')
+                fun, 'H1', 'H1', name='K0',
+            )
 
         return self._K0
 
@@ -120,10 +120,14 @@ class BasisProjectionOperators:
             \mathcal{K}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
         '''
         if not hasattr(self, '_K3'):
-            fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].p3(
-                e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
+            fun = [[
+                lambda e1, e2, e3: self.weights['eq_mhd'].p3(
+                    e1, e2, e3,
+                ) / self.sqrt_g(e1, e2, e3),
+            ]]
             self._K3 = self.assemble_basis_projection_operator(
-                fun, 'L2', 'L2', name='K3')
+                fun, 'L2', 'L2', name='K3',
+            )
 
         return self._K3
 
@@ -141,10 +145,13 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.weights['eq_mhd'].n3(e1, e2, e3) if m == n else 0*e1]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.weights['eq_mhd'].n3(e1, e2, e3) if m == n else 0*e1,
+                    ]
             self._Qv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hdiv', name='Qv')
+                fun, 'H1vec', 'Hdiv', name='Qv',
+            )
 
         return self._Qv
 
@@ -162,11 +169,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.weights['eq_mhd'].n3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.weights['eq_mhd'].n3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n],
+                    ]
 
             self._Q1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hdiv', name='Q1')
+                fun, 'Hcurl', 'Hdiv', name='Q1',
+            )
 
         return self._Q1
 
@@ -184,11 +194,15 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].n3(
-                        e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].n3(
+                            e1, e2, e3,
+                        ) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1,
+                    ]
 
             self._Q2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hdiv', name='Q2')
+                fun, 'Hdiv', 'Hdiv', name='Q2',
+            )
 
         return self._Q2
 
@@ -201,10 +215,14 @@ class BasisProjectionOperators:
             \mathcal{Q}^3_{ijk,mno} := \hat{\Pi}^3_{ijk} \left[ \frac{\hat{\rho}^3_{\text{eq}}}{\sqrt{g}}\Lambda^3_{mno} \right] \,.
         '''
         if not hasattr(self, '_Q3'):
-            fun = [[lambda e1, e2, e3: self.weights['eq_mhd'].n3(
-                e1, e2, e3) / self.sqrt_g(e1, e2, e3)]]
+            fun = [[
+                lambda e1, e2, e3: self.weights['eq_mhd'].n3(
+                    e1, e2, e3,
+                ) / self.sqrt_g(e1, e2, e3),
+            ]]
             self._Q3 = self.assemble_basis_projection_operator(
-                fun, 'L2', 'L2', name='Q3')
+                fun, 'L2', 'L2', name='Q3',
+            )
 
         return self._Q3
 
@@ -227,17 +245,21 @@ class BasisProjectionOperators:
         if not hasattr(self, '_Tv'):
 
             rot_B = RotationMatrix(
-                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3,
+            )
 
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: rot_B(e1, e2, e3)[:, :, :, m, n],
+                    ]
 
             self._Tv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hcurl', name='Tv')
+                fun, 'H1vec', 'Hcurl', name='Tv',
+            )
 
         return self._Tv
 
@@ -261,17 +283,21 @@ class BasisProjectionOperators:
         if not hasattr(self, '_T1'):
 
             rot_B = RotationMatrix(
-                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3,
+            )
 
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: (rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: (rot_B(e1, e2, e3) @ self.Ginv(e1, e2, e3))[:, :, :, m, n],
+                    ]
 
             self._T1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hcurl', name='T1')
+                fun, 'Hcurl', 'Hcurl', name='T1',
+            )
 
         return self._T1
 
@@ -294,17 +320,21 @@ class BasisProjectionOperators:
         if not hasattr(self, '_T2'):
 
             rot_B = RotationMatrix(
-                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3)
+                self.weights['eq_mhd'].b2_1, self.weights['eq_mhd'].b2_2, self.weights['eq_mhd'].b2_3,
+            )
 
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3),
+                    ]
 
             self._T2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hcurl', name='T2')
+                fun, 'Hdiv', 'Hcurl', name='T2',
+            )
 
         return self._T2
 
@@ -322,11 +352,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.weights['eq_mhd'].p3(e1, e2, e3) if m == n else 0*e1]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.weights['eq_mhd'].p3(e1, e2, e3) if m == n else 0*e1,
+                    ]
 
             self._Sv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hdiv', name='Sv')
+                fun, 'H1vec', 'Hdiv', name='Sv',
+            )
 
         return self._Sv
 
@@ -344,11 +377,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.weights['eq_mhd'].p3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.weights['eq_mhd'].p3(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n],
+                    ]
 
             self._S1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hdiv', name='S1')
+                fun, 'Hcurl', 'Hdiv', name='S1',
+            )
 
         return self._S1
 
@@ -367,11 +403,15 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].p3(
-                        e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].p3(
+                            e1, e2, e3,
+                        ) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1,
+                    ]
 
             self._S2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hdiv', name='S2')
+                fun, 'Hdiv', 'Hdiv', name='S2',
+            )
 
         return self._S2
 
@@ -389,11 +429,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.weights['eq_mhd'].p0(e1, e2, e3) if m == n else 0*e1]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.weights['eq_mhd'].p0(e1, e2, e3) if m == n else 0*e1,
+                    ]
 
             self._S11 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hcurl', name='S11')
+                fun, 'Hcurl', 'Hcurl', name='S11',
+            )
 
         return self._S11
 
@@ -411,11 +454,15 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].p0(
-                        e1, e2, e3) * self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].p0(
+                            e1, e2, e3,
+                        ) * self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3),
+                    ]
 
             self._S21 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hcurl', name='S21')
+                fun, 'Hdiv', 'Hcurl', name='S21',
+            )
 
         return self._S21
 
@@ -433,11 +480,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.sqrt_g(e1, e2, e3) if m == n else 0*e1,
+                    ]
 
             self._Uv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'Hdiv', name='Uv')
+                fun, 'H1vec', 'Hdiv', name='Uv',
+            )
 
         return self._Uv
 
@@ -455,11 +505,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.sqrt_g(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.sqrt_g(e1, e2, e3) * self.Ginv(e1, e2, e3)[:, :, :, m, n],
+                    ]
 
             self._U1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hdiv', name='U1')
+                fun, 'Hcurl', 'Hdiv', name='U1',
+            )
 
         return self._U1
 
@@ -477,11 +530,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.DF(e1, e2, e3)[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.DF(e1, e2, e3)[:, :, :, m, n],
+                    ]
 
             self._Xv = self.assemble_basis_projection_operator(
-                fun, 'H1vec', 'H1vec', name='Xv')
+                fun, 'H1vec', 'H1vec', name='Xv',
+            )
 
         return self._Xv
 
@@ -499,11 +555,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.DFinvT(e1, e2, e3)[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.DFinvT(e1, e2, e3)[:, :, :, m, n],
+                    ]
 
             self._X1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'H1vec', name='X1')
+                fun, 'Hcurl', 'H1vec', name='X1',
+            )
 
         return self._X1
 
@@ -521,11 +580,14 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: self.DF(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: self.DF(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3),
+                    ]
 
             self._X2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'H1vec', name='X2')
+                fun, 'Hdiv', 'H1vec', name='X2',
+            )
 
         return self._X2
 
@@ -543,11 +605,15 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].n3(
-                        e1, e2, e3) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: self.weights['eq_mhd'].n3(
+                            e1, e2, e3,
+                        ) / self.sqrt_g(e1, e2, e3) if m == n else 0*e1,
+                    ]
 
             self._W1 = self.assemble_basis_projection_operator(
-                fun, 'Hcurl', 'Hcurl', name='W1')
+                fun, 'Hcurl', 'Hcurl', name='W1',
+            )
 
         return self._W1
 
@@ -571,17 +637,21 @@ class BasisProjectionOperators:
         if not hasattr(self, '_R1'):
 
             rot_J = RotationMatrix(
-                self.weights['eq_mhd'].j2_1, self.weights['eq_mhd'].j2_2, self.weights['eq_mhd'].j2_3)
+                self.weights['eq_mhd'].j2_1, self.weights['eq_mhd'].j2_2, self.weights['eq_mhd'].j2_3,
+            )
 
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: rot_J(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: rot_J(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3),
+                    ]
 
             self._R1 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hcurl', name='R1')
+                fun, 'Hdiv', 'Hcurl', name='R1',
+            )
 
         return self._R1
 
@@ -604,17 +674,21 @@ class BasisProjectionOperators:
         if not hasattr(self, '_R2'):
 
             rot_J = RotationMatrix(
-                self.weights['eq_mhd'].j2_1, self.weights['eq_mhd'].j2_2, self.weights['eq_mhd'].j2_3)
+                self.weights['eq_mhd'].j2_1, self.weights['eq_mhd'].j2_2, self.weights['eq_mhd'].j2_3,
+            )
 
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: (self.Ginv(e1, e2, e3) @ rot_J(e1, e2, e3))[:, :, :, m, n]]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m,
+                        n=n: (self.Ginv(e1, e2, e3) @ rot_J(e1, e2, e3))[:, :, :, m, n],
+                    ]
 
             self._R2 = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hdiv', name='R2')
+                fun, 'Hdiv', 'Hdiv', name='R2',
+            )
 
         return self._R2
 
@@ -631,11 +705,14 @@ class BasisProjectionOperators:
 
             fun = [[]]
             for m in range(3):
-                fun[-1] += [lambda e1, e2, e3,
-                            m=m: self.weights['eq_mhd'].unit_b1(e1, e2, e3)[m] / self.sqrt_g(e1, e2, e3)]
+                fun[-1] += [
+                    lambda e1, e2, e3,
+                    m=m: self.weights['eq_mhd'].unit_b1(e1, e2, e3)[m] / self.sqrt_g(e1, e2, e3),
+                ]
 
             self._PB = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'H1', name='PB')
+                fun, 'Hdiv', 'H1', name='PB',
+            )
 
         return self._PB
 
@@ -685,18 +762,21 @@ class BasisProjectionOperators:
 
         if self.derham.comm.Get_rank() == 0 and verbose:
             print(
-                f'Assembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
+                f'Assembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.',
+            )
 
         V_id = self.derham.space_to_form[V_id]
         W_id = self.derham.space_to_form[W_id]
 
-        out = BasisProjectionOperator(self.derham.P[W_id],
-                                      self.derham.Vh_fem[V_id],
-                                      fun,
-                                      self.derham.extraction_ops[V_id],
-                                      self.derham.boundary_ops[V_id],
-                                      transposed=False,
-                                      polar_shift=self.domain.pole)
+        out = BasisProjectionOperator(
+            self.derham.P[W_id],
+            self.derham.Vh_fem[V_id],
+            fun,
+            self.derham.extraction_ops[V_id],
+            self.derham.boundary_ops[V_id],
+            transposed=False,
+            polar_shift=self.domain.pole,
+        )
 
         if self.derham.comm.Get_rank() == 0 and verbose:
             print('Done.')
@@ -797,7 +877,8 @@ class BasisProjectionOperator(LinOpWithTransp):
             self._V_boundary_op = V_boundary_op
         else:
             self._V_boundary_op = IdentityOperator(
-                self._V_extraction_op.domain)
+                self._V_extraction_op.codomain,
+            )
 
         self._weights = weights
         self._transposed = transposed
@@ -843,7 +924,8 @@ class BasisProjectionOperator(LinOpWithTransp):
             self._dof_mat = StencilMatrix(V.vector_space, P.space.vector_space)
         else:
             self._dof_mat = BlockLinearOperator(
-                V.vector_space, P.space.vector_space)
+                V.vector_space, P.space.vector_space,
+            )
 
         self._dof_mat = self._assemble_mat()
         # ========================================================
@@ -852,8 +934,10 @@ class BasisProjectionOperator(LinOpWithTransp):
         if transposed:
             self._dof_mat_T = self._dof_mat.T
             self._dof_operator = self._V_boundary_op @ self._V_extraction_op @ self._dof_mat_T @ self._P_extraction_op.T @ self._P_boundary_op.T
+            self._x0 = self._dof_operator.domain.zeros()
         else:
             self._dof_operator = self._P_boundary_op @ self._P_extraction_op @ self._dof_mat @ self._V_extraction_op.T @ self._V_boundary_op.T
+            self._x0 = self._dof_operator.codomain.zeros()
 
         # set domain and codomain
         self._domain = self.dof_operator.domain
@@ -932,29 +1016,21 @@ class BasisProjectionOperator(LinOpWithTransp):
         assert v.space == self.domain
 
         if out is None:
+            out = self.codomain.zeros()
 
-            if self.transposed:
-                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                out = self.dof_operator.dot(self._P.solve(
-                    v, True, apply_bc=True))
-            else:
-                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                out = self._P.solve(self.dof_operator.dot(
-                    v), False, apply_bc=True)
+        assert isinstance(out, Vector)
+        assert out.space == self.codomain
 
+        if self.transposed:
+            # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
+            self._P.solve(v, True, apply_bc=True, out=self._tmp_dom, x0=self._x0)
+            self._tmp_dom.copy(out=self._x0)
+            self.dof_operator.dot(self._tmp_dom, out=out)
         else:
-
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-
-            if self.transposed:
-                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom)
-                self.dof_operator.dot(self._tmp_dom, out=out)
-            else:
-                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
-                self.dof_operator.dot(v, out=self._tmp_codom)
-                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out)
+            # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
+            self.dof_operator.dot(v, out=self._tmp_codom)
+            self._P.solve(self._tmp_codom, False, apply_bc=True, out=out, x0=self._x0)
+            out.copy(out=self._x0)
 
         return out
 
@@ -962,9 +1038,11 @@ class BasisProjectionOperator(LinOpWithTransp):
         """
         Returns the transposed operator.
         """
-        return BasisProjectionOperator(self._P, self._V, self._weights,
-                                       self._V_extraction_op, self._V_boundary_op, self._P_extraction_op, self._P_boundary_op,
-                                       not self.transposed, self._polar_shift, self._use_cache)
+        return BasisProjectionOperator(
+            self._P, self._V, self._weights,
+            self._V_extraction_op, self._V_boundary_op, self._P_extraction_op, self._P_boundary_op,
+            not self.transposed, self._polar_shift, self._use_cache,
+        )
 
     def update_weights(self, weights):
         '''Updates self.weights and computes new DOF matrix.
@@ -1015,8 +1093,10 @@ class BasisProjectionOperator(LinOpWithTransp):
             _W1ds = [comp.spaces for comp in P.space.spaces]
 
         # retrieve number of quadrature points of each component (=1 for interpolation)
-        _nqs = [[P.grid_x[comp][direction].shape[1]
-                 for direction in range(V.ldim)] for comp in range(len(_W1ds))]
+        _nqs = [[
+            P.grid_x[comp][direction].shape[1]
+            for direction in range(V.ldim)
+        ] for comp in range(len(_W1ds))]
 
         # ouptut vector space (codomain), row of block
         for i, (Wspace, W1d, nq, weight_line) in enumerate(zip(_Wspaces, _W1ds, _nqs, weights)):
@@ -1038,17 +1118,21 @@ class BasisProjectionOperator(LinOpWithTransp):
                 if self._use_cache:
                     if (i, j) in self._cache:
                         _ptsG, _wtsG, _spans, _bases, _subs = self._cache[(
-                            i, j)]
+                            i, j,
+                        )]
                     else:
                         _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
-                            V1d, W1d, _starts_out, _ends_out, nq, polar_shift)
+                            V1d, W1d, _starts_out, _ends_out, nq, polar_shift,
+                        )
 
                         self._cache[(i, j)] = (
-                            _ptsG, _wtsG, _spans, _bases, _subs)
+                            _ptsG, _wtsG, _spans, _bases, _subs,
+                        )
                 else:
                     # no cache
                     _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
-                        V1d, W1d, _starts_out, _ends_out, nq, polar_shift)
+                        V1d, W1d, _starts_out, _ends_out, nq, polar_shift,
+                    )
 
                 _ptsG = [pts.flatten() for pts in _ptsG]
 
@@ -1063,15 +1147,18 @@ class BasisProjectionOperator(LinOpWithTransp):
                     mat_w = loc_weight
                 elif loc_weight is not None:
                     raise TypeError(
-                        "weights must be np.ndarray, callable or None")
+                        "weights must be np.ndarray, callable or None",
+                    )
 
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
 
                 not_weight_zero = np.array(
-                    int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)))
+                    int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)),
+                )
                 self._mpi_comm.Allreduce(
-                    MPI.IN_PLACE, not_weight_zero, op=MPI.LOR)
+                    MPI.IN_PLACE, not_weight_zero, op=MPI.LOR,
+                )
                 if not_weight_zero or self._is_scalar:
 
                     # get cell of block matrix (don't instantiate if all zeros)
@@ -1083,17 +1170,23 @@ class BasisProjectionOperator(LinOpWithTransp):
                     if dofs_mat is None:
                         # Maybe in a previous iteration we had more zeros
                         self._dof_mat[i, j] = StencilMatrix(
-                            Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                            Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+                        )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = getattr(basis_projection_kernels,
-                                     'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
+                    kernel = getattr(
+                        basis_projection_kernels,
+                        'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd',
+                    )
 
-                    kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
-                           _pads_out, mat_w, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
+                    kernel(
+                        dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out,
+                        _pads_out, mat_w, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees,
+                    )
 
                     dofs_mat.set_backend(
-                        backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+                        backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True,
+                    )
 
                     dofs_mat.update_ghost_regions()
 
@@ -1151,7 +1244,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
         # point sets and weights for inter-/histopolation
         pts_i, wts_i, subs_i = get_pts_and_wts(
-            space_out, s, e, n_quad=n_quad[d], polar_shift=d == 0 and polar_shift)
+            space_out, s, e, n_quad=n_quad[d], polar_shift=d == 0 and polar_shift,
+        )
 
         pts += [pts_i]
         wts += [wts_i]
@@ -1175,8 +1269,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
     #print(pts)
     #print("#################################################")
     #print("#################################################")
-    
-    
+
     return tuple(pts), tuple(wts), tuple(spans), tuple(bases), tuple(subs)
 
 
