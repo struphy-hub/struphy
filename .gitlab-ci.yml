@@ -43,6 +43,8 @@ default:
     - module list
     - make -v
     - python3 --version
+    # This is a temporary fix due to ImportError
+    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2023.03/lib
     - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
 
@@ -441,7 +443,7 @@ lint_struphy:
     - pip install -e . # We have to install struphy in editable mode for struphy lint to work
     - struphy
     # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
-    - struphy lint branch --output-format plain
+    - struphy lint branch --output-format plain --verbose
   allow_failure: true
 
 ##################
@@ -1046,3 +1048,5 @@ release_job:
           url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
         - name: 'PyPI'
           url: 'https://pypi.org/project/struphy/'
+
+

@@ -117,9 +117,9 @@ class Derham:
 
         self._dirichlet_bc = dirichlet_bc
 
-        # default p: exact integration of degree 2p-1 polynomials
+        # default p: exact integration of degree 2p+1 polynomials
         if nquads is None:
-            self._nquads = [pi for pi in p]
+            self._nquads = [pi + 1 for pi in p]
         else:
             assert len(nquads) == 3
             self._nquads = nquads
@@ -165,8 +165,8 @@ class Derham:
         # Psydac discrete de Rham, projectors and derivatives
         _derham = discretize(
             self._derham_symb, self._domain_log_h,
-            degree=self.p, nquads=self.nquads,
-        )
+            degree=self.p,
+        )  # , nquads=self.nquads) # nquads can no longer be passed to a call to discretize on a FemSpace #403
 
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
@@ -249,6 +249,9 @@ class Derham:
                 # We iterate over each component of the vector
                 for comp_space in fem_space.spaces:
 
+                    # nquads must be manually set (has been deprecated in psydac)
+                    # comp_space.nquads = self.nquads
+
                     self._nbasis[sp_form] += [[]]
                     self._spline_types[sp_form] += [[]]
                     self._spline_types_pyccel[sp_form] += [[]]
@@ -262,14 +265,15 @@ class Derham:
                     self._quad_grid_wts[sp_form] += [[]]
                     self._quad_grid_spans[sp_form] += [[]]
                     self._quad_grid_bases[sp_form] += [[]]
+
                     # space iterates over each of the spatial coordinates.
                     for d, (space, s, e, quad_grid, nquad) in enumerate(
                         zip(
                             comp_space.spaces,
                             comp_space.vector_space.starts,
                             comp_space.vector_space.ends,
-                            comp_space._quad_grids,
-                            comp_space.nquads,
+                            self.get_quad_grids(comp_space),
+                            self.nquads,
                         ),
                     ):
 
@@ -307,14 +311,18 @@ class Derham:
                     )
             # In this case we are working with a scalar valued space
             else:
+
+                # nquads must be manually set (has been deprecated in psydac)
+                # fem_space.nquads = self.nquads
+
                 # space iterates over each of the spatial coordinates.
                 for d, (space, s, e, quad_grid, nquad) in enumerate(
                     zip(
                         fem_space.spaces,
                         fem_space.vector_space.starts,
                         fem_space.vector_space.ends,
-                        fem_space._quad_grids,
-                        fem_space.nquads,
+                        self.get_quad_grids(fem_space),
+                        self.nquads,
                     ),
                 ):
 
@@ -1116,6 +1124,13 @@ class Derham:
             bds[n] = bd
 
         return spans, bns, bds
+
+    def get_quad_grids(self, space, nquads=None):
+        assert self._nquads, "nquads has to be set with self._nquads = nquads"
+        if nquads is None:
+            nquads = self.nquads
+        return tuple({q: gag} for q, gag in zip(nquads, space.get_assembly_grids(*nquads)))
+
     # --------------------------
     # Inner classes
     # --------------------------
@@ -2358,8 +2373,8 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        tmp = set(np.round_(space_1d.histopolation_grid, decimals=14)).union(
-            np.round_(union_breaks, decimals=14),
+        tmp = set(np.round(space_1d.histopolation_grid, decimals=14)).union(
+            np.round(union_breaks, decimals=14),
         )
 
         tmp = list(tmp)

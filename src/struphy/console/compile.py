@@ -33,14 +33,16 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         Whether to say yes to prompt when changing the language.
     """
 
-    import subprocess
-    import struphy
     import os
+    import subprocess
+    import sysconfig
+
     import pyccel
     import yaml
-    import sysconfig
-    import struphy.utils.utils as utils
+
+    import struphy
     import struphy.dependencies as depmod
+    import struphy.utils.utils as utils
 
     libpath = struphy.__path__[0]
 
@@ -48,7 +50,8 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
     if any([s == ' ' for s in libpath]):
         raise NameError(
-            f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".')
+            f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".',
+        )
 
     # Read struphy state file
     state = utils.read_state()
@@ -78,18 +81,24 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
         # (change dir not to be in source path)
         print('\nDeleting .f90/.c and .so files ...')
-        subprocess.run(['make',
-                        'clean',
-                        '-f',
-                        'compile_struphy.mk',
-                        'sources=' + sources,
-                        ], check=True, cwd=libpath)
+        subprocess.run(
+            [
+                'make',
+                'clean',
+                '-f',
+                'compile_struphy.mk',
+                'sources=' + sources,
+            ], check=True, cwd=libpath,
+        )
         print('Done.')
 
-        subprocess.run(['struphy',
-                       'compile',
-                        '--status',
-                        ], check=True, cwd=libpath)
+        subprocess.run(
+            [
+                'struphy',
+                'compile',
+                '--status',
+            ], check=True, cwd=libpath,
+        )
 
         print('\nDeleting state.yml ...')
         os.remove(os.path.join(libpath, 'state.yml'))
@@ -117,8 +126,10 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                         continue
 
                     py_file = stem + '.py'
-                    matches = [ker for ker in state['kernels']
-                               if py_file in ker and dir_stem in ker]
+                    matches = [
+                        ker for ker in state['kernels']
+                        if py_file in ker and dir_stem in ker
+                    ]
                     # print(f'{matches = }')
                     for match in matches:
                         py_ker = match.split('/')[-1]
@@ -138,10 +149,12 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         print('')
         print(f'{count_c} of {n_kernels} Struphy kernels are compiled with language C.')
         print(
-            f'{count_f90} of {n_kernels} Struphy kernels are compiled with language Fortran.')
+            f'{count_f90} of {n_kernels} Struphy kernels are compiled with language Fortran.',
+        )
         print(f'{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).')
         print(
-            f'\ncompiler={state["last_used_compiler"]}\nflags_omp_pic={state["last_used_omp_pic"]}\nflags_omp_feec={state["last_used_omp_feec"]}')
+            f'\ncompiler={state["last_used_compiler"]}\nflags_omp_pic={state["last_used_omp_pic"]}\nflags_omp_feec={state["last_used_omp_feec"]}',
+        )
         if len(list_not_compiled) > 0:
             print('\nPure Python kernels (not compiled) are:')
             for ker in list_not_compiled:
@@ -186,12 +199,17 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                 yesno = 'Y'
             else:
                 yesno = input(
-                    f'Kernels compiled in language {state["last_used_language"]} exist, will be deleted, continue (Y/n)?')
+                    f'Kernels compiled in language {state["last_used_language"]} exist, will be deleted, continue (Y/n)?',
+                )
 
             if yesno in ('', 'Y', 'y', 'yes'):
-                subprocess.run(['struphy',
-                                'compile',
-                                '--delete',], check=True, cwd=libpath)
+                subprocess.run(
+                    [
+                        'struphy',
+                        'compile',
+                        '--delete',
+                    ], check=True, cwd=libpath,
+                )
             else:
                 return
 
@@ -211,63 +229,42 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         if verbose:
             flags += ' --verbose'
 
-        # install psydac from wheel if not there
-        current_ver = '0.1.13'
-        psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
-
-        try:
-            import psydac
-            import importlib.metadata
-
-            your_ver = importlib.metadata.version("psydac")
-
-            if current_ver != your_ver:
-                print(
-                    f'You have psydac version {your_ver}, but version {current_ver} is available.\n')
-                subprocess.run(['pip',
-                                'uninstall',
-                                '-y',
-                                'psydac'])
-                print('\nInstalling Psydac ...')
-                subprocess.run(['pip',
-                                'install',
-                                os.path.join(
-                                    libpath, psydac_file),
-                                ], check=True)
-                print('Done.')
-
-        except:
-            print('\nInstalling Psydac ...')
-            subprocess.run(['pip',
-                            'install',
-                            os.path.join(
-                                libpath, psydac_file),
-                            ], check=True)
-            print('Done.')
-
         # compilation
-        subprocess.run(['compile-gvec-tp',
-                        '--language=' + language,
-                        '--compiler=' + compiler], check=True, cwd=libpath)
+        subprocess.run(
+            [
+                'compile-gvec-tp',
+                '--language=' + language,
+                '--compiler=' + compiler,
+            ], check=True, cwd=libpath,
+        )
 
-        print('\nCompiling Struphy and Psydac kernels ...')
-        subprocess.run(['make',
-                        '-f',
-                        'compile_struphy.mk',
-                        'sources=' + sources,
-                        'flags=' + flags,
-                        'flags_openmp_pic=' + flag_omp_pic,
-                        'flags_openmp_mhd=' + flag_omp_feec,
-                        ], check=True, cwd=libpath)
+        print('\nCompiling Struphy kernels ...')
+        subprocess.run(
+            [
+                'make',
+                '-f',
+                'compile_struphy.mk',
+                'sources=' + sources,
+                'flags=' + flags,
+                'flags_openmp_pic=' + flag_omp_pic,
+                'flags_openmp_mhd=' + flag_omp_feec,
+            ], check=True, cwd=libpath,
+        )
         print('Done.')
 
-        subprocess.run(['struphy',
-                       'compile',
-                        '--status',
-                        ], check=True, cwd=libpath)
+        subprocess.run(
+            [
+                'struphy',
+                'compile',
+                '--status',
+            ], check=True, cwd=libpath,
+        )
 
         # collect available models
         print('')
-        subprocess.run(['struphy',
-                        '--refresh-models',
-                        ], check=True, cwd=libpath)
+        subprocess.run(
+            [
+                'struphy',
+                '--refresh-models',
+            ], check=True, cwd=libpath,
+        )
