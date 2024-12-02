@@ -414,8 +414,8 @@ if __name__ == '__main__':
     # Enable profiling if likwid == True
     config = ProfilingConfig()
     config.likwid = args.likwid
-    config.sample_duration = 0.0001
-    config.sample_interval = 1
+    config.sample_duration = 10
+    config.sample_interval = 10
     config.simulation_label = ""
 
     pylikwid_markerinit()
@@ -432,6 +432,7 @@ if __name__ == '__main__':
             sort_step=args.sort_step,
         )
     pylikwid_markerclose()
-    # all_regions = ProfileManager.get_all_regions()
-    # ProfileManager.print_summary()
-    # ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_data.pkl"))
+    if args.likwid:
+        # all_regions = ProfileManager.get_all_regions()
+        ProfileManager.print_summary()
+        ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_data.pkl"))

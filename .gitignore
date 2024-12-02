@@ -78,6 +78,8 @@ my_struphy_sims
 /run_STRUPHY*.sh
 logs
 *env/
+.hostfile*
+.likwidscript*
 
 # I/O
 src/struphy/io/out/

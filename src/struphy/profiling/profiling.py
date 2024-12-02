@@ -188,11 +188,14 @@ class ProfileManager:
 
         if rank == 0:
             # Combine the data from all processes
-            combined_data = {f"rank_{i}": data for i, data in enumerate(all_data)}
+            combined_data = {
+                'config':None,
+                'rank_data':{f"rank_{i}": data for i, data in enumerate(all_data)}
+            }
 
             # Add the likwid data
             if likwid_data:
-                combined_data["likwid_data"] = likwid_data
+                combined_data['config'] = likwid_data
 
             # Convert the file path to an absolute path
             absolute_path = os.path.abspath(file_path)
