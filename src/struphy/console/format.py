@@ -1,8 +1,8 @@
 """
 Struphy Linting and Formatting Tools
 
-This module provides utilities to lint, format, and analyze Python files in struphy.
-It is only accessible when compiling struphy in editable mode.
+This module provides utilities to lint, format, and analyze Python files in StruPhy.
+It is accessible when compiling StruPhy in editable mode.
 
 Functions
 ---------
@@ -10,10 +10,10 @@ parse_path(directory)
     Traverse a directory to find Python files, excluding '__XYZ__.py'.
 
 get_python_files(input_type, path=None)
-    Retrieve Python files based on the specified input type (all, path, staged, or branch).
+    Retrieve Python files based on the specified input type ('all', 'path', 'staged', or 'branch').
 
 struphy_lint(config, verbose)
-    Lint Python files based on the given type, using specified linters.
+    Lint Python files based on the given configuration, using specified linters.
 
 struphy_format(config, verbose, yes=False)
     Format Python files with specified linters, optionally iterating multiple times.
@@ -21,11 +21,23 @@ struphy_format(config, verbose, yes=False)
 print_stats_table(stats_list, linters, print_header=True, pathlen=0)
     Print statistics for Python files in a tabular format.
 
-analyze_file(file_path, linters=["isort", "autopep8"], verbose=False)
+print_stats_plain(stats, linters)
+    Print statistics for Python files in a plain-text format.
+
+analyze_file(file_path, linters=None, verbose=False)
     Analyze a Python file, reporting on code structure and linter compliance.
 
-print_file_stats(stats)
-    Display statistics of a single file in a readable format.
+generate_report(python_files, linters=["ruff"], verbose=False)
+    Generate a linting report in HTML format for specified files.
+
+parse_json_file_to_html(json_file_path, html_output_path)
+    Parse a JSON linting report into an HTML file with detailed context for each issue.
+
+check_omp_flags(file_path)
+    Check if a file contains OpenMP-like flags (`# $`).
+
+check_ruff(file_path, verbose=False)
+    Check if a file passes Ruff linting.
 
 check_isort(file_path, verbose=False)
     Check if a file is sorted according to isort.
@@ -36,11 +48,27 @@ check_autopep8(file_path, verbose=False)
 check_flake8(file_path, verbose=False)
     Check if a file is formatted according to flake8.
 
-get_pylint_score(file_path, verbose=False, pass_score)
-    Get pylint score for a file and determine if it passes.
+get_pylint_score(file_path, verbose=False, pass_score=8.0)
+    Get pylint score for a file and determine if it passes based on a minimum score.
 
 check_trailing_commas(file_path, verbose=False)
-    Check if a file is formatted according to add-trailing-comma.
+    Check if a file contains trailing commas required by add-trailing-commas.
+
+files_require_formatting(python_files, linters)
+    Determine if any specified files require formatting based on the given linters.
+
+run_linters_on_files(linters, python_files, flags, verbose)
+    Run specified linters on the provided files with appropriate flags.
+
+confirm_formatting(python_files, linters, yes)
+    Confirm with the user whether to format the listed Python files.
+
+replace_backticks_with_code_tags(text)
+    Replace inline backticks with <code> tags, handling multiple or nested occurrences.
+
+generate_html_table_from_combined_data(combined_data, sort_descending=True)
+    Generate an HTML table from combined data for code issues.
+
 """
 
 import ast
@@ -68,6 +96,31 @@ BLACK_COLOR = "\033[0m"
 
 FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
 PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
+
+
+def check_omp_flags(file_path, verbose=False):
+    """
+    Checks if a file contains incorrect OpenMP-like flags (`# $`).
+
+    Parameters:
+    -----------
+    file_path : str
+        Path to the file to check.
+
+    Returns:
+    --------
+    bool
+        True if no incorrect OpenMP-like flags (`# $`) are found, False otherwise.
+    """
+    try:
+        with open(file_path, "r") as f:
+            if verbose:
+                for iline, line in enumerate(f):
+                    if line.lstrip().startswith("# $"):
+                        print(f"Error on line {iline}: {line}")
+            return all(not line.lstrip().startswith("# $") for line in f)
+    except (IOError, FileNotFoundError) as e:
+        raise ValueError(f"Error reading file: {e}")
 
 
 def check_ruff(file_path, verbose=False):
@@ -114,7 +167,7 @@ def check_ruff(file_path, verbose=False):
                 if not line or line.startswith("+++ "):
                     continue
                 # Check for lines with actual changes
-                if line.startswith("+ ") and "# $" not in line:
+                if line.startswith("+ ") and not line[1:].lstrip().startswith("# $"):
                     returncode = 1
             returncodes.append(returncode)
 
@@ -456,7 +509,7 @@ def struphy_lint(config, verbose):
     if input_type is None and path is not None:
         input_type = "path"
     # Define standard linters which will be checked in the CI
-    ci_linters = ["ruff"]
+    ci_linters = ["ruff", "omp_flags"]
     python_files = get_python_files(input_type, path)
     if len(python_files) == 0:
         sys.exit(0)
@@ -612,10 +665,12 @@ def run_linters_on_files(linters, python_files, flags, verbose):
                     print(f"Running command: {' '.join(command)}")
                 subprocess.run(command, check=False)
 
-            if "kernel" in python_file:
-                # Loop over each line and replace '# $' with '#$' in place
-                for line in fileinput.input(python_file, inplace=True):
+            # Loop over each line and replace '# $' with '#$' in place
+            for line in fileinput.input(python_file, inplace=True):
+                if line.lstrip().startswith("# $"):
                     print(line.replace("# $", "#$"), end="")
+                else:
+                    print(line, end="")
 
 
 def struphy_format(config, verbose, yes=False):
@@ -834,6 +889,7 @@ def analyze_file(file_path, linters=None, verbose=False):
         "passes_pylint": False,
         "passes_add-trailing-comma": False,
         "passes_ruff": False,
+        "passes_omp_flags": False,
     }
 
     # Read the file content
@@ -870,6 +926,12 @@ def analyze_file(file_path, linters=None, verbose=False):
             file_path,
             verbose=verbose,
         )
+    if "omp_flags" in linters:
+        stats["passes_omp_flags"] = check_omp_flags(
+            file_path,
+            verbose=verbose,
+        )
+
     return stats
 
 
