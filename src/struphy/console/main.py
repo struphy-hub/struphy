@@ -738,8 +738,8 @@ def struphy():
             "--linters",
             type=str,
             nargs="+",
-            default=["ruff"],
-            choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint", "ruff"],
+            default=["ruff", "omp_flags"],
+            choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint", "ruff", "omp_flags"],
             help="list of linters to use",
         )
 
