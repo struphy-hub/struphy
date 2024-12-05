@@ -468,6 +468,78 @@ class IGAPolarTorus(PoloidalSplineTorus):
         self._params_map['sfl'] = sfl
 
 
+class PolarGVECunit(PoloidalSplineTorus):
+    r"""
+    The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_, 
+    computed by the GVEC MHD equilibrium code.
+
+    Warning : This mapping assumes toroidal symmetry in the GVEC mapping!
+
+    .. image:: ../../pics/mappings/gvec.png
+
+    Parameters
+    ----------
+    gvec_equil : struphy.fields_background.mhd_equil.equils.GVECequilibrium
+        GVEC MHD equilibrium object.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section `geometry`::
+
+        geometry :
+            type : PolarGVECunit
+    """
+
+    def __init__(self, gvec_equil=None):
+
+        from struphy.geometry.base import interp_mapping
+
+        from struphy.fields_background.mhd_equil.equils import GVECequilibrium
+        from struphy.geometry.base import interp_mapping
+
+        print("""Warning in PolarGVECunit : This mapping assumes toroidal symmetry in the GVEC mapping!
+                If your GVEC mapping is not axisymmetric, please use the GVECunit mapping.""")
+
+        if gvec_equil is None:
+            gvec_equil = GVECequilibrium()
+        else:
+            assert isinstance(gvec_equil, GVECequilibrium)
+
+        params_map = {
+            'Nel': gvec_equil.params['Nel'],
+            'p': gvec_equil.params['p'],
+        }
+
+        R0 = gvec_equil.gvec.f(0., 0., 0.)[0]
+
+        def R(eta1, eta2): return gvec_equil.gvec.f(eta1, eta2, 0.*eta1)[0]
+        def Z(eta1, eta2): return gvec_equil.gvec.f(eta1, eta2, 0.*eta1)[2]
+
+        cx, cy = interp_mapping(
+            params_map['Nel'], params_map['p'], [False, True], R, Z,
+        )
+
+        # make sure that control points at pole are all the same (eta1=0 there)
+        cx[0] = R0
+        cy[0] = 0.
+
+        # add control points to parameters dictionary
+        params_map['cx'] = cx
+        params_map['cy'] = cy
+
+        # add spline types to parameters dictionary
+        params_map['spl_kind'] = [False, True]
+
+        # remove "a", "R0" and "sfl" temporarily from params_map dictionary (is not a parameter of PoloidalSplineTorus)
+        params_map['tor_period']= 1
+
+        # init base class
+        super().__init__(**params_map)
+        self._params_map['equilibrium'] = gvec_equil
+
+
+
+
 class Cuboid(Domain):
     r"""
     Slab geometry (Cartesian coordinates).

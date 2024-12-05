@@ -786,6 +786,7 @@ class ViscoresistiveMHD(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U')
+        self.add_scalar('en_U_rad')
         self.add_scalar('en_thermo')
         self.add_scalar('en_mag')
         self.add_scalar('en_tot')
@@ -810,6 +811,14 @@ class ViscoresistiveMHD(StruphyModel):
         else:
             self._ones[:] = 1.
 
+        from struphy.feec.basis_projection_ops import CoordinateProjector
+
+        Pcoord_rad = CoordinateProjector(
+            0, self.derham.Vh_pol['v'], self.derham.Vh_pol['0'],
+        )
+
+        self.rad_proj = Pcoord_rad.T@Pcoord_rad
+
     def update_scalar_quantities(self):
 
         # Update mass matrix
@@ -823,6 +832,10 @@ class ViscoresistiveMHD(StruphyModel):
 
         en_U = self.pointer['mhd_uv'].dot(m1)/2
         self.update_scalar('en_U', en_U)
+
+        WMM3 = self.rad_proj@WMM@self.rad_proj
+        en_U1 = self.pointer['mhd_uv'].dot(WMM3.dot(self.pointer['mhd_uv']))/2.
+        self.update_scalar('en_U_rad', en_U1)
 
         wb2 = self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_wb2)
         en_mag = wb2.dot(self.pointer['b2'])/2

@@ -2225,7 +2225,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         from mpi4py import MPI
 
         import struphy
-        from struphy.geometry.domains import GVECunit
+        from struphy.geometry.domains import GVECunit, PolarGVECunit
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -2249,6 +2249,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
             'json_file': None,
             'use_pest': False,
             'use_nfp': True,
+            'polar': False,
             'rmin': 0.01,
             'Nel': (16, 16, 16),
             'p': (3, 3, 3),
@@ -2309,7 +2310,10 @@ class GVECequilibrium(LogicalMHDequilibrium):
         )
 
         # struphy domain object
-        self._domain = GVECunit(self)
+        if self._params['polar']:
+            self._domain = PolarGVECunit(self)
+        else:
+            self._domain = GVECunit(self)
 
         # create cache
         self._cache = {

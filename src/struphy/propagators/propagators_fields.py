@@ -2803,7 +2803,7 @@ class VariationalMomentumAdvection(Propagator):
 
             if self._info:
                 print("iteration : ", it, " error : ", err)
-            if err < tol**2 or np.isnan(err):
+            if (it>0 and err < tol**2) or np.isnan(err):
                 break
 
             # Newton step
@@ -3061,7 +3061,20 @@ class VariationalDensityEvolve(Propagator):
 
         # Compute the initial force in case we want to 'linearize' around a given equilibrium
         if self._linearize:
-            self._compute_init_linear_form()
+            self.rhof.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.n3)
+            self.rhof1.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.n3)
+            self.sf.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.s3_monoatomic)
+            #self.uf.vector = u.space.zeros()
+            self._update_Pirho()
+            self._update_linear_form_u2()
+
+            self._advection_0 = self.divPirhoT.dot(
+                self._linear_form_dl_drho,
+            )
+            #self._compute_init_linear_form()
+
+        else:
+            self._advection_0 = u.space.zeros()
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -3079,6 +3092,9 @@ class VariationalDensityEvolve(Propagator):
         # Initial variables
         rhon = self.feec_vars[0]
         un = self.feec_vars[1]
+
+        un = self.derham.boundary_ops['v'].dot(un)
+
         self.rhof.vector = rhon
         self.rhof1.vector = rhon
         self._update_weighted_MM()
@@ -3149,6 +3165,10 @@ class VariationalDensityEvolve(Propagator):
             advection = self.divPirhoT.dot(
                 self._linear_form_dl_drho, out=self._tmp_advection,
             )
+
+            # Potential linearization
+            advection -= self._advection_0
+
             advection *= dt
 
             rho_advection = self.divPirho.dot(
@@ -3171,7 +3191,7 @@ class VariationalDensityEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if (it>0 and err < tol**2) or np.isnan(err):
                 break
 
             # Derivative for Newton
@@ -3200,7 +3220,7 @@ class VariationalDensityEvolve(Propagator):
             print(
                 f'!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }',
             )
-
+            exit()
         self._tmp_un_diff = un1-un
         self._tmp_rhon_diff = rhon1-rhon
         self.feec_vars_update(rhon1, un1)
@@ -3307,12 +3327,13 @@ class VariationalDensityEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            P_boundary_op=self.derham.boundary_ops['2'],
         )
 
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
+            V_extraction_op=self.derham.extraction_ops['3'],
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
         )
 
@@ -3831,8 +3852,8 @@ class VariationalDensityEvolve(Propagator):
             self._tmp_int_grid *= 0.
             self._tmp_int_grid += self._DG_values
             self._tmp_int_grid += de_rhom_s
-            if self._linearize:
-                self._tmp_int_grid -= self._init_dener_drho
+            # if self._linearize:
+            #     self._tmp_int_grid -= self._init_dener_drho
             self._tmp_int_grid *= self._proj_rho2_metric_term
 
             # self._eval_dl_drho -= self._proj_rho2_metric_term * (self._DG_values + de_rhom_s)
@@ -4121,7 +4142,20 @@ class VariationalEntropyEvolve(Propagator):
         self._tmp_s_advection = s.space.zeros()
         self._linear_form_dl_ds = s.space.zeros()
         if self._linearize:
-            self._compute_init_linear_form()
+            self.rhof.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.n3)
+            self.sf.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.s3_monoatomic)
+            self.sf1.vector = self.derham.extraction_ops['3'].dot(self.projected_mhd_equil.s3_monoatomic)
+            #self.uf.vector = u.space.zeros()
+            self._update_Pis()
+            self._update_linear_form_u2()
+
+            self._advection_0 = self.divPisT.dot(
+                self._linear_form_dl_ds,
+            )
+            #self._compute_init_linear_form()
+
+        else:
+            self._advection_0 = u.space.zeros()
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -4199,6 +4233,9 @@ class VariationalEntropyEvolve(Propagator):
             advection = self.divPisT.dot(
                 self._linear_form_dl_ds, out=self._tmp_advection,
             )
+
+            advection -= self._advection_0
+
             advection *= dt
 
             s_advection = self.divPis.dot(
@@ -4221,7 +4258,7 @@ class VariationalEntropyEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if (it>0 and err < tol**2) or np.isnan(err):
                 break
 
             # Derivative for Newton
@@ -4354,12 +4391,13 @@ class VariationalEntropyEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
+            P_boundary_op=self.derham.boundary_ops['2'],
         )
 
         self.Piu = BasisProjectionOperator(
             P2, V3h, [[None], [None], [None]],
             transposed=False, use_cache=True,
+            V_extraction_op=self.derham.extraction_ops['3'],
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['2']),
         )
 
@@ -4742,8 +4780,8 @@ class VariationalEntropyEvolve(Propagator):
             de_rho_sm *= eta
 
             self._tmp_int_grid += de_rho_sm
-            if self._linearize:
-                self._tmp_int_grid -= self._init_dener_ds
+            # if self._linearize:
+            #     self._tmp_int_grid -= self._init_dener_ds
             self._tmp_int_grid *= self._proj_rho2_metric_term
             self._tmp_int_grid *= -1.
 
@@ -4979,7 +5017,18 @@ class VariationalMagFieldEvolve(Propagator):
         self._linear_form_dl_db = b.space.zeros()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops['2'].dot(self.projected_mhd_equil.b2)
+            self._extracted_b2 = self.derham.boundary_ops['2'].dot(self.derham.extraction_ops['2'].dot(self.projected_mhd_equil.b2))
+            self.bf.vector = self._extracted_b2
+            self._extracted_b2.copy(out=self._tmp_bn12)
+            self._update_Pib()
+            self._update_linear_form_u2()
+
+            self._advection_0 = self.curlPibT.dot(
+                self._linear_form_dl_db
+            )
+
+        else:
+            self._advection_0 = u.space.zeros()
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -5057,6 +5106,10 @@ class VariationalMagFieldEvolve(Propagator):
             advection = self.curlPibT.dot(
                 self._linear_form_dl_db, out=self._tmp_advection,
             )
+
+            # Potential linearization
+            advection -= self._advection_0 
+
             advection *= dt
 
             b_advection = self.curlPib.dot(
@@ -5079,7 +5132,7 @@ class VariationalMagFieldEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if (it>0 and err < tol**2) or np.isnan(err):
                 break
 
             # Derivative for Newton
@@ -5206,7 +5259,7 @@ class VariationalMagFieldEvolve(Propagator):
             transposed=False, use_cache=True,
             V_extraction_op=self.derham.extraction_ops['v'],
             V_boundary_op=self.derham.boundary_ops['v'],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']),
+            P_boundary_op=self.derham.boundary_ops['1'],
         )
 
         self.Piu = BasisProjectionOperator(
@@ -5216,6 +5269,7 @@ class VariationalMagFieldEvolve(Propagator):
                 [None, None, None],
             ],
             transposed=False, use_cache=True,
+            V_extraction_op=self.derham.extraction_ops['2'],
             P_boundary_op=IdentityOperator(self.derham.Vh_pol['1']),
         )
 
@@ -5454,10 +5508,10 @@ class VariationalMagFieldEvolve(Propagator):
 
     def _update_linear_form_u2(self):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
-        if self._linearize:
-            wb = self.mass_ops.M2.dot(self._tmp_bn12 - self._extracted_b2, out=self._linear_form_dl_db)
-        else:
-            wb = self.mass_ops.M2.dot(self._tmp_bn12, out=self._linear_form_dl_db)
+        # if self._linearize:
+        #     wb = self.mass_ops.M2.dot(self._tmp_bn12 - self._extracted_b2, out=self._linear_form_dl_db)
+        # else:
+        wb = self.mass_ops.M2.dot(self._tmp_bn12, out=self._linear_form_dl_db)
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
@@ -6187,6 +6241,7 @@ class VariationalResistivity(Propagator):
         # bunch of temporaries to avoid allocating in the loop
         self._tmp_bn1 = b.space.zeros()
         self._tmp_bn12 = b.space.zeros()
+        
         self._tmp_sn1 = s.space.zeros()
         self._tmp_sn_incr = s.space.zeros()
         self._tmp_sn_weak_diff = s.space.zeros()
@@ -6197,6 +6252,8 @@ class VariationalResistivity(Propagator):
         self.tot_rhs = s.space.zeros()
         if self._linearize_current :
             self._extracted_b2 = self.derham.boundary_ops['2'].dot(self.derham.extraction_ops['2'].dot(self.projected_mhd_equil.b2))
+            self._tmp_delta_bn = b.space.zeros()
+            self._tmp_delta_bn1 = b.space.zeros()
 
     def __call__(self, dt):
         if self._nonlin_solver['type'] == 'Newton':
@@ -6211,6 +6268,9 @@ class VariationalResistivity(Propagator):
         # Compute dissipation implicitely
         sn = self.feec_vars[0]
         bn = self.feec_vars[1]
+        if self._linearize_current:
+            delta_bn = bn.copy(out=self._tmp_delta_bn)
+            delta_bn -= self._extracted_b2
         if self._eta < 1.e-15 and self._eta_a < 1.e-15:
             self.feec_vars_update(sn, bn)
             return
@@ -6247,8 +6307,9 @@ class VariationalResistivity(Propagator):
         self._scaled_stiffness._scalar = dt*self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
         if self._linearize_current:
-            bn1 = self.evol_op.dot(bn + dt*self._eta*self.curl.dot(
-                self.Tcurl.dot(self._extracted_b2)), out=self._tmp_bn1)
+            delta_bn1 = self.evol_op.dot(delta_bn, out=self._tmp_delta_bn1)
+            bn1 = delta_bn1.copy(out = self._tmp_bn1)
+            bn1 += self._extracted_b2
         else:
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
@@ -6260,8 +6321,7 @@ class VariationalResistivity(Propagator):
         bn12 += bn1
         bn12 /= 2.
         if self._linearize_current:
-            cb1 = self.Tcurl.dot(
-                bn1-self._extracted_b2, out=self._tmp_cb1)
+            cb1 = self.Tcurl.dot(delta_bn1, out=self._tmp_cb1)
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 

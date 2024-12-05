@@ -955,13 +955,24 @@ class BasisProjectionOperator(LinOpWithTransp):
         if not self._logical:
             if self.transposed:
                 # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
-                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom, x0=self._x0)
+                # print("transposed")
+                self._P.solve(v, True, apply_bc=True, out=self._tmp_dom)#, x0=self._x0)
                 self._tmp_dom.copy(out=self._x0)
                 self.dof_operator.dot(self._tmp_dom, out=out)
             else:
                 # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
                 self.dof_operator.dot(v, out=self._tmp_codom)
-                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out, x0=self._x0)
+                # print("pol")
+                # print(self._tmp_codom._pol)
+                # print("tp data")
+                # if isinstance(self._tmp_codom._tp, BlockVector):
+                #     K = self._tmp_codom._tp[0]._data
+                #     for i in range(K.shape[0]):
+                #         for j in range(K.shape[1]):
+                #             for l in range(K.shape[2]):
+                #                 if K[i,j,l]>1e-16:
+                #                     print(i,j,l,K[i,j,l])
+                self._P.solve(self._tmp_codom, False, apply_bc=True, out=out)#, x0=self._x0)
                 out.copy(out=self._x0)
 
         else:

@@ -305,6 +305,9 @@ class PolarVector(Vector):
         assert isinstance(v, PolarVector)
         assert v.space == self.space
 
+        self.set_tp_coeffs_to_zero()
+        v.set_tp_coeffs_to_zero()
+
         # tensor-product part
         out = self.tp.dot(v.tp)
 

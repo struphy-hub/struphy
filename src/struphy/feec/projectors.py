@@ -142,13 +142,13 @@ class CommutingProjector:
         # linear solver used for polar projections
         if self._is_polar:
             self._polar_solver = inverse(
-                self._I, 'pbicgstab', pc=self._pc, tol=1e-14, maxiter=1000, verbose=False)
+                self._I, 'pbicgstab', pc=self._pc, tol=1e-14, maxiter=100, verbose=False)
             self._polar_solver0 = inverse(
-                self._I0, 'pbicgstab', pc=self._pc0, tol=1e-14, maxiter=1000, verbose=False)
+                self._I0, 'pbicgstab', pc=self._pc0, tol=1e-14, maxiter=100, verbose=False)
             self._polar_solverT = inverse(
-                self._IT, 'pbicgstab', pc=self._pcT, tol=1e-14, maxiter=1000, verbose=False)
+                self._IT, 'pbicgstab', pc=self._pcT, tol=1e-14, maxiter=100, verbose=False)
             self._polar_solver0T = inverse(
-                self._I0T, 'pbicgstab', pc=self._pc0T, tol=1e-14, maxiter=1000, verbose=False)
+                self._I0T, 'pbicgstab', pc=self._pc0T, tol=1e-14, maxiter=100, verbose=False)
         else:
             self._polar_solver = None
 
@@ -269,11 +269,11 @@ class CommutingProjector:
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
-                    self._polar_solver0T.set_options(x0=x0)
+                    #self._polar_solver0T.set_options(x0=x0)
                     x = self._polar_solver0T.solve(
                         self._boundary_op.T.dot(rhs), out=out)
                 else:
-                    self._polar_solverT.set_options(x0=x0)
+                    #self._polar_solverT.set_options(x0=x0)
                     x = self._polar_solverT.solve(
                         self._boundary_op.T.dot(rhs), out=out)
             # standard (tensor product) case (Kronecker solver)
@@ -286,11 +286,11 @@ class CommutingProjector:
             # polar case (iterative solve with PBiConjugateGradientStab)
             if self.is_polar:
                 if apply_bc:
-                    self._polar_solver0.set_options(x0=x0)
+                    #self._polar_solver0.set_options(x0=x0)
                     x = self._polar_solver0.solve(
                         self._boundary_op.T.dot(rhs), out=out)
                 else:
-                    self._polar_solver.set_options(x0=x0)
+                    #self._polar_solver.set_options(x0=x0)
                     x = self._polar_solver.solve(
                         self._boundary_op.T.dot(rhs), out=out)
             # standard (tensor product) case (Kronecker solver)
