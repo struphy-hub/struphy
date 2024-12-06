@@ -3093,8 +3093,6 @@ class VariationalDensityEvolve(Propagator):
         rhon = self.feec_vars[0]
         un = self.feec_vars[1]
 
-        un = self.derham.boundary_ops['v'].dot(un)
-
         self.rhof.vector = rhon
         self.rhof1.vector = rhon
         self._update_weighted_MM()
@@ -6502,8 +6500,8 @@ class VariationalResistivity(Propagator):
             pc=self.pc,
             tol=self._lin_solver['tol'],
             maxiter=self._lin_solver['maxiter'],
-            verbose=False,
-            recycle=True,
+            verbose=self._lin_solver['verbose'],
+            recycle=self._lin_solver['recycle'],
         )
 
         self.evol_op = self.inv_lop@self.r_op

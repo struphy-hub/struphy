@@ -796,6 +796,7 @@ class ViscoresistiveMHD(StruphyModel):
 
         # temporary vectors for scalar quantities
         self._tmp_m1 = self.derham.Vh_pol['v'].zeros()
+        self._tmp_m_rad = self.derham.Vh_pol['v'].zeros()
         self._tmp_wb2 = self.derham.Vh_pol['2'].zeros()
         self._tmp_div_B = self.derham.Vh_pol['3'].zeros()
         self._tmp_w_div_B = self.derham.Vh_pol['3'].zeros()
@@ -834,7 +835,10 @@ class ViscoresistiveMHD(StruphyModel):
         self.update_scalar('en_U', en_U)
 
         WMM3 = self.rad_proj@WMM@self.rad_proj
-        en_U1 = self.pointer['mhd_uv'].dot(WMM3.dot(self.pointer['mhd_uv']))/2.
+
+        m_rad = WMM3.dot(self.pointer['mhd_uv'], out= self._tmp_m_rad)
+
+        en_U1 = self.pointer['mhd_uv'].dot(m_rad)/2.
         self.update_scalar('en_U_rad', en_U1)
 
         wb2 = self._mass_ops.M2.dot(self.pointer['b2'], out=self._tmp_wb2)

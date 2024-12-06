@@ -257,9 +257,9 @@ class SchurSolverFull:
         rhs *= -1
         rhs += bx
 
-        pc = self._solver._options['pc']
+        # pc = self._solver._options['pc']
 
-        op = pc@self._S
+        # op = pc@self._S
 
         # print("converting to sparse")
         # ops = op.tosparse()
