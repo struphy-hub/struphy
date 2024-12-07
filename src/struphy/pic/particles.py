@@ -42,8 +42,8 @@ class Particles6D(Particles):
     @classmethod
     def default_bckgr_params(cls):
         return {
-            'type': 'Maxwellian3D',
-            'Maxwellian3D': {},
+            "type": "Maxwellian3D",
+            "Maxwellian3D": {},
         }
 
     def __init__(
@@ -54,76 +54,67 @@ class Particles6D(Particles):
         loading: str,
         **kwargs,
     ):
-
-        if 'bckgr_params' not in kwargs:
-            kwargs['bckgr_params'] = self.default_bckgr_params()
+        if "bckgr_params" not in kwargs:
+            kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        if 'n_cols' not in kwargs:
+        if "n_cols" not in kwargs:
             self._n_cols_diagnostics = 0
             self._n_cols_aux = 5
 
         else:
-            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
-            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
+            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
 
-            kwargs.pop('n_cols')
+            kwargs.pop("n_cols")
 
         super().__init__(name, Np, bc, loading, **kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
-        if kwargs['bckgr_params']['type'] == 'CanonicalMaxwellian':
-
+        if kwargs["bckgr_params"]["type"] == "CanonicalMaxwellian":
             self._absB0_h = self.projected_mhd_equil.absB0
             self._b2_h = self.projected_mhd_equil.b2
             self._derham = self.projected_mhd_equil.derham
 
-            self._epsilon = self.equation_params['epsilon']
+            self._epsilon = self.equation_params["epsilon"]
 
     @property
     def n_cols(self):
-        """ Number of the columns at each markers.
-        """
+        """Number of the columns at each markers."""
         return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
 
     @property
     def vdim(self):
-        """ Dimension of the velocity space.
-        """
+        """Dimension of the velocity space."""
         return 3
 
     @property
     def first_diagnostics_idx(self):
-        """ Starting buffer marker index number for diagnostics.
-        """
+        """Starting buffer marker index number for diagnostics."""
         return 3 + self.vdim + 3
 
     @property
     def first_pusher_idx(self):
-        """ Starting buffer marker index number for pusher.
-        """
+        """Starting buffer marker index number for pusher."""
         return 3 + self.vdim + 3 + self.n_cols_diagnostics
 
     @property
     def n_cols_diagnostics(self):
-        """ Number of the diagnostics columns.
-        """
+        """Number of the diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """ Number of the auxiliary columns.
-        """
+        """Number of the auxiliary columns."""
         return self._n_cols_aux
 
     @property
     def coords(self):
-        """ Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`.
-        """
-        return 'cartesian'
+        """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
+        return "cartesian"
 
     def svol(self, eta1, eta2, eta3, *v):
-        """ Sampling density function as volume form.
+        """Sampling density function as volume form.
 
         Parameters
         ----------
@@ -141,22 +132,22 @@ class Particles6D(Particles):
         """
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
-            'n': 1.,
-            'u1': self.loading_params['moments'][0],
-            'u2': self.loading_params['moments'][1],
-            'u3': self.loading_params['moments'][2],
-            'vth1': self.loading_params['moments'][3],
-            'vth2': self.loading_params['moments'][4],
-            'vth3': self.loading_params['moments'][5],
+            "n": 1.0,
+            "u1": self.loading_params["moments"][0],
+            "u2": self.loading_params["moments"][1],
+            "u3": self.loading_params["moments"][2],
+            "vth1": self.loading_params["moments"][3],
+            "vth2": self.loading_params["moments"][4],
+            "vth3": self.loading_params["moments"][5],
         }
 
         fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
 
-        if self.spatial == 'uniform':
+        if self.spatial == "uniform":
             return fun(eta1, eta2, eta3, *v)
 
-        elif self.spatial == 'disc':
-            return fun(eta1, eta2, eta3, *v)*2*eta1
+        elif self.spatial == "disc":
+            return fun(eta1, eta2, eta3, *v) * 2 * eta1
 
         else:
             raise NotImplementedError(
@@ -164,7 +155,7 @@ class Particles6D(Particles):
             )
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
-        """ Sampling density function as 0 form.
+        """Sampling density function as 0 form.
 
         Parameters
         ----------
@@ -183,9 +174,11 @@ class Particles6D(Particles):
             The 0-form sampling density.
         -------
         """
-        assert self.domain, f'self.domain must be set to call the sampling density 0-form.'
+        assert self.domain, f"self.domain must be set to call the sampling density 0-form."
 
-        return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(
+            self.svol(eta1, eta2, eta3, *v), self.markers, kind="3_to_0", remove_outside=remove_holes
+        )
 
     def save_constants_of_motion(self):
         """
@@ -209,7 +202,8 @@ class Particles6D(Particles):
 
         # save cartesian positions
         self.markers[~self.holes, slice_gc] = self.domain(
-            self.positions, change_out_order=True,
+            self.positions,
+            change_out_order=True,
         )
 
         # eval guiding center phase space
@@ -227,29 +221,30 @@ class Particles6D(Particles):
 
         # apply domain inverse map to get logical guiding center positions
         # TODO: currently only possible with the geometry where its inverse map is defined.
-        assert hasattr(self.domain, 'inverse_map')
+        assert hasattr(self.domain, "inverse_map")
 
         self.markers[~self.holes, slice_gc] = self.domain.inverse_map(
-            *self.markers[~self.holes, slice_gc].T, change_out_order=True,
+            *self.markers[~self.holes, slice_gc].T,
+            change_out_order=True,
         )
 
         # eval energy
         self.markers[~self.holes, idx_energy] = (
-            self.markers[~self.holes, 3]**2 +
-            self.markers[~self.holes, 4]**2 +
-            self.markers[~self.holes, 5]**2
-        )/(2)
+            self.markers[~self.holes, 3] ** 2 + self.markers[~self.holes, 4] ** 2 + self.markers[~self.holes, 5] ** 2
+        ) / (2)
 
         # eval psi at etas
-        a1 = self.mhd_equil.domain.params_map['a1']
-        R0 = self.mhd_equil.params['R0']
-        B0 = self.mhd_equil.params['B0']
+        a1 = self.mhd_equil.domain.params_map["a1"]
+        R0 = self.mhd_equil.params["R0"]
+        B0 = self.mhd_equil.params["B0"]
 
-        r = self.markers[~self.holes, idx_gc_r]*(1 - a1) + a1
+        r = self.markers[~self.holes, idx_gc_r] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.mhd_equil.psi_r(r)
 
         # send particles to the guiding center positions
-        self.markers[~self.holes, self.first_pusher_idx:self.first_pusher_idx+3] = self.markers[~self.holes, slice_gc]
+        self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
+            ~self.holes, slice_gc
+        ]
         self.mpi_sort_markers(alpha=1)
 
         utilities_kernels.eval_canonical_toroidal_moment_6d(
@@ -264,7 +259,7 @@ class Particles6D(Particles):
 
         # send back and clear buffer
         self.mpi_sort_markers()
-        self.markers[~self.holes, self.first_pusher_idx:self.first_pusher_idx+3] = 0
+        self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
 
 
 class Particles5D(Particles):
@@ -301,8 +296,8 @@ class Particles5D(Particles):
     @classmethod
     def default_bckgr_params(cls):
         return {
-            'type': 'GyroMaxwellian2D',
-            'GyroMaxwellian2D': {},
+            "type": "GyroMaxwellian2D",
+            "GyroMaxwellian2D": {},
         }
 
     def __init__(
@@ -314,23 +309,25 @@ class Particles5D(Particles):
         projected_mhd_equil: ProjectedMHDequilibrium,
         **kwargs,
     ):
-
-        if 'bckgr_params' not in kwargs:
-            kwargs['bckgr_params'] = self.default_bckgr_params()
+        if "bckgr_params" not in kwargs:
+            kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        if 'n_cols' not in kwargs:
+        if "n_cols" not in kwargs:
             self._n_cols_diagnostics = 3
             self._n_cols_aux = 12
 
         else:
-            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
-            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
+            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
 
-            kwargs.pop('n_cols')
+            kwargs.pop("n_cols")
 
         super().__init__(
-            name, Np, bc, loading,
+            name,
+            Np,
+            bc,
+            loading,
             projected_mhd_equil=projected_mhd_equil,
             **kwargs,
         )
@@ -345,79 +342,70 @@ class Particles5D(Particles):
         self._unit_b1_h = self.projected_mhd_equil.unit_b1
         self._derham = self.projected_mhd_equil.derham
 
-        self._tmp2 = self.derham.Vh['2'].zeros()
+        self._tmp2 = self.derham.Vh["2"].zeros()
 
     @property
     def n_cols(self):
-        """ Number of the columns at each markers.
-        """
+        """Number of the columns at each markers."""
         return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
 
     @property
     def vdim(self):
-        """ Dimension of the velocity space.
-        """
+        """Dimension of the velocity space."""
         return 2
 
     @property
     def first_diagnostics_idx(self):
-        """ Starting buffer marker index number for diagnostics.
-        """
+        """Starting buffer marker index number for diagnostics."""
         return 3 + self.vdim + 3
 
     @property
     def first_pusher_idx(self):
-        """ Starting buffer marker index number for pusher.
-        """
+        """Starting buffer marker index number for pusher."""
         return 3 + self.vdim + 3 + self.n_cols_diagnostics
 
     @property
     def n_cols_diagnostics(self):
-        """ Number of the diagnostics columns.
-        """
+        """Number of the diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """ Number of the auxiliary columns.
-        """
+        """Number of the auxiliary columns."""
         return self._n_cols_aux
 
     @property
     def magn_bckgr(self):
-        """ Either mhd_equil or braginskii_equil.
-        """
+        """Either mhd_equil or braginskii_equil."""
         return self._magn_bckgr
 
     @property
     def absB0_h(self):
-        '''Discrete 0-form coefficients of |B_0|.'''
+        """Discrete 0-form coefficients of |B_0|."""
         return self._absB0_h
 
     @property
     def unit_b1_h(self):
-        '''Discrete 1-form coefficients of B/|B|.'''
+        """Discrete 1-form coefficients of B/|B|."""
         return self._unit_b1_h
 
     @property
     def epsilon(self):
-        '''One of equation params, epsilon'''
+        """One of equation params, epsilon"""
         return self._epsilon
 
     @property
     def coords(self):
-        """ Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`.
-        """
-        return 'vpara_mu'
+        """Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`."""
+        return "vpara_mu"
 
     @property
     def derham(self):
-        """ Discrete Deram complex.
-        """
+        """Discrete Deram complex."""
         return self._derham
 
     def svol(self, eta1, eta2, eta3, *v):
-        """ 
+        """
         Sampling density function as volume-form.
 
         Parameters
@@ -436,21 +424,23 @@ class Particles5D(Particles):
         """
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
-            'n': 1.,
-            'u_para': self.loading_params['moments'][0],
-            'u_perp': self.loading_params['moments'][1],
-            'vth_para': self.loading_params['moments'][2],
-            'vth_perp': self.loading_params['moments'][3],
+            "n": 1.0,
+            "u_para": self.loading_params["moments"][0],
+            "u_perp": self.loading_params["moments"][1],
+            "vth_para": self.loading_params["moments"][2],
+            "vth_perp": self.loading_params["moments"][3],
         }
 
         self._svol = maxwellians.GyroMaxwellian2D(
-            maxw_params=maxw_params, volume_form=True, mhd_equil=self._magn_bckgr,
+            maxw_params=maxw_params,
+            volume_form=True,
+            mhd_equil=self._magn_bckgr,
         )
 
-        if self.spatial == 'uniform':
+        if self.spatial == "uniform":
             out = self._svol(eta1, eta2, eta3, *v)
 
-        elif self.spatial == 'disc':
+        elif self.spatial == "disc":
             out = 2 * eta1 * self._svol(eta1, eta2, eta3, *v)
 
         else:
@@ -479,10 +469,10 @@ class Particles5D(Particles):
         -------
         """
 
-        return self.svol(eta1, eta2, eta3, *v)/self._svol.velocity_jacobian_det(eta1, eta2, eta3, *v)
+        return self.svol(eta1, eta2, eta3, *v) / self._svol.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
-        """ 
+        """
         Sampling density function as 0-form.
 
         Parameters
@@ -503,11 +493,12 @@ class Particles5D(Particles):
         -------
         """
 
-        return self.domain.transform(self.s3(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(
+            self.s3(eta1, eta2, eta3, *v), self.markers, kind="3_to_0", remove_outside=remove_holes
+        )
 
-    def draw_markers(self, sort: 'bool' = True):
-
-        super().draw_markers(sort=sort)
+    def draw_markers(self, sort: bool = True, verbose: bool = True):
+        super().draw_markers(sort=sort, verbose=verbose)
 
         utilities_kernels.eval_magnetic_moment_5d(
             self.markers,
@@ -518,7 +509,7 @@ class Particles5D(Particles):
 
     def save_constants_of_motion(self):
         """
-        Calculate each markers' energy and canonical toroidal momentum 
+        Calculate each markers' energy and canonical toroidal momentum
         and assign them into diagnostics columns of marker array:
 
         ================= ======= ============ =============
@@ -541,14 +532,14 @@ class Particles5D(Particles):
         )
 
         # eval psi at etas
-        a1 = self.mhd_equil.domain.params_map['a1']
-        R0 = self.mhd_equil.params['R0']
-        B0 = self.mhd_equil.params['B0']
+        a1 = self.mhd_equil.domain.params_map["a1"]
+        R0 = self.mhd_equil.params["R0"]
+        B0 = self.mhd_equil.params["B0"]
 
-        r = self.markers[~self.holes, 0]*(1 - a1) + a1
+        r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.mhd_equil.psi_r(r)
 
-        self._epsilon = self.equation_params['epsilon']
+        self._epsilon = self.equation_params["epsilon"]
 
         utilities_kernels.eval_canonical_toroidal_moment_5d(
             self.markers,
@@ -571,7 +562,7 @@ class Particles5D(Particles):
             Finite element coefficients of the time-dependent magnetic field.
         """
 
-        E2T = self.derham.extraction_ops['2'].transpose()
+        E2T = self.derham.extraction_ops["2"].transpose()
         b2t = E2T.dot(b2, out=self._tmp2)
         b2t.update_ghost_regions()
 
@@ -622,11 +613,11 @@ class Particles3D(Particles):
 
     The numpy marker array is as follows:
 
-    ===== ============== ====== ====== ====== ======  
-    index  | 0 | 1 | 2 |   3       4     5      >=6       
-    ===== ============== ====== ====== ====== ======  
-    value position (eta) weight   s0     w0   buffer    
-    ===== ============== ====== ====== ====== ======   
+    ===== ============== ====== ====== ====== ======
+    index  | 0 | 1 | 2 |   3       4     5      >=6
+    ===== ============== ====== ====== ====== ======
+    value position (eta) weight   s0     w0   buffer
+    ===== ============== ====== ====== ====== ======
 
     Parameters
     ----------
@@ -650,8 +641,8 @@ class Particles3D(Particles):
     @classmethod
     def default_bckgr_params(cls):
         return {
-            'type': 'Constant',
-            'Constant': {},
+            "type": "Constant",
+            "Constant": {},
         }
 
     def __init__(
@@ -662,67 +653,59 @@ class Particles3D(Particles):
         loading: str,
         **kwargs,
     ):
-
-        if 'bckgr_params' not in kwargs:
-            kwargs['bckgr_params'] = self.default_bckgr_params()
+        if "bckgr_params" not in kwargs:
+            kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        if 'n_cols' not in kwargs:
+        if "n_cols" not in kwargs:
             self._n_cols_diagnostics = 0
             self._n_cols_aux = 5
 
         else:
-            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
-            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
+            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
 
-            kwargs.pop('n_cols')
+            kwargs.pop("n_cols")
 
         super().__init__(name, Np, bc, loading, **kwargs)
 
     @property
     def n_cols(self):
-        """ Number of the columns at each markers.
-        """
+        """Number of the columns at each markers."""
         return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
 
     @property
     def vdim(self):
-        """ Dimension of the velocity space.
-        """
+        """Dimension of the velocity space."""
         return 0
 
     @property
     def first_diagnostics_idx(self):
-        """ Starting buffer marker index number for diagnostics.
-        """
+        """Starting buffer marker index number for diagnostics."""
         return 3 + self.vdim + 3
 
     @property
     def first_pusher_idx(self):
-        """ Starting buffer marker index number for pusher.
-        """
+        """Starting buffer marker index number for pusher."""
         return 3 + self.vdim + 3 + self.n_cols_diagnostics
 
     @property
     def n_cols_diagnostics(self):
-        """ Number of the diagnostics columns.
-        """
+        """Number of the diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """ Number of the auxiliary columns.
-        """
+        """Number of the auxiliary columns."""
         return self._n_cols_aux
 
     @property
     def coords(self):
-        """ Coordinates of the Particles3D.
-        """
-        return 'cartesian'
+        """Coordinates of the Particles3D."""
+        return "cartesian"
 
     def svol(self, eta1, eta2, eta3):
-        """ Sampling density function as volume form.
+        """Sampling density function as volume form.
 
         Parameters
         ----------
@@ -739,11 +722,11 @@ class Particles3D(Particles):
         -------
         """
 
-        if self.spatial == 'uniform':
-            return 1. + 0.*eta1
+        if self.spatial == "uniform":
+            return 1.0 + 0.0 * eta1
 
-        elif self.spatial == 'disc':
-            return 2.*eta1
+        elif self.spatial == "disc":
+            return 2.0 * eta1
 
         else:
             raise NotImplementedError(
@@ -751,7 +734,7 @@ class Particles3D(Particles):
             )
 
     def s0(self, eta1, eta2, eta3, remove_holes=True):
-        """ Sampling density function as 0 form.
+        """Sampling density function as 0 form.
 
         Parameters
         ----------
@@ -770,4 +753,6 @@ class Particles3D(Particles):
             The 0-form sampling density.
         -------
         """
-        return self.domain.transform(self.svol(eta1, eta2, eta3), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(
+            self.svol(eta1, eta2, eta3), self.markers, kind="3_to_0", remove_outside=remove_holes
+        )
