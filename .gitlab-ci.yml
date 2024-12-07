@@ -419,6 +419,28 @@ c_model_tests:
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
+pages_tests:
+  stage: test
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+      when: never
+    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pwd
+    - ls -1a
+    - module list
+    - module avail
+    - module load pandoc
+    - module list
+    - struphy compile --status
+    - cd doc ; make html; cd ..
+
 c_model_cronjob_tests:
   stage: test
   rules:

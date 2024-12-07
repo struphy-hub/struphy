@@ -365,7 +365,10 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def verbose(self):
         """Bool: show model info on screen."""
-        return self._verbose
+        try:
+            return self._verbose
+        except:
+            return False
 
     @verbose.setter
     def verbose(self, new):
