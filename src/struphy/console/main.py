@@ -389,6 +389,13 @@ def struphy():
         action="store_true",
     )
 
+    parser_run.add_argument(
+        "-v",
+        "--verbose",
+        help="print info of struphy/main.py on screen",
+        action="store_true",
+    )
+
     # 3. "units" sub-command
     parser_units = subparsers.add_parser(
         "units",
@@ -617,12 +624,11 @@ def struphy():
     parser_test.add_argument(
         "group",
         type=str,
-        choices=list_models + ["models"] + ["unit"] + ["timings"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
+        choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
         metavar="GROUP",
         help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
-                                \nc) "unit" for performing unit tests \
-                                \nd) "timings" for creating .html and .json files of test metrics (include --verbose to print metrics to screen)',
+                                \nc) "unit" for performing unit tests',
     )
 
     parser_test.add_argument(
@@ -647,31 +653,18 @@ def struphy():
     )
 
     parser_test.add_argument(
-        "-v",
-        "--verbose",
-        help="print timings to screen",
-        action="store_true",
-    )
-
-    parser_test.add_argument(
-        "--monitor",
-        help="use pytest-monitor in tests",
-        action="store_true",
-    )
-
-    parser_test.add_argument(
-        "-n",
-        type=int,
-        help="specific tutorial simulation to run (int, optional)",
-        default=None,
-    )
-
-    parser_test.add_argument(
         "-T",
         "--Tend",
         type=float,
         help="if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set",
         default=None,
+    )
+
+    parser_test.add_argument(
+        "-v",
+        "--vrbose",
+        help="print output of testing on screen",
+        action="store_true",
     )
 
     # 8/9 format and lint sub-command

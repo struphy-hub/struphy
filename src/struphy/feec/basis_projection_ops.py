@@ -27,6 +27,9 @@ class BasisProjectionOperators:
     domain : :ref:`avail_mappings`
         Mapping from logical unit cube to physical domain and corresponding metric coefficients.
 
+    verbose : bool
+        Show info on screen.
+
     **weights : dict
         Objects to access callables that can serve as weight functions.
 
@@ -37,10 +40,11 @@ class BasisProjectionOperators:
     - eq_mhd: :class:`struphy.fields_background.mhd_equil.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, **weights):
+    def __init__(self, derham, domain, verbose=True, **weights):
         self._derham = derham
         self._domain = domain
         self._weights = weights
+        self._verbose = verbose
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
@@ -69,6 +73,11 @@ class BasisProjectionOperators:
     def rank(self):
         """MPI rank, is 0 if no communicator."""
         return self._rank
+
+    @property
+    def verbose(self):
+        """Bool: show info on screen."""
+        return self._verbose
 
     # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
     def DF(self, e1, e2, e3):
@@ -800,7 +809,7 @@ class BasisProjectionOperators:
     ##########################################
     # Wrapper around BasisProjectionOperator #
     ##########################################
-    def assemble_basis_projection_operator(self, fun: list, V_id: str, W_id: str, verbose=True, name=None):
+    def assemble_basis_projection_operator(self, fun: list, V_id: str, W_id: str, name=None):
         r"""Basis projection operator :math:`V^\alpha_h \to V^\beta_h` with given (rank 0, 1 or 2) weight function :math:`A(\boldsymbol \eta)`:
 
         .. math::
@@ -841,7 +850,7 @@ class BasisProjectionOperators:
             else:
                 assert len(row) == 3
 
-        if self.rank == 0 and verbose:
+        if self.rank == 0 and self.verbose:
             print(
                 f'Assembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.',
             )
@@ -859,7 +868,7 @@ class BasisProjectionOperators:
             polar_shift=self.domain.pole,
         )
 
-        if self.rank == 0 and verbose:
+        if self.rank == 0 and self.verbose:
             print("Done.")
 
         return out
