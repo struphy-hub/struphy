@@ -3026,7 +3026,7 @@ class VariationalDensityEvolve(Propagator):
             rank = self.derham.comm.Get_rank()
         else:
             rank = 0
-        print(self._nonlin_solver)
+
         self._info = self._nonlin_solver['info'] and (rank == 0)
 
         self.WMM = mass_ops
