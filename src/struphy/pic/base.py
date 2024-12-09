@@ -18,8 +18,7 @@ from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
-from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles
-from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles, initialize_neighbours
+from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles, initialize_neighbours, flatten_index
 from struphy.pic.sph_eval_kernels import naive_evaluation, naive_evaluation_3d, box_based_evaluation, box_based_evaluation_3d
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.fluid_equils import equils as fluid_equils
@@ -1854,6 +1853,7 @@ class Particles(metaclass=ABCMeta):
             self._box_index = box_index
             self._eps = eps
             self._set_boxes()
+            self._set_boundary_boxes()
 
         @property
         def nx(self):
@@ -1874,7 +1874,7 @@ class Particles(metaclass=ABCMeta):
         def _set_boxes(self):
             """"(Re)set the box structure."""
             n_particles = self._markers.shape[0]
-            self._n_boxes = self._nx*self._ny*self._nz
+            self._n_boxes = (self._nx+2)*(self._ny+2)*(self._nz+2)
             n_mkr = int(n_particles/self._n_boxes)+1
             eps = self._eps
             n_rows = round(
@@ -1890,6 +1890,39 @@ class Particles(metaclass=ABCMeta):
             # A particle on box i only sees particles in boxes that belong to neighbours[i]
             self._swap_line_1 = np.zeros(self._markers.shape[1])
             self._swap_line_2 = np.zeros(self._markers.shape[1])
+
+        def _set_boundary_boxes(self):
+            """Gather all the boxes that are part of a boundary"""
+            
+            # x boundary
+            # negative direction
+            self._bnd_boxes_x_m = []
+            # positive direction
+            self._bnd_boxes_x_p = []
+            for j in range(1,self.ny+1):
+                for k in range(1,self.nz+1):
+                    self._bnd_boxes_x_m.append(flatten_index(1,j,k,self.nx,self.ny,self.nz))
+                    self._bnd_boxes_x_p.append(flatten_index(self.nx,j,k,self.nx,self.ny,self.nz))
+
+            # y boundary
+            # negative direction
+            self._bnd_boxes_y_m = []
+            # positive direction
+            self._bnd_boxes_y_p = []
+            for i in range(1,self.nx+1):
+                for k in range(1,self.nz+1):
+                    self._bnd_boxes_y_m.append(flatten_index(i,1,k,self.nx,self.ny,self.nz))
+                    self._bnd_boxes_y_p.append(flatten_index(i,self.ny,k,self.nx,self.ny,self.nz))
+
+            # z boundary
+            # negative direction
+            self._bnd_boxes_z_m = []
+            # positive direction
+            self._bnd_boxes_z_p = []
+            for i in range(1,self.nx+1):
+                for j in range(1,self.ny+1):
+                    self._bnd_boxes_z_m.append(flatten_index(i,j,1,self.nx,self.ny,self.nz))
+                    self._bnd_boxes_z_p.append(flatten_index(i,j,self.nz,self.nx,self.ny,self.nz))
 
     def _init_sorting_boxes(self, nx, ny, nz, eps):
         """Initialize the SortingBoxes."""
@@ -1935,6 +1968,32 @@ class Particles(metaclass=ABCMeta):
                              self._sorting_boxes._cumul_next_index,
                              )
         
+    def determine_send_markers_box(self):
+        """Determine which markers belong to boxes that are at the boundary and put them in a new array"""
+        self._markers_x_m = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_x_m)
+        self._markers_x_p = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_x_p)
+        self._markers_y_m = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_y_m)
+        self._markers_y_p = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_y_p)
+        self._markers_z_m = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_z_m)
+        self._markers_z_p = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_z_p)
+        
+        #Adjust box number
+        self._markers_x_m[:,self._sorting_boxes.box_index] += (self._sorting_boxes.nx)
+        self._markers_x_p[:,self._sorting_boxes.box_index] -= (self._sorting_boxes.nx)
+        self._markers_y_m[:,self._sorting_boxes.box_index] += (self._sorting_boxes.nx+2)*self._sorting_boxes.ny
+        self._markers_y_p[:,self._sorting_boxes.box_index] -= (self._sorting_boxes.nx+2)*self._sorting_boxes.ny
+        self._markers_z_m[:,self._sorting_boxes.box_index] += (self._sorting_boxes.nx+2)*(self._sorting_boxes.ny+2)*self._sorting_boxes.nz
+        self._markers_z_p[:,self._sorting_boxes.box_index] -= (self._sorting_boxes.nx+2)*(self._sorting_boxes.ny+2)*self._sorting_boxes.nz
+
+    def determine_marker_certain_box(self, list_boxes):
+        """Determine the markers that belong to a certain box and put them in an array"""
+        indices = []
+        for i in list_boxes:
+            indices.append(self._sorting_boxes._boxes[i])
+        indices = np.array(indices)
+        markers_in_box = self.markers[indices]
+        return markers_in_box
+    
     def __call__(self, eta1, eta2, eta3, index, out=None, fast=True, h=0.2):
         """ Evaluate the function defined at the `index` of the particles 
         at points given by eta1, eta2, eta3. This is done evaluating smoothed version of the 
@@ -2168,7 +2227,7 @@ def sendrecv_all_to_all(send_info, comm):
     Returns
     -------
         recv_info : array[int]
-            Amount of marticles to be received from i-th process.
+            Amount of particles to be received from i-th process.
     """
 
     recv_info = np.zeros(comm.Get_size(), dtype=int)
