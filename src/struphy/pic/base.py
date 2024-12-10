@@ -35,6 +35,9 @@ from struphy.pic.sph_eval_kernels import (
     periodic_distance,
 )
 
+import amrex.space3d as amr
+
+use_amrex = False
 
 class Particles(metaclass=ABCMeta):
     """
@@ -128,6 +131,7 @@ class Particles(metaclass=ABCMeta):
         domain_array: np.ndarray = None,
         ppc: int = None,
         projected_mhd_equil: ProjectedMHDequilibrium = None,
+        # use_amrex = True,
     ):
         self._name = name
 
@@ -234,7 +238,10 @@ class Particles(metaclass=ABCMeta):
             self._pforms = [None, None]
 
         # create marker array
-        self.create_marker_array()
+        if use_amrex:
+            self.create_amrex_array()
+        else:
+            self.create_marker_array()
 
         # allocate arrays for sorting
         n_rows = self.markers.shape[0]
@@ -877,6 +884,32 @@ class Particles(metaclass=ABCMeta):
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(n_rows * 0.5), 10), dtype=float)
+
+    def create_amrex_array(self):
+        amr.initialize(
+    [
+        # print AMReX status messages
+        "amrex.verbose=1",
+        # # throw exceptions and create core dumps instead of
+        # # AMReX backtrace files: allows to attach to
+        # # debuggers
+        "amrex.throw_exception=1",
+        "amrex.signal_handling=0",
+    ])
+    # empty particle container, pure SoA
+    pc = amr.ParticleContainer_pureSoA_8_0_default()
+
+    # indexing space domain is [0, 63]^3
+    bx = amr.Box(amr.IntVect(0, 0, 0), amr.IntVect(63, 63, 63))
+    rb = amr.RealBox(0, 0, 0, 1, 1, 1)  # physical domain is [0, 1]^3
+    coord_int = 0  # Cartesian
+    periodicity = [1, 1, 1]  # all periodic
+    # Geometry contains all information regarding domain, coordinates, periodicity
+    gm = amr.Geometry(bx, rb, coord_int, periodicity)
+
+    # collection of rectangular domains in space, initially just one
+    ba = amr.BoxArray(bx)
+    assert ba.size == 1
 
     def draw_markers(self, sort: "bool" = True, verbose=True):
         r""" 
