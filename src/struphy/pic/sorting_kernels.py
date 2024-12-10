@@ -43,12 +43,12 @@ def find_box(eta1 : float,
              ):
     """Return the number of the box in which the point (eta1, eta2, eta3) is located."""
     # Leave some room before and after the end of the domain for the box coming from neighbouring processes
-    x_l = domain_array[0]*(1-1/nx)
-    x_r = domain_array[1]*(1+1/nx)
-    y_l = domain_array[3]*(1-1/ny)
-    y_r = domain_array[4]*(1+1/ny)
-    z_l = domain_array[6]*(1-1/nz)
-    z_r = domain_array[7]*(1+1/nz)
+    x_l = domain_array[0]-(domain_array[1]-domain_array[0])/nx
+    x_r = domain_array[1]+(domain_array[1]-domain_array[0])/nx
+    y_l = domain_array[3]-(domain_array[4]-domain_array[3])/ny
+    y_r = domain_array[4]+(domain_array[4]-domain_array[3])/ny
+    z_l = domain_array[6]-(domain_array[7]-domain_array[6])/nz
+    z_r = domain_array[7]+(domain_array[7]-domain_array[6])/nz
     n1 = int(floor((eta1-x_l)/(x_r-x_l)*(nx+2)))
     n2 = int(floor((eta2-y_l)/(y_r-y_l)*(ny+2)))
     n3 = int(floor((eta3-z_l)/(z_r-z_l)*(nz+2)))
@@ -72,7 +72,7 @@ def put_particles_in_boxes(markers : 'float[:,:]',
             n_box = (nx+2)*(ny+2)*(nz+2)
         else:
             a = find_box(markers[p, 0],markers[p, 1],markers[p, 2],nx,ny,nz,domain_array)
-            if a>=(nx+2)*(ny+2)*(nz+2):
+            if a>=(nx+2)*(ny+2)*(nz+2) or a<0:
                 n_box = (nx+2)*(ny+2)*(nz+2)
             else:
                 n_box = a

@@ -19,7 +19,7 @@ from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import put_particles_in_boxes, sort_boxed_particles, initialize_neighbours, flatten_index
-from struphy.pic.sph_eval_kernels import naive_evaluation, naive_evaluation_3d, box_based_evaluation, box_based_evaluation_3d
+from struphy.pic.sph_eval_kernels import naive_evaluation, naive_evaluation_3d, box_based_evaluation, box_based_evaluation_3d, periodic_distance
 from struphy.kinetic_background import maxwellians
 from struphy.fields_background.fluid_equils import equils as fluid_equils
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -598,6 +598,12 @@ class Particles(metaclass=ABCMeta):
         """ Array holding the marker information, excluding holes. The i-th row holds the i-th marker info.
         """
         return self.markers[~self.holes]
+    
+    @property
+    def markers_wo_holes_and_bnd(self):
+        """ Array holding the marker information, excluding holes. The i-th row holds the i-th marker info.
+        """
+        return self.markers[~np.logical_or(self.holes,self._bnd_part)]
 
     @property
     def domain(self):
@@ -981,6 +987,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of holes and markers on process
         self._holes = self.markers[:, 0] == -1.
+        self._bnd_part = self.markers[:, -1] == -2.
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
@@ -1259,10 +1266,14 @@ class Particles(metaclass=ABCMeta):
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = (alpha, alpha, alpha)
 
+        self.update_boundary_particles()
+        self.update_holes()
+
         # create new markers_to_be_sent array and make corresponding holes in markers array
         markers_to_be_sent, hole_inds_after_send, sorting_etas = sendrecv_determine_mtbs(
             self._markers,
             self._holes,
+            self._bnd_part,
             self.domain_decomp,
             self.mpi_rank,
             self.vdim,
@@ -1550,7 +1561,9 @@ class Particles(metaclass=ABCMeta):
             self._is_outside_left[:] = self.markers[:, axis] < 0.
 
             self._is_outside_right[self.holes] = False
+            self._is_outside_right[self._bnd_part] = False
             self._is_outside_left[self.holes] = False
+            self._is_outside_left[self._bnd_part] = False
 
             self._is_outside[:] = np.logical_or(
                 self._is_outside_right, self._is_outside_left,
@@ -1875,7 +1888,8 @@ class Particles(metaclass=ABCMeta):
             """"(Re)set the box structure."""
             n_particles = self._markers.shape[0]
             self._n_boxes = (self._nx+2)*(self._ny+2)*(self._nz+2)
-            n_mkr = int(n_particles/self._n_boxes)+1
+            n_box_in = self._nx*self._ny*self._nz
+            n_mkr = int(n_particles/n_box_in)+1
             eps = self._eps
             n_rows = round(
                 n_mkr *
@@ -1929,6 +1943,7 @@ class Particles(metaclass=ABCMeta):
         self._sorting_boxes = self.SortingBoxes(
             nx, ny, nz, self._markers, eps=eps,
         )
+        self._get_neighbouring_proc()
 
     def sort_boxed_particles_numpy(self):
         """Sort the particles by box using numpy.sort."""
@@ -1938,6 +1953,20 @@ class Particles(metaclass=ABCMeta):
         self._markers[:, :] = self._markers[self._argsort_array]
 
     def put_particles_in_boxes(self):
+
+        self.remove_bnd_particles()
+
+        put_particles_in_boxes(self._markers,
+                               self.holes,
+                               self._sorting_boxes.nx,
+                               self._sorting_boxes.ny,
+                               self._sorting_boxes.nz,
+                               self._sorting_boxes._boxes,
+                               self._sorting_boxes._next_index, 
+                               self.domain_decomp[self.mpi_rank])
+        
+        self.communicate_boxes()
+
         put_particles_in_boxes(self._markers,
                                self.holes,
                                self._sorting_boxes.nx,
@@ -1952,7 +1981,7 @@ class Particles(metaclass=ABCMeta):
         nx = self._sorting_boxes.nx
         ny = self._sorting_boxes.ny
         nz = self._sorting_boxes.nz
-        nboxes = nx*ny*nz
+        nboxes = (nx+2)*(ny+2)*(nz+2)
 
         self.put_particles_in_boxes()
 
@@ -1967,17 +1996,25 @@ class Particles(metaclass=ABCMeta):
                              self._sorting_boxes._next_index,
                              self._sorting_boxes._cumul_next_index,
                              )
+
+        self.update_boundary_particles()
         
+    def remove_bnd_particles(self):
+        to_remove = self._markers[:,-1]== -2.
+        new_holes = np.nonzero(to_remove)
+        self._markers[new_holes,:] = -1.
+        self.update_holes()
+
     def determine_send_markers_box(self):
         """Determine which markers belong to boxes that are at the boundary and put them in a new array"""
-        self._markers_x_m = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_x_m)
-        self._markers_x_p = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_x_p)
-        self._markers_y_m = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_y_m)
-        self._markers_y_p = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_y_p)
-        self._markers_z_m = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_z_m)
-        self._markers_z_p = self.determine_marker_certain_box(self._sorting_boxes._bnd_boxes_z_p)
+        self._markers_x_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m)
+        self._markers_x_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p)
+        self._markers_y_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_m)
+        self._markers_y_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_p)
+        self._markers_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_z_m)
+        self._markers_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_z_p)
         
-        #Adjust box number
+        # Adjust box number
         self._markers_x_m[:,self._sorting_boxes.box_index] += (self._sorting_boxes.nx)
         self._markers_x_p[:,self._sorting_boxes.box_index] -= (self._sorting_boxes.nx)
         self._markers_y_m[:,self._sorting_boxes.box_index] += (self._sorting_boxes.nx+2)*self._sorting_boxes.ny
@@ -1985,15 +2022,109 @@ class Particles(metaclass=ABCMeta):
         self._markers_z_m[:,self._sorting_boxes.box_index] += (self._sorting_boxes.nx+2)*(self._sorting_boxes.ny+2)*self._sorting_boxes.nz
         self._markers_z_p[:,self._sorting_boxes.box_index] -= (self._sorting_boxes.nx+2)*(self._sorting_boxes.ny+2)*self._sorting_boxes.nz
 
-    def determine_marker_certain_box(self, list_boxes):
+        # Put first last index to -2 to indicate that they should not move
+        self._markers_x_m[:,-1] = -2.
+        self._markers_x_p[:,-1] = -2.
+        self._markers_y_m[:,-1] = -2.
+        self._markers_y_p[:,-1] = -2.
+        self._markers_z_m[:,-1] = -2.
+        self._markers_z_p[:,-1] = -2.
+
+    def determine_marker_in_box(self, list_boxes):
         """Determine the markers that belong to a certain box and put them in an array"""
         indices = []
         for i in list_boxes:
-            indices.append(self._sorting_boxes._boxes[i])
+            indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i]!=-1])
+        
         indices = np.array(indices)
         markers_in_box = self.markers[indices]
         return markers_in_box
     
+    def get_destinations_box(self):
+        """Find the destination proc for the particles to communicate for the box structure."""
+        self._send_info_box = np.zeros(self.mpi_size, dtype=int)
+        self._send_list_box = [np.zeros((0, self._markers.shape[1]))]*self.mpi_size
+
+        self._send_info_box[self._x_m_proc] += len(self._markers_x_m)
+        self._send_list_box[self._x_m_proc] = np.concatenate((self._send_list_box[self._x_m_proc],self._markers_x_m))
+
+        self._send_info_box[self._x_p_proc] += len(self._markers_x_p)
+        self._send_list_box[self._x_p_proc] = np.concatenate((self._send_list_box[self._x_p_proc],self._markers_x_p))
+
+        self._send_info_box[self._y_m_proc] += len(self._markers_y_m)
+        self._send_list_box[self._y_m_proc] = np.concatenate((self._send_list_box[self._y_m_proc],self._markers_y_m))
+
+        self._send_info_box[self._y_p_proc] += len(self._markers_y_p)
+        self._send_list_box[self._y_p_proc] = np.concatenate((self._send_list_box[self._y_p_proc],self._markers_y_p))
+
+        self._send_info_box[self._z_m_proc] += len(self._markers_z_m)
+        self._send_list_box[self._z_m_proc] = np.concatenate((self._send_list_box[self._z_m_proc],self._markers_z_m))
+
+        self._send_info_box[self._z_p_proc] += len(self._markers_z_p)
+        self._send_list_box[self._z_p_proc] = np.concatenate((self._send_list_box[self._z_p_proc],self._markers_z_p))
+
+    def communicate_boxes(self):
+        self.determine_send_markers_box()
+        self.get_destinations_box()
+        self.mpi_comm.Barrier()
+        rcv_info = sendrecv_all_to_all(self._send_info_box,self.mpi_comm)
+        self.update_holes()
+        sendrecv_markers(self._send_list_box,rcv_info,np.nonzero(self._holes)[0],self._markers,self.mpi_comm)
+
+    def _get_neighbouring_proc(self):
+        """Find the neighbouring processes for the sending of boxes"""
+        dd = self.domain_decomp
+        # Determine which proc are on which side
+        x_l = dd[self.mpi_rank][0]
+        x_r = dd[self.mpi_rank][1]
+        y_l = dd[self.mpi_rank][3]
+        y_r = dd[self.mpi_rank][4]
+        z_l = dd[self.mpi_rank][6]
+        z_r = dd[self.mpi_rank][7]
+        for i in range(self.mpi_size):
+            xl_i = dd[i][0]
+            xr_i = dd[i][1]
+            yl_i = dd[i][3]
+            yr_i = dd[i][4]
+            zl_i = dd[i][6]
+            zr_i = dd[i][7]
+
+            # Process on the left (minus axis) in the x direction
+            if abs(periodic_distance(yl_i,y_l))<1e-5 and abs(periodic_distance(yr_i,y_r))<1e-5 and \
+                abs(periodic_distance(zl_i,z_l))<1e-5 and abs(periodic_distance(zr_i,z_r))<1e-5 and \
+                abs(periodic_distance(xr_i,x_l))<1e-5:
+                self._x_m_proc = i
+
+            # Process on the right (plus axis) in the x direction
+            if abs(periodic_distance(yl_i,y_l))<1e-5 and abs(periodic_distance(yr_i,y_r))<1e-5 and \
+                abs(periodic_distance(zl_i,z_l))<1e-5 and abs(periodic_distance(zr_i,z_r))<1e-5 and \
+                abs(periodic_distance(xl_i,x_r))<1e-5:
+                self._x_p_proc = i
+
+            # Process on the left (minus axis) in the y direction
+            if abs(periodic_distance(xl_i,x_l))<1e-5 and abs(periodic_distance(xr_i,x_r))<1e-5 and \
+                abs(periodic_distance(zl_i,z_l))<1e-5 and abs(periodic_distance(zr_i,z_r))<1e-5 and \
+                abs(periodic_distance(yr_i,y_l))<1e-5:
+                self._y_m_proc = i
+
+            # Process on the right (plus axis) in the y direction
+            if abs(periodic_distance(xl_i,x_l))<1e-5 and abs(periodic_distance(xr_i,x_r))<1e-5 and \
+                abs(periodic_distance(zl_i,z_l))<1e-5 and abs(periodic_distance(zr_i,z_r))<1e-5 and \
+                abs(periodic_distance(yl_i,y_r))<1e-5:
+                self._y_p_proc = i
+
+            # Process on the left (minus axis) in the z direction
+            if abs(periodic_distance(xl_i,x_l))<1e-5 and abs(periodic_distance(xr_i,x_r))<1e-5 and \
+                abs(periodic_distance(yl_i,y_l))<1e-5 and abs(periodic_distance(yr_i,y_r))<1e-5 and \
+                abs(periodic_distance(zr_i,z_l))<1e-5:
+                self._z_m_proc = i
+
+            # Process on the right (plus axis) in the z direction
+            if abs(periodic_distance(xl_i,x_l))<1e-5 and abs(periodic_distance(xr_i,x_r))<1e-5 and \
+                abs(periodic_distance(yl_i,y_l))<1e-5 and abs(periodic_distance(yr_i,y_r))<1e-5 and \
+                abs(periodic_distance(zl_i,z_r))<1e-5:
+                self._z_p_proc = i
+
     def __call__(self, eta1, eta2, eta3, index, out=None, fast=True, h=0.2):
         """ Evaluate the function defined at the `index` of the particles 
         at points given by eta1, eta2, eta3. This is done evaluating smoothed version of the 
@@ -2026,7 +2157,7 @@ class Particles(metaclass=ABCMeta):
             out = np.zeros_like(eta1)
 
         if fast:
-            self.put_particles_in_boxes()
+            # self.put_particles_in_boxes()
             if len(np.shape(eta1)) == 1:
                 box_based_evaluation(eta1,
                                      eta2,
@@ -2079,10 +2210,14 @@ class Particles(metaclass=ABCMeta):
         self._n_holes_loc = np.count_nonzero(self.holes)
         self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
+    def update_boundary_particles(self):
+        '''Compute new particles that belong to boundary processes needed for sph evaluation'''
+        self._bnd_part[:] = self.markers[:, -1] == -2.
 
 def sendrecv_determine_mtbs(
     markers,
     holes,
+    bnd_part,
     domain_decomp,
     mpi_rank,
     vdim,
@@ -2101,6 +2236,10 @@ def sendrecv_determine_mtbs(
 
         holes : array[bool]
             Local array stating whether a row in the markers array is empty (i.e. a hole) or not.
+
+        bnd_part : array[bool]
+            Local array stating whether a row in the markers array is a particle comming from a 
+            neighbouring processor (should not be updated or sent).
 
         domain_decomp : array[float]
             2d array of shape (mpi_size, 9) defining the domain of each process.
@@ -2149,8 +2288,9 @@ def sendrecv_determine_mtbs(
     # to stay on the current process, all three columns must be True
     can_stay = np.all(is_on_proc_domain, axis=1)
 
-    # holes can stay, too
+    # holes and boundary particles can stay, too
     can_stay[holes] = True
+    can_stay[bnd_part] = True
 
     # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
     send_inds = np.nonzero(~can_stay)[0]

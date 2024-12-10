@@ -1186,8 +1186,8 @@ class PressureLessSPH(StruphyModel):
         self._en_kin = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-        self._en_kin[0] = self.pointer['p_fluid'].markers_wo_holes[:, 6].dot(
-            self.pointer['p_fluid'].markers_wo_holes[:, 3]**2+self.pointer['p_fluid'].markers_wo_holes[:, 4]**2+self.pointer['p_fluid'].markers_wo_holes[:, 5]**2) / (2.*self.pointer['p_fluid'].n_mks)
+        self._en_kin[0] = self.pointer['p_fluid'].markers_wo_holes_and_bnd[:, 6].dot(
+            self.pointer['p_fluid'].markers_wo_holes_and_bnd[:, 3]**2+self.pointer['p_fluid'].markers_wo_holes_and_bnd[:, 4]**2+self.pointer['p_fluid'].markers_wo_holes_and_bnd[:, 5]**2) / (2.*self.pointer['p_fluid'].n_mks)
         
         self.derham.comm.Allreduce(
             self._mpi_in_place, self._en_kin, op=self._mpi_sum)

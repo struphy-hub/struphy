@@ -933,7 +933,7 @@ class ParticlesSPH(Particles):
 
         return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
 
-    def eval_density(self, eta1 ,eta2 ,eta3, h=0.2):
+    def eval_density(self, eta1 ,eta2 ,eta3, h=0.3):
         """ Density function as 0 form.
 
         Parameters

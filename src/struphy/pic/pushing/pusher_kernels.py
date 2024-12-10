@@ -1630,8 +1630,8 @@ def push_eta_stage(
     #$ omp for
     for ip in range(n_markers):
 
-        # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.:
+        # check if marker is a hole or a boundary particle
+        if markers[ip, first_init_idx] == -1. or markers[ip, -1] == -2.:
             continue
 
         e1 = markers[ip, 0]
