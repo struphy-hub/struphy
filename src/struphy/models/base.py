@@ -903,7 +903,10 @@ class StruphyModel(metaclass=ABCMeta):
                         if obj.coords == "vpara_mu":
                             obj.save_magnetic_moment()
 
-                        if val['params']['markers']['loading_params']['moments']!='degenerate' and obj.f0.coords == 'constants_of_motion':
+                        if (
+                            val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
+                            and obj.f0.coords == "constants_of_motion"
+                        ):
                             obj.save_constants_of_motion()
 
                         obj.initialize_weights()
@@ -1526,11 +1529,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         # standard Maxwellians
         maxw_name = {
-            '6D': 'Maxwellian3D',
-            '5D': 'GyroMaxwellian2D',
-            '4D': 'Maxwellian1D',
-            '3D': 'Constant',
-            'PH': 'ConstantVelocity',
+            "6D": "Maxwellian3D",
+            "5D": "GyroMaxwellian2D",
+            "4D": "Maxwellian1D",
+            "3D": "Constant",
+            "PH": "ConstantVelocity",
         }
 
         # moms = {'6D': [0., 0., 0., 1., 1., 1.],
@@ -1959,8 +1962,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 Plasma parameters for each species.
         """
 
-        from struphy.kinetic_background import maxwellians
         from struphy.fields_background.fluid_equils import equils as fluid_equils
+        from struphy.kinetic_background import maxwellians
 
         pparams = {}
 
@@ -2124,10 +2127,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if not isinstance(tmp_type, list):
                     tmp_type = [tmp_type]
 
-                if val['params']['markers']['loading_params']['moments']!='degenerate':
+                if val["params"]["markers"]["loading_params"]["moments"] != "degenerate":
                     tmp = None
                     for fi in tmp_type:
-                        if fi[-2] == '_':
+                        if fi[-2] == "_":
                             fi_type = fi[:-2]
                         else:
                             fi_type = fi
@@ -2141,10 +2144,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                             pass_braginskii_equil = None
 
                             print(
-                                f'\n{fi} is not in tmp_params; default background parameters are used.',
+                                f"\n{fi} is not in tmp_params; default background parameters are used.",
                             )
-                        print(val['params'])
-                        
+                        print(val["params"])
+
                         if tmp is None:
                             tmp = getattr(maxwellians, fi_type)(
                                 maxw_params=maxw_params,
@@ -2158,7 +2161,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                 braginskii_equil=pass_braginskii_equil,
                             )
 
-                if val['params']['markers']['loading_params']['moments']!='degenerate' and tmp.coords == 'constants_of_motion':
+                if (
+                    val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
+                    and tmp.coords == "constants_of_motion"
+                ):
                     # call parameters
                     a1 = self.domain.params_map["a1"]
                     r = eta1mg * (1 - a1) + a1

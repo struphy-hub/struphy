@@ -753,7 +753,9 @@ class Particles3D(Particles):
             The 0-form sampling density.
         -------
         """
-        return self.domain.transform(self.svol(eta1, eta2, eta3), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(
+            self.svol(eta1, eta2, eta3), self.markers, kind="3_to_0", remove_outside=remove_holes
+        )
 
 
 class ParticlesSPH(Particles):
@@ -779,16 +781,17 @@ class ParticlesSPH(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {'type': 'ConstantVelocity',
-                'ConstantVelocity': {}}
-    
-    def loading_params_default(self,):
+        return {"type": "ConstantVelocity", "ConstantVelocity": {}}
+
+    def loading_params_default(
+        self,
+    ):
         defaults_params = {
-            'seed': 1234,
-            'dir_particles': None,
-            'moments': 'degenerate',
-            'spatial': 'uniform',
-            'initial': None,
+            "seed": 1234,
+            "dir_particles": None,
+            "moments": "degenerate",
+            "spatial": "uniform",
+            "initial": None,
         }
         return defaults_params
 
@@ -800,73 +803,64 @@ class ParticlesSPH(Particles):
         loading: str,
         **kwargs,
     ):
-
-        if 'bckgr_params' not in kwargs:
-            kwargs['bckgr_params'] = self.default_bckgr_params()
+        if "bckgr_params" not in kwargs:
+            kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        if 'n_cols' not in kwargs:
+        if "n_cols" not in kwargs:
             self._n_cols_diagnostics = 0
             self._n_cols_aux = 5
 
         else:
-            self._n_cols_diagnostics = kwargs['n_cols']['diagnostics']
-            self._n_cols_aux = kwargs['n_cols']['auxiliary']
+            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
+            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
 
-            kwargs.pop('n_cols')
+            kwargs.pop("n_cols")
 
         super().__init__(name, Np, bc, loading, **kwargs)
 
     @property
     def n_cols(self):
-        """ Number of the columns at each markers.
-        """
+        """Number of the columns at each markers."""
         return 24
 
     @property
     def vdim(self):
-        """ Dimension of the velocity space.
-        """
+        """Dimension of the velocity space."""
         return 3
-    
+
     @property
     def first_diagnostics_idx(self):
-        """ Starting buffer marker index number for diagnostics.
-        """
+        """Starting buffer marker index number for diagnostics."""
         return 3 + self.vdim + 3
 
     @property
     def first_pusher_idx(self):
-        """ Starting buffer marker index number for pusher.
-        """
+        """Starting buffer marker index number for pusher."""
         return 3 + self.vdim + 3 + self.n_cols_diagnostics
-    
+
     @property
     def n_cols_diagnostics(self):
-        """ Number of the diagnostics columns.
-        """
+        """Number of the diagnostics columns."""
         return self._n_cols_diagnostics
 
     @property
     def n_cols_aux(self):
-        """ Number of the auxiliary columns.
-        """
+        """Number of the auxiliary columns."""
         return self._n_cols_aux
 
     @property
     def bufferindex(self):
-        """Starting buffer marker index number
-        """
+        """Starting buffer marker index number"""
         return 9
 
     @property
     def coords(self):
-        """ Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`.
-        """
-        return 'cartesian'
+        """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
+        return "cartesian"
 
     def svol(self, eta1, eta2, eta3, *v):
-        """ Sampling density function as volume form.
+        """Sampling density function as volume form.
 
         Parameters
         ----------
@@ -883,18 +877,17 @@ class ParticlesSPH(Particles):
         -------
         """
 
-        if self.spatial == 'uniform':
-            return 0*eta1+1.
+        if self.spatial == "uniform":
+            return 0 * eta1 + 1.0
 
-        elif self.spatial == 'disc':
-            return 2*eta1
+        elif self.spatial == "disc":
+            return 2 * eta1
 
         else:
-            raise NotImplementedError(
-                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+            raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
     def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
-        """ Sampling density function as 0 form.
+        """Sampling density function as 0 form.
 
         Parameters
         ----------
@@ -914,10 +907,12 @@ class ParticlesSPH(Particles):
         -------
         """
 
-        return self.domain.transform(self.svol(eta1, eta2, eta3, *v), self.markers, kind='3_to_0', remove_outside=remove_holes)
+        return self.domain.transform(
+            self.svol(eta1, eta2, eta3, *v), self.markers, kind="3_to_0", remove_outside=remove_holes
+        )
 
-    def eval_density(self, eta1 ,eta2 ,eta3, h=0.3):
-        """ Density function as 0 form.
+    def eval_density(self, eta1, eta2, eta3, h=0.3):
+        """Density function as 0 form.
 
         Parameters
         ----------
@@ -925,12 +920,12 @@ class ParticlesSPH(Particles):
             Logical evaluation points.
 
         h : float
-            Support radius of the smoothing kernel.    
-        
+            Support radius of the smoothing kernel.
+
         Returns
         -------
         out : array-like
             The 0-form density.
         -------
         """
-        return self(eta1 ,eta2 ,eta3, self.index['weights'], h=h)
+        return self(eta1, eta2, eta3, self.index["weights"], h=h)
