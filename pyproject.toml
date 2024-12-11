@@ -42,17 +42,17 @@ dependencies = [
     'tqdm',
     'argcomplete',
     'ipyparallel',
-    'pytest-monitor',
     'pyccel>=1.11.1',
     'gvec-to-python',
     'desc-opt',
     'netcdf4<1.7.0',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel',
     'autopep8',
     'isort',
     'flake8',
     'pylint',
     'add-trailing-comma',
-    'pytest',
+    'ruff',
     'pre-commit',
 ]
 
@@ -118,3 +118,33 @@ combine_as_imports = true
 
 [tool.pylint]
 max-line-length=120
+quote-style = "single"
+
+[tool.ruff]
+line-length=120
+lint.ignore = [
+    "E265",  # Checks for block comments that lack a single space after the leading # character.
+    "E402",  # Module-level imports should be placed at the top of the file (before any other code)
+    "E701",  # Multiple statements on one line (colon)
+    # "E711",  # Comparison to `None` should be `cond is None`
+    # "E712",  # Comparison to True, False, or None should be avoided (e.g., use `if variable:` instead of `if variable == True:`)
+    # "E713",  # Convert to `not in`
+    # "E721",  # Avoid comparing types directly with `type()` (e.g., use `isinstance()` instead of `type(variable) == list`)
+    "E722",  # Do not use bare 'except'
+    "E731",  # Do not assign a lambda expression, use a def
+    "E741",  # Do not use variables named 'l', 'O', or 'I'
+    "E742",  # Do not define classes named 'l', 'O', or 'I'
+    "E743",  # Do not define functions named 'l', 'O', or 'I'
+    "E902",  # IOError
+    # "E999",  # SyntaxError
+    "F401",  # Module imported but unused
+    "F403",  # 'from module import *' used; unable to detect undefined names
+    "F405",  # Name may be undefined, or defined from star imports: module
+    # "F811",  # Redefinition of a variable that might cause ambiguity (e.g., reusing a variable name in a conflicting scope)
+    # "F821",  # Undefined name
+    # "F822",  # Undefined name in __all__
+    # "F823",  # Local variable name referenced before assignment
+    # "F841",  # Local variable name assigned to but never used
+    "D211",  # Checks for docstrings on class definitions that are preceded by a blank line
+    "D213",  # Checks for docstring summary lines that are not positioned on the second physical line of the docstring
+]

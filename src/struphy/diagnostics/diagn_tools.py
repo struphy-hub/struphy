@@ -727,11 +727,6 @@ def phase_space_overview(t_grid, grid_slices, slice_name, marker_type, species, 
         path, 'post_processing', 'kinetic_data', species, 'distribution_function', slice_name,
     )
 
-    # Create folder for images of video
-    vid_folder = os.path.join(path, 'videos')
-    if not os.path.exists(vid_folder):
-        os.mkdir(vid_folder)
-
     slices_2d, grids, directions, df_data = get_slices_grids_directions_and_df_data(
         marker_type=marker_type,
         background_params=background_params,
@@ -814,7 +809,7 @@ def phase_space_overview(t_grid, grid_slices, slice_name, marker_type, species, 
 
         fig.suptitle(f'Struphy model "{model_name}"')
         for k in np.arange(6):
-            n = 100*k
+            n = int((len(t_grid) - 1) * k / 5)
             t = f'%.{len_dt}f' % t_grid[n]
             im = axes.flatten()[k].pcolor(ee1, vv1, df_binned[n], cmap=cmap, vmin=-vscale, vmax=vscale)
             axes.flatten()[k].title.set_text(f'$t=${t}')
@@ -877,6 +872,15 @@ def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path,
 
     directions = slice_name.split('_')
 
+    # Load all the grids
+    grids = []
+    for direction in directions:
+        grids += [
+            np.load(
+                os.path.join(data_path, 'grid_' + direction + '.npy'),
+            ),
+        ]
+
     # If simulation was for full-f subtract the background function
     if marker_type == 'full_f':
         assert background_params is not None
@@ -884,16 +888,32 @@ def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path,
         # Load background
         from struphy.kinetic_background import maxwellians
         background_type = background_params['type']
-        if background_type in background_params.keys():
-            background_function = getattr(
-                maxwellians,
-                background_params['type'],
-            )(background_params[background_type])
-        else:
-            background_function = getattr(
-                maxwellians,
-                background_params['type'],
-            )()
+
+        if not isinstance(background_type, list):
+            background_type = [background_type]
+
+        background_function = None
+        for fi in background_type:
+            if fi[-2] == '_':
+                fi_type = fi[:-2]
+            else:
+                fi_type = fi
+
+            if fi_type in background_params.keys():
+                maxw_params = background_params[fi_type]
+            else:
+                maxw_params = None
+
+            if background_function is None:
+                background_function = getattr(
+                    maxwellians,
+                    fi_type,
+                )(maxw_params=maxw_params)
+            else:
+                background_function = background_function + getattr(
+                    maxwellians,
+                    fi_type,
+                )(maxw_params=maxw_params)
 
         bckgr_grids = []
         k = 0
@@ -934,17 +954,5 @@ def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path,
             for direc2 in directions:
                 if direc2[0] == 'v':
                     slices_2d += [direc1 + '_' + direc2]
-    print(
-        f"Found {len(slices_2d)} 2D slicing(s) for {species}, proceeding to generate images",
-    )
-
-    # Load all the grids
-    grids = []
-    for direction in directions:
-        grids += [
-            np.load(
-                os.path.join(data_path, 'grid_' + direction + '.npy'),
-            ),
-        ]
 
     return slices_2d, grids, directions, df_data

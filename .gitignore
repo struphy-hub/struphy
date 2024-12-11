@@ -77,6 +77,7 @@ my_struphy_sims
 /run_STRUPHY*.sh
 logs
 *env/
+code_analysis_report.html
 
 # I/O
 src/struphy/io/out/

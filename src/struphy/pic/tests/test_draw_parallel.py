@@ -33,7 +33,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     assert comm.size >= 2
     rank = comm.Get_rank()
 
-    seed = int(np.random.rand()*1000)
+    seed = 1234
 
     # Domain object
     domain_class = getattr(domains, mapping[0])
