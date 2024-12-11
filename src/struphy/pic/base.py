@@ -358,18 +358,6 @@ class Particles(metaclass=ABCMeta):
         """
         pass
 
-    def loading_params_default(
-        self,
-    ):
-        defaults_params = {
-            "seed": 1234,
-            "dir_particles": None,
-            "moments": None,
-            "spatial": "uniform",
-            "initial": None,
-        }
-        return defaults_params
-
     @abstractmethod
     def svol(self, eta1, eta2, eta3, *v):
         r"""Marker sampling distribution function :math:`s^\textrm{vol}` as a volume form, see :ref:`monte_carlo`."""
@@ -590,11 +578,6 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def markers_wo_holes(self):
-        """Array holding the marker information, excluding holes. The i-th row holds the i-th marker info."""
-        return self.markers[~self.holes]
-
-    @property
-    def markers_wo_holes_and_bnd(self):
         """Array holding the marker information, excluding holes. The i-th row holds the i-th marker info."""
         return self.markers[~self.holes]
 
@@ -2387,10 +2370,62 @@ class Particles(metaclass=ABCMeta):
         self.get_destinations_box()
         self.self_communication_boxes()
         self.mpi_comm.Barrier()
-        rcv_info = sendrecv_all_to_all(self._send_info_box, self.mpi_comm)
+        self.sendrecv_all_to_all_boxes(self._send_info_box)
         self.update_holes()
-        sendrecv_markers(self._send_list_box, rcv_info, np.nonzero(self._holes)[0], self._markers, self.mpi_comm)
+        self.sendrecv_markers_boxes()
         self.update_holes()
+
+    def sendrecv_all_to_all_boxes(self):
+        """
+        Distribute info on how many markers will be sent/received to/from each process via all-to-all
+        for the communication of particles in boundary boxes.
+        """
+
+        self._recv_info_box = np.zeros(self.mpi_comm.Get_size(), dtype=int)
+
+        self.mpi_comm.Alltoall(self._send_info_box, self._recv_info_box)
+
+    def sendrecv_markers_boxes(self):
+        """
+        Use non-blocking communication. In-place modification of markers
+
+        Parameters
+        ----------
+            hole_inds_after_send : array[int]
+                Indices of empty rows in markers after send.
+        """
+
+        # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
+        first_hole = np.cumsum(self._recv_info_box) - self._recv_info_box
+        hole_inds = np.nonzero(self._holes)[0]
+        # Initialize send and receive commands
+        reqs = []
+        recvbufs = []
+        for i, (data, N_recv) in enumerate(zip(self._send_list_box, list(self._recv_info_box))):
+            if i == self.mpi_comm.Get_rank():
+                reqs += [None]
+                recvbufs += [None]
+            else:
+                self.mpi_comm.Isend(data, dest=i, tag=self.mpi_comm.Get_rank())
+
+                recvbufs += [np.zeros((N_recv, self._markers.shape[1]), dtype=float)]
+                reqs += [self.mpi_comm.Irecv(recvbufs[-1], source=i, tag=i)]
+
+        # Wait for buffer, then put markers into holes
+        test_reqs = [False] * (self._recv_info_box.size - 1)
+        while len(test_reqs) > 0:
+            # loop over all receive requests
+            for i, req in enumerate(reqs):
+                if req is None:
+                    continue
+                else:
+                    # check if data has been received
+                    if req.Test():
+                        self._markers[hole_inds[first_hole[i] + np.arange(self._recv_info_box[i])]] = recvbufs[i]
+
+                        test_reqs.pop()
+                        reqs[i] = None
+
 
     def _get_neighbouring_proc(self):
         """Find the neighbouring processes for the sending of boxes"""
@@ -2885,82 +2920,3 @@ class Particles(metaclass=ABCMeta):
 
                         test_reqs.pop()
                         self._reqs[i] = None
-
-
-def sendrecv_all_to_all(send_info, comm):
-    """
-    Distribute info on how many markers will be sent/received to/from each process via all-to-all.
-
-    Parameters
-    ----------
-        send_info : array[int]
-            Amount of markers to be sent to i-th process.
-
-        comm : Intracomm
-            MPI communicator from mpi4py.MPI.Intracomm.
-
-    Returns
-    -------
-        recv_info : array[int]
-            Amount of particles to be received from i-th process.
-    """
-
-    recv_info = np.zeros(comm.Get_size(), dtype=int)
-
-    comm.Alltoall(send_info, recv_info)
-
-    return recv_info
-
-
-def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
-    """
-    Use non-blocking communication. In-place modification of markers
-
-    Parameters
-    ----------
-        send_list : list[array]
-            Markers to be sent to i-th process.
-
-        recv_info : array[int]
-            Amount of markers to be received from i-th process.
-
-        hole_inds_after_send : array[int]
-            Indices of empty rows in markers after send.
-
-        markers : array[float]
-            Local markers array of shape (n_mks_loc + n_holes_loc, :).
-
-        comm : Intracomm
-            MPI communicator from mpi4py.MPI.Intracomm.
-    """
-
-    # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
-    first_hole = np.cumsum(recv_info) - recv_info
-
-    # Initialize send and receive commands
-    reqs = []
-    recvbufs = []
-    for i, (data, N_recv) in enumerate(zip(send_list, list(recv_info))):
-        if i == comm.Get_rank():
-            reqs += [None]
-            recvbufs += [None]
-        else:
-            comm.Isend(data, dest=i, tag=comm.Get_rank())
-
-            recvbufs += [np.zeros((N_recv, markers.shape[1]), dtype=float)]
-            reqs += [comm.Irecv(recvbufs[-1], source=i, tag=i)]
-
-    # Wait for buffer, then put markers into holes
-    test_reqs = [False] * (recv_info.size - 1)
-    while len(test_reqs) > 0:
-        # loop over all receive requests
-        for i, req in enumerate(reqs):
-            if req is None:
-                continue
-            else:
-                # check if data has been received
-                if req.Test():
-                    markers[hole_inds_after_send[first_hole[i] + np.arange(recv_info[i])]] = recvbufs[i]
-
-                    test_reqs.pop()
-                    reqs[i] = None
