@@ -1193,8 +1193,11 @@ class PressureLessSPH(StruphyModel):
             self._mpi_in_place, self._en_kin, op=self._mpi_sum)
         
         self.update_scalar('en_kin', self._en_kin[0])
-        eta1 = np.array([.5])
-        eta2 = np.array([.5])
+        eta1 = np.array([.2])
+        eta2 = np.array([.2])
         eta3 = np.array([.5])
-        self.update_scalar('density_middle', self.pointer['p_fluid'](eta1,eta2,eta3,index = self.pointer['p_fluid'].index['weights'])[0])
+        print("in us")
+        value = self.pointer['p_fluid'](eta1,eta2,eta3,index = self.pointer['p_fluid'].index['weights'], h=0.15, fast=True)[0]
+        print(value)
+        self.update_scalar('density_middle', value)
         

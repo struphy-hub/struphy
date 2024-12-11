@@ -41,14 +41,17 @@ def find_box(eta1 : float,
              nz : 'int',
              domain_array : 'float[:]', 
              ):
-    """Return the number of the box in which the point (eta1, eta2, eta3) is located."""
+    """Return the number of the box in which the point (eta1, eta2, eta3) is located, or -1 if the point is not on the process."""
     # Leave some room before and after the end of the domain for the box coming from neighbouring processes
+    
     x_l = domain_array[0]-(domain_array[1]-domain_array[0])/nx
     x_r = domain_array[1]+(domain_array[1]-domain_array[0])/nx
     y_l = domain_array[3]-(domain_array[4]-domain_array[3])/ny
     y_r = domain_array[4]+(domain_array[4]-domain_array[3])/ny
     z_l = domain_array[6]-(domain_array[7]-domain_array[6])/nz
     z_r = domain_array[7]+(domain_array[7]-domain_array[6])/nz
+    if eta1<x_l or eta1>x_r or eta2<y_l or eta2>y_r or eta3<z_l or eta3>z_r:
+        return -1
     n1 = int(floor((eta1-x_l)/(x_r-x_l)*(nx+2)))
     n2 = int(floor((eta2-y_l)/(y_r-y_l)*(ny+2)))
     n3 = int(floor((eta3-z_l)/(z_r-z_l)*(nz+2)))
@@ -130,4 +133,22 @@ def sort_boxed_particles(markers : 'float[:,:]',
                     markers[swap_i,:] = swap_line_1[:]
                     swap_line_1[:] = swap_line_2[:]
                 loc_i+=1
-            
+
+def reassigne_boxes(markers : 'float[:,:]', 
+                    holes : 'bool[:]',
+                    boxes : 'int[:,:]', 
+                    next_index : 'int[:]',
+                    box_index : 'int' =-2):
+    """Reloop over the particles after communication to update the neighbouring boxes 
+    with the right particles and the next_index for later sorting."""
+    boxes[:,:] = -1
+    next_index[:] = 0  
+    l = markers.shape[1]
+    for p in range(markers.shape[0]):
+        if holes[p]:
+            continue
+        else:
+            #print(markers[p,l+box_index])
+            a = int(markers[p,l+box_index])
+            boxes[a, next_index[a]] = p
+            next_index[a] += 1

@@ -91,17 +91,20 @@ def box_based_evaluation(eta1 : 'float[:]',
     out[:] = 0.
     for i in range(n_eval):
         loc_box = sorting_kernels.find_box(eta1[i],eta2[i],eta3[i],nx,ny,nz,domain_array)
-        for neigh in range(27):
-            box_to_search = neighbours[loc_box,neigh]
-            c = 0
-            while boxes[box_to_search,c]!= -1:
-                p = boxes[box_to_search,c]
-                c+=1
-                if not holes[p]:
-                    r = sqrt(periodic_distance(eta1[i],markers[p,0])**2 \
-                                 +periodic_distance(eta2[i],markers[p,1])**2 \
-                                 +periodic_distance(eta3[i],markers[p,2])**2)
-                    out[i] += markers[p,index]*smoothing_kernel(r, h)
+        if loc_box == -1:
+            continue
+        else:
+            for neigh in range(27):
+                box_to_search = neighbours[loc_box,neigh]
+                c = 0
+                while boxes[box_to_search,c]!= -1:
+                    p = boxes[box_to_search,c]
+                    c+=1
+                    if not holes[p]:
+                        r = sqrt(periodic_distance(eta1[i],markers[p,0])**2 \
+                                    +periodic_distance(eta2[i],markers[p,1])**2 \
+                                    +periodic_distance(eta3[i],markers[p,2])**2)
+                        out[i] += markers[p,index]*smoothing_kernel(r, h)
 
 def box_based_evaluation_3d(eta1 : 'float[:,:,:]', 
                             eta2 : 'float[:,:,:]', 
@@ -129,14 +132,19 @@ def box_based_evaluation_3d(eta1 : 'float[:,:,:]',
         for j in range(n_eval_2):
             for k in range(n_eval_3):
                 loc_box = sorting_kernels.find_box(eta1[i,j,k],eta2[i,j,k],eta3[i,j,k],nx,ny,nz,domain_array)
-                for neigh in range(27):
-                    box_to_search = neighbours[loc_box,neigh]
-                    c = 0
-                    while boxes[box_to_search,c]!= -1:
-                        p = boxes[box_to_search,c]
-                        c+=1
-                        if not holes[p]:
-                            r = sqrt(periodic_distance(eta1[i,j,k],markers[p,0])**2 \
-                                 +periodic_distance(eta2[i,j,k],markers[p,1])**2 \
-                                 +periodic_distance(eta3[i,j,k],markers[p,2])**2)
-                            out[i,j,k] += markers[p,index]*smoothing_kernel(r, h)
+                if loc_box == -1:
+                    continue
+                else:
+                    for neigh in range(27):
+                        if loc_box>125 or loc_box<0:
+                            print(loc_box)
+                        box_to_search = neighbours[loc_box,neigh]
+                        c = 0
+                        while boxes[box_to_search,c]!= -1:
+                            p = boxes[box_to_search,c]
+                            c+=1
+                            if not holes[p]:
+                                r = sqrt(periodic_distance(eta1[i,j,k],markers[p,0])**2 \
+                                    +periodic_distance(eta2[i,j,k],markers[p,1])**2 \
+                                    +periodic_distance(eta3[i,j,k],markers[p,2])**2)
+                                out[i,j,k] += markers[p,index]*smoothing_kernel(r, h)
