@@ -9,7 +9,7 @@ from struphy.models.tests.util import call_model
 @pytest.mark.parametrize(
     "map_and_equil", [("Cuboid", "HomogenSlab"), ("HollowTorus", "AdhocTorus"), ("Tokamak", "EQDSKequilibrium")]
 )
-def test_toy(map_and_equil, fast, vrbose, model=None, Tend=None):
+def test_toy(map_and_equil, fast, verbose, model=None, Tend=None):
     """Tests all models and all possible model.options (except solvers without preconditioner) in models/toy.py.
 
     If model is not None, tests the specified model.
@@ -30,13 +30,13 @@ def test_toy(map_and_equil, fast, vrbose, model=None, Tend=None):
                         print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
                         continue
 
-                call_model(key, val, map_and_equil, Tend=Tend, verbose=vrbose, comm=comm)
+                call_model(key, val, map_and_equil, Tend=Tend, verbose=verbose, comm=comm)
     else:
         val = getattr(toy, model)
-        call_model(model, val, map_and_equil, Tend=Tend, verbose=vrbose, comm=comm)
+        call_model(model, val, map_and_equil, Tend=Tend, verbose=verbose, comm=comm)
 
 
 if __name__ == "__main__":
-    test_toy(("Cuboid", "HomogenSlab"), True)
-    test_toy(("HollowTorus", "AdhocTorus"), True)
-    test_toy(("Tokamak", "EQDSKequilibrium"), True)
+    test_toy(("Cuboid", "HomogenSlab"), True, True)
+    test_toy(("HollowTorus", "AdhocTorus"), True, True)
+    test_toy(("Tokamak", "EQDSKequilibrium"), True, True)
