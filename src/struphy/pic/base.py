@@ -336,7 +336,7 @@ class Particles(metaclass=ABCMeta):
                 sorting_params["ny"],
                 sorting_params["nz"],
                 sorting_params["eps"],
-                sorting_params['communicate']
+                sorting_params["communicate"],
             )
             self._initialized_sorting = True
             self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
@@ -1183,8 +1183,8 @@ class Particles(metaclass=ABCMeta):
                     pass
                 else:
                     raise NotImplementedError(
-                    "Inverse transform sampling of given vdim is not implemented!",
-                )
+                        "Inverse transform sampling of given vdim is not implemented!",
+                    )
 
             # inversion method for drawing uniformly on the disc
             self._spatial = self.loading_params["spatial"]
@@ -1836,7 +1836,14 @@ class Particles(metaclass=ABCMeta):
             additional buffer space in the size of the boxes"""
 
         def __init__(
-            self, nx: "int", ny: "int", nz: "int", communicate: "bool", markers: "float[:,:]", box_index: "int" = -2, eps: "float" = 0.1
+            self,
+            nx: "int",
+            ny: "int",
+            nz: "int",
+            communicate: "bool",
+            markers: "float[:,:]",
+            box_index: "int" = -2,
+            eps: "float" = 0.1,
         ):
             assert isinstance(nx, int)
             assert isinstance(ny, int)
@@ -1867,7 +1874,7 @@ class Particles(metaclass=ABCMeta):
         @property
         def communicate(self):
             return self._communicate
-        
+
         @property
         def box_index(self):
             return self._box_index
@@ -1979,7 +1986,7 @@ class Particles(metaclass=ABCMeta):
             self._markers,
             eps=eps,
         )
-        if communicate :
+        if communicate:
             self._get_neighbouring_proc()
 
     def sort_boxed_particles_numpy(self):
@@ -2432,7 +2439,6 @@ class Particles(metaclass=ABCMeta):
 
                         test_reqs.pop()
                         reqs[i] = None
-
 
     def _get_neighbouring_proc(self):
         """Find the neighbouring processes for the sending of boxes"""

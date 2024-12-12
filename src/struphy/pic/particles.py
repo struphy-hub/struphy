@@ -1,9 +1,8 @@
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
-
+from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.pic import utilities_kernels
@@ -803,7 +802,7 @@ class ParticlesSPH(Particles):
             "moments": "degenerate",
             "spatial": "uniform",
             "initial": None,
-            }
+        }
 
         if "loading_params" not in kwargs:
             kwargs["loading_params"] = loading_params_default
