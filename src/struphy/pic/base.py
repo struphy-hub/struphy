@@ -336,6 +336,7 @@ class Particles(metaclass=ABCMeta):
                 sorting_params["ny"],
                 sorting_params["nz"],
                 sorting_params["eps"],
+                sorting_params['communicate']
             )
             self._initialized_sorting = True
             self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
@@ -1835,7 +1836,7 @@ class Particles(metaclass=ABCMeta):
             additional buffer space in the size of the boxes"""
 
         def __init__(
-            self, nx: "int", ny: "int", nz: "int", markers: "float[:,:]", box_index: "int" = -2, eps: "float" = 0.1
+            self, nx: "int", ny: "int", nz: "int", communicate: "bool", markers: "float[:,:]", box_index: "int" = -2, eps: "float" = 0.1
         ):
             assert isinstance(nx, int)
             assert isinstance(ny, int)
@@ -1843,11 +1844,13 @@ class Particles(metaclass=ABCMeta):
             self._nx = nx
             self._ny = ny
             self._nz = nz
+            self._communicate = communicate
             self._markers = markers
             self._box_index = box_index
             self._eps = eps
             self._set_boxes()
-            self._set_boundary_boxes()
+            if self._communicate:
+                self._set_boundary_boxes()
 
         @property
         def nx(self):
@@ -1861,6 +1864,10 @@ class Particles(metaclass=ABCMeta):
         def nz(self):
             return self._nz
 
+        @property
+        def communicate(self):
+            return self._communicate
+        
         @property
         def box_index(self):
             return self._box_index
@@ -1962,16 +1969,18 @@ class Particles(metaclass=ABCMeta):
             self._bnd_boxes_x_p_y_p_z_m = [flatten_index(self.nx, self.ny, 1, self.nx, self.ny, self.nz)]
             self._bnd_boxes_x_p_y_p_z_p = [flatten_index(self.nx, self.ny, self.nz, self.nx, self.ny, self.nz)]
 
-    def _init_sorting_boxes(self, nx, ny, nz, eps):
+    def _init_sorting_boxes(self, nx, ny, nz, eps, communicate):
         """Initialize the SortingBoxes."""
         self._sorting_boxes = self.SortingBoxes(
             nx,
             ny,
             nz,
+            communicate,
             self._markers,
             eps=eps,
         )
-        self._get_neighbouring_proc()
+        if communicate :
+            self._get_neighbouring_proc()
 
     def sort_boxed_particles_numpy(self):
         """Sort the particles by box using numpy.sort."""
@@ -1993,20 +2002,21 @@ class Particles(metaclass=ABCMeta):
             self.domain_decomp[self.mpi_rank],
         )
 
-        self.communicate_boxes()
+        if self._sorting_boxes.communicate:
+            self.communicate_boxes()
 
-        reassigne_boxes(self._markers, self.holes, self._sorting_boxes._boxes, self._sorting_boxes._next_index)
+            reassigne_boxes(self._markers, self.holes, self._sorting_boxes._boxes, self._sorting_boxes._next_index)
 
-        # put_particles_in_boxes(self._markers,
-        #                        self.holes,
-        #                        self._sorting_boxes.nx,
-        #                        self._sorting_boxes.ny,
-        #                        self._sorting_boxes.nz,
-        #                        self._sorting_boxes._boxes,
-        #                        self._sorting_boxes._next_index,
-        #                        self.domain_decomp[self.mpi_rank])
+            # put_particles_in_boxes(self._markers,
+            #                        self.holes,
+            #                        self._sorting_boxes.nx,
+            #                        self._sorting_boxes.ny,
+            #                        self._sorting_boxes.nz,
+            #                        self._sorting_boxes._boxes,
+            #                        self._sorting_boxes._next_index,
+            #                        self.domain_decomp[self.mpi_rank])
 
-        self.update_boundary_particles()
+            self.update_boundary_particles()
 
     def do_sort(self):
         """Assign the particles to boxes and then sort them."""
@@ -2030,7 +2040,8 @@ class Particles(metaclass=ABCMeta):
             self._sorting_boxes._cumul_next_index,
         )
 
-        self.update_boundary_particles()
+        if self._sorting_boxes.communicate:
+            self.update_boundary_particles()
 
     def remove_bnd_particles(self):
         to_remove = self._markers[:, -1] == -2.0

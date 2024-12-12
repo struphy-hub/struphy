@@ -113,7 +113,8 @@ kinetic :
                 ms : # poloidal mode numbers
                     n : [1, 3] # two poloidal modes for the density
         sorting:
-            nx: 8
-            ny: 8
-            nz: 8
+            nx: 15
+            ny: 15
+            nz: 15
             eps: 0.1
+            communicate: False

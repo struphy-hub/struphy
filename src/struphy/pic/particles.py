@@ -813,6 +813,13 @@ class ParticlesSPH(Particles):
                 loading_params_default,
             )
 
+        if "sorting_params" not in kwargs:
+            raise ValueError("Sorting parameters must be given for SPH")
+        else:
+            if "communicate" not in kwargs["sorting_params"] or not kwargs["sorting_params"]["communicate"]:
+                print("Enforcing communication of boxes in sph")
+                kwargs["sorting_params"]["communicate"] = True
+
         # default number of diagnostics and auxiliary columns
         if "n_cols" not in kwargs:
             self._n_cols_diagnostics = 0
