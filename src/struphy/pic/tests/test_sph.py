@@ -45,7 +45,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
         Np=Np,
         bc=["periodic", "periodic", "periodic"],
         loading="pseudo_random",
-        eps=10., # Lots a buffering needed since only 3*3*3 box
+        eps=10.0,  # Lots a buffering needed since only 3*3*3 box
         comm=mpi_comm,
         loading_params=params_loading,
         domain=domain,
@@ -59,7 +59,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     eta1 = np.array([0.5])
     eta2 = np.array([0.5])
     eta3 = np.array([0.5])
-    test_eval = particles.eval_density(eta1, eta2, eta3, h=1/(3*mpi_comm.Get_size()))
+    test_eval = particles.eval_density(eta1, eta2, eta3, h=1 / (3 * mpi_comm.Get_size()))
 
     assert abs(test_eval[0] - 1.15) < 3.0e-2
 
