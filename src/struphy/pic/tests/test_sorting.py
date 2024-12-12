@@ -38,7 +38,7 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     # DeRham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
     loading_params = {'seed': 1607, 'moments': [0., 0., 0., 1., 2., 3.], 'spatial': 'uniform'}
-    params_sorting = {'nx': 3, 'ny': 3, 'nz': 3, 'eps': 0.25}
+    params_sorting = {'nx': 3, 'ny': 3, 'nz': 3, 'eps': 0.25, 'communicate': False}
 
     particles = Particles6D(
         'test_particles',

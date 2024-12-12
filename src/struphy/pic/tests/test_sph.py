@@ -21,7 +21,7 @@ from struphy.pic.particles import ParticlesSPH
         ["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}],
     ],
 )
-@pytest.mark.parametrize("Np", [10000])
+@pytest.mark.parametrize("Np", [200000])
 def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     mpi_comm = MPI.COMM_WORLD
 
@@ -36,7 +36,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     bckgr_params = {
         "type": "ConstantVelocity",
-        "ConstantVelocity": {"density_profile": "affine", "ux": 1.0, "uy": 0.0, "uz": 0.0, "n0": 1.0, "n1": 0.1},
+        "ConstantVelocity": {"density_profile": "affine", "ux": 1.0, "uy": 0.0, "uz": 0.0, "n": 1.0, "n1": 0.1},
         "pforms": ["vol", None],
     }
 
@@ -45,7 +45,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
         Np=Np,
         bc=["periodic", "periodic", "periodic"],
         loading="pseudo_random",
-        eps=0.25,
+        eps=10., # Lots a buffering needed since only 3*3*3 box
         comm=mpi_comm,
         loading_params=params_loading,
         domain=domain,
@@ -59,7 +59,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     eta1 = np.array([0.5])
     eta2 = np.array([0.5])
     eta3 = np.array([0.5])
-    test_eval = particles.eval_density(eta1, eta2, eta3, h=0.3)
+    test_eval = particles.eval_density(eta1, eta2, eta3, h=1/(3*mpi_comm.Get_size()))
 
     assert abs(test_eval[0] - 1.15) < 3.0e-2
 
