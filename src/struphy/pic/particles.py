@@ -2,6 +2,8 @@ from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
+
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.pic import utilities_kernels
@@ -783,18 +785,6 @@ class ParticlesSPH(Particles):
     def default_bckgr_params(cls):
         return {"type": "ConstantVelocity", "ConstantVelocity": {}}
 
-    def loading_params_default(
-        self,
-    ):
-        defaults_params = {
-            "seed": 1234,
-            "dir_particles": None,
-            "moments": "degenerate",
-            "spatial": "uniform",
-            "initial": None,
-        }
-        return defaults_params
-
     def __init__(
         self,
         name: str,
@@ -805,6 +795,23 @@ class ParticlesSPH(Particles):
     ):
         if "bckgr_params" not in kwargs:
             kwargs["bckgr_params"] = self.default_bckgr_params()
+
+        # Load specific loading params for SPH (moment degenerate)
+        loading_params_default = {
+            "seed": 1234,
+            "dir_particles": None,
+            "moments": "degenerate",
+            "spatial": "uniform",
+            "initial": None,
+            }
+
+        if "loading_params" not in kwargs:
+            kwargs["loading_params"] = loading_params_default
+        else:
+            kwargs["loading_params"] = set_defaults(
+                kwargs["loading_params"],
+                loading_params_default,
+            )
 
         # default number of diagnostics and auxiliary columns
         if "n_cols" not in kwargs:

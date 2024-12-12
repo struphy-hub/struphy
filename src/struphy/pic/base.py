@@ -1149,39 +1149,39 @@ class Particles(metaclass=ABCMeta):
                 u_mean = np.array(self.loading_params["moments"][: self.vdim])
                 v_th = np.array(self.loading_params["moments"][self.vdim :])
 
-            # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
-            if self.vdim == 3:
-                self.velocities = (
-                    sp.erfinv(
-                        2 * self.velocities - 1,
+                # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
+                if self.vdim == 3:
+                    self.velocities = (
+                        sp.erfinv(
+                            2 * self.velocities - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th
+                        + u_mean
                     )
-                    * np.sqrt(2)
-                    * v_th
-                    + u_mean
-                )
-            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
-            elif self.vdim == 2:
-                self._markers[:n_mks_load_loc, 3] = (
-                    sp.erfinv(
-                        2 * self.velocities[:, 0] - 1,
+                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
+                elif self.vdim == 2:
+                    self._markers[:n_mks_load_loc, 3] = (
+                        sp.erfinv(
+                            2 * self.velocities[:, 0] - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[0]
+                        + u_mean[0]
                     )
-                    * np.sqrt(2)
-                    * v_th[0]
-                    + u_mean[0]
-                )
 
-                self._markers[:n_mks_load_loc, 4] = (
-                    np.sqrt(
-                        -1 * np.log(1 - self.velocities[:, 1]),
+                    self._markers[:n_mks_load_loc, 4] = (
+                        np.sqrt(
+                            -1 * np.log(1 - self.velocities[:, 1]),
+                        )
+                        * np.sqrt(2)
+                        * v_th[1]
+                        + u_mean[1]
                     )
-                    * np.sqrt(2)
-                    * v_th[1]
-                    + u_mean[1]
-                )
-            elif self.vdim == 0:
-                pass
-            else:
-                raise NotImplementedError(
+                elif self.vdim == 0:
+                    pass
+                else:
+                    raise NotImplementedError(
                     "Inverse transform sampling of given vdim is not implemented!",
                 )
 
@@ -1461,10 +1461,10 @@ class Particles(metaclass=ABCMeta):
         _weights0 = self.weights0
         _weights = self.weights
 
-        _weights /= self.domain.jacobian_det(self.markers_wo_holes)
+        _weights /= self.domain.jacobian_det(self.markers_wo_holes, remove_outside=False)
         # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-        _weights0 /= self.domain.jacobian_det(self.markers_wo_holes)
+        _weights0 /= self.domain.jacobian_det(self.markers_wo_holes, remove_outside=False)
         # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
         f_slice = np.histogramdd(
@@ -2223,7 +2223,7 @@ class Particles(metaclass=ABCMeta):
         for i in list_boxes:
             indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i] != -1])
 
-        indices = np.array(indices)
+        indices = np.array(indices, dtype=int)
         markers_in_box = self.markers[indices]
         return markers_in_box
 
@@ -2370,7 +2370,7 @@ class Particles(metaclass=ABCMeta):
         self.get_destinations_box()
         self.self_communication_boxes()
         self.mpi_comm.Barrier()
-        self.sendrecv_all_to_all_boxes(self._send_info_box)
+        self.sendrecv_all_to_all_boxes()
         self.update_holes()
         self.sendrecv_markers_boxes()
         self.update_holes()
@@ -2388,11 +2388,7 @@ class Particles(metaclass=ABCMeta):
     def sendrecv_markers_boxes(self):
         """
         Use non-blocking communication. In-place modification of markers
-
-        Parameters
-        ----------
-            hole_inds_after_send : array[int]
-                Indices of empty rows in markers after send.
+        for the communication of particles in boundary boxes.
         """
 
         # i-th entry holds the number (not the index) of the first hole to be filled by data from process i
