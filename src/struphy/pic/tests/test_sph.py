@@ -21,7 +21,7 @@ from struphy.pic.particles import ParticlesSPH
         ["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}],
     ],
 )
-@pytest.mark.parametrize("Np", [200000])
+@pytest.mark.parametrize("Np", [400000])
 def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     mpi_comm = MPI.COMM_WORLD
 
