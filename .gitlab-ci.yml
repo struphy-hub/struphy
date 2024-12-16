@@ -30,6 +30,12 @@
 
 # The doc can be built via the commit message "make-pages".
 
+variables:
+  TEST_PERFORMANCE:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to run the performance testing pipeline"
+
 default:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
 
@@ -70,6 +76,8 @@ stages:
   # rules:
   #   - if: $CI_PIPELINE_SOURCE == "schedule"
   #   - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+  rules:
+    - if: $TEST_PERFORMANCE == "true"
   tags:
     - linux
     - raven
