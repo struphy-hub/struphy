@@ -2,6 +2,7 @@ import copy
 import os
 from abc import ABCMeta, abstractmethod
 
+import amrex.space3d as amr
 import h5py
 import numpy as np
 import scipy.special as sp
@@ -18,6 +19,7 @@ from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.amrex import Amrex
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
@@ -34,10 +36,6 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_3d,
     periodic_distance,
 )
-
-import amrex.space3d as amr
-
-use_amrex = False
 
 class Particles(metaclass=ABCMeta):
     """
@@ -131,7 +129,7 @@ class Particles(metaclass=ABCMeta):
         domain_array: np.ndarray = None,
         ppc: int = None,
         projected_mhd_equil: ProjectedMHDequilibrium = None,
-        # use_amrex = True,
+        amrex: Amrex = None,
     ):
         self._name = name
 
@@ -237,129 +235,124 @@ class Particles(metaclass=ABCMeta):
         else:
             self._pforms = [None, None]
 
+        self.amrex = amrex
+
         # create marker array
-        if use_amrex:
+        if self.amrex is not None:
             self.create_amrex_array()
         else:
             self.create_marker_array()
 
-        # allocate arrays for sorting
-        n_rows = self.markers.shape[0]
-        self._is_outside_right = np.zeros(n_rows, dtype=bool)
-        self._is_outside_left = np.zeros(n_rows, dtype=bool)
-        self._is_outside = np.zeros(n_rows, dtype=bool)
+            # allocate arrays for sorting
+            n_rows = self.markers.shape[0]
+            self._is_outside_right = np.zeros(n_rows, dtype=bool)
+            self._is_outside_left = np.zeros(n_rows, dtype=bool)
+            self._is_outside = np.zeros(n_rows, dtype=bool)
 
-        # Check if control variate
-        self._control_variate = self.type == "control_variate"
+            # Check if control variate
+            self._control_variate = self.type == "control_variate"
 
-        # set background function
-        bckgr_type = bckgr_params["type"]
+            # set background function
+            bckgr_type = bckgr_params["type"]
 
-        if not isinstance(bckgr_type, list):
-            bckgr_type = [bckgr_type]
+            if not isinstance(bckgr_type, list):
+                bckgr_type = [bckgr_type]
 
-        self._f0 = None
-        for fi in bckgr_type:
-            if fi[-2] == "_":
-                fi_type = fi[:-2]
-            else:
-                fi_type = fi
-            if fi in bckgr_params:
-                maxw_params = bckgr_params[fi]
-                pass_mhd_equil = mhd_equil
-                pass_braginskii_equil = braginskii_equil
-            else:
-                maxw_params = None
-                pass_mhd_equil = None
-                pass_braginskii_equil = None
-
-                print(f"\n{fi} is not in bckgr_params; default background parameters are used.")
-            if self.loading_params["moments"] == "degenerate":
-                equils = getattr(fluid_equils, fi_type)
-                equils.domain = self.domain
-                if self._f0 is None:
-                    self._f0 = lambda eta: equils.n0(*eta)
+            self._f0 = None
+            for fi in bckgr_type:
+                if fi[-2] == "_":
+                    fi_type = fi[:-2]
                 else:
-                    self._f0 = self._f0 + (lambda eta: equils.n0(*eta))
-            else:
-                if self._f0 is None:
-                    self._f0 = getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params, mhd_equil=pass_mhd_equil, braginskii_equil=pass_braginskii_equil
-                    )
+                    fi_type = fi
+                if fi in bckgr_params:
+                    maxw_params = bckgr_params[fi]
+                    pass_mhd_equil = mhd_equil
+                    pass_braginskii_equil = braginskii_equil
                 else:
-                    self._f0 = self._f0 + getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params, mhd_equil=pass_mhd_equil, braginskii_equil=pass_braginskii_equil
-                    )
+                    maxw_params = None
+                    pass_mhd_equil = None
+                    pass_braginskii_equil = None
 
-        # set coordinates of the background distribution
-        if self.loading_params["moments"] != "degenerate" and self.f0.coords == "constants_of_motion":
-            # Particles6D
-            if self.vdim == 3:
-                assert (
-                    self.n_cols_diagnostics >= 7
-                ), f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
+                    print(f"\n{fi} is not in bckgr_params; default background parameters are used.")
+                if self.loading_params["moments"] == "degenerate":
+                    equils = getattr(fluid_equils, fi_type)
+                    equils.domain = self.domain
+                    if self._f0 is None:
+                        self._f0 = lambda eta: equils.n0(*eta)
+                    else:
+                        self._f0 = self._f0 + (lambda eta: equils.n0(*eta))
+                else:
+                    if self._f0 is None:
+                        self._f0 = getattr(maxwellians, fi_type)(
+                            maxw_params=maxw_params, mhd_equil=pass_mhd_equil, braginskii_equil=pass_braginskii_equil
+                        )
+                    else:
+                        self._f0 = self._f0 + getattr(maxwellians, fi_type)(
+                            maxw_params=maxw_params, mhd_equil=pass_mhd_equil, braginskii_equil=pass_braginskii_equil
+                        )
 
-                self._f_coords_index = self.index["com"]["6D"]
-                self._f_jacobian_coords_index = self.index["pos+energy"]["6D"]
+            # set coordinates of the background distribution
+            if self.loading_params["moments"] != "degenerate" and self.f0.coords == "constants_of_motion":
+                # Particles6D
+                if self.vdim == 3:
+                    assert (
+                        self.n_cols_diagnostics >= 7
+                    ), f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
 
-            # Particles5D
-            elif self.vdim == 2:
-                assert (
-                    self.n_cols_diagnostics >= 3
-                ), f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+                    self._f_coords_index = self.index["com"]["6D"]
+                    self._f_jacobian_coords_index = self.index["pos+energy"]["6D"]
 
-                self._f_coords_index = self.index["com"]["5D"]
-                self._f_jacobian_coords_index = self.index["pos+energy"]["5D"]
-        if self.loading_params["moments"] == "degenerate":
-            self._f_coords_index = self.index["coords"]
-            self._f_jacobian_coords_index = self.index["coords"]
-        else:
-            if self.f0.coords == "constants_of_motion":
-                self._f_coords_index = self.index["com"]
-                self._f_jacobian_coords_index = self.index["pos+energy"]
+                # Particles5D
+                elif self.vdim == 2:
+                    assert (
+                        self.n_cols_diagnostics >= 3
+                    ), f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+
+                self._f_coords_index = self.index['com']['5D']
+                self._f_jacobian_coords_index = self.index['pos+energy']['5D']
 
             else:
                 self._f_coords_index = self.index["coords"]
                 self._f_jacobian_coords_index = self.index["coords"]
 
-        # Marker arguments for kernels
-        self._args_markers = MarkerArguments(
-            self.markers,
-            self.vdim,
-            self.first_pusher_idx,
-        )
-
-        # Have at least 3 spare places in markers array
-        assert (
-            self.args_markers.first_free_idx + 2 < self.n_cols - 1
-        ), f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
-
-        # initialize the sorting
-        self._sorting_params = sorting_params
-        self._initialized_sorting = False
-        if sorting_params is not None:
-            self._sorting_boxes = self.SortingBoxes(
-                sorting_params["nx"],
-                sorting_params["ny"],
-                sorting_params["nz"],
-                sorting_params["communicate"],
-                self._markers,
-                eps=sorting_params["eps"],
+            # Marker arguments for kernels
+            self._args_markers = MarkerArguments(
+                self.markers,
+                self.vdim,
+                self.first_pusher_idx,
             )
-            if sorting_params["communicate"]:
-                self._get_neighbouring_proc()
 
-            self._initialized_sorting = True
-            self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
+            # Have at least 3 spare places in markers array
+            assert (
+                self.args_markers.first_free_idx + 2 < self.n_cols - 1
+            ), f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
 
-        # create buffers for mpi_sort_markers
-        self._sorting_etas = np.zeros(self._markers.shape, dtype=float)
-        self._is_on_proc_domain = np.zeros((self._markers.shape[0], 3), dtype=bool)
-        self._can_stay = np.zeros(self._markers.shape[0], dtype=bool)
-        self._reqs = [None] * self.mpi_size
-        self._recvbufs = [None] * self.mpi_size
-        self._send_to_i = [None] * self.mpi_size
-        self._send_list = [None] * self.mpi_size
+            # initialize the sorting
+            self._sorting_params = sorting_params
+            self._initialized_sorting = False
+            if sorting_params is not None:
+                self._sorting_boxes = self.SortingBoxes(
+                    sorting_params["nx"],
+                    sorting_params["ny"],
+                    sorting_params["nz"],
+                    sorting_params["communicate"],
+                    self._markers,
+                    eps=sorting_params["eps"],
+                )
+                if sorting_params["communicate"]:
+                    self._get_neighbouring_proc()
+
+                self._initialized_sorting = True
+                self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
+
+            # create buffers for mpi_sort_markers
+            self._sorting_etas = np.zeros(self._markers.shape, dtype=float)
+            self._is_on_proc_domain = np.zeros((self._markers.shape[0], 3), dtype=bool)
+            self._can_stay = np.zeros(self._markers.shape[0], dtype=bool)
+            self._reqs = [None] * self.mpi_size
+            self._recvbufs = [None] * self.mpi_size
+            self._send_to_i = [None] * self.mpi_size
+            self._send_list = [None] * self.mpi_size
 
     @classmethod
     @abstractmethod
@@ -886,30 +879,45 @@ class Particles(metaclass=ABCMeta):
         self._lost_markers = np.zeros((int(n_rows * 0.5), 10), dtype=float)
 
     def create_amrex_array(self):
-        amr.initialize(
-    [
-        # print AMReX status messages
-        "amrex.verbose=1",
-        # # throw exceptions and create core dumps instead of
-        # # AMReX backtrace files: allows to attach to
-        # # debuggers
-        "amrex.throw_exception=1",
-        "amrex.signal_handling=0",
-    ])
-    # empty particle container, pure SoA
-    pc = amr.ParticleContainer_pureSoA_8_0_default()
+        # empty particle container, pure SoA
+        pc = amr.ParticleContainer_pureSoA_8_0_default()
 
-    # indexing space domain is [0, 63]^3
-    bx = amr.Box(amr.IntVect(0, 0, 0), amr.IntVect(63, 63, 63))
-    rb = amr.RealBox(0, 0, 0, 1, 1, 1)  # physical domain is [0, 1]^3
-    coord_int = 0  # Cartesian
-    periodicity = [1, 1, 1]  # all periodic
-    # Geometry contains all information regarding domain, coordinates, periodicity
-    gm = amr.Geometry(bx, rb, coord_int, periodicity)
+        # physical domain is [0, 1]^3
+        rb = amr.RealBox(0, 0, 0, 1, 1, 1)
 
-    # collection of rectangular domains in space, initially just one
-    ba = amr.BoxArray(bx)
-    assert ba.size == 1
+        coord_int = 0  # Cartesian
+
+        if "reflect" in self._bc:
+            raise NotImplementedError("The 'reflect' boundary condition is not implemented with pyAMReX")
+
+        periodicity = [1, 1, 1]  # all periodic TODO: implement different kind of periodicity
+
+        SINGLE_CELL_SIZE = 32  # default size of single cell in indexing domain
+
+        multiplier = np.ceil(np.log2(amr.ParallelDescriptor.NProcs()) / 3)  # ceil(log8(NProcs))
+
+        TOTAL_SIZE = int((multiplier + 1) * SINGLE_CELL_SIZE - 1)
+
+        # indexing space domain size depends on the number of processes available
+        big_box = amr.Box(amr.IntVect(0, 0, 0), amr.IntVect(TOTAL_SIZE, TOTAL_SIZE, TOTAL_SIZE))
+
+        # collection of rectangular domains in space, initially just one
+        ba = amr.BoxArray(big_box)
+        assert ba.size == 1
+
+        ba.max_size(SINGLE_CELL_SIZE)  # max size of a rectangular domain, results in auto-chopping
+
+        assert ba.size == 8**multiplier
+
+        # Geometry contains all information regarding domain, coordinates, periodicity
+        gm = amr.Geometry(big_box, rb, coord_int, periodicity)
+
+        dm = amr.DistributionMapping(ba)
+
+        pc.Define(gm, dm, ba)  # geometry, distribution mapping, box array
+        assert pc.OK()  # OK checks that all particles are in the right places (for some value of right)
+
+        self._markers = pc
 
     def draw_markers(self, sort: "bool" = True, verbose=True):
         r""" 

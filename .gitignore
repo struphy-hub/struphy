@@ -69,6 +69,7 @@ __epyccel__/
 *.vts
 *acquisition.lock
 *.json
+*Backtrace*
 
 # Default simulations and diagnostics
 my_diagnostics
