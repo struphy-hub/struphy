@@ -158,6 +158,7 @@ default_install:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y # compiles struphy, psydac with language c 
+    - struphy --refresh-models
   artifacts:
     name: 'python-env-installed'
     paths:
@@ -397,6 +398,7 @@ c_unit_tests:
     - pwd
     - ls -1a
     - struphy compile --status
+    - struphy --refresh-models
     - struphy test unit  
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 

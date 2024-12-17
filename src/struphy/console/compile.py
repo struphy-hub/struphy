@@ -79,9 +79,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         state["last_used_omp_pic"] = None
         state["last_used_omp_feec"] = None
 
-        with open(os.path.join(libpath, "state.yml"), "w") as f:
-            yaml.dump(state, f)
-
+        utils.save_state(state)
     # source files
     sources = " ".join(state["kernels"])
 
@@ -133,6 +131,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                     py_file = stem + ".py"
                     matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
                     # print(f'{matches = }')
+                    matching = None
                     for match in matches:
                         py_ker = match.split("/")[-1]
                         if py_ker == py_file:
@@ -168,8 +167,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         state["compiled_not_n"] = n_kernels - count_c - count_f90
         state["compiled_not"] = list_not_compiled
 
-        with open(os.path.join(libpath, "state.yml"), "w") as f:
-            yaml.dump(state, f)
+        utils.save_state(state)
 
     elif dependencies:
         print("\nAuto-detect dependencies ...")
@@ -218,8 +216,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         state["last_used_omp_pic"] = flag_omp_pic
         state["last_used_omp_feec"] = flag_omp_feec
 
-        with open(os.path.join(libpath, "state.yml"), "w") as f:
-            yaml.dump(state, f)
+        utils.save_state(state)
 
         _li = pyccel.__version__.split(".")
         _num = int(_li[0]) * 100 + int(_li[1]) * 10 + int(_li[2])

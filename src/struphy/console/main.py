@@ -74,8 +74,7 @@ def struphy():
         b_path = os.path.join(libpath, "io/batch")
         state["b_path"] = b_path
 
-    with open(os.path.join(libpath, "state.yml"), "w") as f:
-        yaml.dump(state, f)
+    utils.save_state(state)
 
     # path message
     path_message = f"Struphy installation path: {libpath}\n"
@@ -821,8 +820,7 @@ def struphy():
         i_path = os.path.abspath(i_path)
 
         state["i_path"] = i_path
-        with open(os.path.join(libpath, "state.yml"), "w") as f:
-            yaml.dump(state, f)
+        utils.save_state(state)
 
         print(f'New input path has been set to {state["i_path"]}')
         exit()
@@ -843,9 +841,7 @@ def struphy():
         o_path = os.path.abspath(o_path)
 
         state["o_path"] = o_path
-
-        with open(os.path.join(libpath, "state.yml"), "w") as f:
-            yaml.dump(state, f)
+        utils.save_state(state)
 
         print(f'New output path has been set to {state["o_path"]}')
         exit()
@@ -866,9 +862,7 @@ def struphy():
         b_path = os.path.abspath(b_path)
 
         state["b_path"] = b_path
-
-        with open(os.path.join(libpath, "state.yml"), "w") as f:
-            yaml.dump(state, f)
+        utils.save_state(state)
 
         print(f'New batch path has been set to {state["b_path"]}')
         exit()
