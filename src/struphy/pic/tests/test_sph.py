@@ -68,7 +68,7 @@ if __name__ == "__main__":
     test_evaluation(
         [8, 9, 10],
         [2, 3, 4],
-        [True, True, True],
+        [False, False, True],
         ["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}],
-        100000,
+        400000,
     )

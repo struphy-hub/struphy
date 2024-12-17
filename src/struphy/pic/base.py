@@ -2440,6 +2440,8 @@ class Particles(metaclass=ABCMeta):
                         test_reqs.pop()
                         reqs[i] = None
 
+        self.mpi_comm.Barrier()
+        
     def _get_neighbouring_proc(self):
         """Find the neighbouring processes for the sending of boxes"""
         dd = self.domain_decomp
