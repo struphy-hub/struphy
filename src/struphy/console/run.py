@@ -300,12 +300,14 @@ def struphy_run(
                     f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))
             else:
                 print("Running with srun")
-                f.write("srun " + " ".join(command) + " > " + os.path.join(output_abs, "struphy.out"))
+                command = ["srun"] + command
+                f.write(" ".join(command) + " > " + os.path.join(output_abs, "struphy.out"))
 
         # submit batch script in output folder
         print("\nLaunching main() in batch mode ...")
         cmd = ["sbatch", "batch_script.sh"]
         subp_run(cmd, cwd=output_abs)
+    return command
 
 
 def subp_run(cmd, cwd="libpath", check=True):
