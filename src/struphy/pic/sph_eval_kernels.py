@@ -135,7 +135,7 @@ def box_based_evaluation(
 
         out : array
             Array to fill with the result.
-        """
+    """
     n_eval = len(eta1)
     out[:] = 0.0
     for i in range(n_eval):
@@ -157,7 +157,6 @@ def box_based_evaluation(
                         )
                         out[i] += markers[p, index] * smoothing_kernel(r, h)
 
-    
 
 def box_based_evaluation_3d(
     eta1: "float[:,:,:]",
@@ -211,7 +210,7 @@ def box_based_evaluation_3d(
 
         out : array
             Array to fill with the result.
-        """
+    """
     n_eval_1 = eta1.shape[0]
     n_eval_2 = eta1.shape[1]
     n_eval_3 = eta1.shape[2]

@@ -575,7 +575,7 @@ class Particles(metaclass=ABCMeta):
     def holes(self):
         """Array of booleans stating if an entry in the markers array is a hole or not."""
         return self._holes
-    
+
     @property
     def ghost_particles(self):
         """Array of booleans stating if an entry in the markers array is a ghost particle or not."""
@@ -649,13 +649,13 @@ class Particles(metaclass=ABCMeta):
     @property
     def positions(self):
         """Array holding the marker positions in logical space, excluding holes. The i-th row holds the i-th marker info."""
-        return self.markers[~np.logical_or(self.holes,self.ghost_particles), self.index["pos"]]
+        return self.markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]]
 
     @positions.setter
     def positions(self, new):
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3)
-        self._markers[~np.logical_or(self.holes,self.ghost_particles), self.index["pos"]] = new
+        self._markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]] = new
 
     @property
     def velocities(self):
@@ -1998,8 +1998,8 @@ class Particles(metaclass=ABCMeta):
 
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
-           If sorting_boxes was instantiated with communicate=True, then the particles in the 
-           neighbouring boxes of neighbours processors or also communicated"""
+        If sorting_boxes was instantiated with communicate=True, then the particles in the
+        neighbouring boxes of neighbours processors or also communicated"""
         self.remove_ghost_particles()
 
         put_particles_in_boxes_kernel(
@@ -2436,7 +2436,7 @@ class Particles(metaclass=ABCMeta):
                         reqs[i] = None
 
         self.mpi_comm.Barrier()
-        
+
     def _get_neighbouring_proc(self):
         """Find the neighbouring processes for the sending of boxes"""
         dd = self.domain_decomp

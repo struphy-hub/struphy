@@ -1191,7 +1191,7 @@ class PressureLessSPH(StruphyModel):
         # Scalar variables to be saved during simulation
         self.add_scalar("en_kin")
 
-        self._en_kin = 0.
+        self._en_kin = 0.0
 
     def update_scalar_quantities(self):
         self._en_kin = self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 6].dot(
