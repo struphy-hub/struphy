@@ -1179,11 +1179,6 @@ class PressureLessSPH(StruphyModel):
         p_fluid_params = self.kinetic["p_fluid"]["params"]
         algo_eta = params["kinetic"]["p_fluid"]["options"]["PushEta"]["algo"]
 
-        # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-        #                                  self.mhd_equil.b2_2,
-        #                                  self.mhd_equil.b2_3])
-
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
@@ -1195,28 +1190,14 @@ class PressureLessSPH(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self.add_scalar("en_kin")
-        self.add_scalar("density_middle")
 
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
-        self._en_kin = np.empty(1, dtype=float)
+        self._en_kin = 0.
 
     def update_scalar_quantities(self):
-        self._en_kin[0] = self.pointer["p_fluid"].markers_wo_holes_and_bnd[:, 6].dot(
-            self.pointer["p_fluid"].markers_wo_holes_and_bnd[:, 3] ** 2
-            + self.pointer["p_fluid"].markers_wo_holes_and_bnd[:, 4] ** 2
-            + self.pointer["p_fluid"].markers_wo_holes_and_bnd[:, 5] ** 2
+        self._en_kin = self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 6].dot(
+            self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 3] ** 2
+            + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 4] ** 2
+            + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 5] ** 2
         ) / (2.0 * self.pointer["p_fluid"].n_mks)
 
-        self.derham.comm.Allreduce(self._mpi_in_place, self._en_kin, op=self._mpi_sum)
-
-        self.update_scalar("en_kin", self._en_kin[0])
-        eta1 = np.array([0.2])
-        eta2 = np.array([0.2])
-        eta3 = np.array([0.5])
-        print("in us")
-        value = self.pointer["p_fluid"](
-            eta1, eta2, eta3, index=self.pointer["p_fluid"].index["weights"], h=0.15, fast=True
-        )[0]
-        print(value)
-        self.update_scalar("density_middle", value)
+        self.update_scalar("en_kin", self._en_kin)

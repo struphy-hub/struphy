@@ -897,7 +897,7 @@ class StruphyModel(metaclass=ABCMeta):
                                     print((key + ":").ljust(25), par)
 
                     obj.draw_markers(verbose=self.verbose)
-                    obj.mpi_sort_markers(do_test=False)
+                    obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":

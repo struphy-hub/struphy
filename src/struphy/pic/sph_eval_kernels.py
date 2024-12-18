@@ -102,7 +102,40 @@ def box_based_evaluation(
     """Optimized evaluation of a function defined by its values at the particles.
     This is done only evaluating the particles in the neighbouring cells of the evaluation point.
     This assumes that the smoothing radius h is smaller then the size of the boxes.
-    Entries have to be given as 3 1d array (representing the coordinate in each direction)."""
+    Entries have to be given as 3 1d array (representing the coordinate in each direction).
+
+    Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        markers : 2d array
+            Marker array of the particles.
+
+        nx, ny, nz : int
+            Number of boxes in each direction.
+
+        boxes : 2d array
+            Box array of the sorting boxes structure.
+
+        neighbours : 2d array
+            Array containing the 27 neighbouring boxes of each box.
+
+        domain_array : array
+            Contain the information of the domain on the currnt processor.
+
+        holes : array of bool
+            Contain the information of the holes on the current processor.
+
+        index : int
+            At which index is the value we are computing stored in the particle marker array.
+
+        h : float
+            Radius of the smoothing kernel to use.
+
+        out : array
+            Array to fill with the result.
+        """
     n_eval = len(eta1)
     out[:] = 0.0
     for i in range(n_eval):
@@ -124,6 +157,7 @@ def box_based_evaluation(
                         )
                         out[i] += markers[p, index] * smoothing_kernel(r, h)
 
+    
 
 def box_based_evaluation_3d(
     eta1: "float[:,:,:]",
@@ -144,7 +178,40 @@ def box_based_evaluation_3d(
     """Optimized evaluation of a function defined by its values at the particles.
     This is done only evaluating the particles in the neighbouring cells of the evaluation point.
     This assumes that the smoothing radius h is smaller then the size of the boxes.
-    Entries have to be given as 3 3d array (meshgrid format)."""
+    Entries have to be given as 3 3d array (meshgrid format).
+
+    Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        markers : 2d array
+            Marker array of the particles.
+
+        nx, ny, nz : int
+            Number of boxes in each direction.
+
+        boxes : 2d array
+            Box array of the sorting boxes structure.
+
+        neighbours : 2d array
+            Array containing the 27 neighbouring boxes of each box.
+
+        domain_array : array
+            Contain the information of the domain on the currnt processor.
+
+        holes : array of bool
+            Contain the information of the holes on the current processor.
+
+        index : int
+            At which index is the value we are computing stored in the particle marker array.
+
+        h : float
+            Radius of the smoothing kernel to use.
+
+        out : array
+            Array to fill with the result.
+        """
     n_eval_1 = eta1.shape[0]
     n_eval_2 = eta1.shape[1]
     n_eval_3 = eta1.shape[2]
@@ -159,8 +226,6 @@ def box_based_evaluation_3d(
                     continue
                 else:
                     for neigh in range(27):
-                        if loc_box > 125 or loc_box < 0:
-                            print(loc_box)
                         box_to_search = neighbours[loc_box, neigh]
                         c = 0
                         while boxes[box_to_search, c] != -1:

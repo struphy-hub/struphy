@@ -66,7 +66,7 @@ def find_box(
     return flatten_index(n1, n2, n3, nx, ny, nz)
 
 
-def put_particles_in_boxes(
+def put_particles_in_boxes_kernel(
     markers: "float[:,:]",
     holes: "bool[:]",
     nx: "int",
@@ -148,7 +148,7 @@ def sort_boxed_particles(
                 loc_i += 1
 
 
-def reassigne_boxes(
+def reassign_boxes(
     markers: "float[:,:]", holes: "bool[:]", boxes: "int[:,:]", next_index: "int[:]", box_index: "int" = -2
 ):
     """Reloop over the particles after communication to update the neighbouring boxes

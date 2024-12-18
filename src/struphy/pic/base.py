@@ -23,8 +23,8 @@ from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,
     initialize_neighbours,
-    put_particles_in_boxes,
-    reassigne_boxes,
+    put_particles_in_boxes_kernel,
+    reassign_boxes,
     sort_boxed_particles,
 )
 from struphy.pic.sph_eval_kernels import (
@@ -331,13 +331,17 @@ class Particles(metaclass=ABCMeta):
         self._sorting_params = sorting_params
         self._initialized_sorting = False
         if sorting_params is not None:
-            self._init_sorting_boxes(
+            self._sorting_boxes = self.SortingBoxes(
                 sorting_params["nx"],
                 sorting_params["ny"],
                 sorting_params["nz"],
-                sorting_params["eps"],
                 sorting_params["communicate"],
+                self._markers,
+                eps=sorting_params["eps"],
             )
+            if sorting_params["communicate"]:
+                self._get_neighbouring_proc()
+
             self._initialized_sorting = True
             self._argsort_array = np.zeros(self._markers.shape[0], dtype=int)
 
@@ -556,11 +560,11 @@ class Particles(metaclass=ABCMeta):
         """2D numpy array holding the marker information, including holes.
         The i-th row holds the i-th marker info.
 
-        ===== ============== ======================= ======= ====== ====== ========== === ===
-        index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -1
-        ===== ============== ======================= ======= ====== ====== ========== === ===
-        value position (eta)    velocities           weight   s0     w0      other    ... ID
-        ===== ============== ======================= ======= ====== ====== ========== === ===
+        ===== ============== ======================= ======= ====== ====== ========== === === ===
+        index  | 0 | 1 | 2 | | 3 | ... | 3+(vdim-1)|  3+vdim 4+vdim 5+vdim >=6+vdim   ... -2  -1
+        ===== ============== ======================= ======= ====== ====== ========== === === ===
+        value position (eta)    velocities           weight   s0     w0      other    ... box ID
+        ===== ============== ======================= ======= ====== ====== ========== === === ===
 
         The column indices referring to different attributes can be obtained from
         :attr:`~struphy.pic.base.Particles.index`.
@@ -571,6 +575,11 @@ class Particles(metaclass=ABCMeta):
     def holes(self):
         """Array of booleans stating if an entry in the markers array is a hole or not."""
         return self._holes
+    
+    @property
+    def ghost_particles(self):
+        """Array of booleans stating if an entry in the markers array is a ghost particle or not."""
+        return self._ghost_particles
 
     @property
     def n_holes_loc(self):
@@ -583,9 +592,9 @@ class Particles(metaclass=ABCMeta):
         return self.markers[~self.holes]
 
     @property
-    def markers_wo_holes_and_bnd(self):
+    def markers_wo_holes_and_ghost(self):
         """Array holding the marker information, excluding holes. The i-th row holds the i-th marker info."""
-        return self.markers[~np.logical_or(self.holes, self._bnd_part)]
+        return self.markers[~np.logical_or(self.holes, self.ghost_particles)]
 
     @property
     def domain(self):
@@ -633,19 +642,20 @@ class Particles(metaclass=ABCMeta):
         out["weights"] = 3 + self.vdim  # weights
         out["s0"] = 4 + self.vdim  # sampling_density
         out["w0"] = 5 + self.vdim  # weights0
+        out["box"] = -2  # sorting box index
         out["ids"] = -1  # marker_inds
         return out
 
     @property
     def positions(self):
         """Array holding the marker positions in logical space, excluding holes. The i-th row holds the i-th marker info."""
-        return self.markers[~self.holes, self.index["pos"]]
+        return self.markers[~np.logical_or(self.holes,self.ghost_particles), self.index["pos"]]
 
     @positions.setter
     def positions(self, new):
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3)
-        self._markers[~self.holes, self.index["pos"]] = new
+        self._markers[~np.logical_or(self.holes,self.ghost_particles), self.index["pos"]] = new
 
     @property
     def velocities(self):
@@ -770,6 +780,10 @@ class Particles(metaclass=ABCMeta):
             ] = new
         else:
             self.markers[~self.holes, self.f_jacobian_coords_index] = new
+
+    @property
+    def sorting_boxes(self):
+        return self._sorting_boxes
 
     def _get_domain_decomp(self):
         """
@@ -952,7 +966,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of holes and markers on process
         self._holes = self.markers[:, 0] == -1.0
-        self._bnd_part = self.markers[:, -1] == -2.0
+        self._ghost_particles = self.markers[:, -1] == -2.0
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
@@ -1548,9 +1562,9 @@ class Particles(metaclass=ABCMeta):
             self._is_outside_left[:] = self.markers[:, axis] < 0.0
 
             self._is_outside_right[self.holes] = False
-            self._is_outside_right[self._bnd_part] = False
+            self._is_outside_right[self.ghost_particles] = False
             self._is_outside_left[self.holes] = False
-            self._is_outside_left[self._bnd_part] = False
+            self._is_outside_left[self.ghost_particles] = False
 
             self._is_outside[:] = np.logical_or(
                 self._is_outside_right,
@@ -1976,19 +1990,6 @@ class Particles(metaclass=ABCMeta):
             self._bnd_boxes_x_p_y_p_z_m = [flatten_index(self.nx, self.ny, 1, self.nx, self.ny, self.nz)]
             self._bnd_boxes_x_p_y_p_z_p = [flatten_index(self.nx, self.ny, self.nz, self.nx, self.ny, self.nz)]
 
-    def _init_sorting_boxes(self, nx, ny, nz, eps, communicate):
-        """Initialize the SortingBoxes."""
-        self._sorting_boxes = self.SortingBoxes(
-            nx,
-            ny,
-            nz,
-            communicate,
-            self._markers,
-            eps=eps,
-        )
-        if communicate:
-            self._get_neighbouring_proc()
-
     def sort_boxed_particles_numpy(self):
         """Sort the particles by box using numpy.sort."""
         sorting_axis = self._sorting_boxes.box_index
@@ -1996,9 +1997,12 @@ class Particles(metaclass=ABCMeta):
         self._markers[:, :] = self._markers[self._argsort_array]
 
     def put_particles_in_boxes(self):
-        self.remove_bnd_particles()
+        """Assign the right box to the particles and the list of the particles to each box.
+           If sorting_boxes was instantiated with communicate=True, then the particles in the 
+           neighbouring boxes of neighbours processors or also communicated"""
+        self.remove_ghost_particles()
 
-        put_particles_in_boxes(
+        put_particles_in_boxes_kernel(
             self._markers,
             self.holes,
             self._sorting_boxes.nx,
@@ -2012,18 +2016,9 @@ class Particles(metaclass=ABCMeta):
         if self._sorting_boxes.communicate:
             self.communicate_boxes()
 
-            reassigne_boxes(self._markers, self.holes, self._sorting_boxes._boxes, self._sorting_boxes._next_index)
+            reassign_boxes(self._markers, self.holes, self._sorting_boxes._boxes, self._sorting_boxes._next_index)
 
-            # put_particles_in_boxes(self._markers,
-            #                        self.holes,
-            #                        self._sorting_boxes.nx,
-            #                        self._sorting_boxes.ny,
-            #                        self._sorting_boxes.nz,
-            #                        self._sorting_boxes._boxes,
-            #                        self._sorting_boxes._next_index,
-            #                        self.domain_decomp[self.mpi_rank])
-
-            self.update_boundary_particles()
+            self.update_ghost_particles()
 
     def do_sort(self):
         """Assign the particles to boxes and then sort them."""
@@ -2048,11 +2043,11 @@ class Particles(metaclass=ABCMeta):
         )
 
         if self._sorting_boxes.communicate:
-            self.update_boundary_particles()
+            self.update_ghost_particles()
 
-    def remove_bnd_particles(self):
-        to_remove = self._markers[:, -1] == -2.0
-        new_holes = np.nonzero(to_remove)
+    def remove_ghost_particles(self):
+        self.update_ghost_particles()
+        new_holes = np.nonzero(self.ghost_particles)
         self._markers[new_holes, :] = -1.0
         self.update_holes()
 
@@ -2698,7 +2693,7 @@ class Particles(metaclass=ABCMeta):
             ):
                 self._x_p_y_p_z_p_proc = i
 
-    def __call__(self, eta1, eta2, eta3, index, out=None, fast=True, h=0.2):
+    def eval_density_fun(self, eta1, eta2, eta3, index, out=None, fast=True, h=0.2):
         """Evaluate the function defined at the `index` of the particles
         at points given by eta1, eta2, eta3. This is done evaluating smoothed version of the
         sum of Dirac delta-functions given by the values at the particle position
@@ -2784,9 +2779,9 @@ class Particles(metaclass=ABCMeta):
         self._n_holes_loc = np.count_nonzero(self.holes)
         self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
 
-    def update_boundary_particles(self):
+    def update_ghost_particles(self):
         """Compute new particles that belong to boundary processes needed for sph evaluation"""
-        self._bnd_part[:] = self.markers[:, -1] == -2.0
+        self._ghost_particles[:] = self.markers[:, -1] == -2.0
 
     def sendrecv_determine_mtbs(
         self,

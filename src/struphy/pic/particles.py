@@ -941,4 +941,4 @@ class ParticlesSPH(Particles):
             The 0-form density.
         -------
         """
-        return self(eta1, eta2, eta3, self.index["weights"], h=h)
+        return self.eval_density_fun(eta1, eta2, eta3, self.index["weights"], h=h)
