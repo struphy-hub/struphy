@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "struphy"
 version = "2.3.3"
 readme = "README.md"
-requires-python = ">=3.10, <3.12"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
   { name = "Max Planck Institute for Plasma Physics"},
@@ -88,9 +88,7 @@ struphy = "struphy.console.main:struphy"
                     'longer_examples/*.yml',
                     ]
                     
-struphy = ['compile_struphy.mk',
-           'psydac-0.1.13-py3-none-any.whl',
-           ]
+struphy = ['compile_struphy.mk',]
 
 [tool.autopep8]
 # Add specific settings for autopep8

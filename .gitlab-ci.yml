@@ -26,9 +26,24 @@
 # 2) compile in C and Fortran
 # 3) run all tests (including models --fast) in all available images and in default
 #
-# A "scheduled" pipeline can be tested via the commit message "test-schedule" (this will use the current build of Struphy from devel).
 
-# The doc can be built via the commit message "make-pages".
+# A "scheduled" pipeline can be tested by clicking "Run pipeline" on Gitlab and setting the TEST_SCHEDULED = true.
+
+# The doc can be built by clicking "Run pipeline" on Gitlab and setting the MAKE_PAGES = true.
+
+variables:
+  MAKE_PAGES:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to make pages"
+  TEST_SCHEDULED:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to run the scheduled pipeline"
+  STRUPHY_SOURCE_DOCKER:
+    value: "dist/struphy*.whl"
+    options: ["dist/struphy*.whl", "-U struphy"]
+    description: "Source to install struphy from in the docker jobs."
 
 default:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
@@ -69,8 +84,9 @@ default_venv:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
+    - if: $MAKE_PAGES == "true"
   before_script:
     - date
     - ls -a
@@ -108,6 +124,8 @@ ci_vars:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $TEST_SCHEDULED == "true"
+    - if: $MAKE_PAGES == "true"
   dependencies: []
   before_script:
     - date
@@ -124,7 +142,9 @@ default_build:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
+    - if: $MAKE_PAGES == "true"
+  needs: ['default_venv']
   script:  
     - pip install -U build
     - pip list
@@ -145,10 +165,9 @@ default_install:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
+    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pip install dist/struphy*.whl
@@ -190,16 +209,16 @@ c_cronjob_install:
 
 # Run in weekly CI pipeline only
 lint_full_repo_report:
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
   needs: ['ci_vars']
   rules:
     # Only run full lint report with pylint and flake8 on the scheduled CI pipeline
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   before_script:
     - date
-    - python3.11 -m venv env_struphy_lint
+    - python3 -m venv env_struphy_lint
   script:
     - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
     - pip install --upgrade pip
@@ -210,7 +229,7 @@ lint_full_repo_report:
     - struphy
     - struphy lint all --output-format report
     - mkdir -p lint_reports
-    - mv *.html lint_reports/
+    - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
     paths:
@@ -219,13 +238,13 @@ lint_full_repo_report:
 
 # Lint struphy with `struphy lint`
 lint_branch:
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
   needs: ['ci_vars']
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -234,7 +253,7 @@ lint_branch:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
     - date
-    - python3.11 -m venv env_struphy_lint
+    - python3 -m venv env_struphy_lint
   script:
     - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
     - pip install --upgrade pip
@@ -249,13 +268,13 @@ lint_branch:
 
 # Lint struphy with `struphy lint`
 lint_branch_report:
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
   needs: ['ci_vars']
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -264,7 +283,7 @@ lint_branch_report:
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
     - date
-    - python3.11 -m venv env_struphy_lint
+    - python3 -m venv env_struphy_lint
   script:
     - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
     - pip install --upgrade pip
@@ -275,7 +294,7 @@ lint_branch_report:
     - struphy
     - struphy lint branch --output-format report
     - mkdir -p lint_reports
-    - mv *.html lint_reports/
+    - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
     paths:
@@ -291,9 +310,9 @@ Ubuntu_latest:
   stage: test
   image: ubuntu:latest
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -309,10 +328,10 @@ Ubuntu_latest:
     - apt install -y software-properties-common
     - add-apt-repository -y ppa:deadsnakes/ppa
     - apt update -y
-    - apt install -y python3.11
-    - apt install -y python3.11-dev
+    # - apt install -y python3.11
+    # - apt install -y python3.11-dev
     - apt install -y python3-pip 
-    - apt install -y python3.11-venv 
+    - apt install -y python3-venv 
     - apt install -y gfortran gcc 
     - apt install -y liblapack-dev libopenmpi-dev 
     - apt install -y libblas-dev openmpi-bin 
@@ -323,15 +342,16 @@ Ubuntu_latest:
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
-    - python3.11 -m pip list
-    - python3.11 -m venv env
+    - python3 -m pip list
+    - python3 -m venv env
     - source env/bin/activate
+    - python3 --version
     - pip install dist/struphy*.whl
     - struphy compile --status
     - make -v
     - struphy compile
     - struphy -h # this is the Quickstart
-    - struphy compile 
+    - struphy compile --status
     - struphy -p
     - struphy --set-i .
     - struphy --set-o . 
@@ -351,9 +371,9 @@ Ubuntu_latest:
 quickstart_tests:
   stage: test
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -385,9 +405,9 @@ quickstart_tests:
 c_unit_tests:
   stage: test
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -405,9 +425,9 @@ c_unit_tests:
 c_model_tests:
   stage: test
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -424,9 +444,9 @@ c_model_tests:
 pages_tests:
   stage: test
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -446,7 +466,7 @@ pages_tests:
 c_model_cronjob_tests:
   stage: test
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
@@ -465,7 +485,7 @@ fortran_cronjob_install:
   stage: test
   needs: ["c_model_cronjob_tests"]
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pip show struphy
@@ -484,7 +504,7 @@ fortran_unit_tests:
   stage: test
   needs: ["fortran_cronjob_install"]
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
@@ -497,7 +517,7 @@ fortran_model_tests:
   stage: test
   needs: ["fortran_cronjob_install"]
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pwd
@@ -507,12 +527,12 @@ fortran_model_tests:
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
-Ubuntu_23_04:
+Ubuntu_22_04:
   stage: test
-  image: ubuntu:23.04
+  image: ubuntu:22.04
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -533,9 +553,8 @@ Ubuntu_23_04:
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -546,7 +565,7 @@ struphy_ubuntu_python_3_11:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -561,12 +580,42 @@ struphy_ubuntu_python_3_11:
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - struphy compile
     - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --language=fortran -y
+    - struphy test models --fast
+
+struphy_ubuntu_latest:
+  stage: test
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
+  rules:
+    # Temporary: Since this docker image uses python3.12, pip install -U struphy will always install 1.9.9,
+    # because it is the highest version that does not have the requirement Python<3.12. Therefore, we will
+    # skip this job when the scheduled pipeline is launched with the variable $STRUPHY_SOURCE_DOCKER == "-U struphy"
+    - if: $STRUPHY_SOURCE_DOCKER == "-U struphy"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $TEST_SCHEDULED == "true"
+  needs: ['default_build']
+  before_script:
+    - date
+    - uname -a
+    - ls -a
+    - ls dist/
+    - ls /
+  script:
+    - python3 -V
+    - python3 -m venv env
+    - source env/bin/activate
+    - pip install --upgrade pip
+    - echo $CI_COMMIT_MESSAGE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - struphy compile
+    - struphy test models --fast
+    - struphy compile --language=fortran -y
     - struphy test models --fast
 
 Fedora:
@@ -574,7 +623,7 @@ Fedora:
   image: fedora:latest
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -610,21 +659,24 @@ Fedora:
     - . /etc/profile.d/modules.sh
     - module load mpi/openmpi-$(arch)
     - module list 
-    - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
     - struphy test models --fast
 
-struphy_fedora_python_3_10:
+struphy_fedora_latest:
   stage: test
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_fedora_python_3_10
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_fedora_latest
   rules:
+    # Temporary: Since this docker image uses python3.12, pip install -U struphy will always install 1.9.9,
+    # because it is the highest version that does not have the requirement Python<3.12. Therefore, we will
+    # skip this job when the scheduled pipeline is launched with the variable $STRUPHY_SOURCE_DOCKER == "-U struphy"
+    - if: $STRUPHY_SOURCE_DOCKER == "-U struphy"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -633,16 +685,15 @@ struphy_fedora_python_3_10:
     - ls dist/
     - ls /
   script:
-    - python3.10 -V
-    - python3.10 -m venv env
+    - python3 -V
+    - python3 -m venv env
     - source env/bin/activate
     - . /etc/profile.d/modules.sh
     - module load mpi/openmpi-$(arch)
     - module list 
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -653,7 +704,7 @@ OpenSuse:
   image: opensuse/tumbleweed:latest
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -684,12 +735,44 @@ OpenSuse:
     - python3 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
+    - struphy test models --fast
+
+struphy_opensuse_latest:
+  stage: test
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_latest
+  rules:
+    # Temporary: Since this docker image uses python3.12, pip install -U struphy will always install 1.9.9,
+    # because it is the highest version that does not have the requirement Python<3.12. Therefore, we will
+    # skip this job when the scheduled pipeline is launched with the variable $STRUPHY_SOURCE_DOCKER == "-U struphy"
+    - if: $STRUPHY_SOURCE_DOCKER == "-U struphy"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $TEST_SCHEDULED == "true"
+  needs: ['default_build']
+  before_script:
+    - date
+    - uname -a
+    - ls -a
+    - ls dist/
+    - ls /
+  script:
+    - set -x
+    - python3 -V
+    - python3 -m pip list
+    - python3 -m venv env
+    - source env/bin/activate
+    - echo $CI_COMMIT_MESSAGE
+    - echo $TEST_SCHEDULED
+    - pip install --upgrade pip
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - struphy compile
+    - struphy test models --fast
+    - struphy compile --language=fortran -y
     - struphy test models --fast
 
 struphy_opensuse_python_3_11:
@@ -697,7 +780,7 @@ struphy_opensuse_python_3_11:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_python_3_11
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -711,9 +794,8 @@ struphy_opensuse_python_3_11:
     - python3 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -724,7 +806,7 @@ AlmaLinux:
   image: almalinux:latest
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -759,21 +841,25 @@ AlmaLinux:
     - python3.10 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - pip list
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
     - struphy test models --fast
 
-struphy_almalinux_python_3_10:
+struphy_almalinux_latest:
   stage: test
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_python_3_10
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_latest
   rules:
+    # Temporary: Since this docker image uses python3.12, pip install -U struphy will always install 1.9.9,
+    # because it is the highest version that does not have the requirement Python<3.12. Therefore, we will
+    # skip this job when the scheduled pipeline is launched with the variable $STRUPHY_SOURCE_DOCKER == "-U struphy"
+    - if: $STRUPHY_SOURCE_DOCKER == "-U struphy"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -782,13 +868,15 @@ struphy_almalinux_python_3_10:
     - ls dist/
     - ls /
   script:
-    - python3.10 -m pip list
-    - python3.10 -m venv env
+    - python3 -m ensurepip --upgrade
+    - python3 -m pip install --upgrade pip
+    - python3 -m pip list
+    - python3 -V
+    - python3 -m venv env
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
-    - if [ $CI_COMMIT_MESSAGE == test-schedule ]; then FILE=dist/struphy*.whl; else FILE="-U struphy"; fi
-    - echo $FILE
-    - pip install $FILE
+    - echo $TEST_SCHEDULED
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
     - pip list
     - struphy compile 
     - struphy test models --fast
@@ -800,7 +888,7 @@ struphy_almalinux_python_3_10:
 ###################
 
 pages:
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: pages
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -808,7 +896,7 @@ pages:
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "true"
-    - if: $CI_COMMIT_MESSAGE =~ /make-pages/
+    - if: $MAKE_PAGES == "true"
   needs: ['default_build']
   before_script:
     - date
@@ -819,8 +907,8 @@ pages:
     - apt show pandoc
     - apt show graphviz
     - python3 -V
-    - python3.11 -V
-    - python3.11 -m venv env
+    - python3 -V
+    - python3 -m venv env
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
@@ -845,7 +933,7 @@ pages:
 deploy:
   stage: release
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -858,7 +946,7 @@ deploy:
 vars:
   stage: release
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
@@ -881,7 +969,7 @@ release_job:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   rules:
-    - if: $CI_COMMIT_MESSAGE =~ /test-schedule/
+    - if: $TEST_SCHEDULED == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never

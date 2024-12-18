@@ -218,6 +218,18 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
         utils.save_state(state)
 
+        # Compile psydac kernels, note that this is a special function call in psydac-for-struphy.
+        # Otherwise, psydac only allows for recompiling the kernels when installed in editable mode.
+
+        print("\nCompiling Psydac kernels ...")
+        cmd = [
+            "psydac-accelerate",
+            "--language=" + language,
+            # "--compiler=" + compiler, # Compiler flag not implemented yet
+        ]
+        subp_run(cmd)
+
+        # Compile struphy kernels
         _li = pyccel.__version__.split(".")
         _num = int(_li[0]) * 100 + int(_li[1]) * 10 + int(_li[2])
         if _num >= 180:
