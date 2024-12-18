@@ -2013,7 +2013,7 @@ class Particles(metaclass=ABCMeta):
             self.domain_decomp[self.mpi_rank],
         )
 
-        if self._sorting_boxes.communicate:
+        if self.sorting_boxes.communicate:
             self.communicate_boxes()
 
             reassign_boxes(self._markers, self.holes, self._sorting_boxes._boxes, self._sorting_boxes._next_index)
