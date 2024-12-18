@@ -1047,3 +1047,149 @@ class ViscousFluid(StruphyModel):
         E(rho, s) = rho^gamma*exp(s/rho)"""
         gam = self._gamma
         return np.power(rho, gam)*np.exp(s/rho)
+
+class Stokeslike(StruphyModel):
+    r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat U = \hat v_\textnormal{A} \,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+    
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        \\[2mm]
+        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
+        = (\nabla \times \tilde{\mathbf{B}})\times \mathbf{B}_0 + (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \,,
+        \\[2mm]
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
+        \\[2mm]
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
+        = 0\,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
+    2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+
+    :ref:`Model info <add_model>`:
+    '''
+
+    @staticmethod
+    def species():
+        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+
+        # dct['em_fields']['b_field'] = 'Hdiv'
+        # dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
+        dct['fluid']['mhd'] = {'u': 'Hdiv', 'ue': 'Hdiv', 'potential': 'L2'}
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return 'mhd'
+
+    @staticmethod
+    def velocity_scale():
+        return 'alfvén'
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.Stokes: ['mhd_u', 'mhd_ue', 'mhd_potential']}
+
+    __em_fields__ = species()['em_fields']
+    __fluid_species__ = species()['fluid']
+    __kinetic_species__ = species()['kinetic']
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    
+    def __init__(self, params, comm, inter_comm = None):
+
+        # initialize base class
+        super().__init__(params, comm = comm, inter_comm = inter_comm)
+
+        from struphy.polar.basic import PolarVector
+
+        # extract necessary parameters
+        #u_space = params['fluid']['mhd']['options']['u_space']
+        stokes_solver = params['fluid']['mhd']['options']['Stokes']['solver']
+        # alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
+        # sonic_solver = params['fluid']['mhd']['options']['Magnetosonic']['solver']
+
+        # project background magnetic field (2-form) and pressure (3-form)
+        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
+                                         self.mhd_equil.b2_2,
+                                         self.mhd_equil.b2_3])
+        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
+        self._ones = self._p_eq.space.zeros()
+
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.
+        else:
+            self._ones[:] = 1.
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Stokes] = {'solver': stokes_solver}
+        
+        # self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
+        #                                                 'solver': alfven_solver}
+
+        # self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b_field'],
+        #                                                  'u_space': u_space,
+        #                                                  'solver': sonic_solver}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # # Scalar variables to be saved during simulation
+        self.add_scalar('en_U')
+        # self.add_scalar('en_p')
+        # self.add_scalar('en_B')
+        # self.add_scalar('en_p_eq')
+        # self.add_scalar('en_B_eq')
+        # self.add_scalar('en_B_tot')
+        # self.add_scalar('en_tot')
+
+        # # temporary vectors for scalar quantities
+        self._tmp_u1 = self.derham.Vh['2'].zeros()
+        # self._tmp_b1 = self.derham.Vh['2'].zeros()
+        # self._tmp_b2 = self.derham.Vh['2'].zeros()
+
+    def update_scalar_quantities(self):
+        # # perturbed fields
+        self._mass_ops.M2.dot(self.pointer['mhd_u'], out=self._tmp_u1)
+        # self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
+
+        en_U = self.pointer['mhd_u'].dot(self._tmp_u1)/2
+        # en_B = self.pointer['b_field'] .dot(self._tmp_b1)/2
+        # en_p = self.pointer['mhd_pressure'] .dot(self._ones)/(5/3 - 1)
+
+        self.update_scalar('en_U', en_U)
+        # self.update_scalar('en_B', en_B)
+        # self.update_scalar('en_p', en_p)
+        # self.update_scalar('en_tot', en_U + en_B + en_p)
+
+        # # background fields
+        # self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+
+        # en_B0 = self._b_eq.dot(self._tmp_b1)/2
+        # en_p0 = self._p_eq.dot(self._ones)/(5/3 - 1)
+
+        # self.update_scalar('en_B_eq', en_B0)
+        # self.update_scalar('en_p_eq', en_p0)
+
+        # # total magnetic field
+        # self._b_eq.copy(out=self._tmp_b1)
+        # self._tmp_b1 += self.pointer['b_field']
+
+        # self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+
+        # en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
+
+        # self.update_scalar('en_B_tot', en_Btot)
