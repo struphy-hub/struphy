@@ -1839,6 +1839,9 @@ class Particles(metaclass=ABCMeta):
         nz : int
             number of boxes in the z direction.
 
+        communicate : bool
+            indicate if the particles in the neighbouring boxes are communicate (via MPI).
+
         markers : 2D numpy.array
             marker array of the particles.
 
