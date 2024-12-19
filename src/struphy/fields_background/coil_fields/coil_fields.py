@@ -1,4 +1,5 @@
 from struphy.fields_background.coil_fields.base import CoilMagneticField
+from struphy.fields_background.coil_fields.base import load_csv_data
 from struphy.feec.psydac_derham import Derham
 
 import numpy as np
@@ -7,17 +8,28 @@ import numpy as np
 class RatGUI(CoilMagneticField):
     '''Interface to RatGUI.'''
     
-    def __init__(self, csv_path=None, Nel=[16, 16, 16], p=[3, 3, 3], domain=None):
+    def __init__(self, csv_path=None, Nel=[16, 16, 16], p=[3, 3, 3], domain=None, **params):
         
         print('Hello.')
         self._csv_path = csv_path
+        
         # TODO: load csv data from absolute/relative path
-        self._ratgui_csv_data = None
+        self._ratgui_csv_data = load_csv_data(csv_path)
         
         derham = Derham(Nel=Nel, p=p, spl_kind=[False, False, True]) # Assuming (R=eta1, Z=eta2, phi=eta3) coordinates for csv data (periodic in eta3 only).
         self._interpolate = derham.P['v'].solve # This is a method for spline interpolation of degree p on the grid Nel in eta-space.
         self._rhs = derham.Vh['v'].zeros() # This is the vector where we want to store the csv data. It holds all three B-components and will be passed to the interpolator.
         
+        # Extract B_R, B_Z, B_phi from loaded data
+        B_R = self._ratgui_csv_data['B_R']
+        B_Z = self._ratgui_csv_data['B_Z']
+        B_phi = self._ratgui_csv_data['B_phi']
+        
+        # Fill the rhs vector with reshaped data
+        self.rhs[0][:] = B_R
+        self.rhs[1][:] = B_Z
+        self.rhs[2][:] = B_phi
+
         print(f'{self.rhs = }')
         print(f"{derham.nbasis['v'] = }")
         print(f'{self.rhs[0] = }')

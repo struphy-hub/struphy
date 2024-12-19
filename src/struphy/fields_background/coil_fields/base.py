@@ -84,3 +84,33 @@ class CoilMagneticField(metaclass=ABCMeta):
         absB = self.absB0(*etas, squeeze_out=squeeze_out)
         out = np.array([b[0]/absB, b[1]/absB, b[2]/absB], dtype=float)
         return out, xyz
+    
+
+
+def load_csv_data(csv_path):
+    """
+    Load CSV data from the given path.
+
+    Parameters:
+        file_path (str): Path to the CSV file.
+
+    Returns:
+        dict: Dictionary containing 'R', 'Z', 'phi', 'B_R', 'B_Z', 'B_phi'.
+    """
+    # Load the CSV file into a DataFrame
+    data = pd.read_csv(csv_path)
+
+    # Ensure required columns exist
+    required_columns = {'R', 'Z', 'phi', 'B_R', 'B_Z', 'B_phi'}
+    if not required_columns.issubset(data.columns):
+        raise ValueError(f"CSV file must contain columns: {required_columns}")
+    
+    # Return the data as a dictionary of numpy arrays
+    return {
+        'R': data['R'].values,
+        'Z': data['Z'].values,
+        'phi': data['phi'].values,
+        'B_R': data['B_R'].values,
+        'B_Z': data['B_Z'].values,
+        'B_phi': data['B_phi'].values
+    }
