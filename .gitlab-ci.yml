@@ -60,6 +60,8 @@ default:
     - python3 --version
     # This is a temporary fix due to ImportError
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/mpcdf/soft/SLE_15/packages/x86_64/anaconda/3/2023.03/lib
+    - echo env_$CI_PIPELINE_ID
+    - ls env_$CI_PIPELINE_ID/bin/
     - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
 
@@ -81,12 +83,6 @@ stages:
 # python virtual environments into cache
 default_venv:
   stage: startup 
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
-    - if: $MAKE_PAGES == "true"
   before_script:
     - date
     - ls -a
@@ -118,15 +114,6 @@ default_venv:
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
   stage: startup
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $TEST_SCHEDULED == "true"
-    - if: $MAKE_PAGES == "true"
-  dependencies: []
   before_script:
     - date
     - ls -a
@@ -188,7 +175,9 @@ default_install:
 c_cronjob_install:
   stage: install
   rules:
+    - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  needs: ["default_install"]
   script:
     - pip install -U struphy
     - pip show struphy
@@ -211,7 +200,6 @@ c_cronjob_install:
 lint_full_repo_report:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
-  needs: ['ci_vars']
   rules:
     # Only run full lint report with pylint and flake8 on the scheduled CI pipeline
     - if: $TEST_SCHEDULED == "true"
@@ -240,7 +228,6 @@ lint_full_repo_report:
 lint_branch:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
-  needs: ['ci_vars']
   rules:
     - if: $TEST_SCHEDULED == "true"
       when: never
@@ -270,7 +257,6 @@ lint_branch:
 lint_branch_report:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
-  needs: ['ci_vars']
   rules:
     - if: $TEST_SCHEDULED == "true"
       when: never
@@ -480,7 +466,7 @@ c_model_cronjob_tests:
       - env_$CI_PIPELINE_ID/
     expire_in: 1 day
 
-# Cron-job Fortran install, after c tests:
+# Cron-job Fortran install:
 fortran_cronjob_install:
   stage: test
   needs: ["c_model_cronjob_tests"]
