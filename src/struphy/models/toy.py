@@ -179,19 +179,26 @@ class Vlasov(StruphyModel):
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
         self._tmp = np.empty(1, dtype=float)
+        self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-        self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(
-            self.pointer["ions"].markers_wo_holes[:, 3] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
-        ) / (2 * self.pointer["ions"].n_mks)
 
-        # self.derham.comm.Allreduce(
-        #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
+        self._tmp[0] = self.pointer['ions'].markers_wo_holes[:, 6].dot(
+            self.pointer['ions'].markers_wo_holes[:, 3]**2 +
+            self.pointer['ions'].markers_wo_holes[:, 4]**2 +
+            self.pointer['ions'].markers_wo_holes[:, 5]**2,
+        ) / 2.
 
         self.update_scalar("en_f", self._tmp[0])
 
+        # # Print number of lost ions
+        # self._n_lost_particles[0] = self.pointer['ions'].n_lost_markers
+        # self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+        # if self.derham.comm.Get_rank() == 0:
+        #     print(
+        #         'ratio of lost particles: ',
+        #         self._n_lost_particles[0]/self.pointer['ions'].n_mks*100, '%',
+        #     )
 
 class GuidingCenter(StruphyModel):
     r"""Guiding-center equation in static background magnetic field.
@@ -282,64 +289,41 @@ class GuidingCenter(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar("en_fv")
-        self.add_scalar("en_fB")
-        self.add_scalar("en_tot")
+        self.add_scalar('en_fv', compute='from_particles', species='ions')
+        self.add_scalar('en_fB', compute='from_particles', species='ions')
+        self.add_scalar('en_tot', summands=['en_fv', 'en_fB'])
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
-        self._en_tot = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         # particles' kinetic energy
 
-        self._en_fv[0] = self.pointer["ions"].markers[~self.pointer["ions"].holes, 5].dot(
-            self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
-        ) / (2.0 * self.pointer["ions"].n_mks)
+        self._en_fv[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+            self.pointer['ions'].markers[~self.pointer['ions'].holes, 3]**2,
+        ) / 2.
 
-        self.pointer["ions"].save_magnetic_background_energy()
-        self._en_tot[0] = (
-            self.pointer["ions"]
-            .markers[~self.pointer["ions"].holes, 5]
-            .dot(
-                self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
-            )
-            / self.pointer["ions"].n_mks
+        self.pointer['ions'].save_magnetic_background_energy()
+        self._en_fB[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
+            self.pointer['ions'].markers[~self.pointer['ions'].holes, 8],
         )
 
-        self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
+        self.update_scalar('en_fv', self._en_fv[0])
+        self.update_scalar('en_fB', self._en_fB[0])
+        self.update_scalar('en_tot')
 
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fv,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_tot,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fB,
-            op=self._mpi_sum,
-        )
-
-        self.update_scalar("en_fv", self._en_fv[0])
-        self.update_scalar("en_fB", self._en_fB[0])
-        self.update_scalar("en_tot", self._en_tot[0])
-
-        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._n_lost_particles,
-            op=self._mpi_sum,
-        )
-
+        # # Print number of lost ions
+        # self._n_lost_particles[0] = self.pointer['ions'].n_lost_markers
+        # self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
+        # if self.derham.comm.Get_rank() == 0:
+        #     print(
+        #         'ratio of lost particles: ',
+        #         self._n_lost_particles[0]/self.pointer['ions'].n_mks*100, '%',
+        #     )
 
 class ShearAlfven(StruphyModel):
     r"""ShearAlfven propagator from :class:`~struphy.models.fluid.LinearMHD` with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).

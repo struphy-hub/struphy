@@ -255,10 +255,10 @@ class LinearMHDVlasovCC(StruphyModel):
             self.pointer['energetic_ions'].markers_wo_holes[:, 3]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 4]**2 +
             self.pointer['energetic_ions'].markers_wo_holes[:, 5]**2,
-        )/(2)
+        )/2.
 
         self.update_scalar('en_f', self._tmp[0])
-        self.update_scalar('en_tot', en_U + en_B + en_p + self._tmp[0])
+        self.update_scalar('en_tot')
 
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
@@ -524,7 +524,7 @@ class LinearMHDVlasovPC(StruphyModel):
         )/(2.)
 
         self.update_scalar('en_f', self._tmp[0])
-        self.update_scalar('en_tot', en_U + en_B + en_p + self._tmp[0])
+        self.update_scalar('en_tot')
 
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer['energetic_ions'].n_lost_markers
@@ -830,15 +830,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
+
         # Scalar variables to be saved during simulation
         self.add_scalar('en_U', compute='from_field')
         self.add_scalar('en_p', compute='from_field')
         self.add_scalar('en_B', compute='from_field')
         self.add_scalar('en_fv', compute='from_particles', species='energetic_ions')
         self.add_scalar('en_fB', compute='from_particles', species='energetic_ions')
-        # self.add_scalar('en_fv_lost', compute = 'from_particles', species='energetic_ions')
-        # self.add_scalar('en_fB_lost', compute = 'from_particles', species='energetic_ions')
-        # self.add_scalar('en_tot',summands = ['en_U','en_p','en_B','en_fv','en_fB','en_fv_lost','en_fB_lost'])
         self.add_scalar('en_tot', summands=['en_U', 'en_p', 'en_B', 'en_fv', 'en_fB'])
 
         # things needed in update_scalar_quantities
@@ -851,8 +849,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
-        # self._en_fv_lost = np.empty(1, dtype=float)
-        # self._en_fB_lost = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
         self._tmp_u = self.derham.Vh['2'].zeros()
@@ -878,11 +874,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self.update_scalar('en_fv', self._en_fv[0])
 
-        # self._en_fv_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-        #     self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 3]**2) / (2.0) * self._coupling_params['Ah']/self._coupling_params['Ab']
-
-        # self.update_scalar('en_fv_lost', self._en_fv_lost[0])
-
         # calculate particle magnetic energy
         self.pointer['energetic_ions'].save_magnetic_energy(
             self.pointer['b_field'],
@@ -893,12 +884,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
         )*self._coupling_params['Ah']/self._coupling_params['Ab']
 
         self.update_scalar('en_fB', self._en_fB[0])
-
-        # self._en_fB_lost[0] = self.pointer['energetic_ions'].lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 5].dot(
-        #     self.pointer['energetic_ions']  .lost_markers[:self.pointer['energetic_ions'].n_lost_markers, 8]) * self._coupling_params['Ah']/self._coupling_params['Ab']
-
-        # self.update_scalar('en_fB_lost', self._en_fB_lost[0])
-
         self.update_scalar('en_tot')
 
         # Print number of lost ions

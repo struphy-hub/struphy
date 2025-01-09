@@ -201,7 +201,6 @@ def eval_magnetic_background_energy(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, abs_B)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
@@ -224,8 +223,6 @@ def eval_magnetic_background_energy(
         )
 
         markers[ip, first_diagnostics_idx] = mu*abs_B
-
-    #$ omp end parallel
 
 
 @stack_array('dfm', 'norm_b1', 'b')
@@ -254,7 +251,6 @@ def eval_magnetic_energy(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_para, abs_B, norm_b1, dfm, det_df)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
@@ -309,8 +305,6 @@ def eval_magnetic_energy(
         b_para /= det_df
 
         markers[ip, first_diagnostics_idx] = mu*(abs_B + b_para)
-
-    #$ omp end parallel
 
 
 @stack_array('v', 'dfm', 'b2', 'norm_b_cart', 'temp', 'v_perp', 'Larmor_r')

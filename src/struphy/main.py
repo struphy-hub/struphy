@@ -185,7 +185,6 @@ def main(
     save_keys_all, save_keys_end = model.initialize_data_output(data, size)
 
     # ======================== main time loop ======================
-    model.update_scalar_quantities()
     if rank == 0:
         print("\nINITIAL SCALAR QUANTITIES:")
         model.print_scalar_quantities()

@@ -584,7 +584,7 @@ class Particles5D(Particles):
     def save_magnetic_background_energy(self):
         r"""
         Evaluate :math:`mu_p |B_0(\boldsymbol \eta_p)|` for each marker.
-        The result is stored at markers[:, self.first_diagnostics_idx,].
+        The result is stored at markers[:, self.first_diagnostics_idx].
         """
 
         utilities_kernels.eval_magnetic_background_energy(

@@ -594,8 +594,9 @@ class StruphyModel(metaclass=ABCMeta):
             ), f'Propagators {prop} from "self.propagators_dct()" and {prop2} from "self.kwargs" must be identical !!'
 
             if kwargs_i is None:
-                print(f'\n-> Propagator "{prop.__name__}" will not be used.')
-                continue
+                if self._comm_world_rank == 0 and self.verbose:
+                    print(f'\n-> Propagator "{prop.__name__}" will not be used.')
+                    continue
             else:
                 if self._comm_world_rank == 0 and self.verbose:
                     print(f'\n-> Initializing propagator "{prop.__name__}"')
