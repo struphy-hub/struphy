@@ -182,12 +182,16 @@ class Vlasov(StruphyModel):
         self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-
-        self._tmp[0] = self.pointer['ions'].markers_wo_holes[:, 6].dot(
-            self.pointer['ions'].markers_wo_holes[:, 3]**2 +
-            self.pointer['ions'].markers_wo_holes[:, 4]**2 +
-            self.pointer['ions'].markers_wo_holes[:, 5]**2,
-        ) / 2.
+        self._tmp[0] = (
+            self.pointer["ions"]
+            .markers_wo_holes[:, 6]
+            .dot(
+                self.pointer["ions"].markers_wo_holes[:, 3] ** 2
+                + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
+                + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
+            )
+            / 2.0
+        )
 
         self.update_scalar("en_f", self._tmp[0])
 
@@ -199,6 +203,7 @@ class Vlasov(StruphyModel):
         #         'ratio of lost particles: ',
         #         self._n_lost_particles[0]/self.pointer['ions'].n_mks*100, '%',
         #     )
+
 
 class GuidingCenter(StruphyModel):
     r"""Guiding-center equation in static background magnetic field.
@@ -289,9 +294,9 @@ class GuidingCenter(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar('en_fv', compute='from_particles', species='ions')
-        self.add_scalar('en_fB', compute='from_particles', species='ions')
-        self.add_scalar('en_tot', summands=['en_fv', 'en_fB'])
+        self.add_scalar("en_fv", compute="from_particles", species="ions")
+        self.add_scalar("en_fB", compute="from_particles", species="ions")
+        self.add_scalar("en_tot", summands=["en_fv", "en_fB"])
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
@@ -303,18 +308,27 @@ class GuidingCenter(StruphyModel):
     def update_scalar_quantities(self):
         # particles' kinetic energy
 
-        self._en_fv[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
-            self.pointer['ions'].markers[~self.pointer['ions'].holes, 3]**2,
-        ) / 2.
-
-        self.pointer['ions'].save_magnetic_background_energy()
-        self._en_fB[0] = self.pointer['ions'].markers[~self.pointer['ions'].holes, 5].dot(
-            self.pointer['ions'].markers[~self.pointer['ions'].holes, 8],
+        self._en_fv[0] = (
+            self.pointer["ions"]
+            .markers[~self.pointer["ions"].holes, 5]
+            .dot(
+                self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
+            )
+            / 2.0
         )
 
-        self.update_scalar('en_fv', self._en_fv[0])
-        self.update_scalar('en_fB', self._en_fB[0])
-        self.update_scalar('en_tot')
+        self.pointer["ions"].save_magnetic_background_energy()
+        self._en_fB[0] = (
+            self.pointer["ions"]
+            .markers[~self.pointer["ions"].holes, 5]
+            .dot(
+                self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
+            )
+        )
+
+        self.update_scalar("en_fv", self._en_fv[0])
+        self.update_scalar("en_fB", self._en_fB[0])
+        self.update_scalar("en_tot")
 
         # # Print number of lost ions
         # self._n_lost_particles[0] = self.pointer['ions'].n_lost_markers
@@ -324,6 +338,7 @@ class GuidingCenter(StruphyModel):
         #         'ratio of lost particles: ',
         #         self._n_lost_particles[0]/self.pointer['ions'].n_mks*100, '%',
         #     )
+
 
 class ShearAlfven(StruphyModel):
     r"""ShearAlfven propagator from :class:`~struphy.models.fluid.LinearMHD` with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
