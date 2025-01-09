@@ -37,6 +37,6 @@ def test_toy(map_and_equil, fast, vrbose, model=None, Tend=None):
 
 
 if __name__ == "__main__":
-    test_toy(("Cuboid", "HomogenSlab"), True)
-    test_toy(("HollowTorus", "AdhocTorus"), True)
-    test_toy(("Tokamak", "EQDSKequilibrium"), True)
+    test_toy(("Cuboid", "HomogenSlab"), True, True)
+    test_toy(("HollowTorus", "AdhocTorus"), True, True)
+    test_toy(("Tokamak", "EQDSKequilibrium"), True, True)

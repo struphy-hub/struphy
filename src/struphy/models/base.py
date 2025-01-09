@@ -903,7 +903,10 @@ class StruphyModel(metaclass=ABCMeta):
                         if obj.coords == "vpara_mu":
                             obj.save_magnetic_moment()
 
-                        if obj.f0.coords == "constants_of_motion":
+                        if (
+                            val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
+                            and obj.f0.coords == "constants_of_motion"
+                        ):
                             obj.save_constants_of_motion()
 
                         obj.initialize_weights()
@@ -1530,6 +1533,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             "5D": "GyroMaxwellian2D",
             "4D": "Maxwellian1D",
             "3D": "Constant",
+            "PH": "ConstantVelocity",
         }
 
         # moms = {'6D': [0., 0., 0., 1., 1., 1.],
@@ -1958,6 +1962,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 Plasma parameters for each species.
         """
 
+        from struphy.fields_background.fluid_equils import equils as fluid_equils
         from struphy.kinetic_background import maxwellians
 
         pparams = {}
@@ -2122,39 +2127,44 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if not isinstance(tmp_type, list):
                     tmp_type = [tmp_type]
 
-                tmp = None
-                for fi in tmp_type:
-                    if fi[-2] == "_":
-                        fi_type = fi[:-2]
-                    else:
-                        fi_type = fi
-                    if fi in tmp_params:
-                        maxw_params = tmp_params[fi]
-                        pass_mhd_equil = self.mhd_equil
-                        pass_braginskii_equil = self.braginskii_equil
-                    else:
-                        maxw_params = None
-                        pass_mhd_equil = None
-                        pass_braginskii_equil = None
+                if val["params"]["markers"]["loading_params"]["moments"] != "degenerate":
+                    tmp = None
+                    for fi in tmp_type:
+                        if fi[-2] == "_":
+                            fi_type = fi[:-2]
+                        else:
+                            fi_type = fi
+                        if fi in tmp_params:
+                            maxw_params = tmp_params[fi]
+                            pass_mhd_equil = self.mhd_equil
+                            pass_braginskii_equil = self.braginskii_equil
+                        else:
+                            maxw_params = None
+                            pass_mhd_equil = None
+                            pass_braginskii_equil = None
 
-                        print(
-                            f"\n{fi} is not in tmp_params; default background parameters are used.",
-                        )
+                            print(
+                                f"\n{fi} is not in tmp_params; default background parameters are used.",
+                            )
+                        print(val["params"])
 
-                    if tmp is None:
-                        tmp = getattr(maxwellians, fi_type)(
-                            maxw_params=maxw_params,
-                            mhd_equil=pass_mhd_equil,
-                            braginskii_equil=pass_braginskii_equil,
-                        )
-                    else:
-                        tmp = tmp + getattr(maxwellians, fi_type)(
-                            maxw_params=maxw_params,
-                            mhd_equil=pass_mhd_equil,
-                            braginskii_equil=pass_braginskii_equil,
-                        )
+                        if tmp is None:
+                            tmp = getattr(maxwellians, fi_type)(
+                                maxw_params=maxw_params,
+                                mhd_equil=pass_mhd_equil,
+                                braginskii_equil=pass_braginskii_equil,
+                            )
+                        else:
+                            tmp = tmp + getattr(maxwellians, fi_type)(
+                                maxw_params=maxw_params,
+                                mhd_equil=pass_mhd_equil,
+                                braginskii_equil=pass_braginskii_equil,
+                            )
 
-                if tmp.coords == "constants_of_motion":
+                if (
+                    val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
+                    and tmp.coords == "constants_of_motion"
+                ):
                     # call parameters
                     a1 = self.domain.params_map["a1"]
                     r = eta1mg * (1 - a1) + a1
