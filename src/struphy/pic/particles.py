@@ -1,6 +1,7 @@
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
+from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
@@ -756,3 +757,188 @@ class Particles3D(Particles):
         return self.domain.transform(
             self.svol(eta1, eta2, eta3), self.markers, kind="3_to_0", remove_outside=remove_holes
         )
+
+
+class ParticlesSPH(Particles):
+    """
+    A class for initializing particles in SPH models.
+
+    The numpy marker array is as follows:
+
+    ===== ============== ======================= ======= ====== ====== ==========
+    index  | 0 | 1 | 2 | | 3 | 4 | 5           |  6       7       8    >=9
+    ===== ============== ======================= ======= ====== ====== ==========
+    value position (eta)    velocities           weight   s0     w0    buffer
+    ===== ============== ======================= ======= ====== ====== ==========
+
+    Parameters
+    ----------
+    name : str
+        Name of the particle species.
+
+    **params : dict
+        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
+    """
+
+    @classmethod
+    def default_bckgr_params(cls):
+        return {"type": "ConstantVelocity", "ConstantVelocity": {}}
+
+    def __init__(
+        self,
+        name: str,
+        Np: int,
+        bc: list,
+        loading: str,
+        **kwargs,
+    ):
+        if "bckgr_params" not in kwargs:
+            kwargs["bckgr_params"] = self.default_bckgr_params()
+
+        # Load specific loading params for SPH (moment degenerate)
+        loading_params_default = {
+            "seed": 1234,
+            "dir_particles": None,
+            "moments": "degenerate",
+            "spatial": "uniform",
+            "initial": None,
+        }
+
+        if "loading_params" not in kwargs:
+            kwargs["loading_params"] = loading_params_default
+        else:
+            kwargs["loading_params"] = set_defaults(
+                kwargs["loading_params"],
+                loading_params_default,
+            )
+
+        if "sorting_params" not in kwargs:
+            raise ValueError("Sorting parameters must be given for SPH")
+        else:
+            if "communicate" not in kwargs["sorting_params"] or not kwargs["sorting_params"]["communicate"]:
+                print("Enforcing communication of boxes in sph")
+                kwargs["sorting_params"]["communicate"] = True
+
+        # default number of diagnostics and auxiliary columns
+        if "n_cols" not in kwargs:
+            self._n_cols_diagnostics = 0
+            self._n_cols_aux = 5
+
+        else:
+            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
+            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
+
+            kwargs.pop("n_cols")
+
+        super().__init__(name, Np, bc, loading, **kwargs)
+
+    @property
+    def n_cols(self):
+        """Number of the columns at each markers."""
+        return 24
+
+    @property
+    def vdim(self):
+        """Dimension of the velocity space."""
+        return 3
+
+    @property
+    def first_diagnostics_idx(self):
+        """Starting buffer marker index number for diagnostics."""
+        return 3 + self.vdim + 3
+
+    @property
+    def first_pusher_idx(self):
+        """Starting buffer marker index number for pusher."""
+        return 3 + self.vdim + 3 + self.n_cols_diagnostics
+
+    @property
+    def n_cols_diagnostics(self):
+        """Number of the diagnostics columns."""
+        return self._n_cols_diagnostics
+
+    @property
+    def n_cols_aux(self):
+        """Number of the auxiliary columns."""
+        return self._n_cols_aux
+
+    @property
+    def bufferindex(self):
+        """Starting buffer marker index number"""
+        return 9
+
+    @property
+    def coords(self):
+        """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
+        return "cartesian"
+
+    def svol(self, eta1, eta2, eta3, *v):
+        """Sampling density function as volume form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        Returns
+        -------
+        out : array-like
+            The volume-form sampling density.
+        -------
+        """
+
+        if self.spatial == "uniform":
+            return 0 * eta1 + 1.0
+
+        elif self.spatial == "disc":
+            return 2 * eta1
+
+        else:
+            raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+
+    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+        """Sampling density function as 0 form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        *v : array_like
+            Velocity evaluation points.
+
+        remove_holes : bool
+            If True, holes are removed from the returned array. If False, holes are evaluated to -1.
+
+        Returns
+        -------
+        out : array-like
+            The 0-form sampling density.
+        -------
+        """
+
+        return self.domain.transform(
+            self.svol(eta1, eta2, eta3, *v), self.markers, kind="3_to_0", remove_outside=remove_holes
+        )
+
+    def eval_density(self, eta1, eta2, eta3, h=0.3):
+        """Density function as 0 form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points.
+
+        h : float
+            Support radius of the smoothing kernel.
+
+        Returns
+        -------
+        out : array-like
+            The 0-form density.
+        -------
+        """
+        return self.eval_density_fun(eta1, eta2, eta3, self.index["weights"], h=h)
