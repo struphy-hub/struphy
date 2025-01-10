@@ -303,15 +303,12 @@ class Particles(metaclass=ABCMeta):
 
                 self._f_coords_index = self.index["com"]["5D"]
                 self._f_jacobian_coords_index = self.index["pos+energy"]["5D"]
+
         if self.loading_params["moments"] == "degenerate":
             self._f_coords_index = self.index["coords"]
             self._f_jacobian_coords_index = self.index["coords"]
         else:
-            if self.f0.coords == "constants_of_motion":
-                self._f_coords_index = self.index["com"]
-                self._f_jacobian_coords_index = self.index["pos+energy"]
-
-            else:
+            if self.f0.coords != "constants_of_motion":
                 self._f_coords_index = self.index["coords"]
                 self._f_jacobian_coords_index = self.index["coords"]
 

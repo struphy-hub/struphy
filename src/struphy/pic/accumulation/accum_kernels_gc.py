@@ -78,7 +78,7 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]',
                     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
                     # model specific argument
                     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-                    basis_u: 'int', scale_mat: 'float', boundary_cut: float):  # model specific argument
+                    basis_u: 'int', scale_mat: 'float', boundary_cut: float, full_f: bool):  # model specific argument
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`.
 
     Accumulates :math:`\alpha`-form matrix with the filling functions (:math:`\alpha = 2`)
@@ -201,7 +201,10 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]',
         density_const = (1 - b_para/b_star_para)
 
         # marker weight
-        weight = markers[ip, 5]
+        if full_f:
+            weight = markers[ip, 7]
+        else:
+            weight = markers[ip, 5]
 
         if basis_u == 0:
 
@@ -529,7 +532,8 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]',
                     norm_b12: 'float[:,:,:]',  # model specific argument
                     norm_b13: 'float[:,:,:]',  # model specific argument
                     scale_vec: 'float',        # model specific argument
-                    boundary_cut: 'float'):    # model specific argument
+                    boundary_cut: 'float',     # model specific argument
+                    full_f: 'bool'):           # model specific argument
 
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D` and :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`.
 
@@ -577,7 +581,10 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 5]
+        if full_f:
+            weight = markers[ip, 7]
+        else:
+            weight = markers[ip, 5]
         mu = markers[ip, 9]
 
         if eta1 < boundary_cut or eta1 > 1. - boundary_cut:
