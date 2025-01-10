@@ -1348,32 +1348,32 @@ class CurrentCoupling6DDensity(Propagator):
         self._b_eq = b_eq
         self._b_tilde = b_tilde
 
-        # if self._particles.control_variate:
+        if self._particles.control_variate:
 
-        #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self._particles.f0, Maxwellian)
-        #     assert u_space == 'Hdiv'
+            # control variate method is only valid with Maxwellian distributions
+            assert isinstance(self._particles.f0, Maxwellian)
+            assert u_space == 'Hdiv'
 
-        #     # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
-        #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+            # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
 
-        #     self._nh0_at_quad = self.domain.push(
-        #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
+            self._nh0_at_quad = self.domain.push(
+                self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
 
-        #     # memory allocation of magnetic field at quadrature points
-        #     self._b_quad1 = np.zeros_like(self._nh0_at_quad)
-        #     self._b_quad2 = np.zeros_like(self._nh0_at_quad)
-        #     self._b_quad3 = np.zeros_like(self._nh0_at_quad)
+            # memory allocation of magnetic field at quadrature points
+            self._b_quad1 = np.zeros_like(self._nh0_at_quad)
+            self._b_quad2 = np.zeros_like(self._nh0_at_quad)
+            self._b_quad3 = np.zeros_like(self._nh0_at_quad)
 
-        #     # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
-        #     self._mat12 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat13 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat23 = np.zeros_like(self._nh0_at_quad)
+            # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
+            self._mat12 = np.zeros_like(self._nh0_at_quad)
+            self._mat13 = np.zeros_like(self._nh0_at_quad)
+            self._mat23 = np.zeros_like(self._nh0_at_quad)
 
-        #     self._mat21 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat31 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat32 = np.zeros_like(self._nh0_at_quad)
+            self._mat21 = np.zeros_like(self._nh0_at_quad)
+            self._mat31 = np.zeros_like(self._nh0_at_quad)
+            self._mat32 = np.zeros_like(self._nh0_at_quad)
 
         self._type = solver["type"][0]
         self._tol = solver["tol"]
@@ -1447,41 +1447,41 @@ class CurrentCoupling6DDensity(Propagator):
         self._b_full2.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
-        # if self._particles.control_variate:
+        if self._particles.control_variate:
 
-        #     # evaluate magnetic field at quadrature points (in-place)
-        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-        #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
+            # evaluate magnetic field at quadrature points (in-place)
+            WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+                                           out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
-        #     self._mat12[:, :, :] = self._coupling_const * \
-        #         self._b_quad3 * self._nh0_at_quad
-        #     self._mat13[:, :, :] = -self._coupling_const * \
-        #         self._b_quad2 * self._nh0_at_quad
-        #     self._mat23[:, :, :] = self._coupling_const * \
-        #         self._b_quad1 * self._nh0_at_quad
+            self._mat12[:, :, :] = self._coupling_const * \
+                self._b_quad3 * self._nh0_at_quad
+            self._mat13[:, :, :] = -self._coupling_const * \
+                self._b_quad2 * self._nh0_at_quad
+            self._mat23[:, :, :] = self._coupling_const * \
+                self._b_quad1 * self._nh0_at_quad
 
-        #     self._mat21[:, :, :] = -self._mat12
-        #     self._mat31[:, :, :] = -self._mat13
-        #     self._mat32[:, :, :] = -self._mat23
+            self._mat21[:, :, :] = -self._mat12
+            self._mat31[:, :, :] = -self._mat13
+            self._mat32[:, :, :] = -self._mat23
 
-        #     self._accumulator(self._b_full2[0]._data,
-        #                       self._b_full2[1]._data,
-        #                       self._b_full2[2]._data,
-        #                       self._space_key_int,
-        #                       self._coupling_const,
-        #                       control_mat=[[None, self._mat12, self._mat13],
-        #                                    [self._mat21, None,
-        #                                     self._mat23],
-        #                                    [self._mat31, self._mat32, None]])
-        # else:
-        self._accumulator(
-            self._b_full2[0]._data,
-            self._b_full2[1]._data,
-            self._b_full2[2]._data,
-            self._space_key_int,
-            self._coupling_const,
-            self._boundary_cut_e1,
-        )
+            self._accumulator(self._b_full2[0]._data,
+                              self._b_full2[1]._data,
+                              self._b_full2[2]._data,
+                              self._space_key_int,
+                              self._coupling_const,
+                              control_mat=[[None, self._mat12, self._mat13],
+                                           [self._mat21, None,
+                                            self._mat23],
+                                           [self._mat31, self._mat32, None]])
+        else:
+            self._accumulator(
+                self._b_full2[0]._data,
+                self._b_full2[1]._data,
+                self._b_full2[2]._data,
+                self._space_key_int,
+                self._coupling_const,
+                self._boundary_cut_e1,
+            )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt / 2 * self._accumulator.operators[0]
