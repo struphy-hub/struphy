@@ -2768,12 +2768,15 @@ class WeightedMassOperator(LinOpWithTransp):
             return LinOpWithTransp.__sub__(self, M)
 
     @staticmethod
-    def eval_quad(W, coeffs, out=None):
+    def eval_quad(derham, W, coeffs, out=None):
         """
         Evaluates a given FEM field defined by its coefficients at the L2 quadrature points.
 
         Parameters
         ----------
+        derham : struphy.feec.psydac_derham.Derham
+            Discrete de Rham sequence on the logical unit cube.
+
         W : TensorFemSpace | VectorFemSpace
             Tensor product spline space from psydac.fem.tensor.
 
@@ -2807,7 +2810,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     np.zeros(
                         [
                             q_grid[nquad].points.size
-                            for q_grid, nquad in zip(self.derham.get_quad_grids(W, nquads=self.nquads), self.nquads)
+                            for q_grid, nquad in zip(derham.get_quad_grids(W, nquads=derham.nquads), derham.nquads)
                         ],
                         dtype=float,
                     ),
@@ -2819,7 +2822,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             [
                                 q_grid[nquad].points.size
                                 for q_grid, nquad in zip(
-                                    self.derham.get_quad_grids(space, nquads=self.nquads), self.nquads
+                                    derham.get_quad_grids(space, nquads=derham.nquads), derham.nquads
                                 )
                             ],
                             dtype=float,
@@ -2841,7 +2844,7 @@ class WeightedMassOperator(LinOpWithTransp):
             # knot span indices of elements of local domain
             spans = [
                 quad_grid[nquad].spans
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(derham.get_quad_grids(wspace, nquads=derham.nquads), derham.nquads)
             ]
 
             # global start spline index on process
@@ -2853,17 +2856,17 @@ class WeightedMassOperator(LinOpWithTransp):
             # global quadrature points (flattened) and weights in format (local element, local weight)
             pts = [
                 quad_grid[nquad].points.flatten()
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(derham.get_quad_grids(wspace, nquads=derham.nquads), derham.nquads)
             ]
             wts = [
                 quad_grid[nquad].weights
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(derham.get_quad_grids(wspace, nquads=derham.nquads), derham.nquads)
             ]
 
             # evaluated basis functions at quadrature points of codomain space
             basis = [
                 quad_grid[nquad].basis
-                for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads)
+                for quad_grid, nquad in zip(derham.get_quad_grids(wspace, nquads=derham.nquads), derham.nquads)
             ]
 
             if isinstance(coeffs, StencilVector):

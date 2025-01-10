@@ -1623,7 +1623,7 @@ class CurrentCoupling6DCurrent(Propagator):
         if self.particles[0].control_variate:
             # evaluate magnetic field at quadrature points (in-place)
             WeightedMassOperator.eval_quad(
-                self.derham.Vh_fem["2"], self._b_full2, out=[self._b_quad1, self._b_quad2, self._b_quad3]
+                self.derham, self.derham.Vh_fem["2"], self._b_full2, out=[self._b_quad1, self._b_quad2, self._b_quad3]
             )
 
             self._vec1[:, :, :] = self._coupling_vec * (
@@ -1643,6 +1643,7 @@ class CurrentCoupling6DCurrent(Propagator):
                 self._space_key_int,
                 self._coupling_mat,
                 self._coupling_vec,
+                self._boundary_cut_e1,
                 control_vec=[self._vec1, self._vec2, self._vec3],
             )
         else:
