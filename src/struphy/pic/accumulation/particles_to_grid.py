@@ -254,7 +254,6 @@ class Accumulator:
                         vec.update_ghost_regions()
 
                 elif self.filter_params["use_filter"] == "hybrid2":
-
                     for _ in range(self.filter_params["repeat"]):
                         for i in range(3):
                             filters.apply_three_point_filter_3d(

@@ -1703,7 +1703,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             self._unit_b1[2]._data,
             self._scale_vec,
             self._boundary_cut_e1,
-            False
+            False,
         )
 
         self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
@@ -1980,7 +1980,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             self._unit_b1[2]._data,
             self._scale_vec,
             self._boundary_cut_e1,
-            True
+            True,
         )
 
         # update time-dependent operator
@@ -2366,7 +2366,7 @@ class CurrentCoupling5DDensity(Propagator):
             self._space_key_int,
             self._scale_mat,
             self._boundary_cut_e1,
-            True
+            True,
         )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
