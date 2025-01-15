@@ -1034,6 +1034,7 @@ def cc_lin_mhd_6d_1(
     b2_3: 'float[:,:,:]',
     basis_u: 'int', scale_mat: 'float',
     boundary_cut: 'float',
+    full_f: bool,
 ):
     r"""Accumulates into V1 with the filling functions
 
@@ -1117,7 +1118,10 @@ def cc_lin_mhd_6d_1(
         det_df = linalg_kernels.det(dfm)
 
         # marker weight
-        weight = markers[ip, 6]
+        if full_f:
+            weight = markers[ip, 8]
+        else:
+            weight = markers[ip, 6]
 
         if basis_u == 0:
 
