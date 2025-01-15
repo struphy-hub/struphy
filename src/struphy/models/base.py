@@ -589,9 +589,9 @@ class StruphyModel(metaclass=ABCMeta):
         if self._comm_world_rank == 0 and self.verbose:
             print("\nPROPAGATORS:")
         for (prop, variables), (prop2, kwargs_i) in zip(self.propagators_dct().items(), self.kwargs.items()):
-            assert (
-                prop == prop2
-            ), f'Propagators {prop} from "self.propagators_dct()" and {prop2} from "self.kwargs" must be identical !!'
+            assert prop == prop2, (
+                f'Propagators {prop} from "self.propagators_dct()" and {prop2} from "self.kwargs" must be identical !!'
+            )
 
             if kwargs_i is None:
                 if self._comm_world_rank == 0 and self.verbose:
@@ -710,7 +710,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             if obj.n_cols_diagnostics > 0:
                 for i in range(obj.n_cols_diagnostics):
-                    str_dn = f"d{i+1}"
+                    str_dn = f"d{i + 1}"
                     dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
             if "f" in val["params"]["save_data"]:
@@ -1868,9 +1868,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # for storing markers
                 n_markers = val["params"]["save_data"]["n_markers"]
-                assert (
-                    n_markers <= obj.n_mks
-                ), f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.n_mks})"
+                assert n_markers <= obj.n_mks, (
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.n_mks})"
+                )
                 if n_markers > 0:
                     val["kinetic_data"] = {}
                     val["kinetic_data"]["markers"] = np.zeros(
@@ -1890,9 +1890,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     if len(slices) > 0:
                         for i, sli in enumerate(slices):
                             assert ((len(sli) - 2) / 3).is_integer()
-                            assert (
-                                len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i])
-                            ), f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
+                            assert len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i]), (
+                                f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
+                            )
                             val["bin_edges"][sli] = []
                             dims = (len(sli) - 2) // 3 + 1
                             for j in range(dims):

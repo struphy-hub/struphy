@@ -1487,7 +1487,7 @@ class CurrentCoupling6DDensity(Propagator):
             self._space_key_int,
             self._coupling_const,
             self._boundary_cut_e1,
-            True
+            True,
         )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
@@ -2624,9 +2624,9 @@ class ImplicitDiffusion(Propagator):
     def x0(self, value):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
-        assert (
-            value.space.symbolic_space == "H1"
-        ), f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        assert value.space.symbolic_space == "H1", (
+            f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        )
 
         if self._x0 is None:
             self._x0 = value
@@ -6940,9 +6940,9 @@ class AdiabaticPhi(Propagator):
     def x0(self, value):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
-        assert (
-            value.space.symbolic_space == "H1"
-        ), f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        assert value.space.symbolic_space == "H1", (
+            f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        )
 
         if self._x0 is None:
             self._x0 = value

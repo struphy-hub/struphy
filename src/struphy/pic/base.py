@@ -288,18 +288,18 @@ class Particles(metaclass=ABCMeta):
         if self.loading_params["moments"] != "degenerate" and self.f0.coords == "constants_of_motion":
             # Particles6D
             if self.vdim == 3:
-                assert (
-                    self.n_cols_diagnostics >= 7
-                ), f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
+                assert self.n_cols_diagnostics >= 7, (
+                    f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
+                )
 
                 self._f_coords_index = self.index["com"]["6D"]
                 self._f_jacobian_coords_index = self.index["pos+energy"]["6D"]
 
             # Particles5D
             elif self.vdim == 2:
-                assert (
-                    self.n_cols_diagnostics >= 3
-                ), f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+                assert self.n_cols_diagnostics >= 3, (
+                    f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+                )
 
                 self._f_coords_index = self.index["com"]["5D"]
                 self._f_jacobian_coords_index = self.index["pos+energy"]["5D"]
@@ -320,9 +320,9 @@ class Particles(metaclass=ABCMeta):
         )
 
         # Have at least 3 spare places in markers array
-        assert (
-            self.args_markers.first_free_idx + 2 < self.n_cols - 1
-        ), f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
+        assert self.args_markers.first_free_idx + 2 < self.n_cols - 1, (
+            f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
+        )
 
         # initialize the sorting
         self._sorting_params = sorting_params

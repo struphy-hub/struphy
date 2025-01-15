@@ -260,7 +260,7 @@ def cc_lin_mhd_5d_D(
     "tmp_v",
     "b",
     "b_prod",
-    "b_prod_neg" "b_star",
+    "b_prod_negb_star",
     "norm_b1",
     "curl_norm_b",
 )
