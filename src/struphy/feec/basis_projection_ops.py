@@ -1143,7 +1143,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
@@ -1272,6 +1272,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                     PTS = np.meshgrid(*_ptsG, indexing="ij")
                     mat_w = loc_weight(*PTS).copy()
                 elif isinstance(loc_weight, np.ndarray):
+                    assert(loc_weight.shape==(len(_ptsG[0]),len(_ptsG[1]),len(_ptsG[2])))
                     mat_w = loc_weight
                 elif loc_weight is not None:
                     raise TypeError(
