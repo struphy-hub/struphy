@@ -649,7 +649,10 @@ class Particles(metaclass=ABCMeta):
     @property
     def positions(self):
         """Array holding the marker positions in logical space, excluding holes. The i-th row holds the i-th marker info."""
-        return self.markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]]
+        if self.amrex is not None:
+            return None
+        else:
+            return self.markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]]
 
     @positions.setter
     def positions(self, new):
@@ -998,181 +1001,206 @@ class Particles(metaclass=ABCMeta):
         verbose : bool
             Show info on screen.
         """
+        if self.amrex is not None:
 
-        # number of markers on the local process at loading stage
-        n_mks_load_loc = self.n_mks_load[self.mpi_rank]
-
-        # fill holes in markers array with -1 (all holes are at end of array at loading stage)
-        self._markers[n_mks_load_loc:] = -1.0
-
-        # number of holes and markers on process
-        self._holes = self.markers[:, 0] == -1.0
-        self._ghost_particles = self.markers[:, -1] == -2.0
-        self._n_holes_loc = np.count_nonzero(self._holes)
-        self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
-
-        # cumulative sum of number of markers on each process at loading stage.
-        n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
-
-        if self.mpi_rank == 0 and verbose:
-            print("\nMARKERS:")
-            print(("name:").ljust(25), self.name)
-            print(("Np:").ljust(25), self.Np)
-            print(("bc:").ljust(25), self.bc)
-            print(("loading:").ljust(25), self.loading)
-            print(("type:").ljust(25), self.type)
-            print(("domain_decomp[0]:").ljust(25), self.domain_decomp[0])
-            print(("ppc:").ljust(25), self.ppc)
-            print(("bc_refill:").ljust(25), self.bc_refill)
-            print(("sorting_params:").ljust(25), self.sorting_params)
-
-        # load markers from external .hdf5 file
-        if self.loading == "external":
-            if self.mpi_rank == 0:
-                file = h5py.File(
-                    self.loading_params["dir_external"],
-                    "r",
-                )
-                print(f"\nLoading markers from file: {file}")
-
-                self._markers[
-                    : n_mks_load_cum_sum[0],
-                    :,
-                ] = file["markers"][: n_mks_load_cum_sum[0], :]
-
-                for i in range(1, self._mpi_size):
-                    self._mpi_comm.Send(
-                        file["markers"][n_mks_load_cum_sum[i - 1] : n_mks_load_cum_sum[i], :],
-                        dest=i,
-                        tag=123,
-                    )
-
-                file.close()
-            else:
-                recvbuf = np.zeros(
-                    (n_mks_load_loc, self.markers.shape[1]),
-                    dtype=float,
-                )
-                self._mpi_comm.Recv(recvbuf, source=0, tag=123)
-                self._markers[:n_mks_load_loc, :] = recvbuf
-
-        # load markers from restart .hdf5 file
-        elif self.loading == "restart":
-            import struphy.utils.utils as utils
-
-            # Read struphy state file
-            state = utils.read_state()
-
-            o_path = state["o_path"]
-
-            if self.loading_params["dir_particles_abs"] is None:
-                data_path = os.path.join(
-                    o_path,
-                    self.loading_params["dir_particles"],
-                )
-            else:
-                data_path = self.loading_params["dir_particles_abs"]
-
-            data = DataContainer(data_path, comm=self.mpi_comm)
-
-            self.markers[:, :] = data.file["restart/" + self.loading_params["key"]][-1, :, :]
-
-        # load fresh markers
-        else:
-            if self.mpi_rank == 0 and verbose:
+            _seed = self.loading_params["seed"]
+            if amr.ParallelDescriptor.MyProc() == 0:
+                print("\nMARKERS:")
+                print(("name:").ljust(25), self.name)
+                print(("Np:").ljust(25), self.Np)
+                print(("bc:").ljust(25), self.bc)
+                print(("data structure:").ljust(25), "AMReX")
                 print("\nLoading fresh markers:")
-                for key, val in self.loading_params.items():
-                    print((key + " :").ljust(25), val)
+                print(("seed:").ljust(25), _seed)
 
-            # 1. standard random number generator (pseudo-random)
-            # TODO: assumes all clones have same number of particles
-            if self.loading == "pseudo_random":
-                # set seed
-                _seed = self.loading_params["seed"]
-                if _seed is not None:
-                    np.random.seed(_seed)
+            if _seed is None:
+                rng = np.random.default_rng()
+                _seed = rng.integers(1000)  # random seed
 
-                # counting integers
-                num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
-                num_loaded_particles = 0  # number of particles already loaded (each clone)
-                chunk_size = 10000  # TODO: number of particle chunk
-                total_num_particles_to_load = np.sum(self.n_mks_load)
+            myt = amr.ParticleInitType_pureSoA_8_0()  # the data is 0 by default
 
-                while num_loaded_particles < int(total_num_particles_to_load * self.Nclones):
-                    # Generate a chunk of random particles
-                    num_to_add = min(chunk_size, int(total_num_particles_to_load * self.Nclones) - num_loaded_particles)
-                    temp = np.random.rand(num_to_add, 3 + self.vdim)
+            # initialize particles in the whole domain, in each process (non serialized)
+            self._markers.init_random(self.Np, _seed, myt, False, amr.RealBox())
 
-                    # check which particles are on the current process domain
-                    is_on_proc_domain = np.logical_and(
-                        temp[:, :3] > self.domain_decomp[self.mpi_rank, 0::3],
-                        temp[:, :3] < self.domain_decomp[self.mpi_rank, 1::3],
+            assert self._markers.number_of_particles_at_level(0) == self.Np
+
+        else:
+            # number of markers on the local process at loading stage
+            n_mks_load_loc = self.n_mks_load[self.mpi_rank]
+
+            # fill holes in markers array with -1 (all holes are at end of array at loading stage)
+            self._markers[n_mks_load_loc:] = -1.0
+
+            # number of holes and markers on process
+            self._holes = self.markers[:, 0] == -1.0
+            self._ghost_particles = self.markers[:, -1] == -2.0
+            self._n_holes_loc = np.count_nonzero(self._holes)
+            self._n_mks_loc = self.markers.shape[0] - self._n_holes_loc
+
+            # cumulative sum of number of markers on each process at loading stage.
+            n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+
+            if self.mpi_rank == 0 and verbose:
+                print("\nMARKERS:")
+                print(("name:").ljust(25), self.name)
+                print(("Np:").ljust(25), self.Np)
+                print(("bc:").ljust(25), self.bc)
+                print(("loading:").ljust(25), self.loading)
+                print(("type:").ljust(25), self.type)
+                print(("domain_decomp[0]:").ljust(25), self.domain_decomp[0])
+                print(("ppc:").ljust(25), self.ppc)
+                print(("bc_refill:").ljust(25), self.bc_refill)
+                print(("sorting_params:").ljust(25), self.sorting_params)
+                print(("data structure:").ljust(25), "struphy")
+
+            # load markers from external .hdf5 file
+            if self.loading == "external":
+                if self.mpi_rank == 0:
+                    file = h5py.File(
+                        self.loading_params["dir_external"],
+                        "r",
+                    )
+                    print(f"\nLoading markers from file: {file}")
+
+                    self._markers[
+                        : n_mks_load_cum_sum[0],
+                        :,
+                    ] = file["markers"][: n_mks_load_cum_sum[0], :]
+
+                    for i in range(1, self._mpi_size):
+                        self._mpi_comm.Send(
+                            file["markers"][n_mks_load_cum_sum[i - 1] : n_mks_load_cum_sum[i], :],
+                            dest=i,
+                            tag=123,
+                        )
+
+                    file.close()
+                else:
+                    recvbuf = np.zeros(
+                        (n_mks_load_loc, self.markers.shape[1]),
+                        dtype=float,
+                    )
+                    self._mpi_comm.Recv(recvbuf, source=0, tag=123)
+                    self._markers[:n_mks_load_loc, :] = recvbuf
+
+            # load markers from restart .hdf5 file
+            elif self.loading == "restart":
+                import struphy.utils.utils as utils
+
+                # Read struphy state file
+                state = utils.read_state()
+
+                o_path = state["o_path"]
+
+                if self.loading_params["dir_particles_abs"] is None:
+                    data_path = os.path.join(
+                        o_path,
+                        self.loading_params["dir_particles"],
+                    )
+                else:
+                    data_path = self.loading_params["dir_particles_abs"]
+
+                data = DataContainer(data_path, comm=self.mpi_comm)
+
+                self.markers[:, :] = data.file["restart/" + self.loading_params["key"]][-1, :, :]
+
+            # load fresh markers
+            else:
+                if self.mpi_rank == 0 and verbose:
+                    print("\nLoading fresh markers:")
+                    for key, val in self.loading_params.items():
+                        print((key + " :").ljust(25), val)
+
+                # 1. standard random number generator (pseudo-random)
+                # TODO: assumes all clones have same number of particles
+                if self.loading == "pseudo_random":
+                    # set seed
+                    _seed = self.loading_params["seed"]
+                    if _seed is not None:
+                        np.random.seed(_seed)
+
+                    # counting integers
+                    num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
+                    num_loaded_particles = 0  # number of particles already loaded (each clone)
+                    chunk_size = 10000  # TODO: number of particle chunk
+                    total_num_particles_to_load = np.sum(self.n_mks_load)
+
+                    while num_loaded_particles < int(total_num_particles_to_load * self.Nclones):
+                        # Generate a chunk of random particles
+                        num_to_add = min(chunk_size, int(total_num_particles_to_load *
+                                         self.Nclones) - num_loaded_particles)
+                        temp = np.random.rand(num_to_add, 3 + self.vdim)
+
+                        # check which particles are on the current process domain
+                        is_on_proc_domain = np.logical_and(
+                            temp[:, :3] > self.domain_decomp[self.mpi_rank, 0::3],
+                            temp[:, :3] < self.domain_decomp[self.mpi_rank, 1::3],
+                        )
+
+                        valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
+
+                        valid_particles = temp[valid_idx]
+                        valid_particles = np.array_split(valid_particles, self.Nclones)[self.clone_rank]
+                        num_valid = valid_particles.shape[0]
+
+                        # Add the valid particles to the phasespace_coords array
+                        self.markers[
+                            num_loaded_particles_loc : num_loaded_particles_loc + num_valid,
+                            : 3 + self.vdim,
+                        ] = valid_particles
+                        num_loaded_particles += num_to_add
+                        num_loaded_particles_loc += num_valid
+
+                    # make sure all particles are loaded
+                    assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
+
+                    # set new n_mks_load
+                    self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
+                    n_mks_load_loc = num_loaded_particles_loc
+
+                    if self.mpi_comm is not None:
+                        self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
+
+                    n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+
+                    assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
+
+                    # set new holes in markers array to -1
+                    self.markers[num_loaded_particles_loc:, :] = -1.0
+                    self.update_holes()
+
+                    del temp
+
+                # 2. plain sobol numbers with skip of first 1000 numbers
+                elif self.loading == "sobol_standard":
+                    self.phasespace_coords = sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        n_mks_load_loc,
+                        1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank],
                     )
 
-                    valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
+                # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
+                elif self.loading == "sobol_antithetic":
+                    assert self.vdim == 3, NotImplementedError(
+                        '"sobol_antithetic" requires vdim=3 at the moment.',
+                    )
 
-                    valid_particles = temp[valid_idx]
-                    valid_particles = np.array_split(valid_particles, self.Nclones)[self.clone_rank]
-                    num_valid = valid_particles.shape[0]
+                    temp_markers = sobol_seq.i4_sobol_generate(
+                        3 + self.vdim,
+                        n_mks_load_loc // 64,
+                        1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] // 64,
+                    )
 
-                    # Add the valid particles to the phasespace_coords array
-                    self.markers[
-                        num_loaded_particles_loc : num_loaded_particles_loc + num_valid,
-                        : 3 + self.vdim,
-                    ] = valid_particles
-                    num_loaded_particles += num_to_add
-                    num_loaded_particles_loc += num_valid
+                    sampling_kernels.set_particles_symmetric_3d_3v(
+                        temp_markers,
+                        self.markers,
+                    )
 
-                # make sure all particles are loaded
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
-
-                # set new n_mks_load
-                self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
-                n_mks_load_loc = num_loaded_particles_loc
-
-                if self.mpi_comm is not None:
-                    self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
-
-                n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
-
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
-
-                # set new holes in markers array to -1
-                self.markers[num_loaded_particles_loc:, :] = -1.0
-                self.update_holes()
-
-                del temp
-
-            # 2. plain sobol numbers with skip of first 1000 numbers
-            elif self.loading == "sobol_standard":
-                self.phasespace_coords = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_mks_load_loc,
-                    1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank],
-                )
-
-            # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif self.loading == "sobol_antithetic":
-                assert self.vdim == 3, NotImplementedError(
-                    '"sobol_antithetic" requires vdim=3 at the moment.',
-                )
-
-                temp_markers = sobol_seq.i4_sobol_generate(
-                    3 + self.vdim,
-                    n_mks_load_loc // 64,
-                    1000 + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] // 64,
-                )
-
-                sampling_kernels.set_particles_symmetric_3d_3v(
-                    temp_markers,
-                    self.markers,
-                )
-
-            # 4. Wrong specification
-            else:
-                raise ValueError(
-                    "Specified particle loading method does not exist!",
-                )
+                # 4. Wrong specification
+                else:
+                    raise ValueError(
+                        "Specified particle loading method does not exist!",
+                    )
 
             # initial velocities:
             if self.loading_params["moments"] == "degenerate":
@@ -1241,48 +1269,48 @@ class Particles(metaclass=ABCMeta):
                         "Inverse transform sampling of given vdim is not implemented!",
                     )
 
-            # inversion method for drawing uniformly on the disc
-            self._spatial = self.loading_params["spatial"]
-            if self._spatial == "disc":
-                self._markers[:n_mks_load_loc, 0] = np.sqrt(
-                    self._markers[:n_mks_load_loc, 0],
+                # inversion method for drawing uniformly on the disc
+                self._spatial = self.loading_params["spatial"]
+                if self._spatial == "disc":
+                    self._markers[:n_mks_load_loc, 0] = np.sqrt(
+                        self._markers[:n_mks_load_loc, 0],
+                    )
+                else:
+                    assert self._spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
+
+                # set markers ID in last column
+                self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
+                    n_mks_load_loc, dtype=float
                 )
-            else:
-                assert self._spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
 
-            # set markers ID in last column
-            self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
-                n_mks_load_loc, dtype=float
-            )
+                # set specific initial condition for some particles
+                if self.loading_params["initial"] is not None:
+                    specific_markers = self.loading_params["initial"]
 
-            # set specific initial condition for some particles
-            if self.loading_params["initial"] is not None:
-                specific_markers = self.loading_params["initial"]
+                    counter = 0
+                    for i in range(len(specific_markers)):
+                        if i == int(self.markers[counter, -1]):
+                            for j in range(3 + self.vdim):
+                                if specific_markers[i][j] is not None:
+                                    self._markers[
+                                        counter,
+                                        j,
+                                    ] = specific_markers[i][j]
 
-                counter = 0
-                for i in range(len(specific_markers)):
-                    if i == int(self.markers[counter, -1]):
-                        for j in range(3 + self.vdim):
-                            if specific_markers[i][j] is not None:
-                                self._markers[
-                                    counter,
-                                    j,
-                                ] = specific_markers[i][j]
+                            counter += 1
 
-                        counter += 1
+                # check if all particle positions are inside the unit cube [0, 1]^3
+                n_mks_load_loc = self._n_mks_load[self._mpi_rank]
 
-            # check if all particle positions are inside the unit cube [0, 1]^3
-            n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+                assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
+                    self._holes[n_mks_load_loc:],
+                )
 
-            assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
-                self._holes[n_mks_load_loc:],
-            )
-
-        if self._initialized_sorting and sort:
-            if self.mpi_rank == 0 and verbose:
-                print("Sorting the markers after initial draw")
-            self.mpi_sort_markers()
-            self.do_sort()
+            if self._initialized_sorting and sort:
+                if self.mpi_rank == 0 and verbose:
+                    print("Sorting the markers after initial draw")
+                self.mpi_sort_markers()
+                self.do_sort()
 
     def mpi_sort_markers(
         self,

@@ -20,6 +20,4 @@ class Amrex:
 
     def finalize(self):
 
-        # finalize when the destructor is called
-
         amr.finalize()

@@ -38,6 +38,8 @@ def test_amrex():
                             loading_params=loading_params,
                             amrex=amrex)
 
+    particles.draw_markers()
+
     # finalize amrex
     amrex.finalize()
 
