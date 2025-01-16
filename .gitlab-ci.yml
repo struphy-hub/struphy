@@ -155,7 +155,7 @@ default_install:
     - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
-    - pip install dist/struphy*.whl
+    - pip install $(echo dist/struphy*.whl)[test]
     - pip show struphy
     - pip list
     - struphy
@@ -177,7 +177,7 @@ c_cronjob_install:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   needs: ["default_install"]
   script:
-    - pip install -U struphy
+    - pip install -U struphy[test]
     - pip show struphy
     - pip list
     - struphy
@@ -211,7 +211,7 @@ lint_full_repo_report:
     - pip list
     - ls
     - pwd
-    - pip install -e . # We have to install struphy in editable mode for struphy lint to work
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - struphy
     - struphy lint all --output-format report
     - mkdir -p lint_reports
@@ -245,7 +245,7 @@ lint_branch:
     - pip list
     - ls
     - pwd
-    - pip install -e . # We have to install struphy in editable mode for struphy lint to work
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - struphy
     # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint branch --output-format plain --verbose
@@ -274,7 +274,7 @@ lint_branch_report:
     - pip list
     - ls
     - pwd
-    - pip install -e . # We have to install struphy in editable mode for struphy lint to work
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - struphy
     - struphy lint branch --output-format report
     - mkdir -p lint_reports
@@ -330,7 +330,7 @@ Ubuntu_latest:
     - python3 -m venv env
     - source env/bin/activate
     - python3 --version
-    - pip install dist/struphy*.whl
+    - pip install $(echo dist/struphy*.whl)[test]
     - struphy compile --status
     - make -v
     - struphy compile
@@ -444,7 +444,8 @@ pages_tests:
     - module avail
     - module load pandoc
     - module list
-    - struphy compile --status
+    - pip install $(echo dist/struphy*.whl)[doc]
+    - struphy compile -y
     - cd doc ; make html; cd ..
 
 c_model_cronjob_tests:
@@ -538,7 +539,7 @@ Ubuntu_22_04:
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -565,7 +566,7 @@ struphy_ubuntu_python_3_11:
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y
@@ -596,7 +597,7 @@ struphy_ubuntu_latest:
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y
@@ -644,7 +645,7 @@ Fedora:
     - module load mpi/openmpi-$(arch)
     - module list 
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -677,7 +678,7 @@ struphy_fedora_latest:
     - module list 
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -720,7 +721,7 @@ OpenSuse:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -753,7 +754,7 @@ struphy_opensuse_latest:
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
     - pip install --upgrade pip
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y
@@ -779,7 +780,7 @@ struphy_opensuse_python_3_11:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -826,7 +827,7 @@ AlmaLinux:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - pip list
     - struphy compile 
     - struphy test models --fast
@@ -860,7 +861,7 @@ struphy_almalinux_latest:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER
+    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
     - pip list
     - struphy compile 
     - struphy test models --fast
@@ -896,7 +897,7 @@ pages:
     - source env/bin/activate
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
-    - pip install dist/struphy*.whl
+    - pip install $(echo dist/struphy*.whl)[doc]
   script:
     - struphy -h
     - struphy compile --status
