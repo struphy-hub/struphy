@@ -9,6 +9,7 @@ More Physics
 
     subsections/mhd_equils
     subsections/braginskii_equils
+    subsections/fluid_equils
     subsections/kinetic_backgrounds
     subsections/fluid_backgrounds
     subsections/inits

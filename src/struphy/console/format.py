@@ -1,56 +1,89 @@
 """
-    Struphy Linting and Formatting Tools
+Struphy Linting and Formatting Tools
 
-    This module provides utilities to lint, format, and analyze Python files in struphy.
-    It is only accessible when compiling struphy in editable mode.
+This module provides utilities to lint, format, and analyze Python files in StruPhy.
+It is accessible when compiling StruPhy in editable mode.
 
-    Functions
-    ---------
-    parse_path(directory)
-        Traverse a directory to find Python files, excluding '__XYZ__.py'.
+Functions
+---------
+parse_path(directory)
+    Traverse a directory to find Python files, excluding '__XYZ__.py'.
 
-    get_python_files(input_type, path=None)
-        Retrieve Python files based on the specified input type (all, path, staged, or branch).
+get_python_files(input_type, path=None)
+    Retrieve Python files based on the specified input type ('all', 'path', 'staged', or 'branch').
 
-    struphy_lint(config, verbose)
-        Lint Python files based on the given type, using specified linters.
+struphy_lint(config, verbose)
+    Lint Python files based on the given configuration, using specified linters.
 
-    struphy_format(config, verbose, yes=False)
-        Format Python files with specified linters, optionally iterating multiple times.
+struphy_format(config, verbose, yes=False)
+    Format Python files with specified linters, optionally iterating multiple times.
 
-    print_stats_table(stats_list, linters, print_header=True, pathlen=0)
-        Print statistics for Python files in a tabular format.
+print_stats_table(stats_list, linters, print_header=True, pathlen=0)
+    Print statistics for Python files in a tabular format.
 
-    analyze_file(file_path, linters=["isort", "autopep8"], verbose=False)
-        Analyze a Python file, reporting on code structure and linter compliance.
+print_stats_plain(stats, linters)
+    Print statistics for Python files in a plain-text format.
 
-    print_file_stats(stats)
-        Display statistics of a single file in a readable format.
+analyze_file(file_path, linters=None, verbose=False)
+    Analyze a Python file, reporting on code structure and linter compliance.
 
-    check_isort(file_path, verbose=False)
-        Check if a file is sorted according to isort.
+generate_report(python_files, linters=["ruff"], verbose=False)
+    Generate a linting report in HTML format for specified files.
 
-    check_autopep8(file_path, verbose=False)
-        Check if a file is formatted according to autopep8.
+parse_json_file_to_html(json_file_path, html_output_path)
+    Parse a JSON linting report into an HTML file with detailed context for each issue.
 
-    check_flake8(file_path, verbose=False)
-        Check if a file is formatted according to flake8.
+check_omp_flags(file_path)
+    Check if a file contains OpenMP-like flags (`# $`).
 
-    get_pylint_score(file_path, verbose=False, pass_score)
-        Get pylint score for a file and determine if it passes.
+check_ruff(file_path, verbose=False)
+    Check if a file passes Ruff linting.
 
-    check_trailing_commas(file_path, verbose=False)
-        Check if a file is formatted according to add-trailing-comma.
+check_isort(file_path, verbose=False)
+    Check if a file is sorted according to isort.
+
+check_autopep8(file_path, verbose=False)
+    Check if a file is formatted according to autopep8.
+
+check_flake8(file_path, verbose=False)
+    Check if a file is formatted according to flake8.
+
+get_pylint_score(file_path, verbose=False, pass_score=8.0)
+    Get pylint score for a file and determine if it passes based on a minimum score.
+
+check_trailing_commas(file_path, verbose=False)
+    Check if a file contains trailing commas required by add-trailing-commas.
+
+files_require_formatting(python_files, linters)
+    Determine if any specified files require formatting based on the given linters.
+
+run_linters_on_files(linters, python_files, flags, verbose)
+    Run specified linters on the provided files with appropriate flags.
+
+confirm_formatting(python_files, linters, yes)
+    Confirm with the user whether to format the listed Python files.
+
+replace_backticks_with_code_tags(text)
+    Replace inline backticks with <code> tags, handling multiple or nested occurrences.
+
+generate_html_table_from_combined_data(combined_data, sort_descending=True)
+    Generate an HTML table from combined data for code issues.
+
 """
 
 import ast
+import fileinput
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from collections import defaultdict
 
+import pandas as pd
 from tabulate import tabulate
 
 import struphy
@@ -63,6 +96,82 @@ BLACK_COLOR = "\033[0m"
 
 FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
 PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
+
+
+def check_omp_flags(file_path, verbose=False):
+    """
+    Checks if a file contains incorrect OpenMP-like flags (`# $`).
+
+    Parameters:
+    -----------
+    file_path : str
+        Path to the file to check.
+
+    Returns:
+    --------
+    bool
+        True if no incorrect OpenMP-like flags (`# $`) are found, False otherwise.
+    """
+    try:
+        with open(file_path, "r") as f:
+            if verbose:
+                for iline, line in enumerate(f):
+                    if line.lstrip().startswith("# $"):
+                        print(f"Error on line {iline}: {line}")
+            return all(not line.lstrip().startswith("# $") for line in f)
+    except (IOError, FileNotFoundError) as e:
+        raise ValueError(f"Error reading file: {e}")
+
+
+def check_ruff(file_path, verbose=False):
+    """
+    Check if a file passes Ruff linting.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Python file.
+
+    verbose : bool, optional
+        If True, enables detailed output (default=False).
+
+    Returns
+    -------
+    bool
+        True if Ruff check passes, False otherwise.
+    """
+
+    commands = [
+        ["ruff", "format", "--diff", file_path],
+        ["ruff", "check", "--select", "I", file_path],  # Check with isort
+    ]
+    returncodes = []
+    for command in commands:
+        result = subprocess.run(
+            command,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if verbose:
+            print("stdout:", result.stdout.decode("utf-8"))
+            print("stderr:", result.stderr.decode("utf-8"))
+
+        if result.returncode == 0:
+            returncodes.append(0)
+        else:
+            # Default to no error
+            returncode = 0
+            for line in result.stdout.decode("utf-8").split("\n"):
+                # Skip empty lines and filename headers
+                if not line or line.startswith("+++ "):
+                    continue
+                # Check for lines with actual changes
+                if line.startswith("+ ") and not line[1:].lstrip().startswith("# $"):
+                    returncode = 1
+            returncodes.append(returncode)
+
+    return all(returncode == 0 for returncode in returncodes)
 
 
 def check_isort(file_path, verbose=False):
@@ -328,9 +437,7 @@ def get_python_files(input_type, path=None):
         )
         files = git_output.strip().splitlines()
         python_files = [
-            os.path.join(repopath, f)
-            for f in files
-            if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
+            os.path.join(repopath, f) for f in files if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
         ]
 
         if not python_files:
@@ -350,9 +457,7 @@ def get_python_files(input_type, path=None):
 
         # python_files = [f for f in files if f.endswith(".py") and os.path.isfile(f)]
         python_files = [
-            os.path.join(repopath, f)
-            for f in files
-            if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
+            os.path.join(repopath, f) for f in files if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
         ]
 
         if not python_files:
@@ -404,7 +509,7 @@ def struphy_lint(config, verbose):
     if input_type is None and path is not None:
         input_type = "path"
     # Define standard linters which will be checked in the CI
-    ci_linters = ["isort", "autopep8"]
+    ci_linters = ["ruff", "omp_flags"]
     python_files = get_python_files(input_type, path)
     if len(python_files) == 0:
         sys.exit(0)
@@ -416,18 +521,21 @@ def struphy_lint(config, verbose):
         ),
     )
     print("\n")
+
+    if output_format == "report":
+        generate_report(python_files, linters=linters, verbose=verbose)
+        sys.exit(0)
+
     max_pathlen = max(len(os.path.relpath(file_path)) for file_path in python_files)
     stats_list = []
 
     # Check if all ci_linters are included in linters
     if all(ci_linter in linters for ci_linter in ci_linters):
-        print("Passes CI if both isort and autopep8 passes")
+        print(f"Passes CI if {ci_linters} passes")
         print("-" * 40)
         check_ci_pass = True
     else:
-        skipped_ci_linters = [
-            ci_linter for ci_linter in ci_linters if ci_linter not in linters
-        ]
+        skipped_ci_linters = [ci_linter for ci_linter in ci_linters if ci_linter not in linters]
         print(
             f'The "Pass CI" check is skipped since not --linters {" ".join(skipped_ci_linters)} is used.',
         )
@@ -461,6 +569,32 @@ def struphy_lint(config, verbose):
             sys.exit(1)
     print("Not all CI linters were checked, unknown if all files will pass CI")
     sys.exit(1)
+
+
+def generate_report(python_files, linters=["ruff"], verbose=False):
+    for linter in linters:
+        if linter == "ruff":
+            for python_file in python_files:
+                report_json_filename = "code_analysis_report.json"
+                report_html_filename = "code_analysis_report.html"
+                command = [
+                    "ruff",
+                    "check",
+                    "--preview",
+                    "--select",
+                    "ALL",
+                    "--ignore",
+                    "D211,D213",
+                    "--output-format",
+                    "json",
+                    "-o",
+                    report_json_filename,
+                ] + python_files
+                subprocess.run(command, check=False)
+                parse_json_file_to_html(report_json_filename, report_html_filename)
+                if os.path.exists(report_json_filename):
+                    os.remove(report_json_filename)
+                sys.exit(0)
 
 
 def confirm_formatting(python_files, linters, yes):
@@ -513,10 +647,30 @@ def files_require_formatting(python_files, linters):
 def run_linters_on_files(linters, python_files, flags, verbose):
     """Run each linter on the specified files with appropriate flags."""
     for linter in linters:
-        command = [linter] + flags.get(linter, []) + python_files
-        if verbose:
-            print(f"Running command: {' '.join(command)}")
-        subprocess.run(command, check=True)
+        for python_file in python_files:
+            print(f"Formatting {python_file}")
+            linter_flags = flags.get(linter, [])
+            if isinstance(linter_flags[0], list):
+                # If linter_flags is a list, run each separately
+                for flag in linter_flags:
+                    command = [linter] + flag + [python_file]
+                    if verbose:
+                        print(f"Running command: {' '.join(command)}")
+
+                    subprocess.run(command, check=False)
+            else:
+                # If linter_flags is not a list, treat it as a single value
+                command = [linter] + linter_flags + [python_file]
+                if verbose:
+                    print(f"Running command: {' '.join(command)}")
+                subprocess.run(command, check=False)
+
+            # Loop over each line and replace '# $' with '#$' in place
+            for line in fileinput.input(python_file, inplace=True):
+                if line.lstrip().startswith("# $"):
+                    print(line.replace("# $", "#$"), end="")
+                else:
+                    print(line, end="")
 
 
 def struphy_format(config, verbose, yes=False):
@@ -562,6 +716,7 @@ def struphy_format(config, verbose, yes=False):
         "autopep8": ["--in-place"],
         "isort": [],
         "add-trailing-comma": ["--exit-zero-even-if-changed"],
+        "ruff": [["check", "--fix", "--select", "I"], ["format"]],
     }
 
     # Skip linting with add-trailing-comma since it disagrees with autopep8
@@ -571,13 +726,6 @@ def struphy_format(config, verbose, yes=False):
         for iteration in range(iterations):
             if verbose:
                 print(f"Iteration {iteration + 1}: Running formatters...")
-
-            if iteration == 0:
-                linters_to_apply = linters
-            else:
-                linters_to_apply = [
-                    lint for lint in linters if not lint in skip_linters
-                ]
 
             run_linters_on_files(
                 linters,
@@ -589,7 +737,7 @@ def struphy_format(config, verbose, yes=False):
             # Check if any files still require changes
             if not files_require_formatting(
                 python_files,
-                [lint for lint in linters if not lint in skip_linters],
+                [lint for lint in linters if lint not in skip_linters],
             ):
                 print("All files are properly formatted.")
                 break
@@ -606,7 +754,7 @@ def struphy_format(config, verbose, yes=False):
         print("No Python files to format.")
 
 
-def print_stats_plain(stats, linters):
+def print_stats_plain(stats, linters, ci_linters=["ruff"]):
     """
     Print statistics for a single file in plain text format.
 
@@ -632,14 +780,15 @@ def print_stats_plain(stats, linters):
         print(f"  {linter}: {status}")
 
     # Check for CI pass status if both linters are present
-    if "isort" in linters and "autopep8" in linters:
-        passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
+    if all(linter in linters for linter in ci_linters):
+        # Check if all linters in ci_linters pass
+        passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
         ci_status = PASS_GREEN if passes_ci else FAIL_RED
         print(f"  Full CI check: {ci_status}")
     print("-" * 40)  # Divider between files
 
 
-def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
+def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_linters=["ruff"]):
     """
     Print statistics for Python files in a tabular format.
 
@@ -689,8 +838,8 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0):
 
         for linter in linters:
             row.append(PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED)
-        if "isort" in linters and "autopep8" in linters:
-            passes_ci = stats["passes_isort"] and stats["passes_autopep8"]
+        if all(linter in linters for linter in ci_linters):
+            passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
             row.append(PASS_GREEN if passes_ci else FAIL_RED)
         table.append(row)
     if print_header:
@@ -739,6 +888,8 @@ def analyze_file(file_path, linters=None, verbose=False):
         "passes_flake8": False,
         "passes_pylint": False,
         "passes_add-trailing-comma": False,
+        "passes_ruff": False,
+        "passes_omp_flags": False,
     }
 
     # Read the file content
@@ -748,17 +899,12 @@ def analyze_file(file_path, linters=None, verbose=False):
 
     # Parse the AST
     tree = ast.parse(source_code)
-    stats["num_functions"] = sum(
-        isinstance(node, ast.FunctionDef) for node in ast.walk(tree)
-    )
-    stats["num_classes"] = sum(
-        isinstance(node, ast.ClassDef) for node in ast.walk(tree)
-    )
-    stats["num_variables"] = sum(
-        isinstance(node, (ast.Assign, ast.AnnAssign)) for node in ast.walk(tree)
-    )
+    stats["num_functions"] = sum(isinstance(node, ast.FunctionDef) for node in ast.walk(tree))
+    stats["num_classes"] = sum(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
+    stats["num_variables"] = sum(isinstance(node, (ast.Assign, ast.AnnAssign)) for node in ast.walk(tree))
 
     # Run code analysis tools
+    # TODO: This should be a loop
     if "isort" in linters:
         stats["passes_isort"] = check_isort(file_path, verbose=verbose)
     if "autopep8" in linters:
@@ -775,4 +921,401 @@ def analyze_file(file_path, linters=None, verbose=False):
             file_path,
             verbose=verbose,
         )
+    if "ruff" in linters:
+        stats["passes_ruff"] = check_ruff(
+            file_path,
+            verbose=verbose,
+        )
+    if "omp_flags" in linters:
+        stats["passes_omp_flags"] = check_omp_flags(
+            file_path,
+            verbose=verbose,
+        )
+
     return stats
+
+
+def replace_backticks_with_code_tags(text):
+    """
+    Recursively replaces inline backticks with <code> tags.
+    Handles multiple or nested occurrences.
+
+    Args:
+        text (str): Input string with backticks to be replaced.
+
+    Returns:
+        str: Formatted string with <code> tags.
+    """
+    # Regular expression to match text inside single backtick pairs
+    pattern = r"`([^`]*)`"
+
+    # Replace one level of backticks with <code> tags
+    new_text = re.sub(pattern, r"<code>\1</code>", text)
+
+    # If additional backticks are found, process recursively
+    if "`" in new_text:
+        return replace_backticks_with_code_tags(new_text)
+
+    return new_text
+
+
+def generate_html_table_from_combined_data(combined_data, sort_descending=True):
+    html = "<table class='table-style'>"
+    html += "<thead><tr><th>Count</th><th>Codes</th></tr></thead><tbody>"
+    sorted_items = sorted(combined_data.items(), reverse=sort_descending)
+    for count, info in sorted_items:
+        codes_links = ", ".join(info["Codes"])
+        html += f"<tr><td>{count}</td><td>{codes_links}</td></tr>"
+    html += "</tbody></table>"
+    return html
+
+
+def parse_json_file_to_html(json_file_path, html_output_path):
+    """
+    Parses a JSON file containing code issues, groups them by filename,
+    reads the source code to extract context, and writes an HTML report.
+    Each file's section is foldable using <details> and <summary> tags.
+
+    Args:
+        json_file_path (str): The path to the JSON file containing code issues.
+        html_output_path (str): The path where the HTML report will be saved.
+    """
+
+    try:
+        with open(json_file_path, "r") as file:
+            data = json.load(file)
+
+        if not isinstance(data, list):
+            print("Invalid JSON format: Expected a list of objects.")
+            return
+
+        # Group issues by filename
+        issues_by_file = defaultdict(list)
+        for issue in data:
+            filename = issue.get("filename", "Unknown file")
+            issues_by_file[filename].append(issue)
+
+        # Start building the HTML content
+        html_content = []
+        html_content.extend(
+            [
+                "<!DOCTYPE html>",
+                "<html lang='en'>",
+                "<head>",
+                "<meta charset='UTF-8'>",
+                "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
+                "<title>Code Analysis Report</title>",
+            ]
+        )
+
+        # Include external CSS and JS libraries
+        html_content.extend(
+            [
+                "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css'>",
+                "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css'>",
+                "<script src='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js'></script>",
+                "<script>hljs.configure({ignoreUnescapedHTML: true}); hljs.highlightAll();</script>",
+            ]
+        )
+
+        # Custom CSS for light mode and code prettification
+        html_content.append("<style>")
+        html_content.append(
+            """
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    margin: 20px;
+    background-color: #ffffff; /* Light background */
+    color: #333333; /* Dark text color */
+}
+h1 {
+    color: #333333;
+    font-size: 2em;
+}
+a {
+    color: #3273dc;
+}
+code {
+    font-family: 'Fira Code', Consolas, 'Courier New', monospace;
+}
+pre {
+    background-color: #f5f5f5; /* Light grey background */
+    padding: 15px;
+    border-radius: 5px;
+    overflow: auto;
+    position: relative;
+    color: #333333;
+}
+.error {
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+details {
+    margin-bottom: 20px;
+}
+summary {
+    font-size: 1.2em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 10px;
+    background-color: #f5f5f5;
+    color: #333333;
+    border-radius: 5px;
+}
+summary:hover {
+    background-color: #e5e5e5;
+}
+.issue {
+    margin-bottom: 20px;
+}
+.issue-header {
+    font-weight: bold;
+}
+.fix {
+    margin-left: 20px;
+}
+.table-style {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    color: #333333;
+}
+.table-style th, .table-style td {
+    border: 1px solid #dddddd;
+    padding: 10px;
+    text-align: left;
+}
+.table-style th {
+    background-color: #f5f5f5;
+}
+.table-style tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+.table-style tr:hover {
+    background-color: #f1f1f1;
+}
+/* Highlighted code segment */
+.highlighted-code, mark {
+    background-color: #ff3860;
+    color: #000000;
+    padding: 0;
+    border-radius: 0;
+}
+/* Line numbers */
+.line-number {
+    position: absolute;
+    left: -10px;
+    width: 40px;
+    text-align: right;
+    padding-right: 10px;
+    color: #999999;
+    user-select: none;
+}
+.code-line {
+    display: block;
+    position: relative;
+    padding-left: 50px;
+    margin: 0;
+    line-height: 1.2; /* Adjust line height to reduce spacing */
+}
+nav ul {
+    margin-top: 20px;
+}
+nav li {
+    margin-bottom: 5px;
+}
+footer {
+    margin-top: 40px;
+    text-align: center;
+    color: #999999;
+}
+"""
+        )
+        html_content.append("</style>")
+
+        # JavaScript to initialize Highlight.js with custom options
+        html_content.append(
+            """
+<script>
+document.addEventListener('DOMContentLoaded', (event) => {
+    hljs.configure({ignoreUnescapedHTML: true});
+    document.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+    });
+});
+</script>
+"""
+        )
+
+        html_content.extend(["</head>", "<body>", "<h1>Code Issues Report</h1>"])
+
+        # Add summary statistics
+        total_issues = sum(len(issues) for issues in issues_by_file.values())
+        total_files = len(issues_by_file)
+        html_content.append(
+            f"""
+<section>
+    <p><strong>Total Issues:</strong> {total_issues}</p>
+    <p><strong>Number of files:</strong> {total_files}</p>
+</section>
+"""
+        )
+
+        # Navigation menu
+        #         html_content.append("<nav><ul style='list-style: none; padding: 0;'>")
+        #         for filename in issues_by_file.keys():
+        #             anchor = filename.replace(LIBPATH, 'src/struphy').replace('/', '_').replace('\\', '_')
+        #             display_name = filename.replace(LIBPATH, 'src/struphy')
+        #             html_content.append(f"""
+        # <li>
+        #     <a href='#{anchor}'>{display_name}</a>
+        # </li>
+        # """)
+        #         html_content.append("</ul></nav>")
+
+        for filename, issues in issues_by_file.items():
+            print(f"Parsing {filename}")
+            # Start foldable section for the file
+            anchor = filename.replace(LIBPATH, "src/struphy").replace("/", "_").replace("\\", "_")
+            display_name = filename.replace(LIBPATH, "src/struphy")
+            html_content.append(
+                f"""
+<details id='{anchor}'>
+    <summary>File: <code>{display_name}</code></summary>
+"""
+            )
+
+            issue_data = {}
+            for issue in issues:
+                code = issue.get("code", "Unknown code")
+                message = replace_backticks_with_code_tags(issue.get("message", "No message"))
+                url = issue.get("url", "No URL provided")
+                if code in issue_data:
+                    issue_data[code]["Count"] += 1
+                else:
+                    issue_data[code] = {
+                        "Count": 1,
+                        "Message": message,
+                        "url": url,
+                    }
+
+            combined_data = {}
+            for code, info in issue_data.items():
+                count = info["Count"]
+                url = info["url"]
+                link = f"<a href='{url}' target='_blank'><code>{code}</code></a>"
+                if count in combined_data:
+                    combined_data[count]["Codes"].append(link)
+                else:
+                    combined_data[count] = {
+                        "Codes": [link],
+                    }
+            # Generate the HTML table
+            html_content.append(generate_html_table_from_combined_data(combined_data, sort_descending=True))
+
+            for issue in issues:
+                code = issue.get("code", "Unknown code")
+                message = replace_backticks_with_code_tags(issue.get("message", "No message"))
+                location = issue.get("location", {})
+                row = location.get("row", None)
+                column = location.get("column", None)
+                end_location = issue.get("end_location", {})
+                # end_row = end_location.get("row", row)
+                end_column = end_location.get("column", column)
+                fix = issue.get("fix", None)
+                url = issue.get("url", "No URL provided")
+
+                html_content.append("<div class='issue'>")
+                html_content.append("<p class='issue-header'>")
+                html_content.append(
+                    f"<strong>Issue:</strong> "
+                    f"<a href='{url}' target='_blank'><code>{code}</code></a> - "
+                    f"<span class='error'>{message}</span><br>"
+                    f"<strong>Location:</strong> "
+                    f"<code>{display_name}:{row}:{column}</code><br>"
+                )
+                html_content.append("</p>")
+
+                # Read the file and extract the code snippet
+                if os.path.exists(filename) and row is not None:
+                    with open(filename, "r") as source_file:
+                        lines = source_file.readlines()
+                        total_lines = len(lines)
+                        # Adjust indices for zero-based indexing
+                        context_radius = 2  # Number of lines before and after the issue line
+                        start_line = max(row - context_radius - 1, 0)
+                        end_line = min(row + context_radius, total_lines)
+                        snippet_lines = lines[start_line:end_line]
+
+                        # Build the code snippet
+                        code_lines = []
+                        for idx, line_content in enumerate(snippet_lines, start=start_line + 1):
+                            line_content = line_content.rstrip("\n")
+                            # Fix HTML special characters
+                            line_content = line_content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                            # Highlight the error
+                            if idx == row and column is not None and end_column is not None:
+                                start_col = column - 1  # Adjust for zero-based indexing
+                                end_col = end_column - 1
+
+                                start_col = max(start_col, 0)
+                                end_col = min(end_col, len(line_content))
+
+                                before = line_content[:start_col]
+                                problem = line_content[start_col:end_col]
+                                after = line_content[end_col:]
+                                # Wrap the problematic part with <mark>
+                                highlighted_line = f"{before}<mark>{problem}</mark>{after}"
+                                code_lines.append((idx, highlighted_line))
+                            else:
+                                code_lines.append((idx, line_content))
+                        # Make code block with line numbers
+                        html_content.append("<pre>")
+                        for line_number, line_content in code_lines:
+                            html_content.append(
+                                # f"<div class='code-line'><span class='line-number'>"
+                                # f"{line_number}</span>{line_content}</div>"
+                                f"{line_number}:  {line_content}"
+                            )
+                        html_content.append("</pre>")
+                    # Include fix details if available
+                    if fix:
+                        html_content.append("<div class='fix'>")
+                        html_content.append(
+                            f"<p>Fix Available (<code>{fix.get('applicability', 'Unknown')}</code>): "
+                            f"<code>ruff check --select ALL --fix {display_name}</code></p>"
+                        )
+                        html_content.append("</div>")
+                else:
+                    html_content.append(
+                        f"<p>Cannot read file <code>{filename}</code> or invalid row " f"<code>{row}</code>.</p>"
+                    )
+
+                html_content.append("</div>")
+                html_content.append("<hr>")
+
+            html_content.append("</details>")
+
+        # Footer
+        html_content.append(
+            f"""
+<footer>
+    <p>Generated by on {time.strftime("%Y-%m-%d %H:%M:%S")}</p>
+</footer>
+"""
+        )
+
+        html_content.extend(["</body>", "</html>"])
+
+        # Write the HTML content to the output file
+        with open(html_output_path, "w") as html_file:
+            html_file.write("\n".join(html_content))
+
+        print(f"HTML report generated at {html_output_path}")
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+    except json.JSONDecodeError as e:
+        print(f"Error: Failed to parse JSON file. {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")

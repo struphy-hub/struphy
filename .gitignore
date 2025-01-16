@@ -80,6 +80,7 @@ logs
 *env/
 .hostfile*
 .likwidscript*
+code_analysis_report.html
 
 # I/O
 src/struphy/io/out/

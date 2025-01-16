@@ -91,24 +91,16 @@ def derive_units(
         units["v"] = 1.0 * c
 
     elif velocity_scale == "alfvén":
-        assert (
-            A_bulk is not None
-        ), 'Need bulk species to choose velocity scale "alfvén".'
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
         units["v"] = units["B"] / np.sqrt(units["n"] * A_bulk * mH * mu0)
 
     elif velocity_scale == "cyclotron":
-        assert (
-            Z_bulk is not None
-        ), 'Need bulk species to choose velocity scale "cyclotron".'
-        assert (
-            A_bulk is not None
-        ), 'Need bulk species to choose velocity scale "cyclotron".'
+        assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
         units["v"] = Z_bulk * e * units["B"] / (A_bulk * mH) * units["x"]
 
     elif velocity_scale == "thermal":
-        assert (
-            A_bulk is not None
-        ), 'Need bulk species to choose velocity scale "thermal".'
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
         assert kBT is not None
         units["v"] = np.sqrt(kBT * 1000 * e / (mH * A_bulk))
 
@@ -155,17 +147,17 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     from struphy.fields_background.mhd_equil.base import LogicalMHDequilibrium
     from struphy.geometry import domains
 
-    if 'mhd_equilibrium' in params:
-
-        mhd_type = params['mhd_equilibrium']['type']
+    if "mhd_equilibrium" in params:
+        mhd_type = params["mhd_equilibrium"]["type"]
         mhd_class = getattr(mhd_equils, mhd_type)
 
-        if mhd_type in ('EQDSKequilibrium', 'GVECequilibrium', 'DESCequilibrium'):
+        if mhd_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
             equil = mhd_class(
-                units=units, **params['mhd_equilibrium'][mhd_type],
+                units=units,
+                **params["mhd_equilibrium"][mhd_type],
             )
         else:
-            equil = mhd_class(**params['mhd_equilibrium'][mhd_type])
+            equil = mhd_class(**params["mhd_equilibrium"][mhd_type])
 
         # for logical MHD equilibria, the domain comes with the equilibrium
         if isinstance(equil, LogicalMHDequilibrium):
@@ -175,9 +167,10 @@ def setup_domain_and_equil(params: dict, units: dict = None):
             dom_type = params["geometry"]["type"]
             dom_class = getattr(domains, dom_type)
 
-            if dom_type == 'Tokamak':
+            if dom_type == "Tokamak":
                 domain = dom_class(
-                    **params['geometry'][dom_type], equilibrium=equil,
+                    **params["geometry"][dom_type],
+                    equilibrium=equil,
                 )
             else:
                 domain = dom_class(**params["geometry"][dom_type])
@@ -185,23 +178,21 @@ def setup_domain_and_equil(params: dict, units: dict = None):
             # set domain attribute in mhd object
             equil.domain = domain
 
-    elif 'braginskii_equilibrium' in params:
-
-        dom_type = params['geometry']['type']
+    elif "braginskii_equilibrium" in params:
+        dom_type = params["geometry"]["type"]
         dom_class = getattr(domains, dom_type)
-        domain = dom_class(**params['geometry'][dom_type])
+        domain = dom_class(**params["geometry"][dom_type])
 
-        br_eq_type = params['braginskii_equilibrium']['type']
+        br_eq_type = params["braginskii_equilibrium"]["type"]
         br_eq_class = getattr(braginskii_equils, br_eq_type)
 
         equil = br_eq_class(
-            **params['braginskii_equilibrium'][br_eq_type],
+            **params["braginskii_equilibrium"][br_eq_type],
         )
         equil.domain = domain
 
     # no equilibrium (just load domain)
     else:
-
         dom_type = params["geometry"]["type"]
         dom_class = getattr(domains, dom_type)
         domain = dom_class(**params["geometry"][dom_type])
@@ -211,7 +202,7 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     return domain, equil
 
 
-def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=None):
+def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=None, verbose=False):
     """
     Creates the 3d derham sequence for given grid parameters.
 
@@ -229,6 +220,9 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     mpi_dims_mask: list of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
+    verbose : bool
+        Show info on screen.
 
     Returns
     -------
@@ -273,7 +267,7 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
         domain=domain,
     )
 
-    if comm_world_rank == 0:
+    if comm_world_rank == 0 and verbose:
         print("\nDERHAM:")
         print(f"number of elements:".ljust(25), Nel)
         print(f"spline degrees:".ljust(25), p)
@@ -343,7 +337,8 @@ def setup_domain_cloning(comm, params, Nclones):
 
     # Gather information from all ranks to the rank 0 process
     clone_info = comm.gather(
-        (rank, clone_color, local_rank, inter_comm.Get_rank()), root=0,
+        (rank, clone_color, local_rank, inter_comm.Get_rank()),
+        root=0,
     )
 
     if rank == 0 and Nclones > 1:
@@ -361,27 +356,26 @@ def setup_domain_cloning(comm, params, Nclones):
         print(message)
 
     # Ensure 'Nclones' is set in the grid parameters
-    if 'Nclones' not in params['grid']:
-        params['grid']['Nclones'] = 1
+    if "Nclones" not in params["grid"]:
+        params["grid"]["Nclones"] = 1
 
     current_rank = inter_comm.Get_rank()
-    clone_particle_info = {'clone': current_rank, current_rank: {}}
+    clone_particle_info = {"clone": current_rank, current_rank: {}}
     # Process kinetic parameters if present
-    if 'kinetic' in params and 'grid' in params:
-        for species_name, species_data in params['kinetic'].items():
-
-            markers = species_data.get('markers')
-            Np = markers.get('Np')
-            ppc = markers.get('ppc')
+    if "kinetic" in params and "grid" in params:
+        for species_name, species_data in params["kinetic"].items():
+            markers = species_data.get("markers")
+            Np = markers.get("Np")
+            ppc = markers.get("ppc")
 
             clone_particle_info[current_rank][species_name] = {
-                'ppc': None,
-                'Np': None,
-                'Np_original': Np,
-                'ppc_original': ppc,
+                "ppc": None,
+                "Np": None,
+                "Np_original": Np,
+                "ppc_original": ppc,
             }
 
-            n_clones = params['grid']['Nclones']
+            n_clones = params["grid"]["Nclones"]
             # Calculate the base value and remainder
             base_value = Np // n_clones
             remainder = Np % n_clones
@@ -395,29 +389,26 @@ def setup_domain_cloning(comm, params, Nclones):
             task_Np = new_Np[inter_comm.Get_rank()]
 
             # Update the params for the current task
-            clone_particle_info[current_rank][species_name]['Np'] = task_Np
-            params['kinetic'][species_name]['markers']['Np'] = task_Np
+            clone_particle_info[current_rank][species_name]["Np"] = task_Np
+            params["kinetic"][species_name]["markers"]["Np"] = task_Np
 
             # Update ppc
-            task_ppc = task_Np / np.prod(params['grid']['Nel'])
-            clone_particle_info[current_rank][species_name]['ppc'] = task_ppc
-            params['kinetic'][species_name]['markers']['ppc'] = task_ppc
+            task_ppc = task_Np / np.prod(params["grid"]["Nel"])
+            clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
+            params["kinetic"][species_name]["markers"]["ppc"] = task_ppc
 
     # Gather the data from all processes
     all_clone_particle_info = comm.gather(clone_particle_info, root=0)
 
     # If the current process is the root, compile and print the message
     if rank == 0 and Nclones > 1:
-        marker_keys = ['Np', 'ppc']
-        data = {ci['clone']: ci[ci['clone']] for ci in all_clone_particle_info}
-        clone_ids = set([ci['clone'] for ci in all_clone_particle_info])
+        marker_keys = ["Np", "ppc"]
+        data = {ci["clone"]: ci[ci["clone"]] for ci in all_clone_particle_info}
+        clone_ids = set([ci["clone"] for ci in all_clone_particle_info])
         species_list = list(data[0].keys())
 
         # Prepare breakline
-        breakline = "-" * (
-            6 + 30 * len(species_list)
-            * len(marker_keys)
-        ) + '\n'
+        breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
 
         # Prepare the header
         header = "Particle counting:\nClone  "
@@ -429,10 +420,7 @@ def setup_domain_cloning(comm, params, Nclones):
 
         # Prepare the data rows
         rows = ""
-        column_sums = {
-            species_name: {marker_key: 0 for marker_key in marker_keys}
-            for species_name in species_list
-        }
+        column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
         for clone_id in clone_ids:
             row = f"{clone_id:6} "
             for species_name in species_list:
@@ -450,7 +438,7 @@ def setup_domain_cloning(comm, params, Nclones):
         for species_name in species_list:
             for marker_key in marker_keys:
                 sum_value = column_sums[species_name][marker_key]
-                old_value = clone_particle_info[current_rank][species_name][marker_key + '_original']
+                old_value = clone_particle_info[current_rank][species_name][marker_key + "_original"]
                 assert sum_value == old_value, f"{sum_value = } and {old_value = }"
                 sum_row += f"| {str(sum_value):30} "
 
@@ -469,6 +457,7 @@ def pre_processing(
     save_step: int,
     mpi_rank: int,
     mpi_size: int,
+    verbose: bool = False,
 ):
     """
     Prepares simulation parameters, output folder and prints some information of the run to the screen.
@@ -499,6 +488,9 @@ def pre_processing(
     mpi_size : int
         Total number of MPI processes of the run.
 
+    verbose : bool
+        Show full screen output.
+
     Returns
     -------
     params : dict
@@ -517,51 +509,56 @@ def pre_processing(
 
     # prepare output folder
     if mpi_rank == 0:
-        print("\nPREPARATION AND CLEAN-UP:")
+        if verbose:
+            print("\nPREPARATION AND CLEAN-UP:")
 
         # create output folder if it does not exit
         if not os.path.exists(path_out):
             os.makedirs(path_out, exist_ok=True)
-            print("Created folder " + path_out)
+            if verbose:
+                print("Created folder " + path_out)
 
         # create data folder in output folder if it does not exist
         if not os.path.exists(os.path.join(path_out, "data/")):
             os.mkdir(os.path.join(path_out, "data/"))
-            print("Created folder " + os.path.join(path_out, "data/"))
+            if verbose:
+                print("Created folder " + os.path.join(path_out, "data/"))
 
         # clean output folder if it already exists
         else:
-
             # remove post_processing folder
             folder = os.path.join(path_out, "post_processing")
             if os.path.exists(folder):
                 shutil.rmtree(folder)
-                print("Removed existing folder " + folder)
+                if verbose:
+                    print("Removed existing folder " + folder)
 
             # remove meta file
             file = os.path.join(path_out, "meta.txt")
             if os.path.exists(file):
                 os.remove(file)
-                print("Removed existing file " + file)
+                if verbose:
+                    print("Removed existing file " + file)
 
             # remove profiling file
             file = os.path.join(path_out, "profile_tmp")
             if os.path.exists(file):
                 os.remove(file)
-                print("Removed existing file " + file)
+                if verbose:
+                    print("Removed existing file " + file)
 
             # remove .png files (if NOT a restart)
             if not restart:
                 files = glob.glob(os.path.join(path_out, "*.png"))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if n < 10:  # print only ten statements in case of many processes
+                    if verbose and n < 10:  # print only ten statements in case of many processes
                         print("Removed existing file " + file)
 
                 files = glob.glob(os.path.join(path_out, "data", "*.hdf5"))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if n < 10:  # print only ten statements in case of many processes
+                    if verbose and n < 10:  # print only ten statements in case of many processes
                         print("Removed existing file " + file)
 
     # save "parameters" dictionary as .yml file
@@ -587,35 +584,38 @@ def pre_processing(
         params["grid"]["Nclones"] = 1
 
     # Ensure that both ppc Np
-    if 'kinetic' in params:
-        total_cells = np.prod(params['grid']['Nel'])
-        for species_name, species_data in params['kinetic'].items():
-            markers = species_data.get('markers')
-            ppc = markers.get('ppc')
-            Np = markers.get('Np')
+    if "kinetic" in params:
+        total_cells = np.prod(params["grid"]["Nel"])
+        for species_name, species_data in params["kinetic"].items():
+            markers = species_data.get("markers")
+            ppc = markers.get("ppc")
+            Np = markers.get("Np")
 
             assert ppc is not None or Np is not None, f"Either 'ppc' or 'Np' must be set for species '{species_name}'"
 
             if ppc is None:
                 ppc = float(Np / total_cells)
-                markers['ppc'] = ppc
+                markers["ppc"] = ppc
             elif Np is None:
                 assert isinstance(ppc, int), "ppc must be an integer"
                 Np = int(ppc * total_cells)
-                markers['Np'] = Np
+                markers["Np"] = Np
             else:
                 # Both ppc and Np are provided; check for consistency
                 expected_Np = ppc * total_cells
                 assert np.isclose(
-                    Np, expected_Np,
+                    Np,
+                    expected_Np,
                 ), "Inconsistent 'ppc' and 'Np' for species '{species_name}, 'Np' should be {expected_Np}, but is {Np}"
 
     if mpi_rank == 0:
         # copy parameter file to output folder
         if parameters_path != os.path.join(path_out, "parameters.yml"):
             shutil.copy2(
-                parameters_path, os.path.join(
-                    path_out, "parameters.yml",
+                parameters_path,
+                os.path.join(
+                    path_out,
+                    "parameters.yml",
                 ),
             )
 
@@ -637,13 +637,17 @@ def pre_processing(
             f.write(
                 "date of simulation: ".ljust(
                     30,
-                ) + str(datetime.datetime.now()) + "\n",
+                )
+                + str(datetime.datetime.now())
+                + "\n",
             )
             f.write("platform: ".ljust(30) + sysconfig.get_platform() + "\n")
             f.write(
                 "python version: ".ljust(
                     30,
-                ) + sysconfig.get_python_version() + "\n",
+                )
+                + sysconfig.get_python_version()
+                + "\n",
             )
             f.write("model_name: ".ljust(30) + model_name + "\n")
             f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
@@ -722,7 +726,6 @@ def descend_options_dict(
         count += 1
 
         if isinstance(val, list):
-
             # create default parameter dict "out"
             if d_default is None:
                 if len(keys) == 0:
@@ -740,7 +743,6 @@ def descend_options_dict(
             else:
                 out_sublist = []
                 for param in val:
-
                     # exclude solvers without preconditioner
                     if isinstance(param, tuple):
                         if param[1] is None:
