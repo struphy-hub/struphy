@@ -20,11 +20,10 @@ def sort_by_num_threads(bm):
 
     for key, value in sorted_arrays.items():
         sorted_indices = sorted(
-            range(len(value["num_threads"])), key=lambda k: value["num_threads"][k],
+            range(len(value["num_threads"])),
+            key=lambda k: value["num_threads"][k],
         )
-        sorted_arrays[key]["num_threads"] = [
-            value["num_threads"][i] for i in sorted_indices
-        ]
+        sorted_arrays[key]["num_threads"] = [value["num_threads"][i] for i in sorted_indices]
         sorted_arrays[key]["values"] = [value["values"][i] for i in sorted_indices]
 
     return sorted_arrays
@@ -122,11 +121,12 @@ def add_plot_flop(
     theoretical_max_gflops=3072.0,
     xmax=1e3,
 ):
-
     if label == None:
-        legend_label = f"{round(gflops)} GFLOP/s, {round(gflops / theoretical_max_gflops * 100,2)} % of theoretical"
+        legend_label = f"{round(gflops)} GFLOP/s, {round(gflops / theoretical_max_gflops * 100, 2)} % of theoretical"
     else:
-        legend_label = f"{label}({round(gflops)} GFLOP/s, {round(gflops / theoretical_max_gflops * 100,2)} % of theoretical)"
+        legend_label = (
+            f"{label}({round(gflops)} GFLOP/s, {round(gflops / theoretical_max_gflops * 100, 2)} % of theoretical)"
+        )
 
     if color == None:
         # line, = mfig.axs.loglog([xmin,xmax],[gflops,gflops],linestyle=linestyle)#,label = legend_label)
@@ -150,7 +150,9 @@ def add_plot_diagonal(
     specific_y = ymax
     # Interpolate to find the corresponding x-value
     specific_x = np.interp(
-        specific_y, max_performance_GFLOP, operational_intensity_FLOPpMB,
+        specific_y,
+        max_performance_GFLOP,
+        operational_intensity_FLOPpMB,
     )
     mfig.axs.text(
         specific_x,
@@ -198,10 +200,7 @@ def get_average_val(
         if len(dfs) >= 3:
             # print(dfs[-1])
             x = get_metric_value(dfs[-1], metric=metric1, column_name=column_name)
-            y = (
-                get_metric_value(dfs[-1], metric=metric2, column_name=column_name)
-                * 1e-3
-            )
+            y = get_metric_value(dfs[-1], metric=metric2, column_name=column_name) * 1e-3
             # print(x, y)
             label = name.replace("output_", "").replace(".txt", "")
             # print(x, y)
@@ -230,12 +229,18 @@ def get_maximum(path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum"
 def get_roofline_point(path):
     # print(path)
     dp_MFLOPps = get_maximum(
-        path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum",
+        path,
+        df_index=-1,
+        metric="DP [MFLOP/s] STAT",
+        column_name="Sum",
     )
     dp_GFLOPps = dp_MFLOPps * 1e-3
 
     bandwidth_MBps = get_maximum(
-        path, df_index=-1, metric="Memory bandwidth [MBytes/s] STAT", column_name="Sum",
+        path,
+        df_index=-1,
+        metric="Memory bandwidth [MBytes/s] STAT",
+        column_name="Sum",
     )
     operational_intensity_FLOPpB = dp_MFLOPps / bandwidth_MBps
 

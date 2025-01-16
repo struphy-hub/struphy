@@ -25,11 +25,12 @@ NC = "\033[0m"  # No Color
 
 
 def main():
-
     # Command-line argument parsing
     parser = argparse.ArgumentParser(description="Run or check simulations.")
     parser.add_argument(
-        "action", choices=["run", "check"], help="Action to perform: run or check",
+        "action",
+        choices=["run", "check"],
+        help="Action to perform: run or check",
     )
 
     parser.add_argument(

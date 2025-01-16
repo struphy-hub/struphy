@@ -154,7 +154,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         )
         print(f"{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).")
         print(
-            f'\ncompiler={state["last_used_compiler"]}\nflags_omp_pic={state["last_used_omp_pic"]}\nflags_omp_feec={state["last_used_omp_feec"]}',
+            f"\ncompiler={state['last_used_compiler']}\nflags_omp_pic={state['last_used_omp_pic']}\nflags_omp_feec={state['last_used_omp_feec']}",
         )
         if len(list_not_compiled) > 0:
             print("\nPure Python kernels (not compiled) are:")
@@ -198,7 +198,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                 yesno = "Y"
             else:
                 yesno = input(
-                    f'Kernels compiled in language {state["last_used_language"]} exist, will be deleted, continue (Y/n)?',
+                    f"Kernels compiled in language {state['last_used_language']} exist, will be deleted, continue (Y/n)?",
                 )
 
             if yesno in ("", "Y", "y", "yes"):

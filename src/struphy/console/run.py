@@ -7,7 +7,7 @@ def struphy_run(
     model,
     inp=None,
     input_abs=None,
-    output='sim_1',
+    output="sim_1",
     output_abs=None,
     batch=None,
     batch_abs=None,
@@ -24,7 +24,7 @@ def struphy_run(
     likwid_inp=None,
     likwid_input_abs=None,
     likwid_repetitions=1,
-    group='MEM_DP',
+    group="MEM_DP",
 ):
     """
     Run a Struphy model: prepare arguments, output folder and execute main().
@@ -96,8 +96,6 @@ def struphy_run(
     import struphy.utils.utils as utils
     from struphy.console.utils import generate_batch_script, save_batch_script
 
-    import struphy.utils.utils as utils
-
     libpath = struphy.__path__[0]
 
     # Read struphy state file
@@ -122,6 +120,7 @@ def struphy_run(
             else:
                 # load model class
                 from struphy.models import fluid, hybrid, kinetic, toy
+
                 objs = [fluid, kinetic, hybrid, toy]
                 for obj in objs:
                     try:
@@ -149,7 +148,7 @@ def struphy_run(
     if likwid:
         if likwid_inp is None and likwid_input_abs is None:
             # use default likwid parameters
-            likwid_command = ['likwid-mpirun', '-n', str(mpi), '-g', group, '-stats', '-marker']
+            likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-stats", "-marker"]
         else:
             if likwid_inp is not None:
                 likwid_input_abs = os.path.join(i_path, likwid_inp)
@@ -169,7 +168,7 @@ def struphy_run(
             options = likwid_config.get("options", [])
 
             # Flatten the options list
-            flattened_options = ['-np', str(mpi)]
+            flattened_options = ["-np", str(mpi)]
             for item in options:
                 if isinstance(item, dict):
                     for key, value in item.items():
@@ -277,29 +276,29 @@ def struphy_run(
             print("Removed file " + file)
 
         # copy batch script to output folder
-        batch_abs_new = os.path.join(output_abs, 'batch_script.sh')
+        batch_abs_new = os.path.join(output_abs, "batch_script.sh")
         if batch_auto:
-            batch_auto = 'raven'
+            batch_auto = "raven"
             sbatch_params = {
-                'raven': {
-                    'ntasks_per_node': 8,
-                    'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
-                    'likwid': likwid,
+                "raven": {
+                    "ntasks_per_node": 8,
+                    "module_setup": "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
+                    "likwid": likwid,
                 },
-                'cobra': {
-                    'ntasks_per_node': 72,
-                    'likwid': likwid,
+                "cobra": {
+                    "ntasks_per_node": 72,
+                    "likwid": likwid,
                 },
-                'viper': {
-                    'ntasks_per_node': 4,
-                    'likwid': likwid,
+                "viper": {
+                    "ntasks_per_node": 4,
+                    "likwid": likwid,
                 },
             }
 
             batch_script = generate_batch_script(**sbatch_params[batch_auto])
-            save_batch_script(batch_script, 'test_script.sh')
+            save_batch_script(batch_script, "test_script.sh")
             exit()
-            with open(batch_abs_new, 'w') as f:
+            with open(batch_abs_new, "w") as f:
                 f.write(batch_script)
         else:
             shutil.copy2(batch_abs, batch_abs_new)
@@ -313,18 +312,18 @@ def struphy_run(
         with open(batch_abs_new, "w") as f:
             for line in lines:
                 f.write(line)
-            f.write('# Run command added by Struphy\n')
+            f.write("# Run command added by Struphy\n")
 
-            command = cmd_python + cprofile*cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"]
+            command = cmd_python + cprofile * cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"]
             if restart:
-                command += ['-r']
+                command += ["-r"]
 
             if likwid:
-                command = likwid_command + command + ['--likwid']
+                command = likwid_command + command + ["--likwid"]
 
             if likwid:
-                print(f'Running with likwid with {likwid_repetitions = }')
-                f.write(f'# Launching likwid {likwid_repetitions} times with likwid-mpirun\n')
+                print(f"Running with likwid with {likwid_repetitions = }")
+                f.write(f"# Launching likwid {likwid_repetitions} times with likwid-mpirun\n")
                 for i in range(likwid_repetitions):
                     f.write(f"\n\n# Run number {i:03}\n")
                     f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))

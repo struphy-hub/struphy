@@ -24,18 +24,20 @@ from mpi4py import MPI
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports
 def _import_pylikwid():
     import pylikwid
+
     return pylikwid
 
 
 class ProfilingConfig:
     """Singleton class for managing global profiling configuration."""
+
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.likwid = False  # Default value (profiling disabled)
-            cls._instance.simulation_label = ''
+            cls._instance.simulation_label = ""
             cls._instance.sample_duration = 0.1
             cls._instance.sample_interval = 1.0
         return cls._instance
@@ -185,17 +187,13 @@ class ProfileManager:
 
             likwid_data["groups"] = pylikwid.getgroups()
 
-
         if rank == 0:
             # Combine the data from all processes
-            combined_data = {
-                'config':None,
-                'rank_data':{f"rank_{i}": data for i, data in enumerate(all_data)}
-            }
+            combined_data = {"config": None, "rank_data": {f"rank_{i}": data for i, data in enumerate(all_data)}}
 
             # Add the likwid data
             if likwid_data:
-                combined_data['config'] = likwid_data
+                combined_data["config"] = likwid_data
 
             # Convert the file path to an absolute path
             absolute_path = os.path.abspath(file_path)
@@ -238,7 +236,7 @@ class ProfileRegion:
     """Context manager for profiling specific code regions using LIKWID markers."""
 
     def __init__(self, region_name):
-        if hasattr(self, '_initialized') and self._initialized:
+        if hasattr(self, "_initialized") and self._initialized:
             return
         self.config = ProfilingConfig()
         self.region_name = self.config.simulation_label + region_name
@@ -292,6 +290,7 @@ def pylikwid_markerinit():
     """Initialize LIKWID profiling markers."""
     if ProfilingConfig().likwid:
         _import_pylikwid().markerinit()
+
 
 def pylikwid_markerclose():
     """Close LIKWID profiling markers."""

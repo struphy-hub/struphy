@@ -19,10 +19,7 @@ o_path = state["o_path"]
 
 # Read the original YAML files
 def load_yaml_files(file_paths):
-    return {
-        os.path.basename(path).replace(".yml", ""): yaml.safe_load(open(path))
-        for path in file_paths
-    }
+    return {os.path.basename(path).replace(".yml", ""): yaml.safe_load(open(path)) for path in file_paths}
 
 
 standard_params_dir = os.path.join(libpath, "io/inp/standard_parameters")
@@ -57,7 +54,10 @@ def apply_modifications(parameters, modifications):
 
 
 def generate_parameter_files(
-    base_parameters, modifications_list, filename_template, params_prefix="params_",
+    base_parameters,
+    modifications_list,
+    filename_template,
+    params_prefix="params_",
 ):
     for modifications in modifications_list:
         parameters = copy.deepcopy(base_parameters)
@@ -105,8 +105,12 @@ def mpi_scan(
             modifications.update(extra_modifications)
         modifications_list.append(modifications)
     generate_parameter_files(
-        base_parameters, modifications_list, filename_template, params_prefix,
+        base_parameters,
+        modifications_list,
+        filename_template,
+        params_prefix,
     )
+
 
 def mpi_nclones_scan(
     base_parameters,
@@ -132,13 +136,14 @@ def mpi_nclones_scan(
             modifications.update(extra_modifications)
         modifications_list.append(modifications)
     generate_parameter_files(
-        base_parameters, modifications_list, filename_template, params_prefix,
+        base_parameters,
+        modifications_list,
+        filename_template,
+        params_prefix,
     )
 
 
-
 def generate_ptest_params():
-
     parser = argparse.ArgumentParser(
         description="Generate parameters for performance testing simulations.",
     )
@@ -155,7 +160,7 @@ def generate_ptest_params():
     params_prefix = args.prefix
 
     # mpi_values = [8, 16, 32, 48, 64, 72]
-    mpi_values = [72 * _i for _i in [1,2,4,8,16,32,64]]
+    mpi_values = [72 * _i for _i in [1, 2, 4, 8, 16, 32, 64]]
     # Save LIKWID configuration
     for mpi_val in mpi_values:
         parameter_file = f"{i_path}/likwid_config_mpi{mpi_val}.yml"
@@ -168,11 +173,11 @@ def generate_ptest_params():
 
     # Define models and their parameters
     for model in [
-                # "Maxwell",
-                # "Vlasov",
-                'LinearMHDDriftkineticCC',
-                'LinearMHDVlasovCC',
-                ]:
+        # "Maxwell",
+        # "Vlasov",
+        "LinearMHDDriftkineticCC",
+        "LinearMHDVlasovCC",
+    ]:
         # base_params = yaml_data[f"params_{model}"]
         base_params = copy.deepcopy(yaml_data[f"params_{model}"])
         base_params["setup"] = {}
@@ -188,7 +193,7 @@ def generate_ptest_params():
             extra_modifications,
             params_prefix,
         )
-        
+
         mpi_nclones_scan(
             base_params,
             mpi_values,
@@ -214,4 +219,3 @@ def generate_ptest_params():
 
 if __name__ == "__main__":
     generate_ptest_params()
-    

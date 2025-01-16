@@ -337,13 +337,15 @@ def struphy():
     )
 
     parser_run.add_argument(
-        '-ba', '--batch-auto',
+        "-ba",
+        "--batch-auto",
         type=str,
-        choices=['raven', 'cobra', 'viper'],
-        help='Auto batch script', )
+        choices=["raven", "cobra", "viper"],
+        help="Auto batch script",
+    )
 
     parser_run.add_argument(
-        '--runtime',
+        "--runtime",
         type=int,
         metavar="N",
         help="maximum wall-clock time of program in minutes (default=300)",
@@ -485,14 +487,16 @@ def struphy():
     )
 
     parser_run.add_argument(
-        '-g', '--group',
-        default='MEM_DP',
+        "-g",
+        "--group",
+        default="MEM_DP",
         type=str,
-        help='likwid measurement group',
+        help="likwid measurement group",
     )
 
     parser_run.add_argument(
-        '-li', '--likwid-inp',
+        "-li",
+        "--likwid-inp",
         type=str,
         metavar="FILE",
         help="likwid parameter file (.yml) in current I/O path",
@@ -563,9 +567,9 @@ def struphy():
     )
 
     parser_likwid_profile = subparsers.add_parser(
-        'likwid_profile',
-        help='Profile finished Struphy runs with likwid',
-        description='Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.',
+        "likwid_profile",
+        help="Profile finished Struphy runs with likwid",
+        description="Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.",
     )
 
     parser_likwid_profile.add_argument(
@@ -576,7 +580,10 @@ def struphy():
         help="Paths to the data directories (space-separated, supports wildcards)",
     )
     parser_likwid_profile.add_argument(
-        "--title", type=str, default="Testing", help="Name of the project",
+        "--title",
+        type=str,
+        default="Testing",
+        help="Name of the project",
     )
     parser_likwid_profile.add_argument(
         "--output",
@@ -688,18 +695,20 @@ def struphy():
     parser_test.add_argument(
         "group",
         type=str,
-        choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"] + ['performance'],
+        choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"] + ["performance"],
         metavar="GROUP",
         help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
                                 \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                 \nc) "unit" for performing unit tests',
     )
     parser_test.add_argument(
-        '-b', '--batch',
+        "-b",
+        "--batch",
         type=str,
         choices=batch_files,
-        metavar='FILE',
-        help='batch script in current I/O path', )
+        metavar="FILE",
+        help="batch script in current I/O path",
+    )
 
     parser_test.add_argument(
         "--mpi",
@@ -893,7 +902,7 @@ def struphy():
         state["i_path"] = i_path
         utils.save_state(state)
 
-        print(f'New input path has been set to {state["i_path"]}')
+        print(f"New input path has been set to {state['i_path']}")
         exit()
 
     # set default out path
@@ -914,7 +923,7 @@ def struphy():
         state["o_path"] = o_path
         utils.save_state(state)
 
-        print(f'New output path has been set to {state["o_path"]}')
+        print(f"New output path has been set to {state['o_path']}")
         exit()
 
     # set default out path
@@ -935,7 +944,7 @@ def struphy():
         state["b_path"] = b_path
         utils.save_state(state)
 
-        print(f'New batch path has been set to {state["b_path"]}')
+        print(f"New batch path has been set to {state['b_path']}")
         exit()
 
     # set paths for inp, out and batch (with io/inp etc. prefices)

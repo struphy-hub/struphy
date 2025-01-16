@@ -3,7 +3,7 @@ import os
 import struphy.utils.utils as utils
 
 
-def add_line(script, line, comment='', chars_until_comment=80):
+def add_line(script, line, comment="", chars_until_comment=80):
     if len(line) > chars_until_comment:
         script += f"{line} # {comment}\n"
     else:
@@ -14,21 +14,21 @@ def add_line(script, line, comment='', chars_until_comment=80):
 def generate_batch_script(**kwargs):
     # Default parameters for the batch script
     params = {
-        'working_directory': './',
-        'job_name': 'job_struphy',
-        'output_file': "./job_struphy_%j.out",
-        'error_file': "./job_struphy_%j.err",
-        'nodes': 1,
-        'ntasks_per_node': 72,
-        'mail_user': "",
-        'time': "00:10:00",
-        'venv_path': "~/git_repos/env_struphy_devel",
-        'partition': None,
-        'ntasks_per_core': None,
-        'cpus_per_task': None,
-        'memory': '2GB',
-        'module_setup': "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
-        'likwid': False,
+        "working_directory": "./",
+        "job_name": "job_struphy",
+        "output_file": "./job_struphy_%j.out",
+        "error_file": "./job_struphy_%j.err",
+        "nodes": 1,
+        "ntasks_per_node": 72,
+        "mail_user": "",
+        "time": "00:10:00",
+        "venv_path": "~/git_repos/env_struphy_devel",
+        "partition": None,
+        "ntasks_per_core": None,
+        "cpus_per_task": None,
+        "memory": "2GB",
+        "module_setup": "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
+        "likwid": False,
     }
 
     # Update params with any provided keyword arguments
@@ -41,19 +41,21 @@ def generate_batch_script(**kwargs):
     script = add_line(script, f"#SBATCH -D {params['working_directory']}", "Working directory")
     script = add_line(script, f"#SBATCH -J {params['job_name']}", "Job name")
 
-    if params['partition']:
+    if params["partition"]:
         script = add_line(script, f"#SBATCH --partition={params['partition']}", "Partition")
     script = add_line(script, f"#SBATCH --nodes={params['nodes']}", "Number of compute nodes")
 
-    if params['ntasks_per_core']:
+    if params["ntasks_per_core"]:
         script = add_line(script, f"#SBATCH --ntasks-per-core={params['ntasks_per_core']}", "Number of tasks per core")
     script = add_line(
-        script, f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}", "Number of MPI processes per node",
+        script,
+        f"#SBATCH --ntasks-per-node={params['ntasks_per_node']}",
+        "Number of MPI processes per node",
     )
 
-    if params['cpus_per_task']:
+    if params["cpus_per_task"]:
         script = add_line(script, f"#SBATCH --cpus-per-task={params['cpus_per_task']}", "Number of CPUs per task")
-    if params['memory']:
+    if params["memory"]:
         script = add_line(script, f"#SBATCH --mem={params['memory']}", "Memory allocation")
     script = add_line(script, "#SBATCH --mail-type=all", "Send email notifications for all events")
     script = add_line(script, f"#SBATCH --mail-user={params['mail_user']}", "Email address for notifications")
@@ -64,7 +66,7 @@ def generate_batch_script(**kwargs):
     script += "# Activate environment\n"
     script = add_line(script, f"source {params['venv_path']}/bin/activate", "Activate the virtual environment")
     script = add_line(script, "module purge", "Purge modules")
-    script = add_line(script, params['module_setup'], "Load necessary modules")
+    script = add_line(script, params["module_setup"], "Load necessary modules")
     # script = add_line(script, f"export PATH={params['venv_path']}/bin/:$PATH", "Export path")
 
     script += "\n"
@@ -79,38 +81,47 @@ def generate_batch_script(**kwargs):
 
     # Save hardware information
     script += "# Save hardware information\n"
-    script = add_line(script, "misc=\"misc_$SLURM_JOB_ID\"", "")
+    script = add_line(script, 'misc="misc_$SLURM_JOB_ID"', "")
     script = add_line(script, "mkdir -p $misc", "")
-    script = add_line(script, "module list > \"$misc/module_list.txt\"", "Save loaded modules")
-    script = add_line(script, "echo $OMP_NUM_THREADS > \"$misc/OMP_NUM_THREADS.txt\"", "Save OMP_NUM_THREADS value")
-    script = add_line(script, "printenv > \"$misc/printenv.txt\"", "Save environment variables")
+    script = add_line(script, 'module list > "$misc/module_list.txt"', "Save loaded modules")
+    script = add_line(script, 'echo $OMP_NUM_THREADS > "$misc/OMP_NUM_THREADS.txt"', "Save OMP_NUM_THREADS value")
+    script = add_line(script, 'printenv > "$misc/printenv.txt"', "Save environment variables")
     script = add_line(script, "cp $0 $misc/", "Save a copy of the batch script")
     script += "\n"
 
     # Save SLURM-specific environment variables
     script += "# Save SLURM-specific environment variables\n"
     script = add_line(script, "for var in $(env | grep ^SLURM_ | cut -d= -f1); do", "Loop through SLURM variables")
-    script = add_line(script, "    echo \"$var=${!var}\" >> \"$misc/SLURM_VARIABLES.txt\"", "Save SLURM variable")
+    script = add_line(script, '    echo "$var=${!var}" >> "$misc/SLURM_VARIABLES.txt"', "Save SLURM variable")
     script = add_line(script, "done", "End of SLURM variable loop")
     script += "\n"
 
     # Add LIKWID-related commands if requested
-    if params['likwid']:
+    if params["likwid"]:
         likwid_section = "# Add LIKWID-related commands\n"
         likwid_section = add_line(
-            likwid_section, "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)", "Set LIKWID prefix",
+            likwid_section,
+            "LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)",
+            "Set LIKWID prefix",
         )
         likwid_section = add_line(
-            likwid_section, "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib",
+            likwid_section,
+            "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib",
             "Update LD_LIBRARY_PATH for LIKWID",
         )
-        likwid_section = add_line(likwid_section, "export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH", "Update LD_LIBRARY_PATH for LIKWID")
         likwid_section = add_line(
-            likwid_section, "likwid-topology > \"$misc/likwid-topology.txt\"",
+            likwid_section,
+            "export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH",
+            "Update LD_LIBRARY_PATH for LIKWID",
+        )
+        likwid_section = add_line(
+            likwid_section,
+            'likwid-topology > "$misc/likwid-topology.txt"',
             "Save LIKWID topology information",
         )
         likwid_section = add_line(
-            likwid_section, "likwid-topology -g > \"$misc/likwid-topology-g.txt\"",
+            likwid_section,
+            'likwid-topology -g > "$misc/likwid-topology-g.txt"',
             "Save extended LIKWID topology information",
         )
         script += likwid_section
@@ -122,9 +133,9 @@ def generate_batch_script(**kwargs):
 def save_batch_script(batch_script, filename, path=None):
     if path is None:
         state = utils.read_state()
-        path = state['b_path']
+        path = state["b_path"]
     batch_path = os.path.join(path, filename)
-    with open(batch_path, 'w') as f:
+    with open(batch_path, "w") as f:
         f.write(batch_script)
     # print(batch_script)
     # print(batch_path)

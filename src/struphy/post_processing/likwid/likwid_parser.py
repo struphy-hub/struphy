@@ -10,12 +10,9 @@ def pad_numbers(s, pad_length=5):
 
 
 def csvtable2dict(table_str):
-
     table_arrays = table_str.split("\n")
     header = table_arrays[0].split(",")
-    data = [
-        [col.strip() for col in line.split(",")[0:-1]] for line in table_arrays[1:-1]
-    ]
+    data = [[col.strip() for col in line.split(",")[0:-1]] for line in table_arrays[1:-1]]
 
     # Create dict
     ddict = {"header": header}
@@ -57,7 +54,9 @@ def asciitable2dict(table):
 
 
 def read_likwid_output(
-    filename, likwid_markers=True, finish_line="struphy run finished",
+    filename,
+    likwid_markers=True,
+    finish_line="struphy run finished",
 ):
     """
     Read and process LIKWID output from a specified file.
@@ -86,7 +85,6 @@ def read_likwid_output(
         region_dict = {"likwid_output": True}
 
         for iline, line in enumerate(lines):
-
             # TODO get this from likwid directly
             if "MPI processes:" in line:
                 table_dict["mpi_procs"] = int(line.split(":")[-1])
@@ -121,10 +119,7 @@ def read_likwid_output(
 
                     tasks = [task for task in tables[0]["header"][2:] if task]
                     nodes = set(task.split(":")[0] for task in tasks)
-                    table_dict[region]["nodes"] = {
-                        node: {"processor_ids": [], "processor_order": []}
-                        for node in nodes
-                    }
+                    table_dict[region]["nodes"] = {node: {"processor_ids": [], "processor_order": []} for node in nodes}
 
                     for task in tasks:
                         node, task_id, processor_id = task.split(":")
@@ -143,7 +138,6 @@ def read_likwid_output(
         region = ""
 
         for iline, line in enumerate(lines):
-
             # TODO get this from likwid directly
             if "MPI processes:" in line:
                 table_dict["mpi_procs"] = int(line.split(":")[-1])
@@ -175,10 +169,7 @@ def read_likwid_output(
 
                     tasks = tables[0]["header"][2:]
                     nodes = set(task.split(":")[0] for task in tasks)
-                    table_dict[region]["nodes"] = {
-                        node: {"processor_ids": [], "processor_order": []}
-                        for node in nodes
-                    }
+                    table_dict[region]["nodes"] = {node: {"processor_ids": [], "processor_order": []} for node in nodes}
 
                     for task in tasks:
                         node, task_id, processor_id = task.split(":")
@@ -341,23 +332,21 @@ class Project:
             lw_output["thread_list"] = thread_list
             self.threadlist = thread_list
             self.likwid_outputs.append(lw_output)
-            
+
             # Check if bandwidth was measured
             if self.simulation_finished:
                 bandwidth = self.get_value(
-                        metric="Memory bandwidth [MBytes/s] STAT",
-                        likwid_output_id=0,
-                        group=self.get_likwid_groups()[0],
-                        table="Metric STAT",
-                        column="Avg",
-                    )
+                    metric="Memory bandwidth [MBytes/s] STAT",
+                    likwid_output_id=0,
+                    group=self.get_likwid_groups()[0],
+                    table="Metric STAT",
+                    column="Avg",
+                )
                 if bandwidth:
                     self._bandwidth_measured = True
             if self.simulation_finished:
                 self.nodes = lw_output[self.get_likwid_groups()[0]]["nodes"].keys()
-                self.threads = lw_output[self.get_likwid_groups()[0]]["dicts"]["Raw"][
-                    "header"
-                ][2:]
+                self.threads = lw_output[self.get_likwid_groups()[0]]["dicts"]["Raw"]["header"][2:]
 
                 # TODO get this from likwid directly
                 self.num_mpi = lw_output["mpi_procs"]
@@ -391,9 +380,7 @@ class Project:
 
         # Compile include and skip patterns
         try:
-            include_patterns = [
-                re.compile(pattern) for pattern in groups_include if pattern
-            ]
+            include_patterns = [re.compile(pattern) for pattern in groups_include if pattern]
         except re.error as e:
             raise ValueError(f"Invalid pattern in groups_include: {e}")
 
@@ -417,7 +404,7 @@ class Project:
     def get_value(
         self,
         metric,
-        likwid_output_id = 0,
+        likwid_output_id=0,
         group="model.integrate",
         table="Metric STAT",
         column="Sum",
@@ -436,11 +423,9 @@ class Project:
         """
         if likwid_output_id:
             try:
-                return self.likwid_outputs[likwid_output_id][group]["dicts"][table][metric][
-                    column
-                ]
+                return self.likwid_outputs[likwid_output_id][group]["dicts"][table][metric][column]
             except (KeyError, IndexError):
-                    return None
+                return None
         return None
 
     def get_columns(self, group="model.integrate", table="Metric STAT"):
@@ -458,7 +443,11 @@ class Project:
         return list(table_data[first_metric].keys())
 
     def get_maximum_id(
-        self, metric, group="model.integrate", table="Metric STAT", column="Sum",
+        self,
+        metric,
+        group="model.integrate",
+        table="Metric STAT",
+        column="Sum",
     ):
         """Get the ID of the LIKWID output with the maximum value for a specific metric.
 
@@ -491,7 +480,11 @@ class Project:
         return i_max
 
     def get_maximum(
-        self, metric, group="model.integrate", table="Metric STAT", column="Sum",
+        self,
+        metric,
+        group="model.integrate",
+        table="Metric STAT",
+        column="Sum",
     ):
         """Get the maximum value for a specific metric.
 
@@ -510,7 +503,11 @@ class Project:
         return self.get_value(metric, i_max, group, table, column)
 
     def get_average(
-        self, metric, group="model.integrate", table="Metric STAT", column="Sum",
+        self,
+        metric,
+        group="model.integrate",
+        table="Metric STAT",
+        column="Sum",
     ):
         """Get the average value for a specific metric.
 
@@ -527,7 +524,8 @@ class Project:
         for likwid_output in self.likwid_outputs:
             if group in likwid_output:
                 total += max(
-                    total, likwid_output[group]["dicts"][table][metric][column],
+                    total,
+                    likwid_output[group]["dicts"][table][metric][column],
                 )
                 count += 1
         return total / count if count > 0 else 0

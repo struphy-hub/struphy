@@ -108,9 +108,10 @@ def main(
         except AttributeError:
             pass
 
-    with ProfileManager.profile_region('model_class_setup'):
+    with ProfileManager.profile_region("model_class_setup"):
         model = model_class(
-            params=params, comm=sub_comm,
+            params=params,
+            comm=sub_comm,
             inter_comm=inter_comm,
         )
 
@@ -233,14 +234,14 @@ def main(
 
         # perform one time step dt
         t0 = time.time()
-        with ProfileManager.profile_region('model.integrate'):
-            model.integrate(time_params['dt'], time_params['split_algo'])
+        with ProfileManager.profile_region("model.integrate"):
+            model.integrate(time_params["dt"], time_params["split_algo"])
         t1 = time.time()
 
         # update time and index (round time to 10 decimals for a clean time grid!)
-        time_state['value'][0] = round(time_state['value'][0] + time_params['dt'], 10)
-        time_state['value_sec'][0] = round(time_state['value_sec'][0] + time_params['dt'] * model.units['t'], 10)
-        time_state['index'][0] += 1
+        time_state["value"][0] = round(time_state["value"][0] + time_params["dt"], 10)
+        time_state["value_sec"][0] = round(time_state["value_sec"][0] + time_params["dt"] * model.units["t"], 10)
+        time_state["index"][0] += 1
 
         run_time_now = (time.time() - start_simulation) / 60
 
@@ -419,7 +420,7 @@ if __name__ == "__main__":
     config.simulation_label = ""
 
     pylikwid_markerinit()
-    with ProfileManager.profile_region('main'):
+    with ProfileManager.profile_region("main"):
         # solve the model
         main(
             args.model,

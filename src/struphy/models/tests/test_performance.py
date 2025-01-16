@@ -1,11 +1,9 @@
-
 import inspect
 
 import pytest
 
 from struphy.models import toy
 from struphy.models.tests.util import call_model
-
 
 
 @pytest.mark.performance
@@ -15,7 +13,8 @@ def profile_performance():
         pylikwid_markerclose,
         pylikwid_markerinit,
     )
-    map_and_equil = ('Cuboid', 'HomogenSlab')
+
+    map_and_equil = ("Cuboid", "HomogenSlab")
     fast = True
     Tend = 0.005
 
@@ -27,19 +26,18 @@ def profile_performance():
 
     pylikwid_markerinit()
     for key, val in inspect.getmembers(toy):
-        if inspect.isclass(val) and key not in {'StruphyModel', 'Propagator'}:
-
+        if inspect.isclass(val) and key not in {"StruphyModel", "Propagator"}:
             if fast:
-                if 'Cuboid' not in map_and_equil[0]:
+                if "Cuboid" not in map_and_equil[0]:
                     print(
-                        f'Fast is enabled, mapping {map_and_equil[0]} skipped ...',
+                        f"Fast is enabled, mapping {map_and_equil[0]} skipped ...",
                     )
                     continue
-            config.simulation_label = f'{key}_'
+            config.simulation_label = f"{key}_"
             call_model(key, val, map_and_equil, Tend=Tend)
 
     pylikwid_markerclose()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     profile_performance()

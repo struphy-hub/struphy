@@ -609,7 +609,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
             else:
                 raise NotImplementedError(
-                    f'Chosen method {algo["method"]} is not implemented.',
+                    f"Chosen method {algo['method']} is not implemented.",
                 )
 
             # Pusher instance
@@ -1023,7 +1023,7 @@ class PushGuidingCenterParallel(Propagator):
 
             else:
                 raise NotImplementedError(
-                    f'Chosen method {algo["method"]} is not implemented.',
+                    f"Chosen method {algo['method']} is not implemented.",
                 )
 
             # Pusher instance

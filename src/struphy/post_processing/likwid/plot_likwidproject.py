@@ -67,7 +67,8 @@ def get_data(
     data = []
     for project in projects:
         groups = project.get_likwid_groups(
-            groups_include=groups_include, groups_skip=groups_skip,
+            groups_include=groups_include,
+            groups_skip=groups_skip,
         )
         for group in groups:
             group_dict = {
@@ -82,7 +83,9 @@ def get_data(
 
             for imetric, metric in enumerate(metrics):
                 group_dict[metric] = project.get_maximum(
-                    metric, group=group, column=column_name,
+                    metric,
+                    group=group,
+                    column=column_name,
                 )
             data.append(group_dict)
     return data
@@ -103,7 +106,6 @@ def plot_roofline(
     theoretical_max_gflops=5530,
     sorting_key="group",
 ):
-
     fig = go.Figure()
 
     x0 = 1e-10
@@ -128,7 +130,7 @@ def plot_roofline(
                 y=[gflops, gflops],
                 mode="lines",
                 line=dict(dash="dash"),
-                name=f"{frac*100}% of theoretical ({gflops:.0f} GFLOP/s)",
+                name=f"{frac * 100}% of theoretical ({gflops:.0f} GFLOP/s)",
             ),
         )
 
@@ -137,9 +139,7 @@ def plot_roofline(
     bandwidth_GBps = theoretical_max_bandwidth_GBps
 
     operational_intensity_FLOPpMB = [x0, x1]
-    max_performance_GFLOP = [
-        oi * bandwidth_GBps for oi in operational_intensity_FLOPpMB
-    ]
+    max_performance_GFLOP = [oi * bandwidth_GBps for oi in operational_intensity_FLOPpMB]
     data = {
         "operational_intensity_FLOPpMB": operational_intensity_FLOPpMB,
         "max_performance_GFLOP": max_performance_GFLOP,
@@ -169,8 +169,8 @@ def plot_roofline(
     )
     print(data[0].keys())
     for d in data:
-        d['DP_GFLOPps'] = d['DP [MFLOP/s] STAT'] * 1e-3
-        d['bandwidth_MBps'] = d['Memory bandwidth [MBytes/s] STAT']
+        d["DP_GFLOPps"] = d["DP [MFLOP/s] STAT"] * 1e-3
+        d["bandwidth_MBps"] = d["Memory bandwidth [MBytes/s] STAT"]
         d["operational_intensity_FLOPpB"] = 1e3 * d["DP_GFLOPps"] / d["bandwidth_MBps"]
 
     data = sorted(data, key=lambda x: x[sorting_key])
@@ -239,7 +239,6 @@ def plot_bars(
     title="",
     split_by_simulation_label=True,
 ):
-
     if groups_include == ["*"]:
         groupname = "all_groups"
     else:
@@ -253,11 +252,11 @@ def plot_bars(
         groups_skip=groups_skip,
         split_by_simulation_label=split_by_simulation_label,
     )
-    
+
     if all(d.get(metric) is None for d in data):
         print("All values for the metric {metric} are None.")
         return
-    
+
     data = sorted(data, key=lambda x: x["simulation_name"])
     df = pd.DataFrame(data)
 
@@ -291,7 +290,7 @@ def plot_bars(
         showlegend=True,
         legend=dict(title="Group"),
         # xaxis_title='Job name',
-        yaxis_title=f"{metric.replace(' STAT','')} ({column_name})",
+        yaxis_title=f"{metric.replace(' STAT', '')} ({column_name})",
         title=title,
     )
     mply.format_axes(fig)
@@ -303,12 +302,8 @@ def plot_bars(
     # fig_dir = f"{output_path}/barplots/{groupname}/{column_name}"
 
     os.makedirs(f"{output_path}", exist_ok=True)
-    file_path_html = (
-        f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.html"
-    )
-    file_path_pdf = (
-        f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.pdf"
-    )
+    file_path_html = f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.html"
+    file_path_pdf = f"{output_path}/barplot_{sanitized_metric}_{column_name}_{groupname}.pdf"
 
     fig.write_html(file_path_html, include_mathjax="cdn")
     fig.write_image(file_path_pdf)
@@ -327,7 +322,6 @@ def plot_speedup(
     title="",
     simulation_name_type="project_name",
 ):
-
     data = get_data(
         projects=projects,
         metrics=[metric1, metric2],
@@ -399,9 +393,11 @@ def plot_speedup(
     )
 
     fig_name = f"speedup_{clean_string(metric1)}_vs_{clean_string(metric2)}_{clean_string(column_name)}".replace(
-        "/", "p",
+        "/",
+        "p",
     ).replace(
-        " ", "_",
+        " ",
+        "_",
     )
 
     os.makedirs(f"{output_path}", exist_ok=True)
@@ -421,11 +417,11 @@ def plot_loadbalance(
     groups_skip=[],
     title="",
 ):
-
     data = []
 
     groups = project.get_likwid_groups(
-        groups_include=groups_include, groups_skip=groups_skip,
+        groups_include=groups_include,
+        groups_skip=groups_skip,
     )
 
     for group in groups:
@@ -436,7 +432,10 @@ def plot_loadbalance(
                     "group": group,
                     "description": project.get_description(group),
                     "val": project.get_maximum(
-                        metric, group=group, column=node_name, table="Metric",
+                        metric,
+                        group=group,
+                        column=node_name,
+                        table="Metric",
                     ),
                 },
             )
@@ -466,7 +465,7 @@ def plot_loadbalance(
     # title = f"{project.name}, {project.get_clone_configuration()}"
 
     fig.update_layout(
-        yaxis_title=f"{metric.replace(' STAT','')}",
+        yaxis_title=f"{metric.replace(' STAT', '')}",
         title=title,
         showlegend=True,
         legend=dict(title="Group"),
@@ -497,9 +496,7 @@ def plot_pinning(
     # save_path="figures/pinned_cores.html",
     procs_per_clone="any",
 ):
-
     for project in projects:
-
         num_cores_per_socket = len(hwd.node_dict[node_name]["socket1"].split(" "))
 
         # Constants
@@ -525,12 +522,8 @@ def plot_pinning(
         )
         for inode, node in enumerate(project.nodes):
             # print(f"{node = }")
-            socket0 = {
-                int(s): 0 for s in hwd.node_dict[node_name]["socket0"].split(" ")
-            }
-            socket1 = {
-                int(s): 0 for s in hwd.node_dict[node_name]["socket1"].split(" ")
-            }
+            socket0 = {int(s): 0 for s in hwd.node_dict[node_name]["socket0"].split(" ")}
+            socket1 = {int(s): 0 for s in hwd.node_dict[node_name]["socket1"].split(" ")}
             sockets = {0: socket0, 1: socket1}
 
             for thread in project.threads:
@@ -710,7 +703,6 @@ def plot_files(
     groups_include=["*"],
     groups_skip=[],
 ):
-
     metrics = [  #
         "Runtime (RDTSC) [s] STAT",
         # "Runtime unhalted [s] STAT",
@@ -743,7 +735,6 @@ def plot_files(
         )
     # Plot loadbalance
     for project in projects:
-
         for metric in [
             "Runtime (RDTSC) [s]",
             "DP [MFLOP/s]",
@@ -762,9 +753,9 @@ def plot_files(
     if "barplots" in plots:
         for metric in metrics:
             for column_name in [
-                'Sum',
-                'Max',
-                'Min',
+                "Sum",
+                "Max",
+                "Min",
                 "Avg",
             ]:
                 plot_bars(
@@ -822,9 +813,7 @@ def load_projects(data_paths, procs_per_clone="any"):
                 likwid_out_naming="struphy*.out",
                 read_project=True,
             )
-            if (procs_per_clone != "any") and (
-                procs_per_clone != project.procs_per_clone
-            ):
+            if (procs_per_clone != "any") and (procs_per_clone != project.procs_per_clone):
                 print(
                     f"Incorrect number of procs_per_clone: {project.procs_per_clone = } {procs_per_clone = }",
                 )
@@ -849,7 +838,10 @@ if __name__ == "__main__":
         help="Paths to the data directories (space-separated, supports wildcards)",
     )
     parser.add_argument(
-        "--title", type=str, default="Testing", help="Name of the project",
+        "--title",
+        type=str,
+        default="Testing",
+        help="Name of the project",
     )
     parser.add_argument(
         "--output",

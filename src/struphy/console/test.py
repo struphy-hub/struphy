@@ -8,8 +8,8 @@ import yaml
 
 import struphy
 import struphy.utils.utils as utils
-
 from struphy.console.run import subp_run
+
 
 def struphy_test(group, mpi=2, fast=False, with_desc=False, Tend=None, vrbose=False, batch=False):
     """
@@ -108,10 +108,9 @@ def struphy_test(group, mpi=2, fast=False, with_desc=False, Tend=None, vrbose=Fa
         from struphy.models.tests.test_xxpproc import test_pproc_codes
 
         test_pproc_codes(group=group)
-    elif 'performance' in group:
-
+    elif "performance" in group:
         # Make sure likwid-mpirun and pylikwid works
-        if shutil.which('likwid-mpirun') is None:
+        if shutil.which("likwid-mpirun") is None:
             message = """
 Error: 'likwid-mpirun' not found. Please ensure LIKWID is installed and in your PATH."
 
@@ -128,17 +127,17 @@ export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
             raise ImportError("Error: 'pylikwid' is not installed.\nPlease install it via pip:\npip install pylikwid\n")
 
         if batch:
-            batch_abs = os.path.join(state['b_path'], batch)
+            batch_abs = os.path.join(state["b_path"], batch)
 
             # TODO: After refactoring struphy_run, we can build the output directory with one line
             # Run all models
-            command = ['sbatch', batch_abs]
+            command = ["sbatch", batch_abs]
             subprocess.run(command, check=True)
 
         else:
             # Run all the models
-            likwid_cmd = ['likwid-mpirun', '-n', str(mpi), '-g', 'MEM_DP', '-stats', '-marker']  # ['']
-            command = likwid_cmd + ['python3', f'{libpath}/models/tests/test_performance.py']
+            likwid_cmd = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker"]  # ['']
+            command = likwid_cmd + ["python3", f"{libpath}/models/tests/test_performance.py"]
             subprocess.run(command, check=True)
 
     else:
