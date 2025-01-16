@@ -1,6 +1,7 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
+import struphy.feec.local_projectors_args_kernels as local_projectors_args_kernels
 from struphy.feec.local_projectors_args_kernels import LocalProjectorsArguments
 
 

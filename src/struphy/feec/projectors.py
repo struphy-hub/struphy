@@ -445,16 +445,18 @@ class CommutingProjectorLocal:
 
         I^p f := \sum_{i=0}^{\hat{n}_N -1} \lambda_i(f) N_i^p\,.
 
-    1. For :math:`i` fixed, choose :math:`2p - 1` equidistant interpolation points :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
+    1. For :math:`i` fixed, choose :math:`\nu - \mu +p` equidistant interpolation points :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
 
        * Clamped: 
 
        .. math:: 
 
             Q = \left\{\begin{array}{lr}
-            [\eta_p, \eta_{2p -1}], & i < p-1\\
-            {[\eta_{i+1}, \eta_{i+p}]}, & p-1 \leq i \leq \hat{n}_N - p\\
-            {[\eta_{\hat{n}_N - p +1}, \eta_{\hat{n}_N}]}, &  i > \hat{n}_N - p
+            [\eta_p = 0, \eta_{p+1}], & i = 0 \,,\\
+            {[\eta_p = 0, \eta_{p+i}]}, & 0 < i < p-1\,,\\
+            {[\eta_{i+1}, \eta_{i+p}]}, & p-1 \leq i \leq \hat{n}_N - p\,,\\
+            {[\eta_{i+1}, \eta_{\hat{n}_N} = 1]}, &  \hat{n}_N - p < i < \hat{n}_N -1\,,\\
+            {[\eta_{\hat{n}_N -1}, \eta_{\hat{n}_N} = 1]}, & i = \hat{n}_N -1 \,.
             \end{array} \; \right .
 
        * Periodic: 
@@ -463,14 +465,14 @@ class CommutingProjectorLocal:
 
             Q = [\eta_{i + 1}, \eta_{i + p}] \:\:\:\:\: \forall \:\: i.
 
-       * The point set :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` is then the union of the :math:`p` knots in :math:`Q` plus their :math:`p-1` mid-points.
+       * In the periodic case the point set :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` is then the union of the :math:`p` knots in :math:`Q` plus their :math:`p-1` mid-points.
 
-    2. Determine the "local coefficients" :math:`(f_k)_{k=\mu-p}^{\nu-1} \in \mathbb R^{2p-1}` by solving
+    2. Determine the "local coefficients" :math:`(f_k)_{k=\mu-p}^{\nu-1} \in \mathbb R^{\nu - \mu +p}` by solving
     the local interpolation problem
 
     .. math::
 
-        \sum_{k = \mu - p}^{\nu -1} f_k N^p_k(x^i_j) = f(x^i_j),\qquad \forall j \in \{0, ..., 2p -2\} .
+        \sum_{k = \mu - p}^{\nu -1} f_k N^p_k(x^i_j) = f(x^i_j),\qquad \forall j \in \{0, ..., \nu - \mu +p -1\} .
 
 
     3. Set :math:`\lambda_i(f) = f_i`.
@@ -480,10 +482,10 @@ class CommutingProjectorLocal:
 
     .. math::
 
-        \lambda_i(f) = \sum_{j=0}^{2p-2}\omega^i_j f(x^i_j)\,,
+        \lambda_i(f) = \sum_{j=0}^{\nu - \mu +p-1}\omega^i_j f(x^i_j)\,,
 
     where :math:`\omega^i` is the :math:`i`-th line of the inverse collocation matrix 
-    :math:`\omega = C^{-1} \in \mathbb R^{(2p-1)\times (2p-1)}` with :math:`C_{jk} = N^p_k(x^i_j)`. 
+    :math:`\omega = C^{-1} \in \mathbb R^{(\nu - \mu +p)\times (\nu - \mu +p)}` with :math:`C_{jk} = N^p_k(x^i_j)`. 
 
     On the other hand, the histopolation operator is defined by
 
@@ -491,33 +493,68 @@ class CommutingProjectorLocal:
 
         H^{p-1}f := \sum_{i=0}^{\hat{n}_N -1} \tilde{\lambda}_i(f) D^{p-1}_i\,.
 
-    The FEEC coefficients :math:`\tilde{\lambda}_i(f)` are computed with
+    For the periodic case the FEEC coefficients :math:`\tilde{\lambda}_i(f)` are computed with
 
     .. math::
 
         \tilde{\lambda}_i(f) = \sum_{j=0}^{2p-1}\tilde{\omega}^i_j \int_{x^i_j}^{x^i_{j+1}}f(t)dt,
-
-    In the the clamped case, if :math:`i<p-1` 
-    or :math:`i \geq \hat{n}_D -(p-1)`, the weights are given by
-
-    .. math::
-
-        \tilde{\omega}^i_j = \left\{\begin{array}{lr}
-        \sum_{q=0}^{j}(\omega^i_q - \omega^{i+1}_q) , & j=0,...,2p-3\\
-        0, &  j= 2p-2, 2p-1
-        \end{array} \; \right . 
-
-    In the periodic case, and in the clamped case with  :math:`p-1\leq i< \hat{n}_D -(p-1)`, 
-    the weights given by
+        
+    with the weights given by
 
     .. math::
 
         \tilde{\omega}^i_j = \left\{\begin{array}{lr}
-        \omega^i_0, & j=0\\
-        \omega^i_0 + \omega^i_1, & j = 1\\
-        \sum_{q=0}^{j}\omega^i_q - \sum_{q=0}^{j-2}\omega^{i+1}_q, & j = 2,...,2p-2\\
-        \sum_{q=0}^{2p-2}\omega^i_q - \sum_{q=0}^{2p-3}\omega^{i+1}_q, &  j= 2p-1
+        \omega^i_0, & j=0 \,, \\
+        \omega^i_0 + \omega^i_1, & j = 1 \,, \\
+        \sum_{q=0}^{j}\omega^i_q - \sum_{q=0}^{j-2}\omega^{i+1}_q, & j = 2,...,2p-2 \,, \\
+        \sum_{q=0}^{2p-2}\omega^i_q - \sum_{q=0}^{2p-3}\omega^{i+1}_q, &  j= 2p-1 \,.
         \end{array} \; \right . 
+
+    For the clamped case the FEEC coefficients :math:`\tilde{\lambda}_i(f)` are computed with
+
+    .. math::
+
+        \tilde{\lambda}_i(f) = \sum_{j=0}^{4p-5}\tilde{\omega}^i_j \int_{x^i_j}^{x^i_{j+1}}f(t)dt,
+    
+    if :math:`i=0, \hat{n}_N -2`, the weights are given by
+
+    .. math::
+
+        \tilde{\omega}^i_j = \left\{\begin{array}{lr}
+        \sum_{q=0}^j (\omega^i_q - \omega^{i+1}_q), & j=0,...,p-1 \,, \\
+        0, &  j= p, ..., 4p-5 \,.
+        \end{array} \; \right . 
+        
+    For :math:`0<i<p-1`, they are obtained from
+    
+    .. math::
+        \tilde{\omega}^i_j = \left\{\begin{array}{lr}
+        -\sum_{k=j+1}^{p+i-1} \omega^i_k, & j\leq p+i-2 \,, \\
+        0, & j = p+i-1 \,, \\
+        \sum_{k=j-p-i+1}^{p+i}\omega^{i+1}_k, &  p+i \leq j \leq 2p+2i-1 \,, \\
+        0, & 2p+2i-1<j \leq 4p-5 \,.
+        \end{array} \; \right .
+        
+    For :math:`p-1 \leq i < \hat{n}_N-p`, we use
+    
+    .. math::
+        \tilde{\omega}^i_j = \left\{\begin{array}{lr}
+        \omega^i_0, & j=0 \,, \\
+        \omega^i_0 + \omega^i_1, & j = 1 \,, \\
+        \sum_{q=0}^{j}\omega^i_q - \sum_{q=0}^{j-2}\omega^{i+1}_q, & j = 2,...,2p-2 \,, \\
+        \sum_{q=0}^{2p-2}\omega^i_q - \sum_{q=0}^{2p-3}\omega^{i+1}_q, &  j= 2p-1 \,, \\
+        0, & j= 2p, ..., 4p-5 \,.
+        \end{array} \; \right .
+        
+    Finally, for :math:`\hat{n}_N-p\leq i < \hat{n}_N-2`, we have
+    
+    .. math::
+        \tilde{\omega}^i_j = \left\{\begin{array}{lr}
+        \sum_{k=0}^{j}\omega^i_k, & j\leq \hat{n}_N+p-i-3 \,, \\
+        0, & j = \hat{n}_N+p-i-2 \,, \\
+        -\sum_{k=0}^{j-\hat{n}_N-p+i+1}\omega^{i+1}_k, &  \hat{n}_N+p-i-1 \leq j \leq 2\hat{n}_N+2p-2i-5 \,, \\
+        0, & j= 2\hat{n}_N+2p-2i-4, ..., 4p-5 \,.
+        \end{array} \; \right .
 
     Furthermore, in the particular case :math:`p=1`, the weights are given by
 
