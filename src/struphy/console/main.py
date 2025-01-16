@@ -822,7 +822,7 @@ def struphy():
         state["i_path"] = i_path
         utils.save_state(state)
 
-        print(f'New input path has been set to {state["i_path"]}')
+        print(f"New input path has been set to {state['i_path']}")
         exit()
 
     # set default out path
@@ -843,7 +843,7 @@ def struphy():
         state["o_path"] = o_path
         utils.save_state(state)
 
-        print(f'New output path has been set to {state["o_path"]}')
+        print(f"New output path has been set to {state['o_path']}")
         exit()
 
     # set default out path
@@ -864,7 +864,7 @@ def struphy():
         state["b_path"] = b_path
         utils.save_state(state)
 
-        print(f'New batch path has been set to {state["b_path"]}')
+        print(f"New batch path has been set to {state['b_path']}")
         exit()
 
     # set paths for inp, out and batch (with io/inp etc. prefices)
@@ -1112,5 +1112,5 @@ def is_installed_editable(package_name):
             # print(f"{editable_file} found in site-packages")
             return True
 
-    print(f"{package_name} is not installed in editable mode.")
+    # print(f"{package_name} is not installed in editable mode.")
     return False
