@@ -4934,10 +4934,7 @@ class VariationalEntropyEvolve(Propagator):
 
 
 class VariationalPressureEvolve(Propagator):
-    r""":
-    TODO
-
-    ref:`FEEC <gempic>` discretization of the following equations:
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in (H^1)^3` and :math:`s \in L^2` such that
 
     .. math::
