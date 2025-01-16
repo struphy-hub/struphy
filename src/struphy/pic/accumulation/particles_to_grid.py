@@ -492,7 +492,7 @@ class Accumulator:
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
-        plt.xlabel(f"$\eta_{eta_direction + 1}$")
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()
 
@@ -723,6 +723,6 @@ class AccumulatorVector:
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
-        plt.xlabel(f"$\eta_{eta_direction + 1}$")
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()

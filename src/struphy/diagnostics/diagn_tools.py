@@ -159,7 +159,7 @@ def power_spectrum_2d(
         title = name + " component " + str(component + 1) + " from code: " + code
         ax.set_title(title)
         ax.set_xlabel("$k$ [a.u.]")
-        ax.set_ylabel("$\omega$ [a.u.]")
+        ax.set_ylabel(r"$\omega$ [a.u.]")
 
         # analytic solution:
         disp_class = getattr(analytic, disp_name)
