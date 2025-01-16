@@ -9,7 +9,7 @@ import yaml
 import struphy
 import struphy.utils.utils as utils
 from struphy.console.run import subp_run
-
+LIBPATH = struphy.__path__[0]
 
 def struphy_test(group, mpi=2, fast=False, with_desc=False, Tend=None, vrbose=False, batch=False):
     """
@@ -137,7 +137,7 @@ export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
         else:
             # Run all the models
             likwid_cmd = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker"]  # ['']
-            command = likwid_cmd + ["python3", f"{libpath}/models/tests/test_performance.py"]
+            command = likwid_cmd + ["python3", f"{LIBPATH}/models/tests/test_performance.py"]
             subprocess.run(command, check=True)
 
     else:
