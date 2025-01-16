@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import shutil
 import subprocess
 
 import matplotlib.colors as colors
@@ -158,7 +159,7 @@ def power_spectrum_2d(
         title = name + " component " + str(component + 1) + " from code: " + code
         ax.set_title(title)
         ax.set_xlabel("$k$ [a.u.]")
-        ax.set_ylabel("$\omega$ [a.u.]")
+        ax.set_ylabel(r"$\omega$ [a.u.]")
 
         # analytic solution:
         disp_class = getattr(analytic, disp_name)
@@ -610,8 +611,10 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
 
         # Create folder for saving the images series
         imgs_folder = os.path.join(vid_folder, slc)
-        if not os.path.exists(imgs_folder):
-            os.mkdir(imgs_folder)
+        if os.path.exists(imgs_folder):
+            shutil.rmtree(imgs_folder)
+
+        os.mkdir(imgs_folder)
 
         phase_space_plots(
             t_grid=t_grid,
@@ -708,14 +711,15 @@ def phase_space_plots(t_grid, eta_grid, v_grid, df_binned, save_path, model_name
     log_nt = int(np.log10(nt)) + 1
     len_dt = len(str(t_grid[1]).split(".")[1])
 
-    cmap = "Oranges"
-    vmin = np.min(df_binned)
-    vmax = np.max(df_binned)
+    cmap = "seismic"
+    vmin = np.min(df_binned) / 3
+    vmax = np.max(df_binned) / 3
+    vscale = np.max(np.abs([vmin, vmax]))
 
     plt.figure(figsize=(9, 6))
     for n in tqdm(range(nt)):
         t = f"%.{len_dt}f" % t_grid[n]
-        plt.pcolor(ee1, vv1, df_binned[n], cmap=cmap, vmin=vmin, vmax=vmax)
+        plt.pcolor(ee1, vv1, df_binned[n], cmap=cmap, vmin=-vscale, vmax=vscale)
         plt.title(f'$t=${t}, from Struphy model "{model_name}"')
         if eta_label is not None:
             plt.xlabel(rf"$\eta_{eta_label[-1]}$")
@@ -839,7 +843,7 @@ def phase_space_overview(
         cmap = "seismic"
         vmin = np.min(df_binned) / 3
         vmax = np.max(df_binned) / 3
-        vscale = np.max([vmin, vmax])
+        vscale = np.max(np.abs([vmin, vmax]))
 
         eta_label = slc[:2]
         v_label = slc[-2:]

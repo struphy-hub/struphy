@@ -16,12 +16,12 @@ from struphy.feec.mass import WeightedMassOperator
 
 class MassMatrixPreconditioner(LinearOperator):
     """
-    Preconditioner for inverting 3d weighted mass matrices. 
+    Preconditioner for inverting 3d weighted mass matrices.
 
-    The mass matrix is approximated by a Kronecker product of 1d mass matrices 
-    in each direction with correct boundary conditions (block diagonal in case of vector-valued spaces). 
+    The mass matrix is approximated by a Kronecker product of 1d mass matrices
+    in each direction with correct boundary conditions (block diagonal in case of vector-valued spaces).
     In this process, the 3d weight function is appoximated by a 1d counterpart in the dim_reduce direction
-    (default 1st direction) at the fixed point (0.5) in the other directions. The inversion is then 
+    (default 1st direction) at the fixed point (0.5) in the other directions. The inversion is then
     performed with a Kronecker solver.
 
     Parameters
@@ -37,9 +37,8 @@ class MassMatrixPreconditioner(LinearOperator):
     """
 
     def __init__(self, mass_operator, apply_bc=True, dim_reduce=0):
-
         assert isinstance(mass_operator, WeightedMassOperator)
-        assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
+        assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
 
         self._mass_operator = mass_operator
         self._femspace = mass_operator.domain_femspace
@@ -78,19 +77,18 @@ class MassMatrixPreconditioner(LinearOperator):
 
         # loop over components
         for c in range(n_comps):
-
             # 1d mass matrices and solvers
             solvercells = []
             matrixcells = []
 
             # loop over spatial directions
             for d in range(n_dims):
-
                 # weight function only along in first direction
                 if d == dim_reduce:
-                    #pts = [0.5] * (n_dims - 1)
+                    # pts = [0.5] * (n_dims - 1)
                     loc_weights = mass_operator.weights[c][c]
                     if callable(loc_weights):
+
                         def fun(e):
                             # make input in meshgrid format to be able to use it with general functions
                             s = e.shape[0]
@@ -98,23 +96,20 @@ class MassMatrixPreconditioner(LinearOperator):
                             f = e.reshape(newshape)
                             return np.atleast_1d(
                                 loc_weights(
-                                    *[
-                                        np.array(np.full_like(f, .5)) if i != d else np.array(f)
-                                        for i in range(n_dims)
-                                    ],
+                                    *[np.array(np.full_like(f, 0.5)) if i != d else np.array(f) for i in range(n_dims)],
                                 ).squeeze(),
                             )
                     elif isinstance(loc_weights, np.ndarray):
                         s = loc_weights.shape
                         if d == 0:
-                            fun = loc_weights[:, s[1]//2, s[2]//2]
+                            fun = loc_weights[:, s[1] // 2, s[2] // 2]
                         elif d == 1:
-                            fun = loc_weights[s[0]//2, :, s[2]//2]
+                            fun = loc_weights[s[0] // 2, :, s[2] // 2]
                         elif d == 2:
-                            fun = loc_weights[s[0]//2, s[1]//2, :]
+                            fun = loc_weights[s[0] // 2, s[1] // 2, :]
                     elif loc_weights is None:
                         fun = lambda e: np.ones(e.size, dtype=float)
-                    else :
+                    else:
                         raise TypeError(
                             "weights needs to be callable, np.ndarray or None but is{}".format(type(loc_weights)),
                         )
@@ -128,38 +123,59 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 # assemble 1d weighted mass matrix
                 domain_decompos_1d = DomainDecomposition(
-                    [femspace_1d.ncells], [femspace_1d.periodic],
+                    [femspace_1d.ncells],
+                    [femspace_1d.periodic],
                 )
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
                 # femspace_1d_tensor.nquads = [qu_order_1d] # TODO: This should not be here!
 
                 M = WeightedMassOperator(
-                    mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun, nquads=qu_order_1d,
+                    mass_operator.derham,
+                    femspace_1d_tensor,
+                    femspace_1d_tensor,
+                    weights_info=fun,
+                    nquads=qu_order_1d,
                 )
                 M.assemble(verbose=False)
                 M = M.matrix
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != 'H1H1H1':
-                        if femspace_1d.basis == 'B':
+                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                        if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=-1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=-1,
+                                    order=0,
+                                    identity=True,
                                 )
                             if bc[d][1]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=+1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=+1,
+                                    order=0,
+                                    identity=True,
                                 )
                     else:
                         if c == d:
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=-1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=-1,
+                                    order=0,
+                                    identity=True,
                                 )
                             if bc[d][1]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=+1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=+1,
+                                    order=0,
+                                    identity=True,
                                 )
 
                 M_arr = M.toarray()
@@ -179,7 +195,12 @@ class MassMatrixPreconditioner(LinearOperator):
                 e = femspaces[c].vector_space.ends[d]
 
                 cart_decomp_1d = CartDecomposition(
-                    domain_decompos_1d, [n], [[s]], [[e]], [p], [1],
+                    domain_decompos_1d,
+                    [n],
+                    [[s]],
+                    [[e]],
+                    [p],
+                    [1],
                 )
 
                 V_local = StencilVectorSpace(cart_decomp_1d)
@@ -189,18 +210,17 @@ class MassMatrixPreconditioner(LinearOperator):
                 row_indices, col_indices = np.nonzero(M_arr)
 
                 for row_i, col_i in zip(row_indices, col_indices):
-
                     # only consider row indices on process
                     if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
                         row_i_loc = row_i - s
 
                         M_local._data[
-                            row_i_loc + p, (col_i + p - row_i) %
-                            M_arr.shape[1],
+                            row_i_loc + p,
+                            (col_i + p - row_i) % M_arr.shape[1],
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert np.allclose(M_local.toarray()[s:e + 1], M_arr[s:e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -208,23 +228,31 @@ class MassMatrixPreconditioner(LinearOperator):
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space, self._femspace.vector_space, *matrixcells,
+                        self._femspace.vector_space,
+                        self._femspace.vector_space,
+                        *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space, self._femspace.vector_space, solvercells,
+                        self._femspace.vector_space,
+                        self._femspace.vector_space,
+                        solvercells,
                     ),
                 ]
             else:
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space[c], self._femspace.vector_space[c], *matrixcells,
+                        self._femspace.vector_space[c],
+                        self._femspace.vector_space[c],
+                        *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space[c], self._femspace.vector_space[c], solvercells,
+                        self._femspace.vector_space[c],
+                        self._femspace.vector_space[c],
+                        solvercells,
                     ),
                 ]
 
@@ -233,7 +261,6 @@ class MassMatrixPreconditioner(LinearOperator):
             self._matrix = matrixblocks[0]
             self._solver = solverblocks[0]
         else:
-
             blocks = [
                 [matrixblocks[0], None, None],
                 [None, matrixblocks[1], None],
@@ -241,7 +268,9 @@ class MassMatrixPreconditioner(LinearOperator):
             ]
 
             self._matrix = BlockLinearOperator(
-                self._femspace.vector_space, self._femspace.vector_space, blocks=blocks,
+                self._femspace.vector_space,
+                self._femspace.vector_space,
+                blocks=blocks,
             )
 
             sblocks = [
@@ -251,7 +280,9 @@ class MassMatrixPreconditioner(LinearOperator):
             ]
 
             self._solver = BlockLinearOperator(
-                self._femspace.vector_space, self._femspace.vector_space, blocks=sblocks,
+                self._femspace.vector_space,
+                self._femspace.vector_space,
+                blocks=sblocks,
             )
 
         # save mass operator to be inverted (needed in solve method)
@@ -274,35 +305,32 @@ class MassMatrixPreconditioner(LinearOperator):
 
     @property
     def space(self):
-        """ Stencil-/BlockVectorSpace or PolarDerhamSpace.
-        """
+        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
         return self._space
 
     @property
     def matrix(self):
-        """ Approximation of the input mass matrix as KroneckerStencilMatrix.
-        """
+        """Approximation of the input mass matrix as KroneckerStencilMatrix."""
         return self._matrix
 
     @property
     def solver(self):
-        """ KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix.
-        """
+        """KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix."""
         return self._solver
 
     @property
     def domain(self):
-        """ The domain of the linear operator - an element of Vectorspace """
+        """The domain of the linear operator - an element of Vectorspace"""
         return self._space
 
     @property
     def codomain(self):
-        """ The codomain of the linear operator - an element of Vectorspace """
+        """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
 
     @property
     def domain(self):
-        """ The domain of the linear operator - an element of Vectorspace """
+        """The domain of the linear operator - an element of Vectorspace"""
         return self._domain
 
     @property
@@ -371,7 +399,7 @@ class MassMatrixPreconditioner(LinearOperator):
         return out
 
     def dot(self, v, out=None):
-        """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
+        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
 
         assert isinstance(v, Vector)
         assert v.space == self.domain
@@ -382,7 +410,6 @@ class MassMatrixPreconditioner(LinearOperator):
 
         # in-place dot-product (result is written to out)
         else:
-
             assert isinstance(out, Vector)
             assert out.space == self.codomain
             self.solve(v, out=out)
@@ -391,8 +418,8 @@ class MassMatrixPreconditioner(LinearOperator):
 
 
 class MassMatrixDiagonalPreconditioner(LinearOperator):
-    """
-    Preconditioner for inverting 3d weighted mass matrices. The mass matrix is approximated by 
+    r"""
+    Preconditioner for inverting 3d weighted mass matrices. The mass matrix is approximated by
 
     .. math::
         D^{1/2} * \hat D^{-1/2} * \hat M * \hat D^{-1/2} * D^{1/2}
@@ -415,9 +442,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     """
 
     def __init__(self, mass_operator, apply_bc=True):
-
         assert isinstance(mass_operator, WeightedMassOperator)
-        assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
+        assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
 
         self._mass_operator = mass_operator
         self._femspace = mass_operator.domain_femspace
@@ -455,7 +481,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         # loop over components
         for c in range(n_comps):
-
             # 1d mass matrices and solvers
             solvercells = []
             matrixcells = []
@@ -469,39 +494,60 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 qu_order_1d = [self._mass_operator.derham.nquads[d]]
                 # assemble 1d weighted mass matrix
                 domain_decompos_1d = DomainDecomposition(
-                    [femspace_1d.ncells], [femspace_1d.periodic],
+                    [femspace_1d.ncells],
+                    [femspace_1d.periodic],
                 )
                 femspace_1d_tensor = TensorFemSpace(domain_decompos_1d, femspace_1d)
                 # femspace_1d_tensor.nquads = [qu_order_1d]
                 # femspace_1d_tensor.nquads = self._mass_operator.derham.nquads
 
                 M = WeightedMassOperator(
-                    self._mass_operator.derham, femspace_1d_tensor, femspace_1d_tensor, weights_info=fun, nquads=qu_order_1d,
+                    self._mass_operator.derham,
+                    femspace_1d_tensor,
+                    femspace_1d_tensor,
+                    weights_info=fun,
+                    nquads=qu_order_1d,
                 )
                 M.assemble(verbose=False)
                 M = M.matrix
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != 'H1H1H1':
-                        if femspace_1d.basis == 'B':
+                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                        if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=-1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=-1,
+                                    order=0,
+                                    identity=True,
                                 )
                             if bc[d][1]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=+1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=+1,
+                                    order=0,
+                                    identity=True,
                                 )
                     else:
                         if c == d:
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=-1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=-1,
+                                    order=0,
+                                    identity=True,
                                 )
                             if bc[d][1]:
                                 apply_essential_bc_stencil(
-                                    M, axis=0, ext=+1, order=0, identity=True,
+                                    M,
+                                    axis=0,
+                                    ext=+1,
+                                    order=0,
+                                    identity=True,
                                 )
 
                 M_arr = M.toarray()
@@ -521,7 +567,12 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 e = femspaces[c].vector_space.ends[d]
 
                 cart_decomp_1d = CartDecomposition(
-                    domain_decompos_1d, [n], [[s]], [[e]], [p], [1],
+                    domain_decompos_1d,
+                    [n],
+                    [[s]],
+                    [[e]],
+                    [p],
+                    [1],
                 )
 
                 V_local = StencilVectorSpace(cart_decomp_1d)
@@ -531,18 +582,17 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 row_indices, col_indices = np.nonzero(M_arr)
 
                 for row_i, col_i in zip(row_indices, col_indices):
-
                     # only consider row indices on process
                     if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
                         row_i_loc = row_i - s
 
                         M_local._data[
-                            row_i_loc + p, (col_i + p - row_i) %
-                            M_arr.shape[1],
+                            row_i_loc + p,
+                            (col_i + p - row_i) % M_arr.shape[1],
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert np.allclose(M_local.toarray()[s:e + 1], M_arr[s:e + 1])
+                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -550,23 +600,31 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space, self._femspace.vector_space, *matrixcells,
+                        self._femspace.vector_space,
+                        self._femspace.vector_space,
+                        *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space, self._femspace.vector_space, solvercells,
+                        self._femspace.vector_space,
+                        self._femspace.vector_space,
+                        solvercells,
                     ),
                 ]
             else:
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space[c], self._femspace.vector_space[c], *matrixcells,
+                        self._femspace.vector_space[c],
+                        self._femspace.vector_space[c],
+                        *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space[c], self._femspace.vector_space[c], solvercells,
+                        self._femspace.vector_space[c],
+                        self._femspace.vector_space[c],
+                        solvercells,
                     ),
                 ]
 
@@ -575,7 +633,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             self._matrix = matrixblocks[0]
             self._solver = solverblocks[0]
         else:
-
             blocks = [
                 [matrixblocks[0], None, None],
                 [None, matrixblocks[1], None],
@@ -583,7 +640,9 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             ]
 
             self._matrix = BlockLinearOperator(
-                self._femspace.vector_space, self._femspace.vector_space, blocks=blocks,
+                self._femspace.vector_space,
+                self._femspace.vector_space,
+                blocks=blocks,
             )
 
             sblocks = [
@@ -592,7 +651,9 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 [None, None, solverblocks[2]],
             ]
             self._solver = BlockLinearOperator(
-                self._femspace.vector_space, self._femspace.vector_space, blocks=sblocks,
+                self._femspace.vector_space,
+                self._femspace.vector_space,
+                blocks=sblocks,
             )
 
         # save mass operator to be inverted (needed in solve method)
@@ -614,12 +675,14 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             self._tmp_vector = self._M.codomain.zeros()
 
         # Need to assemble the logical mass matrix to extract the coefficients
-        fun = [[
-            lambda e1, e2, e3 : np.ones_like(e1, dtype=float) if i ==
-            j else None for j in range(3)
-        ]for i in range(3)]
+        fun = [
+            [lambda e1, e2, e3: np.ones_like(e1, dtype=float) if i == j else None for j in range(3)] for i in range(3)
+        ]
         log_M = WeightedMassOperator(
-            self._mass_operator.derham, self._femspace, self._femspace, weights_info=fun,
+            self._mass_operator.derham,
+            self._femspace,
+            self._femspace,
+            weights_info=fun,
         )
         log_M.assemble(verbose=False)
         self._logM_srqt_diag = log_M.matrix.diagonal(sqrt=True)
@@ -629,35 +692,32 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
     @property
     def space(self):
-        """ Stencil-/BlockVectorSpace or PolarDerhamSpace.
-        """
+        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
         return self._space
 
     @property
     def matrix(self):
-        """ Mass matrix on the logical domain as KroneckerStencilMatrix.
-        """
+        """Mass matrix on the logical domain as KroneckerStencilMatrix."""
         return self._matrix
 
     @property
     def solver(self):
-        """ KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix.
-        """
+        """KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix."""
         return self._solver
 
     @property
     def domain(self):
-        """ The domain of the linear operator - an element of Vectorspace """
+        """The domain of the linear operator - an element of Vectorspace"""
         return self._space
 
     @property
     def codomain(self):
-        """ The codomain of the linear operator - an element of Vectorspace """
+        """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
 
     @property
     def domain(self):
-        """ The domain of the linear operator - an element of Vectorspace """
+        """The domain of the linear operator - an element of Vectorspace"""
         return self._domain
 
     @property
@@ -667,13 +727,13 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def update_mass_operator(self, mass_operator):
         """Update the mass operator to enable recycling the preconditioner"""
         assert isinstance(mass_operator, WeightedMassOperator)
-        assert mass_operator.domain == mass_operator.codomain, 'Only square mass matrices can be inverted!'
-        assert mass_operator.domain == self.domain, 'Update needs to have the same domain and codomain'
+        assert mass_operator.domain == mass_operator.codomain, "Only square mass matrices can be inverted!"
+        assert mass_operator.domain == self.domain, "Update needs to have the same domain and codomain"
 
-        if self._is_composed :
+        if self._is_composed:
             if self._apply_bc:
                 assert isinstance(mass_operator.M0, ComposedLinearOperator)
-            else :
+            else:
                 assert isinstance(mass_operator.M, ComposedLinearOperator)
 
         self._mass_operator = mass_operator
@@ -697,7 +757,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         return MassMatrixPreconditioner(self._mass_operator.transpose(), self._apply_bc)
 
     def _solve_no_bc(self, rhs, out):
-        """
+        r"""
         Computes M^(-1) * rhs as an approximation for an inverse mass matrix.
         With $M = D^{1/2} * \hat D^{-1/2} * \hat M * \hat D^{-1/2} * D^{1/2}$
         Should only be called by the solve method that will handle the bcs.
@@ -720,16 +780,16 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         assert rhs.space == self._mass_operator.matrix.domain
 
         # M^-1 ~ D^{-1/2} \hat D^{1/2} \hat M ^{-1} \hat D^{1/2} D^{-1/2}
-        Dmr   = self._M_invsrqt_diag.dot(rhs, out=self._tmp_vector_no_bc[0])
+        Dmr = self._M_invsrqt_diag.dot(rhs, out=self._tmp_vector_no_bc[0])
         DhDmr = self._logM_srqt_diag.dot(Dmr, out=self._tmp_vector_no_bc[1])
         invMr = self.solver.dot(DhDmr, out=self._tmp_vector_no_bc[0])
         DhiMr = self._logM_srqt_diag.dot(invMr, out=self._tmp_vector_no_bc[1])
-        out   = self._M_invsrqt_diag.dot(DhiMr, out=out)
+        out = self._M_invsrqt_diag.dot(DhiMr, out=out)
 
         return out
 
     def solve(self, rhs, out=None):
-        """
+        r"""
         Computes :math:`(B * E * M^{-1} * E^T * B^T) * rhs` as an approximation for an inverse mass matrix,
         with :math:`M = D^{1/2} * \hat D^{-1/2} * \hat M * \hat D^{-1/2} * D^{1/2}`.
 
@@ -779,7 +839,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
         return out
 
     def dot(self, v, out=None):
-        """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
+        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
 
         assert isinstance(v, Vector)
         assert v.space == self.domain
@@ -790,7 +850,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         # in-place dot-product (result is written to out)
         else:
-
             assert isinstance(out, Vector)
             assert out.space == self.codomain
             self.solve(v, out=out)
@@ -811,7 +870,7 @@ class ProjectorPreconditioner(LinearOperator):
     Parameters
     ----------
     projector : CommutingProjector
-        The global commuting projector for which the inter-/histopolation matrix shall be inverted. 
+        The global commuting projector for which the inter-/histopolation matrix shall be inverted.
 
     transposed : bool, optional
         Whether to invert the transposed inter-/histopolation matrix.
@@ -821,7 +880,6 @@ class ProjectorPreconditioner(LinearOperator):
     """
 
     def __init__(self, projector, transposed=False, apply_bc=False):
-
         # vector space in tensor product case/polar case
         self._space = projector.I.domain
 
@@ -860,30 +918,27 @@ class ProjectorPreconditioner(LinearOperator):
 
     @property
     def space(self):
-        """ Stencil-/BlockVectorSpace or PolarDerhamSpace.
-        """
+        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
         return self._space
 
     @property
     def solver(self):
-        """ KroneckerLinearSolver for exactly inverting tensor product inter-histopolation matrix.
-        """
+        """KroneckerLinearSolver for exactly inverting tensor product inter-histopolation matrix."""
         return self._solver
 
     @property
     def transposed(self):
-        """ Whether to invert the transposed inter-/histopolation matrix.
-        """
+        """Whether to invert the transposed inter-/histopolation matrix."""
         return self._transposed
 
     @property
     def domain(self):
-        """ The domain of the linear operator - an element of Vectorspace """
+        """The domain of the linear operator - an element of Vectorspace"""
         return self._space
 
     @property
     def codomain(self):
-        """ The codomain of the linear operator - an element of Vectorspace """
+        """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
 
     @property
@@ -951,7 +1006,7 @@ class ProjectorPreconditioner(LinearOperator):
         return out
 
     def dot(self, v, out=None):
-        """ Apply linear operator to Vector v. Result is written to Vector out, if provided."""
+        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
 
         assert isinstance(v, Vector)
         assert v.space == self.domain
@@ -962,7 +1017,6 @@ class ProjectorPreconditioner(LinearOperator):
 
         # in-place dot-product (result is written to out)
         else:
-
             assert isinstance(out, Vector)
             assert out.space == self.codomain
             self.solve(v, out=out)
@@ -982,7 +1036,6 @@ class FFTSolver(BandedSolver):
     """
 
     def __init__(self, circmat):
-
         assert isinstance(circmat, np.ndarray)
         assert is_circulant(circmat)
 
@@ -1004,9 +1057,9 @@ class FFTSolver(BandedSolver):
         Parameters
         ----------
         rhs : np.ndarray
-            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order, 
-            i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th 
-            index denoting the number of the right-hand side, and the 1-st index denoting the element inside 
+            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
+            i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
+            index denoting the number of the right-hand side, and the 1-st index denoting the element inside
             a right-hand side.
 
         out : np.ndarray, optional
@@ -1031,7 +1084,7 @@ class FFTSolver(BandedSolver):
 
 
 def is_circulant(mat):
-    """ 
+    """
     Returns true if a matrix is circulant.
 
     Parameters

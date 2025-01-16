@@ -455,6 +455,47 @@ class Accumulator:
 
             vec.update_ghost_regions()
 
+    def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
+        r"""1D plot of the spline field corresponding to the accumulated vector.
+        The latter can be viewed as the rhs of an L2-projection:
+
+        .. math::
+
+            \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
+
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
+        """
+        from matplotlib import pyplot as plt
+
+        from struphy.feec.projectors import L2Projector
+
+        # L2 projection
+        proj = L2Projector(self.space_id, mass_ops)
+        a = proj.solve(self.vectors[0])
+
+        # create field and assign coeffs
+        field = self.derham.create_field("accum_field", self.space_id)
+        field.vector = a
+
+        # plot field
+        eta = np.linspace(0, 1, 100)
+        if eta_direction == 0:
+            args = (eta, 0.5, 0.5)
+        elif eta_direction == 1:
+            args = (0.5, eta, 0.5)
+        else:
+            args = (0.5, 0.5, eta)
+
+        vals = mass_ops.domain.push(field, *args, kind="1", squeeze_out=True)
+
+        plt.plot(eta, vals[component])
+        plt.title(
+            f'Spline field accumulated with the kernel "{self.kernel}"',
+        )
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
+        plt.ylabel("field amplitude")
+        plt.show()
+
 
 class AccumulatorVector:
     r"""
@@ -682,6 +723,6 @@ class AccumulatorVector:
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
-        plt.xlabel(f"$\eta_{eta_direction + 1}$")
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()

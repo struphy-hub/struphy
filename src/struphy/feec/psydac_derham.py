@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-
 import numpy as np
+import psydac.core.bsplines as bsp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from psydac.api.discretization import discretize
 from psydac.feec.global_projectors import Projector_H1vec
+from psydac.fem.splines import SplineSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.block import BlockVector
@@ -15,7 +16,8 @@ from sympde.topology import Derham as Derham_psy
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
-from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal, select_quasi_points
+from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
+from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.geometry.base import Domain
@@ -105,6 +107,7 @@ class Derham:
         self._Nel = Nel
         self._p = p
         self._spl_kind = spl_kind
+        self._with_local_projectors = local_projectors
 
         # boundary conditions at eta=0 and eta=1 in each direction (None for periodic, 'd' for homogeneous Dirichlet)
         if dirichlet_bc is not None:
@@ -470,6 +473,10 @@ class Derham:
             if with_projectors:
                 if local_projectors:
                     fem_space = self.Vh_fem[sp_form]
+                    # We also need the FEM spline space that contains B-splines in all three directions
+                    fem_space_B = self.Vh_fem["0"]
+                    # As well as the FEM spline space that contains D-splines in all three directions.
+                    fem_space_D = self.Vh_fem["3"]
                     self._Ploc[sp_form] = CommutingProjectorLocal(
                         sp_id,
                         sp_form,
@@ -478,6 +485,8 @@ class Derham:
                         self._proj_loc_grid_wts[sp_form],
                         self._wij,
                         self._whij,
+                        fem_space_B,
+                        fem_space_D,
                     )
                 self._P[sp_form] = CommutingProjector(
                     self._P[sp_form],
@@ -755,7 +764,10 @@ class Derham:
     @property
     def P(self):
         """Dictionary holding global commuting projectors."""
-        return self._P
+        if self._with_local_projectors == True:
+            return self._Ploc
+        else:
+            return self._P
 
     @property
     def Vh_pol(self):
@@ -2253,7 +2265,7 @@ class Derham:
 
 
 class TransformedPformComponent:
-    """
+    r"""
     Construct callable component of p-form on logical domain (unit cube).
 
     Parameters
@@ -2422,8 +2434,6 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
         One entry for each interval ii; usually has value 0.
         A value of 1 indicates that the cell ii is the second subinterval of a split Greville cell (for histopolation with even degree)."""
 
-    import psydac.core.bsplines as bsp
-
     greville_loc = space_1d.greville[start : end + 1].copy()
     histopol_loc = space_1d.histopolation_grid[start : end + 2].copy()
 
@@ -2493,7 +2503,13 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
     return pts, wts, subs
 
 
-def get_pts_and_wts_quasi(space_1d, polar_shift=False):
+def get_pts_and_wts_quasi(
+    space_1d: SplineSpace,
+    *,
+    bulk_indices_i: tuple = None,
+    mu_nu_values: list = None,
+    polar_shift: bool = False,
+):
     r"""Obtain local projection point sets and weights in one grid direction for the quasi-interpolation method.
     The quasi-interpolation points are :math:`2p - 1` equidistant points :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
 
@@ -2529,18 +2545,16 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
     wts : 2D float array
         Quadrature weights (or 1's for interpolation) in format (ii, iq) = (interval, quadrature point)."""
 
-    import psydac.core.bsplines as bsp
-
+    # spline space info
     p = space_1d.degree
-    # h = space_1d.knots[p+1]
     h = space_1d.breaks[1]
     N = len(space_1d.breaks) - 1  # number of cells
+    knots = space_1d.knots
 
     # We have two different behaviours depending on whether the spline space is periodic or not
     if space_1d.periodic:
         # interpolation
         if space_1d.basis == "B":
-            # x_grid = np.arange(-(p-1.0)*h, 1.0-h+(h/2.0), h/2.0)
             if p == 1 and h != 1.0:
                 x_grid = np.linspace(-(p - 1) * h, 1.0 - h + (h / 2.0), (N + p - 1) * 2)
             else:
@@ -2562,42 +2576,96 @@ def get_pts_and_wts_quasi(space_1d, polar_shift=False):
             elif p == 0 and h != 1.0:
                 x_grid = np.linspace(-p * h, 1.0 - h + (h / 2.0), (N + p) * 2)
             else:
-                # x_grid = np.arange(-p*h, 1.0-h+(h/2.0), h/2.0)
                 x_grid = np.linspace(-p * h, 1.0 - h, (N + p) * 2 - 1)
+
+            n_quad = p + 1
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
-            n_quad = p + 1
-
             pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             pts = x % 1.0
-            # pts = x
     else:
         # interpolation
         if space_1d.basis == "B":
-            # x_grid = np.arange(0.0, 1.0+(h/2.0), h/2.0)
-            x_grid = np.linspace(0.0, 1.0, 2 * N + 1)
+            if p <= 2:
+                raise Exception("The local projector with clamped boundary conditions only support p > 2.")
+
+            # Number of B-splines
+            N_b = N + p
+
+            # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
+            x_grid = np.linspace(0.0, knots[p + 1], p + 1)
+            x_aux = np.linspace(0.0, knots[p + 1], p + 1)
+            x_grid = np.append(x_grid, x_aux)
+            # Now we append those for 1<i<p-1
+            for i in range(2, p - 1):
+                x_aux = np.linspace(knots[p], knots[p + i], p + i)
+                x_grid = np.append(x_grid, x_aux)
+
+            # Now we append the points for p-1<= i <= N_b-p
+            x_aux = np.linspace(0.0, 1.0, 2 * N + 1)
+            x_grid = np.append(x_grid, x_aux)
+
+            # Now the points for N_b-p < i < N_b-1
+            for i in range(N_b - p + 1, N_b - 1):
+                x_aux = np.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
+                x_grid = np.append(x_grid, x_aux)
+            # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
+            i = N_b - 2
+            x_aux = np.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
+            x_grid = np.append(x_grid, x_aux)
+
+            if polar_shift:
+                for i in range(len(x_grid)):
+                    if x_grid[i] == 0.0:
+                        x_grid[i] += 0.00001
 
             pts = x_grid[:, None]
             wts = np.ones(pts.shape, dtype=float)
 
-            # !! shift away first interpolation point in eta_1 direction for polar domains !!
-            if pts[0] == 0.0 and polar_shift:
-                pts[0] += 0.00001
-
         # histopolation
         elif space_1d.basis == "M":
-            # x_grid = np.arange(0.0, 1.0+(h/2.0), h/2.0)
-            x_grid = np.linspace(0.0, 1.0, 2 * N + 1)
+            # B-spline degree
+            p += 1
+            if p <= 2:
+                raise Exception("The local projector with clamped boundary conditions only support p > 2.")
+
+            # Number of B-splines
+            N_b = N + p
+
+            # IMPORTANT: The way in which the knots are defined is such that for D-splines they have one
+            # less padding on the left and one less padding on the right compare to the knots for B-splines.
+            # Thus, we must substract 1 to all the indices of the knots here to refere to the same point.
+
+            # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
+            x_grid = np.linspace(0.0, knots[p], p + 1)
+            x_aux = np.linspace(0.0, knots[p], p + 1)
+            x_grid = np.append(x_grid, x_aux)
+            # Now we append those for 1<i<p-1
+            for i in range(2, p - 1):
+                x_aux = np.linspace(knots[p - 1], knots[p + i - 1], p + i)
+                x_grid = np.append(x_grid, x_aux)
+
+            # Now we append the points for p-1<= i <= N_b-p
+            x_aux = np.linspace(0.0, 1.0, 2 * N + 1)
+            x_grid = np.append(x_grid, x_aux)
+
+            # Now the points for N_b-p < i < N_b-1
+            for i in range(N_b - p + 1, N_b - 1):
+                x_aux = np.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
+                x_grid = np.append(x_grid, x_aux)
+            # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
+            i = N_b - 2
+            x_aux = np.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
+            x_grid = np.append(x_grid, x_aux)
+
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
-            n_quad = p + 1
-
+            n_quad = p
             pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
-            # pts = x % 1.
             pts = x
 
     return pts, wts
@@ -2622,8 +2690,6 @@ def get_span_and_basis(pts, space):
     basis : np.array
         3d array of values of basis functions indexed by (n, nq, basis function).
     """
-
-    import psydac.core.bsplines as bsp
 
     # Extract knot vectors, degree and kind of basis
     T = space.knots
@@ -2670,12 +2736,47 @@ def get_weights_local_projector(pts, fem_space):
     whij : List of np.array
         List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for histopolation.
     """
-    import psydac.core.bsplines as bsp
-
-    # wij[space_direction][i][j]
     wij = []
-    # whij[space_direction][i][j]
     whij = []
+
+    # In the clamped case
+    # for a fixed value of i the number of j entries wij can have may change. We need to compute the maximum number of j entries necessary, to make sure that all
+    # wij will have the same number of j entries by adding zeros as padding to those that come short of this number. As to why we want all the wij to have the same
+    # number of entries? It so we can build a 2D numpy array of them.
+
+    #######
+    ##Computing the max number of j entries of wij for each spatial direction
+    #######
+
+    # List with the degree of the B-splines in each spatial direction
+    plist = np.zeros(3, dtype=int)
+    # List with a bool that tell us if the B-splines in each spatial direction are periodic
+    periodiclist = []
+    # We iterate over each one of the spatial dimension of the 0 fem_space
+    for d, space in enumerate(fem_space.spaces):
+        plist[d] = space.degree
+        periodiclist.append(space.periodic)
+
+    periodiclist = np.array(periodiclist)
+    # We get the maximum number of j entries for wij
+    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, np.array([False, False, False], dtype=bool))
+
+    maxjwij = [lenj1, lenj2, lenj3]
+
+    # Now we must do the same for the whij
+
+    #######
+    ##Computing the max number of j entries of whij for each spatial direction
+    #######
+
+    # We get the maximum number of j entries for whij
+    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, np.array([True, True, True], dtype=bool))
+
+    maxjwhij = [lenj1, lenj2, lenj3]
+
+    #######
+    ##Building the wij
+    #######
 
     # We iterate over each one of the spatial dimension of the 0 fem_space
     for d, space in enumerate(fem_space.spaces):
@@ -2695,7 +2796,7 @@ def get_weights_local_projector(pts, fem_space):
         if periodic:
             i = 0
             # We get the indices that tell us which entries of x to get
-            xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
+            xstart, xend = select_quasi_points(int(i), int(p), int(Nbasis), bool(periodic))
             # Now we get the indices that tell us which basis functions to consider
             bstart, bend = select_basis_local(i, p, Nbasis, periodic)
             # We can finally build the minicollocation matrix necessary to obtain the weights wij
@@ -2720,90 +2821,132 @@ def get_weights_local_projector(pts, fem_space):
                 for i in range(Nbasis):
                     wijaux.append(invmini[p - 1, :])
         else:
-            for i in range(p - 1):
+            for i in range(Nbasis):
                 # We get the indices that tell us which entries of x to get
-                xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
+                xstart, xend = select_quasi_points(int(i), int(p), int(Nbasis), bool(periodic))
                 # Now we get the indices that tell us which basis functions to consider
                 bstart, bend = select_basis_local(i, p, Nbasis, periodic)
                 # We can finally build the minicollocation matrix necessary to obtain the weights wij
                 minicol = colmatrix[xstart:xend, bstart:bend]
                 # Now we get its inverse
                 invmini = np.linalg.inv(minicol)
+
                 # Now we need to extract the row of invmini that corresponds to the ith histopolation coefficient.
-                wijaux.append(invmini[i, :])
-            i = p - 1
-            # We get the indices that tell us which entries of x to get
-            xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
-            # Now we get the indices that tell us which basis functions to consider
-            bstart, bend = select_basis_local(i, p, Nbasis, periodic)
-            # We can finally build the minicollocation matrix necessary to obtain the weights wij
-            minicol = colmatrix[xstart:xend, bstart:bend]
-            # Now we get its inverse
-            invmini = np.linalg.inv(minicol)
-            for i in range(p - 1, Nbasis - p + 1):
-                wijaux.append(invmini[p - 1, :])
-            for i in range(Nbasis - p + 1, Nbasis):
-                # We get the indices that tell us which entries of x to get
-                xstart, xend = select_quasi_points(i, p, Nbasis, periodic)
-                # Now we get the indices that tell us which basis functions to consider
-                bstart, bend = select_basis_local(i, p, Nbasis, periodic)
-                # We can finally build the minicollocation matrix necessary to obtain the weights wij
-                minicol = colmatrix[xstart:xend, bstart:bend]
-                # Now we get its inverse
-                invmini = np.linalg.inv(minicol)
-                wijaux.append(invmini[p - 1 + i + p - Nbasis, :])
+                if i == 0:
+                    relevant_row = 0
+                elif i < (p - 1):
+                    relevant_row = i
+                elif i < (Nbasis - 1):
+                    relevant_row = p - 1
+                elif i == (Nbasis - 1):
+                    relevant_row = p
+
+                # At this point auxiliar contains the geometric weights (wi0, wi1, ...)
+                auxiliar = invmini[relevant_row, :].tolist()
+
+                # We must now add a padding of zeros at the end of auxiliar to make sure that for all i the wij have the same length.
+                # This is necessary to convert these list into arrays later on.
+                for j in range(len(auxiliar), maxjwij[d]):
+                    auxiliar.append(0.0)
+
+                wijaux.append(np.array(auxiliar))
+
         wij.append(np.array(wijaux))
+
         # Now that we know the wij we must use them to compute the whij
-        # We begin by adressing the special case p=1
+        # We begin by adressing the special case p=1 and periodic
         # This is a special case since some of the integrals in the definition of the histopolation operator vanish.
-        if p == 1:
-            if periodic:
-                # Number of D-splines
-                nD = Nbasis
+        if periodic:
+            # Number of D-splines
+            nD = Nbasis
+            if p == 1:
+                for i in range(nD):
+                    whijaux.append(np.array([wijaux[i][0], wijaux[i][0]]))
             else:
-                # Number of D-splines
-                nD = Nbasis - 1
-            for i in range(nD):
-                whijaux.append(np.array([wijaux[i][0], wijaux[i][0]]))
-        else:
-            if periodic:
-                # Number of D-splines
-                nD = Nbasis
                 whats = [wijaux[0][0], wijaux[0][0] + wijaux[0][1]]
                 for j in range(2, 2 * p - 1):
                     whats.append(wijaux[0][j - 1] + wijaux[0][j])
                 whats.append(wijaux[0][2 * p - 2])
                 for i in range(nD):
                     whijaux.append(np.array(whats))
-            else:
-                # Number of D-splines
-                nD = Nbasis - 1
-                for i in range(p - 1):
-                    whats = [wijaux[i][0] - wijaux[i + 1][0]]
-                    for j in range(1, 2 * p - 2):
-                        whats.append(whats[j - 1] + wijaux[i][j] - wijaux[i + 1][j])
-                    whats.append(0.0)
-                    whats.append(0.0)
-                    whijaux.append(np.array(whats))
 
-                i = p - 1
-                whats = [wijaux[i][0], wijaux[i][0] + wijaux[i][1]]
-                whats.append(
-                    wijaux[i][0] + wijaux[i][1] + wijaux[i][2] - wijaux[i + 1][0],
-                )
-                for j in range(3, 2 * p - 1):
-                    whats.append(whats[j - 1] + wijaux[i][j] - wijaux[i + 1][j - 2])
-                whats.append(whats[2 * p - 2] - wijaux[i + 1][2 * p - 3])
-                for i in range(p - 1, nD - p + 1):
-                    whijaux.append(np.array(whats))
+        else:
+            # Number of D-splines
+            nD = Nbasis - 1
+            for i in range(nD):
+                whats = []
 
-                for i in range(nD - p + 1, nD):
-                    whats = [wijaux[i][0] - wijaux[i + 1][0]]
-                    for j in range(1, 2 * p - 2):
-                        whats.append(whats[j - 1] + wijaux[i][j] - wijaux[i + 1][j])
-                    whats.append(0.0)
-                    whats.append(0.0)
-                    whijaux.append(np.array(whats))
+                if i == 0 or i == (Nbasis - 2):
+                    for j in range(maxjwhij[d]):
+                        if j <= p - 1:
+                            sumval = 0.0
+                            for q in range(j + 1):
+                                sumval += wijaux[i][q] - wijaux[i + 1][q]
+                            whats.append(sumval)
+                        else:
+                            whats.append(0.0)
+
+                elif 0 < i and i < (p - 1):
+                    for j in range(maxjwhij[d]):
+                        if j <= (p + i - 2):
+                            sumval = 0.0
+                            for q in range(j + 1, p + i):
+                                sumval += wijaux[i][q]
+                            whats.append(-1.0 * sumval)
+                        elif j == (p + i - 1):
+                            whats.append(0.0)
+                        elif (p + i) <= j and j <= (2 * p + 2 * i - 1):
+                            sumval = 0.0
+                            for q in range(j - p - i + 1, p + i + 1):
+                                sumval += wijaux[i + 1][q]
+                            whats.append(sumval)
+                        else:
+                            whats.append(0.0)
+
+                elif (p - 1) <= i and i < (Nbasis - p):
+                    for j in range(maxjwhij[d]):
+                        if j == 0:
+                            whats.append(wijaux[i][0])
+                        elif j == 1:
+                            whats.append(wijaux[i][0] + wijaux[i][1])
+                        elif 2 <= j and j <= (2 * p - 2):
+                            sumval = 0.0
+                            for q in range(j - 1):
+                                sumval += wijaux[i][q] - wijaux[i + 1][q]
+                            sumval += wijaux[i][j - 1]
+                            sumval += wijaux[i][j]
+                            whats.append(sumval)
+
+                        elif j == (2 * p - 1):
+                            sumval = 0.0
+                            for q in range(2 * p - 2):
+                                sumval += wijaux[i][q] - wijaux[i + 1][q]
+                            sumval += wijaux[i][2 * p - 2]
+                            whats.append(sumval)
+                        else:
+                            whats.append(0.0)
+
+                elif (Nbasis - p) <= i and i < (Nbasis - 2):
+                    for j in range(maxjwhij[d]):
+                        if j <= (Nbasis + p - i - 3):
+                            sumval = 0.0
+                            for q in range(j + 1):
+                                sumval += wijaux[i][q]
+                            whats.append(sumval)
+
+                        elif j == (Nbasis + p - i - 2):
+                            whats.append(0.0)
+
+                        elif (Nbasis + p - i - 1) <= j and j <= (2 * Nbasis + 2 * p - 2 * i - 5):
+                            sumval = 0.0
+                            for q in range(j - Nbasis - p + i + 2):
+                                sumval += wijaux[i + 1][q]
+                            whats.append(-1.0 * sumval)
+
+                        else:
+                            whats.append(0.0)
+
+                whijaux.append(np.array(whats))
 
         whij.append(np.array(whijaux))
 
@@ -2831,22 +2974,28 @@ def select_basis_local(i, p, Nbasis, periodic):
     Returns
     -------
     start : int
-        Start index of the B-splines that must be consider in the collocation matrix to obtain the wij weights.
+        Start index of the B-splines that must be consider in the collocation matrix to obtain the wij weights. Inclusive index
 
     end : int
-        End index of the B-splines that must be consider in the collocation matrix to obtain the wij weights.
+        End index of the B-splines that must be consider in the collocation matrix to obtain the wij weights. Exclusive index
     """
     if periodic:
         start = (i + 1 - p) % Nbasis
         end = (i + p) % Nbasis
     else:
-        if i < p - 1:
+        if i == 0:
             start = 0
-            end = 2 * p - 1
-        elif i <= Nbasis - p:
+            end = p + 1
+        elif i < (p - 1):
+            start = 0
+            end = p + i
+        elif i <= (Nbasis - p):
             start = i + 1 - p
             end = i + p
-        else:
-            start = Nbasis - 2 * p + 1
+        elif i < (Nbasis - 1):
+            start = i + 1 - p
+            end = Nbasis
+        elif i == (Nbasis - 1):
+            start = Nbasis - 1 - p
             end = Nbasis
     return start, end

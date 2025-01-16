@@ -2,8 +2,7 @@ from struphy.console.run import subp_run
 
 
 def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, yes):
-    """
-    Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
+    """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
     Parameters
     ----------
@@ -40,7 +39,6 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
     import sysconfig
 
     import pyccel
-    import yaml
 
     import struphy
     import struphy.dependencies as depmod
@@ -97,12 +95,13 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         subp_run(cmd)
         print("Done.")
 
+        print("\nDeleting psydac kernels ...")
         cmd = [
-            "struphy",
-            "compile",
-            "--status",
+            "psydac-accelerate",
+            "--cleanup",
         ]
         subp_run(cmd)
+        print("Done.")
 
         print("\nDeleting state.yml ...")
         os.remove(os.path.join(libpath, "state.yml"))
@@ -113,7 +112,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         count_c = 0
         count_f90 = 0
         list_not_compiled = [s for s in state["kernels"]]
-        for subdir, dirs, files in os.walk(libpath):
+        for subdir, _, files in os.walk(libpath):
             # print(f'{subdir = }')
             if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
                 dir_stem = "/".join(subdir.split("/")[:-1])

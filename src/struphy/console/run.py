@@ -26,8 +26,7 @@ def struphy_run(
     likwid_repetitions=1,
     group="MEM_DP",
 ):
-    """
-    Run a Struphy model: prepare arguments, output folder and execute main().
+    """Run a Struphy model: prepare arguments, output folder and execute main().
 
     Parameters
     ----------

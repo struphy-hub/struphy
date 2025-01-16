@@ -53,7 +53,7 @@ dependencies = [
     'flake8',
     'pylint',
     'add-trailing-comma',
-    'ruff',
+    'ruff>=0.9.1',
     'pre-commit',
     'kaleido',
 ]

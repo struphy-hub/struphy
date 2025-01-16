@@ -11,7 +11,7 @@ from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
 from struphy.feec import preconditioner
-from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
+from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.variational_utilities import BracketOperator
 from struphy.fields_background.mhd_equil.equils import set_defaults
@@ -2022,7 +2022,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print()
 
     def _initialize_projection_operator_TB(self):
-        """Initialize BasisProjectionOperator TB with the time-varying weight.
+        r"""Initialize BasisProjectionOperator TB with the time-varying weight.
 
         .. math::
 
@@ -2042,7 +2042,10 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             return 0 * x
 
         # Initialize BasisProjectionOperator
-        self._TB = BasisProjectionOperator(P1, Vh, [[tmp, tmp, tmp]])
+        if self.derham._with_local_projectors == True:
+            self._TB = BasisProjectionOperatorLocal(P1, Vh, [[tmp, tmp, tmp]])
+        else:
+            self._TB = BasisProjectionOperator(P1, Vh, [[tmp, tmp, tmp]])
 
     def _update_weights_TB(self):
         """Updats time-dependent weights of the BasisProjectionOperator TB"""
@@ -3299,29 +3302,52 @@ class VariationalDensityEvolve(Propagator):
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        self.Pirho = BasisProjectionOperator(
-            P2,
-            Xh,
-            [
-                [None, None, None],
-                [None, None, None],
-                [None, None, None],
-            ],
-            transposed=False,
-            use_cache=True,
-            V_extraction_op=self.derham.extraction_ops["v"],
-            V_boundary_op=self.derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-        )
+        if self.derham._with_local_projectors == True:
+            self.Pirho = BasisProjectionOperatorLocal(
+                P2,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                V_extraction_op=self.derham.extraction_ops["v"],
+                V_boundary_op=self.derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
 
-        self.Piu = BasisProjectionOperator(
-            P2,
-            V3h,
-            [[None], [None], [None]],
-            transposed=False,
-            use_cache=True,
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-        )
+            self.Piu = BasisProjectionOperatorLocal(
+                P2,
+                V3h,
+                [[None], [None], [None]],
+                transposed=False,
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
+        else:
+            self.Pirho = BasisProjectionOperator(
+                P2,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                V_extraction_op=self.derham.extraction_ops["v"],
+                V_boundary_op=self.derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
+
+            self.Piu = BasisProjectionOperator(
+                P2,
+                V3h,
+                [[None], [None], [None]],
+                transposed=False,
+                use_cache=True,
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
 
         self.PirhoT = self.Pirho.T
 
@@ -4381,29 +4407,53 @@ class VariationalEntropyEvolve(Propagator):
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        self.Pis = BasisProjectionOperator(
-            P2,
-            Xh,
-            [
-                [None, None, None],
-                [None, None, None],
-                [None, None, None],
-            ],
-            transposed=False,
-            use_cache=True,
-            V_extraction_op=self.derham.extraction_ops["v"],
-            V_boundary_op=self.derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-        )
+        if self.derham._with_local_projectors == True:
+            self.Pis = BasisProjectionOperatorLocal(
+                P2,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                V_extraction_op=self.derham.extraction_ops["v"],
+                V_boundary_op=self.derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
 
-        self.Piu = BasisProjectionOperator(
-            P2,
-            V3h,
-            [[None], [None], [None]],
-            transposed=False,
-            use_cache=True,
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-        )
+            self.Piu = BasisProjectionOperatorLocal(
+                P2,
+                V3h,
+                [[None], [None], [None]],
+                transposed=False,
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
+
+        else:
+            self.Pis = BasisProjectionOperator(
+                P2,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                V_extraction_op=self.derham.extraction_ops["v"],
+                V_boundary_op=self.derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
+
+            self.Piu = BasisProjectionOperator(
+                P2,
+                V3h,
+                [[None], [None], [None]],
+                transposed=False,
+                use_cache=True,
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
+            )
 
         self.PisT = self.Pis.T
 
@@ -5269,33 +5319,60 @@ class VariationalMagFieldEvolve(Propagator):
         V2h = self.derham.Vh_fem["2"]
 
         # Initialize the BasisProjectionOperators
-        self.Pib = BasisProjectionOperator(
-            P1,
-            Xh,
-            [
-                [None, None, None],
-                [None, None, None],
-                [None, None, None],
-            ],
-            transposed=False,
-            use_cache=True,
-            V_extraction_op=self.derham.extraction_ops["v"],
-            V_boundary_op=self.derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-        )
+        if self.derham._with_local_projectors == True:
+            self.Pib = BasisProjectionOperatorLocal(
+                P1,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                V_extraction_op=self.derham.extraction_ops["v"],
+                V_boundary_op=self.derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
+            )
 
-        self.Piu = BasisProjectionOperator(
-            P1,
-            V2h,
-            [
-                [None, None, None],
-                [None, None, None],
-                [None, None, None],
-            ],
-            transposed=False,
-            use_cache=True,
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-        )
+            self.Piu = BasisProjectionOperatorLocal(
+                P1,
+                V2h,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
+            )
+        else:
+            self.Pib = BasisProjectionOperator(
+                P1,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                V_extraction_op=self.derham.extraction_ops["v"],
+                V_boundary_op=self.derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
+            )
+
+            self.Piu = BasisProjectionOperator(
+                P1,
+                V2h,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
+            )
 
         self.PibT = self.Pib.T
 

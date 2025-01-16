@@ -1248,7 +1248,7 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
         ax[0, 0].plot(r, self.psi_r(r))
         ax[0, 0].set_xlabel("$r$")
-        ax[0, 0].set_ylabel("$\psi$")
+        ax[0, 0].set_ylabel(r"$\psi$")
 
         ax[0, 1].plot(r, self.q_r(r))
         ax[0, 1].set_xlabel("$r$")
@@ -1630,18 +1630,18 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
         ax[0, 0].plot(r, self.psi_r(r))
         ax[0, 0].set_xlabel("$r$")
-        ax[0, 0].set_ylabel("$\psi$")
+        ax[0, 0].set_ylabel(r"$\psi$")
 
         ax[0, 1].plot(psi, self.q_psi(psi))
-        ax[0, 1].set_xlabel("$\psi$")
+        ax[0, 1].set_xlabel(r"$\psi$")
         ax[0, 1].set_ylabel("$q$")
 
         ax[1, 0].plot(psi, self.p_psi(psi))
-        ax[1, 0].set_xlabel("$\psi$")
+        ax[1, 0].set_xlabel(r"$\psi$")
         ax[1, 0].set_ylabel("$p$")
 
         ax[1, 1].plot(psi, self.n_psi(psi))
-        ax[1, 1].set_xlabel("$\psi$")
+        ax[1, 1].set_xlabel(r"$\psi$")
         ax[1, 1].set_ylabel("$n$")
 
         plt.subplots_adjust(wspace=0.4, hspace=0.4)
@@ -2493,7 +2493,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
         t = time()
         import desc
 
-        print(f"DESC import: {time()-t} seconds")
+        print(f"DESC import: {time() - t} seconds")
         from mpi4py import MPI
 
         import struphy
@@ -2545,7 +2545,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
         else:
             self._eq = desc.io.load(eq_name)
 
-        print(f"Eq. load: {time()-t} seconds")
+        print(f"Eq. load: {time() - t} seconds")
         self._rmin = params["rmin"]
         self._use_nfp = params["use_nfp"]
 
@@ -3001,7 +3001,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
         # make c-contiguous
         out = np.ascontiguousarray(out)
-        print(f"desc_eval for {var}: {time()-ttime} seconds")
+        print(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 
 

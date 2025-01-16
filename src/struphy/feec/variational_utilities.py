@@ -52,7 +52,11 @@ class BracketOperator(LinOpWithTransp):
     """
 
     def __init__(self, derham, u):
-        from struphy.feec.basis_projection_ops import BasisProjectionOperator, CoordinateProjector
+        from struphy.feec.basis_projection_ops import (
+            BasisProjectionOperator,
+            BasisProjectionOperatorLocal,
+            CoordinateProjector,
+        )
 
         Xh = derham.Vh_fem["v"]
         V1h = derham.Vh_fem["1"]
@@ -81,47 +85,88 @@ class BracketOperator(LinOpWithTransp):
         self.Pcoord3 = CoordinateProjector(2, derham.Vh_pol["v"], derham.Vh_pol["0"]) @ derham.boundary_ops["v"]
 
         # Initialize the BasisProjectionOperators
-        self.PiuT = BasisProjectionOperator(
-            P0,
-            V1h,
-            [[None, None, None]],
-            transposed=True,
-            use_cache=True,
-            V_extraction_op=derham.extraction_ops["1"],
-            V_boundary_op=IdentityOperator(derham.Vh_pol["1"]),
-            P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
-        )
+        if derham._with_local_projectors == True:
+            self.PiuT = BasisProjectionOperatorLocal(
+                P0,
+                V1h,
+                [[None, None, None]],
+                transposed=True,
+                V_extraction_op=derham.extraction_ops["1"],
+                V_boundary_op=IdentityOperator(derham.Vh_pol["1"]),
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
 
-        self.PigvT_1 = BasisProjectionOperator(
-            P0,
-            Xh,
-            [[None, None, None]],
-            transposed=True,
-            use_cache=True,
-            V_extraction_op=derham.extraction_ops["v"],
-            V_boundary_op=derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
-        )
-        self.PigvT_2 = BasisProjectionOperator(
-            P0,
-            Xh,
-            [[None, None, None]],
-            transposed=True,
-            use_cache=True,
-            V_extraction_op=derham.extraction_ops["v"],
-            V_boundary_op=derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
-        )
-        self.PigvT_3 = BasisProjectionOperator(
-            P0,
-            Xh,
-            [[None, None, None]],
-            transposed=True,
-            use_cache=True,
-            V_extraction_op=derham.extraction_ops["v"],
-            V_boundary_op=derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
-        )
+            self.PigvT_1 = BasisProjectionOperatorLocal(
+                P0,
+                Xh,
+                [[None, None, None]],
+                transposed=True,
+                V_extraction_op=derham.extraction_ops["v"],
+                V_boundary_op=derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
+
+            self.PigvT_2 = BasisProjectionOperatorLocal(
+                P0,
+                Xh,
+                [[None, None, None]],
+                transposed=True,
+                V_extraction_op=derham.extraction_ops["v"],
+                V_boundary_op=derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
+
+            self.PigvT_3 = BasisProjectionOperatorLocal(
+                P0,
+                Xh,
+                [[None, None, None]],
+                transposed=True,
+                V_extraction_op=derham.extraction_ops["v"],
+                V_boundary_op=derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
+        else:
+            self.PiuT = BasisProjectionOperator(
+                P0,
+                V1h,
+                [[None, None, None]],
+                transposed=True,
+                use_cache=True,
+                V_extraction_op=derham.extraction_ops["1"],
+                V_boundary_op=IdentityOperator(derham.Vh_pol["1"]),
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
+
+            self.PigvT_1 = BasisProjectionOperator(
+                P0,
+                Xh,
+                [[None, None, None]],
+                transposed=True,
+                use_cache=True,
+                V_extraction_op=derham.extraction_ops["v"],
+                V_boundary_op=derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
+            self.PigvT_2 = BasisProjectionOperator(
+                P0,
+                Xh,
+                [[None, None, None]],
+                transposed=True,
+                use_cache=True,
+                V_extraction_op=derham.extraction_ops["v"],
+                V_boundary_op=derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
+            self.PigvT_3 = BasisProjectionOperator(
+                P0,
+                Xh,
+                [[None, None, None]],
+                transposed=True,
+                use_cache=True,
+                V_extraction_op=derham.extraction_ops["v"],
+                V_boundary_op=derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(derham.Vh_pol["0"]),
+            )
 
         # Store the interpolation grid for later use in _update_all_weights
         interpolation_grid = [pts.flatten() for pts in derham.proj_grid_pts["0"]]

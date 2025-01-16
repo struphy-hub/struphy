@@ -205,7 +205,7 @@ class LinearMHDVlasovCC(StruphyModel):
 
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": params_vxb["algo"],
-            "scale_fac": 1.0 / epsilon,
+            "kappa": 1.0 / epsilon,
             "b_eq": self._b_eq,
             "b_tilde": self.pointer["b_field"],
         }
@@ -460,7 +460,7 @@ class LinearMHDVlasovPC(StruphyModel):
             "b_tilde": self.pointer["b_field"],
             "b_eq": self._b_eq,
             "algo": params_vxb["algo"],
-            "scale_fac": epsilon,
+            "kappa": epsilon,
         }
 
         if params_pressure["turn_off"]:
@@ -1136,7 +1136,7 @@ class ColdPlasmaVlasov(StruphyModel):
 
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": algo_vxb,
-            "scale_fac": 1.0 / self._epsilon_cold,
+            "kappa": 1.0 / self._epsilon_cold,
             "b_eq": self._b_background,
             "b_tilde": self.pointer["b_field"],
         }
