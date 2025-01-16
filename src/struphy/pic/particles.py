@@ -397,7 +397,7 @@ class Particles5D(Particles):
 
     @property
     def coords(self):
-        """Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`."""
+        r"""Coordinates of the Particles5D, :math:`(v_\parallel, \mu)`."""
         return "vpara_mu"
 
     @property

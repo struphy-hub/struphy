@@ -2022,7 +2022,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print()
 
     def _initialize_projection_operator_TB(self):
-        """Initialize BasisProjectionOperator TB with the time-varying weight.
+        r"""Initialize BasisProjectionOperator TB with the time-varying weight.
 
         .. math::
 

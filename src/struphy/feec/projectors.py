@@ -1213,12 +1213,12 @@ class CommutingProjectorLocal:
 
     @property
     def wij(self):
-        """List of 2D arrays for the coefficients :math:`\omega_j^i` obtained by inverting the local collocation matrix. Use for obtaining the FE coefficients of a function via interpolation. In format (ns, nb, np) = (spatial direction, B-spline index, point)."""
+        r"""List of 2D arrays for the coefficients :math:`\omega_j^i` obtained by inverting the local collocation matrix. Use for obtaining the FE coefficients of a function via interpolation. In format (ns, nb, np) = (spatial direction, B-spline index, point)."""
         return self._wij
 
     @property
     def whij(self):
-        """List of 2D arrays for the coefficients :math:`\hat{\omega}_j^i` obtained from the :math:`\omega_j^i`. Use for obtaining the FE coefficients of a function via histopolation. In format (ns, nb, np) = (spatial direction, D-spline index, point)."""
+        r"""List of 2D arrays for the coefficients :math:`\hat{\omega}_j^i` obtained from the :math:`\omega_j^i`. Use for obtaining the FE coefficients of a function via histopolation. In format (ns, nb, np) = (spatial direction, D-spline index, point)."""
         return self._whij
 
     def solve(self, rhs, out=None):

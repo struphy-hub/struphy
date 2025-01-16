@@ -2265,7 +2265,7 @@ class Derham:
 
 
 class TransformedPformComponent:
-    """
+    r"""
     Construct callable component of p-form on logical domain (unit cube).
 
     Parameters
