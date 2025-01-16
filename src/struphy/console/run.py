@@ -24,8 +24,7 @@ def struphy_run(
     likwid_input_abs=None,
     likwid_repetitions=1,
 ):
-    """
-    Run a Struphy model: prepare arguments, output folder and execute main().
+    """Run a Struphy model: prepare arguments, output folder and execute main().
 
     Parameters
     ----------
