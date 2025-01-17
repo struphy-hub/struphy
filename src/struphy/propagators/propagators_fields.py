@@ -3014,7 +3014,7 @@ class VariationalDensityEvolve(Propagator):
     ):
         super().__init__(rho, u)
 
-        assert model in ["pressureless", "barotropic", "full", "full_p"]
+        assert model in ["pressureless", "barotropic", "full", "full_p", "linear"]
         if model == "full":
             assert s is not None
         assert mass_ops is not None
@@ -3065,6 +3065,10 @@ class VariationalDensityEvolve(Propagator):
         if self._linearize:
             self._compute_init_linear_form()
 
+        if self._model != "linear":
+            self.rhof1.vector = self.projected_mhd_equil.n3
+            self._update_Pirho()
+
     def __call__(self, dt):
         if self._nonlin_solver["type"] == "Newton":
             self.__call_newton(dt)
@@ -3081,6 +3085,15 @@ class VariationalDensityEvolve(Propagator):
         # Initial variables
         rhon = self.feec_vars[0]
         un = self.feec_vars[1]
+
+        if self._model == "linear":
+            advection = self.divPirho.dot(un, out = self._tmp_rho_advection)
+            advection *= dt
+            rhon1 = rhon.copy(out = self._tmp_rhon1)
+            rhon1 -= advection
+            self.feec_vars_update(rhon1, un)
+            return
+
         self.rhof.vector = rhon
         self.rhof1.vector = rhon
         self._update_weighted_MM()
@@ -5037,22 +5050,6 @@ class VariationalPressureEvolve(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct["lin_solver"] = {
-            "tol": 1e-12,
-            "maxiter": 500,
-            "type": [
-                ("pcg", "MassMatrixDiagonalPreconditioner"),
-                ("cg", None),
-            ],
-            "verbose": False,
-        }
-        dct["nonlin_solver"] = {
-            "tol": 1e-8,
-            "maxiter": 100,
-            "type": ["Newton"],
-            "info": False,
-            "linearize": False,
-        }
         dct["physics"] = {"gamma": 5 / 3}
 
         if default:
@@ -5068,14 +5065,12 @@ class VariationalPressureEvolve(Propagator):
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
         mass_ops: WeightedMassOperator,
-        lin_solver: dict = options(default=True)["lin_solver"],
-        nonlin_solver: dict = options(default=True)["nonlin_solver"],
         div_u: StencilVector | None = None,
         u2: BlockVector | None = None,
     ):
         super().__init__(p, u)
 
-        assert model in ["full_p"]
+        assert model in ["full_p", "linear"]
         self._divu = div_u
         self._u2 = u2
 
@@ -5085,11 +5080,6 @@ class VariationalPressureEvolve(Propagator):
         self._gamma = gamma
 
         self._mass_ops = mass_ops
-        self._lin_solver = lin_solver
-        self._nonlin_solver = nonlin_solver
-        self._linearize = self._nonlin_solver["linearize"]
-
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
         self.WMM = mass_ops
 
@@ -5122,21 +5112,13 @@ class VariationalPressureEvolve(Propagator):
         self._tmp_p_advection = p.space.zeros()
         self._linear_form_dl_dp = p.space.zeros()
         self._update_linear_form_u2()
-
-        if self._linearize:
-            raise NotImplementedError("linearize not implemented for VariationalPressureEvolve")
+        
+        if self._model == "linear":
+            self._create_transop0()
 
     def __call__(self, dt):
-        if self._nonlin_solver["type"] == "Newton":
-            self.__call_newton(dt)
-        else:
-            raise ValueError("Wrong non-linear solver in VariationalPressureEvolve")
+        """Solve the system by explicit update"""
 
-    def __call_newton(self, dt):
-        """Solve the non linear system for updating the variables using Newton iteration method"""
-        if self._info:
-            print()
-            print("Newton iteration in VariationalPressureEvolve")
         # Compute implicit approximation of s^{n+1}
         pn = self.feec_vars[0]
         un = self.feec_vars[1]
@@ -5146,84 +5128,46 @@ class VariationalPressureEvolve(Propagator):
         self.pf.vector = pn
         self.pc.update_mass_operator(self._Mrho)
 
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
-
         gradp = self.grad.dot(pn, out=self._tmp_grad_pn)
         self.gradpf.vector = gradp
 
         self._update_Proj()
 
-        un1 = un.copy(out=self._tmp_un1)
         pn1 = pn.copy(out=self._tmp_pn1)
-        un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
-        tol = self._nonlin_solver["tol"]
-        err = tol + 1
+        mn1 = self._Mrho.dot(un, out=self._tmp_mn1)
 
-        for it in range(self._nonlin_solver["maxiter"]):
-            # Newton iteration
-
-            un12 = un.copy(out=self._tmp_un12)
-            un12 += un1
-            un12 *= 0.5
-
-            # Update the linear form
-            self.uf1.vector = un1
-
-            # Compute the advection terms
-            advection = self._transopT.dot(
-                self._linear_form_dl_dp,
-                out=self._tmp_advection,
+        # Advance the velocity (always explicit)
+        advection = self._transopT.dot(
+            self._linear_form_dl_dp,
+            out=self._tmp_advection,
             )
-            advection *= dt
+        advection *= dt
 
-            p_advection = self._transop.dot(
+        mn1 -= advection
+        un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
+
+        # Middle velocity
+        un12 = un.copy(out=self._tmp_un12)
+        un12 += un1
+        un12 *= 0.5
+
+        # Update p
+        if self._model == "linear":
+
+            p_advection = self._transop0.dot(
                 un12,
                 out=self._tmp_p_advection,
             )
-            p_advection *= dt
 
-            # Get diff
-            pn_diff = pn1.copy(out=self._tmp_pn_diff)
-            pn_diff -= pn
-            pn_diff += p_advection
+        elif self._model == "full_p":
+            p_advection = self._transop.dot(
+                un12,
+                out=self._tmp_p_advection,
+            )     
 
-            mn_diff = mn1.copy(out=self._tmp_mn_diff)
-            mn_diff -= mn
-            mn_diff += advection
+        p_advection *= dt
 
-            # Get error
-            err = self._get_error_newton(mn_diff, pn_diff)
-
-            if self._info:
-                print("iteration : ", it, " error : ", err)
-
-            if err < tol**2 or np.isnan(err):
-                break
-
-            # Derivative for Newton
-            self._get_jacobian(dt)
-
-            # Newton step
-            self._tmp_f[0] = mn_diff
-            self._tmp_f[1] = pn_diff
-
-            incr = self._inv_Jacobian.dot(self._tmp_f, out=self._tmp_incr)
-            if self._info:
-                print(
-                    "information on the linear solver : ",
-                    self._inv_Jacobian._solver._info,
-                )
-            un1 -= incr[0]
-            pn1 -= incr[1]
-
-            # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
-
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
-            print(
-                f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }",
-            )
+        pn1 -= p_advection
 
         self.div.dot(un12, out=self._divu)
         self.Uv.dot(un12, out=self._u2)
@@ -5321,84 +5265,20 @@ class VariationalPressureEvolve(Propagator):
         self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
-        if self._lin_solver["type"][1] is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self._lin_solver["type"][1],
-            )
-            self.pc = pc_class(self._Mrho)
+        
+        pc_class = getattr(
+            preconditioner,
+            'MassMatrixDiagonalPreconditioner',
+        )
+        self.pc = pc_class(self._Mrho)
 
         self._Mrhoinv = inverse(
             self._Mrho,
-            self._lin_solver["type"][0],
+            'pcg',
             pc=self.pc,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
-            recycle=True,
-        )
-
-        # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv,
-        )
-        self._inv_Mv = inverse(
-            self.mass_ops.Mv,
-            "pcg",
-            pc=self.pc_Mv,
             tol=1e-16,
             maxiter=1000,
             verbose=False,
-        )
-
-        # For Newton solve
-
-        Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
-            self.derham.Vh_pol["3"],
-        )
-
-        self._tmp_f = Jacs.zeros()
-        self._tmp_incr = Jacs.zeros()
-
-        self._Jacobian = BlockLinearOperator(Jacs, Jacs)
-
-        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
-
-        self._zero_op = ZeroOperator(
-            self.derham.Vh_pol["3"],
-            self.derham.Vh_pol["v"],
-        )
-
-        # local version to avoid creating new version of LinearOperator every time
-        self._dt2_transop = 2 * self._transop
-
-        self._Jacobian[0, 0] = self._Mrho
-        self._Jacobian[0, 1] = self._zero_op
-        self._Jacobian[1, 0] = self._dt2_transop
-        self._Jacobian[1, 1] = self._I3
-
-        from struphy.linear_algebra.schur_solver import SchurSolverFull
-
-        self._pc_full_mass = inverse(
-            self._Mrho,
-            self._lin_solver["type"][0],
-            pc=self.pc,
-            tol=0.01 * self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
-
-        self._inv_Jacobian = SchurSolverFull(
-            self._Jacobian,
-            "pcg",
-            pc=self._pc_full_mass,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
             recycle=True,
         )
 
@@ -5458,6 +5338,61 @@ class VariationalPressureEvolve(Propagator):
             [[self._mapped_gradpf_values[0], self._mapped_gradpf_values[1], self._mapped_gradpf_values[2]]]
         )
 
+    def _create_transop0(self):
+        """Update the weights of the `BasisProjectionOperator`"""
+
+        self.pf.vector = self.projected_mhd_equil.p3
+        self.gradpf.vector = self.grad.dot(self.projected_mhd_equil.p3)
+        pf_values = self.pf.eval_tp_fixed_loc(
+            self.int_grid_spans,
+            self.int_grid_bd,
+            out=self._pf_values,
+        )
+
+        self._mapped_pf_values *= 0.0
+        self._mapped_pf_values += pf_values
+        self._mapped_pf_values *= self._proj_p_metric
+
+        grad_pf_values = self.gradpf.eval_tp_fixed_loc(
+            self.int_grid_spans,
+            self._int_grid_grad,
+            out=self._gradpf_values,
+        )
+
+        for j in range(3):
+            self._mapped_gradpf_values[j] *= 0.0
+            for i in range(3):
+                self._mapped_gradpf_values[j] += self._proj_gradp_metric[j][i] * grad_pf_values[i]
+        
+        P3 = self.derham.P["3"]
+        Xh = self.derham.Vh_fem["v"]
+        V3h = self.derham.Vh_fem["3"]
+
+        self.Pip0 = BasisProjectionOperator(
+            P3,
+            V3h,
+            [[self._mapped_pf_values]],
+            transposed=False,
+            use_cache=True,
+            V_extraction_op=self.derham.extraction_ops["3"],
+            V_boundary_op=self.derham.boundary_ops["3"],
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol["3"]),
+        )
+
+        self.Pigradp0 = BasisProjectionOperator(
+            P3,
+            Xh,
+            [[self._mapped_gradpf_values[0], self._mapped_gradpf_values[1], self._mapped_gradpf_values[2]]],
+            transposed=False,
+            use_cache=True,
+            V_extraction_op=self.derham.extraction_ops["v"],
+            V_boundary_op=self.derham.boundary_ops["v"],
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol["3"]),
+        )
+
+        self._transop0 = self.Pigradp0 + self._gamma * self.Pip0 @ self.div
+
+
     def _update_linear_form_u2(self):
         """Update the linearform representing integration in V3 against kynetic energy"""
 
@@ -5467,22 +5402,6 @@ class VariationalPressureEvolve(Propagator):
             self._tmp_int_grid *= self._energy_metric_term
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
-
-    def _get_jacobian(self, dt):
-        self._dt2_transop._scalar = dt / 2.0
-
-    def _get_error_newton(self, mn_diff, pn_diff):
-        weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            out=self._tmp_un_weak_diff,
-        )
-        weak_pn_diff = self.mass_ops.M3.dot(
-            pn_diff,
-            out=self._tmp_pn_weak_diff,
-        )
-        err_p = weak_pn_diff.dot(pn_diff)
-        err_u = weak_un_diff.dot(mn_diff)
-        return max(err_p, err_u)
 
 
 class VariationalMagFieldEvolve(Propagator):
@@ -5561,12 +5480,16 @@ class VariationalMagFieldEvolve(Propagator):
         b: BlockVector,
         u: BlockVector,
         *,
+        model: str= "full",
         mass_ops: WeightedMassOperator,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
     ):
         super().__init__(b, u)
 
+
+        assert model in ["full","full_p", "linear"]
+        self._model = model
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
@@ -5675,14 +5598,19 @@ class VariationalMagFieldEvolve(Propagator):
             un12 *= 0.5
 
             # Update the linear form
-            self.uf1.vector = un1
             self._update_linear_form_u2()
 
             # Compute the advection terms
-            advection = self.curlPibT.dot(
-                self._linear_form_dl_db,
-                out=self._tmp_advection,
-            )
+            if self._model == "linear":
+                advection = self.curlPibT0.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection,
+                )
+            else:
+                advection = self.curlPibT.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection,
+                )
             advection *= dt
 
             b_advection = self.curlPib.dot(
@@ -5699,6 +5627,15 @@ class VariationalMagFieldEvolve(Propagator):
             mn_diff = mn1.copy(out=self._tmp_mn_diff)
             mn_diff -= mn
             mn_diff += advection
+
+            if self._model == "linear":
+                # momentum equation terms
+                advection = self.curlPibT.dot(
+                    self._linear_form_dl_db0,
+                    out=self._tmp_advection,
+                )
+                # update momentum
+                mn1 -= advection
 
             # Get error
             err = self._get_error_newton(mn_diff, bn_diff)
@@ -6003,9 +5940,23 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
+        if self._model == "linear":
+            # initialize the jacobian differently if linear model
+            self.bf.vector = self.projected_mhd_equil.b2
+            self._create_Pib0()
+            self.curlPib0 = self.curl @ self.Pib0
+            self.curlPibT0 = self.Pib0.T @ self.curl.T
+
+            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_mhd_equil.b2)
+
+            self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
+            self._dt2_curlPib = 2 * self.curlPib0
+
+        else:
+            self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT @ self.mass_ops.M2)
+            self._dt2_curlPib = 2 * self.curlPib
+
         # local version to avoid creating new version of LinearOperator every time
-        self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT @ self.mass_ops.M2)
-        self._dt2_curlPib = 2 * self.curlPib
 
         self._Jacobian[0, 0] = self._Mrho
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
@@ -6075,6 +6026,42 @@ class VariationalMagFieldEvolve(Propagator):
                 [-bf2_values[1], bf2_values[0], None],
             ]
         )
+
+    def _create_Pib0(self):
+
+        self.bf.vector = self.projected_mhd_equil.b2
+
+        bf0_values = self.bf.eval_tp_fixed_loc(
+            self.hist_grid_0_spans,
+            self.hist_grid_0_b,
+            out=self._bf0_values,
+        )
+        bf1_values = self.bf.eval_tp_fixed_loc(
+            self.hist_grid_1_spans,
+            self.hist_grid_1_b,
+            out=self._bf1_values,
+        )
+        bf2_values = self.bf.eval_tp_fixed_loc(
+            self.hist_grid_2_spans,
+            self.hist_grid_2_b,
+            out=self._bf2_values,
+        )
+
+        P1 = self.derham.P["1"]
+
+        Xh = self.derham.Vh_fem["v"]
+
+        self.Pib0 = BasisProjectionOperator(
+                P1,
+                Xh,
+                [[None, -bf0_values[2], bf0_values[1]],
+                [bf1_values[2], None, -bf1_values[0]],
+                [-bf2_values[1], bf2_values[0], None]],
+                transposed=False,
+                V_extraction_op=self.derham.extraction_ops["v"],
+                V_boundary_op=self.derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
+            )
 
     def _update_Piu(self):
         """Update the weights of the `BasisProjectionOperator`"""
