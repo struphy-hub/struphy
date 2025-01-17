@@ -31,9 +31,9 @@ class FluidEquilibrium(metaclass=ABCMeta):
     @property
     def domain(self):
         """Domain object that characterizes the mapping from the logical to the physical domain."""
-        assert hasattr(
-            self, "_domain"
-        ), "Domain for Cartesian MHD equilibrium not set. Only b_xyz, j_xyz, p_xyz and n_xyz available at this stage. Please do obj.domain = ... to have access to all transformations (1-form, 2-form, etc.)"
+        assert hasattr(self, "_domain"), (
+            "Domain for Cartesian MHD equilibrium not set. Only b_xyz, j_xyz, p_xyz and n_xyz available at this stage. Please do obj.domain = ... to have access to all transformations (1-form, 2-form, etc.)"
+        )
         return self._domain
 
     @domain.setter
@@ -240,7 +240,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis("equal")
-            ax.set_title("Poloidal plane at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
+            ax.set_title(r"Poloidal plane at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
 
         # top view
         e1 = np.linspace(0, 1, n1)  # radial coordinate in [0, 1]
@@ -306,7 +306,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis("equal")
-            ax.set_title("Jacobian determinant at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
+            ax.set_title(r"Jacobian determinant at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
             fig.colorbar(map, ax=ax, location="right")
 
         # pressure
@@ -334,7 +334,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis("equal")
-            ax.set_title("Pressure at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
+            ax.set_title(r"Pressure at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
             fig.colorbar(map, ax=ax, location="right")
 
         # ion velocity
@@ -362,5 +362,5 @@ class FluidEquilibrium(metaclass=ABCMeta):
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
             ax.axis("equal")
-            ax.set_title("Ion velocity (abs) at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
+            ax.set_title(r"Ion velocity (abs) at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]))
             fig.colorbar(map, ax=ax, location="right")

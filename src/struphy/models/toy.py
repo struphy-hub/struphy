@@ -162,7 +162,7 @@ class Vlasov(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": ions_params["options"]["PushVxB"]["algo"],
-            "scale_fac": 1.0,
+            "kappa": 1.0,
             "b_eq": self._b_eq,
             "b_tilde": None,
         }
