@@ -807,6 +807,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
+                "subtract_equil": params_cc_gradB["subtract_equil"],
             }
 
         if params_cc_curlb["turn_off"]:
@@ -825,6 +826,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_curlb["boundary_cut"],
+                "subtract_equil": params_cc_curlb["subtract_equil"],
             }
 
         if params_density["turn_off"]:
@@ -841,6 +843,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_density["boundary_cut"],
+                "full_f": True
             }
 
         if params_alfven["turn_off"]:
@@ -856,6 +859,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "accumulated_magnetization": self.pointer["accumulated_magnetization"],
                 "boundary_cut": params_alfven["boundary_cut"],
+                "full_f": False,
             }
 
         if params_sonic["turn_off"]:
@@ -871,6 +875,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_sonic["filter"],
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_sonic["boundary_cut"],
+                "full_f": True,
             }
 
         # Initialize propagators used in splitting substeps
