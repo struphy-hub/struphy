@@ -3028,7 +3028,6 @@ class VariationalDensityEvolve(Propagator):
         self._implicit_transport = self._nonlin_solver["implicit_transport"]
         self._linearize = self._nonlin_solver["linearize"]
 
-        print(self._nonlin_solver)
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
         self.WMM = mass_ops
@@ -5065,7 +5064,7 @@ class VariationalPressureEvolve(Propagator):
         p: StencilVector,
         u: BlockVector,
         *,
-        model: str = "full",
+        model: str = "full_p",
         gamma: float = options()["physics"]["gamma"],
         mass_ops: WeightedMassOperator,
         div_u: StencilVector | None = None,
