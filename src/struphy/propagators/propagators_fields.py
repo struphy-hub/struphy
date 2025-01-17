@@ -3042,7 +3042,10 @@ class VariationalDensityEvolve(Propagator):
 
         # Projector
         self._initialize_projectors_and_mass()
-        self.rhof1.vector = rho
+        if self._model == "linear":
+            self.rhof1.vector = self.projected_mhd_equil.n3
+        else:
+            self.rhof1.vector = rho
         self._update_weighted_MM()
 
         # bunch of temporaries to avoid allocating in the loop
@@ -3065,7 +3068,7 @@ class VariationalDensityEvolve(Propagator):
         if self._linearize:
             self._compute_init_linear_form()
 
-        if self._model != "linear":
+        if self._model == "linear":
             self.rhof1.vector = self.projected_mhd_equil.n3
             self._update_Pirho()
 
@@ -3093,7 +3096,7 @@ class VariationalDensityEvolve(Propagator):
             rhon1 -= advection
             self.feec_vars_update(rhon1, un)
             return
-
+        print("here")
         self.rhof.vector = rhon
         self.rhof1.vector = rhon
         self._update_weighted_MM()
@@ -5144,6 +5147,7 @@ class VariationalPressureEvolve(Propagator):
         advection *= dt
 
         mn1 -= advection
+        self.pc.update_mass_operator(self._Mrho)
         un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
 
         # Middle velocity
@@ -5171,8 +5175,7 @@ class VariationalPressureEvolve(Propagator):
 
         self.div.dot(un12, out=self._divu)
         self.Uv.dot(un12, out=self._u2)
-        self._tmp_sn_diff = pn1 - pn
-        self._tmp_un_diff = un1 - un
+
         self.feec_vars_update(pn1, un1)
 
     def _initialize_projectors_and_mass(self):
@@ -5523,6 +5526,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._tmp_mn1 = u.space.zeros()
         self._tmp_mn_diff = u.space.zeros()
         self._tmp_advection = u.space.zeros()
+        self._tmp_advection2 = u.space.zeros()
         self._tmp_b_advection = b.space.zeros()
         self._linear_form_dl_db = b.space.zeros()
 
@@ -5606,17 +5610,30 @@ class VariationalMagFieldEvolve(Propagator):
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
                 )
+
+                advection2 = self.curlPibT.dot(
+                    self._linear_form_dl_db0,
+                    out=self._tmp_advection2,
+                )
+
+                advection += advection2
+
+                b_advection = self.curlPib0.dot(
+                un12,
+                out=self._tmp_b_advection,
+                )
             else:
                 advection = self.curlPibT.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
                 )
-            advection *= dt
 
-            b_advection = self.curlPib.dot(
+                b_advection = self.curlPib.dot(
                 un12,
                 out=self._tmp_b_advection,
-            )
+                )
+
+            advection *= dt
             b_advection *= dt
 
             # Get diff
@@ -5627,15 +5644,6 @@ class VariationalMagFieldEvolve(Propagator):
             mn_diff = mn1.copy(out=self._tmp_mn_diff)
             mn_diff -= mn
             mn_diff += advection
-
-            if self._model == "linear":
-                # momentum equation terms
-                advection = self.curlPibT.dot(
-                    self._linear_form_dl_db0,
-                    out=self._tmp_advection,
-                )
-                # update momentum
-                mn1 -= advection
 
             # Get error
             err = self._get_error_newton(mn_diff, bn_diff)

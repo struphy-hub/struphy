@@ -1558,11 +1558,6 @@ class LinearVariationalMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        rhon = self.pointer["mhd_rho3"]
-        self._propagators[0].rhof1.vector = rhon
-
-        self._propagators[0]._update_weighted_MM()
-
         WMM = self.WMM
         m1 = WMM.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
 
