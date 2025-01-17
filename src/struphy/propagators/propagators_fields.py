@@ -6548,16 +6548,7 @@ class VariationalViscosity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]], verbose=False)
-                self.pc_jac.update_mass_operator(self.M_de_ds)
-
-            elif self._model == "full_p":
-                deds = self._de_s1_values
-                deds *= 0.0
-                deds += 1 / (self._gamma - 1.0)
-                deds *= self._mass_metric_term
-
-                self.M_de_ds.assemble([[deds]], verbose=False)
-                self.pc_jac.update_mass_operator(self.M_de_ds)
+                self.pc_jac.update_mass_operator(self.M_de_ds)                
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
@@ -6771,6 +6762,15 @@ class VariationalViscosity(Propagator):
                 + 1.0
             )
             self._energy_metric = deepcopy(metric)
+
+            # no need to compute this every time step
+            deds = self._de_s1_values
+            deds *= 0.0
+            deds += 1 / (self._gamma - 1.0)
+            deds *= self._mass_metric_term
+
+            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.pc_jac.update_mass_operator(self.M_de_ds)
 
         metric = np.power(
             self.domain.jacobian_det(
@@ -7166,15 +7166,6 @@ class VariationalResistivity(Propagator):
                 self.M_de_ds.assemble([[deds]], verbose=False)
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
-            elif self._model == "full_p":
-                deds = self._de_s1_values
-                deds *= 0.0
-                deds += 1 / (self._gamma - 1.0)
-                deds *= self._mass_metric_term
-
-                self.M_de_ds.assemble([[deds]], verbose=False)
-                self.pc_jac.update_mass_operator(self.M_de_ds)
-
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
             if self._info:
@@ -7343,6 +7334,15 @@ class VariationalResistivity(Propagator):
                 + 1.0
             )
             self._energy_metric = deepcopy(metric)
+
+            # No need to compute this every iteration
+            deds = self._de_s1_values
+            deds *= 0.0
+            deds += 1 / (self._gamma - 1.0)
+            deds *= self._mass_metric_term
+
+            self.M_de_ds.assemble([[deds]], verbose=False)
+            self.pc_jac.update_mass_operator(self.M_de_ds)
 
         metric = self.domain.metric_inv(
             *integration_grid,
