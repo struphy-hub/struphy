@@ -2617,9 +2617,9 @@ class ImplicitDiffusion(Propagator):
     def x0(self, value):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
-        assert value.space.symbolic_space == "H1", (
-            f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
-        )
+        assert (
+            value.space.symbolic_space == "H1"
+        ), f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
 
         if self._x0 is None:
             self._x0 = value
@@ -7604,9 +7604,9 @@ class AdiabaticPhi(Propagator):
     def x0(self, value):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
-        assert value.space.symbolic_space == "H1", (
-            f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
-        )
+        assert (
+            value.space.symbolic_space == "H1"
+        ), f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
 
         if self._x0 is None:
             self._x0 = value
