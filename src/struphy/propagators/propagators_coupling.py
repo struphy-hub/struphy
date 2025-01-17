@@ -1752,7 +1752,7 @@ class CurrentCoupling5DCurlb(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct['subtract_equil'] = False
+        dct["subtract_equil"] = False
         dct["turn_off"] = False
 
         if default:
@@ -2133,7 +2133,7 @@ class CurrentCoupling5DGradB(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct['subtract_equil'] = False
+        dct["subtract_equil"] = False
         dct["turn_off"] = False
 
         if default:
@@ -2160,7 +2160,7 @@ class CurrentCoupling5DGradB(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        subtract_equil: bool = False
+        subtract_equil: bool = False,
     ):
         from psydac.linalg.solvers import inverse
 

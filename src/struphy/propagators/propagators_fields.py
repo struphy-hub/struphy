@@ -2164,7 +2164,7 @@ class CurrentCoupling5DDensity(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct['full_f'] = True
+        dct["full_f"] = True
         dct["turn_off"] = False
 
         if default:

@@ -843,7 +843,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_density["boundary_cut"],
-                "full_f": True
+                "full_f": True,
             }
 
         if params_alfven["turn_off"]:

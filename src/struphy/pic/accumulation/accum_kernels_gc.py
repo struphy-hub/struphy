@@ -74,20 +74,20 @@ def cc_lin_mhd_5d_D(
     mat12: "float[:,:,:,:,:,:]",
     mat13: "float[:,:,:,:,:,:]",
     mat23: "float[:,:,:,:,:,:]",
-    epsilon: float,                # model specific argument
-    b2_1: "float[:,:,:]",          # model specific argument
-    b2_2: "float[:,:,:]",          # model specific argument
-    b2_3: "float[:,:,:]",          # model specific argument
-    norm_b11: "float[:,:,:]",      # model specific argument
-    norm_b12: "float[:,:,:]",      # model specific argument
-    norm_b13: "float[:,:,:]",      # model specific argument
+    epsilon: float,  # model specific argument
+    b2_1: "float[:,:,:]",  # model specific argument
+    b2_2: "float[:,:,:]",  # model specific argument
+    b2_3: "float[:,:,:]",  # model specific argument
+    norm_b11: "float[:,:,:]",  # model specific argument
+    norm_b12: "float[:,:,:]",  # model specific argument
+    norm_b13: "float[:,:,:]",  # model specific argument
     curl_norm_b1: "float[:,:,:]",  # model specific argument
     curl_norm_b2: "float[:,:,:]",  # model specific argument
     curl_norm_b3: "float[:,:,:]",  # model specific argument
-    basis_u: "int",                # model specific argument
-    scale_mat: "float",            # model specific argument
-    boundary_cut: float,           # model specific argument
-    full_f: bool,                  # model specific argument
+    basis_u: "int",  # model specific argument
+    scale_mat: "float",  # model specific argument
+    boundary_cut: float,  # model specific argument
+    full_f: bool,  # model specific argument
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`.
 
@@ -272,20 +272,20 @@ def cc_lin_mhd_5d_J1(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    epsilon: float,                # model specific argument
-    b1: "float[:,:,:]",            # model specific argument
-    b2: "float[:,:,:]",            # model specific argument
-    b3: "float[:,:,:]",            # model specific argument
-    norm_b11: "float[:,:,:]",      # model specific argument
-    norm_b12: "float[:,:,:]",      # model specific argument
-    norm_b13: "float[:,:,:]",      # model specific argument
+    epsilon: float,  # model specific argument
+    b1: "float[:,:,:]",  # model specific argument
+    b2: "float[:,:,:]",  # model specific argument
+    b3: "float[:,:,:]",  # model specific argument
+    norm_b11: "float[:,:,:]",  # model specific argument
+    norm_b12: "float[:,:,:]",  # model specific argument
+    norm_b13: "float[:,:,:]",  # model specific argument
     curl_norm_b1: "float[:,:,:]",  # model specific argument
     curl_norm_b2: "float[:,:,:]",  # model specific argument
     curl_norm_b3: "float[:,:,:]",  # model specific argument
-    basis_u: "int",                # model specific argument
-    scale_mat: "float",            # model specific argument
-    scale_vec: "float",            # model specific argument
-    boundary_cut: "float",         # model specific argument
+    basis_u: "int",  # model specific argument
+    scale_mat: "float",  # model specific argument
+    scale_vec: "float",  # model specific argument
+    boundary_cut: "float",  # model specific argument
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`.
 
@@ -535,9 +535,9 @@ def cc_lin_mhd_5d_M(
     norm_b11: "float[:,:,:]",  # model specific argument
     norm_b12: "float[:,:,:]",  # model specific argument
     norm_b13: "float[:,:,:]",  # model specific argument
-    scale_vec: "float",        # model specific argument
-    boundary_cut: "float",     # model specific argument
-    full_f: "bool",            # model specific argument
+    scale_vec: "float",  # model specific argument
+    boundary_cut: "float",  # model specific argument
+    full_f: "bool",  # model specific argument
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D` and :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`.
 
@@ -649,26 +649,26 @@ def cc_lin_mhd_5d_J2(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    epsilon: float,                # model specific argument
-    b1: "float[:,:,:]",            # model specific argument
-    b2: "float[:,:,:]",            # model specific argument
-    b3: "float[:,:,:]",            # model specific argument
-    norm_b11: "float[:,:,:]",      # model specific argument
-    norm_b12: "float[:,:,:]",      # model specific argument
-    norm_b13: "float[:,:,:]",      # model specific argument
-    norm_b21: "float[:,:,:]",      # model specific argument
-    norm_b22: "float[:,:,:]",      # model specific argument
-    norm_b23: "float[:,:,:]",      # model specific argument
+    epsilon: float,  # model specific argument
+    b1: "float[:,:,:]",  # model specific argument
+    b2: "float[:,:,:]",  # model specific argument
+    b3: "float[:,:,:]",  # model specific argument
+    norm_b11: "float[:,:,:]",  # model specific argument
+    norm_b12: "float[:,:,:]",  # model specific argument
+    norm_b13: "float[:,:,:]",  # model specific argument
+    norm_b21: "float[:,:,:]",  # model specific argument
+    norm_b22: "float[:,:,:]",  # model specific argument
+    norm_b23: "float[:,:,:]",  # model specific argument
     curl_norm_b1: "float[:,:,:]",  # model specific argument
     curl_norm_b2: "float[:,:,:]",  # model specific argument
     curl_norm_b3: "float[:,:,:]",  # model specific argument
-    grad_PB1: "float[:,:,:]",      # model specific argument
-    grad_PB2: "float[:,:,:]",      # model specific argument
-    grad_PB3: "float[:,:,:]",      # model specific argument
-    basis_u: "int",                # model specific argument
-    scale_mat: "float",            # model specific argument
-    scale_vec: "float",            # model specific argument
-    boundary_cut: "float",         # model specific argument
+    grad_PB1: "float[:,:,:]",  # model specific argument
+    grad_PB2: "float[:,:,:]",  # model specific argument
+    grad_PB3: "float[:,:,:]",  # model specific argument
+    basis_u: "int",  # model specific argument
+    scale_mat: "float",  # model specific argument
+    scale_vec: "float",  # model specific argument
+    boundary_cut: "float",  # model specific argument
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
 
@@ -876,26 +876,25 @@ def cc_lin_mhd_5d_J1_se(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    epsilon: float,                # model specific argument
-    b1: "float[:,:,:]",            # model specific argument
-    b2: "float[:,:,:]",            # model specific argument
-    b3: "float[:,:,:]",            # model specific argument
-    beq1: "float[:,:,:]",            # model specific argument
-    beq2: "float[:,:,:]",            # model specific argument
-    beq3: "float[:,:,:]",            # model specific argument
-    norm_b11: "float[:,:,:]",      # model specific argument
-    norm_b12: "float[:,:,:]",      # model specific argument
-    norm_b13: "float[:,:,:]",      # model specific argument
+    epsilon: float,  # model specific argument
+    b1: "float[:,:,:]",  # model specific argument
+    b2: "float[:,:,:]",  # model specific argument
+    b3: "float[:,:,:]",  # model specific argument
+    beq1: "float[:,:,:]",  # model specific argument
+    beq2: "float[:,:,:]",  # model specific argument
+    beq3: "float[:,:,:]",  # model specific argument
+    norm_b11: "float[:,:,:]",  # model specific argument
+    norm_b12: "float[:,:,:]",  # model specific argument
+    norm_b13: "float[:,:,:]",  # model specific argument
     curl_norm_b1: "float[:,:,:]",  # model specific argument
     curl_norm_b2: "float[:,:,:]",  # model specific argument
     curl_norm_b3: "float[:,:,:]",  # model specific argument
-    basis_u: "int",                # model specific argument
-    scale_mat: "float",            # model specific argument
-    scale_vec: "float",            # model specific argument
-    boundary_cut: "float",         # model specific argument
+    basis_u: "int",  # model specific argument
+    scale_mat: "float",  # model specific argument
+    scale_vec: "float",  # model specific argument
+    boundary_cut: "float",  # model specific argument
 ):
-    r"""TODO
-    """
+    r"""TODO"""
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -1081,35 +1080,34 @@ def cc_lin_mhd_5d_J2_se(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    epsilon: float,                # model specific argument
-    b1: "float[:,:,:]",            # model specific argument
-    b2: "float[:,:,:]",            # model specific argument
-    b3: "float[:,:,:]",            # model specific argument
-    beq1: "float[:,:,:]",            # model specific argument
-    beq2: "float[:,:,:]",            # model specific argument
-    beq3: "float[:,:,:]",            # model specific argument
-    norm_b11: "float[:,:,:]",      # model specific argument
-    norm_b12: "float[:,:,:]",      # model specific argument
-    norm_b13: "float[:,:,:]",      # model specific argument
-    norm_b21: "float[:,:,:]",      # model specific argument
-    norm_b22: "float[:,:,:]",      # model specific argument
-    norm_b23: "float[:,:,:]",      # model specific argument
+    epsilon: float,  # model specific argument
+    b1: "float[:,:,:]",  # model specific argument
+    b2: "float[:,:,:]",  # model specific argument
+    b3: "float[:,:,:]",  # model specific argument
+    beq1: "float[:,:,:]",  # model specific argument
+    beq2: "float[:,:,:]",  # model specific argument
+    beq3: "float[:,:,:]",  # model specific argument
+    norm_b11: "float[:,:,:]",  # model specific argument
+    norm_b12: "float[:,:,:]",  # model specific argument
+    norm_b13: "float[:,:,:]",  # model specific argument
+    norm_b21: "float[:,:,:]",  # model specific argument
+    norm_b22: "float[:,:,:]",  # model specific argument
+    norm_b23: "float[:,:,:]",  # model specific argument
     curl_norm_b1: "float[:,:,:]",  # model specific argument
     curl_norm_b2: "float[:,:,:]",  # model specific argument
     curl_norm_b3: "float[:,:,:]",  # model specific argument
-    grad_PB1: "float[:,:,:]",      # model specific argument
-    grad_PB2: "float[:,:,:]",      # model specific argument
-    grad_PB3: "float[:,:,:]",      # model specific argument
-    grad_PBeq1: "float[:,:,:]",      # model specific argument
-    grad_PBeq2: "float[:,:,:]",      # model specific argument
-    grad_PBeq3: "float[:,:,:]",      # model specific argument
-    basis_u: "int",                # model specific argument
-    scale_mat: "float",            # model specific argument
-    scale_vec: "float",            # model specific argument
-    boundary_cut: "float",         # model specific argument
+    grad_PB1: "float[:,:,:]",  # model specific argument
+    grad_PB2: "float[:,:,:]",  # model specific argument
+    grad_PB3: "float[:,:,:]",  # model specific argument
+    grad_PBeq1: "float[:,:,:]",  # model specific argument
+    grad_PBeq2: "float[:,:,:]",  # model specific argument
+    grad_PBeq3: "float[:,:,:]",  # model specific argument
+    basis_u: "int",  # model specific argument
+    scale_mat: "float",  # model specific argument
+    scale_vec: "float",  # model specific argument
+    boundary_cut: "float",  # model specific argument
 ):
-    r"""TODO
-    """
+    r"""TODO"""
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
