@@ -136,7 +136,7 @@ export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
 
         else:
             # Run all the models
-            likwid_cmd = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker"]  # ['']
+            likwid_cmd = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker", '-mpi', 'openmpi']  # ['']
             command = likwid_cmd + ["python3", f"{LIBPATH}/models/tests/test_performance.py"]
             subprocess.run(command, check=True)
 

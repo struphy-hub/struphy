@@ -147,7 +147,7 @@ def struphy_run(
     if likwid:
         if likwid_inp is None and likwid_input_abs is None:
             # use default likwid parameters
-            likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-stats", "-marker"]
+            likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-stats", "-marker", '-mpi', 'openmpi']
         else:
             if likwid_inp is not None:
                 likwid_input_abs = os.path.join(i_path, likwid_inp)

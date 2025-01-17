@@ -1,5 +1,5 @@
 import inspect
-
+from mpi4py import MPI
 import pytest
 
 from struphy.models import toy
@@ -14,6 +14,7 @@ def profile_performance():
         pylikwid_markerinit,
     )
 
+    comm = MPI.COMM_WORLD
     map_and_equil = ("Cuboid", "HomogenSlab")
     fast = True
     Tend = 0.005
@@ -34,7 +35,7 @@ def profile_performance():
                     )
                     continue
             config.simulation_label = f"{key}_"
-            call_model(key, val, map_and_equil, Tend=Tend)
+            call_model(key, val, map_and_equil, Tend=Tend, comm=comm)
 
     pylikwid_markerclose()
 
