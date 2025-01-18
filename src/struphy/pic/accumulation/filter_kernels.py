@@ -257,8 +257,7 @@ def apply_three_point_filter_3d_mat(
     ends: "int[:]",
     alpha: "float",
 ):
-    r"""TODO
-    """
+    r"""TODO"""
 
     # allocate memory
     mat_copy = empty((shape(mat)), dtype=float)
@@ -339,7 +338,13 @@ def apply_three_point_filter_3d_mat(
                                         if k == ir[2] - 1 and kl == 2:
                                             fi[2] += i_top[2]
 
-                                        tmp += mask[il, jl, kl] * mat_copy[fi[0], fi[1], fi[2], pn[0] + m, pn[1] + n, pn[2] + o]
-                                        tmp += mask[il, jl, kl] * mat_copy[pn[0] + i, pn[1] + j, pn[2] + k, fi[0], fi[1], fi[2]]
+                                        tmp += (
+                                            mask[il, jl, kl]
+                                            * mat_copy[fi[0], fi[1], fi[2], pn[0] + m, pn[1] + n, pn[2] + o]
+                                        )
+                                        tmp += (
+                                            mask[il, jl, kl]
+                                            * mat_copy[pn[0] + i, pn[1] + j, pn[2] + k, fi[0], fi[1], fi[2]]
+                                        )
 
-                            mat[pn[0] + i, pn[1] + j, pn[2] + k, pn[0] + m, pn[1] + n, pn[2] + o] = tmp/2.
+                            mat[pn[0] + i, pn[1] + j, pn[2] + k, pn[0] + m, pn[1] + n, pn[2] + o] = tmp / 2.0

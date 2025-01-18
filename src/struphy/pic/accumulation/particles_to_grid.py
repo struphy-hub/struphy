@@ -297,7 +297,6 @@ class Accumulator:
             #             )
             #     else: AssertionError
 
-
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
                 self.derham.inter_comm.Allreduce(
