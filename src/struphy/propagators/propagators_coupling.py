@@ -1746,6 +1746,7 @@ class CurrentCoupling5DCurlb(Propagator):
             "modes": (1),
             "repeat": 1,
             "alpha": 0.5,
+            "mat": True,
         }
         dct["boundary_cut"] = {
             "e1": 0.0,
@@ -2037,7 +2038,7 @@ class CurrentCoupling5DCurlb(Propagator):
         #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
         #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
         self._ACC(*self._args_accum_kernel)
-
+        
         # update u coefficients
         un1, info = self._schur_solver(
             un,

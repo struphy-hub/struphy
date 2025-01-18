@@ -7,6 +7,8 @@ from pyccel.decorators import stack_array
 @stack_array("vec_copy", "mask1d", "mask", "top", "i_bottom", "i_top", "fi", "ir")
 def apply_three_point_filter_3d(
     vec: "float[:,:,:]",
+    dir: "int",
+    form: "int",
     Nel: "int[:]",
     spl_kind: "bool[:]",
     pn: "int[:]",
@@ -47,6 +49,7 @@ def apply_three_point_filter_3d(
     i_top = zeros(3, dtype=int)
     fi = empty(3, dtype=int)
     ir = empty(3, dtype=int)
+    isDspline = zeros(3, dtype=int)
 
     # copy vectors
     vec_copy[:, :, :] = vec[:, :, :]
@@ -62,22 +65,31 @@ def apply_three_point_filter_3d(
                 mask[i, j, k] *= mask1d[i] * mask1d[j] * mask1d[k]
 
     # consider left and right boundary
+    if form == 1:
+        isDspline[dir] = 1
+    else:
+        isDspline[:] = 1
+        isDspline[dir] = 0
+
     for i in range(3):
         if spl_kind[i]:
             top[i] = Nel[i] - 1
         else:
-            top[i] = Nel[i] + pn[i] - 1
+            if isDspline[i] == 1:
+                top[i] = Nel[i] + pn[i] - 2
+            else:
+                top[i] = Nel[i] + pn[i] - 1
 
     for i in range(3):
         if starts[i] == 0:
             if spl_kind[i]:
-                i_bottom[i] = -1
+                i_bottom[i] = 0
             else:
                 i_bottom[i] = +1
 
         if ends[i] == top[i]:
             if spl_kind[i]:
-                i_top[i] = +1
+                i_top[i] = 0
             else:
                 i_top[i] = -1
 
@@ -120,6 +132,8 @@ def apply_three_point_filter_3d(
 @stack_array("vec_copy", "mask1d", "mask", "top", "i_bottom", "i_top", "fi", "ir")
 def apply_three_point_filter_2d(
     vec: "float[:,:,:]",
+    dir: "int",
+    form: "int",
     Nel: "int[:]",
     spl_kind: "bool[:]",
     pn: "int[:]",
@@ -160,6 +174,7 @@ def apply_three_point_filter_2d(
     i_top = zeros(2, dtype=int)
     fi = empty(2, dtype=int)
     ir = empty(2, dtype=int)
+    isDspline = zeros(3, dtype=int)
 
     # copy vectors
     vec_copy[:, :, :] = vec[:, :, :]
@@ -174,22 +189,31 @@ def apply_three_point_filter_2d(
             mask[i, j] *= mask1d[i] * mask1d[j]
 
     # consider left and right boundary
+    if form == 1:
+        isDspline[dir] = 1
+    else:
+        isDspline[:] = 1
+        isDspline[dir] = 0
+
     for i in range(2):
         if spl_kind[i]:
             top[i] = Nel[i] - 1
         else:
-            top[i] = Nel[i] + pn[i] - 1
+            if isDspline[i] == 1:
+                top[i] = Nel[i] + pn[i] - 2
+            else:
+                top[i] = Nel[i] + pn[i] - 1
 
     for i in range(2):
         if starts[i] == 0:
             if spl_kind[i]:
-                i_bottom[i] = -1
+                i_bottom[i] = 0
             else:
                 i_bottom[i] = +1
 
         if ends[i] == top[i]:
             if spl_kind[i]:
-                i_top[i] = +1
+                i_top[i] = 0
             else:
                 i_top[i] = -1
 
@@ -221,3 +245,101 @@ def apply_three_point_filter_2d(
                         tmp += mask[il, jl] * vec_copy[fi[0], fi[1], pn[2] + k]
 
                 vec[pn[0] + i, pn[1] + j, pn[2] + k] = tmp
+
+
+@stack_array("mat_copy", "mask1d", "mask", "top", "i_bottom", "i_top", "fi", "ir")
+def apply_three_point_filter_3d_mat(
+    mat: "float[:,:,:,:,:,:]",
+    Nel: "int[:]",
+    spl_kind: "bool[:]",
+    pn: "int[:]",
+    starts: "int[:]",
+    ends: "int[:]",
+    alpha: "float",
+):
+    r"""TODO
+    """
+
+    # allocate memory
+    mat_copy = empty((shape(mat)), dtype=float)
+
+    mask1d = zeros(3, dtype=float)
+    mask = ones((3, 3, 3), dtype=float)
+
+    top = empty(3, dtype=int)
+    i_bottom = zeros(3, dtype=int)
+    i_top = zeros(3, dtype=int)
+    fi = empty(3, dtype=int)
+    ir = empty(3, dtype=int)
+
+    # copy mat
+    mat_copy[:, :, :, :, :, :] = mat[:, :, :, :, :, :]
+
+    # filtering mask
+    mask1d[0] = 1 / 2 * (1 - alpha)
+    mask1d[1] = alpha
+    mask1d[2] = 1 / 2 * (1 - alpha)
+
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                mask[i, j, k] *= mask1d[i] * mask1d[j] * mask1d[k]
+
+    # consider left and right boundary
+    for i in range(3):
+        if spl_kind[i]:
+            top[i] = Nel[i] - 1
+        else:
+            top[i] = Nel[i] + pn[i] - 1
+
+    for i in range(3):
+        if starts[i] == 0:
+            if spl_kind[i]:
+                i_bottom[i] = -1
+            else:
+                i_bottom[i] = +1
+
+        if ends[i] == top[i]:
+            if spl_kind[i]:
+                i_top[i] = +1
+            else:
+                i_top[i] = -1
+
+    # index range
+    for i in range(3):
+        ir[i] = ends[i] + 1 - starts[i]
+
+    # filtering
+    for m in range(ir[0]):
+        for n in range(ir[1]):
+            for o in range(ir[2]):
+                for i in range(ir[0]):
+                    for j in range(ir[1]):
+                        for k in range(ir[2]):
+                            tmp = 0.0
+
+                            for il in range(3):
+                                for jl in range(3):
+                                    for kl in range(3):
+                                        fi[0] = pn[0] + i + il - 1
+                                        fi[1] = pn[1] + j + jl - 1
+                                        fi[2] = pn[2] + k + kl - 1
+
+                                        if i == 0 and il == 0:
+                                            fi[0] += i_bottom[0]
+                                        if j == 0 and jl == 0:
+                                            fi[1] += i_bottom[1]
+                                        if k == 0 and kl == 0:
+                                            fi[2] += i_bottom[2]
+
+                                        if i == ir[0] - 1 and il == 2:
+                                            fi[0] += i_top[0]
+                                        if j == ir[1] - 1 and jl == 2:
+                                            fi[1] += i_top[1]
+                                        if k == ir[2] - 1 and kl == 2:
+                                            fi[2] += i_top[2]
+
+                                        tmp += mask[il, jl, kl] * mat_copy[fi[0], fi[1], fi[2], pn[0] + m, pn[1] + n, pn[2] + o]
+                                        tmp += mask[il, jl, kl] * mat_copy[pn[0] + i, pn[1] + j, pn[2] + k, fi[0], fi[1], fi[2]]
+
+                            mat[pn[0] + i, pn[1] + j, pn[2] + k, pn[0] + m, pn[1] + n, pn[2] + o] = tmp/2.

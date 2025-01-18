@@ -1594,7 +1594,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         coupling_params: dict,
         accumulated_magnetization: BlockVector,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        full_f: bool = False,
+        full_f: bool =  options(default=True)["full_f"],
     ):
         super().__init__(u, b)
 
@@ -1845,7 +1845,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        full_f: bool = True,
+        full_f: bool =  options(default=True)["full_f"],
     ):
         super().__init__(n, u, p)
 
@@ -2187,7 +2187,7 @@ class CurrentCoupling5DDensity(Propagator):
         epsilon: float = 1.0,
         filter: dict = options(default=True)["filter"],
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        full_f: bool = True,
+        full_f: bool = options(default=True)["full_f"],
     ):
         super().__init__(u)
 

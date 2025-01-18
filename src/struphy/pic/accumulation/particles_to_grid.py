@@ -226,6 +226,8 @@ class Accumulator:
                         for i in range(3):
                             filters.apply_three_point_filter_3d(
                                 vec[i]._data,
+                                i,
+                                int(self.form),
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
@@ -243,6 +245,8 @@ class Accumulator:
                         for i in range(3):
                             filters.apply_three_point_filter_2d(
                                 vec[i]._data,
+                                i,
+                                int(self.form),
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
@@ -258,6 +262,8 @@ class Accumulator:
                         for i in range(3):
                             filters.apply_three_point_filter_3d(
                                 vec[i]._data,
+                                i,
+                                int(self.form),
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
@@ -276,6 +282,21 @@ class Accumulator:
                     )
 
             vec_finished = True
+
+            # if self.filter_params["mat"]:
+            #     if self.symmetry == "symm":
+            #         for mat in [self._operators[0].matrix[0, 1], self._operators[0].matrix[0, 2], self._operators[0].matrix[1, 2]]:
+            #             filters.apply_three_point_filter_3d_mat(
+            #                 mat._data,
+            #                 np.array(self.derham.Nel),
+            #                 np.array(self.derham.spl_kind),
+            #                 np.array(self.derham.p),
+            #                 np.array(self.derham.Vh[self.form][i].starts),
+            #                 np.array(self.derham.Vh[self.form][i].ends),
+            #                 alpha=self.filter_params["alpha"],
+            #             )
+            #     else: AssertionError
+
 
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
