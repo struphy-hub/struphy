@@ -889,7 +889,7 @@ class BasisProjectionOperators:
 
 class BasisProjectionOperatorLocal(LinOpWithTransp):
     r"""
-    Class for assembling basis projection operators in 3d.
+    Class for assembling basis projection operators in 3d, based on local projectors.
 
     A basis projection operator :math:`\mathcal P: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` is defined by the matrix
 
@@ -900,31 +900,21 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
     where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and
     :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
     :math:`\nu`-th component in the space :math:`V^\alpha_h`. The operator :math:`\hat \Pi^\beta: V^\beta \to \mathbb R^{N_\beta}`
-    is a commuting projector from the continuous space
-    into the space of coefficients; it can be decomposed into computation of degrees of freedom (DOFs)
-    :math:`\sigma^\beta: V^\beta \to \mathbb R^{N_\beta}` and inversion of the inter/-histopolation matrix
-    :math:`\mathcal (I^\beta)^{-1}: \mathbb R^{N_\beta} \to \mathbb R^{N_\beta}`:
+    is a local commuting projector from the continuous space
+    into the space of coefficients.
 
-    .. math::
-
-        \hat \Pi^\beta = (I^\beta)^{-1} \sigma^\beta\,.
-
-    :math:`I^\beta` is usually a Kronecker product and thus fast to invert; this inversion is performed when calling the dot-product
-    of the ``BasisProjectionOperator``. The DOFs are precomputed and stored in StencilVector
-    format, because the local support of each :math:`\Lambda^\alpha_{\nu, mno}`.
-
-    Finally, extraction and boundary operators can be applied to the DOFs, :math:`B_P * P * \sigma * E_V^T * B_V^T`.
+    Finally, extraction and boundary operators can be applied to the basis projection operator matrix, :math:`B_P * E_P * \mathcal P * E_V^T * B_V^T`.
 
     Parameters
     ----------
-    P : struphy.feec.projectors.Projector
-        Global commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
+    P : struphy.feec.projectors.CommutingProjectorLocal
+        Local commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
 
     V : psydac.fem.basic.FemSpace
         Finite element spline space (domain, input space).
 
     weights : list
-        Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
+        Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
         Extraction operator to polar sub-space of V.
@@ -940,12 +930,6 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
     transposed : bool
         Whether to assemble the transposed operator.
-
-    polar_shift : bool
-        Whether there are metric coefficients contained in "weights" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
-
-    use_cache : bool
-        Whether to store some information computed in _assemble_mat for reuse. Set it to true if planned to update the weights later.
     """
 
     def __init__(
@@ -1180,7 +1164,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         Parameters
         ----------
         weights : list
-            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
+            Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
         """
 
         self._weights = weights
