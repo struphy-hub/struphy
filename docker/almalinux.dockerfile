@@ -4,8 +4,8 @@
 # Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
 #
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_python_3_10 -f docker/almalinux.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_python_3_10
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_latest -f docker/almalinux.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_latest
 
 FROM almalinux:latest
 
@@ -18,15 +18,16 @@ RUN yum install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zl
     && yum install -y git \
     && yum install -y environment-modules \
     && yum install -y sqlite-devel \
-    && wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz \
-    && tar xzf Python-3.10.14.tgz \
-    && cd Python-3.10.14 \
+    && wget https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz \
+    && tar xzf Python-3.12.8.tgz \
+    && cd Python-3.12.8 \
     && ./configure --with-system-ffi --with-computed-gotos --enable-loadable-sqlite-extensions \
-    && make -j ${nproc} \
+    && make -j $(nproc) \
     && make altinstall \
-    && echo "alias python3=python3.10" >> ~/.bashrc \
-    && source ~/.bashrc \
-    && mv /usr/local/lib/libpython3.10.a libpython3.10.a.bak
+    && alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.12 1 \
+    && alternatives --set python3 /usr/local/bin/python3.12 \
+    && mv /usr/local/lib/libpython3.12.a libpython3.12.a.bak \
+    && python3 -V  # Verify Python version
 
 # create new working dir
 WORKDIR /almalinux_latest/

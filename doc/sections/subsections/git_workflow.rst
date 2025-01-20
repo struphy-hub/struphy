@@ -225,8 +225,7 @@ Formatting standards
 
 Struphy enforces the following formatting standards:
 
-* `autopep8 <https://github.com/hhatto/autopep8>`_
-* `isort <https://github.com/PyCQA/isort>`_
+* `ruff <https://github.com/astral-sh/ruff>`_
 
 These standards are checked in the "linting" stage of the CI. When coding locally in a feature branch, 
 you can check the formatting via::
@@ -236,22 +235,26 @@ you can check the formatting via::
 (Note that ``branch`` is meant literally, i.e. not the branch name). This will lead to an output like::
 
     $ struphy lint branch
-    The following files will be linted with ['isort', 'autopep8']
-    ---------------------------------------------------------------
-    /raven/u/maxlin/git_repos/struphy/src/struphy/console/format.py
-    /raven/u/maxlin/git_repos/struphy/src/struphy/console/main.py
+    The following files will be linted with ['ruff']
+    -----------------------------------------------------------------
+    /home/maxlinadmin/git_repos/struphy/src/struphy/console/format.py
+    /home/maxlinadmin/git_repos/struphy/src/struphy/console/main.py
 
 
-    Passes CI if both isort and autopep8 passes
+    Passes CI if ['ruff'] passes
     ----------------------------------------
-    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
-    |             File               |   Lines |   Funcs |   Classes |   Vars | isort   | autopep8   | Passes CI   |
-    +================================+=========+=========+===========+========+=========+============+=============+
-    | src/struphy/console/format.py  |     774 |      15 |         0 |     88 | PASS    | FAIL       | FAIL        |
-    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
-    | src/struphy/console/main.py    |    1068 |       6 |         2 |     89 | PASS    | PASS       | PASS        |
-    +--------------------------------+---------+---------+-----------+--------+---------+------------+-------------+
+    +--------------------------------+---------+---------+-----------+--------+--------+-------------+
+    |             File               |   Lines |   Funcs |   Classes |   Vars | ruff   | Passes CI   |
+    +================================+=========+=========+===========+========+========+=============+
+    | src/struphy/console/format.py  |    1259 |      20 |         0 |    146 | FAIL   | FAIL        |
+    +--------------------------------+---------+---------+-----------+--------+--------+-------------+
+    | src/struphy/console/main.py    |    1129 |       6 |         2 |     94 | PASS   | PASS        |
+    +--------------------------------+---------+---------+-----------+--------+--------+-------------+
     Not all files will pass CI
+
+In the CI, the formatting standards are checked with ``ruff check`` and ``ruff format --check``.
+
+Note that you should always keep your local ``devel`` branch up to date with the one one remote, otherwise ``struphy lint branch`` might pass locally but not in the CI.
 
 In order to format the files that would not pass the CI::
 

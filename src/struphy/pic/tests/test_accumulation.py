@@ -75,6 +75,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
         'test_particles',
         Np=Np,
         bc=['periodic']*3,
+        comm=mpi_comm,
         loading='pseudo_random',
         loading_params=loading_params,
         domain=domain,
