@@ -3095,7 +3095,7 @@ class VariationalDensityEvolve(Propagator):
             rhon1 -= advection
             self.feec_vars_update(rhon1, un)
             return
-        print("here")
+
         self.rhof.vector = rhon
         self.rhof1.vector = rhon
         self._update_weighted_MM()
