@@ -1029,10 +1029,66 @@ class Particles(metaclass=ABCMeta):
 
             markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
-            for i in range(markers_array["a"].size):
-                markers_array["a"][i] = rng.random()
-                markers_array["b"][i] = rng.random()
-                markers_array["c"][i] = rng.random()
+            # inverse transform sampling in velocity space
+            u_mean = np.array(
+                self.loading_params["moments"][: self.vdim],
+            )
+            v_th = np.array(
+                self.loading_params["moments"][self.vdim :],
+            )
+
+            # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
+            if self.vdim == 3:
+                for i in range(markers_array["a"].size):
+                    markers_array["a"][i] = (
+                        sp.erfinv(
+                            2 * rng.random() - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[0]
+                        + u_mean[0]
+                    )
+                    markers_array["b"][i] = (
+                        sp.erfinv(
+                            2 * rng.random() - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[1]
+                        + u_mean[1]
+                    )
+                    markers_array["c"][i] = (
+                        sp.erfinv(
+                            2 * rng.random() - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[2]
+                        + u_mean[2]
+                    )
+            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) TODO: implement correctly!
+            elif self.vdim == 2:
+                self._markers[:n_mks_load_loc, 3] = (
+                    sp.erfinv(
+                        2 * rng.random()[:, 0] - 1,
+                    )
+                    * np.sqrt(2)
+                    * v_th[0]
+                    + u_mean[0]
+                )
+
+                self._markers[:n_mks_load_loc, 4] = (
+                    np.sqrt(
+                        -1 * np.log(1 - rng.random()[:, 1]),
+                    )
+                    * np.sqrt(2)
+                    * v_th[1]
+                    + u_mean[1]
+                )
+            elif self.vdim == 0:
+                pass
+            else:
+                raise NotImplementedError(
+                    "Inverse transform sampling of given vdim is not implemented!",
+                )
 
         else:
             # number of markers on the local process at loading stage
