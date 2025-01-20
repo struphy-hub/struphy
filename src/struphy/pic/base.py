@@ -650,7 +650,7 @@ class Particles(metaclass=ABCMeta):
     def positions(self):
         """Array holding the marker positions in logical space, excluding holes. The i-th row holds the i-th marker info."""
         if self.amrex is not None:
-            return None
+            return np.ascontiguousarray(self._markers.to_df()[["x", "y", "z"]].to_numpy())
         else:
             return self.markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]]
 
@@ -663,7 +663,10 @@ class Particles(metaclass=ABCMeta):
     @property
     def velocities(self):
         """Array holding the marker velocities in logical space, excluding holes. The i-th row holds the i-th marker info."""
-        return self.markers[~self.holes, self.index["vel"]]
+        if self.amrex is not None:
+            return np.ascontiguousarray(self._markers.to_df()[["a", "b", "c"]].to_numpy())
+        else:
+            return self.markers[~self.holes, self.index["vel"]]
 
     @velocities.setter
     def velocities(self, new):
@@ -1023,6 +1026,13 @@ class Particles(metaclass=ABCMeta):
             self._markers.init_random(self.Np, _seed, myt, False, amr.RealBox())
 
             assert self._markers.number_of_particles_at_level(0) == self.Np
+
+            markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
+
+            for i in range(markers_array["a"].size):
+                markers_array["a"][i] = rng.random()
+                markers_array["b"][i] = rng.random()
+                markers_array["c"][i] = rng.random()
 
         else:
             # number of markers on the local process at loading stage
