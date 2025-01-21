@@ -98,7 +98,8 @@ struphy = "struphy.console.main:struphy"
                     'longer_examples/*.yml',
                     ]
                     
-struphy = ['compile_struphy.mk',]
+struphy = ['compile_struphy.mk',
+           'psydac-2.4.0-py3-none-any.whl',]
 
 [tool.autopep8]
 # Add specific settings for autopep8
