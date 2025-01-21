@@ -2,11 +2,17 @@
 
 ### Headlines
 
-* Remove `python<3.12` requirement and `numpy<2` requirements !600
+* Remove `python<3.12` and `numpy<2` requirements !600
 
-* Use optional dependencies: unit testing can be enabled with `pip install .[test]` (or `pip install struphy[test]` from PyPI); usual development (testing + linting + formatting) is enabled by `pip install .[dev]`; building the doc is enabled by `pip install .[doc]`. These can be also combined, e.g. you get the full version (as until now) via `pip install .[dev, doc]`. !609
+* No more fixed dependencies; this enhances compatibility of `struphy` with other packages !618
 
-* Use new psydac fork https://github.com/max-models/psydac-for-struphy !563
+* Use of optional dependencies: 
+  * unit testing can be enabled with `pip install .[test]` (or `pip install struphy[test]` from PyPI)
+  * usual development (testing + linting + formatting) is enabled by `pip install .[dev]`
+  * building the doc is enabled by `pip install .[doc]`
+  * These can be also combined, e.g. you get the full version (as until now) via `pip install .[dev,doc]`. !609
+
+* Use of new psydac fork https://github.com/max-models/psydac-for-struphy !563
 
 
 ### User news

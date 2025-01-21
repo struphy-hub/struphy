@@ -2146,7 +2146,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                             print(
                                 f"\n{fi} is not in tmp_params; default background parameters are used.",
                             )
-                        print(val["params"])
 
                         if tmp is None:
                             tmp = getattr(maxwellians, fi_type)(
