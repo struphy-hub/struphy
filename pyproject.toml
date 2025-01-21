@@ -26,7 +26,6 @@ dependencies = [
     'h5py',
     'matplotlib',
     'pyyaml',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@30ac576669ba67cab0497bdfc208a42e3871b793',
     'vtk',
     'tqdm',
     'argcomplete',
@@ -98,7 +97,8 @@ struphy = "struphy.console.main:struphy"
                     'longer_examples/*.yml',
                     ]
                     
-struphy = ['compile_struphy.mk',]
+struphy = ['compile_struphy.mk',
+           'psydac-2.4.0-py3-none-any.whl',]
 
 [tool.autopep8]
 # Add specific settings for autopep8
