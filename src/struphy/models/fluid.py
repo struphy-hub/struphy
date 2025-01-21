@@ -1233,8 +1233,6 @@ class ViscoresistiveMHD_with_p(StruphyModel):
         nonlin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
         lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
         nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
-        lin_solver_pressure = params["fluid"]["mhd"]["options"]["VariationalPressureEvolve"]["lin_solver"]
-        nonlin_solver_pressure = params["fluid"]["mhd"]["options"]["VariationalPressureEvolve"]["nonlin_solver"]
         lin_solver_magfield = params["em_fields"]["options"]["VariationalMagFieldEvolve"]["lin_solver"]
         nonlin_solver_magfield = params["em_fields"]["options"]["VariationalMagFieldEvolve"]["nonlin_solver"]
         lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
@@ -1272,8 +1270,6 @@ class ViscoresistiveMHD_with_p(StruphyModel):
             "model": model,
             "gamma": self._gamma,
             "mass_ops": self.WMM,
-            "lin_solver": lin_solver_pressure,
-            "nonlin_solver": nonlin_solver_pressure,
             "div_u": self.pointer["div_u"],
             "u2": self.pointer["u2"],
         }

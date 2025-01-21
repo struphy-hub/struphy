@@ -2729,13 +2729,12 @@ class VariationalMomentumAdvection(Propagator):
 
         assert mass_ops is not None
 
-        self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
-        self.WMM = mass_ops
+        self._Mrho = mass_ops
 
         self._initialize_mass()
 
@@ -2752,7 +2751,7 @@ class VariationalMomentumAdvection(Propagator):
 
         self.brack = BracketOperator(self.derham, self._tmp_mn)
         self._dt2_brack = 2.0 * self.brack
-        self.derivative = self.WMM + self._dt2_brack
+        self.derivative = self._Mrho + self._dt2_brack
         self.inv_derivative = inverse(
             self.pc @ self.derivative,
             "gmres",
@@ -2877,9 +2876,6 @@ class VariationalMomentumAdvection(Propagator):
 
     def _initialize_mass(self):
         """Initialization of the mass matrix solver"""
-        # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM
-
         # Inverse weighted mass matrix
         if self._lin_solver["type"][1] is None:
             self.pc = None
@@ -3022,7 +3018,6 @@ class VariationalDensityEvolve(Propagator):
         self._model = model
         self._gamma = gamma
         self._s = s
-        self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = self._nonlin_solver["implicit_transport"]
@@ -3030,7 +3025,7 @@ class VariationalDensityEvolve(Propagator):
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
-        self.WMM = mass_ops
+        self._Mrho = mass_ops
 
         # Femfields for the projector
         self.sf = self.derham.create_field("sf", "L2")
@@ -3115,7 +3110,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             # No implicit
             rhon1 = rhon.copy(out=self._tmp_rhon1)
-            rhon1 += self._tmp_rhon_diff
+            #rhon1 += self._tmp_rhon_diff
 
         # Initialize variable for Newton iteration
         if self._model == "full":
@@ -3385,9 +3380,6 @@ class VariationalDensityEvolve(Propagator):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
         self._rhof_2_values = np.zeros(grid_shape, dtype=float)
         self._uf_2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._lin_solver["type"][1] is None:
@@ -4002,7 +3994,7 @@ class VariationalDensityEvolve(Propagator):
             self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
 
         elif self._model == "full_p":
-            self._M_drho.assemble([[lambda eta1, eta2, eta3: 0.0 * eta1]], verbose=False)
+            self._M_drho.assemble([[0.*self._tmp_int_grid]], verbose=False)
 
         self._M_un.assemble(
             [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]],
@@ -4144,7 +4136,6 @@ class VariationalEntropyEvolve(Propagator):
         self._model = model
         self._gamma = gamma
         self._rho = rho
-        self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = nonlin_solver["implicit_transport"]
@@ -4152,7 +4143,7 @@ class VariationalEntropyEvolve(Propagator):
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
-        self.WMM = mass_ops
+        self._Mrho = mass_ops
 
         # Femfields for the projector
         self.rhof = self.derham.create_field("rhof", "L2")
@@ -4493,9 +4484,6 @@ class VariationalEntropyEvolve(Propagator):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
         self._sf_2_values = np.zeros(grid_shape, dtype=float)
         self._uf_2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM
 
         # Inverse weighted mass matrix
         if self._lin_solver["type"][1] is None:
@@ -5065,16 +5053,11 @@ class VariationalPressureEvolve(Propagator):
         self._model = model
         self._gamma = gamma
 
-        self._mass_ops = mass_ops
-
-        self.WMM = mass_ops
+        self._Mrho = mass_ops
 
         # Femfields for the projector
         self.pf = self.derham.create_field("pf", "L2")
         self.gradpf = self.derham.create_field("gradpf", "Hdiv")
-
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -5086,11 +5069,6 @@ class VariationalPressureEvolve(Propagator):
         self._tmp_pn1 = p.space.zeros()
         self._tmp_grad_pn = self.derham.Vh_pol["2"].zeros()
 
-        self._tmp_un_diff = u.space.zeros()
-        self._tmp_pn_diff = p.space.zeros()
-        self._tmp_mn_diff = u.space.zeros()
-        self._tmp_un_weak_diff = u.space.zeros()
-        self._tmp_pn_weak_diff = p.space.zeros()
         self._tmp_mn = u.space.zeros()
         self._tmp_mn1 = u.space.zeros()
         self._tmp_mn12 = u.space.zeros()
@@ -5102,17 +5080,11 @@ class VariationalPressureEvolve(Propagator):
     def __call__(self, dt):
         """Solve the system by explicit update"""
 
-        # Compute implicit approximation of s^{n+1}
         pn = self.feec_vars[0]
         un = self.feec_vars[1]
-        self.uf.vector = un
 
-        # Initialize variable for Newton iteration
+        # Update the field for the projections
         self.pf.vector = pn
-        self.pc.update_mass_operator(self._Mrho)
-
-        gradp = self.grad.dot(pn, out=self._tmp_grad_pn)
-        self.gradpf.vector = gradp
 
         self._update_Proj()
 
@@ -5145,7 +5117,7 @@ class VariationalPressureEvolve(Propagator):
         pn1 -= p_advection
 
         self.div.dot(un12, out=self._divu)
-        self.Uv.dot(un12, out=self._u2)
+        self.Uv.dot(un1, out=self._u2)
 
         self.feec_vars_update(pn1, un1)
 
@@ -5156,23 +5128,26 @@ class VariationalPressureEvolve(Propagator):
 
         # Get the projector and the spaces
         P3 = self.derham.P["3"]
+        P2 = self.derham.P["2"]
 
         Xh = self.derham.Vh_fem["v"]
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        self.Pigradp = BasisProjectionOperator(
-            P3,
+        self.Pip = BasisProjectionOperator(
+            P2,
             Xh,
-            [[None, None, None]],
+            [[None, None, None],
+             [None, None, None],
+             [None, None, None]],
             transposed=False,
             use_cache=True,
             V_extraction_op=self.derham.extraction_ops["v"],
             V_boundary_op=self.derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["3"]),
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
         )
 
-        self.Pip = BasisProjectionOperator(
+        self.Pip_div = BasisProjectionOperator(
             P3,
             V3h,
             [[lambda eta1, eta2, eta3: 0 * eta1]],
@@ -5185,10 +5160,10 @@ class VariationalPressureEvolve(Propagator):
 
         # BC?
 
-        self.Uv = self.basis_ops.Uv
+        self.Uv = self.basis_ops.Uv 
 
-        self.PigradpT = self.Pigradp.T
         self.PipT = self.Pip.T
+        self.Pip_divT = self.Pip_div.T
 
         div = self.derham.div
         self.pc_M2 = preconditioner.MassMatrixDiagonalPreconditioner(
@@ -5203,27 +5178,17 @@ class VariationalPressureEvolve(Propagator):
             verbose=False,
         )
 
-        self.grad = -self._inv_M2 @ div.T @ self.mass_ops.M3
         self.div = div @ self.Uv
 
         # Initialize the transport operator and transposed
-        self._transop = self.Pigradp + self._gamma * self.Pip @ self.div
-        self._transopT = self.PigradpT + self._gamma * self.div.T @ self.PipT
+        self._transop =  div @ self.Pip + (self._gamma-1.) * self.Pip_div @ self.div
+        self._transopT = self.PipT @ div.T + (self._gamma-1.) * self.div.T @ self.Pip_divT
 
         int_grid = [pts.flatten() for pts in self.derham.proj_grid_pts["3"]]
 
         self.int_grid_spans, self.int_grid_bn, self.int_grid_bd = self.derham.prepare_eval_tp_fixed(
             int_grid,
         )
-
-        self._int_grid_grad = [
-            [self.int_grid_bn[0], self.int_grid_bd[1], self.int_grid_bd[2]],
-            [self.int_grid_bd[0], self.int_grid_bn[1], self.int_grid_bd[2]],
-            [self.int_grid_bd[0], self.int_grid_bd[1], self.int_grid_bn[2]],
-        ]
-
-        metric = self.domain.metric(*int_grid)
-        self._proj_gradp_metric = deepcopy(metric)
 
         metric = 1.0 / self.domain.jacobian_det(*int_grid)
         self._proj_p_metric = deepcopy(metric)
@@ -5232,11 +5197,30 @@ class VariationalPressureEvolve(Propagator):
         self._pf_values = np.zeros(grid_shape, dtype=float)
         self._mapped_pf_values = np.zeros(grid_shape, dtype=float)
 
-        self._gradpf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._mapped_gradpf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        hist_grid = self.derham.proj_grid_pts["2"]
 
-        # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM
+        hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
+        hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
+        hist_grid_2 = [pts.flatten() for pts in hist_grid[2]]
+
+        self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self.derham.prepare_eval_tp_fixed(
+            hist_grid_0,
+        )
+        self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self.derham.prepare_eval_tp_fixed(
+            hist_grid_1,
+        )
+        self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self.derham.prepare_eval_tp_fixed(
+            hist_grid_2,
+        )
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
+        self._pf_0_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
+        self._pf_1_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
+        self._pf_2_values = np.zeros(grid_shape, dtype=float)
 
         # Inverse weighted mass matrix
         
@@ -5289,31 +5273,46 @@ class VariationalPressureEvolve(Propagator):
         self._mapped_pf_values += pf_values
         self._mapped_pf_values *= self._proj_p_metric
 
-        grad_pf_values = self.gradpf.eval_tp_fixed_loc(
-            self.int_grid_spans,
-            self._int_grid_grad,
-            out=self._gradpf_values,
+        self.Pip_div.update_weights([[self._mapped_pf_values]])
+
+        self.Pip_divT.update_weights([[self._mapped_pf_values]])
+
+        #print(self.Pip_divT._dof_mat._data)
+
+        pf0_values = self.pf.eval_tp_fixed_loc(
+            self.hist_grid_0_spans,
+            self.hist_grid_0_bd,
+            out=self._pf_0_values,
+        )
+        pf1_values = self.pf.eval_tp_fixed_loc(
+            self.hist_grid_1_spans,
+            self.hist_grid_1_bd,
+            out=self._pf_1_values,
+        )
+        pf2_values = self.pf.eval_tp_fixed_loc(
+            self.hist_grid_2_spans,
+            self.hist_grid_2_bd,
+            out=self._pf_2_values,
         )
 
-        for j in range(3):
-            self._mapped_gradpf_values[j] *= 0.0
-            for i in range(3):
-                self._mapped_gradpf_values[j] += self._proj_gradp_metric[j][i] * grad_pf_values[i]
-
-        self.Pip.update_weights([[self._mapped_pf_values]])
-
-        self.PipT.update_weights([[self._mapped_pf_values]])
-
-        self.Pigradp.update_weights(
-            [[self._mapped_gradpf_values[0], self._mapped_gradpf_values[1], self._mapped_gradpf_values[2]]]
+        self.Pip.update_weights(
+            [
+                [pf0_values, None, None],
+                [None, pf1_values, None],
+                [None, None, pf2_values],
+            ]
         )
 
-        self.PigradpT.update_weights(
-            [[self._mapped_gradpf_values[0], self._mapped_gradpf_values[1], self._mapped_gradpf_values[2]]]
+        self.PipT.update_weights(
+            [
+                [pf0_values, None, None],
+                [None, pf1_values, None],
+                [None, None, pf2_values],
+            ]
         )
 
     def _update_linear_form_u2(self):
-        """Update the linearform representing integration in V3 against kynetic energy"""
+        """Update the linearform representing integration in V3 against pressure energy"""
 
         if self._model == "full_p":
             self._tmp_int_grid *= 0.0
@@ -5405,7 +5404,6 @@ class VariationalMagFieldEvolve(Propagator):
     ):
         super().__init__(b, u)
 
-        self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._implicit_transport = nonlin_solver["implicit_transport"]
@@ -5413,7 +5411,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
-        self.WMM = mass_ops
+        self._Mrho = mass_ops
 
         # Femfields for the projector
         self.bf = self.derham.create_field("bf", "Hdiv")
@@ -5782,9 +5780,6 @@ class VariationalMagFieldEvolve(Propagator):
             [self.hist_grid_2_bd[0], self.hist_grid_2_bd[1], self.hist_grid_2_bn[2]],
         ]
 
-        # weighted mass matrix to go from m to u
-        self._Mrho = self.WMM
-
         # Inverse weighted mass matrix
         if self._lin_solver["type"][1] is None:
             self.pc = None
@@ -6078,7 +6073,6 @@ class VariationalViscosity(Propagator):
 
         self._model = model
         self._gamma = gamma
-        self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
         self._mu_a = mu_a
