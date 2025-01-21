@@ -2511,23 +2511,24 @@ def get_pts_and_wts_quasi(
     polar_shift: bool = False,
 ):
     r"""Obtain local projection point sets and weights in one grid direction for the quasi-interpolation method.
-    The quasi-interpolation points are :math:`2p - 1` equidistant points :math:`\{ x^i_j \}_{0 \leq j < 2p -1}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
+    The quasi-interpolation points are :math:`\nu - \mu +p` equidistant points :math:`\{ x^i_j \}_{0 \leq j < \nu - \mu +p}` in the sub-interval :math:`Q = [\eta_\mu , \eta_\nu]` given by:
 
     \begin{itemize}
         \item Clamped: 
         .. math:: 
             Q = \left\{\begin{array}{lr}
-            [\eta_p, \eta_{2p -1}], & i < p-1\\
-            {[\eta_{i+1}, \eta_{i+p}]}, & p-1 \leq i \leq \hat{n}_N - p\\
-            {[\eta_{\hat{n}_N - p +1}, \eta_{\hat{n}_N}]}, &  i > \hat{n}_N - p
+            [\eta_p = 0, \eta_{p+1}], & i = 0 \,,\\
+            {[\eta_p = 0, \eta_{p+i}]}, & 0 < i < p-1\,,\\
+            {[\eta_{i+1}, \eta_{i+p}]}, & p-1 \leq i \leq \hat{n}_N - p\,,\\
+            {[\eta_{i+1}, \eta_{\hat{n}_N} = 1]}, &  \hat{n}_N - p < i < \hat{n}_N -1\,,\\
+            {[\eta_{\hat{n}_N -1}, \eta_{\hat{n}_N} = 1]}, & i = \hat{n}_N -1 \,.
             \end{array} \; \right .
         \item Periodic: 
         .. math::
             Q = [\eta_{i + 1}, \eta_{i + p}] \:\:\:\:\: \forall \:\: i.
     \end{itemize}
 
-    Which are allways a subset of  :math:`\{-(p-1)h,-(p-1)h + \frac{h}{2}, ..., 1-h - \frac{h}{2},1-h \}` for the periodic case or of 
-    :math:`\{0, \frac{h}{2}, h, ..., 1-\frac{h}{2}, 1 \}` for the clamped case.
+    Which are allways a subset of  :math:`\{-(p-1)h,-(p-1)h + \frac{h}{2}, ..., 1-h - \frac{h}{2},1-h \}` for the periodic case.
 
     Parameters
     ----------

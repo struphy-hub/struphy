@@ -425,6 +425,27 @@ c_model_tests:
     - struphy test models --fast
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
+c_model_tests_psydac_whl:
+  stage: test
+  rules:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $MAKE_PAGES == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pwd
+    - ls -1a
+    - struphy compile --status
+    - pip uninstall -y psydac
+    - pip install src/struphy/psydac*.whl
+    - struphy compile
+    - struphy test models --fast
+
 pages_tests:
   stage: test
   rules:
@@ -539,7 +560,7 @@ Ubuntu_22_04:
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -566,7 +587,7 @@ struphy_ubuntu_python_3_11:
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y
@@ -597,7 +618,7 @@ struphy_ubuntu_latest:
     - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y
@@ -645,7 +666,7 @@ Fedora:
     - module load mpi/openmpi-$(arch)
     - module list 
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -678,7 +699,7 @@ struphy_fedora_latest:
     - module list 
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -721,7 +742,7 @@ OpenSuse:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -754,7 +775,7 @@ struphy_opensuse_latest:
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
     - pip install --upgrade pip
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile
     - struphy test models --fast
     - struphy compile --language=fortran -y
@@ -780,7 +801,7 @@ struphy_opensuse_python_3_11:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - struphy compile 
     - struphy test models --fast
     - struphy compile --language=fortran -y 
@@ -827,7 +848,7 @@ AlmaLinux:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - pip list
     - struphy compile 
     - struphy test models --fast
@@ -861,7 +882,7 @@ struphy_almalinux_latest:
     - source env/bin/activate
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $STRUPHY_SOURCE_DOCKER[test]
+    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - pip list
     - struphy compile 
     - struphy test models --fast
