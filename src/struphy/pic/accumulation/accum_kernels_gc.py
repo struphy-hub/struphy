@@ -570,9 +570,6 @@ def cc_lin_mhd_5d_M(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, mu, weight, norm_b1, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, filling_v)
-    #$ omp for reduction ( + : vec1, vec2, vec3)
-
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -613,8 +610,6 @@ def cc_lin_mhd_5d_M(
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
-
-    #$ omp end parallel
 
 
 @stack_array(

@@ -1753,7 +1753,7 @@ class CurrentCoupling5DCurlb(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["subtract_equil"] = False
+        dct["subtract_equil"] = True
         dct["turn_off"] = False
 
         if default:
@@ -1778,7 +1778,7 @@ class CurrentCoupling5DCurlb(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        subtract_equil: bool = False,
+        subtract_equil: bool = options(default=True)["subtract_equil"],
     ):
         super().__init__(particles, u)
 
@@ -2134,7 +2134,7 @@ class CurrentCoupling5DGradB(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["subtract_equil"] = False
+        dct["subtract_equil"] = True
         dct["turn_off"] = False
 
         if default:
@@ -2161,7 +2161,7 @@ class CurrentCoupling5DGradB(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        subtract_equil: bool = False,
+        subtract_equil: bool = options(default=True)["subtract_equil"],
     ):
         from psydac.linalg.solvers import inverse
 
@@ -2433,13 +2433,14 @@ class CurrentCoupling5DGradB(Propagator):
 
         PBb = self._PB.dot(self._b, out=self._tmp1)
         grad_PBb = self.derham.grad.dot(PBb, out=self._tmp2)
-        grad_PBb.update_ghost_regions()
-        grad_PBb += self._gradB1
+        fullgrad_PBb = self.derham.grad.dot(PBb, out=self._tmp3)
+        fullgrad_PBb.update_ghost_regions()
+        fullgrad_PBb += self._gradB1
 
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
         Eb_full.update_ghost_regions()
 
-        Egrad_PBb = self._E1T.dot(grad_PBb, out=self._tmp3)
+        Egrad_PBb = self._E1T.dot(fullgrad_PBb, out=self._tmp3)
         Egrad_PBb.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
