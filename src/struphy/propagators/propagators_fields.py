@@ -5057,12 +5057,14 @@ class VariationalPressureEvolve(Propagator):
         mass_ops: WeightedMassOperator,
         div_u: StencilVector | None = None,
         u2: BlockVector | None = None,
+        adv: BlockVector | None = None,
     ):
         super().__init__(p, u)
 
         assert model in ["full_p", "linear"]
         self._divu = div_u
         self._u2 = u2
+        self._adv = adv
 
         assert mass_ops is not None
 
@@ -5073,7 +5075,6 @@ class VariationalPressureEvolve(Propagator):
 
         # Femfields for the projector
         self.pf = self.derham.create_field("pf", "L2")
-        self.gradpf = self.derham.create_field("gradpf", "Hdiv")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -5146,6 +5147,7 @@ class VariationalPressureEvolve(Propagator):
 
         self.div.dot(un12, out=self._divu)
         self.Uv.dot(un1, out=self._u2)
+        advection.copy(out = self._adv)
 
         self.feec_vars_update(pn1, un1)
 
@@ -5209,8 +5211,8 @@ class VariationalPressureEvolve(Propagator):
         self.div = div @ self.Uv
 
         # Initialize the transport operator and transposed
-        self._transop =  div @ self.Pip + (self._gamma-1.) * self.Pip_div @ self.div
-        self._transopT = self.PipT @ div.T + (self._gamma-1.) * self.div.T @ self.Pip_divT
+        self._transop =  div @ self.Pip + self.Pip_div @ self.div
+        self._transopT = self.PipT @ div.T + self.div.T @ self.Pip_divT
 
         int_grid = [pts.flatten() for pts in self.derham.proj_grid_pts["3"]]
 
@@ -5300,6 +5302,7 @@ class VariationalPressureEvolve(Propagator):
         self._mapped_pf_values *= 0.0
         self._mapped_pf_values += pf_values
         self._mapped_pf_values *= self._proj_p_metric
+        self._mapped_pf_values *= (self._gamma -1.)
 
         self.Pip_div.update_weights([[self._mapped_pf_values]])
 
@@ -5343,7 +5346,7 @@ class VariationalPressureEvolve(Propagator):
         """Update the weights of the `BasisProjectionOperator`"""
 
         self.pf.vector = self.projected_mhd_equil.p3
-        self.gradpf.vector = self.grad.dot(self.projected_mhd_equil.p3)
+
         pf_values = self.pf.eval_tp_fixed_loc(
             self.int_grid_spans,
             self.int_grid_bd,
@@ -5353,61 +5356,12 @@ class VariationalPressureEvolve(Propagator):
         self._mapped_pf_values *= 0.0
         self._mapped_pf_values += pf_values
         self._mapped_pf_values *= self._proj_p_metric
+        self._mapped_pf_values *= (self._gamma - 1.)
 
-        grad_pf_values = self.gradpf.eval_tp_fixed_loc(
-            self.int_grid_spans,
-            self._int_grid_grad,
-            out=self._gradpf_values,
-        )
-
-        for j in range(3):
-            self._mapped_gradpf_values[j] *= 0.0
-            for i in range(3):
-                self._mapped_gradpf_values[j] += self._proj_gradp_metric[j][i] * grad_pf_values[i]
-
-        self.Pip.update_weights([[self._mapped_pf_values]])
-
-        self.PipT.update_weights([[self._mapped_pf_values]])
-
-        self.Pigradp.update_weights(
-            [[self._mapped_gradpf_values[0], self._mapped_gradpf_values[1], self._mapped_gradpf_values[2]]]
-        )
-
-        self.PigradpT.update_weights(
-            [[self._mapped_gradpf_values[0], self._mapped_gradpf_values[1], self._mapped_gradpf_values[2]]]
-        )
-
-    def _create_transop0(self):
-        """Update the weights of the `BasisProjectionOperator`"""
-
-        self.pf.vector = self.projected_mhd_equil.p3
-        self.gradpf.vector = self.grad.dot(self.projected_mhd_equil.p3)
-        pf_values = self.pf.eval_tp_fixed_loc(
-            self.int_grid_spans,
-            self.int_grid_bd,
-            out=self._pf_values,
-        )
-
-        self._mapped_pf_values *= 0.0
-        self._mapped_pf_values += pf_values
-        self._mapped_pf_values *= self._proj_p_metric
-
-        grad_pf_values = self.gradpf.eval_tp_fixed_loc(
-            self.int_grid_spans,
-            self._int_grid_grad,
-            out=self._gradpf_values,
-        )
-
-        for j in range(3):
-            self._mapped_gradpf_values[j] *= 0.0
-            for i in range(3):
-                self._mapped_gradpf_values[j] += self._proj_gradp_metric[j][i] * grad_pf_values[i]
-        
         P3 = self.derham.P["3"]
-        Xh = self.derham.Vh_fem["v"]
         V3h = self.derham.Vh_fem["3"]
 
-        self.Pip0 = BasisProjectionOperator(
+        self.Pip_div0 = BasisProjectionOperator(
             P3,
             V3h,
             [[self._mapped_pf_values]],
@@ -5418,24 +5372,45 @@ class VariationalPressureEvolve(Propagator):
             P_boundary_op=IdentityOperator(self.derham.Vh_pol["3"]),
         )
 
-        self.Pigradp0 = BasisProjectionOperator(
-            P3,
+        pf0_values = self.pf.eval_tp_fixed_loc(
+            self.hist_grid_0_spans,
+            self.hist_grid_0_bd,
+            out=self._pf_0_values,
+        )
+        pf1_values = self.pf.eval_tp_fixed_loc(
+            self.hist_grid_1_spans,
+            self.hist_grid_1_bd,
+            out=self._pf_1_values,
+        )
+        pf2_values = self.pf.eval_tp_fixed_loc(
+            self.hist_grid_2_spans,
+            self.hist_grid_2_bd,
+            out=self._pf_2_values,
+        )
+
+        P2 = self.derham.P["2"]
+        Xh = self.derham.Vh_fem["v"]
+
+        self.Pip0 = BasisProjectionOperator(
+            P2,
             Xh,
-            [[self._mapped_gradpf_values[0], self._mapped_gradpf_values[1], self._mapped_gradpf_values[2]]],
+            [[pf0_values, None, None],
+             [None, pf1_values, None],
+             [None, None, pf2_values]],
             transposed=False,
             use_cache=True,
             V_extraction_op=self.derham.extraction_ops["v"],
             V_boundary_op=self.derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["3"]),
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
         )
 
-        self._transop0 = self.Pigradp0 + self._gamma * self.Pip0 @ self.div
+        self._transop0 =  self.derham.div @ self.Pip0 + self.Pip_div0 @ self.div
 
 
     def _update_linear_form_u2(self):
         """Update the linearform representing integration in V3 against pressure energy"""
 
-        if self._model == "full_p":
+        if self._model in ["full_p", "linear"]:
             self._tmp_int_grid *= 0.0
             self._tmp_int_grid -= 1.0 / (self._gamma - 1.0)
             self._tmp_int_grid *= self._energy_metric_term
