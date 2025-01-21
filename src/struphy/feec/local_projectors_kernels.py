@@ -1,6 +1,7 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
+import struphy.feec.local_projectors_args_kernels as local_projectors_args_kernels
 from struphy.feec.local_projectors_args_kernels import LocalProjectorsArguments
 
 
@@ -84,7 +85,7 @@ def get_dofs_local_1_form_ec_component_weighted(
     f_eval_aux: "float[:,:,:]",
     c: int,
 ):
-    """Kernel for evaluating the degrees of freedom for the first component of 1-forms. This function is for local commuting projetors.
+    """Kernel for evaluating the degrees of freedom for the c-th component of 1-forms. This function is for local commuting projetors.
 
     Parameters
     ----------
@@ -169,7 +170,7 @@ def get_dofs_local_1_form_ec_component_weighted(
 def get_dofs_local_1_form_ec_component(
     args_solve: LocalProjectorsArguments, f3: "float[:,:,:]", f_eval_aux: "float[:,:,:]", c: int
 ):
-    """Kernel for evaluating the degrees of freedom for the third component of 1-forms.  This function is for local commuting projetors.
+    """Kernel for evaluating the degrees of freedom for the c-th component of 1-forms.  This function is for local commuting projetors.
 
     Parameters
     ----------
@@ -221,7 +222,7 @@ def get_dofs_local_1_form_ec_component(
 def get_dofs_local_2_form_ec_component(
     args_solve: LocalProjectorsArguments, fc: "float[:,:,:]", f_eval_aux: "float[:,:,:]", c: int
 ):
-    """Kernel for evaluating the degrees of freedom for the first component of 2-forms.  This function is for local commuting projetors.
+    """Kernel for evaluating the degrees of freedom for the c-th component of 2-forms.  This function is for local commuting projetors.
 
     Parameters
     ----------
@@ -288,7 +289,7 @@ def get_dofs_local_2_form_ec_component_weighted(
     f_eval_aux: "float[:,:,:]",
     c: int,
 ):
-    """Kernel for evaluating the degrees of freedom for the first component of 2-forms.  This function is for local commuting projetors.
+    """Kernel for evaluating the degrees of freedom for the c-th component of 2-forms.  This function is for local commuting projetors.
 
     Parameters
     ----------
