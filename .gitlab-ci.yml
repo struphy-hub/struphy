@@ -138,7 +138,7 @@ private_runner_install:
     - private_runner_venv
   script:
     - source $VENV_DIR/env_struphy_CI/bin/activate
-    - pip install . # Install struphy
+    - pip install .[dev] # Install struphy
     - struphy
     - python -c "import pylikwid"
     - pyccel --version
