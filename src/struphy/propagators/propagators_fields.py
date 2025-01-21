@@ -3110,7 +3110,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             # No implicit
             rhon1 = rhon.copy(out=self._tmp_rhon1)
-            #rhon1 += self._tmp_rhon_diff
+            # rhon1 += self._tmp_rhon_diff
 
         # Initialize variable for Newton iteration
         if self._model == "full":
@@ -3994,7 +3994,7 @@ class VariationalDensityEvolve(Propagator):
             self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
 
         elif self._model == "full_p":
-            self._M_drho.assemble([[0.*self._tmp_int_grid]], verbose=False)
+            self._M_drho.assemble([[0.0 * self._tmp_int_grid]], verbose=False)
 
         self._M_un.assemble(
             [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]],
@@ -5095,7 +5095,7 @@ class VariationalPressureEvolve(Propagator):
         advection = self._transopT.dot(
             self._linear_form_dl_dp,
             out=self._tmp_advection,
-            )
+        )
         advection *= dt
 
         mn1 -= advection
@@ -5110,7 +5110,7 @@ class VariationalPressureEvolve(Propagator):
         p_advection = self._transop.dot(
             un12,
             out=self._tmp_p_advection,
-        )     
+        )
 
         p_advection *= dt
 
@@ -5137,9 +5137,7 @@ class VariationalPressureEvolve(Propagator):
         self.Pip = BasisProjectionOperator(
             P2,
             Xh,
-            [[None, None, None],
-             [None, None, None],
-             [None, None, None]],
+            [[None, None, None], [None, None, None], [None, None, None]],
             transposed=False,
             use_cache=True,
             V_extraction_op=self.derham.extraction_ops["v"],
@@ -5160,7 +5158,7 @@ class VariationalPressureEvolve(Propagator):
 
         # BC?
 
-        self.Uv = self.basis_ops.Uv 
+        self.Uv = self.basis_ops.Uv
 
         self.PipT = self.Pip.T
         self.Pip_divT = self.Pip_div.T
@@ -5181,8 +5179,8 @@ class VariationalPressureEvolve(Propagator):
         self.div = div @ self.Uv
 
         # Initialize the transport operator and transposed
-        self._transop =  div @ self.Pip + (self._gamma-1.) * self.Pip_div @ self.div
-        self._transopT = self.PipT @ div.T + (self._gamma-1.) * self.div.T @ self.Pip_divT
+        self._transop = div @ self.Pip + (self._gamma - 1.0) * self.Pip_div @ self.div
+        self._transopT = self.PipT @ div.T + (self._gamma - 1.0) * self.div.T @ self.Pip_divT
 
         int_grid = [pts.flatten() for pts in self.derham.proj_grid_pts["3"]]
 
@@ -5223,16 +5221,16 @@ class VariationalPressureEvolve(Propagator):
         self._pf_2_values = np.zeros(grid_shape, dtype=float)
 
         # Inverse weighted mass matrix
-        
+
         pc_class = getattr(
             preconditioner,
-            'MassMatrixDiagonalPreconditioner',
+            "MassMatrixDiagonalPreconditioner",
         )
         self.pc = pc_class(self._Mrho)
 
         self._Mrhoinv = inverse(
             self._Mrho,
-            'pcg',
+            "pcg",
             pc=self.pc,
             tol=1e-16,
             maxiter=1000,
@@ -5277,7 +5275,7 @@ class VariationalPressureEvolve(Propagator):
 
         self.Pip_divT.update_weights([[self._mapped_pf_values]])
 
-        #print(self.Pip_divT._dof_mat._data)
+        # print(self.Pip_divT._dof_mat._data)
 
         pf0_values = self.pf.eval_tp_fixed_loc(
             self.hist_grid_0_spans,
@@ -6380,7 +6378,7 @@ class VariationalViscosity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]], verbose=False)
-                self.pc_jac.update_mass_operator(self.M_de_ds)                
+                self.pc_jac.update_mass_operator(self.M_de_ds)
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
