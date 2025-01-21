@@ -175,6 +175,9 @@ On **Windows systems** we recommend the use of a virtual machine, for instance t
 Trouble shooting
 ----------------
 
+Install problems
+^^^^^^^^^^^^^^^^
+
 * Make sure that you can ``pip install mpi4py``.
 * In many cases installing ``apt install openmpi-devel`` solves a problem with missing headers.
 * On Mac OS, you can try to install the command line tools (160 MB) ``xcode-select --install``.
@@ -183,6 +186,10 @@ Trouble shooting
     conda install mpich
     conda install gxx_linux-64
 
+Compilation problems
+^^^^^^^^^^^^^^^^^^^^
+
+* If compilation fails, ``struphy compile --delete`` can help to clean up the environment.
 * 
   It can happen that during ``struphy compile`` you encounter::
 
@@ -194,6 +201,7 @@ Trouble shooting
   At the moment this error is resolved with::
 
     pip install numpy==1.26.4
+
 
 .. _pypi_install:
 
@@ -279,7 +287,7 @@ Struphy features optional dependencies:
         * ``pip install .[dev]`` enables the development environment (testing, linting, formatting)
         * ``pip install .[doc]`` enables :ref:`change_doc`
 
-        These can also be combined, as for example in ``pip install .[dev, doc]``.
+        These can also be combined, as for example in ``pip install .[dev,doc]``.
 
     .. tab-item:: zsh
 
@@ -287,7 +295,7 @@ Struphy features optional dependencies:
         * ``pip install ."[dev]"`` enables the development environment (testing, linting, formatting)
         * ``pip install ."[doc]"`` enables :ref:`change_doc`
 
-        These can also be combined, as for example in ``pip install ."[dev, doc]"``.
+        These can also be combined, as for example in ``pip install ."[dev,doc]"``.
 
 Compile kernels in ``c`` (default)::
 

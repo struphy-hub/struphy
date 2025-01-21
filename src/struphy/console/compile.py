@@ -35,6 +35,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         Whether to say yes to prompt when changing the language.
     """
 
+    import importlib.metadata
     import os
     import sysconfig
 
@@ -216,6 +217,57 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         state["last_used_omp_feec"] = flag_omp_feec
 
         utils.save_state(state)
+
+        # install psydac from wheel if not there
+        source_install = False
+        for req in importlib.metadata.distribution("struphy").requires:
+            if "psydac" in req:
+                source_install = True
+
+        struphy_ver = importlib.metadata.version("struphy")
+
+        try:
+            import psydac
+
+            psydac_ver = importlib.metadata.version("psydac")
+            psydac_installed = True
+        except:
+            psydac_installed = False
+
+        if source_install:
+            if psydac_installed:
+                # only install (from .whl) if psydac not up-to-date
+                if psydac_ver != struphy_ver:
+                    print(
+                        f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n"
+                    )
+                    exit()
+            else:
+                print(f"Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
+                exit()
+
+        else:
+            install_psydac = False
+            if psydac_installed:
+                # only install (from .whl) if psydac not up-to-date
+                if psydac_ver != struphy_ver:
+                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is available.\n")
+                    install_psydac = True
+            else:
+                install_psydac = True
+
+            if install_psydac:
+                psydac_file = "psydac-" + struphy_ver + "-py3-none-any.whl"
+                cmd = ["pip", "uninstall", "-y", "psydac"]
+                subp_run(cmd)
+                print("\nInstalling Psydac ...")
+                cmd = [
+                    "pip",
+                    "install",
+                    os.path.join(libpath, psydac_file),
+                ]
+                subp_run(cmd)
+                print("Done.")
 
         # Compile psydac kernels, note that this is a special function call in psydac-for-struphy.
         # Otherwise, psydac only allows for recompiling the kernels when installed in editable mode.
