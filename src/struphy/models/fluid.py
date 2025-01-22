@@ -16,7 +16,7 @@ class LinearMHD(StruphyModel):
     :ref:`Equations <gempic>`:
 
     .. math::
-    
+
         &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
         \\[2mm]
         \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
@@ -72,10 +72,10 @@ class LinearMHD(StruphyModel):
                        option='Hdiv', dct=dct)
         return dct
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from struphy.polar.basic import PolarVector
 
@@ -199,8 +199,8 @@ class LinearExtendedMHDuniform(StruphyModel):
         dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
 
         dct['em_fields']['b_field'] = 'Hcurl'
-        dct['fluid']['mhd'] = {'rho': 'L2', 
-                               'u': 'Hdiv', 
+        dct['fluid']['mhd'] = {'rho': 'L2',
+                               'u': 'Hdiv',
                                'p': 'L2',
                                }
         return dct
@@ -212,7 +212,7 @@ class LinearExtendedMHDuniform(StruphyModel):
     @staticmethod
     def velocity_scale():
         return 'alfvén'
-    
+
     @staticmethod
     def propagators_dct():
         return {propagators_fields.ShearAlfvenB1: ['mhd_u', 'b_field'],
@@ -226,10 +226,10 @@ class LinearExtendedMHDuniform(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from struphy.polar.basic import PolarVector
 
@@ -267,7 +267,7 @@ class LinearExtendedMHDuniform(StruphyModel):
 
         self._kwargs[propagators_fields.Hall] = {'solver': hall_solver,
                                                  'epsilon': epsilon}
-        
+
         self._kwargs[propagators_fields.MagnetosonicUniform] = {'solver': sonic_solver}
 
         # Initialize propagators used in splitting substeps
@@ -346,9 +346,9 @@ class ColdPlasma(StruphyModel):
         \frac{\alpha^2}{\varepsilon} \mathbf j \,,
 
     where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
-    
+
     .. math::
-    
+
         \alpha = \frac{\hat \Omega_\textnormal{p}}{\hat \Omega_\textnormal{c}}\,, \qquad \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t}\,.
 
     :ref:`propagators` (called in sequence):
@@ -390,10 +390,10 @@ class ColdPlasma(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         # model parameters
         self._alpha = self.equation_params['electrons']['alpha']
@@ -406,14 +406,14 @@ class ColdPlasma(StruphyModel):
 
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.Maxwell] = {'solver': params_maxwell}
-        
+
         self._kwargs[propagators_fields.OhmCold] = {'alpha': self._alpha,
                                                     'epsilon': self._epsilon,
                                                     'solver': params_ohmcold}
-        
+
         self._kwargs[propagators_fields.JxBCold] = {'epsilon': self._epsilon,
                                                     'solver': params_jxbcold}
-        
+
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
@@ -447,7 +447,7 @@ class ColdPlasma(StruphyModel):
 class VariationalMHD(StruphyModel):
     r'''Full (non-linear) MHD equations discretized with a variational method 
     (see https://www.arxiv.org/abs/2402.02905 for more details about the scheme).
-    
+
     :ref:`normalization`:
 
     .. math::
@@ -506,9 +506,7 @@ class VariationalMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
-
-        
+    def __init__(self, params, comm, inter_comm=None):
 
         from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
@@ -516,8 +514,8 @@ class VariationalMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
-        
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
+
         self.WMM = self.mass_ops.create_weighted_mass('H1vec', 'H1vec')
 
         # Initialize propagators/integrators used in splitting substeps
@@ -551,10 +549,10 @@ class VariationalMHD(StruphyModel):
                                                                      'mass_ops': self.WMM,
                                                                      'lin_solver': lin_solver_entropy,
                                                                      'nonlin_solver': nonlin_solver_entropy}
-        
+
         self._kwargs[propagators_fields.VariationalMagFieldEvolve] = {'mass_ops': self.WMM,
-                                                                     'lin_solver': lin_solver_magfield,
-                                                                     'nonlin_solver': nonlin_solver_magfield}
+                                                                      'lin_solver': lin_solver_magfield,
+                                                                      'nonlin_solver': nonlin_solver_magfield}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -685,7 +683,7 @@ class ViscoresistiveMHD(StruphyModel):
     @staticmethod
     def velocity_scale():
         return 'alfvén'
-    
+
     @staticmethod
     def propagators_dct():
         return {propagators_fields.VariationalDensityEvolve: ['mhd_rho3', 'mhd_uv'],
@@ -693,7 +691,7 @@ class ViscoresistiveMHD(StruphyModel):
                 propagators_fields.VariationalEntropyEvolve: ['mhd_s3', 'mhd_uv'],
                 propagators_fields.VariationalMagFieldEvolve: ['b2', 'mhd_uv'],
                 propagators_fields.VariationalViscosity: ['mhd_s3', 'mhd_uv'],
-                propagators_fields.VariationalResistivity: ['mhd_s3', 'b2'],}
+                propagators_fields.VariationalResistivity: ['mhd_s3', 'b2'], }
 
     __em_fields__ = species()['em_fields']
     __fluid_species__ = species()['fluid']
@@ -702,7 +700,7 @@ class ViscoresistiveMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
@@ -710,8 +708,8 @@ class ViscoresistiveMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
-    
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
+
         self.WMM = self.mass_ops.create_weighted_mass('H1vec', 'H1vec')
 
         # Initialize propagators/integrators used in splitting substeps
@@ -756,11 +754,11 @@ class ViscoresistiveMHD(StruphyModel):
                                                                      'mass_ops': self.WMM,
                                                                      'lin_solver': lin_solver_entropy,
                                                                      'nonlin_solver': nonlin_solver_entropy}
-        
+
         self._kwargs[propagators_fields.VariationalMagFieldEvolve] = {'mass_ops': self.WMM,
-                                                                     'lin_solver': lin_solver_magfield,
-                                                                     'nonlin_solver': nonlin_solver_magfield}
-        
+                                                                      'lin_solver': lin_solver_magfield,
+                                                                      'nonlin_solver': nonlin_solver_magfield}
+
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
                                                                  'rho': self.pointer['mhd_rho3'],
                                                                  'gamma': self._gamma,
@@ -769,7 +767,7 @@ class ViscoresistiveMHD(StruphyModel):
                                                                  'mass_ops': self.WMM,
                                                                  'lin_solver': lin_solver_viscosity,
                                                                  'nonlin_solver': nonlin_solver_viscosity}
-        
+
         self._kwargs[propagators_fields.VariationalResistivity] = {'model': model,
                                                                    'rho': self.pointer['mhd_rho3'],
                                                                    'gamma': self._gamma,
@@ -777,7 +775,7 @@ class ViscoresistiveMHD(StruphyModel):
                                                                    'eta_a': self._eta_a,
                                                                    'lin_solver': lin_solver_resistivity,
                                                                    'nonlin_solver': nonlin_solver_resistivity,
-                                                                   'linearize_current' :self._linearize_current}
+                                                                   'linearize_current' : self._linearize_current}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -880,7 +878,7 @@ class ViscousFluid(StruphyModel):
 
     where the internal energy per unit mass is :math:`\mathcal U(\rho) = \rho^{\gamma-1} \exp(s / \rho)`.
     and :math:`\mu_a(\mathbf x)` is an artificial viscosity coefficient.
-    
+
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
@@ -903,7 +901,7 @@ class ViscousFluid(StruphyModel):
     @staticmethod
     def velocity_scale():
         return 'alfvén'
-    
+
     @staticmethod
     def propagators_dct():
         return {propagators_fields.VariationalDensityEvolve: ['fluid_rho3', 'fluid_uv'],
@@ -917,8 +915,8 @@ class ViscousFluid(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-    
-    def __init__(self, params, comm, inter_comm = None):
+
+    def __init__(self, params, comm, inter_comm=None):
 
         from struphy.feec.projectors import L2Projector
         from struphy.feec.mass import WeightedMassOperator
@@ -926,8 +924,8 @@ class ViscousFluid(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
-   
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
+
         self.WMM = self.mass_ops.create_weighted_mass('H1vec', 'H1vec')
 
         # Initialize propagators/integrators used in splitting substeps
@@ -944,7 +942,6 @@ class ViscousFluid(StruphyModel):
         self._mu = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mu']
         self._mu_a = params['fluid']['fluid']['options']['VariationalViscosity']['physics']['mu_a']
         model = 'full'
-
 
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.VariationalDensityEvolve] = {'model': model,
@@ -964,7 +961,7 @@ class ViscousFluid(StruphyModel):
                                                                      'mass_ops': self.WMM,
                                                                      'lin_solver': lin_solver_entropy,
                                                                      'nonlin_solver': nonlin_solver_entropy}
-        
+
         self._kwargs[propagators_fields.VariationalViscosity] = {'model': model,
                                                                  'gamma': self._gamma,
                                                                  'rho': self.pointer['fluid_rho3'],
@@ -973,7 +970,7 @@ class ViscousFluid(StruphyModel):
                                                                  'mass_ops': self.WMM,
                                                                  'lin_solver': lin_solver_viscosity,
                                                                  'nonlin_solver': nonlin_solver_viscosity}
-        
+
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
@@ -1048,6 +1045,7 @@ class ViscousFluid(StruphyModel):
         gam = self._gamma
         return np.power(rho, gam)*np.exp(s/rho)
 
+
 class Stokeslike(StruphyModel):
     r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
@@ -1060,22 +1058,16 @@ class Stokeslike(StruphyModel):
     :ref:`Equations <gempic>`:
 
     .. math::
-    
-        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+
+        &\frac{\partial u}{\partial t} = - \nabla \phi + u \times B + \nu \Delta u + f\,, 
         \\[2mm]
-        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-        = (\nabla \times \tilde{\mathbf{B}})\times \mathbf{B}_0 + (\nabla\times\mathbf{B}_0)\times \tilde{\mathbf{B}} \,,
+        &0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,,
         \\[2mm]
-        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
-        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
-        \\[2mm]
-        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
-        = 0\,.
+        &\nabla \cdot (u-u_e) = 0\,.
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
-    2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+    1. :class:`~struphy.propagators.propagators_fields.Stokes`
 
     :ref:`Model info <add_model>`:
     '''
@@ -1108,17 +1100,24 @@ class Stokeslike(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    
-    def __init__(self, params, comm, inter_comm = None):
+    def __init__(self, params, comm, inter_comm=None):
 
         # initialize base class
-        super().__init__(params, comm = comm, inter_comm = inter_comm)
+        super().__init__(params, comm=comm, inter_comm=inter_comm)
 
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
         #u_space = params['fluid']['mhd']['options']['u_space']
         stokes_solver = params['fluid']['mhd']['options']['Stokes']['solver']
+        stokes_nu = params['fluid']['mhd']['options']['Stokes']['nu']
+        stokes_nu_e = params['fluid']['mhd']['options']['Stokes']['nu_e']
+        stokes_a = params['fluid']['mhd']['options']['Stokes']['a']
+        stokes_R0 = params['fluid']['mhd']['options']['Stokes']['R0']
+        stokes_B0 = params['fluid']['mhd']['options']['Stokes']['B0']
+        stokes_Bp = params['fluid']['mhd']['options']['Stokes']['Bp']
+        stokes_alpha = params['fluid']['mhd']['options']['Stokes']['alpha']
+        stokes_beta = params['fluid']['mhd']['options']['Stokes']['beta']
         # alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
         # sonic_solver = params['fluid']['mhd']['options']['Magnetosonic']['solver']
 
@@ -1135,8 +1134,16 @@ class Stokeslike(StruphyModel):
             self._ones[:] = 1.
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Stokes] = {'solver': stokes_solver}
-        
+        self._kwargs[propagators_fields.Stokes] = {'solver': stokes_solver,
+                                                   'nu': stokes_nu,
+                                                   'nu_e': stokes_nu_e,
+                                                   'a': stokes_a,
+                                                   'R0': stokes_R0,
+                                                   'B0': stokes_B0,
+                                                   'Bp': stokes_Bp,
+                                                   'alpha': stokes_alpha,
+                                                   'beta': stokes_beta}
+
         # self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
         #                                                 'solver': alfven_solver}
 

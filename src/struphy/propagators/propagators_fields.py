@@ -28,6 +28,9 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
+from struphy.initial import perturbations
+from struphy.feec.psydac_derham import TransformedPformComponent
+
 from struphy.feec.utilities import create_equal_random_arrays
 
 
@@ -6731,15 +6734,17 @@ class AdiabaticPhi(Propagator):
 
 class Stokes(Propagator):
     r''':ref:`FEEC <gempic>` discretization of the following equations: 
-    find :math:`\mathbf E \in H(\textnormal{curl})` and  :math:`\mathbf B \in H(\textnormal{div})` such that
+    find :math:`\mathbf u \in H(\textnormal{div})`, :math:`\mathbf u_e \in H(\textnormal{div})` and  :math:`\mathbf \phi \in L^2` such that
 
     .. math::
 
-        &\int_\Omega \frac{\partial \mathbf E}{\partial t} \cdot \mathbf F \, \textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times \mathbf F \,\textrm d \mathbf x = 0\,, \qquad \forall \, \mathbf F \in H(\textnormal{curl}) \,.
-        \\[2mm]
-        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
+        \int_{\Omega} \partial_t  \mathbf{u}\cdot \mathbf{v} \textrm d\mathbf{x} &=  \int_{\Omega}  \phi \nabla \! \cdot \! \mathbf{v} \textrm d\mathbf{x}  + \int_{\Omega}  \mathbf{u}\! \times \! \mathbf{B}_0 \cdot \mathbf{v} \textrm d\mathbf{x} + \nu \int_{\Omega} \nabla \mathbf{u}\! : \! \nabla \mathbf{v} \textrm d\mathbf{x} + \int_{\Omega} f \mathbf{v} \textrm d\mathbf{x} \qquad \forall \mathbf{v} \in H(div) \,.
+    \\[2mm]
+    0 &= - \int_{\Omega} \phi \nabla \! \cdot \! \mathbf{v_e} \textrm d\mathbf{x} - \int_{\Omega} \mathbf{u_e} \! \times \! \mathbf{B}_0 \cdot \mathbf{v_e} \textrm d\mathbf{x}  + \nu_e \int_{\Omega} \nabla \mathbf{u_e}  \!: \! \nabla \mathbf{v_e} \textrm d\mathbf{x} + \int_{\Omega} f_e \mathbf{v_e} \textrm d\mathbf{x} \qquad \forall \mathbf{v_e} \in H(div) \,.
+    \\[2mm]
+    0 &= \int_{\Omega} \psi \nabla \cdot (\mathbf{u}-\mathbf{u_e}) \textrm d\mathbf{x} \qquad \forall \psi \in L^2 \,.
 
-    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
+    :ref:`time_discret`: Crank-Nicolson (implicit mid-point).
     '''
 
     @staticmethod
@@ -6765,10 +6770,16 @@ class Stokes(Propagator):
         u: BlockVector,
         ue: BlockVector,
         phi: BlockVector,
+        *,
         nu: float = 1.,
         nu_e: float = 0.01,
-        *,
         solver: dict = options(default=True)['solver'],
+        a: float = 1.,
+        R0: float = 2.,
+        B0: float = 10.,
+        Bp: float = 12.5,
+        alpha: 0.1,
+        beta: 1.
     ):
 
         super().__init__(u, ue, phi)
@@ -6778,49 +6789,73 @@ class Stokes(Propagator):
             self._rank = self.derham.comm.Get_rank()
         else:
             self._rank = 0
-        
+
         self._nu = nu
         self._nu_e = nu_e
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+        
 
         # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
-        _A11 = self.mass_ops.M2 - self.mass_ops.M2B + self._nu*(self.derham.div.T @ self.mass_ops.M3 @self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
+        _A11 = self.mass_ops.M2 - self.mass_ops.M2B + self._nu * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @
+                                                                  self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
         _A12 = None
         _A21 = _A12
-        _A22 = self.mass_ops.M2B + self._nu_e*(self.derham.div.T @ self.mass_ops.M3 @self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
+        _A22 = self.mass_ops.M2B + self._nu_e*(self.derham.div.T @ self.mass_ops.M3 @ self.derham.div +
+                                               self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
         
-        #Define right hand side
-        self._F1 = _A11.codomain.zeros()
-        self._F2 = _A22.codomain.zeros()
+        _forceterm_logical = lambda e1, e2, e3: 0*e1
+        _fun = getattr(perturbations, 'forcingterm')(self._nu, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta)
+        _fun_electrons = getattr(perturbations, 'forcingterm')(self._nu_e, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta)
         
-        if  _A12 is not None:
+        # get callable(s) for specified init type
+        forceterm_class = [_forceterm_logical, _fun , _forceterm_logical]
+        forcetermelectrons_class = [_forceterm_logical, _fun_electrons, _forceterm_logical]
+
+        
+        # pullback callable
+        fun = TransformedPformComponent(
+            forceterm_class, fun_basis='physical', out_form='2', comp=1, domain=self.domain 
+        )
+        fun_electrons = TransformedPformComponent(
+            forcetermelectrons_class, fun_basis='physical', out_form='2', comp=1, domain=self.domain  
+        )
+        
+        #Project into discrete Hdiv to define right hand side
+        self._F1 = self.derham.P['2']((_forceterm_logical, fun, _forceterm_logical))
+        self._F2 = self.derham.P['2']((_forceterm_logical, fun_electrons, _forceterm_logical))
+
+        if _A12 is not None:
             assert _A11.codomain == _A12.codomain
         if _A21 is not None:
             assert _A22.codomain == _A21.codomain
         assert _B1.codomain == _B2.codomain
         if _A12 is not None:
-            assert _A11.domain== _A12.domain == _B1.domain
+            assert _A11.domain == _A12.domain == _B1.domain
         if _A21 is not None:
-            assert _A21.domain== _A22.domain == _B2.domain     
+            assert _A21.domain == _A22.domain == _B2.domain
         assert _A22.domain == _B2.domain
         assert _A11.domain == _B1.domain
-        
+
         self._block_domainA = BlockVectorSpace(_A11.domain, _A22.domain)
-        self._block_codomainA = self._block_domainA  
-        self._block_domainB =  self._block_domainA
+        self._block_codomainA = self._block_domainA
+        self._block_domainB = self._block_domainA
         self._block_codomainB = _B2.codomain
-        _blocks = [[_A11, _A12],[_A21, _A22]]
+        _blocks = [[_A11, _A12], [_A21, _A22]]
         _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocks)
-        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks = [[_B1, _B2]])
-        _F = BlockVector(self._block_domainA, blocks = [self._F1, self._F2]) #missing M2/dt *un-1
-        
+        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=[[_B1, _B2]])
+        _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1
+
         self._block_domainM = BlockVectorSpace(_A.domain, _B.transpose().domain)
         self._block_codomainM = self._block_domainM
-        self._blocks = [[_A, None],[None, None]]
+        self._blocks = [[_A, None], [None, None]]
         self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
-
-
 
         self._solverM = inverse(
             self._M,
@@ -6835,56 +6870,54 @@ class Stokes(Propagator):
         self._e_tmp2 = ue.space.zeros()
         self._b_tmp1 = phi.space.zeros()
 
-
     def __call__(self, dt):
 
         # current variables
         un = self.feec_vars[0]
         uen = self.feec_vars[1]
         phin = self.feec_vars[2]
-        
-        
+
         # Define block matrix [[A BT], [B 0]]
-        _A11 = self.mass_ops.M2/dt - self.mass_ops.M2B + self._nu*(self.derham.div.T @ self.mass_ops.M3 @self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p )
+        _A11 = self.mass_ops.M2/dt - self.mass_ops.M2B + self._nu * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @
+                                                                     self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
         _A12 = None
         _A21 = _A12
-        _A22 = self.mass_ops.M2B + self._nu_e*(self.derham.div.T @ self.mass_ops.M3 @self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
+        _A22 = self.mass_ops.M2B + self._nu_e*(self.derham.div.T @ self.mass_ops.M3 @ self.derham.div +
+                                               self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
-        
-        
-        if  _A12 is not None:
+
+        if _A12 is not None:
             assert _A11.codomain == _A12.codomain
         if _A21 is not None:
             assert _A22.codomain == _A21.codomain
         assert _B1.codomain == _B2.codomain
         if _A12 is not None:
-            assert _A11.domain== _A12.domain == _B1.domain
+            assert _A11.domain == _A12.domain == _B1.domain
         if _A21 is not None:
-            assert _A21.domain== _A22.domain == _B2.domain     
+            assert _A21.domain == _A22.domain == _B2.domain
         assert _A22.domain == _B2.domain
         assert _A11.domain == _B1.domain
-        
-        _blocks = [[_A11, _A12],[_A21, _A22]]
+
+        _blocks = [[_A11, _A12], [_A21, _A22]]
         _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocks)
-        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks = [[_B1, _B2]])
-        _F = BlockVector(self._block_domainA, blocks = [self._F1, self._F2]) #+ self.mass_ops.M2/dt how to access un-1?
-        
-        self._M *=0
-        self._blocks = [[_A, _B.T],[_B, None]]
+        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=[[_B1, _B2]])
+        _F = BlockVector(self._block_domainA, blocks=[self._F1 + 1/dt*self.mass_ops.M2.dot(un), self._F2])  
+
+        self._M *= 0
+        self._blocks = [[_A, _B.T], [_B, None]]
         self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
-        self._RHS = BlockVector(self._block_domainM, blocks = [_F, _B.codomain.zeros()])
-        
+        self._RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
+
         # use setter to update lhs matrix
         self._solverM.linop = self._M
 
         _sol = self._solverM.dot(self._RHS)
         info = self._solverM._info
-        
+
         un = _sol[0][0]
         uen = _sol[0][1]
         phin = _sol[1]
-        
 
         # write new coeffs into self.feec_vars
         max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
@@ -6895,104 +6928,4 @@ class Stokes(Propagator):
             print('Maxdiff u for Stokes:', max_du)
             print('Maxdiff u_e for Stokres:', max_due)
             print('Maxdiff phi for Stokres:', max_dphi)
-            print()
-            
-class uxB(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
-    find :math:`\mathbf j \in H(\textnormal{curl})` such that
-
-    .. math::
-
-        \int_\Omega \frac{1}{n_0} \frac{\partial \mathbf j}{\partial t} \cdot \mathbf F \,\textrm d \mathbf x 
-        = \frac{1}{\varepsilon} \int_\Omega \frac{1}{n_0} (\mathbf j \times \mathbf B_0) \cdot \mathbf F \,\textrm d \mathbf x \qquad \forall \,\mathbf F \in H(\textnormal{curl})\,,
-
-    :ref:`time_discret`: Crank-Nicolson (implicit mid-point), such that
-
-    .. math::
-
-        \mathbb M_{1/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right) = \frac{\Delta t}{2} \frac{1}{\varepsilon} \mathbb M_{B_0/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right)\,.
-    '''
-
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct['solver'] = {
-            'type': [
-                ('pcg', 'MassMatrixPreconditioner'),
-                ('cg', None),
-            ],
-            'tol': 1.e-8,
-            'maxiter': 3000,
-            'info': False,
-            'verbose': False,
-            'recycle': True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
-
-        return dct
-
-    def __init__(
-        self,
-        u: BlockVector,
-        *,
-        epsilon: float = 1.,
-        solver: dict = options(default=True)['solver'],
-    ):
-
-        super().__init__(u)
-
-        self._info = solver['info']
-
-        # mass matrix in system (M - dt/2 * A)*j^(n + 1) = (M + dt/2 * A)*j^n
-        self._M = self.mass_ops.M2
-        self._A = self.mass_ops.M2B  # no dt
-
-        # Preconditioner
-        if solver['type'][1] is None:
-            pc = None
-        else:
-            pc_class = getattr(preconditioner, solver['type'][1])
-            pc = pc_class(self.mass_ops.M2)
-
-        # Instantiate linear solver
-        self._solver = inverse(
-            self._M,
-            solver['type'][0],
-            pc=pc,
-            x0=self.feec_vars[0],
-            tol=solver['tol'],
-            maxiter=solver['maxiter'],
-            verbose=solver['verbose'],
-        )
-
-        # allocate dummy vectors to avoid temporary array allocations
-        self._rhs_u = self._M.codomain.zeros()
-        self._u_new = u.space.zeros()
-
-    def __call__(self, dt):
-
-        # current variables
-        un = self.feec_vars[0]
-
-        # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
-        lhs = self._M - dt/2.0 * self._A
-        rhs = self._M + dt/2.0 * self._A
-
-        rhsv = rhs.dot(un, out=self._rhs_u)
-        # print(f'{self.derham.comm.Get_rank() = }, after dot')
-
-        self._solver.linop = lhs
-
-        # solve linear system for updated j coefficients (in-place)
-        un1 = self._solver.solve(rhsv, out=self._u_new)
-        info = self._solver._info
-
-        # write new coeffs into Propagator.variables
-        max_du = self.feec_vars_update(un1)[0]
-
-        if self._info:
-            print('Status     for ucrossB:', info['success'])
-            print('Iterations for ucrossB:', info['niter'])
-            print('Maxdiff u for ucrossB:', max_du)
             print()
