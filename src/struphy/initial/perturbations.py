@@ -793,3 +793,230 @@ class Erf_z:
         val = self._amp*erf((e3 - 0.5)/self._delta)
 
         return val
+
+
+class forcingterm:
+    r'''Force term :math:`\chi_s(\eta_1)` on the right-hand-side of:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in carthesian coordinates.
+
+    Note
+    ----
+    In the parameter .yml, use the following template in the section ``fluid/<mhd>``::
+
+        options:
+            Stokes:  
+                nu: 1.      # viscosity
+                nu_e: 0.01  # viscosity electrons
+                a: 1.       # minor radius
+                R0: 2.      # major radius
+                B0: 10.     # on-axis toroidal magnetic field
+                Bp: 12.5    # poloidal magnetic field
+                alpha: 0.1
+                beta: 1.
+    '''
+
+    def __init__(self, nu=1., R0=2., a=1., B0=10., Bp=12.5, alpha=0.1, beta=1.):
+        r'''
+        Parameters
+        ----------
+        nu  : 1.    # viscosity
+
+        a   : 1.    # minor radius
+
+        R0  : 2.    # major radius
+
+        B0  : 10.   # on-axis toroidal magnetic field
+
+        Bp  : 12.5  # poloidal magnetic field
+
+        alpha: 0.1
+
+        beta: 1.
+        '''
+
+        self._nu = nu
+        self._R0 = R0
+        self._a = a
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    def __call__(self, x, y, z):
+
+        val = self._nu * self._alpha * (self._R0 - 4*np.sqrt(x**2+y**2))/(self._a * self._R0 * np.sqrt(
+            x**2+y**2)) - self._beta*self._Bp * self._R0**2 / (self._B0 * np.sqrt(x**2+y**2))
+
+        return val
+
+
+class velocity_analytic:
+    r'''Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Note
+    ----
+    In the parameter .yml, use the following template in the section ``fluid/<mhd>``::
+
+        options:
+            Stokes:  
+                nu: 1.      # viscosity
+                nu_e: 0.01  # viscosity electrons
+                a: 1.       # minor radius
+                R0: 2.      # major radius
+                B0: 10.     # on-axis toroidal magnetic field
+                Bp: 12.5    # poloidal magnetic field
+                alpha: 0.1
+                beta: 1.
+    '''
+
+    def __init__(self, nu=1., R0=2., a=1., B0=10., Bp=12.5, alpha=0.1, beta=1.):
+        r'''
+        Parameters
+        ----------
+        nu  : 1.    # viscosity
+
+        a   : 1.    # minor radius
+
+        R0  : 2.    # major radius
+
+        B0  : 10.   # on-axis toroidal magnetic field
+
+        Bp  : 12.5  # poloidal magnetic field
+
+        alpha: 0.1
+
+        beta: 1.
+        '''
+
+        self._nu = nu
+        self._R0 = R0
+        self._a = a
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    def __call__(self, x, y, z):
+
+        val = [0., 0., 0.]
+
+        val = self._alpha*np.sqrt(x**2+y**2)/(self._a*self._R0)[-z, np.sqrt(x**2+y**2)-self._R0, 0*x] + self._beta*self._Bp*self._R0/(
+            self._B0*self._a*np.sqrt(x**2+y**2))*[z, -(np.sqrt(x**2+y**2)-self._R0), self._B0*self._a/self._Bp]
+
+        return val
+
+class potential_analytic:
+    r'''Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \phi = \frac{1}{2} a B_0 \alpha \left( \frac{(R-R_0)^2+z^2}{a^2} - \frac{2}{3} \right)
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Note
+    ----
+    In the parameter .yml, use the following template in the section ``fluid/<mhd>``::
+
+        options:
+            Stokes:  
+                nu: 1.      # viscosity
+                nu_e: 0.01  # viscosity electrons
+                a: 1.       # minor radius
+                R0: 2.      # major radius
+                B0: 10.     # on-axis toroidal magnetic field
+                Bp: 12.5    # poloidal magnetic field
+                alpha: 0.1
+                beta: 1.
+    '''
+
+    def __init__(self, nu=1., R0=2., a=1., B0=10., Bp=12.5, alpha=0.1, beta=1.):
+        r'''
+        Parameters
+        ----------
+        nu  : 1.    # viscosity
+
+        a   : 1.    # minor radius
+
+        R0  : 2.    # major radius
+
+        B0  : 10.   # on-axis toroidal magnetic field
+
+        Bp  : 12.5  # poloidal magnetic field
+
+        alpha: 0.1
+
+        beta: 1.
+        '''
+
+        self._nu = nu
+        self._R0 = R0
+        self._a = a
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    def __call__(self, x, y, z):
+
+        val = 0.
+
+        val = 0.5*self._a * self._B0 * self._alpha*(((np.sqrt(x**2+y**2)-self._R0)**2+z**2)/(self._a) - 2/3)
+        return val
