@@ -2617,9 +2617,9 @@ class ImplicitDiffusion(Propagator):
     def x0(self, value):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
-        assert (
-            value.space.symbolic_space == "H1"
-        ), f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        assert value.space.symbolic_space == "H1", (
+            f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        )
 
         if self._x0 is None:
             self._x0 = value
@@ -3126,7 +3126,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             # No implicit
             rhon1 = rhon.copy(out=self._tmp_rhon1)
-            #rhon1 += self._tmp_rhon_diff
+            # rhon1 += self._tmp_rhon_diff
 
         # Initialize variable for Newton iteration
         if self._model == "full":
@@ -4010,7 +4010,7 @@ class VariationalDensityEvolve(Propagator):
             self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
 
         elif self._model == "full_p":
-            self._M_drho.assemble([[0.*self._tmp_int_grid]], verbose=False)
+            self._M_drho.assemble([[0.0 * self._tmp_int_grid]], verbose=False)
 
         self._M_un.assemble(
             [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]],
@@ -5115,7 +5115,7 @@ class VariationalPressureEvolve(Propagator):
         advection = self._transopT.dot(
             self._linear_form_dl_dp,
             out=self._tmp_advection,
-            )
+        )
         advection *= dt
 
         mn1 -= advection
@@ -5167,9 +5167,7 @@ class VariationalPressureEvolve(Propagator):
         self.Pip = BasisProjectionOperator(
             P2,
             Xh,
-            [[None, None, None],
-             [None, None, None],
-             [None, None, None]],
+            [[None, None, None], [None, None, None], [None, None, None]],
             transposed=False,
             use_cache=True,
             V_extraction_op=self.derham.extraction_ops["v"],
@@ -5190,23 +5188,12 @@ class VariationalPressureEvolve(Propagator):
 
         # BC?
 
-        self.Uv = self.basis_ops.Uv 
+        self.Uv = self.basis_ops.Uv
 
         self.PipT = self.Pip.T
         self.Pip_divT = self.Pip_div.T
 
         div = self.derham.div
-        self.pc_M2 = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.M2,
-        )
-        self._inv_M2 = inverse(
-            self.mass_ops.M2,
-            "pcg",
-            pc=self.pc_M2,
-            tol=1e-20,
-            maxiter=1000,
-            verbose=False,
-        )
 
         self.div = div @ self.Uv
 
@@ -5253,16 +5240,16 @@ class VariationalPressureEvolve(Propagator):
         self._pf_2_values = np.zeros(grid_shape, dtype=float)
 
         # Inverse weighted mass matrix
-        
+
         pc_class = getattr(
             preconditioner,
-            'MassMatrixDiagonalPreconditioner',
+            "MassMatrixDiagonalPreconditioner",
         )
         self.pc = pc_class(self._Mrho)
 
         self._Mrhoinv = inverse(
             self._Mrho,
-            'pcg',
+            "pcg",
             pc=self.pc,
             tol=1e-16,
             maxiter=1000,
@@ -5308,7 +5295,7 @@ class VariationalPressureEvolve(Propagator):
 
         self.Pip_divT.update_weights([[self._mapped_pf_values]])
 
-        #print(self.Pip_divT._dof_mat._data)
+        # print(self.Pip_divT._dof_mat._data)
 
         pf0_values = self.pf.eval_tp_fixed_loc(
             self.hist_grid_0_spans,
@@ -6550,7 +6537,7 @@ class VariationalViscosity(Propagator):
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]], verbose=False)
-                self.pc_jac.update_mass_operator(self.M_de_ds)                
+                self.pc_jac.update_mass_operator(self.M_de_ds)
 
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
@@ -7606,9 +7593,9 @@ class AdiabaticPhi(Propagator):
     def x0(self, value):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
-        assert (
-            value.space.symbolic_space == "H1"
-        ), f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        assert value.space.symbolic_space == "H1", (
+            f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
+        )
 
         if self._x0 is None:
             self._x0 = value
