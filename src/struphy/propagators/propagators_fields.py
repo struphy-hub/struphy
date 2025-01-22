@@ -5164,17 +5164,6 @@ class VariationalPressureEvolve(Propagator):
         self.Pip_divT = self.Pip_div.T
 
         div = self.derham.div
-        self.pc_M2 = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.M2,
-        )
-        self._inv_M2 = inverse(
-            self.mass_ops.M2,
-            "pcg",
-            pc=self.pc_M2,
-            tol=1e-20,
-            maxiter=1000,
-            verbose=False,
-        )
 
         self.div = div @ self.Uv
 
