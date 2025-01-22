@@ -208,7 +208,7 @@ class SaddlePointSolver:
             print(f"residual norm = {residual_norm}")
             self._residual_norms.append(residual_norm)  # Store residual norm
             # Check for convergence based on residual norm
-            if residual_norm < 1e-4: #self._tol:
+            if residual_norm < self._tol*10000:
                 print(f"{self._iterationssolverA =}")
                 print(f"{iteration =}")
                 return self._U, self._P, self._solverA._info, self._residual_norms

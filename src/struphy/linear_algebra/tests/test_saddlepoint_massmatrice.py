@@ -12,8 +12,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     import time
     from psydac.linalg.block import BlockLinearOperator, BlockVectorSpace, BlockVector
     from struphy.feec.preconditioner import MassMatrixPreconditioner
-    from struphy.fields_background.mhd_equil.equils import HomogenSlab
+    from struphy.fields_background.mhd_equil.equils import HomogenSlab, AdhocTorus
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
+    from psydac.linalg.basic import IdentityOperator
 
     from mpi4py import MPI
 
@@ -21,7 +22,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     mpi_rank = mpi_comm.Get_rank()
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
 
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -36,8 +37,11 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     # Mhd equilibirum (slab)
     mhd_equil_params = {'B0x': 0., 'B0y': 0.,
                         'B0z': 1., 'beta': 2., 'n0': 1.}
-
     eq_mhd = HomogenSlab(**mhd_equil_params)
+    
+    # mhd_equil_params = {'a': 1.45, 'R0': 6.5, 'q_kind': 1, 'p_kind': 0}
+
+    # eq_mhd = AdhocTorus(**mhd_equil_params)
     eq_mhd.domain = domain
             
     # create random input array
@@ -65,6 +69,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     nue = 0.01
     nu = 0.05
     dt = 0.01
+    eps = 0#1e-7
     
     print(f"{C.shape =}")
     print(f"{Hodge.shape =}")
@@ -75,19 +80,19 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     
 
     #A11 = M2/dt + nu*(Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge + D.transpose() @ M3 @ D ) -M2R
-    A11 = M2/dt -M2R + nu*(D.transpose() @ M3 @ D + Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge) #-M2R
+    A11 = M2/dt + nu*(D.transpose() @ M3 @ D + 1.*Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge) -1.0*M2R
     A12 = None
     A21 = A12
     #A22 = nue*(Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge + D.transpose() @ M3 @ D ) +M2R
-    A22 =  M2R+ nue*(D.transpose() @ M3 @ D + Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge) #+M2R
+    A22 =  eps*IdentityOperator(A11.domain) +  nue*(D.transpose() @ M3 @ D + 1.*Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge) +1.0*M2R
     B1 = -M3 @ D
     B1T = B1.transpose()
     B2 = M3 @ D
     B2T = B2.transpose()
     x1 = derham.curl.dot(x1_rdm)
     x2 = derham.curl.dot(x2_rdm)
-    F1 = A11.dot(x1) + B1T.dot(y1_rdm)
-    F2 = A22.dot(x2) + B2T.dot(y1_rdm)
+    F1 = A11.dot(x1) + B1T.dot(y1_rdm) #-0.*nu*(D.T @ M3 @ D.dot(x1)+ 0.*Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge.dot(x1) ) +0.5*M2R.dot(x1) #implicit/ explicit for diffusion terms
+    F2 = A22.dot(x2) + B2T.dot(y1_rdm) #-0.*nue*(D.T @ M3 @ D.dot(x2)+ 0.*Hodge.transpose() @ C.transpose() @ M2 @ C @ Hodge.dot(x2)) -0.5*M2R.dot(x2)
 
     if A12 is not None:
         assert A11.codomain == A12.codomain
@@ -116,8 +121,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     # Create the solver
     rho = 0.0005  # Example descent parameter
-    tol = 1e-6
-    max_iter = 10000
+    tol = 1e-9
+    max_iter = 5000
     pc = None #M2pre # Preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
     solver_name = 'gmres'
@@ -253,18 +258,36 @@ def _plot_residual_norms(residual_norms):
     plt.savefig("residual_norms_plot.png")
 
 if __name__ == '__main__':
-    test_saddlepointsolver('SaddlePointSolverGMRES',
-                           [3, 4, 5],
-                           [2, 2, 3],
-                           [True, False, True],
-                           [[False,  True], [True, False], [False, False]],
-                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
+    # test_saddlepointsolver('SaddlePointSolverGMRES',
+    #                        [5, 6, 7],
+    #                        [2, 2, 3],
+    #                        [True, False, True],
+    #                        [[False, False], [False, False], [False, False]],
+    #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
     # test_saddlepointsolver('SaddlePointSolverGMRES',
     #                        [3, 4, 5],
     #                        [2, 2, 3],
     #                        [True, False, True],
-    #                        [[False,  True], [True, False], [False, False]],
+    #                        [[False,  False], [False, False], [False, False]],
     #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
+    # test_saddlepointsolver('SaddlePointSolverGMRES',
+    #                        [5, 6, 7],
+    #                        [2, 2, 3],
+    #                        [True, False, True],
+    #                        [[False,  False], [False, False], [False, False]],
+    #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
+    # test_saddlepointsolver('SaddlePointSolverGMRES',
+    #                        [5, 6, 7],
+    #                        [2, 2, 3],
+    #                        [True, False, True],
+    #                        [[False,  False], [False, False], [False, False]],
+    #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
+    test_saddlepointsolver('SaddlePointSolverGMRES',
+                           [3, 4, 5],
+                           [2, 2, 3],
+                           [True, False, True],
+                           [[False,  False], [False, False], [False, False]],
+                           ['Tokamak', {'Nel': [3, 4], 'p': [2, 3], 'psi_power': 0.75, 'psi_shifts': [2., 2., 2.], 'xi_param': 'equal_angle', 'r0': 0.3}], True)
     # test_saddlepointsolver('SaddlePointSolverTest',
     #                        [5, 6, 7],
     #                        [2, 2, 3],
