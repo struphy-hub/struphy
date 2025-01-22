@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.3.2"
+version = "2.4.0"
 readme = "README.md"
-requires-python = ">=3.10, <3.12"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
   { name = "Max Planck Institute for Plasma Physics"},
@@ -20,41 +20,51 @@ classifiers = [
     ]
 dependencies = [
     'numpy',
+    'pyccel>=1.11.1',
+    'mpi4py<4',
     'scipy',
-    'mpi4py<4.0.0',
     'h5py',
     'matplotlib',
-    'PyYAML',
+    'pyyaml',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel',
     'vtk',
-    'pytest',
-    'pytest-mpi',
-    'sphinx',
-    'lxml_html_clean',
-    'sphinxcontrib-napoleon',
-    'pydata-sphinx-theme',
-    'nbsphinx',
-    'notebook',
-    'm2r2',
-    'myst-parser',
-    'mistune',
-    'docutils',
-    'wheel',
     'tqdm',
     'argcomplete',
-    'ipyparallel',
-    'pytest-monitor',
-    'pyccel>=1.11.1',
     'gvec-to-python',
     'desc-opt',
-    'netcdf4<1.7.0',
+    'netcdf4<1.7',
+]
+
+[project.optional-dependencies]
+test = [
+    'pytest',
+    'pytest-mpi',
+]
+dev = [
+    'struphy[test]',
+    'notebook',
     'autopep8',
     'isort',
     'flake8',
     'pylint',
     'add-trailing-comma',
-    'pytest',
+    'ruff>=0.9.1',
     'pre-commit',
 ]
+doc = [
+    'sphinx',
+    'sphinx-design',
+    'lxml_html_clean',
+    'sphinxcontrib-napoleon',
+    'pydata-sphinx-theme',
+    'nbsphinx',
+    'm2r2',
+    'myst-parser',
+    'mistune',
+    'docutils',
+    'ipyparallel',
+]
+
 
 [project.urls]
 homepage = "https://struphy.pages.mpcdf.de/struphy/"
@@ -89,8 +99,7 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-0.1.13-py3-none-any.whl',
-           ]
+           'psydac-2.4.0-py3-none-any.whl',]
 
 [tool.autopep8]
 # Add specific settings for autopep8
@@ -118,3 +127,33 @@ combine_as_imports = true
 
 [tool.pylint]
 max-line-length=120
+quote-style = "single"
+
+[tool.ruff]
+line-length=120
+lint.ignore = [
+    "E265",  # Checks for block comments that lack a single space after the leading # character.
+    "E402",  # Module-level imports should be placed at the top of the file (before any other code)
+    "E701",  # Multiple statements on one line (colon)
+    # "E711",  # Comparison to `None` should be `cond is None`
+    # "E712",  # Comparison to True, False, or None should be avoided (e.g., use `if variable:` instead of `if variable == True:`)
+    # "E713",  # Convert to `not in`
+    # "E721",  # Avoid comparing types directly with `type()` (e.g., use `isinstance()` instead of `type(variable) == list`)
+    "E722",  # Do not use bare 'except'
+    "E731",  # Do not assign a lambda expression, use a def
+    "E741",  # Do not use variables named 'l', 'O', or 'I'
+    "E742",  # Do not define classes named 'l', 'O', or 'I'
+    "E743",  # Do not define functions named 'l', 'O', or 'I'
+    "E902",  # IOError
+    # "E999",  # SyntaxError
+    "F401",  # Module imported but unused
+    "F403",  # 'from module import *' used; unable to detect undefined names
+    "F405",  # Name may be undefined, or defined from star imports: module
+    # "F811",  # Redefinition of a variable that might cause ambiguity (e.g., reusing a variable name in a conflicting scope)
+    # "F821",  # Undefined name
+    # "F822",  # Undefined name in __all__
+    # "F823",  # Local variable name referenced before assignment
+    # "F841",  # Local variable name assigned to but never used
+    "D211",  # Checks for docstrings on class definitions that are preceded by a blank line
+    "D213",  # Checks for docstring summary lines that are not positioned on the second physical line of the docstring
+]

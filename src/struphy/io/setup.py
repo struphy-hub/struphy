@@ -91,24 +91,16 @@ def derive_units(
         units["v"] = 1.0 * c
 
     elif velocity_scale == "alfvén":
-        assert (
-            A_bulk is not None
-        ), 'Need bulk species to choose velocity scale "alfvén".'
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
         units["v"] = units["B"] / np.sqrt(units["n"] * A_bulk * mH * mu0)
 
     elif velocity_scale == "cyclotron":
-        assert (
-            Z_bulk is not None
-        ), 'Need bulk species to choose velocity scale "cyclotron".'
-        assert (
-            A_bulk is not None
-        ), 'Need bulk species to choose velocity scale "cyclotron".'
+        assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
         units["v"] = Z_bulk * e * units["B"] / (A_bulk * mH) * units["x"]
 
     elif velocity_scale == "thermal":
-        assert (
-            A_bulk is not None
-        ), 'Need bulk species to choose velocity scale "thermal".'
+        assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
         assert kBT is not None
         units["v"] = np.sqrt(kBT * 1000 * e / (mH * A_bulk))
 
@@ -150,21 +142,22 @@ def setup_domain_and_equil(params: dict, units: dict = None):
         The equilibrium object.
     """
 
-    from struphy.geometry import domains
-    from struphy.fields_background.mhd_equil import equils as mhd_equils
     from struphy.fields_background.braginskii_equil import equils as braginskii_equils
+    from struphy.fields_background.mhd_equil import equils as mhd_equils
     from struphy.fields_background.mhd_equil.base import LogicalMHDequilibrium
+    from struphy.geometry import domains
 
-    if 'mhd_equilibrium' in params:
-
-        mhd_type = params['mhd_equilibrium']['type']
+    if "mhd_equilibrium" in params:
+        mhd_type = params["mhd_equilibrium"]["type"]
         mhd_class = getattr(mhd_equils, mhd_type)
 
-        if mhd_type in ('EQDSKequilibrium', 'GVECequilibrium', 'DESCequilibrium'):
+        if mhd_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
             equil = mhd_class(
-                units=units, **params['mhd_equilibrium'][mhd_type])
+                units=units,
+                **params["mhd_equilibrium"][mhd_type],
+            )
         else:
-            equil = mhd_class(**params['mhd_equilibrium'][mhd_type])
+            equil = mhd_class(**params["mhd_equilibrium"][mhd_type])
 
         # for logical MHD equilibria, the domain comes with the equilibrium
         if isinstance(equil, LogicalMHDequilibrium):
@@ -174,31 +167,32 @@ def setup_domain_and_equil(params: dict, units: dict = None):
             dom_type = params["geometry"]["type"]
             dom_class = getattr(domains, dom_type)
 
-            if dom_type == 'Tokamak':
+            if dom_type == "Tokamak":
                 domain = dom_class(
-                    **params['geometry'][dom_type], equilibrium=equil)
+                    **params["geometry"][dom_type],
+                    equilibrium=equil,
+                )
             else:
                 domain = dom_class(**params["geometry"][dom_type])
 
             # set domain attribute in mhd object
             equil.domain = domain
 
-    elif 'braginskii_equilibrium' in params:
-
-        dom_type = params['geometry']['type']
+    elif "braginskii_equilibrium" in params:
+        dom_type = params["geometry"]["type"]
         dom_class = getattr(domains, dom_type)
-        domain = dom_class(**params['geometry'][dom_type])
+        domain = dom_class(**params["geometry"][dom_type])
 
-        br_eq_type = params['braginskii_equilibrium']['type']
+        br_eq_type = params["braginskii_equilibrium"]["type"]
         br_eq_class = getattr(braginskii_equils, br_eq_type)
 
         equil = br_eq_class(
-            **params['braginskii_equilibrium'][br_eq_type])
+            **params["braginskii_equilibrium"][br_eq_type],
+        )
         equil.domain = domain
 
     # no equilibrium (just load domain)
     else:
-
         dom_type = params["geometry"]["type"]
         dom_class = getattr(domains, dom_type)
         domain = dom_class(**params["geometry"][dom_type])
@@ -208,7 +202,7 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     return domain, equil
 
 
-def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=None):
+def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=None, verbose=False):
     """
     Creates the 3d derham sequence for given grid parameters.
 
@@ -226,6 +220,9 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     mpi_dims_mask: list of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
+    verbose : bool
+        Show info on screen.
 
     Returns
     -------
@@ -255,20 +252,22 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     else:
         comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
 
-    derham = Derham(Nel,
-                    p,
-                    spl_kind,
-                    dirichlet_bc=dirichlet_bc,
-                    nquads=nq_el,
-                    nq_pr=nq_pr,
-                    comm=comm,
-                    inter_comm=inter_comm,
-                    mpi_dims_mask=mpi_dims_mask,
-                    with_projectors=True,
-                    polar_ck=polar_ck,
-                    domain=domain)
+    derham = Derham(
+        Nel,
+        p,
+        spl_kind,
+        dirichlet_bc=dirichlet_bc,
+        nquads=nq_el,
+        nq_pr=nq_pr,
+        comm=comm,
+        inter_comm=inter_comm,
+        mpi_dims_mask=mpi_dims_mask,
+        with_projectors=True,
+        polar_ck=polar_ck,
+        domain=domain,
+    )
 
-    if comm_world_rank == 0:
+    if comm_world_rank == 0 and verbose:
         print("\nDERHAM:")
         print(f"number of elements:".ljust(25), Nel)
         print(f"spline degrees:".ljust(25), p)
@@ -276,8 +275,10 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
         print(f"hom. Dirichlet bc:".ljust(25), dirichlet_bc)
         print(f"GL quad pts (L2):".ljust(25), nq_el)
         print(f"GL quad pts (hist):".ljust(25), nq_pr)
-        print("MPI proc. per dir.:".ljust(25),
-              derham.domain_decomposition.nprocs)
+        print(
+            "MPI proc. per dir.:".ljust(25),
+            derham.domain_decomposition.nprocs,
+        )
         print("use polar splines:".ljust(25), derham.polar_ck == 1)
         print("domain on process 0:".ljust(25), derham.domain_array[0])
 
@@ -319,7 +320,7 @@ def setup_domain_cloning(comm, params, Nclones):
     if size % Nclones != 0:
         if rank == 0:
             print(
-                f"Total number of ranks ({size}) is not divisible by the number of clones ({Nclones})."
+                f"Total number of ranks ({size}) is not divisible by the number of clones ({Nclones}).",
             )
         MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
 
@@ -336,7 +337,8 @@ def setup_domain_cloning(comm, params, Nclones):
 
     # Gather information from all ranks to the rank 0 process
     clone_info = comm.gather(
-        (rank, clone_color, local_rank, inter_comm.Get_rank()), root=0
+        (rank, clone_color, local_rank, inter_comm.Get_rank()),
+        root=0,
     )
 
     if rank == 0 and Nclones > 1:
@@ -354,64 +356,59 @@ def setup_domain_cloning(comm, params, Nclones):
         print(message)
 
     # Ensure 'Nclones' is set in the grid parameters
-    if 'Nclones' not in params['grid']:
-        params['grid']['Nclones'] = 1
+    if "Nclones" not in params["grid"]:
+        params["grid"]["Nclones"] = 1
 
-    marker_keys = ['ppc', 'Np']
     current_rank = inter_comm.Get_rank()
-    clone_particle_info = {'clone': current_rank, current_rank: {}}
+    clone_particle_info = {"clone": current_rank, current_rank: {}}
     # Process kinetic parameters if present
-    if 'kinetic' in params:
-        for species_name, species_data in params['kinetic'].items():
+    if "kinetic" in params and "grid" in params:
+        for species_name, species_data in params["kinetic"].items():
+            markers = species_data.get("markers")
+            Np = markers.get("Np")
+            ppc = markers.get("ppc")
+
             clone_particle_info[current_rank][species_name] = {
-                'ppc': None,
-                'Np': None,
+                "ppc": None,
+                "Np": None,
+                "Np_original": Np,
+                "ppc_original": ppc,
             }
-            markers = species_data.get('markers', {})
-            for marker_key in marker_keys:
-                marker_value = markers.get(marker_key)
-                clone_particle_info[current_rank][species_name][
-                    marker_key + '_original'
-                ] = marker_value
-                if (
-                    marker_value is not None
-                    and 'grid' in params
-                    and params['grid'].get('Nclones')
-                ):
-                    n_clones = params['grid']['Nclones']
-                    # Calculate the base value and remainder
-                    base_value = marker_value // n_clones
-                    remainder = marker_value % n_clones
 
-                    # Distribute the values
-                    new_marker_values = [base_value] * Nclones
-                    for i in range(remainder):
-                        new_marker_values[i] += 1
+            n_clones = params["grid"]["Nclones"]
+            # Calculate the base value and remainder
+            base_value = Np // n_clones
+            remainder = Np % n_clones
 
-                    # Assign the corresponding value to the current task
-                    task_marker_value = new_marker_values[inter_comm.Get_rank(
-                    )]
+            # Distribute the values
+            new_Np = [base_value] * Nclones
+            for i in range(remainder):
+                new_Np[i] += 1
 
-                    # Update the params for the current task
-                    clone_particle_info[current_rank][species_name][
-                        marker_key
-                    ] = task_marker_value
-                    params['kinetic'][species_name]['markers'][
-                        marker_key
-                    ] = task_marker_value
+            # Assign the corresponding value to the current task
+            task_Np = new_Np[inter_comm.Get_rank()]
+
+            # Update the params for the current task
+            clone_particle_info[current_rank][species_name]["Np"] = task_Np
+            params["kinetic"][species_name]["markers"]["Np"] = task_Np
+
+            # Update ppc
+            task_ppc = task_Np / np.prod(params["grid"]["Nel"])
+            clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
+            params["kinetic"][species_name]["markers"]["ppc"] = task_ppc
 
     # Gather the data from all processes
     all_clone_particle_info = comm.gather(clone_particle_info, root=0)
 
     # If the current process is the root, compile and print the message
     if rank == 0 and Nclones > 1:
-        data = {ci['clone']: ci[ci['clone']] for ci in all_clone_particle_info}
-        clone_ids = set([ci['clone'] for ci in all_clone_particle_info])
+        marker_keys = ["Np", "ppc"]
+        data = {ci["clone"]: ci[ci["clone"]] for ci in all_clone_particle_info}
+        clone_ids = set([ci["clone"] for ci in all_clone_particle_info])
         species_list = list(data[0].keys())
 
         # Prepare breakline
-        breakline = "-" * (6 + 30 * len(species_list)
-                           * len(marker_keys)) + '\n'
+        breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
 
         # Prepare the header
         header = "Particle counting:\nClone  "
@@ -423,10 +420,7 @@ def setup_domain_cloning(comm, params, Nclones):
 
         # Prepare the data rows
         rows = ""
-        column_sums = {
-            species_name: {marker_key: 0 for marker_key in marker_keys}
-            for species_name in species_list
-        }
+        column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
         for clone_id in clone_ids:
             row = f"{clone_id:6} "
             for species_name in species_list:
@@ -444,16 +438,8 @@ def setup_domain_cloning(comm, params, Nclones):
         for species_name in species_list:
             for marker_key in marker_keys:
                 sum_value = column_sums[species_name][marker_key]
-                old_value = clone_particle_info[current_rank][species_name][
-                    marker_key + '_original'
-                ]
-                if not sum_value == old_value:
-                    print(
-                        f"{current_rank = }",
-                        params['kinetic']['energetic_ions']['markers']['Np'],
-                    )
-                    print(column_sums[species_name])
-                assert sum_value == old_value
+                old_value = clone_particle_info[current_rank][species_name][marker_key + "_original"]
+                assert sum_value == old_value, f"{sum_value = } and {old_value = }"
                 sum_row += f"| {str(sum_value):30} "
 
         # Print the final message
@@ -471,6 +457,7 @@ def pre_processing(
     save_step: int,
     mpi_rank: int,
     mpi_size: int,
+    verbose: bool = False,
 ):
     """
     Prepares simulation parameters, output folder and prints some information of the run to the screen.
@@ -501,67 +488,77 @@ def pre_processing(
     mpi_size : int
         Total number of MPI processes of the run.
 
+    verbose : bool
+        Show full screen output.
+
     Returns
     -------
     params : dict
         The simulation parameters.
     """
 
+    import datetime
+    import glob
     import os
     import shutil
-    import datetime
     import sysconfig
-    import glob
+
     import yaml
-    from struphy.models import fluid, kinetic, hybrid, toy
+
+    from struphy.models import fluid, hybrid, kinetic, toy
 
     # prepare output folder
     if mpi_rank == 0:
-        print("\nPREPARATION AND CLEAN-UP:")
+        if verbose:
+            print("\nPREPARATION AND CLEAN-UP:")
 
         # create output folder if it does not exit
         if not os.path.exists(path_out):
             os.makedirs(path_out, exist_ok=True)
-            print("Created folder " + path_out)
+            if verbose:
+                print("Created folder " + path_out)
 
         # create data folder in output folder if it does not exist
         if not os.path.exists(os.path.join(path_out, "data/")):
             os.mkdir(os.path.join(path_out, "data/"))
-            print("Created folder " + os.path.join(path_out, "data/"))
+            if verbose:
+                print("Created folder " + os.path.join(path_out, "data/"))
 
         # clean output folder if it already exists
         else:
-
             # remove post_processing folder
             folder = os.path.join(path_out, "post_processing")
             if os.path.exists(folder):
                 shutil.rmtree(folder)
-                print("Removed existing folder " + folder)
+                if verbose:
+                    print("Removed existing folder " + folder)
 
             # remove meta file
             file = os.path.join(path_out, "meta.txt")
             if os.path.exists(file):
                 os.remove(file)
-                print("Removed existing file " + file)
+                if verbose:
+                    print("Removed existing file " + file)
 
             # remove profiling file
             file = os.path.join(path_out, "profile_tmp")
             if os.path.exists(file):
                 os.remove(file)
-                print("Removed existing file " + file)
+                if verbose:
+                    print("Removed existing file " + file)
 
             # remove .png files (if NOT a restart)
             if not restart:
                 files = glob.glob(os.path.join(path_out, "*.png"))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if n < 10:  # print only ten statements in case of many processes
+                    if verbose and n < 10:  # print only ten statements in case of many processes
                         print("Removed existing file " + file)
 
                 files = glob.glob(os.path.join(path_out, "data", "*.hdf5"))
                 for n, file in enumerate(files):
                     os.remove(file)
-                    if n < 10:  # print only ten statements in case of many processes
+                    if verbose and n < 10:  # print only ten statements in case of many processes
                         print("Removed existing file " + file)
 
     # save "parameters" dictionary as .yml file
@@ -585,12 +582,42 @@ def pre_processing(
 
     if not "Nclones" in params["grid"].keys():
         params["grid"]["Nclones"] = 1
-    if mpi_rank == 0:
 
+    # Ensure that both ppc Np
+    if "kinetic" in params:
+        total_cells = np.prod(params["grid"]["Nel"])
+        for species_name, species_data in params["kinetic"].items():
+            markers = species_data.get("markers")
+            ppc = markers.get("ppc")
+            Np = markers.get("Np")
+
+            assert ppc is not None or Np is not None, f"Either 'ppc' or 'Np' must be set for species '{species_name}'"
+
+            if ppc is None:
+                ppc = float(Np / total_cells)
+                markers["ppc"] = ppc
+            elif Np is None:
+                assert isinstance(ppc, int), "ppc must be an integer"
+                Np = int(ppc * total_cells)
+                markers["Np"] = Np
+            else:
+                # Both ppc and Np are provided; check for consistency
+                expected_Np = ppc * total_cells
+                assert np.isclose(
+                    Np,
+                    expected_Np,
+                ), "Inconsistent 'ppc' and 'Np' for species '{species_name}, 'Np' should be {expected_Np}, but is {Np}"
+
+    if mpi_rank == 0:
         # copy parameter file to output folder
         if parameters_path != os.path.join(path_out, "parameters.yml"):
-            shutil.copy2(parameters_path, os.path.join(
-                path_out, "parameters.yml"))
+            shutil.copy2(
+                parameters_path,
+                os.path.join(
+                    path_out,
+                    "parameters.yml",
+                ),
+            )
 
         # print simulation info
         print("\nMETADATA:")
@@ -609,19 +636,26 @@ def pre_processing(
         with open(path_out + "/meta.txt", "w") as f:
             f.write(
                 "date of simulation: ".ljust(
-                    30) + str(datetime.datetime.now()) + "\n"
+                    30,
+                )
+                + str(datetime.datetime.now())
+                + "\n",
             )
             f.write("platform: ".ljust(30) + sysconfig.get_platform() + "\n")
             f.write(
                 "python version: ".ljust(
-                    30) + sysconfig.get_python_version() + "\n"
+                    30,
+                )
+                + sysconfig.get_python_version()
+                + "\n",
             )
             f.write("model_name: ".ljust(30) + model_name + "\n")
             f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
             f.write("output folder:".ljust(30) + path_out + "\n")
             f.write("restart:".ljust(30) + str(restart) + "\n")
             f.write(
-                "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n")
+                "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n",
+            )
             f.write("save interval (steps):".ljust(30) + str(save_step) + "\n")
 
     return params
@@ -692,7 +726,6 @@ def descend_options_dict(
         count += 1
 
         if isinstance(val, list):
-
             # create default parameter dict "out"
             if d_default is None:
                 if len(keys) == 0:
@@ -703,14 +736,13 @@ def descend_options_dict(
                     out[keys[0]][keys[1]][key] = val[0]
                 else:
                     raise ValueError(
-                        f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}."
+                        f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}.",
                     )
 
             # add one parameter dict for each option in the list
             else:
                 out_sublist = []
                 for param in val:
-
                     # exclude solvers without preconditioner
                     if isinstance(param, tuple):
                         if param[1] is None:
@@ -725,7 +757,7 @@ def descend_options_dict(
                         d_copy[keys[0]][keys[1]][key] = param
                     else:
                         raise ValueError(
-                            f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}."
+                            f"Depth of options dictionary must not exceed 3, but is {len(keys) + 1}.",
                         )
                     out_sublist += [d_copy]
                 out += [out_sublist]

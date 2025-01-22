@@ -4,8 +4,8 @@
 # Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
 #
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11 -f docker/ubuntu.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest -f docker/ubuntu.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
 
 FROM ubuntu:latest
 
@@ -16,10 +16,10 @@ RUN apt update -y && apt clean \
     && apt install -y software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update -y \
-    && apt install -y python3.11 \
-    && apt install -y python3.11-dev \
+    && apt install -y python3 \
+    && apt install -y python3-dev \
     && apt install -y python3-pip \
-    && apt install -y python3.11-venv \
+    && apt install -y python3-venv \
     && apt install -y gfortran gcc \
     && apt install -y liblapack-dev libopenmpi-dev \
     && apt install -y libblas-dev openmpi-bin \
@@ -27,7 +27,6 @@ RUN apt update -y && apt clean \
     && apt install -y git \
     && apt install -y pandoc graphviz \
     && apt install -y sqlite3 \
-    && bash -c "echo 'alias python3=python3.11' >> ~/.bashrc" \
     && bash -c "source ~/.bashrc" 
 
 # create new working dir
