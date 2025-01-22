@@ -448,7 +448,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -457,7 +456,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -466,7 +464,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 
@@ -523,7 +520,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -532,7 +528,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -541,7 +536,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 
@@ -1485,7 +1479,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -1494,7 +1487,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -1503,7 +1495,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 
@@ -1569,7 +1560,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -1578,7 +1568,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -1587,7 +1576,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 

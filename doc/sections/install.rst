@@ -8,7 +8,7 @@ Install
 Requirements
 ------------
 
-- Python >=3.10 and <3.12 
+- Python >=3.10 
 - C or Fortran compiler like gcc, gfortran
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich

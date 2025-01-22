@@ -719,7 +719,7 @@ class AccumulatorVector:
         else:
             args = (0.5, 0.5, eta)
 
-        plt.plot(eta, field(*args, squeeze_output=True))
+        plt.plot(eta, field(*args, squeeze_out=True))
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )

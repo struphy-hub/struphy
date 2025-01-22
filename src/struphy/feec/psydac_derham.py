@@ -1371,12 +1371,26 @@ class Derham:
             if update_ghost_regions:
                 self._vector_stencil.update_ghost_regions()
 
-        def initialize_coeffs(self, domain=None, mhd_equil=None, species=None):
+        def initialize_coeffs(
+            self,
+            *,
+            bckgr_params=None,
+            pert_params=None,
+            domain=None,
+            mhd_equil=None,
+            species=None,
+        ):
             """
             Sets the initial conditions for self.vector.
 
             Parameters
             ----------
+            bckgr_params : dict
+                Field's background parameters.
+
+            pert_params : dict
+                Field's perturbation parameters for initial condition.
+
             domain : struphy.geometry.domains
                 Domain object for metric coefficients, only needed for transform of analytical perturbations.
 
@@ -1386,6 +1400,18 @@ class Derham:
             species : string
                 Species name (e.g. "mhd") the field belongs to.
             """
+
+            # set background paramters
+            if bckgr_params is not None:
+                if self._bckgr_params is not None:
+                    print(f"Attention: overwriting background parameters for {self.name}")
+                self._bckgr_params = bckgr_params
+
+            # set perturbation paramters
+            if pert_params is not None:
+                if self._pert_params is not None:
+                    print(f"Attention: overwriting perturbation parameters for {self.name}")
+                self._pert_params = pert_params
 
             # case of zero initial condition
             if self.bckgr_params is None and self.pert_params is None:
@@ -1750,7 +1776,7 @@ class Derham:
 
             return out
 
-        def __call__(self, eta1, eta2, eta3, out=None, tmp=None, squeeze_output=False, local=False):
+        def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
             """
             Evaluates the spline function on the global domain, unless local=True,
             in which case the spline function is evaluated only on the local domain,
@@ -1758,8 +1784,11 @@ class Derham:
 
             Parameters
             ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
+            *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
             out : array[float] or list
                 Array in which to store the values of the spline function at the given point set (list in case of vector-valued spaces).
@@ -1770,7 +1799,7 @@ class Derham:
             flat_eval : bool
                 Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
 
-            squeeze_output : bool
+            squeeze_out : bool
                 Whether to remove singleton dimensions in output "values".
 
             Returns
@@ -1779,80 +1808,44 @@ class Derham:
                     The values of the spline function at the given point set (list in case of vector-valued spaces).
             """
 
-            # all eval points
-            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                eta1,
-                eta2,
-                eta3,
-            )
+            # extract coefficients and update ghost regions
+            self.extract_coeffs(update_ghost_regions=True)
 
-            # check if eval points are "interior points" in domain_array; if so, add small offset
-            dom_arr = self.derham.domain_array
-            if self.derham.comm is not None:
-                rank = self.derham.comm.Get_rank()
+            # get knot vectors
+            T1, T2, T3 = self.derham.Vh_fem["0"].knots
+
+            # marker evaluation
+            if len(etas) == 1:
+                marker_evaluation = True
+                is_sparse_meshgrid = False
+                markers = etas[0]
+                assert markers.ndim == 2
+                self._flag_pts_not_on_proc(markers)
+                tmp_shape = markers.shape[0]
+            # 3D meshgrid evaluation
             else:
-                rank = 0
-
-            if dom_arr[rank, 0] != 0.0:
-                E1[E1 == dom_arr[rank, 0]] += 1e-8
-            if dom_arr[rank, 1] != 1.0:
-                E1[E1 == dom_arr[rank, 1]] += 1e-8
-
-            if dom_arr[rank, 3] != 0.0:
-                E2[E2 == dom_arr[rank, 3]] += 1e-8
-            if dom_arr[rank, 4] != 1.0:
-                E2[E2 == dom_arr[rank, 4]] += 1e-8
-
-            if dom_arr[rank, 6] != 0.0:
-                E3[E3 == dom_arr[rank, 6]] += 1e-8
-            if dom_arr[rank, 7] != 1.0:
-                E3[E3 == dom_arr[rank, 7]] += 1e-8
-
-            # True for eval points on current process
-            E1_on_proc = np.logical_and(
-                E1 >= dom_arr[rank, 0],
-                E1 <= dom_arr[rank, 1],
-            )
-            E2_on_proc = np.logical_and(
-                E2 >= dom_arr[rank, 3],
-                E2 <= dom_arr[rank, 4],
-            )
-            E3_on_proc = np.logical_and(
-                E3 >= dom_arr[rank, 6],
-                E3 <= dom_arr[rank, 7],
-            )
-
-            # flag eval points not on current process
-            E1[~E1_on_proc] = -1.0
-            E2[~E2_on_proc] = -1.0
-            E3[~E3_on_proc] = -1.0
-
-            # prepare arrays for AllReduce
-            if tmp is None:
-                tmp = np.zeros(
-                    (
-                        E1.shape[0],
-                        E2.shape[1],
-                        E3.shape[2],
-                    ),
-                    dtype=float,
-                )
-            else:
-                assert isinstance(tmp, np.ndarray)
-                assert tmp.shape == (
+                marker_evaluation = False
+                E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(*etas)
+                self._flag_pts_not_on_proc(E1, E2, E3)
+                tmp_shape = (
                     E1.shape[0],
                     E2.shape[1],
                     E3.shape[2],
                 )
+
+            # prepare arrays for AllReduce
+            if tmp is None:
+                tmp = np.zeros(
+                    tmp_shape,
+                    dtype=float,
+                )
+            else:
+                assert isinstance(tmp, np.ndarray)
+                assert tmp.shape == tmp_shape
                 assert tmp.dtype.type is np.float64
                 tmp[:] = 0.0
 
-            # extract coefficients and update ghost regions
-            self.extract_coeffs(update_ghost_regions=True)
-
-            # call pyccel kernels
-            T1, T2, T3 = self.derham.Vh_fem["0"].knots
-
+            # scalar-valued field
             if isinstance(self._vector_stencil, StencilVector):
                 kind = self.derham.spline_types_pyccel[self.space_key]
 
@@ -1862,6 +1855,19 @@ class Derham:
                         E1,
                         E2,
                         E3,
+                        self._vector_stencil._data,
+                        kind,
+                        np.array(self.derham.p),
+                        T1,
+                        T2,
+                        T3,
+                        np.array(self.starts),
+                        tmp,
+                    )
+                elif marker_evaluation:
+                    # eval_mpi needs flagged arrays E1, E2, E3 as input
+                    eval_3d.eval_spline_mpi_markers(
+                        markers,
                         self._vector_stencil._data,
                         kind,
                         np.array(self.derham.p),
@@ -1902,18 +1908,20 @@ class Derham:
                     out *= 0.0
                     out += tmp
 
-                if squeeze_output:
+                if squeeze_out:
                     out = np.squeeze(out)
 
                 if out.ndim == 0:
                     out = out.item()
 
+            # vector-valued field
             else:
                 out_is_None = out is None
                 if out_is_None:
                     out = []
                 for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
                     if is_sparse_meshgrid:
+                        # eval_mpi needs flagged arrays E1, E2, E3 as input
                         eval_3d.eval_spline_mpi_sparse_meshgrid(
                             E1,
                             E2,
@@ -1927,7 +1935,21 @@ class Derham:
                             np.array(self.starts[n]),
                             tmp,
                         )
+                    elif marker_evaluation:
+                        # eval_mpi needs flagged arrays E1, E2, E3 as input
+                        eval_3d.eval_spline_mpi_markers(
+                            markers,
+                            self._vector_stencil[n]._data,
+                            kind,
+                            np.array(self.derham.p),
+                            T1,
+                            T2,
+                            T3,
+                            np.array(self.starts[n]),
+                            tmp,
+                        )
                     else:
+                        # eval_mpi needs flagged arrays E1, E2, E3 as input
                         eval_3d.eval_spline_mpi_matrix(
                             E1,
                             E2,
@@ -1959,7 +1981,7 @@ class Derham:
 
                     tmp[:] = 0.0
 
-                    if squeeze_output:
+                    if squeeze_out:
                         out[-1] = np.squeeze(out[-1])
 
                     if out[-1].ndim == 0:
@@ -1970,6 +1992,77 @@ class Derham:
         #######################
         ### Private methods ###
         #######################
+        def _flag_pts_not_on_proc(self, *etas):
+            """Sets evaluation points outside of process domain to -1 (in place).
+
+            Parameters
+            ----------
+            *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes."""
+
+            # get domain decompoistion info
+            dom_arr = self.derham.domain_array
+            if self.derham.comm is not None:
+                rank = self.derham.comm.Get_rank()
+            else:
+                rank = 0
+
+            # marker evaluation
+            if len(etas) == 1:
+                markers = etas[0]
+
+                # check which particles are on the current process domain
+                is_on_proc_domain = np.logical_and(
+                    markers[:, :3] >= dom_arr[rank, 0::3],
+                    markers[:, :3] <= dom_arr[rank, 1::3],
+                )
+                on_proc = np.all(is_on_proc_domain, axis=1)
+
+                markers[~on_proc, :] = -1.0
+
+            # 3D meshgrid evaluation
+            else:
+                assert len(etas) == 3
+                E1, E2, E3 = etas
+                # check if eval points are "interior points" in domain_array; if so, add small offset
+
+                if dom_arr[rank, 0] != 0.0:
+                    E1[E1 == dom_arr[rank, 0]] += 1e-8
+                if dom_arr[rank, 1] != 1.0:
+                    E1[E1 == dom_arr[rank, 1]] += 1e-8
+
+                if dom_arr[rank, 3] != 0.0:
+                    E2[E2 == dom_arr[rank, 3]] += 1e-8
+                if dom_arr[rank, 4] != 1.0:
+                    E2[E2 == dom_arr[rank, 4]] += 1e-8
+
+                if dom_arr[rank, 6] != 0.0:
+                    E3[E3 == dom_arr[rank, 6]] += 1e-8
+                if dom_arr[rank, 7] != 1.0:
+                    E3[E3 == dom_arr[rank, 7]] += 1e-8
+
+                # True for eval points on current process
+                E1_on_proc = np.logical_and(
+                    E1 >= dom_arr[rank, 0],
+                    E1 <= dom_arr[rank, 1],
+                )
+                E2_on_proc = np.logical_and(
+                    E2 >= dom_arr[rank, 3],
+                    E2 <= dom_arr[rank, 4],
+                )
+                E3_on_proc = np.logical_and(
+                    E3 >= dom_arr[rank, 6],
+                    E3 <= dom_arr[rank, 7],
+                )
+
+                # flag eval points not on current process
+                E1[~E1_on_proc] = -1.0
+                E2[~E2_on_proc] = -1.0
+                E3[~E3_on_proc] = -1.0
+
         def _add_noise(self, direction="e3", amp=0.0001, seed=None, n=None):
             """Add noise to a vector component where init_comps==True, otherwise leave at zero.
 
