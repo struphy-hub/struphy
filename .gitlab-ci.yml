@@ -781,32 +781,6 @@ struphy_opensuse_latest:
     - struphy compile --language=fortran -y
     - struphy test models --fast
 
-struphy_opensuse_python_3_11:
-  stage: test
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_python_3_11
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $TEST_SCHEDULED == "true"
-  needs: ['default_build']
-  before_script:
-    - date
-    - uname -a
-    - ls -a
-    - ls dist/
-    - ls /
-  script:
-    - python3 -V
-    - python3 -m pip list
-    - python3 -m venv env
-    - source env/bin/activate
-    - echo $CI_COMMIT_MESSAGE
-    - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile 
-    - struphy test models --fast
-    - struphy compile --language=fortran -y 
-    - struphy test models --fast
-
 AlmaLinux:
   stage: test
   image: almalinux:latest
