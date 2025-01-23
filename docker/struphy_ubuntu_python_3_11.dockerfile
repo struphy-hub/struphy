@@ -4,7 +4,7 @@
 # Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
 #
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11 -f docker/ubuntu.dockerfile .
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11 -f docker/ubuntu_latest_py_3_11.dockerfile .
 # docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
 
 FROM ubuntu:latest
@@ -32,8 +32,6 @@ RUN apt update -y && apt clean \
 
 # create new working dir
 WORKDIR /struphy_install/
-
-COPY dist/struphy*.whl .
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
