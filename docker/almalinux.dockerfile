@@ -30,9 +30,7 @@ RUN yum install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zl
     && python3 -V  # Verify Python version
 
 # create new working dir
-WORKDIR /almalinux_latest/
-
-COPY dist/struphy*.whl .
+WORKDIR /struphy_install/
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
