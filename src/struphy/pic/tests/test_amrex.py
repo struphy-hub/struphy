@@ -105,6 +105,52 @@ def test_amrex(plot=False, verbose=False):
         print("Struphy velocities\n", struphy_particles.velocities)
         print("Amrex velocities\n", amrex_particles.velocities)
 
+    from struphy.propagators.propagators_markers import PushEta
+
+    # default parameters of Propagator
+    opts_eta = PushEta.options(default=True)
+    if verbose:
+        print(opts_eta)
+
+    # pass simulation parameters to Propagator class
+    PushEta.domain = domain
+
+    # instantiate Propagator object
+    struphy_prop_eta = PushEta(struphy_particles)
+    amrex_prop_eta = PushEta(amrex_particles)
+
+    import numpy as np
+    import math
+
+    # time stepping
+    Tend = 10.
+    dt = .2
+    Nt = int(Tend / dt)
+
+    struphy_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
+    amrex_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
+    alpha = np.ones(Nt + 1, dtype=float)
+
+    struphy_pos[0] = struphy_pushed_pos
+    amrex_pos[0] = amrex_pushed_pos
+
+    time = 0.
+    n = 0
+    while time < (Tend - dt):
+        time += dt
+        n += 1
+
+        # advance in time
+        struphy_prop_eta(dt)
+        amrex_prop_eta(dt)
+
+        # positions on the physical domain Omega
+        struphy_pos[n] = domain(struphy_particles.positions).T
+        amrex_pos[n] = domain(amrex_particles.positions).T
+
+        # scaling for plotting
+        alpha[n] = (Tend - time)/Tend
+
     # finalize amrex
     amrex.finalize()
 
