@@ -807,6 +807,7 @@ def load_projects(data_paths, procs_per_clone="any"):
                 sim = path.split("/")[-2]
             else:
                 sim = path.split("/")[-1]
+            print(f"{sim = } {path =}")
             project = lp.Project(
                 name=lp.pad_numbers(sim),
                 path=path,
