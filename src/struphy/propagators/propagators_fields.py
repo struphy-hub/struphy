@@ -5057,14 +5057,12 @@ class VariationalPressureEvolve(Propagator):
         mass_ops: WeightedMassOperator,
         div_u: StencilVector | None = None,
         u2: BlockVector | None = None,
-        adv: BlockVector | None = None,
     ):
         super().__init__(p, u)
 
         assert model in ["full_p", "linear"]
         self._divu = div_u
         self._u2 = u2
-        self._adv = adv
 
         assert mass_ops is not None
 
@@ -5147,7 +5145,6 @@ class VariationalPressureEvolve(Propagator):
 
         self.div.dot(un12, out=self._divu)
         self.Uv.dot(un1, out=self._u2)
-        advection.copy(out = self._adv)
 
         self.feec_vars_update(pn1, un1)
 

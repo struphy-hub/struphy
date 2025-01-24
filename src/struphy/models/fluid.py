@@ -1493,7 +1493,6 @@ class LinearVariationalMHD(StruphyModel):
             "mass_ops": self.WMM,
             "div_u": self.pointer["div_u"],
             "u2": self.pointer["u2"],
-            "adv": self.pointer["adv"]
         }
 
         self._kwargs[propagators_fields.VariationalMagFieldEvolve] = {
@@ -1589,7 +1588,6 @@ class LinearVariationalMHD(StruphyModel):
 
         dct["div_u"] = "L2"
         dct["u2"] = "Hdiv"
-        dct["adv"] = "H1vec"
         return dct
 
     __diagnostics__ = diagnostics_dct()
