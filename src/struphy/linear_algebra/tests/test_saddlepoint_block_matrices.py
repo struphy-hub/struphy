@@ -2,7 +2,7 @@
 def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     '''Test saddle-point-solver with manufactured solutions.'''
 
-    from struphy.linear_algebra.saddle_point import SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
+    from struphy.linear_algebra.saddle_point import SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG, SaddlePointSolverGMRES
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
@@ -41,7 +41,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain)
-    A11 = mass_mats.M2
+    A11 = mass_mats.M2/0.01
     A12 = None
     A21=A12
     A22 = mass_mats.M2
@@ -79,19 +79,18 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     M2preblock = MassMatrixPreconditioner(mass_mats.M2)
     M2pre = BlockLinearOperator(block_domainA, block_codomainA, blocks = [[M2preblock, None],[None, M2preblock]])
 
-    # Create the Uzawa solver
+    # Create the solver
     rho = 0.0005  # Example descent parameter
-    tol = 1e-5
-    max_iter = 1000
-    pc = M2pre # No preconditioner
+    tol = 1e-6
+    max_iter = 2500
+    pc = None #M2pre # Preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
-    solver_name = 'pcg'
+    solver_name = 'gmres'
     verbose = False
     
     start_time = time.time()
 
-     #SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
-    #method_for_solving = 'SaddlePointSolverTest'
+    #SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
     if method_for_solving == 'SaddlePointSolverTest':
         solver = SaddlePointSolverTest(A, B, F,
                                 rho=rho,
@@ -123,16 +122,20 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         x_uzawa, y_uzawa, info, residual_norms = solver()
         if show_plots == True:
             _plot_residual_norms(residual_norms)
+    elif method_for_solving == 'SaddlePointSolverGMRES':
+        solver = SaddlePointSolverGMRES(A, B, F,
+                                rho=rho,
+                                solver_name=solver_name,
+                                tol=tol,
+                                max_iter=max_iter,
+                                verbose=verbose,
+                                pc=pc)
+        x_uzawa, y_uzawa, info = solver()
             
     end_time = time.time()
-
-    # print(f"x shape: {x.shape}, x type: {type(x)}")
-    # print(f"x1 shape: {x1.shape}, x1 type: {type(x1)}")
-    # print(f"x_uzawa shape: {x_uzawa.shape}, x_uzawa type: {type(x_uzawa)}")
-    # print(f"y shape: {y1_rdm.shape}, y type: {type(y1_rdm)}")
-    # print(f"y_uzawa shape: {y_uzawa.shape}, y_uzawa type: {type(y_uzawa)}")
-    # print(f"Rank: {mpi_rank}")
     
+    print(f"{method_for_solving}{info}")
+
     elapsed_time = end_time - start_time
     print(f"Method execution time: {elapsed_time:.6f} seconds")
     Rx=x-x_uzawa
@@ -164,15 +167,15 @@ def _plot_residual_norms(residual_norms):
     plt.savefig("residual_norms_plot.png")
 
 if __name__ == '__main__':
-    test_saddlepointsolver('SaddlePointSolverTest',
+    test_saddlepointsolver('SaddlePointSolverGMRES',
                            [5, 6, 7],
                            [2, 2, 3],
                            [True, False, True],
                            [[False,  True], [True, False], [False, False]],
-                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
-    test_saddlepointsolver('SaddlePointSolver',
-                           [5, 6, 7],
-                           [2, 2, 3],
-                           [True, False, True],
-                           [[False,  True], [True, False], [False, False]],
-                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
+                           ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
+    # test_saddlepointsolver('SaddlePointSolver',
+    #                        [5, 6, 7],
+    #                        [2, 2, 3],
+    #                        [True, False, True],
+    #                        [[False,  True], [True, False], [False, False]],
+    #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)

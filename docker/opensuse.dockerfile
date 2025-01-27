@@ -4,30 +4,45 @@
 # Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
 #
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_python_3_11 -f docker/opensuse.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_python_3_11
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_latest -f docker/opensuse.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_latest
 
 FROM opensuse/tumbleweed:latest
 
-# Install other dependencies
-RUN zypper refresh \
-    && zypper install -y python311 python311-devel \
-    && zypper install -y python311-pip python3-virtualenv \
+RUN echo "Refreshing repositories and installing basic tools..." \
+    && zypper clean --all \
+    && zypper refresh \
+    && zypper install -y grep sed coreutils \
+    && zypper install -y pkg-config \
+    && zypper install -y meson ninja \
+    && zypper clean --all
+
+RUN echo "Installing Python and development tools..." \
+    && zypper refresh \
+    && zypper install -y python3 python3-devel python3-pip python3-venv python3-pkgconfig \
+    && python3 --version || echo "Python installation failed!" \
+    && zypper clean --all
+
+RUN echo "Installing GCC and MPI libraries..." \
     && zypper install -y gcc-fortran gcc \
-    && zypper install -y lapack-devel openmpi-devel \ 
+    && zypper install -y lapack-devel openmpi-devel \
     && zypper install -y blas-devel openmpi \
     && zypper install -y libgomp1 \
-    && zypper install -y git \
-    && zypper install -y pandoc \ 
-    && zypper install -y sqlite3 \
-    && zypper install -y vim \
-    && zypper install -y make \
-    && python3 -m venv /opensuse_latest/venv
+    && zypper clean --all
+
+RUN echo "Installing additional tools..." \
+    && zypper install -y git pandoc sqlite3 vim make \
+    && zypper clean --all
+
+RUN echo "Setting up Python virtual environment..." \
+    && python3 -m venv /opensuse_latest/venv \
+    && opensuse_latest/venv/bin/pip install --upgrade pip
+
+RUN echo "Reinstalling python3-devel..." \
+    && zypper install -y python3-devel
 
 # Create a new working directory
 WORKDIR /struphy_install/
-
-COPY dist/struphy*.whl .
 
 # Allow mpirun to run as root (for OpenMPI)
 ENV PATH="/opensuse_latest/venv/bin:$PATH"
