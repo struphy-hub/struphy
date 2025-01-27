@@ -24,7 +24,7 @@ def test_kinetic(map_and_equil, fast, vrbose, model=None, Tend=None):
 
     if model is None:
         for key, val in inspect.getmembers(kinetic):
-            if inspect.isclass(val) and key not in {"StruphyModel", "Propagator"} and "Background" not in key:
+            if inspect.isclass(val) and val.__module__ == kinetic.__name__:
                 # TODO: remove if-clause
                 if "VlasovMasslessElectrons" in key:
                     print(f"Model {key} is currently excluded from tests.")

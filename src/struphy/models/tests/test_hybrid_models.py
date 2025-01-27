@@ -24,7 +24,7 @@ def test_hybrid(map_and_equil, fast, vrbose, model=None, Tend=None):
 
     if model is None:
         for key, val in inspect.getmembers(hybrid):
-            if inspect.isclass(val) and key not in {"StruphyModel", "Propagator"}:
+            if inspect.isclass(val) and val.__module__ == hybrid.__name__:
                 # TODO: remove if-clause
                 if "VlasovMasslessElectrons" in key:
                     print(f"Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.")

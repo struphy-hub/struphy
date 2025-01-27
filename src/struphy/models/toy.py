@@ -2,6 +2,7 @@ import numpy as np
 
 from struphy.models.base import StruphyModel
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
+from struphy.pic.particles import Particles6D, Particles5D
 
 
 class Maxwell(StruphyModel):
@@ -151,13 +152,7 @@ class Vlasov(StruphyModel):
         ions_params = self.kinetic["ions"]["params"]
 
         # project magnetic background
-        self._b_eq = self.derham.P["2"](
-            [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
-            ]
-        )
+        self._b_eq = self.projected_mhd_equil.b2
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushVxB] = {
@@ -167,7 +162,7 @@ class Vlasov(StruphyModel):
             "b_tilde": None,
         }
 
-        self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
+        self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"],}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -175,20 +170,18 @@ class Vlasov(StruphyModel):
         # Scalar variables to be saved during simulation
         self.add_scalar("en_f", compute="from_particles", species="ions")
 
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
+        # temporaries
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-        self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(
+        
+        assert isinstance(self.pointer["ions"], Particles6D)
+        
+        self._tmp[0] = self.pointer["ions"].weights.dot(
             self.pointer["ions"].markers_wo_holes[:, 3] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
         ) / (2 * self.pointer["ions"].n_mks)
-
-        # self.derham.comm.Allreduce(
-        #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
 
         self.update_scalar("en_f", self._tmp[0])
 
@@ -282,9 +275,10 @@ class GuidingCenter(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar("en_fv")
-        self.add_scalar("en_fB")
-        self.add_scalar("en_tot")
+        self.add_scalar("en_fv", compute="from_particles", species="ions")
+        self.add_scalar("en_fB", compute="from_particles", species="ions")
+        self.add_scalar("en_tot", compute="from_particles", species="ions", summands=["en_fv", "en_fB"],)
+        self.add_scalar("n_lost_markers", compute="from_particles", species="ions")
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
@@ -292,53 +286,32 @@ class GuidingCenter(StruphyModel):
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
         self._en_tot = np.empty(1, dtype=float)
-        self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-        # particles' kinetic energy
 
-        self._en_fv[0] = self.pointer["ions"].markers[~self.pointer["ions"].holes, 5].dot(
-            self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
+        assert isinstance(self.pointer["ions"], Particles5D)
+
+        # kinetic energy
+        self._en_fv[0] = self.pointer["ions"].weights.dot(
+            self.pointer["ions"].markers_wo_holes[:, 3] ** 2,
         ) / (2.0 * self.pointer["ions"].n_mks)
 
+        # store magnetic energy in first_diagnostics_idx
         self.pointer["ions"].save_magnetic_background_energy()
-        self._en_tot[0] = (
-            self.pointer["ions"]
-            .markers[~self.pointer["ions"].holes, 5]
+        
+        # magnetic energy
+        self._en_fB[0] = (
+            self.pointer["ions"].weights
             .dot(
-                self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
+                self.pointer["ions"].markers_wo_holes[:, self.pointer["ions"].first_diagnostics_idx],
             )
             / self.pointer["ions"].n_mks
         )
-
-        self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
-
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fv,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_tot,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fB,
-            op=self._mpi_sum,
-        )
-
+        
         self.update_scalar("en_fv", self._en_fv[0])
         self.update_scalar("en_fB", self._en_fB[0])
-        self.update_scalar("en_tot", self._en_tot[0])
-
-        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._n_lost_particles,
-            op=self._mpi_sum,
-        )
+        self.update_scalar("en_tot")
+        self.update_scalar("n_lost_markers", float(self.pointer["ions"].n_lost_markers))
 
 
 class ShearAlfven(StruphyModel):
@@ -404,13 +377,7 @@ class ShearAlfven(StruphyModel):
         alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
 
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P["2"](
-            [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
-            ]
-        )
+        self._b_eq = self.projected_mhd_equil.b2
 
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.ShearAlfven] = {
@@ -422,12 +389,7 @@ class ShearAlfven(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        # self.add_scalar('en_U')
-        # self.add_scalar('en_B')
-        # self.add_scalar('en_B_eq')
-        # self.add_scalar('en_B_tot')
         self.add_scalar("en_tot")
-
         self.add_scalar("en_U", compute="from_field")
         self.add_scalar("en_B", compute="from_field")
         self.add_scalar("en_B_eq", compute="from_field")
@@ -467,6 +429,7 @@ class ShearAlfven(StruphyModel):
         en_Btot = self._tmp_b1.dot(self._tmp_b2) / 2
 
         self.update_scalar("en_B_tot", en_Btot)
+        self.update_scalar("en_tot2")
 
 
 class VariationalPressurelessFluid(StruphyModel):

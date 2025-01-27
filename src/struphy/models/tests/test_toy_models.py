@@ -24,7 +24,7 @@ def test_toy(map_and_equil, fast, vrbose, model=None, Tend=None):
 
     if model is None:
         for key, val in inspect.getmembers(toy):
-            if inspect.isclass(val) and key not in {"StruphyModel", "Propagator"}:
+            if inspect.isclass(val) and val.__module__ == toy.__name__:
                 if fast:
                     if "Cuboid" not in map_and_equil[0]:
                         print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
