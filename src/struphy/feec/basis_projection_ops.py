@@ -561,12 +561,14 @@ class BasisProjectionOperators:
                         / self.sqrt_g(e1, e2, e3),
                     ]
 
-            self._S21 = self.assemble_basis_projection_operator(
+            self._S21p = self.assemble_basis_projection_operator(
                 fun,
                 "Hdiv",
                 "Hcurl",
-                name="S21",
+                name="S21p",
             )
+        return self._S21p
+
 
     @property
     def Uv(self):
