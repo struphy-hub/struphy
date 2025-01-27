@@ -1144,7 +1144,7 @@ class ViscousFluid(StruphyModel):
         """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
         E(rho, s) = rho^gamma*exp(s/rho)"""
         gam = self._gamma
-        return np.power(rho, gam)*np.exp(s/rho)
+        return np.power(rho, gam) * np.exp(s / rho)
 
 
 class ViscoresistiveMHD_with_p(StruphyModel):
@@ -1376,9 +1376,9 @@ class ViscoresistiveMHD_with_p(StruphyModel):
 
 
 class Stokeslike(StruphyModel):
-    r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+    r"""Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
         return np.power(rho, gam) * np.exp(s / rho)
-        
+
     :ref:`normalization`:
 
     .. math::
@@ -1389,7 +1389,7 @@ class Stokeslike(StruphyModel):
 
     .. math::
 
-    &\frac{\partial u}{\partial t} = - \nabla \phi + u \times B + \nu \Delta u + f\,, 
+    &\frac{\partial u}{\partial t} = - \nabla \phi + u \times B + \nu \Delta u + f\,,
         \\[2mm]
         &0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,,
         \\[2mm]
@@ -1400,32 +1400,32 @@ class Stokeslike(StruphyModel):
     1. :class:`~struphy.propagators.propagators_fields.Stokes`
 
     :ref:`Model info <add_model>`:
-    '''
+    """
 
     @staticmethod
     def species():
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
         # dct['em_fields']['b_field'] = 'Hdiv'
         # dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
-        dct['fluid']['mhd'] = {'u': 'Hdiv', 'ue': 'Hdiv', 'potential': 'L2'}
+        dct["fluid"]["mhd"] = {"u": "Hdiv", "ue": "Hdiv", "potential": "L2"}
         return dct
 
     @staticmethod
     def bulk_species():
-        return 'mhd'
+        return "mhd"
 
     @staticmethod
     def velocity_scale():
-        return 'alfvén'
+        return "alfvén"
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.Stokes: ['mhd_u', 'mhd_ue', 'mhd_potential']}
+        return {propagators_fields.Stokes: ["mhd_u", "mhd_ue", "mhd_potential"]}
 
-    __em_fields__ = species()['em_fields']
-    __fluid_species__ = species()['fluid']
-    __kinetic_species__ = species()['kinetic']
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
@@ -1443,41 +1443,41 @@ class Stokeslike(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        #u_space = params['fluid']['mhd']['options']['u_space']
-        stokes_solver = params['fluid']['mhd']['options']['Stokes']['solver']
-        stokes_nu = params['fluid']['mhd']['options']['Stokes']['nu']
-        stokes_nu_e = params['fluid']['mhd']['options']['Stokes']['nu_e']
-        stokes_a = params['fluid']['mhd']['options']['Stokes']['a']
-        stokes_R0 = params['fluid']['mhd']['options']['Stokes']['R0']
-        stokes_B0 = params['fluid']['mhd']['options']['Stokes']['B0']
-        stokes_Bp = params['fluid']['mhd']['options']['Stokes']['Bp']
-        stokes_alpha = params['fluid']['mhd']['options']['Stokes']['alpha']
-        stokes_beta = params['fluid']['mhd']['options']['Stokes']['beta']
+        # u_space = params['fluid']['mhd']['options']['u_space']
+        stokes_solver = params["fluid"]["mhd"]["options"]["Stokes"]["solver"]
+        stokes_nu = params["fluid"]["mhd"]["options"]["Stokes"]["nu"]
+        stokes_nu_e = params["fluid"]["mhd"]["options"]["Stokes"]["nu_e"]
+        stokes_a = params["fluid"]["mhd"]["options"]["Stokes"]["a"]
+        stokes_R0 = params["fluid"]["mhd"]["options"]["Stokes"]["R0"]
+        stokes_B0 = params["fluid"]["mhd"]["options"]["Stokes"]["B0"]
+        stokes_Bp = params["fluid"]["mhd"]["options"]["Stokes"]["Bp"]
+        stokes_alpha = params["fluid"]["mhd"]["options"]["Stokes"]["alpha"]
+        stokes_beta = params["fluid"]["mhd"]["options"]["Stokes"]["beta"]
         # alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
         # sonic_solver = params['fluid']['mhd']['options']['Magnetosonic']['solver']
 
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-                                         self.mhd_equil.b2_2,
-                                         self.mhd_equil.b2_3])
-        self._p_eq = self.derham.P['3'](self.mhd_equil.p3)
+        self._b_eq = self.derham.P["2"]([self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3])
+        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.
+            self._ones.tp[:] = 1.0
         else:
-            self._ones[:] = 1.
+            self._ones[:] = 1.0
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Stokes] = {'solver': stokes_solver,
-                                                   'nu': stokes_nu,
-                                                   'nu_e': stokes_nu_e,
-                                                   'a': stokes_a,
-                                                   'R0': stokes_R0,
-                                                   'B0': stokes_B0,
-                                                   'Bp': stokes_Bp,
-                                                   'alpha': stokes_alpha,
-                                                   'beta': stokes_beta}
+        self._kwargs[propagators_fields.Stokes] = {
+            "solver": stokes_solver,
+            "nu": stokes_nu,
+            "nu_e": stokes_nu_e,
+            "a": stokes_a,
+            "R0": stokes_R0,
+            "B0": stokes_B0,
+            "Bp": stokes_Bp,
+            "alpha": stokes_alpha,
+            "beta": stokes_beta,
+        }
 
         # self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
         #                                                 'solver': alfven_solver}
@@ -1485,12 +1485,12 @@ class Stokeslike(StruphyModel):
         # self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b_field'],
         #                                                  'u_space': u_space,
         #                                                  'solver': sonic_solver}
-        
+
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
         # # Scalar variables to be saved during simulation
-        self.add_scalar('en_U')
+        self.add_scalar("en_U")
         # self.add_scalar('en_p')
         # self.add_scalar('en_B')
         # self.add_scalar('en_p_eq')
@@ -1499,20 +1499,20 @@ class Stokeslike(StruphyModel):
         # self.add_scalar('en_tot')
 
         # # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh['2'].zeros()
+        self._tmp_u1 = self.derham.Vh["2"].zeros()
         # self._tmp_b1 = self.derham.Vh['2'].zeros()
         # self._tmp_b2 = self.derham.Vh['2'].zeros()
 
     def update_scalar_quantities(self):
         # # perturbed fields
-        self._mass_ops.M2.dot(self.pointer['mhd_u'], out=self._tmp_u1)
+        self._mass_ops.M2.dot(self.pointer["mhd_u"], out=self._tmp_u1)
         # self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-        en_U = self.pointer['mhd_u'].dot(self._tmp_u1)/2
+        en_U = self.pointer["mhd_u"].dot(self._tmp_u1) / 2
         # en_B = self.pointer['b_field'] .dot(self._tmp_b1)/2
         # en_p = self.pointer['mhd_pressure'] .dot(self._ones)/(5/3 - 1)
 
-        self.update_scalar('en_U', en_U)
+        self.update_scalar("en_U", en_U)
         # self.update_scalar('en_B', en_B)
         # self.update_scalar('en_p', en_p)
         # self.update_scalar('en_tot', en_U + en_B + en_p)

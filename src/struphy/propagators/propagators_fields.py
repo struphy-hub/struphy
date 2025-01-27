@@ -13,24 +13,22 @@ import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.psydac_derham import TransformedPformComponent
+from struphy.feec.utilities import create_equal_random_arrays
 from struphy.feec.variational_utilities import BracketOperator
 from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.initial import perturbations
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
-from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.saddle_point import SaddlePointSolverGMRES
+from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-
-from struphy.initial import perturbations
-from struphy.feec.psydac_derham import TransformedPformComponent
-
-from struphy.feec.utilities import create_equal_random_arrays
 
 
 class Maxwell(Propagator):
@@ -7471,7 +7469,7 @@ class AdiabaticPhi(Propagator):
 
 
 class Stokes(Propagator):
-    r''':ref:`FEEC <gempic>` discretization of the following equations: 
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in H(\textnormal{div})`, :math:`\mathbf u_e \in H(\textnormal{div})` and  :math:`\mathbf \phi \in L^2` such that
 
     .. math::
@@ -7483,14 +7481,14 @@ class Stokes(Propagator):
     0 &= \int_{\Omega} \psi \nabla \cdot (\mathbf{u}-\mathbf{u_e}) \textrm d\mathbf{x} \qquad \forall \psi \in L^2 \,.
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point).
-    '''
+    """
 
     @staticmethod
     def options(default=False):
         dct = {}
-        dct['solver'] = {
-            'type': [
-                ('gmres', None),
+        dct["solver"] = {
+            "type": [
+                ("gmres", None),
             ],
             "tol": 1.0e-8,
             "maxiter": 3000,
@@ -7509,20 +7507,19 @@ class Stokes(Propagator):
         ue: BlockVector,
         phi: BlockVector,
         *,
-        nu: float = 1.,
+        nu: float = 1.0,
         nu_e: float = 0.01,
-        solver: dict = options(default=True)['solver'],
-        a: float = 1.,
-        R0: float = 2.,
-        B0: float = 10.,
+        solver: dict = options(default=True)["solver"],
+        a: float = 1.0,
+        R0: float = 2.0,
+        B0: float = 10.0,
         Bp: float = 12.5,
         alpha: 0.1,
-        beta: 1.
+        beta: 1.0,
     ):
-
         super().__init__(u, ue, phi)
 
-        self._info = solver['info']
+        self._info = solver["info"]
         if self.derham.comm is not None:
             self._rank = self.derham.comm.Get_rank()
         else:
@@ -7536,38 +7533,47 @@ class Stokes(Propagator):
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
-        
 
         # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
-        _A11 = self.mass_ops.M2 - self.mass_ops.M2B + self._nu * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @
-                                                                  self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
+        _A11 = (
+            self.mass_ops.M2
+            - self.mass_ops.M2B
+            + self._nu
+            * (
+                self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+                + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+            )
+        )
         _A12 = None
         _A21 = _A12
-        _A22 = self.mass_ops.M2B + self._nu_e*(self.derham.div.T @ self.mass_ops.M3 @ self.derham.div +
-                                               self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
+        _A22 = self.mass_ops.M2B + self._nu_e * (
+            self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+            + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+        )
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
-        
-        _forceterm_logical = lambda e1, e2, e3: 0*e1
-        _fun = getattr(perturbations, 'forcingterm')(self._nu, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta)
-        _fun_electrons = getattr(perturbations, 'forcingterm')(self._nu_e, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta)
-        
+
+        _forceterm_logical = lambda e1, e2, e3: 0 * e1
+        _fun = getattr(perturbations, "forcingterm")(
+            self._nu, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta
+        )
+        _fun_electrons = getattr(perturbations, "forcingterm")(
+            self._nu_e, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta
+        )
+
         # get callable(s) for specified init type
-        forceterm_class = [_forceterm_logical, _fun , _forceterm_logical]
+        forceterm_class = [_forceterm_logical, _fun, _forceterm_logical]
         forcetermelectrons_class = [_forceterm_logical, _fun_electrons, _forceterm_logical]
 
-        
         # pullback callable
-        fun = TransformedPformComponent(
-            forceterm_class, fun_basis='physical', out_form='2', comp=1, domain=self.domain 
-        )
+        fun = TransformedPformComponent(forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain)
         fun_electrons = TransformedPformComponent(
-            forcetermelectrons_class, fun_basis='physical', out_form='2', comp=1, domain=self.domain  
+            forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
         )
-        
-        #Project into discrete Hdiv to define right hand side
-        self._F1 = self.derham.P['2']((_forceterm_logical, fun, _forceterm_logical))
-        self._F2 = self.derham.P['2']((_forceterm_logical, fun_electrons, _forceterm_logical))
+
+        # Project into discrete Hdiv to define right hand side
+        self._F1 = self.derham.P["2"]((_forceterm_logical, fun, _forceterm_logical))
+        self._F2 = self.derham.P["2"]((_forceterm_logical, fun_electrons, _forceterm_logical))
 
         if _A12 is not None:
             assert _A11.codomain == _A12.codomain
@@ -7597,10 +7603,10 @@ class Stokes(Propagator):
 
         self._solverM = inverse(
             self._M,
-            solver['type'][0],
-            tol=solver['tol'],
-            maxiter=solver['maxiter'],
-            verbose=solver['verbose'],
+            solver["type"][0],
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
         )
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
@@ -7609,19 +7615,27 @@ class Stokes(Propagator):
         self._b_tmp1 = phi.space.zeros()
 
     def __call__(self, dt):
-
         # current variables
         un = self.feec_vars[0]
         uen = self.feec_vars[1]
         phin = self.feec_vars[2]
 
         # Define block matrix [[A BT], [B 0]]
-        _A11 = self.mass_ops.M2/dt - self.mass_ops.M2B + self._nu * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @
-                                                                     self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
+        _A11 = (
+            self.mass_ops.M2 / dt
+            - self.mass_ops.M2B
+            + self._nu
+            * (
+                self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+                + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+            )
+        )
         _A12 = None
         _A21 = _A12
-        _A22 = self.mass_ops.M2B + self._nu_e*(self.derham.div.T @ self.mass_ops.M3 @ self.derham.div +
-                                               self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p)
+        _A22 = self.mass_ops.M2B + self._nu_e * (
+            self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+            + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+        )
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
 
@@ -7640,7 +7654,7 @@ class Stokes(Propagator):
         _blocks = [[_A11, _A12], [_A21, _A22]]
         _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocks)
         _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=[[_B1, _B2]])
-        _F = BlockVector(self._block_domainA, blocks=[self._F1 + 1/dt*self.mass_ops.M2.dot(un), self._F2])  
+        _F = BlockVector(self._block_domainA, blocks=[self._F1 + 1 / dt * self.mass_ops.M2.dot(un), self._F2])
 
         self._M *= 0
         self._blocks = [[_A, _B.T], [_B, None]]
@@ -7661,9 +7675,9 @@ class Stokes(Propagator):
         max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
 
         if self._info and self._rank == 0:
-            print('Status     for Stokes:', info['success'])
-            print('Iterations for Stokes:', info['niter'])
-            print('Maxdiff u for Stokes:', max_du)
-            print('Maxdiff u_e for Stokres:', max_due)
-            print('Maxdiff phi for Stokres:', max_dphi)
+            print("Status     for Stokes:", info["success"])
+            print("Iterations for Stokes:", info["niter"])
+            print("Maxdiff u for Stokes:", max_du)
+            print("Maxdiff u_e for Stokres:", max_due)
+            print("Maxdiff phi for Stokres:", max_dphi)
             print()

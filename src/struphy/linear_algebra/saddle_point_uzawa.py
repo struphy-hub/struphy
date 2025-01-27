@@ -1,10 +1,10 @@
-from psydac.linalg.basic import Vector, LinearOperator
-from psydac.linalg.solvers import inverse
 import numpy as np
+from psydac.linalg.basic import LinearOperator, Vector
+from psydac.linalg.solvers import inverse
 
 
 class SaddlePointSolver:
-    '''Solves for math:`\left( \matrix{
+    """Solves for math:`\left( \matrix{
             x^{n+1} \cr y^{n+1}
         } \\right)` in the block system
 
@@ -56,25 +56,26 @@ class SaddlePointSolver:
 
     **solver_params : 
         Must correspond to the chosen solver.
-    '''
+    """
 
-    def __init__(self,
-                 A: LinearOperator,
-                 B: LinearOperator,
-                 F: Vector,
-                 rho: float,
-                 solver_name: str,
-                 tol=1e-6,
-                 max_iter=1000,
-                 **solver_params):
-
+    def __init__(
+        self,
+        A: LinearOperator,
+        B: LinearOperator,
+        F: Vector,
+        rho: float,
+        solver_name: str,
+        tol=1e-6,
+        max_iter=1000,
+        **solver_params,
+    ):
         assert isinstance(A, LinearOperator)
         assert isinstance(B, LinearOperator)
         assert isinstance(F, Vector)
         assert isinstance(rho, float)
 
         assert A.codomain == B.domain
-        #assert A.domain == B.domain
+        # assert A.domain == B.domain
 
         # linear operators
         self._A = A
@@ -96,11 +97,10 @@ class SaddlePointSolver:
         # initialize solver with matrix A
         self._solver_name = solver_name
 
-        if solver_params['pc'] is None:
-            solver_params.pop('pc')
+        if solver_params["pc"] is None:
+            solver_params.pop("pc")
 
-        self._solverA = inverse(A, solver_name, tol=tol,
-                                maxiter=max_iter, **solver_params)
+        self._solverA = inverse(A, solver_name, tol=tol, maxiter=max_iter, **solver_params)
 
         # Solution vectors
         self._P = B.codomain.zeros()
@@ -108,42 +108,36 @@ class SaddlePointSolver:
 
     @property
     def A(self):
-        """ Upper left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         return self._A
 
     @property
     def B(self):
-        """ Lower left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
         return self._B
 
     @property
     def F(self):
-        """ Right hand side vector of the upper block of [A :math: `B^{\top}`].
-        """
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         return self._F
 
     @A.setter
     def A(self, a):
-        """ Upper left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         self._A = a
 
     @B.setter
     def B(self, b):
-        """ Lower left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
         self._B = b
 
     @F.setter
     def F(self, f):
-        """ Right hand side vector of the upper block of [A :math: `B^{\top}`].
-        """
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         self._F = f
 
     def __call__(self, P_init=None, out=None):
-        '''
+        """
         Solves the saddle-point problem using the Uzawa algorithm.
 
         Parameters
@@ -161,7 +155,7 @@ class SaddlePointSolver:
 
         info : dict
             Convergence information.
-        '''
+        """
 
         assert self._F.space == self._A.domain
 
@@ -173,7 +167,7 @@ class SaddlePointSolver:
         self._rhs += self._F
         U = self._solverA.dot(self._rhs, out=self._U)
 
-        # Step 2: Compute residual R = BU 
+        # Step 2: Compute residual R = BU
         R = self._B.dot(self._U, out=self._R)
         residual = self._R.copy()
         self._p2 = residual
@@ -188,25 +182,25 @@ class SaddlePointSolver:
 
             self._p1 = self._solverA.dot(self._B.transpose().dot(self._p2))
             self._a2 = self._B.dot(self._p1)
-            self._alpha = self._p2.dot(self._R)/(self._p2.dot(self._a2))
+            self._alpha = self._p2.dot(self._R) / (self._p2.dot(self._a2))
 
             # Step 3: Update velocity u <- u - alpha * p1  and potential p <- p + alpha * p2
-            self._P += self._alpha*self._p2
-            self._R -= self._alpha*self._a2
-            self._U -= self._alpha*self._p1
+            self._P += self._alpha * self._p2
+            self._R -= self._alpha * self._a2
+            self._U -= self._alpha * self._p1
 
             self._beta = self._R.dot(self._a2) / (self._p2.dot(self._a2))
-            self._p2 = self._R - self._beta*self._p2
+            self._p2 = self._R - self._beta * self._p2
 
         # Return with info if maximum iterations reached
         print(f"P shape: {self._P.shape}, P type: {type(self._P)}")
         print(f"U shape: {self._U.shape}, U type: {type(self._U)}")
         print(f"R shape: {self._R.shape}, R type: {type(self._R)}")
-        return self._U, self._P, {'converged': False, 'iterations': self._max_iter, 'residual_norm': residual_norm}
+        return self._U, self._P, {"converged": False, "iterations": self._max_iter, "residual_norm": residual_norm}
 
 
 class SaddlePointSolverNonWiki:
-    '''Solves for math:`\left( \matrix{
+    """Solves for math:`\left( \matrix{
             x^{n+1} \cr y^{n+1}
         } \\right)` in the block system
 
@@ -258,18 +252,19 @@ class SaddlePointSolverNonWiki:
 
     **solver_params : 
         Must correspond to the chosen solver.
-    '''
+    """
 
-    def __init__(self,
-                 A: LinearOperator,
-                 B: LinearOperator,
-                 F: Vector,
-                 rho: float,
-                 solver_name: str,
-                 tol=1e-8,
-                 max_iter=1000,
-                 **solver_params):
-
+    def __init__(
+        self,
+        A: LinearOperator,
+        B: LinearOperator,
+        F: Vector,
+        rho: float,
+        solver_name: str,
+        tol=1e-8,
+        max_iter=1000,
+        **solver_params,
+    ):
         assert isinstance(A, LinearOperator)
         assert isinstance(B, LinearOperator)
         assert isinstance(F, Vector)
@@ -293,11 +288,10 @@ class SaddlePointSolverNonWiki:
         # initialize solver with matrix A
         self._solver_name = solver_name
 
-        if solver_params['pc'] is None:
-            solver_params.pop('pc')
+        if solver_params["pc"] is None:
+            solver_params.pop("pc")
 
-        self._solverA = inverse(A, solver_name, tol=tol,
-                                maxiter=max_iter, **solver_params)
+        self._solverA = inverse(A, solver_name, tol=tol, maxiter=max_iter, **solver_params)
 
         # Solution vectors
         self._P = B.codomain.zeros()
@@ -311,42 +305,36 @@ class SaddlePointSolverNonWiki:
 
     @property
     def A(self):
-        """ Upper left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         return self._A
 
     @property
     def B(self):
-        """ Lower left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
         return self._B
 
     @property
     def F(self):
-        """ Right hand side vector of the upper block of [A :math: `B^{\top}`].
-        """
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         return self._F
 
     @A.setter
     def A(self, a):
-        """ Upper left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         self._A = a
 
     @B.setter
     def B(self, b):
-        """ Lower left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
         self._B = b
 
     @F.setter
     def F(self, f):
-        """ Right hand side vector of the upper block of [A :math: `B^{\top}`].
-        """
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         self._F = f
 
     def __call__(self, P_init=None, out=None):
-        '''
+        """
         Solves the saddle-point problem using the Uzawa algorithm.
 
         Parameters
@@ -364,7 +352,7 @@ class SaddlePointSolverNonWiki:
 
         info : dict
             Convergence information.
-        '''
+        """
 
         assert self._F.space == self._A.domain
 
@@ -388,17 +376,17 @@ class SaddlePointSolverNonWiki:
             if residual_norm < self._tol:
                 return self._U, self._P, self._solverA._info
 
-            self._P += self._rho*self._R
+            self._P += self._rho * self._R
 
         # Return with info if maximum iterations reached
         print(f"P shape: {self._P.shape}, P type: {type(self._P)}")
         print(f"U shape: {self._U.shape}, U type: {type(self._U)}")
         print(f"R shape: {self._R.shape}, R type: {type(self._R)}")
-        return self._U, self._P, {'converged': False, 'iterations': self._max_iter, 'residual_norm': residual_norm}
+        return self._U, self._P, {"converged": False, "iterations": self._max_iter, "residual_norm": residual_norm}
 
 
 class SaddlePointSolverTest:
-    '''Solves for math:`\left( \matrix{
+    """Solves for math:`\left( \matrix{
             x^{n+1} \cr y^{n+1}
         } \\right)` in the block system
 
@@ -449,18 +437,19 @@ class SaddlePointSolverTest:
 
     **solver_params : 
         Must correspond to the chosen solver.
-    '''
+    """
 
-    def __init__(self,
-                 A: LinearOperator,
-                 B: LinearOperator,
-                 F: Vector,
-                 rho: float,
-                 solver_name: str,
-                 tol=1e-8,
-                 max_iter=1000,
-                 **solver_params):
-
+    def __init__(
+        self,
+        A: LinearOperator,
+        B: LinearOperator,
+        F: Vector,
+        rho: float,
+        solver_name: str,
+        tol=1e-8,
+        max_iter=1000,
+        **solver_params,
+    ):
         assert isinstance(A, LinearOperator)
         assert isinstance(B, LinearOperator)
         assert isinstance(F, Vector)
@@ -486,17 +475,15 @@ class SaddlePointSolverTest:
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
 
-        if solver_params['pc'] is None:
-            solver_params.pop('pc')
+        if solver_params["pc"] is None:
+            solver_params.pop("pc")
 
-        self._solverA = inverse(A, solver_name, tol=tol,
-                                maxiter=max_iter, **solver_params)
+        self._solverA = inverse(A, solver_name, tol=tol, maxiter=max_iter, **solver_params)
 
         print(f"SolverA done")
 
         self._uzawa = self._B @ self._solverA @ self._BT
-        self._solveruzawa = inverse(
-            self._uzawa, solver_name, tol=tol, maxiter=max_iter, **solver_params)
+        self._solveruzawa = inverse(self._uzawa, solver_name, tol=tol, maxiter=max_iter, **solver_params)
 
         print(f"Solver Uzawa done")
         # Solution vectors
@@ -505,42 +492,36 @@ class SaddlePointSolverTest:
 
     @property
     def A(self):
-        """ Upper left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         return self._A
 
     @property
     def B(self):
-        """ Lower left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
         return self._B
 
     @property
     def F(self):
-        """ Right hand side vector of the upper block of [A :math: `B^{\top}`].
-        """
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         return self._F
 
     @A.setter
     def A(self, a):
-        """ Upper left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         self._A = a
 
     @B.setter
     def B(self, b):
-        """ Lower left block from [[A :math: `B^{\top}`], [B 0]].
-        """
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
         self._B = b
 
     @F.setter
     def F(self, f):
-        """ Right hand side vector of the upper block of [A :math: `B^{\top}`].
-        """
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         self._F = f
 
     def __call__(self, P_init=None, out=None):
-        '''
+        """
         Solves the saddle-point problem using the Uzawa algorithm.
 
         Parameters
@@ -558,18 +539,17 @@ class SaddlePointSolverTest:
 
         info : dict
             Convergence information.
-        '''
+        """
 
         assert isinstance(self._F, Vector)
         assert self._F.space == self._A.domain
 
-        #use setter to update lhs matrix
+        # use setter to update lhs matrix
         self._solverA.linop = self._A
         self._solveruzawa.linop = self._uzawa
 
         # Step 1: Compute potential P by solving B A^-1 Bᵀ  P = B A^-1 F
-        P = (self._solveruzawa @ self._B @
-             self._solverA).dot(self._F)
+        P = (self._solveruzawa @ self._B @ self._solverA).dot(self._F)
 
         print(f"Solved P with solveruzawa and solverA")
 
@@ -585,4 +565,4 @@ class SaddlePointSolverTest:
         # Return with info if maximum iterations reached
         print(f"P shape: {P.shape}, P type: {type(P)}")
         print(f"U shape: {U.shape}, U type: {type(U)}")
-        return U, P, {'converged': False, 'iterations': self._max_iter}
+        return U, P, {"converged": False, "iterations": self._max_iter}
