@@ -3079,7 +3079,7 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
         2nd shape factor for ion number density profile (default: 0.).
     na : float
         Ion number density at r=a (default: 1.).
-    p_kind : int 
+    p_kind : int
         Kind of pressure profile, see docstring (0 or 1, default: 1).
     p0 : float
         constant factor for ad hoc pressure profile (default: 1.).
@@ -3108,20 +3108,19 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
                 q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
                 q0      : 1.05 # safety factor at r=0
                 q1      : 1.80 # safety factor at r=a
-                n1      : .5   # 1st shape factor for number density profile 
-                n2      : 1.   # 2nd shape factor for number density profile 
+                n1      : .5   # 1st shape factor for number density profile
+                n2      : 1.   # 2nd shape factor for number density profile
                 na      : .2   # number density at r=a
                 p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
                 p0      : 1.   # constant factor for ad hoc pressure profile
                 p1      : .1   # 1st shape factor for ad hoc pressure profile
                 p2      : .1   # 2nd shape factor for ad hoc pressure profile
-                beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor 
+                beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
                 psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind=1)
                 psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
     """
 
     def __init__(self, **params):
-
         from scipy.integrate import quad
         from scipy.interpolate import UnivariateSpline
 
@@ -3511,6 +3510,7 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
 
         return nn
 
+
 class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
     r"""
     Tokamak MHD equilibrium with circular concentric flux surfaces.
@@ -3657,68 +3657,74 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
         self._params = set_defaults(params, params_default)
 
         # plasma boundary contour
-        ths = np.linspace(0., 2*np.pi, 201)
+        ths = np.linspace(0.0, 2 * np.pi, 201)
 
-        self._rbs = self.params['R0'] * \
-            (1 + self.params['a']/self.params['R0']*np.cos(ths))
-        self._zbs = self.params['a']*np.sin(ths)
+        self._rbs = self.params["R0"] * (1 + self.params["a"] / self.params["R0"] * np.cos(ths))
+        self._zbs = self.params["a"] * np.sin(ths)
 
         # set on-axis and boundary fluxes
-        if self.params['q_kind'] == 0:
-
-            self._psi0 = self.psi(self.params['R0'], 0.)
-            self._psi1 = self.psi(self.params['R0'] + self.params['a'], 0.)
+        if self.params["q_kind"] == 0:
+            self._psi0 = self.psi(self.params["R0"], 0.0)
+            self._psi1 = self.psi(self.params["R0"] + self.params["a"], 0.0)
 
             self._psi_i = None
             self._p_i = None
 
         else:
-
-            r_i = np.linspace(0., self.params['a'], self.params['psi_nel'] + 1)
+            r_i = np.linspace(0.0, self.params["a"], self.params["psi_nel"] + 1)
 
             def dpsi_dr(r):
-                return self.params['B0']*r/(self.q_r(r)*np.sqrt(1 - r**2/self.params['R0']**2))
+                return self.params["B0"] * r / (self.q_r(r) * np.sqrt(1 - r**2 / self.params["R0"] ** 2))
 
             psis = np.zeros_like(r_i)
 
             for i, rr in enumerate(r_i):
-                psis[i] = quad(dpsi_dr, 0., rr)[0]
+                psis[i] = quad(dpsi_dr, 0.0, rr)[0]
 
             self._psi_i = UnivariateSpline(
-                r_i, psis, k=self.params['psi_k'], s=0., ext=3,
+                r_i,
+                psis,
+                k=self.params["psi_k"],
+                s=0.0,
+                ext=3,
             )
 
-            self._psi0 = 0.
-            self._psi1 = self.psi(self.params['R0'] + self.params['a'], 0.)
+            self._psi0 = 0.0
+            self._psi1 = self.psi(self.params["R0"] + self.params["a"], 0.0)
 
             def dp_dr(r):
-                return -(self.params['B0']**2*r)/(self.params['R0']**2*self.q_r(r)**3)*(2*self.q_r(r) - r*self.q_r(r, der=1))
+                return (
+                    -(self.params["B0"] ** 2 * r)
+                    / (self.params["R0"] ** 2 * self.q_r(r) ** 3)
+                    * (2 * self.q_r(r) - r * self.q_r(r, der=1))
+                )
 
             ps = np.zeros_like(r_i)
 
             for i, rr in enumerate(r_i):
-                ps[i] = quad(dp_dr, 0., rr)[0]
+                ps[i] = quad(dp_dr, 0.0, rr)[0]
 
             self._p_i = UnivariateSpline(
-                r_i, ps - ps[-1], k=self.params['psi_k'], s=0., ext=3,
+                r_i,
+                ps - ps[-1],
+                k=self.params["psi_k"],
+                s=0.0,
+                ext=3,
             )
 
     @property
     def params(self):
-        """ Parameters dictionary.
-        """
+        """Parameters dictionary."""
         return self._params
 
     @property
     def boundary_pts_R(self):
-        """ R-coordinates of plasma boundary contour.
-        """
+        """R-coordinates of plasma boundary contour."""
         return self._rbs
 
     @property
     def boundary_pts_Z(self):
-        """ Z-coordinates of plasma boundary contour.
-        """
+        """Z-coordinates of plasma boundary contour."""
         return self._zbs
 
     # ===============================================================
@@ -3727,63 +3733,54 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
 
     @property
     def psi_range(self):
-        """ Psi on-axis and at plasma boundary.
-        """
+        """Psi on-axis and at plasma boundary."""
         return [self._psi0, self._psi1]
 
     @property
     def psi_axis_RZ(self):
-        """ Location of magnetic axis in R-Z-coordinates.
-        """
-        return [self.params['R0'], 0.]
+        """Location of magnetic axis in R-Z-coordinates."""
+        return [self.params["R0"], 0.0]
 
     # ===============================================================
     #           radial profiles for an ad hoc tokamak equilibrium
     # ===============================================================
 
     def psi_r(self, r, der=0):
-        """ Ad hoc poloidal flux function psi = psi(r).
-        """
+        """Ad hoc poloidal flux function psi = psi(r)."""
 
-        assert der >= 0 and der <= 2, 'Only first and second derivative available!'
+        assert der >= 0 and der <= 2, "Only first and second derivative available!"
 
         # parabolic profile (analytical)
-        if self.params['q_kind'] == 0:
+        if self.params["q_kind"] == 0:
+            eps = self.params["a"] / self.params["R0"]
 
-            eps = self.params['a']/self.params['R0']
-
-            q0 = self.params['q0']
-            q1 = self.params['q1']
+            q0 = self.params["q0"]
+            q1 = self.params["q1"]
             dq = q1 - q0
 
             # geometric correction factor and its first derivative
-            gf_0 = np.sqrt(1 - (r/self.params['R0'])**2)
-            gf_1 = -r/(self.params['R0']**2*gf_0)
+            gf_0 = np.sqrt(1 - (r / self.params["R0"]) ** 2)
+            gf_1 = -r / (self.params["R0"] ** 2 * gf_0)
 
             # safety factors
             q_0 = self.q_r(r, der=0)
             q_1 = self.q_r(r, der=1)
 
-            q_bar_0 = q_0*gf_0
-            q_bar_1 = q_1*gf_0 + q_0*gf_1
+            q_bar_0 = q_0 * gf_0
+            q_bar_1 = q_1 * gf_0 + q_0 * gf_1
 
             if der == 0:
-                out = -self.params['B0']*self.params['a']**2 / \
-                    np.sqrt(dq*q0*eps**2 + dq**2)
+                out = -self.params["B0"] * self.params["a"] ** 2 / np.sqrt(dq * q0 * eps**2 + dq**2)
                 out *= np.arctanh(
-                    np.sqrt((
-                        dq - dq*(r/self.params['R0'])
-                        ** 2
-                    )/(q0*eps**2 + dq)),
+                    np.sqrt((dq - dq * (r / self.params["R0"]) ** 2) / (q0 * eps**2 + dq)),
                 )
             elif der == 1:
-                out = self.params['B0']*r/q_bar_0
+                out = self.params["B0"] * r / q_bar_0
             elif der == 2:
-                out = self.params['B0']*(q_bar_0 - r*q_bar_1)/q_bar_0**2
+                out = self.params["B0"] * (q_bar_0 - r * q_bar_1) / q_bar_0**2
 
         # alternative profile (interpolated)
         else:
-
             out = self._psi_i(r, nu=der)
 
             # remove all "dimensions" for point-wise evaluation
@@ -3794,48 +3791,50 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
         return out
 
     def q_r(self, r, der=0):
-        """ Radial safety factor profile q = q(r) (and first derivative).
-        """
+        """Radial safety factor profile q = q(r) (and first derivative)."""
 
-        assert der >= 0 and der <= 1, 'Only first derivative available!'
+        assert der >= 0 and der <= 1, "Only first derivative available!"
 
-        q0 = self.params['q0']
-        q1 = self.params['q1']
+        q0 = self.params["q0"]
+        q1 = self.params["q1"]
 
-        a = self.params['a']
+        a = self.params["a"]
 
         # parabolic profile
-        if self.params['q_kind'] == 0:
-
+        if self.params["q_kind"] == 0:
             if der == 0:
-                qout = q0 + (q1 - q0)*(r/a)**2
+                qout = q0 + (q1 - q0) * (r / a) ** 2
             else:
-                qout = 2*(q1 - q0)*r/a**2
+                qout = 2 * (q1 - q0) * r / a**2
 
         # alternative profile
         else:
-
             # int/float input
             if isinstance(r, (int, float)):
                 if r == 0:
                     if der == 0:
-                        qout = 1*q0
+                        qout = 1 * q0
                     else:
-                        qout = 0*r
+                        qout = 0 * r
                 else:
                     if der == 0:
-                        if self.params['q0'] == self.params['q1']:
-                            qout = 1*q0
+                        if self.params["q0"] == self.params["q1"]:
+                            qout = 1 * q0
                         else:
-                            qout = q1*(r/a)**2/(1 - (1 - (r/a)**2)**(q1/q0))
+                            qout = q1 * (r / a) ** 2 / (1 - (1 - (r / a) ** 2) ** (q1 / q0))
                     else:
-                        if self.params['q0'] == self.params['q1']:
-                            qout = 0*r
+                        if self.params["q0"] == self.params["q1"]:
+                            qout = 0 * r
                         else:
-                            qout = (2*r*q1/a**2)*(
-                                1 - (1 - (r/a)**2)**(q1/q0) - (r/a)**2*(q1/q0)
-                                * (1 - (r/a)**2)**(q1/q0 - 1)
-                            )/(1 - (1 - (r/a)**2)**(q1/q0))**2
+                            qout = (
+                                (2 * r * q1 / a**2)
+                                * (
+                                    1
+                                    - (1 - (r / a) ** 2) ** (q1 / q0)
+                                    - (r / a) ** 2 * (q1 / q0) * (1 - (r / a) ** 2) ** (q1 / q0 - 1)
+                                )
+                                / (1 - (1 - (r / a) ** 2) ** (q1 / q0)) ** 2
+                            )
 
             # vector input
             else:
@@ -3843,57 +3842,67 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
 
                 r_flat = r.flatten()
 
-                r_zeros = np.where(r_flat == 0.)[0]
-                r_nzero = np.where(r_flat != 0.)[0]
+                r_zeros = np.where(r_flat == 0.0)[0]
+                r_nzero = np.where(r_flat != 0.0)[0]
 
                 qout = np.zeros(r_flat.size, dtype=float)
 
                 if der == 0:
-                    if self.params['q0'] == self.params['q1']:
-                        qout[:] = 1*q0
+                    if self.params["q0"] == self.params["q1"]:
+                        qout[:] = 1 * q0
                     else:
-                        qout[r_zeros] = 1*q0
-                        qout[r_nzero] = q1*(r_flat[r_nzero]/a)**2 / \
-                            (1 - (1 - (r_flat[r_nzero]/a)**2)**(q1/q0))
+                        qout[r_zeros] = 1 * q0
+                        qout[r_nzero] = (
+                            q1 * (r_flat[r_nzero] / a) ** 2 / (1 - (1 - (r_flat[r_nzero] / a) ** 2) ** (q1 / q0))
+                        )
                 else:
-                    if self.params['q0'] == self.params['q1']:
-                        qout[:] = 0.
+                    if self.params["q0"] == self.params["q1"]:
+                        qout[:] = 0.0
                     else:
-                        qout[r_zeros] = 0*r_zeros
-                        qout[r_nzero] = (2*r_flat[r_nzero]*q1/a**2)*(
-                            1 - (1 - (r_flat[r_nzero]/a)**2)**(q1/q0) - (r_flat[r_nzero]/a)**2*(
-                                q1/q0
-                            )*(1 - (r_flat[r_nzero]/a)**2)**(q1/q0 - 1)
-                        )/(1 - (1 - (r_flat[r_nzero]/a)**2)**(q1/q0))**2
+                        qout[r_zeros] = 0 * r_zeros
+                        qout[r_nzero] = (
+                            (2 * r_flat[r_nzero] * q1 / a**2)
+                            * (
+                                1
+                                - (1 - (r_flat[r_nzero] / a) ** 2) ** (q1 / q0)
+                                - (r_flat[r_nzero] / a) ** 2
+                                * (q1 / q0)
+                                * (1 - (r_flat[r_nzero] / a) ** 2) ** (q1 / q0 - 1)
+                            )
+                            / (1 - (1 - (r_flat[r_nzero] / a) ** 2) ** (q1 / q0)) ** 2
+                        )
 
                 qout = qout.reshape(sh).copy()
 
         return qout
 
     def p_r(self, r):
-        """ Radial pressure profile p = p(r).
-        """
+        """Radial pressure profile p = p(r)."""
 
-        eps = self.params['a']/self.params['R0']
+        eps = self.params["a"] / self.params["R0"]
 
         # profile in cylindrical limit
-        if self.params['p_kind'] == 0:
-
+        if self.params["p_kind"] == 0:
             # parabolic q-profile
-            if self.params['q_kind'] == 0:
-
-                if self.params['q0'] == self.params['q1']:
-                    pout = self.params['B0']**2*self.params['a']**2/(
-                        self.params['R0']**2*self.params['q0']**2
-                    )*(1 - r**2/self.params['a']**2)
+            if self.params["q_kind"] == 0:
+                if self.params["q0"] == self.params["q1"]:
+                    pout = (
+                        self.params["B0"] ** 2
+                        * self.params["a"] ** 2
+                        / (self.params["R0"] ** 2 * self.params["q0"] ** 2)
+                        * (1 - r**2 / self.params["a"] ** 2)
+                    )
                 else:
-                    pout = self.params['B0']**2*eps**2*self.params['q0']/(
-                        2*(self.params['q1'] - self.params['q0'])
-                    )*(1/self.q_r(r)**2 - 1/self.params['q1']**2)
+                    pout = (
+                        self.params["B0"] ** 2
+                        * eps**2
+                        * self.params["q0"]
+                        / (2 * (self.params["q1"] - self.params["q0"]))
+                        * (1 / self.q_r(r) ** 2 - 1 / self.params["q1"] ** 2)
+                    )
 
             # alternative profile
             else:
-
                 pout = self._p_i(r)
 
                 # remove all "dimensions" for point-wise evaluation
@@ -3903,31 +3912,33 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
 
         # ad-hoc profile
         else:
-
-            pout = self.params['B0']**2 * self.params['beta'] / 2. * (
-                self.params['p0'] - self.params['p1']*r**2/self.params['a']**2 -
-                self.params['p2']*r**4/self.params['a']**4
+            pout = (
+                self.params["B0"] ** 2
+                * self.params["beta"]
+                / 2.0
+                * (
+                    self.params["p0"]
+                    - self.params["p1"] * r**2 / self.params["a"] ** 2
+                    - self.params["p2"] * r**4 / self.params["a"] ** 4
+                )
             )
 
         return pout
 
     def n_r(self, r):
-        """ Radial number density profile n = n(r).
-        """
-        nout = (1 - self.params['na'])*(
-            1 - (r/self.params['a']) **
-            self.params['n1']
-        )**self.params['n2'] + self.params['na']
+        """Radial number density profile n = n(r)."""
+        nout = (1 - self.params["na"]) * (1 - (r / self.params["a"]) ** self.params["n1"]) ** self.params[
+            "n2"
+        ] + self.params["na"]
 
         return nout
 
     def plot_profiles(self, n_pts=501):
-        """ Plots 1d profiles.
-        """
+        """Plots 1d profiles."""
 
         import matplotlib.pyplot as plt
 
-        r = np.linspace(0., self.params['a'], n_pts)
+        r = np.linspace(0.0, self.params["a"], n_pts)
 
         fig, ax = plt.subplots(2, 2)
 
@@ -3935,20 +3946,20 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
         fig.set_figwidth(6)
 
         ax[0, 0].plot(r, self.psi_r(r))
-        ax[0, 0].set_xlabel('$r$')
-        ax[0, 0].set_ylabel('$\psi$')
+        ax[0, 0].set_xlabel("$r$")
+        ax[0, 0].set_ylabel(r"$\psi$")
 
         ax[0, 1].plot(r, self.q_r(r))
-        ax[0, 1].set_xlabel('$r$')
-        ax[0, 1].set_ylabel('$q$')
+        ax[0, 1].set_xlabel("$r$")
+        ax[0, 1].set_ylabel("$q$")
 
         ax[1, 0].plot(r, self.p_r(r))
-        ax[1, 0].set_xlabel('$r$')
-        ax[1, 0].set_ylabel('$p$')
+        ax[1, 0].set_xlabel("$r$")
+        ax[1, 0].set_ylabel("$p$")
 
         ax[1, 1].plot(r, self.n_r(r))
-        ax[1, 1].set_xlabel('$r$')
-        ax[1, 1].set_ylabel('$n$')
+        ax[1, 1].set_xlabel("$r$")
+        ax[1, 1].set_ylabel("$n$")
 
         plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
@@ -3959,13 +3970,21 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
     # ===============================================================
 
     def psi(self, R, Z, dR=0, dZ=0):
-        """ Poloidal flux function psi = psi(R, Z).
-        """
+        """Poloidal flux function psi = psi(R, Z)."""
+
+        r = np.sqrt(Z**2 + (R - self.params["R0"]) ** 2)
 
         if dR == 0 and dZ == 0:
             out = self.params['a']*self.params['R0']*self.params['Bp'] * \
                 (((R - self.params['R0'])**2 + Z**2)/(2*self.params['a']**2)-Z**3/(3*self.params['a']**2*self.params['z0']))
         else:
+            dr_dR = (R - self.params["R0"]) / r
+            dr_dZ = Z / r
+
+            d2r_dR2 = (r - (R - self.params["R0"]) * dr_dR) / r**2
+            d2r_dZ2 = (r - Z * dr_dZ) / r**2
+
+            d2r_dRdZ = -Z * (R - self.params["R0"]) / r**3
 
             if dR == 1 and dZ == 0:
                 out = self.params['R0']*self.params['Bp']*((R - self.params['R0']))/(self.params['a'])
@@ -3979,41 +3998,38 @@ class FluxAlignedTokamakz3(AxisymmMHDequilibrium):
                 out = 0*R + 0*Z
             else:
                 raise NotImplementedError(
-                    'Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!',
+                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
                 )
 
         return out
     
     def g_tor(self, R, Z, dR=0, dZ=0):
-        """ Toroidal field function g = g(R, Z).
-        """
+        """Toroidal field function g = g(R, Z)."""
 
         if dR == 0 and dZ == 0:
             out = self._params['B0']*self._params['R0']  # /R
         elif dR == 1 and dZ == 0:
             out = 0*R  # -self._params['B0']*self._params['R0']/R**2
         elif dR == 0 and dZ == 1:
-            out = 0*Z
+            out = 0 * Z
         else:
             raise NotImplementedError(
-                'Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!',
+                "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
             )
 
         return out
 
     def p_xyz(self, x, y, z):
-        """ Pressure p = p(x, y, z).
-        """
-        r = np.sqrt((np.sqrt(x**2 + y**2) - self._params['R0'])**2 + z**2)
+        """Pressure p = p(x, y, z)."""
+        r = np.sqrt((np.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
 
         pp = self.p_r(r)
 
         return pp
 
     def n_xyz(self, x, y, z):
-        """ Number density n = n(x, y, z).
-        """
-        r = np.sqrt((np.sqrt(x**2 + y**2) - self._params['R0'])**2 + z**2)
+        """Number density n = n(x, y, z)."""
+        r = np.sqrt((np.sqrt(x**2 + y**2) - self._params["R0"]) ** 2 + z**2)
 
         nn = self.n_r(r)
 

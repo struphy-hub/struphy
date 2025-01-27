@@ -552,12 +552,22 @@ class BasisProjectionOperators:
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
-                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p0(
+                            e1,
+                            e2,
+                            e3,
+                        )
+                        * self.G(e1, e2, e3)[:, :, :, m, n]
+                        / self.sqrt_g(e1, e2, e3),
+                    ]
 
-            self._S21p = self.assemble_basis_projection_operator(
-                fun, 'Hdiv', 'Hcurl', name='S21p')
-
-        return self._S21p
+            self._S21 = self.assemble_basis_projection_operator(
+                fun,
+                "Hdiv",
+                "Hcurl",
+                name="S21",
+            )
 
 
     @property

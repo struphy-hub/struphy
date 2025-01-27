@@ -7492,11 +7492,11 @@ class Stokes(Propagator):
             'type': [
                 ('gmres', None),
             ],
-            'tol': 1.e-8,
-            'maxiter': 3000,
-            'info': False,
-            'verbose': False,
-            'recycle': True,
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
         }
         if default:
             dct = descend_options_dict(dct, [])
