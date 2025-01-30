@@ -132,6 +132,11 @@ class Particles(metaclass=ABCMeta):
         amrex: Amrex = None,
     ):
         self._name = name
+        
+        if amrex is not None:
+            self.amrex = True
+        else:
+            self.amrex = False
 
         assert type in (
             "full_f",
@@ -235,10 +240,8 @@ class Particles(metaclass=ABCMeta):
         else:
             self._pforms = [None, None]
 
-        self.amrex = amrex
-
         # create marker array
-        if self.amrex is not None:
+        if self.amrex:
             self.create_amrex_array()
         else:
             self.create_marker_array()
@@ -446,7 +449,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def ppc(self):
-        """Particles per cell (=Np if no grid is present)."""
+        """Particles per cell (= Np if no grid is present)."""
         return self._ppc
 
     @property
@@ -462,12 +465,18 @@ class Particles(metaclass=ABCMeta):
     @property
     def mpi_size(self):
         """Number of MPI processes."""
-        return self._mpi_size
+        if self.amrex:
+            return amr.ParallelDescriptor.NProcs()
+        else:
+            return self._mpi_size
 
     @property
     def mpi_rank(self):
         """Rank of current process."""
-        return self._mpi_rank
+        if self.amrex:
+            return amr.ParallelDescriptor.MyProc()
+        else:
+            return self._mpi_rank
 
     @property
     def inter_comm(self):
@@ -649,30 +658,37 @@ class Particles(metaclass=ABCMeta):
     @property
     def positions(self):
         """Array holding the marker positions in logical space, excluding holes. The i-th row holds the i-th marker info."""
-        if self.amrex is not None:
+        if self.amrex:
             return np.ascontiguousarray(self._markers.to_df()[["x", "y", "z"]].to_numpy())
         else:
             return self.markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]]
 
     @positions.setter
     def positions(self, new):
-        assert isinstance(new, np.ndarray)
-        assert new.shape == (self.n_mks_loc, 3)
-        self._markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]] = new
+        if self.amrex:
+            RuntimeError("Impossible to set with AMReX array. Please change positions manually")
+        else:
+            assert isinstance(new, np.ndarray)
+            assert new.shape == (self.n_mks_loc, 3)
+            self._markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]] = new
+        
 
     @property
     def velocities(self):
         """Array holding the marker velocities in logical space, excluding holes. The i-th row holds the i-th marker info."""
-        if self.amrex is not None:
+        if self.amrex:
             return np.ascontiguousarray(self._markers.to_df()[["a", "b", "c"]].to_numpy())
         else:
             return self.markers[~self.holes, self.index["vel"]]
 
     @velocities.setter
     def velocities(self, new):
-        assert isinstance(new, np.ndarray)
-        assert new.shape == (self.n_mks_loc, self.vdim)
-        self._markers[~self.holes, self.index["vel"]] = new
+        if self.amrex:
+            RuntimeError("Impossible to set with AMReX array. Please change velocities manually")
+        else:
+            assert isinstance(new, np.ndarray)
+            assert new.shape == (self.n_mks_loc, self.vdim)
+            self._markers[~self.holes, self.index["vel"]] = new
 
     @property
     def phasespace_coords(self):
@@ -1004,8 +1020,7 @@ class Particles(metaclass=ABCMeta):
         verbose : bool
             Show info on screen.
         """
-        if self.amrex is not None:
-
+        if self.amrex:
             _seed = self.loading_params["seed"]
             if amr.ParallelDescriptor.MyProc() == 0:
                 print("\nMARKERS:")
