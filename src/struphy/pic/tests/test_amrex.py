@@ -157,4 +157,4 @@ def test_amrex(plot=False, verbose=False):
 
 
 if __name__ == "__main__":
-    test_amrex(True, True)
+    test_amrex()
