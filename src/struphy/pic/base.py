@@ -552,12 +552,18 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks(self):
         """Total number of markers."""
-        return self._n_mks
+        if self.amrex:
+            return self._markers.number_of_particles_at_level(0)
+        else:
+            return self._n_mks
 
     @property
     def n_mks_loc(self):
         """Number of markers on process (without holes)."""
-        return self._n_mks_loc
+        if self.amrex:
+            return self._markers.number_of_particles_at_level(0, True, True)
+        else:
+            return self._n_mks_loc
 
     @property
     def n_mks_load(self):
