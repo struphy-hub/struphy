@@ -170,6 +170,22 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         )
         return gradB_out, self.domain(*etas)
 
+    def u_para0(self, *etas, squeeze_out=False):
+        """0-form equilibrium parallel velocity on logical cube [0, 1]^3."""
+        tmp_uv = self.uv(*etas, squeeze_out=squeeze_out)
+        tmp_unit_b1 = self.unit_b1(*etas, squeeze_out=squeeze_out)
+        return sum([ji * bi for ji, bi in zip(tmp_uv, tmp_unit_b1)])
+
+    def u_para3(self, *etas, squeeze_out=False):
+        """3-form equilibrium parallel velocity on logical cube [0, 1]^3."""
+        return self.domain.transform(
+            self.u_para0(*etas, squeeze_out=False),
+            *etas,
+            kind="0_to_3",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
+        )
+
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3."""
         xyz = self.domain(*etas, squeeze_out=False)
@@ -216,6 +232,34 @@ class BraginskiiEquilibrium(metaclass=ABCMeta):
         """
         return self.domain.transform(
             self.s0(*etas, squeeze_out=False),
+            *etas,
+            kind="0_to_3",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
+        )
+
+    def t0(self, *etas, squeeze_out=False):
+        """0-form equilibrium temperature on logical cube [0, 1]^3."""
+        return self.p0(*etas, squeeze_out=squeeze_out) / self.n0(*etas, squeeze_out=squeeze_out)
+
+    def t3(self, *etas, squeeze_out=False):
+        """3-form equilibrium temperature on logical cube [0, 1]^3."""
+        return self.domain.transform(
+            self.t0(*etas, squeeze_out=False),
+            *etas,
+            kind="0_to_3",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
+        )
+
+    def vth0(self, *etas, squeeze_out=False):
+        """0-form equilibrium thermal velocity on logical cube [0, 1]^3."""
+        return np.sqrt(self.t0(*etas, squeeze_out=squeeze_out))
+
+    def vth3(self, *etas, squeeze_out=False):
+        """3-form equilibrium thermal velocity on logical cube [0, 1]^3."""
+        return self.domain.transform(
+            self.vth0(*etas, squeeze_out=False),
             *etas,
             kind="0_to_3",
             a_kwargs={"squeeze_out": False},

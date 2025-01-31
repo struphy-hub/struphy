@@ -35,7 +35,6 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     params_loading = {"seed": 1607, "moments": "degenerate", "spatial": "uniform"}
 
     bckgr_params = {
-        "type": "ConstantVelocity",
         "ConstantVelocity": {"density_profile": "affine", "ux": 1.0, "uy": 0.0, "uz": 0.0, "n": 1.0, "n1": 0.1},
         "pforms": ["vol", None],
     }

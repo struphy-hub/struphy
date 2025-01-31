@@ -18,6 +18,8 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
+from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
+from struphy.fields_background.fluid_equil.base import FluidEquilibrium
 from struphy.fields_background.mhd_equil.base import MHDequilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
 from struphy.geometry.base import Domain
@@ -1377,7 +1379,7 @@ class Derham:
             bckgr_params=None,
             pert_params=None,
             domain=None,
-            mhd_equil=None,
+            bckgr_obj=None,
             species=None,
         ):
             """
@@ -1394,8 +1396,8 @@ class Derham:
             domain : struphy.geometry.domains
                 Domain object for metric coefficients, only needed for transform of analytical perturbations.
 
-            mhd_equil: MHDequilibrium
-                MHD equilibrium object, one of :mod:`struphy.fields_background.mhd_equil.equils`.
+            bckgr_obj: MHDequilibrium | FluidEquilibrium | BraginskiiEquilibrium
+                Fields background object.
 
             species : string
                 Species name (e.g. "mhd") the field belongs to.
@@ -1413,264 +1415,178 @@ class Derham:
                     print(f"Attention: overwriting perturbation parameters for {self.name}")
                 self._pert_params = pert_params
 
-            # case of zero initial condition
-            if self.bckgr_params is None and self.pert_params is None:
-                # apply boundary operator (in-place)
-                self.derham.boundary_ops[self.space_key].dot(
-                    self._vector.copy(),
-                    out=self._vector,
-                )
+            self._vector *= 0.0
 
-                self._vector.update_ghost_regions()
-                return
-
-            # check if backgrounds are to be initialized
-            bckgr_types = []
-            bckgr_type_params = []
-
+            # add background to initial vector
             if self.bckgr_params is not None:
-                if type(self.bckgr_params["type"]) == str:
-                    self.bckgr_params["type"] = [self.bckgr_params["type"]]
-                else:
-                    assert isinstance(
-                        self.bckgr_params["type"],
-                        list,
-                    ), f"The type of initial condition must be null or str or list."
+                for _type in self.bckgr_params:
+                    _params = self.bckgr_params[_type].copy()
 
-                # extract the components that have a background
-                for _type in self.bckgr_params["type"]:
-                    if self.name not in self.bckgr_params[_type]["comps"]:
-                        pass
-                    else:
+                    # special case of const
+                    if "LogicalConst" in _type:
+                        _val = _params["values"]
+
                         if self.space_id in {"H1", "L2"}:
-                            tmp_list = [
-                                self.bckgr_params[_type]["comps"][self.name],
-                            ]
+                            assert isinstance(_val, float) or isinstance(_val, int)
+
+                            def f_tmp(e1, e2, e3):
+                                return _val + 0.0 * e1
+
+                            fun = f_tmp
                         else:
-                            tmp_list = self.bckgr_params[_type]["comps"][self.name]
+                            assert isinstance(_val, list)
+                            assert len(_val) == 3
+                            fun = []
+                            for i, _v in enumerate(_val):
+                                assert isinstance(_v, float) or isinstance(_v, int) or _v is None
 
-                        if any(_comp for _comp in tmp_list):
-                            bckgr_types += [_type]
-                            bckgr_type_params += [self.bckgr_params[_type].copy()]
-
-            # add backgrounds to coefficient vector
-            for _type, _params in zip(bckgr_types, bckgr_type_params):
-                # constant value (update halos below)
-                if "LogicalConst" in _type:
-                    _val = _params["comps"][self.name]
-
-                    if self.space_id in {"H1", "L2"}:
-                        assert isinstance(_val, float) or isinstance(_val, int)
-
-                        def f_tmp(e1, e2, e3):
-                            return _val + 0.0 * e1
-
-                        fun = f_tmp
-                    else:
-                        assert isinstance(_val, list)
-                        assert len(_val) == 3
-                        fun = []
-                        for i, _v in enumerate(_val):
-                            assert (
-                                isinstance(_v, float)
-                                or isinstance(
-                                    _v,
-                                    int,
-                                )
-                                or _v is None
-                            )
-
-                        if _val[0] is not None:
-                            fun += [lambda e1, e2, e3: _val[0] + 0.0 * e1]
-                        else:
-                            fun += [lambda e1, e2, e3: 0.0 * e1]
-
-                        if _val[1] is not None:
-                            fun += [lambda e1, e2, e3: _val[1] + 0.0 * e1]
-                        else:
-                            fun += [lambda e1, e2, e3: 0.0 * e1]
-
-                        if _val[2] is not None:
-                            fun += [lambda e1, e2, e3: _val[2] + 0.0 * e1]
-                        else:
-                            fun += [lambda e1, e2, e3: 0.0 * e1]
-
-                # geometric projection of mhd background
-                if "MHD" in _type:
-                    assert mhd_equil is not None
-                    mhd_var = _params["comps"][self.name]
-                    assert mhd_var in dir(
-                        MHDequilibrium,
-                    ), f"{mhd_var = } is not an attribute of MHDequilibrium."
-
-                    if self.space_id in {"H1", "L2"}:
-                        fun = getattr(mhd_equil, mhd_var)
-                    else:
-                        assert (mhd_var + "_1") in dir(
-                            MHDequilibrium,
-                        ), f'{(mhd_var + "_1") = } is not an attribute of MHDequilibrium.'
-                        fun = [
-                            getattr(mhd_equil, mhd_var + "_1"),
-                            getattr(mhd_equil, mhd_var + "_2"),
-                            getattr(mhd_equil, mhd_var + "_3"),
-                        ]
-
-                # peform projection
-                self.vector += self.derham.P[self.space_key](fun)
-
-            # check if perturbations are to be initialized
-            pert_types = []
-            pert_type_params = []
-
-            if self.pert_params is not None:
-                if type(self.pert_params["type"]) == str:
-                    self.pert_params["type"] = [self.pert_params["type"]]
-                else:
-                    assert isinstance(
-                        self.pert_params["type"],
-                        list,
-                    ), f"The type of initial condition must be null or str or list."
-
-                # extract the components to be perturbed
-                for _type in self.pert_params["type"]:
-                    if self.name not in self.pert_params[_type]["comps"]:
-                        pass
-                    else:
-                        if self.space_id in {"H1", "L2"}:
-                            pert_comps_list = [
-                                self.pert_params[_type]["comps"][self.name],
-                            ]
-                        else:
-                            pert_comps_list = self.pert_params[_type]["comps"][self.name]
-
-                        if any(_comp for _comp in pert_comps_list):
-                            pert_types += [_type]
-                            pert_type_params += [self.pert_params[_type].copy()]
-
-            # add perturbations to coefficient vector
-            for _type, _params in zip(pert_types, pert_type_params):
-                # white noise in logical space for different components
-                if "noise" in _type:
-                    # component(s) to perturb
-                    if isinstance(_params["comps"][self.name], bool):
-                        comps = [_params["comps"][self.name]]
-                    else:
-                        comps = _params["comps"][self.name]
-
-                    # set white noise FE coefficients
-                    _params.pop("comps")
-
-                    if self.space_id in {"H1", "L2"}:
-                        if comps[0]:
-                            self._add_noise(**_params)
-
-                    elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        for n, comp in enumerate(comps):
-                            if comp:
-                                self._add_noise(**_params, n=n)
-
-                # initialize from analytical function via geometric projection
-                if _type in dir(perturbations):
-                    if self.space_id in {"H1", "L2"}:
-                        pert_type_params_comp = {}
-
-                        # which transform is to be used: physical, '0' or '3'
-                        fun_basis = _params["comps"][self.name]
-
-                        for keys, vals in _params.items():
-                            if keys == "comps":
-                                continue
-
-                            elif isinstance(vals, dict):
-                                pert_type_params_comp[keys] = vals[self.name]
-
+                            if _val[0] is not None:
+                                fun += [lambda e1, e2, e3: _val[0] + 0.0 * e1]
                             else:
-                                pert_type_params_comp[keys] = vals
+                                fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        # get callable(s) for specified init type
-                        fun_class = getattr(perturbations, _type)
-                        fun_tmp = [fun_class(**pert_type_params_comp)]
+                            if _val[1] is not None:
+                                fun += [lambda e1, e2, e3: _val[1] + 0.0 * e1]
+                            else:
+                                fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        # pullback callable
-                        fun = TransformedPformComponent(
-                            fun_tmp,
-                            fun_basis,
-                            self.space_key,
-                            domain=domain,
+                            if _val[2] is not None:
+                                fun += [lambda e1, e2, e3: _val[2] + 0.0 * e1]
+                            else:
+                                fun += [lambda e1, e2, e3: 0.0 * e1]
+                    else:
+                        assert bckgr_obj is not None
+                        _var = _params["variable"]
+                        assert _var in dir(MHDequilibrium) + dir(FluidEquilibrium) + dir(BraginskiiEquilibrium), (
+                            f"{_var = } is not an attribute of any fields background."
                         )
 
-                    elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        pert_type_params_comp = [{}, {}, {}]
-                        fun_tmp = [None, None, None]
-                        fun_basis = ["v"] * 3
-
-                        fun_class = getattr(perturbations, _type)
-
-                        for axis, comp in enumerate(_params["comps"][self.name]):
-                            if comp is not None:
-                                # which transform is to be used: physical, '1', '2' or 'v'
-                                fun_basis[axis] = comp
-
-                                for keys, vals in _params.items():
-                                    if keys == "comps":
-                                        continue
-
-                                    elif isinstance(vals, dict):
-                                        pert_type_params_comp[axis][keys] = vals[self.name][axis]
-
-                                    else:
-                                        pert_type_params_comp[axis][keys] = vals
-
-                                fun_tmp[axis] = fun_class(
-                                    **pert_type_params_comp[axis],
-                                )
-
-                        # pullback callable
-                        fun = []
-                        for n, fform in enumerate(fun_basis):
-                            fun += [
-                                TransformedPformComponent(
-                                    fun_tmp,
-                                    fform,
-                                    self.space_key,
-                                    comp=n,
-                                    domain=domain,
-                                ),
+                        if self.space_id in {"H1", "L2"}:
+                            fun = getattr(bckgr_obj, _var)
+                        else:
+                            assert (_var + "_1") in dir(MHDequilibrium) + dir(FluidEquilibrium) + dir(
+                                BraginskiiEquilibrium
+                            ), f"{(_var + '_1') = } is not an attribute of any fields background."
+                            fun = [
+                                getattr(bckgr_obj, _var + "_1"),
+                                getattr(bckgr_obj, _var + "_2"),
+                                getattr(bckgr_obj, _var + "_3"),
                             ]
 
                     # peform projection
                     self.vector += self.derham.P[self.space_key](fun)
 
-                # loading of MHD eigenfunction (legacy code, might not be up to date)
-                if "EigFun" in _type:
-                    # select class
-                    funs = getattr(eigenfunctions, pert_types[0])(
-                        self.derham,
-                        **_params,
-                    )
+            # add perturbations to coefficient vector
+            if self.pert_params is not None:
+                for _type in self.pert_params:
+                    _params = self.pert_params[_type].copy()
 
-                    # select eigenvector and set coefficients
-                    if hasattr(funs, self.name):
-                        eig_vec = getattr(funs, self.name)
+                    # special case of white noise in logical space for different components
+                    if "noise" in _type:
+                        # component(s) to perturb
+                        if isinstance(_params["comps"], bool):
+                            comps = [_params["comps"]]
+                        else:
+                            comps = _params["comps"]
+                        _params.pop("comps")
 
-                        self.vector += eig_vec
+                        # set white noise FE coefficients
+                        if self.space_id in {"H1", "L2"}:
+                            if comps[0]:
+                                self._add_noise(**_params)
+                        elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
+                            for n, comp in enumerate(comps):
+                                if comp:
+                                    self._add_noise(**_params, n=n)
 
-                # initialize from existing output file
-                if "InitFromOutput" in _type:
-                    # select class
-                    o_data = getattr(utilities, pert_types[0])(
-                        self.derham,
-                        self.name,
-                        species,
-                        **_params,
-                    )
+                    # given function class
+                    elif _type in dir(perturbations):
+                        if self.space_id in {"H1", "L2"}:
+                            # which transform is to be used: physical, '0' or '3'
+                            fun_basis = _params["given_in_basis"]
+                            _params.pop("given_in_basis")
 
-                    if isinstance(self.vector, StencilVector):
-                        self.vector._data[:] += o_data.vector
+                            # get callable(s) for specified init type
+                            fun_class = getattr(perturbations, _type)
+                            fun_tmp = [fun_class(**_params)]
 
-                    else:
-                        for n in range(3):
-                            self.vector[n]._data[:] += o_data.vector[n]
+                            # pullback callable
+                            fun = TransformedPformComponent(
+                                fun_tmp,
+                                fun_basis,
+                                self.space_key,
+                                domain=domain,
+                            )
+
+                        elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
+                            fun_class = getattr(perturbations, _type)
+                            fun_tmp = []
+                            fun_basis = []
+                            bases = _params["given_in_basis"]
+                            _params.pop("given_in_basis")
+                            for component, base in enumerate(bases):
+                                if base is None:
+                                    fun_basis += ["v"]
+                                    fun_tmp += [None]
+                                else:
+                                    # which transform is to be used: physical, '1', '2' or 'v'
+                                    fun_basis += [base]
+                                    # function parameters of component
+                                    _params_comp = {}
+                                    for key, val in _params.items():
+                                        if isinstance(val, (list, tuple)):
+                                            _params_comp[key] = val[component]
+                                        else:
+                                            _params_comp[key] = val
+
+                                    fun_tmp += [fun_class(**_params_comp)]
+
+                            # pullback callable
+                            fun = []
+                            for n, fform in enumerate(fun_basis):
+                                fun += [
+                                    TransformedPformComponent(
+                                        fun_tmp,
+                                        fform,
+                                        self.space_key,
+                                        comp=n,
+                                        domain=domain,
+                                    ),
+                                ]
+
+                        # peform projection
+                        self.vector += self.derham.P[self.space_key](fun)
+
+                    # loading of MHD eigenfunction (legacy code, might not be up to date)
+                    elif "EigFun" in _type:
+                        # select class
+                        funs = getattr(eigenfunctions, _type)(
+                            self.derham,
+                            **_params,
+                        )
+
+                        # select eigenvector and set coefficients
+                        if hasattr(funs, self.name):
+                            eig_vec = getattr(funs, self.name)
+
+                            self.vector += eig_vec
+
+                    # initialize from existing output file
+                    elif "InitFromOutput" in _type:
+                        # select class
+                        o_data = getattr(utilities, _type)(
+                            self.derham,
+                            self.name,
+                            species,
+                            **_params,
+                        )
+
+                        if isinstance(self.vector, StencilVector):
+                            self.vector._data[:] += o_data.vector
+
+                        else:
+                            for n in range(3):
+                                self.vector[n]._data[:] += o_data.vector[n]
 
             # apply boundary operator (in-place)
             self.derham.boundary_ops[self.space_key].dot(

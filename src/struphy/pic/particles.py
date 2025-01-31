@@ -42,10 +42,7 @@ class Particles6D(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {
-            "type": "Maxwellian3D",
-            "Maxwellian3D": {},
-        }
+        return {"Maxwellian3D": {}}
 
     def __init__(
         self,
@@ -62,21 +59,18 @@ class Particles6D(Particles):
         if "n_cols" not in kwargs:
             self._n_cols_diagnostics = 0
             self._n_cols_aux = 5
-
         else:
             self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
             self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
-
             kwargs.pop("n_cols")
 
         super().__init__(name, Np, bc, loading, **kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
-        if kwargs["bckgr_params"]["type"] == "CanonicalMaxwellian":
+        if "CanonicalMaxwellian" in kwargs["bckgr_params"]:
             self._absB0_h = self.projected_mhd_equil.absB0
             self._b2_h = self.projected_mhd_equil.b2
             self._derham = self.projected_mhd_equil.derham
-
             self._epsilon = self.equation_params["epsilon"]
 
     @property
@@ -296,10 +290,7 @@ class Particles5D(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {
-            "type": "GyroMaxwellian2D",
-            "GyroMaxwellian2D": {},
-        }
+        return {"GyroMaxwellian2D": {}}
 
     def __init__(
         self,
@@ -641,10 +632,7 @@ class Particles3D(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {
-            "type": "Constant",
-            "Constant": {},
-        }
+        return {"ColdPlasma": {}}
 
     def __init__(
         self,
@@ -782,7 +770,7 @@ class ParticlesSPH(Particles):
 
     @classmethod
     def default_bckgr_params(cls):
-        return {"type": "ConstantVelocity", "ConstantVelocity": {}}
+        return {"ConstantVelocity": {}}
 
     def __init__(
         self,
