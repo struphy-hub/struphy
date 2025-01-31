@@ -4,7 +4,7 @@ import warnings
 
 import numpy as np
 
-from struphy.fields_background.fluid_equils.base import FluidEquilibrium
+from struphy.fields_background.fluid_equil.base import FluidEquilibrium
 from struphy.fields_background.mhd_equil.equils import set_defaults
 
 

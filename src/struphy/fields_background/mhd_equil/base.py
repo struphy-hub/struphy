@@ -216,6 +216,47 @@ class MHDequilibrium(metaclass=ABCMeta):
         )
         return j_out, self.domain(*etas, squeeze_out=squeeze_out)
 
+    def u1(self, *etas, squeeze_out=False):
+        """1-form components of equilibrium mean velocity evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
+        return self.j1(
+            *etas,
+            squeeze_out=squeeze_out,
+        ) / self.n0(
+            *etas,
+            squeeze_out=squeeze_out,
+        )
+
+    def u2(self, *etas, squeeze_out=False):
+        """2-form components of equilibrium mean velocity evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
+        return self.j2(
+            *etas,
+            squeeze_out=squeeze_out,
+        ) / self.n0(
+            *etas,
+            squeeze_out=squeeze_out,
+        )
+
+    def uv(self, *etas, squeeze_out=False):
+        """Contra-variant components of equilibrium mean velocity evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
+        return self.jv(
+            *etas,
+            squeeze_out=squeeze_out,
+        ) / self.n0(
+            *etas,
+            squeeze_out=squeeze_out,
+        )
+
+    def u_cart(self, *etas, squeeze_out=False):
+        """Cartesian components of equilibrium mean velocity evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
+        u_out = self.j_cart(
+            *etas,
+            squeeze_out=squeeze_out,
+        )[0] / self.n0(
+            *etas,
+            squeeze_out=squeeze_out,
+        )
+        return u_out, self.domain(*etas, squeeze_out=squeeze_out)
+
     def gradB1(self, *etas, squeeze_out=False):
         """1-form components of gradient of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         xyz = self.domain(*etas, squeeze_out=False)
@@ -252,6 +293,22 @@ class MHDequilibrium(metaclass=ABCMeta):
         )
         return gradB_out, self.domain(*etas)
 
+    def u_para0(self, *etas, squeeze_out=False):
+        """0-form equilibrium parallel velocity on logical cube [0, 1]^3."""
+        tmp_uv = self.uv(*etas, squeeze_out=squeeze_out)
+        tmp_unit_b1 = self.unit_b1(*etas, squeeze_out=squeeze_out)
+        return sum([ji * bi for ji, bi in zip(tmp_uv, tmp_unit_b1)])
+
+    def u_para3(self, *etas, squeeze_out=False):
+        """3-form equilibrium parallel velocity on logical cube [0, 1]^3."""
+        return self.domain.transform(
+            self.u_para0(*etas, squeeze_out=False),
+            *etas,
+            kind="0_to_3",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
+        )
+
     def p0(self, *etas, squeeze_out=False):
         """0-form equilibrium pressure on logical cube [0, 1]^3."""
         xyz = self.domain(*etas, squeeze_out=False)
@@ -276,6 +333,34 @@ class MHDequilibrium(metaclass=ABCMeta):
         """3-form equilibrium number density on logical cube [0, 1]^3."""
         return self.domain.transform(
             self.n0(*etas, squeeze_out=False),
+            *etas,
+            kind="0_to_3",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
+        )
+
+    def t0(self, *etas, squeeze_out=False):
+        """0-form equilibrium temperature on logical cube [0, 1]^3."""
+        return self.p0(*etas, squeeze_out=squeeze_out) / self.n0(*etas, squeeze_out=squeeze_out)
+
+    def t3(self, *etas, squeeze_out=False):
+        """3-form equilibrium temperature on logical cube [0, 1]^3."""
+        return self.domain.transform(
+            self.t0(*etas, squeeze_out=False),
+            *etas,
+            kind="0_to_3",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
+        )
+
+    def vth0(self, *etas, squeeze_out=False):
+        """0-form equilibrium thermal velocity on logical cube [0, 1]^3."""
+        return np.sqrt(self.t0(*etas, squeeze_out=squeeze_out))
+
+    def vth3(self, *etas, squeeze_out=False):
+        """3-form equilibrium thermal velocity on logical cube [0, 1]^3."""
+        return self.domain.transform(
+            self.vth0(*etas, squeeze_out=False),
             *etas,
             kind="0_to_3",
             a_kwargs={"squeeze_out": False},
@@ -446,6 +531,15 @@ class MHDequilibrium(metaclass=ABCMeta):
 
     def jv_3(self, *etas, squeeze_out=False):
         return self.jv(*etas, squeeze_out=squeeze_out)[2]
+
+    def u_cart_1(self, *etas, squeeze_out=False):
+        return self.u_cart(*etas, squeeze_out=squeeze_out)[0][0]
+
+    def u_cart_2(self, *etas, squeeze_out=False):
+        return self.u_cart(*etas, squeeze_out=squeeze_out)[0][1]
+
+    def u_cart_3(self, *etas, squeeze_out=False):
+        return self.u_cart(*etas, squeeze_out=squeeze_out)[0][2]
 
     def gradB1_1(self, *etas, squeeze_out=False):
         return self.gradB1(*etas, squeeze_out=squeeze_out)[0]

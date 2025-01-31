@@ -21,67 +21,46 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     # Psydac discrete Derham sequence and field of space
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
-    # background parameters
-    bckgr_params = {
-        "type": "LogicalConst",
-        "LogicalConst": {"comps": {}},
-    }
-
-    np.random.seed(1234)
-
-    vals = []
-    for i, space in enumerate(spaces):
-        val = np.random.rand()
-        # sometimes test integers
-        if val > 0.5:
-            val = 1
-        vals += [val]
-
-        if space in ("H1", "L2"):
-            bckgr_params["LogicalConst"]["comps"]["name_" + str(i)] = val
-        else:
-            li = [val if veci else None for veci in vec_comps]
-            bckgr_params["LogicalConst"]["comps"]["name_" + str(i)] = li
-
-    if rank == 0:
-        print(f"{bckgr_params =}")
-
     # evaluation grids for comparisons
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
     e3 = np.linspace(0.0, 1.0, Nel[2])
     meshgrids = np.meshgrid(e1, e2, e3, indexing="ij")
 
-    # test
-    for i, (space, val) in enumerate(zip(spaces, vals)):
-        field = derham.create_field(
-            "name_" + str(i),
-            space,
-            bckgr_params=bckgr_params,
-        )
-        field.initialize_coeffs()
+    # test values
+    np.random.seed(1234)
+    val = np.random.rand()
+    if val > 0.5:
+        val = int(val * 10)
 
+    # test
+    for i, space in enumerate(spaces):
+        field = derham.create_field("name_" + str(i), space)
         if space in ("H1", "L2"):
+            bckgr_params = {"LogicalConst": {"values": val}}
+            field.initialize_coeffs(bckgr_params=bckgr_params)
             print(
                 f"\n{rank = }, {space = }, after init:\n {np.max(np.abs(field(*meshgrids) - val)) = }",
             )
             # print(f'{field(*meshgrids) = }')
             assert np.allclose(field(*meshgrids), val)
         else:
-            for i in range(3):
-                if vec_comps[i]:
+            bckgr_params = {"LogicalConst": {"values": [val, None, val]}}
+            field.initialize_coeffs(bckgr_params=bckgr_params)
+            for j in range(3):
+                if bckgr_params["LogicalConst"]["values"][j]:
                     print(
-                        f"\n{rank = }, {space = }, after init:\n {i = }, {np.max(np.abs(field(*meshgrids)[i] - val)) = }",
+                        f"\n{rank = }, {space = }, after init:\n {j = }, {np.max(np.abs(field(*meshgrids)[j] - val)) = }",
                     )
                     # print(f'{field(*meshgrids)[i] = }')
-                    assert np.allclose(field(*meshgrids)[i], val)
+                    assert np.allclose(field(*meshgrids)[j], val)
 
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[18, 24, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
-def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
+def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, show_plot=False):
     """Test field background initialization of "MHD" with multiple fields in params."""
 
     import inspect
@@ -106,15 +85,11 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
         "MHD": {"comps": {}},
     }
 
-    vals = []
-    bckgr_params["MHD"]["comps"]["name_0"] = "absB0"
-    bckgr_params["MHD"]["comps"]["name_1"] = "b1"
-    bckgr_params["MHD"]["comps"]["name_2"] = "b2"
-    bckgr_params["MHD"]["comps"]["name_3"] = "p3"
-    bckgr_params["MHD"]["comps"]["name_4"] = "bv"
-
-    if rank == 0:
-        print(f"{bckgr_params =}")
+    bckgr_params_0 = {"MHD": {"variable": "absB0"}}
+    bckgr_params_1 = {"MHD": {"variable": "b1"}}
+    bckgr_params_2 = {"MHD": {"variable": "b2"}}
+    bckgr_params_3 = {"MHD": {"variable": "p3"}}
+    bckgr_params_4 = {"MHD": {"variable": "bv"}}
 
     # evaluation grids for comparisons
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -164,38 +139,38 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc, show_plot=False):
             field_0 = derham.create_field(
                 "name_0",
                 "H1",
-                bckgr_params=bckgr_params,
+                bckgr_params=bckgr_params_0,
             )
             field_1 = derham.create_field(
                 "name_1",
                 "Hcurl",
-                bckgr_params=bckgr_params,
+                bckgr_params=bckgr_params_1,
             )
             field_2 = derham.create_field(
                 "name_2",
                 "Hdiv",
-                bckgr_params=bckgr_params,
+                bckgr_params=bckgr_params_2,
             )
             field_3 = derham.create_field(
                 "name_3",
                 "L2",
-                bckgr_params=bckgr_params,
+                bckgr_params=bckgr_params_3,
             )
             field_4 = derham.create_field(
                 "name_4",
                 "H1vec",
-                bckgr_params=bckgr_params,
+                bckgr_params=bckgr_params_4,
             )
 
-            field_0.initialize_coeffs(mhd_equil=mhd_equil)
+            field_0.initialize_coeffs(bckgr_obj=mhd_equil)
             print("field_0 initialized.")
-            field_1.initialize_coeffs(mhd_equil=mhd_equil)
+            field_1.initialize_coeffs(bckgr_obj=mhd_equil)
             print("field_1 initialized.")
-            field_2.initialize_coeffs(mhd_equil=mhd_equil)
+            field_2.initialize_coeffs(bckgr_obj=mhd_equil)
             print("field_2 initialized.")
-            field_3.initialize_coeffs(mhd_equil=mhd_equil)
+            field_3.initialize_coeffs(bckgr_obj=mhd_equil)
             print("field_3 initialized.")
-            field_4.initialize_coeffs(mhd_equil=mhd_equil)
+            field_4.initialize_coeffs(bckgr_obj=mhd_equil)
             print("field_4 initialized.")
 
             # scalar spaces
@@ -1110,16 +1085,9 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     avg_1 = [None, 2.6, 3.7]
     avg_2 = [2, 3, 4.2]
 
-    bckgr_params = {
-        "type": "LogicalConst",
-        "LogicalConst": {
-            "comps": {
-                "name_0": avg_0,
-                "name_1": avg_1,
-                "name_2": avg_2,
-            },
-        },
-    }
+    bckgr_params_0 = {"LogicalConst": {"values": avg_0}}
+    bckgr_params_1 = {"LogicalConst": {"values": avg_1}}
+    bckgr_params_2 = {"LogicalConst": {"values": avg_2}}
 
     # perturbations
     ms_s = [0, 2]
@@ -1131,75 +1099,55 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     ns_c = [0]
     f_cos = ModesCos(ms=ms_c, ns=ns_c, amps=amps)
 
-    pert_params = {
-        "type": ["ModesSin", "ModesCos"],
+    pert_params_0 = {
         "ModesSin": {
-            "comps": {
-                "name_0": "0",
-                "name_1": ["1", None, "1"],
-            },
-            "ms": {
-                "name_0": ms_s,
-                "name_1": [ms_s, None, ms_s],
-            },
-            "ns": {
-                "name_0": ns_s,
-                "name_1": [ns_s, None, ns_s],
-            },
-            "amps": {
-                "name_0": amps,
-                "name_1": [amps, None, amps],
-            },
+            "given_in_basis": "0",
+            "ms": ms_s,
+            "ns": ns_s,
+            "amps": amps,
         },
         "ModesCos": {
-            "comps": {
-                "name_0": "0",
-                "name_1": ["1", "1", None],
-                "name_2": [None, "2", None],
-            },
-            "ms": {
-                "name_0": ms_c,
-                "name_1": [ms_c, ms_c, None],
-                "name_2": [None, ms_c, None],
-            },
-            "ns": {
-                "name_0": ns_c,
-                "name_1": [ns_c, ns_c, None],
-                "name_2": [None, ns_c, None],
-            },
-            "amps": {
-                "name_0": amps,
-                "name_1": [amps, amps, None],
-                "name_2": [None, amps, None],
-            },
+            "given_in_basis": "0",
+            "ms": ms_c,
+            "ns": ns_c,
+            "amps": amps,
+        },
+    }
+
+    pert_params_1 = {
+        "ModesSin": {
+            "given_in_basis": ["1", None, "1"],
+            "ms": [ms_s, None, ms_s],
+            "ns": [ns_s, None, ns_s],
+            "amps": [amps, None, amps],
+        },
+        "ModesCos": {
+            "given_in_basis": ["1", "1", None],
+            "ms": [ms_c, ms_c, None],
+            "ns": [ns_c, ns_c, None],
+            "amps": [amps, amps, None],
+        },
+    }
+
+    pert_params_2 = {
+        "ModesCos": {
+            "given_in_basis": [None, "2", None],
+            "ms": [None, ms_c, None],
+            "ns": [None, ns_c, None],
+            "amps": [None, amps, None],
         },
     }
 
     # Psydac discrete Derham sequence and fields
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
-    field_0 = derham.create_field(
-        "name_0",
-        "H1",
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
-    )
-    field_1 = derham.create_field(
-        "name_1",
-        "Hcurl",
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
-    )
-    field_2 = derham.create_field(
-        "name_2",
-        "Hdiv",
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
-    )
+    field_0 = derham.create_field("name_0", "H1")
+    field_1 = derham.create_field("name_1", "Hcurl")
+    field_2 = derham.create_field("name_2", "Hdiv")
 
-    field_0.initialize_coeffs()
-    field_1.initialize_coeffs()
-    field_2.initialize_coeffs()
+    field_0.initialize_coeffs(bckgr_params=bckgr_params_0, pert_params=pert_params_0)
+    field_1.initialize_coeffs(bckgr_params=bckgr_params_1, pert_params=pert_params_1)
+    field_2.initialize_coeffs(bckgr_params=bckgr_params_2, pert_params=pert_params_2)
 
     # evaluation grids for comparisons
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -1363,7 +1311,6 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     from struphy.feec.utilities import compare_arrays
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence and field of space
@@ -1375,9 +1322,8 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 
     # initial conditions
     pert_params = {
-        "type": "noise",
         "noise": {
-            "comps": {"field": [True, False, False]},
+            "comps": [True, False, False],
             "direction": direction,
             "amp": 0.0001,
             "seed": 1234,
@@ -1402,15 +1348,15 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 if __name__ == "__main__":
     # test_bckgr_init_const([8, 10, 12], [1, 2, 3], [False, False, True], [
     #     'H1', 'Hcurl', 'Hdiv'], [True, True, False])
-    test_bckgr_init_mhd(
-        [18, 24, 12],
-        [1, 2, 1],
-        [
-            False,
-            True,
-            True,
-        ],
-        show_plot=False,
-    )
+    # test_bckgr_init_mhd(
+    #     [18, 24, 12],
+    #     [1, 2, 1],
+    #     [
+    #         False,
+    #         True,
+    #         True,
+    #     ],
+    #     show_plot=False,
+    # )
     # test_sincos_init_const([1, 32, 32], [1, 3, 3], [True]*3, show_plot=True)
-    # test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], 'Hcurl', 'e1')
+    test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], "Hcurl", "e1")

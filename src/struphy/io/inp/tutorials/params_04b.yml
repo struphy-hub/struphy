@@ -45,15 +45,12 @@ fluid :
             A : 1  # mass number in units of proton mass
             Z : 1 # signed charge number in units of elementary charge
         perturbation :
-            type : noise # initialization
-            noise :
-                comps :
-                    density : False              # components to be initialized (for scalar fields: no list)
-                    velocity : [True, True, True] # components to be initialized (for scalar fields: no list)
-                    pressure : False              # components to be initialized (for scalar fields: no list)
-                direction : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
-                amp : 0.1 # noise amplitude
-                seed : 1234    # seed for random number generator
+            velocity : 
+                noise :
+                    comps : [True, True, True] # components to be initialized (for scalar fields: no list)
+                    direction : e3 # noise variation (logical space): e1, e2, e3 (1d), e1e2, e1e3, e2e3 (2d), e1e2e3 (3d)
+                    amp : 0.1 # noise amplitude
+                    seed : 1234    # seed for random number generator
         options:
             u_space: Hdiv
             ShearAlfven:
