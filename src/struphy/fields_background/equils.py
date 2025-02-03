@@ -1,14 +1,24 @@
-"MHD equilibria."
+"Available fluid backgrounds:"
 
 import warnings
 from time import time
 
 import numpy as np
 
-from struphy.fields_background.mhd_equil.base import (
+from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
+    CartesianFluidEquilibrium,
+    CartesianFluidEquilibriumWithB,
     CartesianMHDequilibrium,
+    FluidEquilibrium,
+    FluidEquilibriumWithB,
+    LogicalFluidEquilibrium,
+    LogicalFluidEquilibriumWithB,
     LogicalMHDequilibrium,
+    MHDequilibrium,
+    NumericalFluidEquilibrium,
+    NumericalFluidEquilibriumWithB,
+    NumericalMHDequilibrium,
 )
 
 
@@ -41,16 +51,14 @@ class HomogenSlab(CartesianMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : HomogenSlab
-            HomogenSlab :
-                B0x  : 0. # magnetic field in x
-                B0y  : 0. # magnetic field in y
-                B0z  : 1. # magnetic field in z
-                beta : .1 # plasma beta = p*(2*mu_0)/B^2
-                n0   : 1. # number density
+        HomogenSlab :
+            B0x  : 0. # magnetic field in x
+            B0y  : 0. # magnetic field in y
+            B0z  : 1. # magnetic field in z
+            beta : .1 # plasma beta = p*(2*mu_0)/B^2
+            n0   : 1. # number density
     """
 
     def __init__(
@@ -168,20 +176,18 @@ class ShearedSlab(CartesianMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : ShearedSlab
-            ShearedSlab :
-                a    : 1.   # minor radius (Lx=a, Ly=2*pi*a)
-                R0   : 3.   # major radius (Lz=2*pi*R0)
-                B0   : 1.   # magnetic field in z-direction
-                q0   : 1.05 # safety factor at x = 0
-                q1   : 1.80 # safety factor at x = a
-                n1   : 0.   # 1st shape factor for ion number density profile
-                n2   : 0.   # 2nd shape factor for ion number density profile
-                na   : 1.   # number density at r=a
-                beta : .1   # plasma beta = p*2/B^2
+        ShearedSlab :
+            a    : 1.   # minor radius (Lx=a, Ly=2*pi*a)
+            R0   : 3.   # major radius (Lz=2*pi*R0)
+            B0   : 1.   # magnetic field in z-direction
+            q0   : 1.05 # safety factor at x = 0
+            q1   : 1.80 # safety factor at x = a
+            n1   : 0.   # 1st shape factor for ion number density profile
+            n2   : 0.   # 2nd shape factor for ion number density profile
+            na   : 1.   # number density at r=a
+            beta : .1   # plasma beta = p*2/B^2
     """
 
     def __init__(
@@ -399,24 +405,22 @@ class ShearFluid(CartesianMHDequilibrium):
         z-component of magnetic field (default: 1.).
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : ShearFluid
-            ShearFluid :
-                a    : 1.   # dimension in x
-                b    : 1.   # dimension in y
-                c    : 2.   # dimension in z
-                z1   : 0.5  # first swap location
-                z2   : 1.5  # second swap location
-                delta: 0.06666666   # characteristic size of the swap
-                na   : 1.25 # exterior density
-                nb   : 0.75 # deviation from the average
-                pa   : 1.   # constant pressure
-                pb   : 0.   # deviation pressure
-                B0x  : 1. # magnetic field in x
-                B0y  : 0. # magnetic field in y
-                B0z  : 0. # magnetic field in z
+        ShearFluid :
+            a    : 1.   # dimension in x
+            b    : 1.   # dimension in y
+            c    : 2.   # dimension in z
+            z1   : 0.5  # first swap location
+            z2   : 1.5  # second swap location
+            delta: 0.06666666   # characteristic size of the swap
+            na   : 1.25 # exterior density
+            nb   : 0.75 # deviation from the average
+            pa   : 1.   # constant pressure
+            pb   : 0.   # deviation pressure
+            B0x  : 1. # magnetic field in x
+            B0y  : 0. # magnetic field in y
+            B0z  : 0. # magnetic field in z
     """
 
     def __init__(self, **params):
@@ -608,21 +612,19 @@ class ScrewPinch(CartesianMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : ScrewPinch
-            ScrewPinch :
-                a    : 1.   # minor radius (radius of cylinder)
-                R0   : 3.   # major radius (length of pinch Lz=2*pi*R0)
-                B0   : 1.   # magnetic field in z-direction
-                q0   : 1.05 # safety factor at r=0
-                q1   : 1.80 # safety factor at r=a
-                n1   : 0.   # 1st shape factor for ion number density profile
-                n2   : 0.   # 2nd shape factor for ion number density profile
-                na   : 1.   # ion number density at r=a
-                p0   : 1.   # pressure offset
-                beta : 0.1  # plasma beta = p*2/B^2 for q0=q1=inf (pure axial field).
+        ScrewPinch :
+            a    : 1.   # minor radius (radius of cylinder)
+            R0   : 3.   # major radius (length of pinch Lz=2*pi*R0)
+            B0   : 1.   # magnetic field in z-direction
+            q0   : 1.05 # safety factor at r=0
+            q1   : 1.80 # safety factor at r=a
+            n1   : 0.   # 1st shape factor for ion number density profile
+            n2   : 0.   # 2nd shape factor for ion number density profile
+            na   : 1.   # ion number density at r=a
+            p0   : 1.   # pressure offset
+            beta : 0.1  # plasma beta = p*2/B^2 for q0=q1=inf (pure axial field).
     """
 
     def __init__(
@@ -908,27 +910,25 @@ class AdhocTorus(AxisymmMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : AdhocTorus
-            AdhocTorus :
-                a       : 1.   # minor radius
-                R0      : 3.   # major radius
-                B0      : 2.   # on-axis toroidal magnetic field
-                q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
-                q0      : 1.05 # safety factor at r=0
-                q1      : 1.80 # safety factor at r=a
-                n1      : .5   # 1st shape factor for number density profile
-                n2      : 1.   # 2nd shape factor for number density profile
-                na      : .2   # number density at r=a
-                p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-                p0      : 1.   # constant factor for ad hoc pressure profile
-                p1      : .1   # 1st shape factor for ad hoc pressure profile
-                p2      : .1   # 2nd shape factor for ad hoc pressure profile
-                beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
-                psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind=1)
-                psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
+        AdhocTorus :
+            a       : 1.   # minor radius
+            R0      : 3.   # major radius
+            B0      : 2.   # on-axis toroidal magnetic field
+            q_kind  : 0    # which profile (0 : parabolic, 1 : other, see documentation)
+            q0      : 1.05 # safety factor at r=0
+            q1      : 1.80 # safety factor at r=a
+            n1      : .5   # 1st shape factor for number density profile
+            n2      : 1.   # 2nd shape factor for number density profile
+            na      : .2   # number density at r=a
+            p_kind  : 1    # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+            p0      : 1.   # constant factor for ad hoc pressure profile
+            p1      : .1   # 1st shape factor for ad hoc pressure profile
+            p2      : .1   # 2nd shape factor for ad hoc pressure profile
+            beta    : .01  # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
+            psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function (only needed if q_kind=1)
+            psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
     """
 
     def __init__(self, **params):
@@ -1417,25 +1417,23 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : AdhocTorusQPsi
-            AdhocTorusQPsi :
-                a       : 0.361925 # minor radius
-                R0      : 1.   # major radius
-                B0      : 1.   # on-axis toroidal magnetic field
-                q0      : 0.6  # safety factor at r=0
-                q1      : 2.5  # safety factor at r=a
-                q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
-                q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
-                n1      : .5   # shape factor for number density profile
-                n2      : 1.   # shape factor for number density profile
-                na      : .2   # number density at r=a
-                beta    : .1   # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
-                p1      : 0.25 # shape factor of pressure profile
-                psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function
-                psi_nel : 50   # number of cells to be used for interpolation of poloidal flux functionq_kind=1)
+        AdhocTorusQPsi :
+            a       : 0.361925 # minor radius
+            R0      : 1.   # major radius
+            B0      : 1.   # on-axis toroidal magnetic field
+            q0      : 0.6  # safety factor at r=0
+            q1      : 2.5  # safety factor at r=a
+            q0p     : 0.78 # derivative of safety factor at r=0 (w.r.t. to poloidal flux function)
+            q1p     : 5.00 # derivative of safety factor at r=a (w.r.t. to poloidal flux function)
+            n1      : .5   # shape factor for number density profile
+            n2      : 1.   # shape factor for number density profile
+            na      : .2   # number density at r=a
+            beta    : .1   # plasma beta = p*(2*mu_0)/B^2 for flat safety factor
+            p1      : 0.25 # shape factor of pressure profile
+            psi_k   : 3    # spline degree to be used for interpolation of poloidal flux function
+            psi_nel : 50   # number of cells to be used for interpolation of poloidal flux functionq_kind=1)
     """
 
     def __init__(self, **params):
@@ -1741,21 +1739,19 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : EQDSKequilibrium
-            EQDSKequilibrium :
-                rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or the absolute path
-                file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
-                data_type       : 0 # 0: there is no space between data, 1: there is space between data
-                p_for_psi       : [3, 3]      # spline degrees used in interpolation of poloidal flux function grid data
-                psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
-                p_for_flux      : 3   # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
-                flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
-                n1              : 0.  # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-                n2              : 0.  # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
-                na              : 1.  # number density at last closed flux surface
+        EQDSKequilibrium :
+            rel_path        : True # whether eqdsk file path relative to "<struphy_path>/fields_background/mhd_equil/eqdsk/data/", or the absolute path
+            file            : 'AUGNLED_g031213.00830.high' # path to eqdsk file
+            data_type       : 0 # 0: there is no space between data, 1: there is space between data
+            p_for_psi       : [3, 3]      # spline degrees used in interpolation of poloidal flux function grid data
+            psi_resolution  : [25., 6.25] # resolution used in interpolation of poloidal flux function grid data in %, i.e. [100., 100.] uses all grid points
+            p_for_flux      : 3   # spline degree used in interpolation of 1d functions f=f(psi) (e.g. toroidal field function)
+            flux_resolution : 50. # resolution used in interpolation of of 1d functions f=f(psi) in %
+            n1              : 0.  # 1st shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+            n2              : 0.  # 2nd shape factor for number density profile n(psi) = (1-na)*(1 - psi_norm^n1)^n2 + na
+            na              : 1.  # number density at last closed flux surface
     """
 
     def __init__(
@@ -2090,7 +2086,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         return out
 
 
-class GVECequilibrium(LogicalMHDequilibrium):
+class GVECequilibrium(NumericalMHDequilibrium):
     r"""
     Numerical equilibrium via an interface to `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
@@ -2136,23 +2132,21 @@ class GVECequilibrium(LogicalMHDequilibrium):
         constant added to the pressure (default: 0.)
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : GVECequilibrium
-            GVECequilibrium :
-                rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
-                dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file
-                json_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
-                use_pest : False # whether to use straight-field line coordinates (PEST)
-                use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-                rmin : 0.0 # radius of domain hole around magnetic axis.
-                Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-                p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
-                density_profile : 'pressure'
-                n0 : 0.2
-                n1 : 0.
-                p0 : 1.
+        GVECequilibrium :
+            rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
+            dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file
+            json_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
+            use_pest : False # whether to use straight-field line coordinates (PEST)
+            use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+            rmin : 0.0 # radius of domain hole around magnetic axis.
+            Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
+            p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+            density_profile : 'pressure'
+            n0 : 0.2
+            n1 : 0.
+            p0 : 1.
     """
 
     def __init__(self, units=None, **params):
@@ -2258,7 +2252,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         }
 
     @property
-    def domain(self):
+    def numerical_domain(self):
         """Domain object that characterizes the mapping from the logical to the physical domain."""
         return self._domain
 
@@ -2445,7 +2439,7 @@ class GVECequilibrium(LogicalMHDequilibrium):
         )
 
 
-class DESCequilibrium(LogicalMHDequilibrium):
+class DESCequilibrium(NumericalMHDequilibrium):
     """
     Numerical equilibrium via an interface to the `DESC code <https://desc-docs.readthedocs.io/en/latest/index.html>`_.
 
@@ -2472,19 +2466,17 @@ class DESCequilibrium(LogicalMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : DESCequilibrium
-            DESCequilibrium :
-                eq_name : null # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
-                rel_path : False # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
-                use_pest : False # whether to use straight-field line coordinates (PEST)
-                use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
-                rmin : 0.0 # radius of domain hole around magnetic axis.
-                Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
-                p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
-                T_kelvin : 100000 # maximum temperature in Kelvin used to set density
+        DESCequilibrium :
+            eq_name : null # name of DESC equilibrium; if None, the example "DSHAPE" is chosen
+            rel_path : False # whether to add "<struphy_path>/fields_background/mhd_equil/desc/" before eq_name.
+            use_pest : False # whether to use straight-field line coordinates (PEST)
+            use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
+            rmin : 0.0 # radius of domain hole around magnetic axis.
+            Nel : [32, 32, 32] # number of cells in each direction used for interpolation of the mapping.
+            p : [3, 3, 3] # spline degree in each direction used for interpolation of the mapping.
+            T_kelvin : 100000 # maximum temperature in Kelvin used to set density
     """
 
     def __init__(self, units=None, **params):
@@ -2569,7 +2561,7 @@ class DESCequilibrium(LogicalMHDequilibrium):
         }
 
     @property
-    def domain(self):
+    def numerical_domain(self):
         """Domain object that characterizes the mapping from the logical to the physical domain."""
         return self._domain
 
@@ -3003,6 +2995,145 @@ class DESCequilibrium(LogicalMHDequilibrium):
         out = np.ascontiguousarray(out)
         print(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
+
+
+class ConstantVelocity(CartesianFluidEquilibrium):
+    r"""Base class for a constant distribution function on the unit cube.
+    The Background does not depend on the velocity
+
+    """
+
+    def __init__(self, **params):
+        params_default = {"ux": 1.0, "uy": 1.0, "uz": 1.0, "n": 1.0, "n1": 0.0, "density_profile": "affine", "p0": 1.0}
+
+        self._params = set_defaults(params, params_default)
+
+    @property
+    def params(self):
+        """Parameters dictionary."""
+        return self._params
+
+    # equilibrium ion velocity
+    def u_xyz(self, x, y, z):
+        """Ion velocity."""
+        ux = 0 * x + self.params["ux"]
+        uy = 0 * x + self.params["uy"]
+        uz = 0 * x + self.params["uz"]
+
+        return ux, uy, uz
+
+    # equilibrium pressure
+    def p_xyz(self, x, y, z):
+        """Plasma pressure."""
+        pp = 0 * x + self.params["p0"]
+
+        return pp
+
+    # equilibrium number density
+    def n_xyz(self, x, y, z):
+        """Number density."""
+        if self.params["density_profile"] == "constant":
+            return self.params["n"] + 0 * x
+        elif self.params["density_profile"] == "affine":
+            return self.params["n"] + self.params["n1"] * x
+
+
+class HomogenSlabITG(CartesianFluidEquilibriumWithB):
+    r"""
+    Homogenous slab equilibrium with temperature gradient in x, B-field in z:
+
+    .. math::
+
+        \mathbf B &= B_{0z}\,\mathbf e_z = const.\,, \qquad n &= n_0 = const.
+
+        p &= p_0*(1 - \frac{x}{L_x} ) + p_\textrm{min}\,,
+
+        \mathbf u &= - \epsilon \frac{p_0}{L_x} \mathbf e_y\,.
+
+    Units are those defned in the parameter file (:code:`struphy units -h`).
+
+    Parameters
+    ----------
+    B0z : float
+        z-component of magnetic field (default: 1.).
+    Lx : float
+        Domain length in x; 1/Lx is the temperature scale length.
+    p0 : float
+        Constant pressure coefficient (default: 1.).
+    pmin : float
+        Minimum pressure at x = Lx.
+    n0 : float
+        Ion number density (default: 1.).
+    eps : float
+        The unit factor :math:`1/(\hat\Omega_i \hat t)`.
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid_background``::
+
+        HomogenSlabITG :
+            B0z  : 1.
+            Lx   : 1.
+            p0   : 1.
+            pmin : .1
+            n0   : 1.
+            eps  : .1
+    """
+
+    def __init__(self, **params):
+        params_default = {"B0z": 1.0, "Lx": 6.0, "p0": 1.0, "pmin": 0.1, "n0": 1.0, "eps": 0.1}
+
+        self._params = set_defaults(params, params_default)
+
+    @property
+    def params(self):
+        """Parameters dictionary."""
+        return self._params
+
+    # ===============================================================
+    #                  profiles on physical domain
+    # ===============================================================
+
+    # equilibrium magnetic field (curl of equilibrium vector potential)
+    def b_xyz(self, x, y, z):
+        """Magnetic field."""
+        bx = 0 * x
+        by = 0 * x
+        bz = self.params["B0z"] - 0 * x
+
+        return bx, by, bz
+
+    # equilibrium ion velocity
+    def u_xyz(self, x, y, z):
+        """Ion velocity."""
+        ux = 0 * x
+        uy = -self.params["eps"] * self.params["p0"] / self.params["Lx"] - 0 * x
+        uz = 0 * x
+
+        return ux, uy, uz
+
+    # equilibrium pressure
+    def p_xyz(self, x, y, z):
+        """Plasma pressure."""
+        pp = self.params["p0"] * (1.0 - x / self.params["Lx"]) + self.params["pmin"]
+
+        return pp
+
+    # equilibrium number density
+    def n_xyz(self, x, y, z):
+        """Number density."""
+        nn = self.params["n0"] - 0 * x
+
+        return nn
+
+    # equilibrium current (curl of equilibrium magnetic field)
+    def gradB_xyz(self, x, y, z):
+        """Field strength gradient."""
+        gradBx = 0 * x
+        gradBy = 0 * x
+        gradBz = 0 * x
+
+        return gradBx, gradBy, gradBz
 
 
 def set_defaults(params_in, params_default):

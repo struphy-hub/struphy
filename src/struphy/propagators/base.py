@@ -149,17 +149,17 @@ class Propagator(metaclass=ABCMeta):
         self._basis_ops = basis_ops
 
     @property
-    def projected_mhd_equil(self):
-        """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
+    def projected_equil(self):
+        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
         assert hasattr(
             self,
-            "_projected_mhd_equil",
+            "_projected_equil",
         ), "Projected MHD equilibrium not set."
-        return self._projected_mhd_equil
+        return self._projected_equil
 
-    @projected_mhd_equil.setter
-    def projected_mhd_equil(self, projected_mhd_equil):
-        self._projected_mhd_equil = projected_mhd_equil
+    @projected_equil.setter
+    def projected_equil(self, projected_equil):
+        self._projected_equil = projected_equil
 
     @property
     def time_state(self):

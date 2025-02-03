@@ -5,9 +5,8 @@ from abc import ABCMeta, abstractmethod
 
 import numpy as np
 
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.initial import perturbations
 from struphy.kinetic_background import moment_functions
 
@@ -333,8 +332,7 @@ class Maxwellian(KineticBackground):
         self,
         maxw_params: dict = None,
         pert_params: dict = None,
-        mhd_equil: MHDequilibrium = None,
-        braginskii_equil: BraginskiiEquilibrium = None,
+        equil: FluidEquilibrium = None,
     ):
         # Set background parameters
         if maxw_params is None:
@@ -345,19 +343,10 @@ class Maxwellian(KineticBackground):
             self.default_maxw_params(),
         )
 
-        # check if mhd or braginskii is needed
+        # check if fluid background is needed
         for key, val in self.maxw_params.items():
-            if val == "mhd":
-                assert isinstance(
-                    mhd_equil,
-                    MHDequilibrium,
-                ), f"MHD equilibrium must be passed to compute {key}."
-
-            if val == "braginskii":
-                assert isinstance(
-                    braginskii_equil,
-                    BraginskiiEquilibrium,
-                ), f"Braginskii equilibrium must be passed to compute {key}."
+            if val == "fluid_background":
+                assert equil is not None
 
         # parameters for perturbation
         if pert_params is None:
@@ -365,9 +354,8 @@ class Maxwellian(KineticBackground):
         assert isinstance(pert_params, dict)
         self._pert_params = pert_params
 
-        # MHD and Braginskii equilibrium
-        self._mhd_equil = mhd_equil
-        self._braginskii_equil = braginskii_equil
+        # Fluid equilibrium
+        self._equil = equil
 
     @classmethod
     def default_maxw_params(cls):
@@ -400,18 +388,11 @@ class Maxwellian(KineticBackground):
         return self._pert_params
 
     @property
-    def mhd_equil(self):
-        """One of :mod:`~struphy.fields_background.mhd_equil.equils`
+    def equil(self):
+        """One of :mod:`~struphy.fields_background.equils`
         in case that moments are to be set in that way, None otherwise.
         """
-        return self._mhd_equil
-
-    @property
-    def braginskii_equil(self):
-        """One of :mod:`~struphy.fields_background.braginskii_equil.equils`
-        in case that moments are to be set in that way, None otherwise.
-        """
-        return self._braginskii_equil
+        return self._equil
 
     @classmethod
     def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
@@ -598,23 +579,14 @@ class Maxwellian(KineticBackground):
             "vth_perp": "vth0",
         }
 
-        # mhd background
-        if self.maxw_params[name] == "mhd":
+        # fluid background
+        if self.maxw_params[name] == "fluid_background":
             if dct[name] is not None:
-                out += getattr(self.mhd_equil, dct[name])(*etas)
+                out += getattr(self.equil, dct[name])(*etas)
                 if name in ("n") or "vth" in name:
                     assert np.all(out > 0.0), f"{name} must be positive!"
             else:
-                print(f'Moment evaluation with "mhd" not implemented for {name}.')
-
-        # braginskii background
-        elif self.maxw_params[name] == "braginskii":
-            if dct[name] is not None:
-                out += getattr(self.braginskii_equil, dct[name])(*etas)
-                if name in ("n") or "vth" in name:
-                    assert np.all(out > 0.0), f"{name} must be positive!"
-            else:
-                print(f'Moment evaluation with "braginskii" not implemented for {name}.')
+                print(f'Moment evaluation with "fluid_background" not implemented for {name}.')
 
         # when using moment functions, see test https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/kinetic_background/tests/test_maxwellians.py?ref_type=heads#L1760
         elif isinstance(self.maxw_params[name], dict):

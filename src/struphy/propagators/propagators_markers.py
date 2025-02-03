@@ -5,9 +5,8 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.mass import WeightedMassOperators
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import MHDequilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
@@ -420,10 +419,10 @@ class PushGuidingCenterBxEstar(Propagator):
         super().__init__(particles)
 
         # magnetic equilibrium field
-        unit_b1 = self.projected_mhd_equil.unit_b1
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        unit_b1 = self.projected_equil.unit_b1
+        self._gradB1 = self.projected_equil.gradB1
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde
@@ -828,11 +827,11 @@ class PushGuidingCenterParallel(Propagator):
         self._epsilon = epsilon
 
         # magnetic equilibrium field
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        b2 = self.projected_mhd_equil.b2
-        curl_unit_b2 = self.projected_mhd_equil.curl_unit_b2
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        self._gradB1 = self.projected_equil.gradB1
+        b2 = self.projected_equil.b2
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde

@@ -9,11 +9,10 @@ from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.fluid_equil import equils as fluid_equils
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+from struphy.fields_background import equils
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
+from struphy.fields_background.equils import set_defaults
+from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
@@ -82,11 +81,8 @@ class Particles(metaclass=ABCMeta):
     domain : Domain
         Struphy domain object.
 
-    mhd_equil : MHDequilibrium
-        Struphy MHD equilibrium object.
-
-    braginskii_equil : BraginskiiEquilibrium
-        Struphy Braginskii equilibrium object.
+    equil : FluidEquilibrium
+        Struphy fluid equilibrium object.
 
     bckgr_params : dict
         Kinetic background parameters.
@@ -100,8 +96,8 @@ class Particles(metaclass=ABCMeta):
     ppc : int
         Particles per cell (optional).
 
-    projected_mhd_equil : ProjectedMHDequilibrium
-        Struphy MHD equilibrium projected into a discrete Derham complex.
+    projected_equil : ProjectedFluidEquilibrium
+        Struphy fluid equilibrium projected into a discrete Derham complex.
 
     """
 
@@ -121,13 +117,12 @@ class Particles(metaclass=ABCMeta):
         comm: Intracomm = None,
         inter_comm: Intracomm = None,
         domain: Domain = None,
-        mhd_equil: MHDequilibrium = None,
-        braginskii_equil: BraginskiiEquilibrium = None,
+        equil: FluidEquilibrium = None,
         bckgr_params: dict = None,
         pert_params: dict = None,
         domain_array: np.ndarray = None,
         ppc: int = None,
-        projected_mhd_equil: ProjectedMHDequilibrium = None,
+        projected_equil: ProjectedFluidEquilibrium = None,
     ):
         self._name = name
 
@@ -196,9 +191,8 @@ class Particles(metaclass=ABCMeta):
         assert self.Np >= self.mpi_size
 
         self._domain = domain
-        self._mhd_equil = mhd_equil
-        self._projected_mhd_equil = projected_mhd_equil
-        self._braginskii_equil = braginskii_equil
+        self._equil = equil
+        self._projected_equil = projected_equil
 
         # background and perturbations
         if bckgr_params is None:
@@ -251,21 +245,23 @@ class Particles(metaclass=ABCMeta):
 
             # SPH case: f0 is set to n0
             if self.loading_params["moments"] == "degenerate":
-                equils = getattr(fluid_equils, fi_type)
-                equils.domain = self.domain
+                eq_class = getattr(equils, fi_type)
+                eq_class.domain = self.domain
                 if self._f0 is None:
-                    self._f0 = lambda eta: equils.n0(*eta)
+                    self._f0 = lambda eta: eq_class.n0(*eta)
                 else:
-                    self._f0 = self._f0 + (lambda eta: equils.n0(*eta))
+                    self._f0 = self._f0 + (lambda eta: eq_class.n0(*eta))
             # default case
             else:
                 if self._f0 is None:
                     self._f0 = getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params, mhd_equil=mhd_equil, braginskii_equil=braginskii_equil
+                        maxw_params=maxw_params,
+                        equil=equil,
                     )
                 else:
                     self._f0 = self._f0 + getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params, mhd_equil=mhd_equil, braginskii_equil=braginskii_equil
+                        maxw_params=maxw_params,
+                        equil=equil,
                     )
 
         # set coordinates of the background distribution
@@ -586,19 +582,14 @@ class Particles(metaclass=ABCMeta):
         return self._domain
 
     @property
-    def mhd_equil(self):
-        """From :mod:`struphy.fields_background.mhd_equil.equils`."""
-        return self._mhd_equil
+    def equil(self):
+        """From :mod:`struphy.fields_background.equils`."""
+        return self._equil
 
     @property
-    def projected_mhd_equil(self):
+    def projected_equil(self):
         """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_mhd_equil
-
-    @property
-    def braginskii_equil(self):
-        """From :mod:`struphy.fields_background.braginskii_equil.equils`."""
-        return self._braginskii_equil
+        return self._projected_equil
 
     @property
     def lost_markers(self):
@@ -1127,9 +1118,9 @@ class Particles(metaclass=ABCMeta):
                         fi_type = fi
 
                     if self._f_init is None:
-                        self._f_init = getattr(fluid_equils, fi_type)(**params)
+                        self._f_init = getattr(equils, fi_type)(**params)
                     else:
-                        self._f_init = self._f_init + getattr(fluid_equils, fi_type)(**params)
+                        self._f_init = self._f_init + getattr(equils, fi_type)(**params)
                 self.velocities = np.array(self._f_init.u_xyz(*self.phasespace_coords[:, 0:3].T)).T
 
             else:
@@ -1366,15 +1357,13 @@ class Particles(metaclass=ABCMeta):
                     self._f_init = getattr(maxwellians, fi_type)(
                         maxw_params=maxw_params,
                         pert_params=pert_params,
-                        mhd_equil=self.mhd_equil,
-                        braginskii_equil=self.braginskii_equil,
+                        equil=self.equil,
                     )
                 else:
                     self._f_init = self._f_init + getattr(maxwellians, fi_type)(
                         maxw_params=maxw_params,
                         pert_params=pert_params,
-                        mhd_equil=self.mhd_equil,
-                        braginskii_equil=self.braginskii_equil,
+                        equil=self.equil,
                     )
 
         # evaluate initial distribution function
@@ -1708,7 +1697,7 @@ class Particles(metaclass=ABCMeta):
                     outside_inds = outside_inds[~gyro_inside_inds]
 
             # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss
-            self.markers[outside_inds, 2] -= 2 * self.mhd_equil.q_r(r_loss) * self.markers[outside_inds, 1]
+            self.markers[outside_inds, 2] -= 2 * self.equil.q_r(r_loss) * self.markers[outside_inds, 1]
 
             # theta_boudary_transfer = - theta_loss
             self.markers[outside_inds, 1] = 1.0 - self.markers[outside_inds, 1]
@@ -1755,7 +1744,8 @@ class Particles(metaclass=ABCMeta):
         v = self.markers[outside_inds, 3:6].T
 
         # eval cartesian equilibrium magnetic field at the marker positions
-        b_cart, xyz = self.mhd_equil.b_cart(self.markers[outside_inds, :])
+        assert isinstance(self.equil, FluidEquilibriumWithB), "Gyro transfer function needs a magnetic background."
+        b_cart, xyz = self.equil.b_cart(self.markers[outside_inds, :])
 
         # calculate magnetic field amplitude and normalized magnetic field
         absB0 = np.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
@@ -1785,7 +1775,7 @@ class Particles(metaclass=ABCMeta):
         new_xyz = self.domain(self.markers[outside_inds, :])
 
         # eval cartesian equilibrium magnetic field at the marker positions
-        b_cart = self.mhd_equil.b_cart(self.markers[outside_inds, :])[0]
+        b_cart = self.equil.b_cart(self.markers[outside_inds, :])[0]
 
         # calculate magnetic field amplitude and normalized magnetic field
         absB0 = np.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)

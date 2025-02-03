@@ -150,8 +150,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # TODO: assert f0.params[] == 0.
 
         # Initialize background magnetic field from MHD equilibrium
-        if self.projected_mhd_equil:
-            self._b_background = self.projected_mhd_equil.b2
+        if self.projected_equil:
+            self._b_background = self.projected_equil.b2
         else:
             self._b_background = None
 
@@ -435,7 +435,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         ] * 3
 
         # Initialize background magnetic field from MHD equilibrium
-        b_backgr = self.projected_mhd_equil.b2
+        b_backgr = self.projected_equil.b2
 
         # propagator parameters
         params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
@@ -754,8 +754,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                     block._data[:, :, :] += e0
 
         # Get parameters of the background magnetic field
-        if self.projected_mhd_equil:
-            self._b_background = self.projected_mhd_equil.b2
+        if self.projected_equil:
+            self._b_background = self.projected_equil.b2
         else:
             self._b_background = None
         # ====================================================================================
@@ -1143,13 +1143,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         Z = ions_params["phys_params"]["Z"]
         assert Z > 0  # must be positive ions
-
-        # magnetic background
-        if "braginskii_equilibrium" in params:
-            magn_bckgr = self.braginskii_equil
-            self.mass_ops.selected_weight = "eq_braginskii"
-        else:
-            magn_bckgr = self.mhd_equil
 
         # Poisson right-hand side
         charge_accum = AccumulatorVector(

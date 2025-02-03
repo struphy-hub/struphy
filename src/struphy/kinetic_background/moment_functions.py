@@ -15,15 +15,10 @@ class ITPA_density:
     ----
     In the parameter .yml, use the following template in the section ``kinetic/<species>``::
 
-        perturbation :
-            type : ITPA_density
-            ITPA_density :
-                comps :
-                    n : '0'
-                n0 :
-                    n : 0.00720655
-                c :
-                    n : [0.491230, 0.298228, 0.198739, 0.521298]
+        ITPA_density :
+            given_in_basis : '0'
+            n0 : 0.00720655
+            c : [0.491230, 0.298228, 0.198739, 0.521298]
     """
 
     def __init__(self, n0=0.00720655, c=(0.491230, 0.298228, 0.198739, 0.521298)):

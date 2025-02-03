@@ -33,17 +33,8 @@ geometry :
     type : Cuboid
     Cuboid : {}
 
-mhd_equilibrium :
-    type : HomogenSlab 
+fluid_background :
     HomogenSlab : {}
-
-braginskii_equilibrium :
-    type : HomogenSlabITG 
-    HomogenSlabITG : {}
-
-fluid_equilibrium :
-    type : ConstantVelocity 
-    ConstantVelocity : {}
 
 em_fields :
     background: 

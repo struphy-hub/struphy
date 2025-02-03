@@ -35,7 +35,12 @@ class StruphyModel(metaclass=ABCMeta):
 
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
-        from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+        from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+        from struphy.fields_background.projected_equils import (
+            ProjectedFluidEquilibrium,
+            ProjectedFluidEquilibriumWithB,
+            ProjectedMHDequilibrium,
+        )
         from struphy.io.setup import setup_derham, setup_domain_and_equil
 
         assert "em_fields" in self.species()
@@ -80,13 +85,10 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # create domain, equilibrium
-        self._domain, self._mhd_equil = setup_domain_and_equil(
+        self._domain, self._equil = setup_domain_and_equil(
             params,
             units=self.units,
         )
-
-        # TODO: remove
-        self._braginskii_equil = self.mhd_equil
 
         if comm.Get_rank() == 0 and self.verbose:
             print("\nTIME:")
@@ -112,10 +114,10 @@ class StruphyModel(metaclass=ABCMeta):
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
 
-            print("\nEQUILIBRIUM:")
-            if "mhd_equilibrium" in params:
-                print("type:".ljust(25), self.mhd_equil.__class__.__name__)
-                for key, val in self.mhd_equil.params.items():
+            print("\nFIELDS BACKGROUND:")
+            if "fields_background" in params:
+                print("type:".ljust(25), self.equil.__class__.__name__)
+                for key, val in self.equil.params.items():
                     print((key + ":").ljust(25), val)
             else:
                 print("None.")
@@ -134,19 +136,29 @@ class StruphyModel(metaclass=ABCMeta):
             verbose=self.verbose,
         )
 
-        # create projected MHD equilibrium
-        self._projected_mhd_equil = ProjectedMHDequilibrium(
-            self.mhd_equil,
-            self.derham,
-        )
+        # create projected equilibrium
+        if isinstance(self.equil, MHDequilibrium):
+            self._projected_equil = ProjectedMHDequilibrium(
+                self.equil,
+                self.derham,
+            )
+        elif isinstance(self.equil, FluidEquilibriumWithB):
+            self._projected_equil = ProjectedFluidEquilibriumWithB(
+                self.equil,
+                self.derham,
+            )
+        elif isinstance(self.equil, FluidEquilibrium):
+            self._projected_equil = ProjectedFluidEquilibrium(
+                self.equil,
+                self.derham,
+            )
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
             self.derham,
             self.domain,
             verbose=self.verbose,
-            eq_mhd=self.mhd_equil,
-            eq_braginskii=self.braginskii_equil,
+            eq_mhd=self.equil,
         )
 
         # allocate memory for variables
@@ -170,9 +182,9 @@ class StruphyModel(metaclass=ABCMeta):
             self.derham,
             self.domain,
             verbose=self.verbose,
-            eq_mhd=self.mhd_equil,
+            eq_mhd=self.equil,
         )
-        Propagator.projected_mhd_equil = self.projected_mhd_equil
+        Propagator.projected_equil = self.projected_equil
 
         # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
@@ -297,14 +309,9 @@ class StruphyModel(metaclass=ABCMeta):
         return self._domain
 
     @property
-    def mhd_equil(self):
-        """MHD equilibrium object, see :ref:`mhd_equil`."""
-        return self._mhd_equil
-
-    @property
-    def braginskii_equil(self):
-        """Braginskii equilibrium object, see :ref:`braginskii_equil`."""
-        return self._braginskii_equil
+    def equil(self):
+        """Fluid equilibrium object, see :ref:`fluid_equil`."""
+        return self._equil
 
     @property
     def derham(self):
@@ -312,9 +319,9 @@ class StruphyModel(metaclass=ABCMeta):
         return self._derham
 
     @property
-    def projected_mhd_equil(self):
-        """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_mhd_equil
+    def projected_equil(self):
+        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
+        return self._projected_equil
 
     @property
     def units(self):
@@ -760,7 +767,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                         obj.initialize_coeffs(
                             domain=self.domain,
-                            bckgr_obj=self.mhd_equil,
+                            bckgr_obj=self.equil,
                         )
 
                         if self._comm_world_rank == 0 and self.verbose:
@@ -822,7 +829,7 @@ class StruphyModel(metaclass=ABCMeta):
                             assert isinstance(obj, Derham.Field)
                             obj.initialize_coeffs(
                                 domain=self.domain,
-                                bckgr_obj=self.mhd_equil,
+                                bckgr_obj=self.equil,
                                 species=species,
                             )
 
@@ -1799,13 +1806,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     comm=self.derham.comm,
                     inter_comm=self.derham.inter_comm,
                     domain=self.domain,
-                    mhd_equil=self.mhd_equil,
-                    braginskii_equil=self.braginskii_equil,
+                    equil=self.equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params,
                     equation_params=self.equation_params[species],
                     domain_array=self.derham.domain_array,
-                    projected_mhd_equil=self.projected_mhd_equil,
+                    projected_equil=self.projected_equil,
                 )
 
                 obj = val["obj"]
@@ -1910,7 +1916,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 Plasma parameters for each species.
         """
 
-        from struphy.fields_background.fluid_equil import equils as fluid_equils
+        from struphy.fields_background import equils
+        from struphy.fields_background.base import FluidEquilibriumWithB
         from struphy.kinetic_background import maxwellians
 
         pparams = {}
@@ -1972,10 +1979,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # transit length (m)
         transit_length = plasma_volume ** (1 / 3)
         # magnetic field (T)
-        if self.mhd_equil is not None:
-            B_tmp = self.mhd_equil.absB0(eta1, eta2, eta3)
+        if isinstance(self.equil, FluidEquilibriumWithB):
+            B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
-            B_tmp = self.braginskii_equil.absB0(eta1, eta2, eta3)
+            B_tmp = np.zeros((eta1, eta2, eta3))
         magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * units["B"]
         B_max = np.max(B_tmp) * units["B"]
         B_min = np.min(B_tmp) * units["B"]
@@ -2022,7 +2029,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # density (m⁻³)
                 pparams[species]["density"] = (
                     np.mean(
-                        self.mhd_equil.n0(
+                        self.equil.n0(
                             eta1,
                             eta2,
                             eta3,
@@ -2036,7 +2043,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # pressure (bar)
                 pparams[species]["pressure"] = (
                     np.mean(
-                        self.mhd_equil.p0(
+                        self.equil.p0(
                             eta1,
                             eta2,
                             eta3,
@@ -2082,14 +2089,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         if tmp is None:
                             tmp = getattr(maxwellians, fi_type)(
                                 maxw_params=maxw_params,
-                                mhd_equil=self.mhd_equil,
-                                braginskii_equil=self.braginskii_equil,
+                                equil=self.equil,
                             )
                         else:
                             tmp = tmp + getattr(maxwellians, fi_type)(
                                 maxw_params=maxw_params,
-                                mhd_equil=self.mhd_equil,
-                                braginskii_equil=self.braginskii_equil,
+                                equil=self.equil,
                             )
 
                 if (
@@ -2099,7 +2104,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     # call parameters
                     a1 = self.domain.params_map["a1"]
                     r = eta1mg * (1 - a1) + a1
-                    psi = self.mhd_equil.psi_r(r)
+                    psi = self.equil.psi_r(r)
 
                     # density (m⁻³)
                     pparams[species]["density"] = (

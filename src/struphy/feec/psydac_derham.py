@@ -18,10 +18,8 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.fluid_equil.base import FluidEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.initial import eigenfunctions, perturbations, utilities
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
@@ -1396,7 +1394,7 @@ class Derham:
             domain : struphy.geometry.domains
                 Domain object for metric coefficients, only needed for transform of analytical perturbations.
 
-            bckgr_obj: MHDequilibrium | FluidEquilibrium | BraginskiiEquilibrium
+            bckgr_obj: FluidEquilibrium
                 Fields background object.
 
             species : string
@@ -1457,16 +1455,14 @@ class Derham:
                     else:
                         assert bckgr_obj is not None
                         _var = _params["variable"]
-                        assert _var in dir(MHDequilibrium) + dir(FluidEquilibrium) + dir(BraginskiiEquilibrium), (
-                            f"{_var = } is not an attribute of any fields background."
-                        )
+                        assert _var in dir(MHDequilibrium), f"{_var = } is not an attribute of any fields background."
 
                         if self.space_id in {"H1", "L2"}:
                             fun = getattr(bckgr_obj, _var)
                         else:
-                            assert (_var + "_1") in dir(MHDequilibrium) + dir(FluidEquilibrium) + dir(
-                                BraginskiiEquilibrium
-                            ), f"{(_var + '_1') = } is not an attribute of any fields background."
+                            assert (_var + "_1") in dir(MHDequilibrium), (
+                                f"{(_var + '_1') = } is not an attribute of any fields background."
+                            )
                             fun = [
                                 getattr(bckgr_obj, _var + "_1"),
                                 getattr(bckgr_obj, _var + "_2"),

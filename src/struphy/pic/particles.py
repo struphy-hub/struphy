@@ -1,8 +1,6 @@
-from struphy.feec.psydac_derham import Derham
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.fields_background.equils import set_defaults
+from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.pic import utilities_kernels
@@ -68,9 +66,12 @@ class Particles6D(Particles):
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
         if "CanonicalMaxwellian" in kwargs["bckgr_params"]:
-            self._absB0_h = self.projected_mhd_equil.absB0
-            self._b2_h = self.projected_mhd_equil.b2
-            self._derham = self.projected_mhd_equil.derham
+            assert isinstance(self.equil, FluidEquilibriumWithB), (
+                "CanonicalMaxwellian needs background with magnetic field."
+            )
+            self._absB0_h = self.projected_equil.absB0
+            self._b2_h = self.projected_equil.b2
+            self._derham = self.projected_equil.derham
             self._epsilon = self.equation_params["epsilon"]
 
     @property
@@ -189,6 +190,8 @@ class Particles6D(Particles):
         Only equilibrium magnetic field is considered.
         """
 
+        assert isinstance(self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
+
         # idx and slice
         idx_gc_r = self.first_diagnostics_idx
         slice_gc = slice(self.first_diagnostics_idx, self.first_diagnostics_idx + 3)
@@ -229,12 +232,12 @@ class Particles6D(Particles):
         ) / (2)
 
         # eval psi at etas
-        a1 = self.mhd_equil.domain.params_map["a1"]
-        R0 = self.mhd_equil.params["R0"]
-        B0 = self.mhd_equil.params["B0"]
+        a1 = self.equil.domain.params_map["a1"]
+        R0 = self.equil.params["R0"]
+        B0 = self.equil.params["B0"]
 
         r = self.markers[~self.holes, idx_gc_r] * (1 - a1) + a1
-        self.markers[~self.holes, idx_can_momentum] = self.mhd_equil.psi_r(r)
+        self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
         # send particles to the guiding center positions
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
@@ -298,7 +301,7 @@ class Particles5D(Particles):
         Np: int,
         bc: list,
         loading: str,
-        projected_mhd_equil: ProjectedMHDequilibrium,
+        projected_equil: ProjectedFluidEquilibriumWithB,
         **kwargs,
     ):
         if "bckgr_params" not in kwargs:
@@ -320,19 +323,21 @@ class Particles5D(Particles):
             Np,
             bc,
             loading,
-            projected_mhd_equil=projected_mhd_equil,
+            projected_equil=projected_equil,
             **kwargs,
         )
 
         # magnetic background
-        if self.mhd_equil is not None:
-            self._magn_bckgr = self.mhd_equil
-        else:
-            self._magn_bckgr = self.braginskii_equil
+        assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
+            "Particles5D needs background with magnetic field."
+        )
+        if self.equil is not None:
+            assert isinstance(self.equil, FluidEquilibriumWithB), "Particles5D needs background with magnetic field."
+        self._magn_bckgr = self.equil
 
-        self._absB0_h = self.projected_mhd_equil.absB0
-        self._unit_b1_h = self.projected_mhd_equil.unit_b1
-        self._derham = self.projected_mhd_equil.derham
+        self._absB0_h = self.projected_equil.absB0
+        self._unit_b1_h = self.projected_equil.unit_b1
+        self._derham = self.projected_equil.derham
 
         self._tmp2 = self.derham.Vh["2"].zeros()
 
@@ -368,7 +373,7 @@ class Particles5D(Particles):
 
     @property
     def magn_bckgr(self):
-        """Either mhd_equil or braginskii_equil."""
+        """Fluid equilibrium with B."""
         return self._magn_bckgr
 
     @property
@@ -426,7 +431,7 @@ class Particles5D(Particles):
         self._svol = maxwellians.GyroMaxwellian2D(
             maxw_params=maxw_params,
             volume_form=True,
-            mhd_equil=self._magn_bckgr,
+            equil=self._magn_bckgr,
         )
 
         if self.spatial == "uniform":
@@ -513,6 +518,8 @@ class Particles5D(Particles):
         Only equilibrium magnetic field is considered.
         """
 
+        assert isinstance(self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
+
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 2
 
@@ -524,12 +531,12 @@ class Particles5D(Particles):
         )
 
         # eval psi at etas
-        a1 = self.mhd_equil.domain.params_map["a1"]
-        R0 = self.mhd_equil.params["R0"]
-        B0 = self.mhd_equil.params["B0"]
+        a1 = self.equil.domain.params_map["a1"]
+        R0 = self.equil.params["R0"]
+        B0 = self.equil.params["B0"]
 
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
-        self.markers[~self.holes, idx_can_momentum] = self.mhd_equil.psi_r(r)
+        self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
         self._epsilon = self.equation_params["epsilon"]
 

@@ -146,12 +146,12 @@ class LinearMHDVlasovCC(StruphyModel):
         # project background magnetic field (2-form) and background pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -436,12 +436,12 @@ class LinearMHDVlasovPC(StruphyModel):
         # Project magnetic field
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -728,47 +728,47 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # Project magnetic field
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
-        self._absB0 = self.derham.P["0"](self.mhd_equil.absB0)
+        self._absB0 = self.derham.P["0"](self.equil.absB0)
 
         self._unit_b1 = self.derham.P["1"](
             [
-                self.mhd_equil.unit_b1_1,
-                self.mhd_equil.unit_b1_2,
-                self.mhd_equil.unit_b1_3,
+                self.equil.unit_b1_1,
+                self.equil.unit_b1_2,
+                self.equil.unit_b1_3,
             ]
         )
 
         self._unit_b2 = self.derham.P["2"](
             [
-                self.mhd_equil.unit_b2_1,
-                self.mhd_equil.unit_b2_2,
-                self.mhd_equil.unit_b2_3,
+                self.equil.unit_b2_1,
+                self.equil.unit_b2_2,
+                self.equil.unit_b2_3,
             ]
         )
 
         self._gradB1 = self.derham.P["1"](
             [
-                self.mhd_equil.gradB1_1,
-                self.mhd_equil.gradB1_2,
-                self.mhd_equil.gradB1_3,
+                self.equil.gradB1_1,
+                self.equil.gradB1_2,
+                self.equil.gradB1_3,
             ]
         )
 
         self._curl_unit_b2 = self.derham.P["2"](
             [
-                self.mhd_equil.curl_unit_b2_1,
-                self.mhd_equil.curl_unit_b2_2,
-                self.mhd_equil.curl_unit_b2_3,
+                self.equil.curl_unit_b2_1,
+                self.equil.curl_unit_b2_2,
+                self.equil.curl_unit_b2_3,
             ]
         )
 
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -1103,9 +1103,9 @@ class ColdPlasmaVlasov(StruphyModel):
         # Initialize background magnetic field from MHD equilibrium
         self._b_background = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
