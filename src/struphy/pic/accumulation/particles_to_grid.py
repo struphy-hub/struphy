@@ -283,20 +283,6 @@ class Accumulator:
 
             vec_finished = True
 
-            # if self.filter_params["mat"]:
-            #     if self.symmetry == "symm":
-            #         for mat in [self._operators[0].matrix[0, 1], self._operators[0].matrix[0, 2], self._operators[0].matrix[1, 2]]:
-            #             filters.apply_three_point_filter_3d_mat(
-            #                 mat._data,
-            #                 np.array(self.derham.Nel),
-            #                 np.array(self.derham.spl_kind),
-            #                 np.array(self.derham.p),
-            #                 np.array(self.derham.Vh[self.form][i].starts),
-            #                 np.array(self.derham.Vh[self.form][i].ends),
-            #                 alpha=self.filter_params["alpha"],
-            #             )
-            #     else: AssertionError
-
         if self.derham.Nclones > 1:
             for data_array in self._args_data:
                 self.derham.inter_comm.Allreduce(
@@ -491,6 +477,47 @@ class Accumulator:
                     vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
 
             vec.update_ghost_regions()
+
+    def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
+        r"""1D plot of the spline field corresponding to the accumulated vector.
+        The latter can be viewed as the rhs of an L2-projection:
+
+        .. math::
+
+            \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
+
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
+        """
+        from matplotlib import pyplot as plt
+
+        from struphy.feec.projectors import L2Projector
+
+        # L2 projection
+        proj = L2Projector(self.space_id, mass_ops)
+        a = proj.solve(self.vectors[0])
+
+        # create field and assign coeffs
+        field = self.derham.create_field("accum_field", self.space_id)
+        field.vector = a
+
+        # plot field
+        eta = np.linspace(0, 1, 100)
+        if eta_direction == 0:
+            args = (eta, 0.5, 0.5)
+        elif eta_direction == 1:
+            args = (0.5, eta, 0.5)
+        else:
+            args = (0.5, 0.5, eta)
+
+        vals = mass_ops.domain.push(field, *args, kind="1", squeeze_out=True)
+
+        plt.plot(eta, vals[component])
+        plt.title(
+            f'Spline field accumulated with the kernel "{self.kernel}"',
+        )
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
+        plt.ylabel("field amplitude")
+        plt.show()
 
 
 class AccumulatorVector:
@@ -715,10 +742,10 @@ class AccumulatorVector:
         else:
             args = (0.5, 0.5, eta)
 
-        plt.plot(eta, field(*args, squeeze_output=True))
+        plt.plot(eta, field(*args, squeeze_out=True))
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )
-        plt.xlabel(f"$\eta_{eta_direction + 1}$")
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()

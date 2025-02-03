@@ -3,7 +3,7 @@
 Perturbations
 -------------
 
-Perturbations can be added on top of :ref:`fluid_backgrounds` or :ref:`kinetic_backgrounds`.
+Perturbations can be added on top of :ref:`equils_avail` or :ref:`kinetic_backgrounds`.
 Below are examples for dictionary structures to be put under the ``perturbations``
 key of a ``.yml`` parameter file.
 

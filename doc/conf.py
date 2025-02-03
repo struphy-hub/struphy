@@ -14,14 +14,14 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-with open('../src/struphy/console/main.py') as f:  
+with open("../src/struphy/console/main.py") as f:
     exec(f.read())
 
 # -- Project information -----------------------------------------------------
 
-project = 'struphy'
-copyright = '2019-2024 (c) Struphy dev team | Max Planck Institute for Plasma Physics'
-author = 'Struphy dev team | Max Planck Institute for Plasma Physics'
+project = "struphy"
+copyright = "2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
+author = "Struphy dev team | Max Planck Institute for Plasma Physics"
 version = __version__
 
 # The full version, including alpha/beta/rc tags
@@ -33,17 +33,20 @@ release = __version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.coverage",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.viewcode",
     "nbsphinx",
     "sphinx.ext.inheritance_diagram",
     "sphinx.ext.graphviz",
-    'myst_parser',
+    "myst_parser",
+    "sphinx_design",
 ]
+
+nbsphinx_execute = 'auto'
 
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
@@ -52,22 +55,22 @@ napoleon_use_ivar = True
 napoleon_attr_annotations = False
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-#html_theme = 'sphinx_rtd_theme'
-#html_theme = 'classic'
-#html_theme = 'press'
-html_theme = 'pydata_sphinx_theme'
+# html_theme = 'sphinx_rtd_theme'
+# html_theme = 'classic'
+# html_theme = 'press'
+html_theme = "pydata_sphinx_theme"
 
 html_theme_options = {
     "sidebarwidth": 270,
@@ -79,8 +82,8 @@ html_theme_options = {
     "external_links": [
         {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},
         {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
-        {"name": "Struphy RocketChat", "url": "https://chat.gwdg.de/channel/struphy-developers"}
-    ]
+        {"name": "Struphy RocketChat", "url": "https://chat.gwdg.de/channel/struphy-developers"},
+    ],
 }
 
 # html_theme_options = {
@@ -92,37 +95,35 @@ html_theme_options = {
 # }
 
 html_sidebars = {
-   '**': ['globaltoc.html', 'relations.html', 'searchbox.html'],
+    "**": ["globaltoc.html", "relations.html", "searchbox.html"],
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
 html_css_files = [
-    'css/custom.css',
+    "css/custom.css",
 ]
 
 # other
-highlight_language = 'none'
+highlight_language = "none"
 
-autodoc_member_order = 'bysource'
+autodoc_member_order = "bysource"
 
-html_logo = 'dog-cartoon-struphy.jpg'
+html_logo = "dog-cartoon-struphy.jpg"
 # html_theme_options = {
 #     'display_version': True,
 #     'style_external_links': True,
 # }
 
 # inheritance diagrams
-inheritance_graph_attrs = dict(rankdir="LR", ratio='auto', size='"4.0, 20.0"',
-                               fontsize="8", resolution=300.0)
+inheritance_graph_attrs = dict(rankdir="LR", ratio="auto", size='"4.0, 20.0"', fontsize="8", resolution=300.0)
 
-inheritance_node_attrs = dict(shape='ellipse', fontsize="8", height=0.25,
-                              color='maroon4', style='filled')
+inheritance_node_attrs = dict(shape="ellipse", fontsize="8", height=0.25, color="maroon4", style="filled")
 
 # markdown parsing
 myst_enable_extensions = [
@@ -141,4 +142,4 @@ myst_enable_extensions = [
     "tasklist",
 ]
 
-myst_dmath_allow_labels=True
+myst_dmath_allow_labels = True

@@ -8,7 +8,7 @@ from psydac.linalg.stencil import StencilVector
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.mass import WeightedMassOperator
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
@@ -235,18 +235,18 @@ class EfieldWeights(Propagator):
     .. math::
 
         \begin{align}
-            & \frac{\partial \mathbf{E}}{\partial t} = - \alpha^2 \kappa \int \mathbf{v} f_1 \, \text{d} \mathbf{v} \,,
+            & \frac{\partial \mathbf{E}}{\partial t} = - \frac{\alpha^2}{\varepsilon} \int \mathbf{v} f_1 \, \text{d} \mathbf{v} \,,
             \\[2mm]
-            & \frac{\partial f_1}{\partial t} = \frac{\kappa}{v_{\text{th}}^2} \, \mathbf{E} \cdot \mathbf{v} f_0 \,,
+            & \frac{\partial f_1}{\partial t} = \frac{1}{v_{\text{th}}^2 \varepsilon} \, \mathbf{E} \cdot \mathbf{v} f_0 \,,
         \end{align}
 
     which after discretization and in curvilinear coordinates reads
 
     .. math::
 
-        \frac{\text{d}}{\text{d} t} w_p = \frac{f_{0,p}}{s_{0, p}} \frac{\kappa}{v_{\text{th}}^2} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \,,
+        \frac{\text{d}}{\text{d} t} w_p &= \frac{f_{0,p}}{s_{0, p}} \frac{1}{v_{\text{th}}^2 \varepsilon} \left[ DF^{-T} (\mathbb{\Lambda}^1)^T \mathbf{e} \right] \cdot \mathbf{v}_p \,,
         \\[2mm]
-        \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} = - \frac{\alpha^2 \kappa}{N} \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
+        \frac{\text{d}}{\text{d} t} \mathbb{M}_1 \mathbf{e} &= - \frac{\alpha^2}{\varepsilon} \frac 1N \sum_p w_p \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right) \,.
 
     This is solved using the Crank-Nicolson method
 
@@ -271,9 +271,9 @@ class EfieldWeights(Propagator):
 
     .. math::
 
-        \mathbb{E} = \frac{\alpha^2 \kappa}{N} \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)  \,,
+        \mathbb{E} &= \frac{\alpha^2}{\varepsilon} \frac 1N \mathbb{\Lambda}^1 \cdot \left( DF^{-1} \mathbf{v}_p \right)  \,,
         \\[2mm]
-        \mathbb{W} = \frac{f_{0,p}}{s_{0,p}} \frac{\kappa}{v_\text{th}^2} \left( DF^{-1} \mathbf{v}_p \right) \cdot \left(\mathbb{\Lambda}^1\right)^T  \,,
+        \mathbb{W} &= \frac{f_{0,p}}{s_{0,p}} \frac{1}{v_\text{th}^2 \varepsilon} \left( DF^{-1} \mathbf{v}_p \right) \cdot \left(\mathbb{\Lambda}^1\right)^T  \,,
 
     based on the :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
 
@@ -311,11 +311,13 @@ class EfieldWeights(Propagator):
         *,
         alpha: float = 1.0,
         kappa: float = 1.0,
-        f0: Maxwellian = Maxwellian3D(),
+        f0: Maxwellian = None,
         solver=options(default=True)["solver"],
     ):
         super().__init__(e, particles)
 
+        if f0 is None:
+            f0 = Maxwellian3D()
         assert isinstance(f0, Maxwellian3D)
 
         self._alpha = alpha
@@ -1746,7 +1748,6 @@ class CurrentCoupling5DCurlb(Propagator):
             "modes": (1),
             "repeat": 1,
             "alpha": 0.5,
-            "mat": True,
         }
         dct["boundary_cut"] = {
             "e1": 0.0,

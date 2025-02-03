@@ -5,7 +5,6 @@ import importlib.metadata
 import os
 import site
 import subprocess
-import sys
 from argparse import HelpFormatter, RawTextHelpFormatter, _SubParsersAction
 
 import argcomplete
@@ -50,7 +49,7 @@ def struphy():
 
     # version message
     version_message = f"Struphy {__version__}\n"
-    version_message += "Copyright 2019-2024 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
+    version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
     version_message += "MIT license\n"
 
     # Read struphy state file
@@ -610,64 +609,81 @@ def struphy():
     )
 
     # 7. "test" sub-command
-    parser_test = subparsers.add_parser(
-        "test",
-        formatter_class=lambda prog: argparse.RawTextHelpFormatter(
-            prog,
-            max_help_position=30,
-        ),
-        help="run Struphy tests",
-        description="Run available unit tests or test Struphy models.",
-    )
+    try:
+        import pytest_mpi
 
-    parser_test.add_argument(
-        "group",
-        type=str,
-        choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
-        metavar="GROUP",
-        help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
-                                \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
-                                \nc) "unit" for performing unit tests',
-    )
+        add_test_parser = True
+    except ModuleNotFoundError:
+        add_test_parser = False
 
-    parser_test.add_argument(
-        "--mpi",
-        type=int,
-        metavar="N",
-        help="set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)",
-        default=2,
-    )
+    if add_test_parser:
+        parser_test = subparsers.add_parser(
+            "test",
+            formatter_class=lambda prog: argparse.RawTextHelpFormatter(
+                prog,
+                max_help_position=30,
+            ),
+            help="run Struphy tests",
+            description="Run available unit tests or test Struphy models.",
+        )
 
-    parser_test.add_argument(
-        "-f",
-        "--fast",
-        help="test model(s) just in slab geometry (Cuboid)",
-        action="store_true",
-    )
+        parser_test.add_argument(
+            "group",
+            type=str,
+            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
+            metavar="GROUP",
+            help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
+                                    \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
+                                    \nc) "unit" for performing unit tests',
+        )
 
-    parser_test.add_argument(
-        "--with-desc",
-        help="include DESC equilibrium in tests (mem consuming)",
-        action="store_true",
-    )
+        parser_test.add_argument(
+            "--mpi",
+            type=int,
+            metavar="N",
+            help="set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)",
+            default=2,
+        )
 
-    parser_test.add_argument(
-        "-T",
-        "--Tend",
-        type=float,
-        help="if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set",
-        default=None,
-    )
+        parser_test.add_argument(
+            "-f",
+            "--fast",
+            help="test model(s) just in slab geometry (Cuboid)",
+            action="store_true",
+        )
 
-    parser_test.add_argument(
-        "-v",
-        "--vrbose",
-        help="print output of testing on screen",
-        action="store_true",
-    )
+        parser_test.add_argument(
+            "--with-desc",
+            help="include DESC equilibrium in tests (mem consuming)",
+            action="store_true",
+        )
+
+        parser_test.add_argument(
+            "-T",
+            "--Tend",
+            type=float,
+            help="if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set",
+            default=None,
+        )
+
+        parser_test.add_argument(
+            "-v",
+            "--vrbose",
+            help="print output of testing on screen",
+            action="store_true",
+        )
 
     # 8/9 format and lint sub-command
-    if is_installed_editable("struphy"):
+    try:
+        import autopep8
+        import isort
+        import ruff
+
+        add_lintformat_parser = True
+    except ModuleNotFoundError:
+        add_lintformat_parser = False
+
+    if is_installed_editable("struphy") and add_lintformat_parser:
         parser_format = subparsers.add_parser(
             "format",
             help="format source files",
@@ -822,7 +838,7 @@ def struphy():
         state["i_path"] = i_path
         utils.save_state(state)
 
-        print(f'New input path has been set to {state["i_path"]}')
+        print(f"New input path has been set to {state['i_path']}")
         exit()
 
     # set default out path
@@ -843,7 +859,7 @@ def struphy():
         state["o_path"] = o_path
         utils.save_state(state)
 
-        print(f'New output path has been set to {state["o_path"]}')
+        print(f"New output path has been set to {state['o_path']}")
         exit()
 
     # set default out path
@@ -864,7 +880,7 @@ def struphy():
         state["b_path"] = b_path
         utils.save_state(state)
 
-        print(f'New batch path has been set to {state["b_path"]}')
+        print(f"New batch path has been set to {state['b_path']}")
         exit()
 
     # set paths for inp, out and batch (with io/inp etc. prefices)
@@ -1112,5 +1128,5 @@ def is_installed_editable(package_name):
             # print(f"{editable_file} found in site-packages")
             return True
 
-    print(f"{package_name} is not installed in editable mode.")
+    # print(f"{package_name} is not installed in editable mode.")
     return False

@@ -249,7 +249,7 @@ def eval_magnetic_energy(
     b2: "float[:,:,:]",
     b3: "float[:,:,:]",
 ):
-    """
+    r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
     The result is stored at markers[:, first_diagnostics_idx].
     """

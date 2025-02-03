@@ -53,6 +53,7 @@ def main(
     from pyevtk.hl import gridToVTK
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
     from struphy.io.setup import pre_processing, setup_domain_cloning
     from struphy.models import fluid, hybrid, kinetic, toy
@@ -128,16 +129,12 @@ def main(
         det_df = model.domain.jacobian_det(*grids_log)
         pointData["det_df"] = det_df
 
-        if model.mhd_equil is not None:
-            absB0 = model.mhd_equil.absB0(*grids_log)
-            p0 = model.mhd_equil.p0(*grids_log)
-            pointData["absB0"] = absB0
+        if model.equil is not None:
+            p0 = model.equil.p0(*grids_log)
             pointData["p0"] = p0
-        elif model.braginskii_equil is not None:
-            absB0 = model.braginskii_equil.absB0(*grids_log)
-            p0 = model.braginskii_equil.p0(*grids_log)
-            pointData["absB0"] = absB0
-            pointData["p0"] = p0
+            if isinstance(model.equil, FluidEquilibriumWithB):
+                absB0 = model.equil.absB0(*grids_log)
+                pointData["absB0"] = absB0
 
         gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
 

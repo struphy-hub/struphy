@@ -9,7 +9,8 @@ from psydac.linalg.stencil import StencilMatrix
 
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
-from struphy.feec.projectors import CommutingProjector
+from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
+from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace
@@ -37,7 +38,7 @@ class BasisProjectionOperators:
     ----
     Possible choices for key-value pairs in ****weights** are, at the moment:
 
-    - eq_mhd: :class:`struphy.fields_background.mhd_equil.base.MHDequilibrium`
+    - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
     def __init__(self, derham, domain, verbose=True, **weights):
@@ -858,20 +859,682 @@ class BasisProjectionOperators:
         V_id = self.derham.space_to_form[V_id]
         W_id = self.derham.space_to_form[W_id]
 
-        out = BasisProjectionOperator(
-            self.derham.P[W_id],
-            self.derham.Vh_fem[V_id],
-            fun,
-            self.derham.extraction_ops[V_id],
-            self.derham.boundary_ops[V_id],
-            transposed=False,
-            polar_shift=self.domain.pole,
-        )
+        if self.derham._with_local_projectors == True:
+            out = BasisProjectionOperatorLocal(
+                self.derham._Ploc[W_id],
+                self.derham.Vh_fem[V_id],
+                fun,
+                self.derham.extraction_ops[V_id],
+                self.derham.boundary_ops[V_id],
+                self.derham.extraction_ops[W_id],
+                self.derham.boundary_ops[W_id],
+                transposed=False,
+            )
+        else:
+            out = BasisProjectionOperator(
+                self.derham.P[W_id],
+                self.derham.Vh_fem[V_id],
+                fun,
+                self.derham.extraction_ops[V_id],
+                self.derham.boundary_ops[V_id],
+                transposed=False,
+                polar_shift=self.domain.pole,
+            )
 
         if self.rank == 0 and self.verbose:
             print("Done.")
 
         return out
+
+
+class BasisProjectionOperatorLocal(LinOpWithTransp):
+    r"""
+    Class for assembling basis projection operators in 3d, based on local projectors.
+
+    A basis projection operator :math:`\mathcal P: \mathbb R^{N_\alpha} \to \mathbb R^{N_\beta}` is defined by the matrix
+
+    .. math::
+
+        \mathcal P_{(\mu, ijk),(\nu, mno)} = \hat \Pi^\beta_{\mu, ijk} \left( A_{\mu,\nu}\,\Lambda^\alpha_{\nu, mno} \right)\,,
+
+    where the weight fuction :math:`A` is a tensor of rank 0, 1 or 2, depending on domain and co-domain of the operator, and
+    :math:`\Lambda^\alpha_{\nu, mno}` is the B-spline basis function with tensor-product index :math:`mno` of the
+    :math:`\nu`-th component in the space :math:`V^\alpha_h`. The operator :math:`\hat \Pi^\beta: V^\beta \to \mathbb R^{N_\beta}`
+    is a local commuting projector from the continuous space
+    into the space of coefficients.
+
+    Finally, extraction and boundary operators can be applied to the basis projection operator matrix, :math:`B_P * E_P * \mathcal P * E_V^T * B_V^T`.
+
+    Parameters
+    ----------
+    P : struphy.feec.projectors.CommutingProjectorLocal
+        Local commuting projector mapping into TensorFemSpace/VectorFemSpace W = P.space (codomain of operator).
+
+    V : psydac.fem.basic.FemSpace
+        Finite element spline space (domain, input space).
+
+    weights : list
+        Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+
+    V_extraction_op : PolarExtractionOperator | IdentityOperator
+        Extraction operator to polar sub-space of V.
+
+    V_boundary_op : BoundaryOperator | IdentityOperator
+        Boundary operator that sets essential boundary conditions on V.
+
+    P_extraction_op : PolarExtractionOperator | IdentityOperator
+        Extraction operator to polar sub-space of the domain of P.
+
+    P_boundary_op : BoundaryOperator | IdentityOperator
+        Boundary operator that sets essential boundary conditions on the domain of P.
+
+    transposed : bool
+        Whether to assemble the transposed operator.
+    """
+
+    def __init__(
+        self,
+        P,
+        V,
+        weights,
+        V_extraction_op=None,
+        V_boundary_op=None,
+        P_extraction_op=None,
+        P_boundary_op=None,
+        transposed=False,
+    ):
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
+
+        assert isinstance(P, CommutingProjectorLocal)
+        assert isinstance(V, FemSpace)
+
+        self._P = P
+        self._V = V
+
+        # set extraction operators
+        if P_extraction_op is not None:
+            self._P_extraction_op = P_extraction_op
+        else:
+            self._P_extraction_op = IdentityOperator(P.vector_space)
+
+        if V_extraction_op is not None:
+            self._V_extraction_op = V_extraction_op
+        else:
+            self._V_extraction_op = IdentityOperator(V.vector_space)
+
+        # set boundary operators
+        if P_boundary_op is not None:
+            self._P_boundary_op = P_boundary_op
+        else:
+            self._P_boundary_op = IdentityOperator(
+                self._P_extraction_op.domain,
+            )
+
+        if V_boundary_op is not None:
+            self._V_boundary_op = V_boundary_op
+        else:
+            self._V_boundary_op = IdentityOperator(
+                self._V_extraction_op.domain,
+            )
+
+        self._weights = weights
+        self._transposed = transposed
+        self._dtype = V.vector_space.dtype
+
+        # set domain and codomain symbolic names
+        self._P_name = self._P.space_id
+
+        if hasattr(V.symbolic_space, "name"):
+            self._V_name = V.symbolic_space.name
+        else:
+            self._V_name = "H1vec"
+
+        if transposed:
+            self._domain_symbolic_name = self._P_name
+            self._codomain_symbolic_name = self._V_name
+        else:
+            self._domain_symbolic_name = self._V_name
+            self._codomain_symbolic_name = self._P_name
+
+        # Are both space scalar spaces : useful to know if _mat will be Stencil or Block Matrix
+        self._is_scalar = True
+        if not isinstance(V, TensorFemSpace):
+            self._is_scalar = False
+            self._mpi_comm = V.vector_space.spaces[0].cart.comm
+        else:
+            self._mpi_comm = V.vector_space.cart.comm
+
+        if not isinstance(P.fem_space, TensorFemSpace):
+            self._is_scalar = False
+
+        # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+        if isinstance(V, TensorFemSpace):
+            self._Vspaces = [V.vector_space]
+            self._V1ds = [V.spaces]
+            self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
+        else:
+            self._Vspaces = V.vector_space
+            self._V1ds = [comp.spaces for comp in V.spaces]
+            self._VNbasis = np.array(
+                [
+                    [self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis],
+                    [
+                        self._V1ds[1][0].nbasis,
+                        self._V1ds[1][1].nbasis,
+                        self._V1ds[1][2].nbasis,
+                    ],
+                    [self._V1ds[2][0].nbasis, self._V1ds[2][1].nbasis, self._V1ds[2][2].nbasis],
+                ]
+            )
+
+        # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+        if isinstance(P.fem_space, TensorFemSpace):
+            self._Wspaces = [P.fem_space.vector_space]
+            self._W1ds = [P.fem_space.spaces]
+            self._periodic = P._periodic
+        else:
+            self._Wspaces = P.fem_space.vector_space
+            self._W1ds = [comp.spaces for comp in P.fem_space.spaces]
+            self._periodic = P._periodic[0]
+
+        # We get the starts and ends of the Projector. They are the same as the starts and end for the rows of the StencilMatrix or BlockLinearOperator
+
+        self._starts = self._P._starts
+        self._ends = self._P._ends
+        self._pds = self._P._pds
+        # Degree of the B-splines
+        self._p = self._P._p
+
+        # ============= create and assemble the Basis Projection Operator matrix =======
+        if self._is_scalar:
+            self._mat = StencilMatrix(V.vector_space, P.fem_space.vector_space)
+        else:
+            self._mat = BlockLinearOperator(
+                V.vector_space,
+                P.fem_space.vector_space,
+            )
+
+        self._mat = self._assemble_mat()
+        # ========================================================
+
+        # build the transposed matrix and applied extraction and boundary operators
+        if transposed:
+            self._mat_T = self._mat.T
+            self._operator = (
+                self._V_boundary_op
+                @ self._V_extraction_op
+                @ self._mat_T
+                @ self._P_extraction_op.T
+                @ self._P_boundary_op.T
+            )
+        else:
+            self._operator = (
+                self._P_boundary_op
+                @ self._P_extraction_op
+                @ self._mat
+                @ self._V_extraction_op.T
+                @ self._V_boundary_op.T
+            )
+
+        # set domain and codomain
+        if transposed:
+            self._domain = self._P.vector_space
+            self._codomain = self._V._vector_space
+        else:
+            self._domain = self._V.vector_space
+            self._codomain = self._P._vector_space
+
+    @property
+    def domain(self):
+        """Domain vector space (input) of the operator."""
+        return self._domain
+
+    @property
+    def codomain(self):
+        """Codomain vector space (input) of the operator."""
+        return self._codomain
+
+    @property
+    def dtype(self):
+        """Datatype of the operator."""
+        return self._dtype
+
+    @property
+    def tosparse(self):
+        return self._mat.tosparse()
+
+    @property
+    def toarray(self):
+        return self._mat.toarray()
+
+    @property
+    def transposed(self):
+        """If the transposed operator is in play."""
+        return self._transposed
+
+    def dot(self, v, out=None):
+        """
+        Applies the basis projection operator to the FE coefficients v.
+
+        Parameters
+        ----------
+        v : psydac.linalg.basic.Vector
+            Vector the operator shall be applied to.
+
+        out : psydac.linalg.basic.Vector, optional
+            If given, the output will be written in-place into this vector.
+
+        Returns
+        -------
+         out : psydac.linalg.basic.Vector
+            The output (codomain) vector.
+        """
+
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        if out is None:
+            out = self._operator.dot(v)
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+            self._operator.dot(v, out=out)
+
+        return out
+
+    def transpose(self):
+        """
+        Returns the transposed operator.
+        """
+        return BasisProjectionOperatorLocal(
+            self._P,
+            self._V,
+            self._weights,
+            self._V_extraction_op,
+            self._V_boundary_op,
+            self._P_extraction_op,
+            self._P_boundary_op,
+            not self.transposed,
+        )
+
+    def update_weights(self, weights):
+        """Updates self.weights and computes new BasisProjectionOperatorLocal matrix.
+
+        Parameters
+        ----------
+        weights : list
+            Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+        """
+
+        self._weights = weights
+
+        # assemble tensor-product dof matrix
+        self._mat = self._assemble_mat()
+
+        # only need to update the transposed in case where it's needed
+        if self._transposed:
+            self._mat_T = self._mat.T
+
+    def _assemble_mat(self):
+        """
+        Assembles the BasisProjectionOperatorLocal. And
+        store it in self._mat.
+        """
+
+        # get the needed data :
+        V = self._V
+        P = self._P
+        weights = self._weights
+
+        # We determine where we have B-splines and where D-splines.
+        if self._V_name == "H1":
+            BoD = ["B", "B", "B"]
+        elif self._V_name == "Hcurl":
+            BoD = [["D", "B", "B"], ["B", "D", "B"], ["B", "B", "D"]]
+        elif self._V_name == "Hdiv":
+            BoD = [["B", "D", "D"], ["D", "B", "D"], ["D", "D", "B"]]
+        elif self._V_name == "L2":
+            BoD = ["D", "D", "D"]
+        elif self._V_name == "H1H1H1":
+            BoD = [["B", "B", "B"], ["B", "B", "B"], ["B", "B", "B"]]
+        else:
+            raise Exception("The FE space name for the input space must be H1, Hcurl, Hdiv, L2 or H1H1H1.")
+
+        if isinstance(self._mat, StencilMatrix):
+            # We get the B and D spline indices this MPI rank must compute
+            eval_indices_B = P._Basis_functions_indices_B
+            eval_indices_D = P._Basis_functions_indices_D
+            if self._V_name == "H1":
+                eval_indices = eval_indices_B
+            elif self._V_name == "L2":
+                eval_indices = eval_indices_D
+
+            # We only use this counter to know if we are calling the Projection for the very first time
+            counter = 0
+            for col0 in eval_indices[0]:
+                for col1 in eval_indices[1]:
+                    for col2 in eval_indices[2]:
+                        if counter == 0:
+                            coeff, weigths_dof = P(
+                                weights[0][0],
+                                weighted=True,
+                                B_or_D=BoD,
+                                basis_indices=[col0, col1, col2],
+                                first_go=True,
+                            )
+                        else:
+                            coeff = P(
+                                weights[0][0],
+                                weighted=True,
+                                B_or_D=BoD,
+                                basis_indices=[
+                                    col0,
+                                    col1,
+                                    col2,
+                                ],
+                                first_go=False,
+                                pre_computed_dofs=weigths_dof,
+                            )
+                        counter += 1
+
+                        assemble_basis_projection_operator_local(
+                            self._starts,
+                            self._ends,
+                            self._pds,
+                            self._periodic,
+                            self._p,
+                            np.array([col0, col1, col2]),
+                            self._VNbasis,
+                            self._mat._data,
+                            coeff,
+                            P._rows_B_or_D_splines_0[BoD[0]][P._translation_indices_B_or_D_splines_0[BoD[0]][col0]],
+                            P._rows_B_or_D_splines_1[BoD[1]][P._translation_indices_B_or_D_splines_1[BoD[1]][col1]],
+                            P._rows_B_or_D_splines_2[BoD[2]][P._translation_indices_B_or_D_splines_2[BoD[2]][col2]],
+                            P._rowe_B_or_D_splines_0[BoD[0]][P._translation_indices_B_or_D_splines_0[BoD[0]][col0]],
+                            P._rowe_B_or_D_splines_1[BoD[1]][P._translation_indices_B_or_D_splines_1[BoD[1]][col1]],
+                            P._rowe_B_or_D_splines_2[BoD[2]][P._translation_indices_B_or_D_splines_2[BoD[2]][col2]],
+                        )
+
+        elif self._P_name == "H1" or self._P_name == "L2":
+            # We get the B and D spline indices this MPI rank must compute
+            eval_indices_B = P._Basis_functions_indices_B
+            eval_indices_D = P._Basis_functions_indices_D
+
+            if self._V_name == "Hcurl":
+                eval_block_0 = [eval_indices_D[0], eval_indices_B[1], eval_indices_B[2]]
+                eval_block_1 = [eval_indices_B[0], eval_indices_D[1], eval_indices_B[2]]
+                eval_block_2 = [eval_indices_B[0], eval_indices_B[1], eval_indices_D[2]]
+
+            elif self._V_name == "Hdiv":
+                eval_block_0 = [eval_indices_B[0], eval_indices_D[1], eval_indices_D[2]]
+                eval_block_1 = [eval_indices_D[0], eval_indices_B[1], eval_indices_D[2]]
+                eval_block_2 = [eval_indices_D[0], eval_indices_D[1], eval_indices_B[2]]
+
+            elif self._V_name == "H1H1H1":
+                eval_block_0 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
+                eval_block_1 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
+                eval_block_2 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
+            else:
+                raise Exception("The input space name is not defined.")
+
+            eval_blocks = [eval_block_0, eval_block_1, eval_block_2]
+            # Filling the hh-th block
+            for hh in range(3):
+                Aux = StencilMatrix(self._Vspaces[hh], self._Wspaces[0])
+                counter = 0
+                for col0 in eval_blocks[hh][0]:
+                    for col1 in eval_blocks[hh][1]:
+                        for col2 in eval_blocks[hh][2]:
+                            if counter == 0:
+                                coeff, weigths_dof = P(
+                                    weights[0][hh],
+                                    weighted=True,
+                                    B_or_D=BoD[hh],
+                                    basis_indices=[
+                                        col0,
+                                        col1,
+                                        col2,
+                                    ],
+                                    first_go=True,
+                                )
+                            else:
+                                coeff = P(
+                                    weights[0][hh],
+                                    weighted=True,
+                                    B_or_D=BoD[hh],
+                                    basis_indices=[
+                                        col0,
+                                        col1,
+                                        col2,
+                                    ],
+                                    first_go=False,
+                                    pre_computed_dofs=weigths_dof,
+                                )
+                            counter += 1
+
+                            assemble_basis_projection_operator_local(
+                                self._starts,
+                                self._ends,
+                                self._pds,
+                                self._periodic,
+                                self._p,
+                                np.array(
+                                    [
+                                        col0,
+                                        col1,
+                                        col2,
+                                    ]
+                                ),
+                                self._VNbasis[hh],
+                                Aux._data,
+                                coeff,
+                                P._rows_B_or_D_splines_0[BoD[hh][0]][
+                                    P._translation_indices_B_or_D_splines_0[BoD[hh][0]][col0]
+                                ],
+                                P._rows_B_or_D_splines_1[BoD[hh][1]][
+                                    P._translation_indices_B_or_D_splines_1[BoD[hh][1]][col1]
+                                ],
+                                P._rows_B_or_D_splines_2[BoD[hh][2]][
+                                    P._translation_indices_B_or_D_splines_2[BoD[hh][2]][col2]
+                                ],
+                                P._rowe_B_or_D_splines_0[BoD[hh][0]][
+                                    P._translation_indices_B_or_D_splines_0[BoD[hh][0]][col0]
+                                ],
+                                P._rowe_B_or_D_splines_1[BoD[hh][1]][
+                                    P._translation_indices_B_or_D_splines_1[BoD[hh][1]][col1]
+                                ],
+                                P._rowe_B_or_D_splines_2[BoD[hh][2]][
+                                    P._translation_indices_B_or_D_splines_2[BoD[hh][2]][col2]
+                                ],
+                            )
+
+                self._mat[(0, hh)] = Aux
+
+        elif self._V_name == "H1" or self._V_name == "L2":
+            # We get the B and D spline indices this MPI rank must compute
+            eval_indices_B = P._Basis_function_indices_mark_B
+            eval_indices_D = P._Basis_function_indices_mark_D
+
+            if self._V_name == "H1":
+                eval_indices = eval_indices_B
+            elif self._V_name == "L2":
+                eval_indices = eval_indices_D
+
+            Aux0 = StencilMatrix(self._Vspaces[0], self._Wspaces[0])
+            Aux1 = StencilMatrix(self._Vspaces[0], self._Wspaces[1])
+            Aux2 = StencilMatrix(self._Vspaces[0], self._Wspaces[2])
+            Aux = [Aux0, Aux1, Aux2]
+            counter = 0
+            for col0 in eval_indices[0]:
+                for col1 in eval_indices[1]:
+                    for col2 in eval_indices[2]:
+                        if counter == 0:
+                            coeff, weigths_dof = P(
+                                [weights[0][0], weights[1][0], weights[2][0]],
+                                weighted=True,
+                                B_or_D=BoD,
+                                basis_indices=[
+                                    col0,
+                                    col1,
+                                    col2,
+                                ],
+                                first_go=True,
+                            )
+                        else:
+                            coeff = P(
+                                [weights[0][0], weights[1][0], weights[2][0]],
+                                weighted=True,
+                                B_or_D=BoD,
+                                basis_indices=[col0, col1, col2],
+                                first_go=False,
+                                pre_computed_dofs=weigths_dof,
+                            )
+                        counter += 1
+
+                        for h in range(3):
+                            assemble_basis_projection_operator_local(
+                                self._starts[h],
+                                self._ends[h],
+                                self._pds[h],
+                                self._periodic,
+                                self._p,
+                                np.array(
+                                    [
+                                        col0,
+                                        col1,
+                                        col2,
+                                    ]
+                                ),
+                                self._VNbasis,
+                                Aux[h]._data,
+                                coeff[h],
+                                P._rows_block_B_or_D_splines[0][h][BoD[0]][
+                                    P._translation_indices_block_B_or_D_splines[0][h][BoD[0]][col0]
+                                ],
+                                P._rows_block_B_or_D_splines[1][h][BoD[1]][
+                                    P._translation_indices_block_B_or_D_splines[1][h][BoD[1]][col1]
+                                ],
+                                P._rows_block_B_or_D_splines[2][h][BoD[2]][
+                                    P._translation_indices_block_B_or_D_splines[2][h][BoD[2]][col2]
+                                ],
+                                P._rowe_block_B_or_D_splines[0][h][BoD[0]][
+                                    P._translation_indices_block_B_or_D_splines[0][h][BoD[0]][col0]
+                                ],
+                                P._rowe_block_B_or_D_splines[1][h][BoD[1]][
+                                    P._translation_indices_block_B_or_D_splines[1][h][BoD[1]][col1]
+                                ],
+                                P._rowe_block_B_or_D_splines[2][h][BoD[2]][
+                                    P._translation_indices_block_B_or_D_splines[2][h][BoD[2]][col2]
+                                ],
+                            )
+
+            for h in range(3):
+                self._mat[(h, 0)] = Aux[h]
+
+        else:
+            # We get the B and D spline indices this MPI rank must compute
+            eval_indices_B = P._Basis_function_indices_mark_B
+            eval_indices_D = P._Basis_function_indices_mark_D
+
+            if self._V_name == "Hcurl":
+                eval_block_0 = [eval_indices_D[0], eval_indices_B[1], eval_indices_B[2]]
+                eval_block_1 = [eval_indices_B[0], eval_indices_D[1], eval_indices_B[2]]
+                eval_block_2 = [eval_indices_B[0], eval_indices_B[1], eval_indices_D[2]]
+            elif self._V_name == "Hdiv":
+                eval_block_0 = [eval_indices_B[0], eval_indices_D[1], eval_indices_D[2]]
+                eval_block_1 = [eval_indices_D[0], eval_indices_B[1], eval_indices_D[2]]
+                eval_block_2 = [eval_indices_D[0], eval_indices_D[1], eval_indices_B[2]]
+
+            elif self._V_name == "H1H1H1":
+                eval_block_0 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
+                eval_block_1 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
+                eval_block_2 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
+            else:
+                raise Exception("The input space name is not defined.")
+
+            eval_blocks = [eval_block_0, eval_block_1, eval_block_2]
+
+            # Iterates over the input block entries
+            for hh in range(3):
+                Aux0 = StencilMatrix(self._Vspaces[hh], self._Wspaces[0])
+                Aux1 = StencilMatrix(self._Vspaces[hh], self._Wspaces[1])
+                Aux2 = StencilMatrix(self._Vspaces[hh], self._Wspaces[2])
+                Aux = [Aux0, Aux1, Aux2]
+                counter = 0
+                for col0 in eval_blocks[hh][0]:
+                    for col1 in eval_blocks[hh][1]:
+                        for col2 in eval_blocks[hh][2]:
+                            if counter == 0:
+                                coeff, weigths_dof = P(
+                                    [weights[0][hh], weights[1][hh], weights[2][hh]],
+                                    weighted=True,
+                                    B_or_D=BoD[hh],
+                                    basis_indices=[
+                                        col0,
+                                        col1,
+                                        col2,
+                                    ],
+                                    first_go=True,
+                                )
+                            else:
+                                coeff = P(
+                                    [weights[0][hh], weights[1][hh], weights[2][hh]],
+                                    weighted=True,
+                                    B_or_D=BoD[hh],
+                                    basis_indices=[
+                                        col0,
+                                        col1,
+                                        col2,
+                                    ],
+                                    first_go=False,
+                                    pre_computed_dofs=weigths_dof,
+                                )
+                            counter += 1
+
+                            # Iterates over the output block entries
+                            for h in range(3):
+                                assemble_basis_projection_operator_local(
+                                    self._starts[h],
+                                    self._ends[h],
+                                    self._pds[h],
+                                    self._periodic,
+                                    self._p,
+                                    np.array(
+                                        [
+                                            col0,
+                                            col1,
+                                            col2,
+                                        ]
+                                    ),
+                                    self._VNbasis[hh],
+                                    Aux[h]._data,
+                                    coeff[h],
+                                    P._rows_block_B_or_D_splines[0][h][BoD[hh][0]][
+                                        P._translation_indices_block_B_or_D_splines[0][h][BoD[hh][0]][col0]
+                                    ],
+                                    P._rows_block_B_or_D_splines[1][h][BoD[hh][1]][
+                                        P._translation_indices_block_B_or_D_splines[1][h][BoD[hh][1]][col1]
+                                    ],
+                                    P._rows_block_B_or_D_splines[2][h][BoD[hh][2]][
+                                        P._translation_indices_block_B_or_D_splines[2][h][BoD[hh][2]][col2]
+                                    ],
+                                    P._rowe_block_B_or_D_splines[0][h][BoD[hh][0]][
+                                        P._translation_indices_block_B_or_D_splines[0][h][BoD[hh][0]][col0]
+                                    ],
+                                    P._rowe_block_B_or_D_splines[1][h][BoD[hh][1]][
+                                        P._translation_indices_block_B_or_D_splines[1][h][BoD[hh][1]][col1]
+                                    ],
+                                    P._rowe_block_B_or_D_splines[2][h][BoD[hh][2]][
+                                        P._translation_indices_block_B_or_D_splines[2][h][BoD[hh][2]][col2]
+                                    ],
+                                )
+
+                for h in range(3):
+                    self._mat[(h, hh)] = Aux[h]
+
+        self._mat.update_ghost_regions()
+        return self._mat
 
 
 class BasisProjectionOperator(LinOpWithTransp):
@@ -1127,6 +1790,25 @@ class BasisProjectionOperator(LinOpWithTransp):
         if out is None:
             out = self.codomain.zeros()
 
+            if self.transposed:
+                # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
+                out = self.dof_operator.dot(
+                    self._P.solve(
+                        v,
+                        True,
+                        apply_bc=True,
+                    ),
+                )
+            else:
+                # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
+                out = self._P.solve(
+                    self.dof_operator.dot(
+                        v,
+                    ),
+                    False,
+                    apply_bc=True,
+                )
+
         assert isinstance(out, Vector)
         assert out.space == self.codomain
 
@@ -1143,7 +1825,7 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         return out
 
-    def transpose(self):
+    def transpose(self, conjugate=False):
         """
         Returns the transposed operator.
         """
@@ -1272,6 +1954,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                     PTS = np.meshgrid(*_ptsG, indexing="ij")
                     mat_w = loc_weight(*PTS).copy()
                 elif isinstance(loc_weight, np.ndarray):
+                    assert loc_weight.shape == (len(_ptsG[0]), len(_ptsG[1]), len(_ptsG[2]))
                     mat_w = loc_weight
                 elif loc_weight is not None:
                     raise TypeError(
@@ -1607,3 +2290,43 @@ class CoordinateInclusion(LinearOperator):
         assert v.space == self._domain
         assert out.space == self._codomain
         out._blocks[self.dir] += v
+
+
+def find_relative_col(col, row, Nbasis, periodic):
+    """Compute the relative row position of a StencilMatrix from the global column and row positions.
+
+    Parameters
+    ----------
+    col : int
+        Global column index.
+
+    row : int
+        Global row index.
+
+    Nbasis : int
+        Number of B(or D)-splines for this particular dimension.
+
+    periodic : bool
+        True if we have periodic boundary conditions in this direction, otherwise False.
+
+    Returns
+    -------
+    relativecol : int
+        The relative column position of col with respect to the the current row of the StencilMatrix.
+
+    """
+    if periodic == False:
+        relativecol = col - row
+    # In the periodic case we must account for the possible looping of the basis functions when computing the relative row postion
+    else:
+        if col <= row:
+            if abs(col - row) <= abs(col + Nbasis - row):
+                relativecol = col - row
+            else:
+                relativecol = col + Nbasis - row
+        else:
+            if abs(col - row) <= abs(col - Nbasis - row):
+                relativecol = col - row
+            else:
+                relativecol = col - Nbasis - row
+    return relativecol

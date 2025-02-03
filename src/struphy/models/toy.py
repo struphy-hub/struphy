@@ -153,16 +153,16 @@ class Vlasov(StruphyModel):
         # project magnetic background
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": ions_params["options"]["PushVxB"]["algo"],
-            "scale_fac": 1.0,
+            "kappa": 1.0,
             "b_eq": self._b_eq,
             "b_tilde": None,
         }
@@ -405,9 +405,9 @@ class ShearAlfven(StruphyModel):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
@@ -1004,9 +1004,9 @@ class DeterministicParticleDiffusion(StruphyModel):
         diffusion_coefficient = params["options"]["PushDeterministicDiffusion"]["diffusion_coefficient"]
 
         # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-        #                                  self.mhd_equil.b2_2,
-        #                                  self.mhd_equil.b2_3])
+        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
+        #                                  self.equil.b2_2,
+        #                                  self.equil.b2_3])
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushDeterministicDiffusion] = {
@@ -1092,9 +1092,9 @@ class RandomParticleDiffusion(StruphyModel):
         diffusion_coefficient = species1_params["options"]["PushRandomDiffusion"]["diffusion_coefficient"]
 
         # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-        #                                  self.mhd_equil.b2_2,
-        #                                  self.mhd_equil.b2_3])
+        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
+        #                                  self.equil.b2_2,
+        #                                  self.equil.b2_3])
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushRandomDiffusion] = {

@@ -9,7 +9,7 @@ Kinetic backgrounds are often thermal equilibria like Maxwellian distributions.
     :parts: 1
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Contents:
 
     kinetic_backgrounds_sub

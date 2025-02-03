@@ -5,7 +5,7 @@ Fluid equilibria
 
 The following inheritance diagram shows the fluid equilibria available in Struphy:
 
-.. inheritance-diagram:: struphy.fields_background.fluid_equils.equils
+.. inheritance-diagram:: struphy.fields_background.fluid_equil.equils
     :parts: 1
 
 .. toctree::

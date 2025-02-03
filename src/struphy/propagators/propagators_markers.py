@@ -5,9 +5,8 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.mass import WeightedMassOperators
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import MHDequilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
@@ -98,9 +97,9 @@ class PushVxB(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \mathbf B\,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa\,\mathbf v_p(t) \times \mathbf B\,,
 
-    for fixed rotation vector :math:`\mathbf B`, given as a 2-form:
+    where :math:`\kappa \in \mathbb R` is a constant saling factor, and for fixed rotation vector :math:`\mathbf B`, given as a 2-form:
 
     .. math::
 
@@ -122,7 +121,7 @@ class PushVxB(Propagator):
         particles: Particles6D,
         *,
         algo: str = options(default=True)["algo"],
-        scale_fac: float = 1.0,
+        kappa: float = 1.0,
         b_eq: BlockVector | PolarVector,
         b_tilde: BlockVector | PolarVector = None,
     ):
@@ -135,7 +134,7 @@ class PushVxB(Propagator):
         super().__init__(particles)
 
         # parameters that need to be exposed
-        self._scale_fac = scale_fac
+        self._kappa = kappa
         self._b_eq = b_eq
         self._b_tilde = b_tilde
         self._tmp = self.derham.Vh["2"].zeros()
@@ -179,11 +178,69 @@ class PushVxB(Propagator):
         b_full.update_ghost_regions()
 
         # call pusher kernel
-        self._pusher(self._scale_fac * dt)
+        self._pusher(self._kappa * dt)
 
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
+
+
+class PushVinEfield(Propagator):
+    r"""Push the velocities according to
+
+    .. math::
+
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, \mathbf{E}(\mathbf{x}_p) \,,
+
+    where :math:`\kappa \in \mathbb R` is a constant and in logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+
+    .. math::
+
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DF^{-\top} \hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
+
+    which is solved analytically.
+    """
+
+    @staticmethod
+    def options():
+        pass
+
+    def __init__(
+        self,
+        particles: Particles6D,
+        *,
+        e_field: BlockVector | PolarVector,
+        kappa: float = 1.0,
+    ):
+        super().__init__(particles)
+
+        self.kappa = kappa
+
+        assert isinstance(e_field, (BlockVector, PolarVector))
+        self._e_field = e_field
+
+        # instantiate Pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._e_field.blocks[0]._data,
+            self._e_field.blocks[1]._data,
+            self._e_field.blocks[2]._data,
+            self.kappa,
+        )
+
+        self._pusher = Pusher(
+            particles,
+            pusher_kernels.push_v_with_efield,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+    def __call__(self, dt):
+        """
+        TODO
+        """
+        self._pusher(dt)
 
 
 class PushEtaPC(Propagator):
@@ -362,10 +419,10 @@ class PushGuidingCenterBxEstar(Propagator):
         super().__init__(particles)
 
         # magnetic equilibrium field
-        unit_b1 = self.projected_mhd_equil.unit_b1
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        unit_b1 = self.projected_equil.unit_b1
+        self._gradB1 = self.projected_equil.gradB1
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde
@@ -609,7 +666,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
             else:
                 raise NotImplementedError(
-                    f'Chosen method {algo["method"]} is not implemented.',
+                    f"Chosen method {algo['method']} is not implemented.",
                 )
 
             # Pusher instance
@@ -770,11 +827,11 @@ class PushGuidingCenterParallel(Propagator):
         self._epsilon = epsilon
 
         # magnetic equilibrium field
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        b2 = self.projected_mhd_equil.b2
-        curl_unit_b2 = self.projected_mhd_equil.curl_unit_b2
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        self._gradB1 = self.projected_equil.gradB1
+        b2 = self.projected_equil.b2
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde
@@ -1023,7 +1080,7 @@ class PushGuidingCenterParallel(Propagator):
 
             else:
                 raise NotImplementedError(
-                    f'Chosen method {algo["method"]} is not implemented.',
+                    f"Chosen method {algo['method']} is not implemented.",
                 )
 
             # Pusher instance
@@ -1104,64 +1161,6 @@ class PushGuidingCenterParallel(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
-
-
-class PushVinEfield(Propagator):
-    r"""Push the velocities according to
-
-    .. math::
-
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, \mathbf{E}(\mathbf{x}_p) \,,
-
-    and in logical coordinates given by :math:`\mathbf x = F(\boldsymbol \eta)`:
-
-    .. math::
-
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DF^{-\top} \hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
-
-    which is solved analytically.
-    """
-
-    @staticmethod
-    def options():
-        pass
-
-    def __init__(
-        self,
-        particles: Particles6D,
-        *,
-        e_field: BlockVector | PolarVector,
-        kappa: float = 1.0,
-    ):
-        super().__init__(particles)
-
-        self.kappa = kappa
-
-        assert isinstance(e_field, (BlockVector, PolarVector))
-        self._e_field = e_field
-
-        # instantiate Pusher
-        args_kernel = (
-            self.derham.args_derham,
-            self._e_field.blocks[0]._data,
-            self._e_field.blocks[1]._data,
-            self._e_field.blocks[2]._data,
-            self.kappa,
-        )
-
-        self._pusher = Pusher(
-            particles,
-            pusher_kernels.push_v_with_efield,
-            args_kernel,
-            self.domain.args_domain,
-            alpha_in_kernel=1.0,
-        )
-
-    def __call__(self, dt):
-        """
-        TODO
-        """
-        self._pusher(dt)
 
 
 class StepStaticEfield(Propagator):

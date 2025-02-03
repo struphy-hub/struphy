@@ -138,58 +138,41 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     domain : Domain
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
-    equil : MHDequilibrium | BraginskiiEquilibrium
+    equil : FluidEquilibrium
         The equilibrium object.
     """
 
-    from struphy.fields_background.braginskii_equil import equils as braginskii_equils
-    from struphy.fields_background.mhd_equil import equils as mhd_equils
-    from struphy.fields_background.mhd_equil.base import LogicalMHDequilibrium
+    from struphy.fields_background import equils
+    from struphy.fields_background.base import (
+        NumericalFluidEquilibrium,
+        NumericalFluidEquilibriumWithB,
+        NumericalMHDequilibrium,
+    )
     from struphy.geometry import domains
 
-    if "mhd_equilibrium" in params:
-        mhd_type = params["mhd_equilibrium"]["type"]
-        mhd_class = getattr(mhd_equils, mhd_type)
+    if "fluid_background" in params:
+        for eq_type, eq_params in params["fluid_background"].items():
+            eq_class = getattr(equils, eq_type)
+            if eq_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
+                equil = eq_class(**eq_params, units=units)
+            else:
+                equil = eq_class(**eq_params)
 
-        if mhd_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
-            equil = mhd_class(
-                units=units,
-                **params["mhd_equilibrium"][mhd_type],
-            )
-        else:
-            equil = mhd_class(**params["mhd_equilibrium"][mhd_type])
-
-        # for logical MHD equilibria, the domain comes with the equilibrium
-        if isinstance(equil, LogicalMHDequilibrium):
+        # for numerical equilibria, the domain comes from the equilibrium
+        if isinstance(equil, (NumericalMHDequilibrium, NumericalFluidEquilibrium, NumericalFluidEquilibriumWithB)):
             domain = equil.domain
-        # for cartesian MHD equilibria, the domain can be chosen idependently
+        # for all other equilibria, the domain can be chosen idependently
         else:
             dom_type = params["geometry"]["type"]
             dom_class = getattr(domains, dom_type)
 
             if dom_type == "Tokamak":
-                domain = dom_class(
-                    **params["geometry"][dom_type],
-                    equilibrium=equil,
-                )
+                domain = dom_class(**params["geometry"][dom_type], equilibrium=equil)
             else:
                 domain = dom_class(**params["geometry"][dom_type])
 
             # set domain attribute in mhd object
             equil.domain = domain
-
-    elif "braginskii_equilibrium" in params:
-        dom_type = params["geometry"]["type"]
-        dom_class = getattr(domains, dom_type)
-        domain = dom_class(**params["geometry"][dom_type])
-
-        br_eq_type = params["braginskii_equilibrium"]["type"]
-        br_eq_class = getattr(braginskii_equils, br_eq_type)
-
-        equil = br_eq_class(
-            **params["braginskii_equilibrium"][br_eq_type],
-        )
-        equil.domain = domain
 
     # no equilibrium (just load domain)
     else:

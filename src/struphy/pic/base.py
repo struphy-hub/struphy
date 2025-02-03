@@ -9,11 +9,10 @@ from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.fluid_equils import equils as fluid_equils
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+from struphy.fields_background import equils
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
+from struphy.fields_background.equils import set_defaults
+from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
@@ -82,11 +81,8 @@ class Particles(metaclass=ABCMeta):
     domain : Domain
         Struphy domain object.
 
-    mhd_equil : MHDequilibrium
-        Struphy MHD equilibrium object.
-
-    braginskii_equil : BraginskiiEquilibrium
-        Struphy Braginskii equilibrium object.
+    equil : FluidEquilibrium
+        Struphy fluid equilibrium object.
 
     bckgr_params : dict
         Kinetic background parameters.
@@ -100,8 +96,8 @@ class Particles(metaclass=ABCMeta):
     ppc : int
         Particles per cell (optional).
 
-    projected_mhd_equil : ProjectedMHDequilibrium
-        Struphy MHD equilibrium projected into a discrete Derham complex.
+    projected_equil : ProjectedFluidEquilibrium
+        Struphy fluid equilibrium projected into a discrete Derham complex.
 
     """
 
@@ -121,13 +117,12 @@ class Particles(metaclass=ABCMeta):
         comm: Intracomm = None,
         inter_comm: Intracomm = None,
         domain: Domain = None,
-        mhd_equil: MHDequilibrium = None,
-        braginskii_equil: BraginskiiEquilibrium = None,
+        equil: FluidEquilibrium = None,
         bckgr_params: dict = None,
         pert_params: dict = None,
         domain_array: np.ndarray = None,
         ppc: int = None,
-        projected_mhd_equil: ProjectedMHDequilibrium = None,
+        projected_equil: ProjectedFluidEquilibrium = None,
     ):
         self._name = name
 
@@ -196,13 +191,15 @@ class Particles(metaclass=ABCMeta):
         assert self.Np >= self.mpi_size
 
         self._domain = domain
-        self._mhd_equil = mhd_equil
-        self._projected_mhd_equil = projected_mhd_equil
-        self._braginskii_equil = braginskii_equil
+        self._equil = equil
+        self._projected_equil = projected_equil
 
         # background and perturbations
         if bckgr_params is None:
-            bckgr_params = {"type": "Maxwellian3D"}
+            bckgr_params = {"Maxwellian3D": {}, "pforms": [None, None]}
+
+        # background p-form description in [eta, v] (None means 0-form, "vol" means volume form -> divide by det)
+        self._pforms = bckgr_params.pop("pforms", [None, None])
 
         self._bckgr_params = bckgr_params
         self._pert_params = pert_params
@@ -226,13 +223,6 @@ class Particles(metaclass=ABCMeta):
 
         self._equation_params = equation_params
 
-        # background p-form description (default: None, which means 0-form)
-        if "pforms" in bckgr_params:
-            assert len(bckgr_params["pforms"]) == 2, "Only two form degrees can be given!"
-            self._pforms = bckgr_params["pforms"]
-        else:
-            self._pforms = [None, None]
-
         # create marker array
         self.create_marker_array()
 
@@ -242,46 +232,36 @@ class Particles(metaclass=ABCMeta):
         self._is_outside_left = np.zeros(n_rows, dtype=bool)
         self._is_outside = np.zeros(n_rows, dtype=bool)
 
-        # Check if control variate
+        # check if control variate
         self._control_variate = self.type == "control_variate"
 
         # set background function
-        bckgr_type = bckgr_params["type"]
-
-        if not isinstance(bckgr_type, list):
-            bckgr_type = [bckgr_type]
-
         self._f0 = None
-        for fi in bckgr_type:
+        for fi, maxw_params in bckgr_params.items():
             if fi[-2] == "_":
                 fi_type = fi[:-2]
             else:
                 fi_type = fi
-            if fi in bckgr_params:
-                maxw_params = bckgr_params[fi]
-                pass_mhd_equil = mhd_equil
-                pass_braginskii_equil = braginskii_equil
-            else:
-                maxw_params = None
-                pass_mhd_equil = None
-                pass_braginskii_equil = None
 
-                print(f"\n{fi} is not in bckgr_params; default background parameters are used.")
+            # SPH case: f0 is set to n0
             if self.loading_params["moments"] == "degenerate":
-                equils = getattr(fluid_equils, fi_type)
-                equils.domain = self.domain
+                eq_class = getattr(equils, fi_type)
+                eq_class.domain = self.domain
                 if self._f0 is None:
-                    self._f0 = lambda eta: equils.n0(*eta)
+                    self._f0 = lambda eta: eq_class.n0(*eta)
                 else:
-                    self._f0 = self._f0 + (lambda eta: equils.n0(*eta))
+                    self._f0 = self._f0 + (lambda eta: eq_class.n0(*eta))
+            # default case
             else:
                 if self._f0 is None:
                     self._f0 = getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params, mhd_equil=pass_mhd_equil, braginskii_equil=pass_braginskii_equil
+                        maxw_params=maxw_params,
+                        equil=equil,
                     )
                 else:
                     self._f0 = self._f0 + getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params, mhd_equil=pass_mhd_equil, braginskii_equil=pass_braginskii_equil
+                        maxw_params=maxw_params,
+                        equil=equil,
                     )
 
         # set coordinates of the background distribution
@@ -599,19 +579,14 @@ class Particles(metaclass=ABCMeta):
         return self._domain
 
     @property
-    def mhd_equil(self):
-        """From :mod:`struphy.fields_background.mhd_equil.equils`."""
-        return self._mhd_equil
+    def equil(self):
+        """From :mod:`struphy.fields_background.equils`."""
+        return self._equil
 
     @property
-    def projected_mhd_equil(self):
+    def projected_equil(self):
         """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_mhd_equil
-
-    @property
-    def braginskii_equil(self):
-        """From :mod:`struphy.fields_background.braginskii_equil.equils`."""
-        return self._braginskii_equil
+        return self._projected_equil
 
     @property
     def lost_markers(self):
@@ -1130,30 +1105,19 @@ class Particles(metaclass=ABCMeta):
                     "Specified particle loading method does not exist!",
                 )
 
-            # initial velocities:
+            # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
             if self.loading_params["moments"] == "degenerate":
-                bckgr_type = self.bckgr_params["type"]
-                bp_copy = copy.deepcopy(self.bckgr_params)
-                pp_copy = copy.deepcopy(self.pert_params)
-
-                if not isinstance(bckgr_type, list):
-                    bckgr_type = [bckgr_type]
                 self._f_init = None
-                for fi in bckgr_type:
+                for fi, params in self.bckgr_params.items():
                     if fi[-2] == "_":
                         fi_type = fi[:-2]
                     else:
                         fi_type = fi
 
-                    pert_params = pp_copy
-                    if pp_copy is not None:
-                        if fi in pp_copy.keys():
-                            pert_params = pp_copy[fi]
-
                     if self._f_init is None:
-                        self._f_init = getattr(fluid_equils, fi_type)(**bp_copy[fi])
+                        self._f_init = getattr(equils, fi_type)(**params)
                     else:
-                        self._f_init = self._f_init + getattr(fluid_equils, fi_type)(**bp_copy[fi])
+                        self._f_init = self._f_init + getattr(equils, fi_type)(**params)
                 self.velocities = np.array(self._f_init.u_xyz(*self.phasespace_coords[:, 0:3].T)).T
 
             else:
@@ -1308,7 +1272,12 @@ class Particles(metaclass=ABCMeta):
 
         self.mpi_comm.Barrier()
 
-    def initialize_weights(self):
+    def initialize_weights(
+        self,
+        *,
+        bckgr_params=None,
+        pert_params=None,
+    ):
         r"""
         Computes the initial weights
 
@@ -1320,24 +1289,36 @@ class Particles(metaclass=ABCMeta):
         and from the initial volume density :math:`s^n_{\textnormal{vol}}` specified in :meth:`~struphy.pic.base.Particles.draw_markers`.
         Moreover, it sets the corresponding columns for "w0", "s0" and "weights" in the markers array.
         If :attr:`~struphy.pic.base.Particles.control_variate` is True, the background :attr:`~struphy.pic.base.Particles.f0` is subtracted.
+
+        Parameters
+        ----------
+        bckgr_params : dict
+            Kinetic background parameters.
+
+        pert_params : dict
+            Kinetic perturbation parameters for initial condition.
         """
 
         assert self.domain is not None, "A domain is needed to initialize weights."
+
+        # set background paramters
+        if bckgr_params is not None:
+            self._bckgr_params = bckgr_params
+
+        # set perturbation paramters
+        if pert_params is not None:
+            self._pert_params = pert_params
 
         # compute s0 and save at vdim + 4
         self.sampling_density = self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
-        bckgr_type = self.bckgr_params["type"]
         bp_copy = copy.deepcopy(self.bckgr_params)
         pp_copy = copy.deepcopy(self.pert_params)
 
-        if not isinstance(bckgr_type, list):
-            bckgr_type = [bckgr_type]
-
         # Prepare delta-f perturbation parameters
         if self.type == "delta_f":
-            for fi in bckgr_type:
+            for fi in bp_copy:
                 if fi[-2] == "_":
                     fi_type = fi[:-2]
                 else:
@@ -1345,27 +1326,20 @@ class Particles(metaclass=ABCMeta):
 
                 if pp_copy is not None:
                     # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
-                    if fi in pp_copy.keys():
-                        if "use_background_n" in pp_copy[fi].keys():
+                    if fi in pp_copy:
+                        if "use_background_n" in pp_copy[fi]:
                             if not pp_copy[fi]["use_background_n"]:
-                                if fi in bp_copy:
-                                    bp_copy[fi]["n"] = 0.0
-                                else:
-                                    bp_copy[fi] = {"n": 0.0}
+                                bp_copy[fi]["n"] = 0.0
                         else:
                             bp_copy[fi]["n"] = 0.0
-
                     else:
-                        if fi in bp_copy:
-                            bp_copy[fi]["n"] = 0.0
-                        else:
-                            bp_copy[fi] = {"n": 0.0}
+                        bp_copy[fi]["n"] = 0.0
 
         # Get the initialization function and pass the correct arguments
         if self.loading_params["moments"] != "degenerate":
             # In SPH case f_init is set in draw_markers
             self._f_init = None
-            for fi in bckgr_type:
+            for fi, maxw_params in bp_copy.items():
                 if fi[-2] == "_":
                     fi_type = fi[:-2]
                 else:
@@ -1373,22 +1347,20 @@ class Particles(metaclass=ABCMeta):
 
                 pert_params = pp_copy
                 if pp_copy is not None:
-                    if fi in pp_copy.keys():
+                    if fi in pp_copy:
                         pert_params = pp_copy[fi]
 
                 if self._f_init is None:
                     self._f_init = getattr(maxwellians, fi_type)(
-                        maxw_params=bp_copy[fi],
+                        maxw_params=maxw_params,
                         pert_params=pert_params,
-                        mhd_equil=self.mhd_equil,
-                        braginskii_equil=self.braginskii_equil,
+                        equil=self.equil,
                     )
                 else:
                     self._f_init = self._f_init + getattr(maxwellians, fi_type)(
-                        maxw_params=bp_copy[fi],
+                        maxw_params=maxw_params,
                         pert_params=pert_params,
-                        mhd_equil=self.mhd_equil,
-                        braginskii_equil=self.braginskii_equil,
+                        equil=self.equil,
                     )
 
         # evaluate initial distribution function
@@ -1629,15 +1601,11 @@ class Particles(metaclass=ABCMeta):
 
     def auto_sampling_params(self):
         """Automatically determine sampling parameters from the background given"""
-        bckgr_type = self.bckgr_params["type"]
-        if not isinstance(bckgr_type, list):
-            bckgr_type = [bckgr_type]
-
         ns = []
         us = []
         vths = []
 
-        for fi in bckgr_type:
+        for fi, params in self.bckgr_params.items():
             if fi[-2] == "_":
                 fi_type = fi[:-2]
             else:
@@ -1649,22 +1617,22 @@ class Particles(metaclass=ABCMeta):
             bckgr = getattr(maxwellians, fi_type)
             default_maxw_params = bckgr.default_maxw_params()
 
-            for key in default_maxw_params.keys():
+            for key in default_maxw_params:
                 if key[0] == "n":
-                    if key in self.bckgr_params[fi].keys():
-                        ns += [self.bckgr_params[fi][key]]
+                    if key in params:
+                        ns += [params[key]]
                     else:
                         ns += [1.0]
 
                 elif key[0] == "u":
-                    if key in self.bckgr_params[fi].keys():
-                        us[-1] += [self.bckgr_params[fi][key]]
+                    if key in params:
+                        us[-1] += [params[key]]
                     else:
                         us[-1] += [0.0]
 
                 elif key[0] == "v":
-                    if key in self.bckgr_params[fi].keys():
-                        vths[-1] += [self.bckgr_params[fi][key]]
+                    if key in params:
+                        vths[-1] += [params[key]]
                     else:
                         vths[-1] += [1.0]
 
@@ -1726,7 +1694,7 @@ class Particles(metaclass=ABCMeta):
                     outside_inds = outside_inds[~gyro_inside_inds]
 
             # do phi boundary transfer = phi_loss - 2*q(r_loss)*theta_loss
-            self.markers[outside_inds, 2] -= 2 * self.mhd_equil.q_r(r_loss) * self.markers[outside_inds, 1]
+            self.markers[outside_inds, 2] -= 2 * self.equil.q_r(r_loss) * self.markers[outside_inds, 1]
 
             # theta_boudary_transfer = - theta_loss
             self.markers[outside_inds, 1] = 1.0 - self.markers[outside_inds, 1]
@@ -1773,7 +1741,8 @@ class Particles(metaclass=ABCMeta):
         v = self.markers[outside_inds, 3:6].T
 
         # eval cartesian equilibrium magnetic field at the marker positions
-        b_cart, xyz = self.mhd_equil.b_cart(self.markers[outside_inds, :])
+        assert isinstance(self.equil, FluidEquilibriumWithB), "Gyro transfer function needs a magnetic background."
+        b_cart, xyz = self.equil.b_cart(self.markers[outside_inds, :])
 
         # calculate magnetic field amplitude and normalized magnetic field
         absB0 = np.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
@@ -1803,7 +1772,7 @@ class Particles(metaclass=ABCMeta):
         new_xyz = self.domain(self.markers[outside_inds, :])
 
         # eval cartesian equilibrium magnetic field at the marker positions
-        b_cart = self.mhd_equil.b_cart(self.markers[outside_inds, :])[0]
+        b_cart = self.equil.b_cart(self.markers[outside_inds, :])[0]
 
         # calculate magnetic field amplitude and normalized magnetic field
         absB0 = np.sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
