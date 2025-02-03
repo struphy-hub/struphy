@@ -701,22 +701,18 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # kinetic parameters
         self._species_params = params["kinetic"]["species1"]
-        # kinetic background params
-        bckgr_params = self._species_params["background"]
-        bckgr_type = bckgr_params["type"]
 
         # Assert Maxwellian background (if list, the first entry is taken)
-        if isinstance(bckgr_type, list):
-            assert bckgr_type[0][:-2] == "Maxwellian3D", (
-                "The background distribution function must be a uniform Maxwellian!"
-            )
-            self._f0 = getattr(maxwellians, bckgr_type[0][:-2])(
-                maxw_params=bckgr_params[bckgr_type[0]],
+        bckgr_params = self._species_params["background"]
+        li_bp = list(bckgr_params)
+        assert li_bp[0] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
+        if len(li_bp) > 1:
+            # overwrite f0 with single Maxwellian
+            self._f0 = getattr(maxwellians, li_bp[0][:-2])(
+                maxw_params=bckgr_params[li_bp[0]],
             )
         else:
-            assert self._species_params["background"]["type"] == "Maxwellian3D", (
-                "The background distribution function must be a uniform Maxwellian!"
-            )
+            # keep allocated background
             self._f0 = self.pointer["species1"].f0
 
         # Assert uniformity of the Maxwellian background

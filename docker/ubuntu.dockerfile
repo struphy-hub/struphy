@@ -32,8 +32,6 @@ RUN apt update -y && apt clean \
 # create new working dir
 WORKDIR /struphy_install/
 
-COPY dist/struphy*.whl .
-
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1

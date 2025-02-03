@@ -39,14 +39,14 @@ mhd_equilibrium :
 
 em_fields :
     perturbation :
-        type : ModesSin # type of initialization
-        ModesSin :
-            comps : {b2: [null, null, 'physical']} # components to be initialized (for scalar fields: no list)
-            ls : {b2: [null, null, [1]]} # Integer mode numbers in x or eta_1 (depending on coords)
-            amps : {b2: [null, null, [0.001]]} # amplitudes of each mode
-            Lx : 7.853981633974483 # 2*pi/0.8
-            Ly : 1.
-            Lz : 1.
+        b2 :
+            ModesSin :
+                given_in_basis : [null, null, 'physical'] # components to be initialized (for scalar fields: no list)
+                ls : [null, null, [1]] # Integer mode numbers in x or eta_1 (depending on coords)
+                amps : [null, null, [0.001]] # amplitudes of each mode
+                Lx : 7.853981633974483 # 2*pi/0.8
+                Ly : 1.
+                Lz : 1.
 
 fluid :
     mhd :
@@ -102,7 +102,6 @@ kinetic :
                 moments : [2.5, 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial : disc # uniform or disc
         background :
-            type : Maxwellian3D
             Maxwellian3D :
                 n : 0.05
                 u1 : 2.5
