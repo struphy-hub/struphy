@@ -1743,7 +1743,7 @@ class Spline(Domain):
 
         # get default control points from default GVEC equilibrium
         if params_map["cx"] is None or params_map["cy"] is None or params_map["cz"] is None:
-            from struphy.fields_background.mhd_equil.equils import GVECequilibrium
+            from struphy.fields_background.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
 

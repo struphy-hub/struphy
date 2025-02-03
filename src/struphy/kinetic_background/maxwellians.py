@@ -2,9 +2,8 @@
 
 import numpy as np
 
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import FluidEquilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.initial import perturbations
 from struphy.kinetic_background import moment_functions
 from struphy.kinetic_background.base import CanonicalMaxwellian, KineticBackground, Maxwellian
@@ -21,11 +20,8 @@ class Maxwellian3D(Maxwellian):
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
-    mhd_equil : MHDequilibrium
-        One of :mod:`~struphy.fields_background.mhd_equil.equils`.
-
-    braginskii_equil : BraginskiiEquilibrium
-        One of :mod:`~struphy.fields_background.braginskii_equil.equils`.
+    equil : FluidEquilibrium
+        One of :mod:`~struphy.fields_background.equils`.
     """
 
     @classmethod
@@ -45,14 +41,12 @@ class Maxwellian3D(Maxwellian):
         self,
         maxw_params: dict = None,
         pert_params: dict = None,
-        mhd_equil: MHDequilibrium = None,
-        braginskii_equil: BraginskiiEquilibrium = None,
+        equil: FluidEquilibrium = None,
     ):
         super().__init__(
             maxw_params=maxw_params,
             pert_params=pert_params,
-            mhd_equil=mhd_equil,
-            braginskii_equil=braginskii_equil,
+            equil=equil,
         )
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
@@ -158,11 +152,8 @@ class GyroMaxwellian2D(Maxwellian):
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
-    mhd_equil : MHDequilibrium
-        One of :mod:`~struphy.fields_background.mhd_equil.equils`.
-
-    braginskii_equil : BraginskiiEquilibrium
-        One of :mod:`~struphy.fields_background.braginskii_equil.equils`.
+    equil : FluidEquilibrium
+        One of :mod:`~struphy.fields_background.equils`.
 
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
@@ -185,15 +176,13 @@ class GyroMaxwellian2D(Maxwellian):
         self,
         maxw_params: dict = None,
         pert_params: dict = None,
-        mhd_equil: MHDequilibrium = None,
-        braginskii_equil: BraginskiiEquilibrium = None,
+        equil: FluidEquilibrium = None,
         volume_form: bool = True,
     ):
         super().__init__(
             maxw_params=maxw_params,
             pert_params=pert_params,
-            mhd_equil=mhd_equil,
-            braginskii_equil=braginskii_equil,
+            equil=equil,
         )
 
         # volume form represenation
@@ -263,7 +252,7 @@ class GyroMaxwellian2D(Maxwellian):
 
         # call equilibrium
         etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-        absB0 = self.mhd_equil.absB0(etas)
+        absB0 = self.equil.absB0(etas)
 
         # J = v_perp/B
         jacobian_det = v[1] / absB0
@@ -318,11 +307,8 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
-    mhd_equil : MHDequilibrium
-        One of :mod:`~struphy.fields_background.mhd_equil.equils`.
-
-    braginskii_equil : BraginskiiEquilibrium
-        One of :mod:`~struphy.fields_background.braginskii_equil.equils`.
+    equil : FluidEquilibrium
+        One of :mod:`~struphy.fields_background.equils`.
 
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
@@ -343,8 +329,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         self,
         maxw_params: dict = None,
         pert_params: dict = None,
-        mhd_equil: MHDequilibrium = None,
-        braginskii_equil: BraginskiiEquilibrium = None,
+        equil: FluidEquilibrium = None,
         volume_form: bool = True,
     ):
         # Set background parameters
@@ -367,8 +352,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
             assert ptype in self.pert_params, f"{ptype} is mandatory in perturbation dictionary."
             self._pert_type = ptype
 
-        self._mhd_equil = mhd_equil
-        self._braginskii_equil = braginskii_equil
+        self._equil = equil
 
         # volume form represenation
         self._volume_form = volume_form
@@ -395,18 +379,11 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         return self._pert_params
 
     @property
-    def mhd_equil(self):
-        """One of :mod:`~struphy.fields_background.mhd_equil.equils`
+    def equil(self):
+        """One of :mod:`~struphy.fields_background.equils`
         in case that moments are to be set in that way, None otherwise.
         """
-        return self._mhd_equil
-
-    @property
-    def braginskii_equil(self):
-        """One of :mod:`~struphy.fields_background.braginskii_equil.equils`
-        in case that moments are to be set in that way, None otherwise.
-        """
-        return self._braginskii_equil
+        return self._equil
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
         r"""TODO"""
@@ -421,7 +398,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         else:
             # call equilibrium
             etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-            absB0 = self.mhd_equil.absB0(etas)
+            absB0 = self.equil.absB0(etas)
 
             return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
 
@@ -467,7 +444,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         """
 
         # calculate rc²
-        rc_squared = (psic - self.mhd_equil.psi_range[0]) / (self.mhd_equil.psi_range[1] - self.mhd_equil.psi_range[0])
+        rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
         # sorting out indices of negative rc²
         neg_index = np.logical_not(rc_squared >= 0)
@@ -562,14 +539,12 @@ class ColdPlasma(Maxwellian):
         self,
         maxw_params: dict = None,
         pert_params: dict = None,
-        mhd_equil: MHDequilibrium = None,
-        braginskii_equil: BraginskiiEquilibrium = None,
+        equil: FluidEquilibrium = None,
     ):
         super().__init__(
             maxw_params=maxw_params,
             pert_params=pert_params,
-            mhd_equil=mhd_equil,
-            braginskii_equil=braginskii_equil,
+            equil=equil,
         )
 
         # make sure temperatures are zero

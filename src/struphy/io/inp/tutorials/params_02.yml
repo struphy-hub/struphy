@@ -28,8 +28,7 @@ geometry :
         l3 : 0. # start of interval in eta3
         r3 : 1. # end of interval in eta3, r3>l3 
 
-mhd_equilibrium :
-    type : HomogenSlab # (possible choices seen below)
+fluid_background :
     HomogenSlab :
         B0x  : 1. # magnetic field in x
         B0y  : 0. # magnetic field in y

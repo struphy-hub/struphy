@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
+from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline
 from struphy.geometry.utilities import field_line_tracing
 
@@ -15,7 +15,7 @@ class Tokamak(PoloidalSplineTorus):
 
     Parameters
     ----------
-    equilibrium : struphy.fields_background.mhd_equil.base.AxisymmMHDequilibrium
+    equilibrium : struphy.fields_background.base.AxisymmMHDequilibrium
         The axisymmetric MHD equilibrium for which a flux-aligned grid shall be constructed (default: AdhocTorus).
     Nel : tuple[int]
         Number of cells in (radial, angular) direction to be used in spline mapping (default: [8, 32]).
@@ -67,7 +67,7 @@ class Tokamak(PoloidalSplineTorus):
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
-        from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
+        from struphy.fields_background.equils import EQDSKequilibrium
 
         # default MHD equilibrium
         if equilibrium is None:
@@ -158,7 +158,7 @@ class GVECunit(Spline):
 
     Parameters
     ----------
-    gvec_equil : struphy.fields_background.mhd_equil.equils.GVECequilibrium
+    gvec_equil : struphy.fields_background.equils.GVECequilibrium
         GVEC MHD equilibrium object.
 
     Note
@@ -170,7 +170,7 @@ class GVECunit(Spline):
     """
 
     def __init__(self, gvec_equil=None):
-        from struphy.fields_background.mhd_equil.equils import GVECequilibrium
+        from struphy.fields_background.equils import GVECequilibrium
         from struphy.geometry.base import interp_mapping
 
         if gvec_equil is None:
@@ -229,7 +229,7 @@ class DESCunit(Spline):
 
     Parameters
     ----------
-    desc_equil : struphy.fields_background.mhd_equil.equils.DESCequilibrium
+    desc_equil : struphy.fields_background.equils.DESCequilibrium
         DESC MHD equilibrium object.
 
     Note
@@ -241,7 +241,7 @@ class DESCunit(Spline):
     """
 
     def __init__(self, desc_equil=None):
-        from struphy.fields_background.mhd_equil.equils import DESCequilibrium
+        from struphy.fields_background.equils import DESCequilibrium
         from struphy.geometry.base import interp_mapping
 
         if desc_equil is None:

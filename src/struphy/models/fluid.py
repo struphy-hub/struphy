@@ -92,12 +92,12 @@ class LinearMHD(StruphyModel):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -257,19 +257,19 @@ class LinearExtendedMHDuniform(StruphyModel):
         # project background magnetic field (1-form) and pressure (3-form)
         self._b_eq = self.derham.P["1"](
             [
-                self.mhd_equil.b1_1,
-                self.mhd_equil.b1_2,
-                self.mhd_equil.b1_3,
+                self.equil.b1_1,
+                self.equil.b1_2,
+                self.equil.b1_3,
             ]
         )
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self.pointer["mhd_p"].space.zeros()
         # project background vector potential (1-form)
         self._a_eq = self.derham.P["1"](
             [
-                self.mhd_equil.a1_1,
-                self.mhd_equil.a1_2,
-                self.mhd_equil.a1_3,
+                self.equil.a1_1,
+                self.equil.a1_2,
+                self.equil.a1_3,
             ]
         )
 

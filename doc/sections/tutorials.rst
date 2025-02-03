@@ -9,10 +9,13 @@ The objects used in these notebooks are the same as in the available :ref:`model
 They can thus be used for MPI parallel runs in HPC applications.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Notebook tutorials:
 
    ../tutorials/tutorial_01_test_particles
+   ../tutorials/tutorial_01b_discrete_derham
+   ../tutorials/tutorial_01c_mapped_domains
+   ../tutorials/tutorial_01d_mhd_equilibria
    ../tutorials/tutorial_02_poisson
    ../tutorials/tutorial_03_heat_equation
    ../tutorials/tutorial_04_maxwell
