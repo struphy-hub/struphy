@@ -95,8 +95,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
     def propagators_dct():
         return {
             propagators_markers.PushEta: ["species1"],
-            propagators_coupling.VlasovAmpere: ["e_field", "species1"],
             propagators_markers.PushVxB: ["species1"],
+            propagators_coupling.VlasovAmpere: ["e_field", "species1"],
         }
 
     __em_fields__ = species()["em_fields"]
@@ -165,11 +165,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {"algo": algo_eta}
 
-        self._kwargs[propagators_coupling.VlasovAmpere] = {
-            "c1": self._alpha**2 / self._epsilon,
-            "solver": params_coupling,
-        }
-
         # Only add PushVxB if magnetic field is not zero
         self._kwargs[propagators_markers.PushVxB] = None
         if self._b_background is not None:
@@ -178,6 +173,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 "b_eq": self._b_background,
                 "kappa": 1.0 / self._epsilon,
             }
+
+        self._kwargs[propagators_coupling.VlasovAmpere] = {
+            "c1": self._alpha**2 / self._epsilon,
+            "c2": 1.0 / self._epsilon,
+            "solver": params_coupling,
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -256,10 +257,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         en_E = self.pointer["e_field"].dot(self._tmp1) / 2.0
         self.update_scalar("en_E", en_E)
 
-        # alpha^2 / epsilon / 2 / N * sum_p w_p v_p^2
+        # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = (
             self._alpha**2
-            / self._epsilon
             / (2 * self.pointer["species1"].n_mks)
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
