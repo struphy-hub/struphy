@@ -77,7 +77,7 @@ class AnalyticSolutionRestelli(FluidEquilibrium):
     # equilibrium pressure
     def p_xyz(self, x, y, z):
         """Plasma pressure."""
-        pp = 0.5*self.params["a"]*self.params["B0"]*self.params["alpha"]*(((np.sqrt(x**2+y**2)-self.params["a"])**2 + z**2)/self.params["a"]**2-2/3)
+        pp = 0.5*self.params["a"]*self.params["B0"]*self.params["alpha"]*(((np.sqrt(x**2+y**2)-self.params["R0"])**2 + z**2)/self.params["a"]**2-2/3)
 
         return pp
 

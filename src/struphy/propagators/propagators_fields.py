@@ -7555,10 +7555,10 @@ class Stokes(Propagator):
 
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
         _fun = getattr(perturbations, "forcingterm")(
-            self._nu, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta
+            self._nu, self._R0, self._a, self._B0, self._Bp, self._alpha, self._beta
         )
         _fun_electrons = getattr(perturbations, "forcingterm")(
-            self._nu_e, self._a, self._R0, self._B0, self._Bp, self._alpha, self._beta
+            self._nu_e, self._R0, self._a, self._B0, self._Bp, self._alpha, self._beta
         )
 
         # get callable(s) for specified init type
