@@ -2298,13 +2298,13 @@ class WeightedMassOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def tosparse(self):
-        raise NotImplementedError()
+    #@property
+    #def tosparse(self):
+        #raise NotImplementedError()
 
-    @property
-    def toarray(self):
-        raise NotImplementedError()
+    #@property
+    #def toarray(self):
+        #raise NotImplementedError()
 
     @property
     def M(self):

@@ -76,18 +76,34 @@ def jacobi(A, b, x_init=None, tol=1e-10, max_iter=1000, verbose = False):
 def direct_solver(A_inv,b, fem_space):
     # A_inv is already the inverse matrix of A
     #fem_space = derham.Vh_fem[sp_key]
-    spaces = fem_space.spaces
-    space = spaces[0]
-    N = space.nbasis
-    starts = np.array(fem_space.vector_space.starts)
+    symbolic_name = fem_space.symbolic_space.name
     
-    b_vector = remove_padding(fem_space, b)
-    x_vector = np.dot(A_inv, b_vector)
-    x = fem_space.vector_space.zeros()
-    
-    for i in range(N):
-        x[starts[0]+i,0,0] = x_vector[i]
+    if(symbolic_name == 'H1' or symbolic_name == "L2"):
+        spaces = [fem_space.spaces]
+        N = [spaces[0][i].nbasis for i in range(3)]
+        starts = np.array(fem_space.vector_space.starts)
         
+        b_vector = remove_padding(fem_space, b)
+        x_vector = np.dot(A_inv, b_vector)
+        x = fem_space.vector_space.zeros()
+        
+        for i in range(N[0]):
+            x[starts[0]+i,0,0] = x_vector[i]
+            
+    else:
+        spaces = [comp.spaces for comp in fem_space.spaces]
+        N = [[spaces[h][i].nbasis for i in range(3)] for h in range(3)]
+        starts = np.array([vi.starts for vi in fem_space.vector_space.spaces])
+        
+        b_vector = remove_padding(fem_space, b)
+        x_vector = np.dot(A_inv, b_vector)
+        x = fem_space.vector_space.zeros()
+        
+        cont = 0
+        for h in range(3):
+            for i in range(N[h][0]):
+                x[h][starts[h][0]+i,0,0] = x_vector[cont]
+                cont += 1
     return x
     
 
@@ -139,16 +155,34 @@ def get_b_spline_degree(V):
 def remove_padding(fem_space, v):
     
     #fem_space = derham.Vh_fem[sp_key]
-    spaces = fem_space.spaces
-    space = spaces[0]
-    N = space.nbasis
+    symbolic_name = fem_space.symbolic_space.name
     
-    starts = np.array(fem_space.vector_space.starts)
+    if(symbolic_name == 'H1' or symbolic_name == "L2"):
     
-    #To make it easier to read I will extract the data out of out disregarding all the padding it come with
-    v_array = np.zeros(N, dtype=float)
-    for i in range(N):
-        v_array[i] = v[starts[0]+i,0,0]
+        spaces = [fem_space.spaces]
+        N = [spaces[0][i].nbasis for i in range(3)]
+        
+        starts = np.array(fem_space.vector_space.starts)
+        
+        #To make it easier to read I will extract the data out of out disregarding all the padding it come with
+        v_array = np.zeros(N[0], dtype=float)
+        for i in range(N[0]):
+            v_array[i] = v[starts[0]+i,0,0]
+            
+    else:
+        spaces = [comp.spaces for comp in fem_space.spaces]
+        N = [[spaces[h][i].nbasis for i in range(3)] for h in range(3)]
+        
+        starts = np.array([vi.starts for vi in fem_space.vector_space.spaces])
+        
+        #To make it easier to read I will extract the data out of out disregarding all the padding it come with
+        v_array = np.zeros(N[0][0]+N[1][0]+N[2][0], dtype=float)
+        cont = 0
+        for h in range(3):
+            for i in range(N[h][0]):
+                v_array[cont] = v[h][starts[h][0]+i,0,0]
+                cont += 1
+        
         
     return v_array
 
@@ -220,6 +254,7 @@ class RestrictionOperator(LinOpWithTransp):
         if isinstance(W, TensorFemSpace):
             self._W1ds = [W.spaces]
             self._WNbasis = np.array([self._W1ds[0][0].nbasis, self._W1ds[0][1].nbasis, self._W1ds[0][2].nbasis])
+            assert self._VNbasis[0] == self._WNbasis[0]*2
             
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array(W.vector_space.starts)
@@ -238,11 +273,12 @@ class RestrictionOperator(LinOpWithTransp):
                     [self._W1ds[2][0].nbasis, self._W1ds[2][1].nbasis, self._W1ds[2][2].nbasis],
                 ]
             )
+            assert self._VNbasis[0][0] == self._WNbasis[0][0]*2 and self._VNbasis[1][0] == self._WNbasis[1][0]*2 and self._VNbasis[2][0] == self._WNbasis[2][0]*2
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array([vi.starts for vi in W.vector_space.spaces])
             self._out_ends = np.array([vi.ends for vi in W.vector_space.spaces])
             
-        assert(self._VNbasis[0] == self._WNbasis[0]*2)
+        
         
         # Degree of the B-spline space, not to be confused with the degrees given by fem_space.spaces.degree since depending on the situation 
         # it will give the D-spline degree instead
@@ -292,7 +328,8 @@ class RestrictionOperator(LinOpWithTransp):
             for h in h_range:
                 for i in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
                     for j in range(p + 2):
-                        out[h][i, 0, 0] += weights[j] * v[(2 * i - p + j) % self._VNbasis[0], 0, 0]
+                        out[h][i, 0, 0]
+                        out[h][i, 0, 0] += weights[j] * v[h][(2 * i - p + j) % self._VNbasis[h][0], 0, 0]
         return out
 
     def dot_H1(self, v, out):
@@ -302,15 +339,15 @@ class RestrictionOperator(LinOpWithTransp):
         return self._dot_helper(v, out, self._pD[0], self._weightsD)
 
     def dot_Hcurl(self, v, out):
-        out = self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=(0))
-        return self._dot_helper(v, out, self._p[0], self._weights, h_range=(1, 2))
+        out = self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=[0])
+        return self._dot_helper(v, out, self._p[0], self._weights, h_range=[1, 2])
 
     def dot_Hdiv(self, v, out):
-        out = self._dot_helper(v, out, self._p[0], self._weights, h_range=(0))
-        return self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=(1, 2))
+        out = self._dot_helper(v, out, self._p[0], self._weights, h_range=[0])
+        return self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=[1, 2])
 
     def dot_H1H1H1(self, v, out):
-        return self._dot_helper(v, out, self._p[0], self._weights, h_range=(0, 1, 2))
+        return self._dot_helper(v, out, self._p[0], self._weights, h_range=[0, 1, 2])
 
     def dot(self, v, out=None):
 
@@ -321,9 +358,14 @@ class RestrictionOperator(LinOpWithTransp):
         else:
             assert isinstance(out, Vector) and out.space == self.codomain
             
-            for i in range(self._out_starts[0], self._out_ends[0]+1):
-                out[i,0,0] = 0.0
-        
+            if self._V_name == 'H1' or self._V_name == 'L2':
+                for i in range(self._out_starts[0], self._out_ends[0]+1):
+                    out[i,0,0] = 0.0
+            else:
+                for h in range(3):
+                    for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
+                        out[h][i,0,0] = 0.0
+            
         dot_methods = {
             "H1": self.dot_H1,
             "L2": self.dot_L2,
@@ -377,6 +419,11 @@ class ExtensionOperator(LinOpWithTransp):
         self._codomain = W.vector_space
         self._dtype = V.vector_space.dtype
         
+        #Can be "H1", "L2", "Hcurl", "Hdiv", "H1H1H1"
+        self._V_name = V.symbolic_space.name
+        self._W_name = W.symbolic_space.name
+        assert(self._V_name == self._W_name)
+        
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(V, TensorFemSpace):
             self._V1ds = [V.spaces]
@@ -407,6 +454,7 @@ class ExtensionOperator(LinOpWithTransp):
         if isinstance(W, TensorFemSpace):
             self._W1ds = [W.spaces]
             self._WNbasis = np.array([self._W1ds[0][0].nbasis, self._W1ds[0][1].nbasis, self._W1ds[0][2].nbasis])
+            assert self._WNbasis[0] == self._VNbasis[0]*2
             
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array(W.vector_space.starts)
@@ -425,17 +473,21 @@ class ExtensionOperator(LinOpWithTransp):
                     [self._W1ds[2][0].nbasis, self._W1ds[2][1].nbasis, self._W1ds[2][2].nbasis],
                 ]
             )
+            assert self._WNbasis[0][0] == self._VNbasis[0][0]*2 and self._WNbasis[1][0] == self._VNbasis[1][0]*2 and self._WNbasis[2][0] == self._VNbasis[2][0]*2
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array([vi.starts for vi in W.vector_space.spaces])
             self._out_ends = np.array([vi.ends for vi in W.vector_space.spaces])
             
-        assert(self._WNbasis[0] == self._VNbasis[0]*2)
+        
         
         # Degree of the B-spline space, not to be confused with the degrees given by fem_space.spaces.degree since depending on the situation 
         # it will give the D-spline degree instead
         self._p = get_b_spline_degree(V)
+        #We also get the D-splines degree
+        self._pD = self._p-1
         
         #Now we compute the weights that define this linear operator
+        #First for B-splines
         if(self._p[0]%2 == 0):
             self._size_even = self._p[0]//2 +1
             self._size_odd = self._p[0]//2 +1
@@ -453,6 +505,26 @@ class ExtensionOperator(LinOpWithTransp):
                 self._weights_even[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,2*j)
             for j in range(self._size_odd):
                 self._weights_odd[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,2*j+1)
+                
+        #Second for D-splines
+        if(self._pD[0]%2 == 0):
+            self._size_evenD = self._pD[0]//2 +1
+            self._size_oddD = self._pD[0]//2 +1
+            self._weights_evenD = np.zeros(self._size_evenD, dtype=float)
+            self._weights_oddD = np.zeros(self._size_oddD, dtype=float)
+            for j in range(self._size_evenD):
+                self._weights_evenD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j)
+                self._weights_oddD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j+1)
+        else:
+            self._size_evenD = (self._pD[0]+1)//2 +1
+            self._size_oddD = (self._pD[0]-1)//2 +1
+            self._weights_evenD = np.zeros(self._size_evenD, dtype=float)
+            self._weights_oddD = np.zeros(self._size_oddD, dtype=float)
+            for j in range(self._size_evenD):
+                self._weights_evenD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j)
+            for j in range(self._size_oddD):
+                self._weights_oddD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j+1)
+        
            
     #--------------------------------------
     # Abstract interface
@@ -474,32 +546,72 @@ class ExtensionOperator(LinOpWithTransp):
 
     def toarray(self):
         pass
+    
+    def _dot_helper(self, v, out, p, weights_even, weights_odd, size_even, size_odd, h_range=None):
+        """Helper function to perform dot product computation."""
+        parity_match = p % 2
+        if h_range is None:  # Scalar case (H1, L2)
+            for j in range(self._out_starts[0], self._out_ends[0] + 1):
+                parity_j = j % 2
+                weights, size, offset = ((weights_even, size_even, 0) if parity_j == parity_match else (weights_odd, size_odd, 1))
+                for i in range(size):
+                    out[j, 0, 0] += weights[i] * v[((j + p - 2 * i - offset) // 2) % self._VNbasis[0], 0, 0]
+            
+        else:  # Vector case (Hcurl, Hdiv, H1H1H1)
+            for h in h_range:
+                for j in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
+                    parity_j = j % 2
+                    weights, size, offset = ((weights_even, size_even, 0) if parity_j == parity_match else (weights_odd, size_odd, 1))
+                    for i in range(size):
+                        out[h][j, 0, 0] += weights[i] * v[h][((j + p - 2 * i - offset) // 2) % self._VNbasis[h][0], 0, 0]
+        return out
 
+    def dot_H1(self, v, out):
+        return self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd)
+
+    def dot_L2(self, v, out):
+        return self._dot_helper(v, out, self._pD[0], self._weights_evenD, self._weights_oddD, self._size_evenD, self._size_oddD)
+
+    def dot_Hcurl(self, v, out):
+        out = self._dot_helper(v, out, self._pD[0], self._weights_evenD, self._weights_oddD, self._size_evenD, self._size_oddD, h_range=[0])
+        return self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd, h_range=[1, 2])
+
+    def dot_Hdiv(self, v, out):
+        out = self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd, h_range=[0])
+        return self._dot_helper(v, out, self._pD[0], self._weights_evenD, self._weights_oddD, self._size_evenD, self._size_oddD, h_range=[1, 2])
+
+    def dot_H1H1H1(self, v, out):
+        return self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd, h_range=[0, 1, 2])
+
+    
+    
     def dot(self, v, out=None):
 
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-
-        p = self._p[0]
+        assert isinstance(v, Vector) and v.space == self.domain
+ 
         if out is None:
-            out = self.codomain.zeros()
-            
+            out = self.codomain.zeros()   
         else:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
+            assert isinstance(out, Vector) and out.space == self.codomain
             
-            for j in range(self._out_starts[0], self._out_ends[0] + 1):
-                out[j, 0, 0] = 0.0
-                          
-        parity_match = p % 2
-        for j in range(self._out_starts[0], self._out_ends[0] + 1):
-            parity_j = j % 2
-            weights, size, offset = ((self._weights_even, self._size_even, 0) if parity_j == parity_match else (self._weights_odd, self._size_odd, 1))
-            for i in range(size):
-                out[j, 0, 0] += weights[i] * v[((j + p - 2 * i - offset) // 2) % self._VNbasis[0], 0, 0]
-            
-        return out
-    
+            if self._V_name == 'H1' or self._V_name == 'L2':
+                for i in range(self._out_starts[0], self._out_ends[0]+1):
+                    out[i,0,0] = 0.0
+            else:
+                for h in range(3):
+                    for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
+                        out[h][i,0,0] = 0.0
+                
+        dot_methods = {
+            "H1": self.dot_H1,
+            "L2": self.dot_L2,
+            "Hcurl": self.dot_Hcurl,
+            "Hdiv": self.dot_Hdiv,
+            "H1H1H1": self.dot_H1H1H1,
+        }
+        
+        return dot_methods.get(self._V_name)(v, out)
+        
     def transpose(self, *, out = None):
         if out is None:
             out = RestrictionOperator(self._W, self._V)
@@ -510,7 +622,6 @@ class ExtensionOperator(LinOpWithTransp):
             
         return out
         
-
 
 def multigrid_Alfven(Nel, plist, spl_kind, u_space):
     # get global communicator
@@ -1015,7 +1126,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     world_size = comm.Get_size()
     
     domain = Cuboid()
-    sp_key = '0'
+    sp_key = '1'
     
     derham = []
     mass_ops = []
@@ -1025,7 +1136,8 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     
         derham.append(Derham([Nel[0]//(2**level),Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
         mass_ops.append(WeightedMassOperators(derham[level], domain))
-        A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
+        #A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
+        A.append(derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
     
     #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
     A_inv = np.linalg.inv(A[-1].toarray())
@@ -1449,7 +1561,7 @@ def verify_Extension_Operator(Nel, plist, spl_kind):
     
 
 if __name__ == '__main__':
-    Nel = [8192, 1, 1]
+    Nel = [512, 1, 1]
     p = [1, 1, 1]
     spl_kind = [True, True, True]
 
@@ -1461,7 +1573,7 @@ if __name__ == '__main__':
     #p=4, Nel= 8192, level = 10. Coarsest one is 16x16 matrix
     
     #multigrid(Nel, p, spl_kind,12)
-    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 12)
+    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 9)
     #Gather_data_V_cycle_scalability([[int(2**i),1,1] for i in range(4,10)], p, spl_kind)
     #make_plot_scalability()
     #verify_formula(Nel, p, spl_kind)
