@@ -861,7 +861,7 @@ class forcingterm:
     def __call__(self, x, y, z):
         val = self._nu * self._alpha * (self._R0 - 4 * np.sqrt(x**2 + y**2)) / (
             self._a * self._R0 * np.sqrt(x**2 + y**2)
-        ) - self._beta * self._Bp * self._R0**2 / (self._B0 * np.sqrt(x**2 + y**2))
+        ) - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * (np.sqrt(x**2 + y**2))**3)
 
         return val
 
