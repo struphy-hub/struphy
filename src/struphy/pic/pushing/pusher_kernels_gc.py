@@ -1905,7 +1905,7 @@ def push_gc_cc_J1_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, boundary_cut, eta, v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, u, e, curl_norm_b, norm_b1, b_star, tmp, abs_b_star_para)
+    #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, span1, span2, span3, b, u, e, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
     #$ omp for
     for ip in range(n_markers):
 
@@ -2227,7 +2227,7 @@ def push_gc_cc_J2_stage_Hdiv(
     else:
         last = 0.
 
-    #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
+    #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, tmp1, tmp2, abs_b_star_para)
     #$ omp for
     for ip in range(n_markers):
 

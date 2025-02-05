@@ -65,7 +65,7 @@ def push_v_with_efield(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, e_form, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -284,7 +284,7 @@ def push_vxb_implicit(
     n_markers = args_markers.n_markers
     first_init_idx = args_markers.first_init_idx
 
-    #$ omp parallel firstprivate(b_prod) private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
@@ -423,7 +423,7 @@ def push_pxb_analytic(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp parallel private (ip, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -792,7 +792,7 @@ def push_hybrid_xp_ap(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
+    #$ omp parallel private (ip, v, dfm, dfinv, dfinv_t, span1, span2, span3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1101,7 +1101,7 @@ def push_bxu_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1222,7 +1222,7 @@ def push_bxu_Hcurl(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1343,7 +1343,7 @@ def push_bxu_H1vec(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1495,7 +1495,7 @@ def push_bxu_Hdiv_pauli(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, der1, der2, der3, bd1, bd2, bd3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, der1, der2, der3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1898,7 +1898,7 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    #$ omp parallel private(ip, e, v, dfm, dfinv, k)
+    #$ omp parallel private(ip, v, dfm, dfinv, k)
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole or a boundary particle
@@ -2762,7 +2762,7 @@ def push_weights_with_efield_lin_va(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1:
@@ -2869,7 +2869,7 @@ def push_weights_with_efield_lin_vm(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, f0, e_vec, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1:
@@ -2981,7 +2981,7 @@ def push_weights_with_efield_delta_f_vm(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1:
@@ -3116,7 +3116,7 @@ def push_x_v_static_efield(
     # Create array for storing the tau values
     taus = empty(20, dtype=float)
 
-    #$ omp parallel private(ip, run, bn1, bn2, bn3, bd1, bd2, bd3, dfm, df_inv, taus, temp, k, particle, dt2)
+    #$ omp parallel private(ip, run, dfm, df_inv, taus, temp, k, particle, dt2)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -3222,7 +3222,7 @@ def push_deterministic_diffusion_stage(
 
     pi_du_value = empty(3, dtype=float)
 
-    #$ omp parallel private(ip, etas, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
+    #$ omp parallel private(ip, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
