@@ -8,7 +8,7 @@ from psydac.linalg.stencil import StencilVector
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.mass import WeightedMassOperator
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D

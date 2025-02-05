@@ -20,7 +20,7 @@ are discretized with :ref:`geomFE`. In what follows we provide a brief introduct
 we detail the discretization of the Vlasov-Maxwell system implemented in Struphy. 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    subsections/pic

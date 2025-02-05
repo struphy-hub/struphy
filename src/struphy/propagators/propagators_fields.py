@@ -16,8 +16,7 @@ from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import TransformedPformComponent
 from struphy.feec.utilities import create_equal_random_arrays
 from struphy.feec.variational_utilities import BracketOperator
-from struphy.fields_background.mhd_equil.equils import set_defaults
-from struphy.initial import perturbations
+from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
@@ -3863,12 +3862,12 @@ class VariationalDensityEvolve(Propagator):
         self._get_L2dofs_V3(self._eval_dl_drho, dofs=self._linear_form_dl_drho)
 
     def _compute_init_linear_form(self):
-        self.rhof.vector = self.derham.extraction_ops["3"].dot(self.projected_mhd_equil.n3)
+        self.rhof.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.n3)
 
         if abs(self._gamma - 5 / 3) < 1e-3:
-            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_mhd_equil.s3_monoatomic)
+            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_monoatomic)
         elif abs(self._gamma - 7 / 5) < 1e-3:
-            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_mhd_equil.s3_diatomic)
+            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_diatomic)
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
@@ -4841,12 +4840,12 @@ class VariationalEntropyEvolve(Propagator):
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_ds)
 
     def _compute_init_linear_form(self):
-        self.rhof.vector = self.derham.extraction_ops["3"].dot(self.projected_mhd_equil.n3)
+        self.rhof.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.n3)
 
         if abs(self._gamma - 5 / 3) < 1e-3:
-            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_mhd_equil.s3_monoatomic)
+            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_monoatomic)
         elif abs(self._gamma - 7 / 5) < 1e-3:
-            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_mhd_equil.s3_diatomic)
+            self.sf.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_diatomic)
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
@@ -5429,7 +5428,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._linear_form_dl_db = b.space.zeros()
 
         if self._linearize:
-            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_mhd_equil.b2)
+            self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
     def __call__(self, dt):
         if self._nonlin_solver["type"] == "Newton":
@@ -6776,7 +6775,7 @@ class VariationalResistivity(Propagator):
         self.tot_rhs = s.space.zeros()
         if self._linearize_current:
             self._extracted_b2 = self.derham.boundary_ops["2"].dot(
-                self.derham.extraction_ops["2"].dot(self.projected_mhd_equil.b2),
+                self.derham.extraction_ops["2"].dot(self.projected_equil.b2),
             )
 
     def __call__(self, dt):

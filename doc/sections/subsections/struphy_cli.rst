@@ -1,9 +1,9 @@
 .. _running_codes:
 
-Solving PDEs with Struphy
--------------------------
+The Struphy CLI
+---------------
 
-With Struphy it is simple to solve PDEs from the console.
+With Struphy it is simple to solve PDEs from the CLI (Command Line Interface).
 A list of available model PDEs and run options can be accessed with::
 
     struphy run -h

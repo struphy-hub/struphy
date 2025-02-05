@@ -38,46 +38,45 @@ def test_eval_field(Nel, p, spl_kind):
     }
 
     # initialize with sin/cos perturbations
-    pert_params = {
-        "type": "ModesCos",
+    pert_params_p0 = {"ModesCos": {"given_in_basis": "0", "ls": [0], "ms": [0], "ns": [1], "amps": [5.0]}}
+
+    pert_params_E1 = {
         "ModesCos": {
-            "comps": comps,
-            "ls": {
-                "pressure": [0],
-                "e_field": [[0], [0], [0]],
-                "b_field": [[0], [0], [0]],
-                "density": [0],
-                "velocity": [[0], [0], [0]],
-            },
-            "ms": {
-                "pressure": [0],
-                "e_field": [[0], [0], [0]],
-                "b_field": [[0], [0], [0]],
-                "density": [0],
-                "velocity": [[0], [0], [0]],
-            },
-            "ns": {
-                "pressure": [1],
-                "e_field": [[1], [1], [1]],
-                "b_field": [[1], [1], [1]],
-                "density": [1],
-                "velocity": [[1], [1], [1]],
-            },
-            "amps": {
-                "pressure": [5.0],
-                "e_field": [[5.0], [5.0], [5.0]],
-                "b_field": [[5.0], [5.0], [5.0]],
-                "density": [5.0],
-                "velocity": [[5.0], [5.0], [5.0]],
-            },
-        },
+            "given_in_basis": ["1", "1", "1"],
+            "ls": [[0], [0], [0]],
+            "ms": [[0], [0], [0]],
+            "ns": [[1], [1], [1]],
+            "amps": [[5.0], [5.0], [5.0]],
+        }
     }
 
-    p0.initialize_coeffs(pert_params=pert_params)
-    E1.initialize_coeffs(pert_params=pert_params)
-    B2.initialize_coeffs(pert_params=pert_params)
-    n3.initialize_coeffs(pert_params=pert_params)
-    uv.initialize_coeffs(pert_params=pert_params)
+    pert_params_B2 = {
+        "ModesCos": {
+            "given_in_basis": ["2", "2", "2"],
+            "ls": [[0], [0], [0]],
+            "ms": [[0], [0], [0]],
+            "ns": [[1], [1], [1]],
+            "amps": [[5.0], [5.0], [5.0]],
+        }
+    }
+
+    pert_params_n3 = {"ModesCos": {"given_in_basis": "3", "ls": [0], "ms": [0], "ns": [1], "amps": [5.0]}}
+
+    pert_params_uv = {
+        "ModesCos": {
+            "given_in_basis": ["v", "v", "v"],
+            "ls": [[0], [0], [0]],
+            "ms": [[0], [0], [0]],
+            "ns": [[1], [1], [1]],
+            "amps": [[5.0], [5.0], [5.0]],
+        }
+    }
+
+    p0.initialize_coeffs(pert_params=pert_params_p0)
+    E1.initialize_coeffs(pert_params=pert_params_E1)
+    B2.initialize_coeffs(pert_params=pert_params_B2)
+    n3.initialize_coeffs(pert_params=pert_params_n3)
+    uv.initialize_coeffs(pert_params=pert_params_uv)
 
     # evaluation points for meshgrid
     eta1 = np.linspace(0, 1, 11)

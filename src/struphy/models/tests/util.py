@@ -47,8 +47,7 @@ def call_model(
     parameters["geometry"]["type"] = map_and_equil[0]
     parameters["geometry"][map_and_equil[0]] = {}
 
-    parameters["mhd_equilibrium"]["type"] = map_and_equil[1]
-    parameters["mhd_equilibrium"][map_and_equil[1]] = {}
+    parameters["fluid_background"][map_and_equil[1]] = {}
 
     # find out the em_fields options of the model
     if "em_fields" in parameters:
