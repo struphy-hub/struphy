@@ -152,6 +152,8 @@ class StruphyModel(metaclass=ABCMeta):
                 self.equil,
                 self.derham,
             )
+        else:
+            self._projected_equil = None
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
@@ -1982,7 +1984,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if isinstance(self.equil, FluidEquilibriumWithB):
             B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
-            B_tmp = np.zeros((eta1, eta2, eta3))
+            B_tmp = np.zeros((eta1.size, eta2.size, eta3.size))
         magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * units["B"]
         B_max = np.max(B_tmp) * units["B"]
         B_min = np.min(B_tmp) * units["B"]
