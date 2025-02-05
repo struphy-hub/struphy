@@ -282,56 +282,36 @@ class RestrictionOperator(LinOpWithTransp):
     def toarray(self):
         pass
     
+    def _dot_helper(self, v, out, p, weights, h_range=None):
+        """Helper function to perform dot product computation."""
+        if h_range is None:  # Scalar case (H1, L2)
+            for i in range(self._out_starts[0], self._out_ends[0] + 1):
+                for j in range(p + 2):
+                    out[i, 0, 0] += weights[j] * v[(2 * i - p + j) % self._VNbasis[0], 0, 0]
+        else:  # Vector case (Hcurl, Hdiv, H1H1H1)
+            for h in h_range:
+                for i in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
+                    for j in range(p + 2):
+                        out[h][i, 0, 0] += weights[j] * v[(2 * i - p + j) % self._VNbasis[0], 0, 0]
+        return out
+
     def dot_H1(self, v, out):
-        p = self._p[0]
-        for i in range(self._out_starts[0], self._out_ends[0]+1):
-            for j in range(p+2):
-                out[i,0,0] += self._weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]
-        return out
-        
+        return self._dot_helper(v, out, self._p[0], self._weights)
+
     def dot_L2(self, v, out):
-        p = self._pD[0]
-        for i in range(self._out_starts[0], self._out_ends[0]+1):
-            for j in range(p+2):
-                out[i,0,0] += self._weightsD[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]
-        return out
-        
+        return self._dot_helper(v, out, self._pD[0], self._weightsD)
+
     def dot_Hcurl(self, v, out):
-        for h in range(3):
-            if h == 0:
-                p = self._pD[0]
-                weights = self._weightsD
-            else:
-                p = self._p[0]
-                weights = self._weights
-            for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
-                for j in range(p+2):
-                    out[h][i,0,0] += weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]           
-        return out
-        
+        out = self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=(0))
+        return self._dot_helper(v, out, self._p[0], self._weights, h_range=(1, 2))
+
     def dot_Hdiv(self, v, out):
-        for h in range(3):
-            if h == 0:
-                p = self._p[0]
-                weights = self._weights
-            else:
-                p = self._pD[0]
-                weights = self._weightsD
-            for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
-                for j in range(p+2):
-                    out[h][i,0,0] += weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]           
-        return out
-        
+        out = self._dot_helper(v, out, self._p[0], self._weights, h_range=(0))
+        return self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=(1, 2))
+
     def dot_H1H1H1(self, v, out):
-        p = self._p[0]
-        weights = self._weights
-        for h in range(3): 
-            for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
-                for j in range(p+2):
-                    out[h][i,0,0] += weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]           
-        return out
-    
-    
+        return self._dot_helper(v, out, self._p[0], self._weights, h_range=(0, 1, 2))
+
     def dot(self, v, out=None):
 
         assert isinstance(v, Vector) and v.space == self.domain
