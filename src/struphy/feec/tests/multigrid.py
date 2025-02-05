@@ -19,7 +19,7 @@ from psydac.fem.tensor import TensorFemSpace
 from struphy.feec.mass import WeightedMassOperators
 from struphy.geometry.domains import Tokamak, Cuboid
 from struphy.fields_background.mhd_equil.equils import AdhocTorusQPsi
-from math import comb
+from math import comb, log2
 import random
 
 
@@ -73,16 +73,16 @@ def jacobi(A, b, x_init=None, tol=1e-10, max_iter=1000, verbose = False):
     #raise ValueError("Jacobi method did not converge within the maximum number of iterations")
 
 
-def direct_solver(A,b, fem_space):
+def direct_solver(A_inv,b, fem_space):
+    # A_inv is already the inverse matrix of A
     #fem_space = derham.Vh_fem[sp_key]
     spaces = fem_space.spaces
     space = spaces[0]
     N = space.nbasis
     starts = np.array(fem_space.vector_space.starts)
     
-    A_matrix = A.toarray()
     b_vector = remove_padding(fem_space, b)
-    x_vector = np.linalg.solve(A_matrix, b_vector)
+    x_vector = np.dot(A_inv, b_vector)
     x = fem_space.vector_space.zeros()
     
     for i in range(N):
@@ -185,6 +185,11 @@ class RestrictionOperator(LinOpWithTransp):
         self._codomain = W.vector_space
         self._dtype = V.vector_space.dtype
         
+        #Can be "H1", "L2", "Hcurl", "Hdiv", "H1H1H1"
+        self._V_name = V.symbolic_space.name
+        self._W_name = W.symbolic_space.name
+        assert(self._V_name == self._W_name)
+         
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(V, TensorFemSpace):
             self._V1ds = [V.spaces]
@@ -243,10 +248,18 @@ class RestrictionOperator(LinOpWithTransp):
         # it will give the D-spline degree instead
         self._p = get_b_spline_degree(V)
         
+        #We also get the D-spline degree
+        self._pD = self._p - 1
+        
         #Now we compute the weights that define this linear operator
+        #Here we store the weights needed for B-splines
         self._weights = np.zeros(self._p[0]+2, dtype=float)
+        #Here we store the weights needed for D-splines
+        self._weightsD = np.zeros(self._pD[0]+2, dtype=float)
         for j in range(self._p[0]+2):
             self._weights[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,j)
+        for j in range(self._pD[0]+2):
+            self._weightsD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,j)
         
     #--------------------------------------
     # Abstract interface
@@ -268,30 +281,78 @@ class RestrictionOperator(LinOpWithTransp):
 
     def toarray(self):
         pass
-
+    
+    def dot_H1(self, v, out):
+        p = self._p[0]
+        for i in range(self._out_starts[0], self._out_ends[0]+1):
+            for j in range(p+2):
+                out[i,0,0] += self._weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]
+        return out
+        
+    def dot_L2(self, v, out):
+        p = self._pD[0]
+        for i in range(self._out_starts[0], self._out_ends[0]+1):
+            for j in range(p+2):
+                out[i,0,0] += self._weightsD[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]
+        return out
+        
+    def dot_Hcurl(self, v, out):
+        for h in range(3):
+            if h == 0:
+                p = self._pD[0]
+                weights = self._weightsD
+            else:
+                p = self._p[0]
+                weights = self._weights
+            for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
+                for j in range(p+2):
+                    out[h][i,0,0] += weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]           
+        return out
+        
+    def dot_Hdiv(self, v, out):
+        for h in range(3):
+            if h == 0:
+                p = self._p[0]
+                weights = self._weights
+            else:
+                p = self._pD[0]
+                weights = self._weightsD
+            for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
+                for j in range(p+2):
+                    out[h][i,0,0] += weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]           
+        return out
+        
+    def dot_H1H1H1(self, v, out):
+        p = self._p[0]
+        weights = self._weights
+        for h in range(3): 
+            for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
+                for j in range(p+2):
+                    out[h][i,0,0] += weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]           
+        return out
+    
+    
     def dot(self, v, out=None):
 
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-
-        p = self._p[0]
+        assert isinstance(v, Vector) and v.space == self.domain
+ 
         if out is None:
-            out = self.codomain.zeros()
-            
-            for i in range(self._out_starts[0], self._out_ends[0]+1):
-                for j in range(p+2):
-                    out[i,0,0] += self._weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]
-            
+            out = self.codomain.zeros()   
         else:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
+            assert isinstance(out, Vector) and out.space == self.codomain
             
             for i in range(self._out_starts[0], self._out_ends[0]+1):
                 out[i,0,0] = 0.0
-                for j in range(p+2):
-                    out[i,0,0] += self._weights[j]*v[(2*i-p+j)%self._VNbasis[0],0,0]
-            
-        return out
+        
+        dot_methods = {
+            "H1": self.dot_H1,
+            "L2": self.dot_L2,
+            "Hcurl": self.dot_Hcurl,
+            "Hdiv": self.dot_Hdiv,
+            "H1H1H1": self.dot_H1H1H1,
+        }
+        
+        return dot_methods.get(self._V_name)(v, out)
     
     def transpose(self, *, out = None):
         if out is None:
@@ -538,6 +599,7 @@ def multigrid(Nel, plist, spl_kind, N_levels):
         #print(f'{ Nel[0]//(2**level)= }')
         #A.append(mass_ops[level].M0.toarray_struphy())
     
+    A_inv = np.linalg.inv(A[-1].toarray())
     R = []
     E = []
     
@@ -614,7 +676,7 @@ def multigrid(Nel, plist, spl_kind, N_levels):
                 
             else:
                 #Solve directly
-                x_l = direct_solver(A[l],r_l, derham[l].Vh_fem[sp_key])
+                x_l = direct_solver(A_inv,r_l, derham[l].Vh_fem[sp_key])
                
             return x_l 
         
@@ -851,7 +913,7 @@ def multigrid(Nel, plist, spl_kind, N_levels):
                 x_l = x_l + E[l].dot(x_l_plus_1)
             else:
                 #Solve directly
-                x_l = direct_solver(A[l],r_l, derham[l].Vh_fem[sp_key])
+                x_l = direct_solver(A_inv,r_l, derham[l].Vh_fem[sp_key])
                
             return x_l 
         
@@ -860,7 +922,7 @@ def multigrid(Nel, plist, spl_kind, N_levels):
             l = N_levels-1
             #First we solve the system directly in the coarsest level
             #If the coarsest level is still to coarse to solve directly then you can solve it itteratively instead.
-            x_l = direct_solver(A[l],b[l], derham[l].Vh_fem[sp_key])
+            x_l = direct_solver(A_inv,b[l], derham[l].Vh_fem[sp_key])
             
             while(l > 0):
                 #We extend the solution of the coarser level to the finner level to use as a first guess for the itterative solver
@@ -965,7 +1027,7 @@ def Error_analysis(Nel, plist, spl_kind, N_levels):
     plt.close()
     
     
-def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
+def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     from struphy.feec.utilities import create_equal_random_arrays
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -985,6 +1047,9 @@ def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
         mass_ops.append(WeightedMassOperators(derham[level], domain))
         A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
     
+    #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
+    A_inv = np.linalg.inv(A[-1].toarray())
+    
     R = []
     E = []
     
@@ -994,8 +1059,8 @@ def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
         
     method = 'cg'
     
-    max_iter_list = [5]
-    N_cycles_list = [6]
+    max_iter_list = [7,8,9]
+    N_cycles_list = [2,3,4,5,6,7]
     
     u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
     #We compute the rhs
@@ -1014,6 +1079,13 @@ def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
     No_Multigrid_error = solver_no._info['res_norm']
     No_Multigrid_time = timef-timei
     
+    print("################")
+    print(f'{No_Multigrid_itterations = }')
+    print(f'{No_Multigrid_error = }')
+    print(f'{No_Multigrid_time = }')
+    print("################")
+    
+    
     def call_multigrid(max_iter, N_cycles):
         u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
         #We compute the rhs
@@ -1025,7 +1097,7 @@ def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
         
         def V_cycle(l, r_l):
             if (l < N_levels-1):
-                solver_ini = inverse(A[l],method, maxiter= max_iter*2**(l))
+                solver_ini = inverse(A[l],method, maxiter= max_iter)
                 x_l = solver_ini.dot(r_l)
                 
                 #We count the number of itterations
@@ -1039,7 +1111,7 @@ def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
                 
             else:
                 #Solve directly
-                x_l = direct_solver(A[l],r_l, derham[l].Vh_fem[sp_key])
+                x_l = direct_solver(A_inv,r_l, derham[l].Vh_fem[sp_key])
                 
             return x_l 
         
@@ -1071,16 +1143,16 @@ def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
         Multigrid_time = timef- timei
         
         speed_up = No_Multigrid_time / Multigrid_time
+        #speed_up = 27.3452200889587 / Multigrid_time
+        
+
         
         print("################")
         print("################")
         print("################")
+        print(f'{Nel[0] = }')
         print(f'{max_iter = }')
         print(f'{N_cycles = }')
-        print("################")
-        print(f'{No_Multigrid_itterations = }')
-        print(f'{No_Multigrid_error = }')
-        print(f'{No_Multigrid_time = }')
         print("################")
         print("################")
         print(f'{Multigrid_itterations = }')
@@ -1094,6 +1166,35 @@ def Gather_data_V_cycle(Nel, plist, spl_kind, N_levels):
         for N_cycles in N_cycles_list:
             call_multigrid(max_iter, N_cycles)  
 
+
+def Gather_data_V_cycle_scalability(Nellist, plist, spl_kind):
+    for Nel in Nellist:
+        #First we compute the number of levels for each Nel
+        N_levels = int(log2(Nel[0])-1)
+        Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels)
+          
+def make_plot_scalability():  
+    Nel = [int(2**i) for i in range(4,14)]
+    Multi_time = [0.0167179107666016, 0.0275583267211914, 0.0449323654174805, 0.0735518932342529, 0.188658952713013, 0.173357963562012, 0.291205167770386, 0.464969396591187, 0.960138320922852, 2.02050709724426]    
+    No_Multi_time = [0.00164151191711426, 0.00258350372314453, 0.00557708740234375, 0.0137369632720947, 0.0344779491424561, 0.101414680480957, 0.479604005813599, 1.46064519882202, 7.63734912872314, 33.2413830757141]
+    speed_up = [0.098188819167142, 0.0937467557185867, 0.124121829565956, 0.186765597295291, 0.182752785630607, 0.585001567837869, 1.64696255044404, 3.14137921663317, 7.95442590124139, 16.4520001543432]
+    
+    plt.figure()
+    plt.plot(Nel, Multi_time, label = 'Multigrid solver run time.')
+    plt.scatter(Nel, No_Multi_time, label = 'CG run time.')
+    plt.xlabel("Nel[0]")
+    plt.ylabel('Time (s)')
+    plt.legend()
+    plt.show()
+    plt.close()
+    
+    plt.figure()
+    plt.scatter(Nel, speed_up, label = 'Speed_up.')
+    plt.xlabel("Nel[0]")
+    plt.ylabel('Speed_up')
+    plt.legend()
+    plt.show()
+    plt.close()
     
 def verify_formula(Nel, plist, spl_kind):
     comm = MPI.COMM_WORLD
@@ -1361,7 +1462,7 @@ def verify_Extension_Operator(Nel, plist, spl_kind):
         print(f'{where = }')
      
             
-    
+
     
     
     
@@ -1375,9 +1476,14 @@ if __name__ == '__main__':
     #128,64,32,16, 8
     # h, 2h,4h,8h,16h
     
-    #512, 8
+    #p=1, Nel= 8192, level = 12. Coarsest one is 4x4 matrix
+    #p=2, Nel= 8192, level = 11. Coarsest one is 8x8 matrix
+    #p=4, Nel= 8192, level = 10. Coarsest one is 16x16 matrix
+    
     #multigrid(Nel, p, spl_kind,12)
-    Gather_data_V_cycle(Nel, p, spl_kind, 12)
+    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 12)
+    #Gather_data_V_cycle_scalability([[int(2**i),1,1] for i in range(4,10)], p, spl_kind)
+    #make_plot_scalability()
     #verify_formula(Nel, p, spl_kind)
     #verify_Restriction_Operator(Nel, p, spl_kind)
     #verify_Extension_Operator(Nel, p, spl_kind)
