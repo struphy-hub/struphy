@@ -489,6 +489,9 @@ class ExtensionOperator(LinOpWithTransp):
         self._W_name = W.symbolic_space.name
         assert(self._V_name == self._W_name)
         
+        #This list will tell us in which spatial direction we are halving the problem.
+        self._halving_directions = [False,False,False]
+        
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(V, TensorFemSpace):
             self._V1ds = [V.spaces]
@@ -519,7 +522,12 @@ class ExtensionOperator(LinOpWithTransp):
         if isinstance(W, TensorFemSpace):
             self._W1ds = [W.spaces]
             self._WNbasis = np.array([self._W1ds[0][0].nbasis, self._W1ds[0][1].nbasis, self._W1ds[0][2].nbasis])
-            assert self._WNbasis[0] == self._VNbasis[0]*2
+            
+            for i in range(3):
+                if(self._VNbasis[i] < self._WNbasis[i]):
+                    #If this breaks for clamped splines it means .nbasis gives you the number of basis functions, not the number of elements
+                    assert self._WNbasis[i] == self._VNbasis[i]*2
+                    self._halving_directions[i] = True
             
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array(W.vector_space.starts)
@@ -538,7 +546,12 @@ class ExtensionOperator(LinOpWithTransp):
                     [self._W1ds[2][0].nbasis, self._W1ds[2][1].nbasis, self._W1ds[2][2].nbasis],
                 ]
             )
-            assert self._WNbasis[0][0] == self._VNbasis[0][0]*2 and self._WNbasis[1][0] == self._VNbasis[1][0]*2 and self._WNbasis[2][0] == self._VNbasis[2][0]*2
+            
+            for i in range(3):
+                if(self._VNbasis[1][i] < self._WNbasis[1][i]):
+                    assert self._WNbasis[0][i] == self._VNbasis[0][i]*2 and self._WNbasis[1][i] == self._VNbasis[1][i]*2 and self._WNbasis[2][i] == self._VNbasis[2][i]*2
+                    self._halving_directions[i] = True
+                    
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array([vi.starts for vi in W.vector_space.spaces])
             self._out_ends = np.array([vi.ends for vi in W.vector_space.spaces])
@@ -552,43 +565,78 @@ class ExtensionOperator(LinOpWithTransp):
         self._pD = self._p-1
         
         #Now we compute the weights that define this linear operator
-        #First for B-splines
-        if(self._p[0]%2 == 0):
-            self._size_even = self._p[0]//2 +1
-            self._size_odd = self._p[0]//2 +1
-            self._weights_even = np.zeros(self._size_even, dtype=float)
-            self._weights_odd = np.zeros(self._size_odd, dtype=float)
-            for j in range(self._size_even):
-                self._weights_even[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,2*j)
-                self._weights_odd[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,2*j+1)
-        else:
-            self._size_even = (self._p[0]+1)//2 +1
-            self._size_odd = (self._p[0]-1)//2 +1
-            self._weights_even = np.zeros(self._size_even, dtype=float)
-            self._weights_odd = np.zeros(self._size_odd, dtype=float)
-            for j in range(self._size_even):
-                self._weights_even[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,2*j)
-            for j in range(self._size_odd):
-                self._weights_odd[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,2*j+1)
+        
+        #We begin by defining a list that will contain the 3 numpy arrays, each one with the weights for one spatial direction.
+        #In the case there are a direction over which we do not halve the resolution we shall have an array with only one 1.0
+        self._all_weights_even = []
+        self._all_weights_evenD = []
+        self._all_weights_odd = []
+        self._all_weights_oddD = []
+        
+        #Each list has 3 integers, each one denoting the number of weights in the corresponding weights array.
+        self._all_size_even = []
+        self._all_size_evenD = []
+        self._all_size_odd = []
+        self._all_size_oddD = []
+        
+        for i in range(3):
+            if self._halving_directions[i]:
+                #First for B-splines
+                if(self._p[i]%2 == 0):
+                    size_even = self._p[i]//2 +1
+                    size_odd = self._p[i]//2 +1
+                    weights_even = np.zeros(size_even, dtype=float)
+                    weights_odd = np.zeros(size_odd, dtype=float)
+                    for j in range(size_even):
+                        weights_even[j] = 2.0**(-self._p[i])*comb(self._p[i]+1,2*j)
+                        weights_odd[j] = 2.0**(-self._p[i])*comb(self._p[i]+1,2*j+1)
+                else:
+                    size_even = (self._p[i]+1)//2 +1
+                    size_odd = (self._p[i]-1)//2 +1
+                    weights_even = np.zeros(size_even, dtype=float)
+                    weights_odd = np.zeros(size_odd, dtype=float)
+                    for j in range(size_even):
+                        weights_even[j] = 2.0**(-self._p[i])*comb(self._p[i]+1,2*j)
+                    for j in range(size_odd):
+                        weights_odd[j] = 2.0**(-self._p[i])*comb(self._p[i]+1,2*j+1)
+                        
+                #Second for D-splines
+                if(self._pD[i]%2 == 0):
+                    size_evenD = self._pD[i]//2 +1
+                    size_oddD = self._pD[i]//2 +1
+                    weights_evenD = np.zeros(size_evenD, dtype=float)
+                    weights_oddD = np.zeros(size_oddD, dtype=float)
+                    for j in range(size_evenD):
+                        weights_evenD[j] = 2.0**-(self._pD[i]+1)*comb(self._pD[i]+1,2*j)
+                        weights_oddD[j] = 2.0**-(self._pD[i]+1)*comb(self._pD[i]+1,2*j+1)
+                else:
+                    size_evenD = (self._pD[i]+1)//2 +1
+                    size_oddD = (self._pD[i]-1)//2 +1
+                    weights_evenD = np.zeros(size_evenD, dtype=float)
+                    weights_oddD = np.zeros(size_oddD, dtype=float)
+                    for j in range(size_evenD):
+                        weights_evenD[j] = 2.0**-(self._pD[i]+1)*comb(self._pD[i]+1,2*j)
+                    for j in range(size_oddD):
+                        weights_oddD[j] = 2.0**-(self._pD[i]+1)*comb(self._pD[i]+1,2*j+1)
                 
-        #Second for D-splines
-        if(self._pD[0]%2 == 0):
-            self._size_evenD = self._pD[0]//2 +1
-            self._size_oddD = self._pD[0]//2 +1
-            self._weights_evenD = np.zeros(self._size_evenD, dtype=float)
-            self._weights_oddD = np.zeros(self._size_oddD, dtype=float)
-            for j in range(self._size_evenD):
-                self._weights_evenD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j)
-                self._weights_oddD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j+1)
-        else:
-            self._size_evenD = (self._pD[0]+1)//2 +1
-            self._size_oddD = (self._pD[0]-1)//2 +1
-            self._weights_evenD = np.zeros(self._size_evenD, dtype=float)
-            self._weights_oddD = np.zeros(self._size_oddD, dtype=float)
-            for j in range(self._size_evenD):
-                self._weights_evenD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j)
-            for j in range(self._size_oddD):
-                self._weights_oddD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,2*j+1)
+                self._all_weights_even.append(weights_even)
+                self._all_weights_evenD.append(weights_evenD)
+                self._all_weights_odd.append(weights_odd)
+                self._all_weights_oddD.append(weights_oddD)
+                self._all_size_even.append(size_even)
+                self._all_size_evenD.append(size_evenD)
+                self._all_size_odd.append(size_odd)
+                self._all_size_oddD.append(size_oddD)
+                
+            else:
+                self._all_weights_even.append(np.array([1.0],dtype=float))
+                self._all_weights_evenD.append(np.array([1.0],dtype=float))
+                self._all_weights_odd.append(np.array([1.0],dtype=float))
+                self._all_weights_oddD.append(np.array([1.0],dtype=float))
+                self._all_size_even.append(1)
+                self._all_size_evenD.append(1)
+                self._all_size_odd.append(1)
+                self._all_size_oddD.append(1)
         
            
     #--------------------------------------
@@ -614,39 +662,83 @@ class ExtensionOperator(LinOpWithTransp):
     
     def _dot_helper(self, v, out, p, weights_even, weights_odd, size_even, size_odd, h_range=None):
         """Helper function to perform dot product computation."""
-        parity_match = p % 2
+        parity_match = []
+        for i in range(3):
+            parity_match.append(p[i] % 2)
+            
         if h_range is None:  # Scalar case (H1, L2)
-            for j in range(self._out_starts[0], self._out_ends[0] + 1):
-                parity_j = j % 2
-                weights, size, offset = ((weights_even, size_even, 0) if parity_j == parity_match else (weights_odd, size_odd, 1))
-                for i in range(size):
-                    out[j, 0, 0] += weights[i] * v[((j + p - 2 * i - offset) // 2) % self._VNbasis[0], 0, 0]
+            for j0 in range(self._out_starts[0], self._out_ends[0] + 1):
+                parity_j0 = j0 % 2
+                weights0, size0, offset0 = ((weights_even[0], size_even[0], 0) if parity_j0 == parity_match[0] else (weights_odd[0], size_odd[0], 1))
+                for j1 in range(self._out_starts[1], self._out_ends[1] + 1):
+                    parity_j1 = j1 % 2
+                    weights1, size1, offset1 = ((weights_even[1], size_even[1], 0) if parity_j1 == parity_match[1] else (weights_odd[1], size_odd[1], 1))
+                    for j2 in range(self._out_starts[2], self._out_ends[2] + 1):
+                        parity_j2 = j2 % 2
+                        weights2, size2, offset2 = ((weights_even[2], size_even[2], 0) if parity_j2 == parity_match[2] else (weights_odd[2], size_odd[2], 1))
+                        for i0 in range(size0):
+                            if self._halving_directions[0]:
+                                pos0 = ((j0 + p[0] - 2 * i0 - offset0) // 2) % self._VNbasis[0]
+                            else:
+                                pos0 = j0
+                            for i1 in range(size1):
+                                if self._halving_directions[1]:
+                                    pos1 = ((j1 + p[1] - 2 * i1 - offset1) // 2) % self._VNbasis[1]
+                                else:
+                                    pos1 = j1
+                                for i2 in range(size2):
+                                    if self._halving_directions[2]:
+                                        pos2 = ((j2 + p[2] - 2 * i2 - offset2) // 2) % self._VNbasis[2]
+                                    else:
+                                        pos2 = j2
+                                    out[j0, j1, j2] += weights0[i0] * weights1[i1] * weights2[i2] * v[pos0, pos1, pos2]
             
         else:  # Vector case (Hcurl, Hdiv, H1H1H1)
             for h in h_range:
-                for j in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
-                    parity_j = j % 2
-                    weights, size, offset = ((weights_even, size_even, 0) if parity_j == parity_match else (weights_odd, size_odd, 1))
-                    for i in range(size):
-                        out[h][j, 0, 0] += weights[i] * v[h][((j + p - 2 * i - offset) // 2) % self._VNbasis[h][0], 0, 0]
+                for j0 in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
+                    parity_j0 = j0 % 2
+                    weights0, size0, offset0 = ((weights_even[0], size_even[0], 0) if parity_j0 == parity_match[0] else (weights_odd[0], size_odd[0], 1))
+                    for j1 in range(self._out_starts[h][1], self._out_ends[h][1] + 1):
+                        parity_j1 = j1 % 2
+                        weights1, size1, offset1 = ((weights_even[1], size_even[1], 0) if parity_j1 == parity_match[1] else (weights_odd[1], size_odd[1], 1))
+                        for j2 in range(self._out_starts[h][2], self._out_ends[h][2] + 1):
+                            parity_j2 = j2 % 2
+                            weights2, size2, offset2 = ((weights_even[2], size_even[2], 0) if parity_j2 == parity_match[2] else (weights_odd[2], size_odd[2], 1))
+                            for i0 in range(size0):
+                                if self._halving_directions[0]:
+                                    pos0 = ((j0 + p[0] - 2 * i0 - offset0) // 2) % self._VNbasis[h][0]
+                                else:
+                                    pos0 = j0
+                                for i1 in range(size1):
+                                    if self._halving_directions[1]:
+                                        pos1 = ((j1 + p[1] - 2 * i1 - offset1) // 2) % self._VNbasis[h][1]
+                                    else:
+                                        pos1 = j1
+                                    for i2 in range(size2):
+                                        if self._halving_directions[2]:
+                                            pos2 = ((j2 + p[2] - 2 * i2 - offset2) // 2) % self._VNbasis[h][2]
+                                        else:
+                                            pos2 = j2
+                                        out[h][j0, j1, j2] += weights0[i0] * weights1[i1] * weights2[i2] * v[h][pos0, pos1, pos2]
+                
         return out
 
     def dot_H1(self, v, out):
-        return self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd)
+        return self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd)
 
     def dot_L2(self, v, out):
-        return self._dot_helper(v, out, self._pD[0], self._weights_evenD, self._weights_oddD, self._size_evenD, self._size_oddD)
+        return self._dot_helper(v, out, self._pD, self._all_weights_evenD, self._all_weights_oddD, self._all_size_evenD, self._all_size_oddD)
 
     def dot_Hcurl(self, v, out):
-        out = self._dot_helper(v, out, self._pD[0], self._weights_evenD, self._weights_oddD, self._size_evenD, self._size_oddD, h_range=[0])
-        return self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd, h_range=[1, 2])
+        out = self._dot_helper(v, out, self._pD, self._all_weights_evenD, self._all_weights_oddD, self._all_size_evenD, self._all_size_oddD, h_range=[0])
+        return self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h_range=[1, 2])
 
     def dot_Hdiv(self, v, out):
-        out = self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd, h_range=[0])
-        return self._dot_helper(v, out, self._pD[0], self._weights_evenD, self._weights_oddD, self._size_evenD, self._size_oddD, h_range=[1, 2])
+        out = self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h_range=[0])
+        return self._dot_helper(v, out, self._pD, self._all_weights_evenD, self._all_weights_oddD, self._all_size_evenD, self._all_size_oddD, h_range=[1, 2])
 
     def dot_H1H1H1(self, v, out):
-        return self._dot_helper(v, out, self._p[0], self._weights_even, self._weights_odd, self._size_even, self._size_odd, h_range=[0, 1, 2])
+        return self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h_range=[0, 1, 2])
 
     
     
@@ -660,12 +752,16 @@ class ExtensionOperator(LinOpWithTransp):
             assert isinstance(out, Vector) and out.space == self.codomain
             
             if self._V_name == 'H1' or self._V_name == 'L2':
-                for i in range(self._out_starts[0], self._out_ends[0]+1):
-                    out[i,0,0] = 0.0
+                for i0 in range(self._out_starts[0], self._out_ends[0]+1):
+                    for i1 in range(self._out_starts[1], self._out_ends[1]+1):
+                        for i2 in range(self._out_starts[2], self._out_ends[2]+1):
+                            out[i0,i1,i2] = 0.0
             else:
                 for h in range(3):
-                    for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
-                        out[h][i,0,0] = 0.0
+                    for i0 in range(self._out_starts[h][0], self._out_ends[h][0]+1):
+                        for i1 in range(self._out_starts[h][1], self._out_ends[h][1]+1):
+                            for i2 in range(self._out_starts[h][2], self._out_ends[h][2]+1):
+                                out[h][i0,i1,i2] = 0.0
                 
         dot_methods = {
             "H1": self.dot_H1,
