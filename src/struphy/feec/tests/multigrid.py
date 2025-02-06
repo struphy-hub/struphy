@@ -13,6 +13,7 @@ from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and
 
 from psydac.linalg.solvers import inverse
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
+from psydac.fem.projectors import knot_insertion_projection_operator
 from struphy.feec.linear_operators import LinOpWithTransp
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
@@ -311,12 +312,6 @@ class RestrictionOperator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
-
-    def tosparse(self):
-        pass
-
-    def toarray(self):
-        pass
     
     def _dot_helper(self, v, out, p, weights, h_range=None):
         """Helper function to perform dot product computation."""
@@ -1160,7 +1155,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     
     timei = time.time()
     
-    solver_no = inverse(A[0],method, maxiter = 10000, tol = 10**(-6))
+    solver_no = inverse(A[0],method, maxiter = 100000, tol = 10**(-6))
     
     u = solver_no.dot(b)
     
@@ -1264,6 +1259,7 @@ def Gather_data_V_cycle_scalability(Nellist, plist, spl_kind):
         #First we compute the number of levels for each Nel
         N_levels = int(log2(Nel[0])-1)
         Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels)
+
           
 def make_plot_scalability():  
     Nel = [int(2**i) for i in range(4,14)]
@@ -1287,6 +1283,7 @@ def make_plot_scalability():
     plt.legend()
     plt.show()
     plt.close()
+
     
 def verify_formula(Nel, plist, spl_kind):
     comm = MPI.COMM_WORLD
@@ -1552,16 +1549,16 @@ def verify_Extension_Operator(Nel, plist, spl_kind):
     print(f'{out2 = }')
     if( Equal == False):
         print(f'{where = }')
-     
-            
 
+    
+    
     
     
     
     
 
 if __name__ == '__main__':
-    Nel = [512, 1, 1]
+    Nel = [8192, 1, 1]
     p = [1, 1, 1]
     spl_kind = [True, True, True]
 
@@ -1573,10 +1570,11 @@ if __name__ == '__main__':
     #p=4, Nel= 8192, level = 10. Coarsest one is 16x16 matrix
     
     #multigrid(Nel, p, spl_kind,12)
-    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 9)
+    #Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 13)
     #Gather_data_V_cycle_scalability([[int(2**i),1,1] for i in range(4,10)], p, spl_kind)
-    #make_plot_scalability()
+    make_plot_scalability()
     #verify_formula(Nel, p, spl_kind)
     #verify_Restriction_Operator(Nel, p, spl_kind)
     #verify_Extension_Operator(Nel, p, spl_kind)
     #Error_analysis(Nel, p, spl_kind, 1)
+    #trying_New_Restriction(Nel, p, spl_kind, 4)
