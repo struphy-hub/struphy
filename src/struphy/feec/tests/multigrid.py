@@ -224,7 +224,10 @@ class RestrictionOperator(LinOpWithTransp):
         self._V_name = V.symbolic_space.name
         self._W_name = W.symbolic_space.name
         assert(self._V_name == self._W_name)
-         
+        
+        #This list will tell us in which spatial direction we are halving the problem.
+        self._halving_directions = [False,False,False]
+        
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(V, TensorFemSpace):
             self._V1ds = [V.spaces]
@@ -255,7 +258,12 @@ class RestrictionOperator(LinOpWithTransp):
         if isinstance(W, TensorFemSpace):
             self._W1ds = [W.spaces]
             self._WNbasis = np.array([self._W1ds[0][0].nbasis, self._W1ds[0][1].nbasis, self._W1ds[0][2].nbasis])
-            assert self._VNbasis[0] == self._WNbasis[0]*2
+            
+            for i in range(3):
+                if(self._WNbasis[i] < self._VNbasis[i]):
+                    #If this breaks for clamped splines it means .nbasis gives you the number of basis functions, not the number of elements
+                    assert self._VNbasis[i] == self._WNbasis[i]*2
+                    self._halving_directions[i] = True
             
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array(W.vector_space.starts)
@@ -274,7 +282,12 @@ class RestrictionOperator(LinOpWithTransp):
                     [self._W1ds[2][0].nbasis, self._W1ds[2][1].nbasis, self._W1ds[2][2].nbasis],
                 ]
             )
-            assert self._VNbasis[0][0] == self._WNbasis[0][0]*2 and self._VNbasis[1][0] == self._WNbasis[1][0]*2 and self._VNbasis[2][0] == self._WNbasis[2][0]*2
+            for i in range(3):
+                if(self._WNbasis[1][i] < self._VNbasis[1][i]):
+                    #If this breaks for clamped splines it means .nbasis gives you the number of basis functions, not the number of elements
+                    assert self._VNbasis[0][i] == self._WNbasis[0][i]*2 and self._VNbasis[1][i] == self._WNbasis[1][i]*2 and self._VNbasis[2][i] == self._WNbasis[2][i]*2
+                    self._halving_directions[i] = True
+                    
             # We get the start and endpoint for each sublist in out
             self._out_starts = np.array([vi.starts for vi in W.vector_space.spaces])
             self._out_ends = np.array([vi.ends for vi in W.vector_space.spaces])
@@ -289,14 +302,28 @@ class RestrictionOperator(LinOpWithTransp):
         self._pD = self._p - 1
         
         #Now we compute the weights that define this linear operator
-        #Here we store the weights needed for B-splines
-        self._weights = np.zeros(self._p[0]+2, dtype=float)
-        #Here we store the weights needed for D-splines
-        self._weightsD = np.zeros(self._pD[0]+2, dtype=float)
-        for j in range(self._p[0]+2):
-            self._weights[j] = 2.0**(-self._p[0])*comb(self._p[0]+1,j)
-        for j in range(self._pD[0]+2):
-            self._weightsD[j] = 2.0**-(self._pD[0]+1)*comb(self._pD[0]+1,j)
+        
+        #We begin by defining a list that will contain the 3 numpy arrays, each one with the weights for one spatial direction.
+        #In the case there are direction over which we do not halve the resolution we shall have an array with only one 1.0
+        self._all_weights = []
+        self._all_weightsD = []
+        for i in range(3):
+            if self._halving_directions[i]:
+                #Here we store the weights needed for B-splines
+                weights = np.zeros(self._p[i]+2, dtype=float)
+                #Here we store the weights needed for D-splines
+                weightsD = np.zeros(self._pD[i]+2, dtype=float)
+                for j in range(self._p[i]+2):
+                    weights[j] = 2.0**(-self._p[i])*comb(self._p[i]+1,j)
+                for j in range(self._pD[i]+2):
+                    weightsD[j] = 2.0**-(self._pD[i]+1)*comb(self._pD[i]+1,j)
+                self._all_weights.append(weights)
+                self._all_weightsD.append(weightsD)
+            else:
+                self._all_weights.append(np.array([1.0],dtype=float))
+                self._all_weightsD.append(np.array([1.0],dtype=float))
+        
+        
         
     #--------------------------------------
     # Abstract interface
@@ -315,34 +342,73 @@ class RestrictionOperator(LinOpWithTransp):
     
     def _dot_helper(self, v, out, p, weights, h_range=None):
         """Helper function to perform dot product computation."""
+        #First we get the number of weights in each direction
+        weights_len = []
+        for i in range(3):
+            if self._halving_directions[i]:
+                weights_len.append(p[i] + 2)
+            else:
+                weights_len.append(1)
         if h_range is None:  # Scalar case (H1, L2)
-            for i in range(self._out_starts[0], self._out_ends[0] + 1):
-                for j in range(p + 2):
-                    out[i, 0, 0] += weights[j] * v[(2 * i - p + j) % self._VNbasis[0], 0, 0]
+            for i0 in range(self._out_starts[0], self._out_ends[0] + 1):
+                for i1 in range(self._out_starts[1], self._out_ends[1] + 1):
+                    for i2 in range(self._out_starts[2], self._out_ends[2] + 1):
+                        for j0 in range(weights_len[0]):
+                            if self._halving_directions[0]:
+                                pos0 = (2 * i0 - p[0] + j0) % self._VNbasis[0]
+                            else:
+                                pos0 = i0
+                            for j1 in range(weights_len[1]):
+                                if self._halving_directions[1]:
+                                    pos1 = (2 * i1 - p[1] + j1) % self._VNbasis[1]
+                                else:
+                                    pos1 = i1
+                                for j2 in range(weights_len[2]):
+                                    if self._halving_directions[2]:
+                                        pos2 = (2 * i2 - p[2] + j2) % self._VNbasis[2]
+                                    else:
+                                        pos2 = i2
+                                    out[i0, i1, i2] += weights[0][j0]* weights[1][j1] *weights[2][j2] * v[pos0, pos1, pos2]
         else:  # Vector case (Hcurl, Hdiv, H1H1H1)
             for h in h_range:
-                for i in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
-                    for j in range(p + 2):
-                        out[h][i, 0, 0]
-                        out[h][i, 0, 0] += weights[j] * v[h][(2 * i - p + j) % self._VNbasis[h][0], 0, 0]
+                for i0 in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
+                    for i1 in range(self._out_starts[h][1], self._out_ends[h][1] + 1):
+                        for i2 in range(self._out_starts[h][2], self._out_ends[h][2] + 1):
+                            for j0 in range(weights_len[0]):
+                                if self._halving_directions[0]:
+                                    pos0 = (2 * i0 - p[0] + j0) % self._VNbasis[h][0]
+                                else:
+                                    pos0 = i0
+                                for j1 in range(weights_len[1]):
+                                    if self._halving_directions[1]:
+                                        pos1 = (2 * i1 - p[1] + j1) % self._VNbasis[h][1]
+                                    else:
+                                        pos1 = i1
+                                    for j2 in range(weights_len[2]):
+                                        if self._halving_directions[2]:
+                                            pos2 = (2 * i2 - p[2] + j2) % self._VNbasis[h][2]
+                                        else:
+                                            pos2 = i2
+                                        out[h][i0, i1, i2] += weights[0][j0]* weights[1][j1] *weights[2][j2] * v[h][pos0, pos1, pos2]
+            
         return out
 
     def dot_H1(self, v, out):
-        return self._dot_helper(v, out, self._p[0], self._weights)
+        return self._dot_helper(v, out, self._p, self._all_weights)
 
     def dot_L2(self, v, out):
-        return self._dot_helper(v, out, self._pD[0], self._weightsD)
+        return self._dot_helper(v, out, self._pD, self._all_weightsD)
 
     def dot_Hcurl(self, v, out):
-        out = self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=[0])
-        return self._dot_helper(v, out, self._p[0], self._weights, h_range=[1, 2])
+        out = self._dot_helper(v, out, self._pD, self._all_weightsD, h_range=[0])
+        return self._dot_helper(v, out, self._p, self._all_weights, h_range=[1, 2])
 
     def dot_Hdiv(self, v, out):
-        out = self._dot_helper(v, out, self._p[0], self._weights, h_range=[0])
-        return self._dot_helper(v, out, self._pD[0], self._weightsD, h_range=[1, 2])
+        out = self._dot_helper(v, out, self._p, self._all_weights, h_range=[0])
+        return self._dot_helper(v, out, self._pD, self._all_weightsD, h_range=[1, 2])
 
     def dot_H1H1H1(self, v, out):
-        return self._dot_helper(v, out, self._p[0], self._weights, h_range=[0, 1, 2])
+        return self._dot_helper(v, out, self._p, self._all_weights, h_range=[0, 1, 2])
 
     def dot(self, v, out=None):
 
@@ -354,12 +420,16 @@ class RestrictionOperator(LinOpWithTransp):
             assert isinstance(out, Vector) and out.space == self.codomain
             
             if self._V_name == 'H1' or self._V_name == 'L2':
-                for i in range(self._out_starts[0], self._out_ends[0]+1):
-                    out[i,0,0] = 0.0
+                for i0 in range(self._out_starts[0], self._out_ends[0]+1):
+                    for i1 in range(self._out_starts[1], self._out_ends[1]+1):
+                        for i2 in range(self._out_starts[2], self._out_ends[2]+1):
+                            out[i0,i1,i2] = 0.0
             else:
                 for h in range(3):
-                    for i in range(self._out_starts[h][0], self._out_ends[h][0]+1):
-                        out[h][i,0,0] = 0.0
+                    for i0 in range(self._out_starts[h][0], self._out_ends[h][0]+1):
+                        for i1 in range(self._out_starts[h][1], self._out_ends[h][1]+1):
+                            for i2 in range(self._out_starts[h][2], self._out_ends[h][2]+1):
+                                out[h][i0,i1,i2] = 0.0
             
         dot_methods = {
             "H1": self.dot_H1,
@@ -1121,7 +1191,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     world_size = comm.Get_size()
     
     domain = Cuboid()
-    sp_key = '1'
+    sp_key = '0'
     
     derham = []
     mass_ops = []
@@ -1131,8 +1201,8 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     
         derham.append(Derham([Nel[0]//(2**level),Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
         mass_ops.append(WeightedMassOperators(derham[level], domain))
-        #A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
-        A.append(derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
+        A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
+        #A.append(derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
     
     #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
     A_inv = np.linalg.inv(A[-1].toarray())
@@ -1155,7 +1225,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     
     timei = time.time()
     
-    solver_no = inverse(A[0],method, maxiter = 100000, tol = 10**(-6))
+    solver_no = inverse(A[0],method, maxiter = 10000, tol = 10**(-6))
     
     u = solver_no.dot(b)
     
@@ -1570,9 +1640,9 @@ if __name__ == '__main__':
     #p=4, Nel= 8192, level = 10. Coarsest one is 16x16 matrix
     
     #multigrid(Nel, p, spl_kind,12)
-    #Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 13)
+    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 12)
     #Gather_data_V_cycle_scalability([[int(2**i),1,1] for i in range(4,10)], p, spl_kind)
-    make_plot_scalability()
+    #make_plot_scalability()
     #verify_formula(Nel, p, spl_kind)
     #verify_Restriction_Operator(Nel, p, spl_kind)
     #verify_Extension_Operator(Nel, p, spl_kind)
