@@ -3037,7 +3037,7 @@ class VariationalDensityEvolve(Propagator):
         # Projector
         self._initialize_projectors_and_mass()
         if self._model == "linear":
-            self.rhof1.vector = self.projected_mhd_equil.n3
+            self.rhof1.vector = self.projected_equil.n3
         else:
             self.rhof1.vector = rho
         self._update_weighted_MM()
@@ -3063,7 +3063,7 @@ class VariationalDensityEvolve(Propagator):
             self._compute_init_linear_form()
 
         if self._model == "linear":
-            self.rhof1.vector = self.projected_mhd_equil.n3
+            self.rhof1.vector = self.projected_equil.n3
             self._update_Pirho()
 
     def __call__(self, dt):
@@ -5666,7 +5666,7 @@ class VariationalPressureEvolve(Propagator):
     def _create_transop0(self):
         """Update the weights of the `BasisProjectionOperator`"""
 
-        self.pf.vector = self.projected_mhd_equil.p3
+        self.pf.vector = self.projected_equil.p3
 
         pf_values = self.pf.eval_tp_fixed_loc(
             self.int_grid_spans,
@@ -6279,12 +6279,12 @@ class VariationalMagFieldEvolve(Propagator):
 
         if self._model == "linear":
             # initialize the jacobian differently if linear model
-            self.bf.vector = self.projected_mhd_equil.b2
+            self.bf.vector = self.projected_equil.b2
             self._create_Pib0()
             self.curlPib0 = self.curl @ self.Pib0
             self.curlPibT0 = self.Pib0.T @ self.curl.T
 
-            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_mhd_equil.b2)
+            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
 
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
@@ -6366,7 +6366,7 @@ class VariationalMagFieldEvolve(Propagator):
 
     def _create_Pib0(self):
 
-        self.bf.vector = self.projected_mhd_equil.b2
+        self.bf.vector = self.projected_equil.b2
 
         bf0_values = self.bf.eval_tp_fixed_loc(
             self.hist_grid_0_spans,
