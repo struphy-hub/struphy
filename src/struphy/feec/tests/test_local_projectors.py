@@ -229,7 +229,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             veco = P_Loc(f_analytic, out=out)
 
             field.vector = vec
-            field_vals = field(e1, e2, e3, squeeze_output=True)
+            field_vals = field(e1, e2, e3, squeeze_out=True)
 
             if sp_id in ("H1", "L2"):
                 err = np.max(np.abs(f_analytic(e1, e2, e3) - field_vals))

@@ -18,8 +18,8 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.initial import eigenfunctions, perturbations, utilities
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
@@ -1371,280 +1371,218 @@ class Derham:
             if update_ghost_regions:
                 self._vector_stencil.update_ghost_regions()
 
-        def initialize_coeffs(self, domain=None, mhd_equil=None, species=None):
+        def initialize_coeffs(
+            self,
+            *,
+            bckgr_params=None,
+            pert_params=None,
+            domain=None,
+            bckgr_obj=None,
+            species=None,
+        ):
             """
             Sets the initial conditions for self.vector.
 
             Parameters
             ----------
+            bckgr_params : dict
+                Field's background parameters.
+
+            pert_params : dict
+                Field's perturbation parameters for initial condition.
+
             domain : struphy.geometry.domains
                 Domain object for metric coefficients, only needed for transform of analytical perturbations.
 
-            mhd_equil: MHDequilibrium
-                MHD equilibrium object, one of :mod:`struphy.fields_background.mhd_equil.equils`.
+            bckgr_obj: FluidEquilibrium
+                Fields background object.
 
             species : string
                 Species name (e.g. "mhd") the field belongs to.
             """
 
-            # case of zero initial condition
-            if self.bckgr_params is None and self.pert_params is None:
-                # apply boundary operator (in-place)
-                self.derham.boundary_ops[self.space_key].dot(
-                    self._vector.copy(),
-                    out=self._vector,
-                )
+            # set background paramters
+            if bckgr_params is not None:
+                if self._bckgr_params is not None:
+                    print(f"Attention: overwriting background parameters for {self.name}")
+                self._bckgr_params = bckgr_params
 
-                self._vector.update_ghost_regions()
-                return
+            # set perturbation paramters
+            if pert_params is not None:
+                if self._pert_params is not None:
+                    print(f"Attention: overwriting perturbation parameters for {self.name}")
+                self._pert_params = pert_params
 
-            # check if backgrounds are to be initialized
-            bckgr_types = []
-            bckgr_type_params = []
+            self._vector *= 0.0
 
+            # add background to initial vector
             if self.bckgr_params is not None:
-                if type(self.bckgr_params["type"]) == str:
-                    self.bckgr_params["type"] = [self.bckgr_params["type"]]
-                else:
-                    assert isinstance(
-                        self.bckgr_params["type"],
-                        list,
-                    ), f"The type of initial condition must be null or str or list."
+                for _type in self.bckgr_params:
+                    _params = self.bckgr_params[_type].copy()
 
-                # extract the components that have a background
-                for _type in self.bckgr_params["type"]:
-                    if self.name not in self.bckgr_params[_type]["comps"]:
-                        pass
-                    else:
+                    # special case of const
+                    if "LogicalConst" in _type:
+                        _val = _params["values"]
+
                         if self.space_id in {"H1", "L2"}:
-                            tmp_list = [
-                                self.bckgr_params[_type]["comps"][self.name],
-                            ]
+                            assert isinstance(_val, float) or isinstance(_val, int)
+
+                            def f_tmp(e1, e2, e3):
+                                return _val + 0.0 * e1
+
+                            fun = f_tmp
                         else:
-                            tmp_list = self.bckgr_params[_type]["comps"][self.name]
+                            assert isinstance(_val, list)
+                            assert len(_val) == 3
+                            fun = []
+                            for i, _v in enumerate(_val):
+                                assert isinstance(_v, float) or isinstance(_v, int) or _v is None
 
-                        if any(_comp for _comp in tmp_list):
-                            bckgr_types += [_type]
-                            bckgr_type_params += [self.bckgr_params[_type].copy()]
-
-            # add backgrounds to coefficient vector
-            for _type, _params in zip(bckgr_types, bckgr_type_params):
-                # constant value (update halos below)
-                if "LogicalConst" in _type:
-                    _val = _params["comps"][self.name]
-
-                    if self.space_id in {"H1", "L2"}:
-                        assert isinstance(_val, float) or isinstance(_val, int)
-
-                        def f_tmp(e1, e2, e3):
-                            return _val + 0.0 * e1
-
-                        fun = f_tmp
-                    else:
-                        assert isinstance(_val, list)
-                        assert len(_val) == 3
-                        fun = []
-                        for i, _v in enumerate(_val):
-                            assert (
-                                isinstance(_v, float)
-                                or isinstance(
-                                    _v,
-                                    int,
-                                )
-                                or _v is None
-                            )
-
-                        if _val[0] is not None:
-                            fun += [lambda e1, e2, e3: _val[0] + 0.0 * e1]
-                        else:
-                            fun += [lambda e1, e2, e3: 0.0 * e1]
-
-                        if _val[1] is not None:
-                            fun += [lambda e1, e2, e3: _val[1] + 0.0 * e1]
-                        else:
-                            fun += [lambda e1, e2, e3: 0.0 * e1]
-
-                        if _val[2] is not None:
-                            fun += [lambda e1, e2, e3: _val[2] + 0.0 * e1]
-                        else:
-                            fun += [lambda e1, e2, e3: 0.0 * e1]
-
-                # geometric projection of mhd background
-                if "MHD" in _type:
-                    assert mhd_equil is not None
-                    mhd_var = _params["comps"][self.name]
-                    assert mhd_var in dir(
-                        MHDequilibrium,
-                    ), f"{mhd_var = } is not an attribute of MHDequilibrium."
-
-                    if self.space_id in {"H1", "L2"}:
-                        fun = getattr(mhd_equil, mhd_var)
-                    else:
-                        assert (mhd_var + "_1") in dir(
-                            MHDequilibrium,
-                        ), f'{(mhd_var + "_1") = } is not an attribute of MHDequilibrium.'
-                        fun = [
-                            getattr(mhd_equil, mhd_var + "_1"),
-                            getattr(mhd_equil, mhd_var + "_2"),
-                            getattr(mhd_equil, mhd_var + "_3"),
-                        ]
-
-                # peform projection
-                self.vector += self.derham.P[self.space_key](fun)
-
-            # check if perturbations are to be initialized
-            pert_types = []
-            pert_type_params = []
-
-            if self.pert_params is not None:
-                if type(self.pert_params["type"]) == str:
-                    self.pert_params["type"] = [self.pert_params["type"]]
-                else:
-                    assert isinstance(
-                        self.pert_params["type"],
-                        list,
-                    ), f"The type of initial condition must be null or str or list."
-
-                # extract the components to be perturbed
-                for _type in self.pert_params["type"]:
-                    if self.name not in self.pert_params[_type]["comps"]:
-                        pass
-                    else:
-                        if self.space_id in {"H1", "L2"}:
-                            pert_comps_list = [
-                                self.pert_params[_type]["comps"][self.name],
-                            ]
-                        else:
-                            pert_comps_list = self.pert_params[_type]["comps"][self.name]
-
-                        if any(_comp for _comp in pert_comps_list):
-                            pert_types += [_type]
-                            pert_type_params += [self.pert_params[_type].copy()]
-
-            # add perturbations to coefficient vector
-            for _type, _params in zip(pert_types, pert_type_params):
-                # white noise in logical space for different components
-                if "noise" in _type:
-                    # component(s) to perturb
-                    if isinstance(_params["comps"][self.name], bool):
-                        comps = [_params["comps"][self.name]]
-                    else:
-                        comps = _params["comps"][self.name]
-
-                    # set white noise FE coefficients
-                    _params.pop("comps")
-
-                    if self.space_id in {"H1", "L2"}:
-                        if comps[0]:
-                            self._add_noise(**_params)
-
-                    elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        for n, comp in enumerate(comps):
-                            if comp:
-                                self._add_noise(**_params, n=n)
-
-                # initialize from analytical function via geometric projection
-                if _type in dir(perturbations):
-                    if self.space_id in {"H1", "L2"}:
-                        pert_type_params_comp = {}
-
-                        # which transform is to be used: physical, '0' or '3'
-                        fun_basis = _params["comps"][self.name]
-
-                        for keys, vals in _params.items():
-                            if keys == "comps":
-                                continue
-
-                            elif isinstance(vals, dict):
-                                pert_type_params_comp[keys] = vals[self.name]
-
+                            if _val[0] is not None:
+                                fun += [lambda e1, e2, e3: _val[0] + 0.0 * e1]
                             else:
-                                pert_type_params_comp[keys] = vals
+                                fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        # get callable(s) for specified init type
-                        fun_class = getattr(perturbations, _type)
-                        fun_tmp = [fun_class(**pert_type_params_comp)]
+                            if _val[1] is not None:
+                                fun += [lambda e1, e2, e3: _val[1] + 0.0 * e1]
+                            else:
+                                fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        # pullback callable
-                        fun = TransformedPformComponent(
-                            fun_tmp,
-                            fun_basis,
-                            self.space_key,
-                            domain=domain,
-                        )
+                            if _val[2] is not None:
+                                fun += [lambda e1, e2, e3: _val[2] + 0.0 * e1]
+                            else:
+                                fun += [lambda e1, e2, e3: 0.0 * e1]
+                    else:
+                        assert bckgr_obj is not None
+                        _var = _params["variable"]
+                        assert _var in dir(MHDequilibrium), f"{_var = } is not an attribute of any fields background."
 
-                    elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        pert_type_params_comp = [{}, {}, {}]
-                        fun_tmp = [None, None, None]
-                        fun_basis = ["v"] * 3
-
-                        fun_class = getattr(perturbations, _type)
-
-                        for axis, comp in enumerate(_params["comps"][self.name]):
-                            if comp is not None:
-                                # which transform is to be used: physical, '1', '2' or 'v'
-                                fun_basis[axis] = comp
-
-                                for keys, vals in _params.items():
-                                    if keys == "comps":
-                                        continue
-
-                                    elif isinstance(vals, dict):
-                                        pert_type_params_comp[axis][keys] = vals[self.name][axis]
-
-                                    else:
-                                        pert_type_params_comp[axis][keys] = vals
-
-                                fun_tmp[axis] = fun_class(
-                                    **pert_type_params_comp[axis],
-                                )
-
-                        # pullback callable
-                        fun = []
-                        for n, fform in enumerate(fun_basis):
-                            fun += [
-                                TransformedPformComponent(
-                                    fun_tmp,
-                                    fform,
-                                    self.space_key,
-                                    comp=n,
-                                    domain=domain,
-                                ),
+                        if self.space_id in {"H1", "L2"}:
+                            fun = getattr(bckgr_obj, _var)
+                        else:
+                            assert (_var + "_1") in dir(MHDequilibrium), (
+                                f"{(_var + '_1') = } is not an attribute of any fields background."
+                            )
+                            fun = [
+                                getattr(bckgr_obj, _var + "_1"),
+                                getattr(bckgr_obj, _var + "_2"),
+                                getattr(bckgr_obj, _var + "_3"),
                             ]
 
                     # peform projection
                     self.vector += self.derham.P[self.space_key](fun)
 
-                # loading of MHD eigenfunction (legacy code, might not be up to date)
-                if "EigFun" in _type:
-                    # select class
-                    funs = getattr(eigenfunctions, pert_types[0])(
-                        self.derham,
-                        **_params,
-                    )
+            # add perturbations to coefficient vector
+            if self.pert_params is not None:
+                for _type in self.pert_params:
+                    _params = self.pert_params[_type].copy()
 
-                    # select eigenvector and set coefficients
-                    if hasattr(funs, self.name):
-                        eig_vec = getattr(funs, self.name)
+                    # special case of white noise in logical space for different components
+                    if "noise" in _type:
+                        # component(s) to perturb
+                        if isinstance(_params["comps"], bool):
+                            comps = [_params["comps"]]
+                        else:
+                            comps = _params["comps"]
+                        _params.pop("comps")
 
-                        self.vector += eig_vec
+                        # set white noise FE coefficients
+                        if self.space_id in {"H1", "L2"}:
+                            if comps[0]:
+                                self._add_noise(**_params)
+                        elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
+                            for n, comp in enumerate(comps):
+                                if comp:
+                                    self._add_noise(**_params, n=n)
 
-                # initialize from existing output file
-                if "InitFromOutput" in _type:
-                    # select class
-                    o_data = getattr(utilities, pert_types[0])(
-                        self.derham,
-                        self.name,
-                        species,
-                        **_params,
-                    )
+                    # given function class
+                    elif _type in dir(perturbations):
+                        if self.space_id in {"H1", "L2"}:
+                            # which transform is to be used: physical, '0' or '3'
+                            fun_basis = _params["given_in_basis"]
+                            _params.pop("given_in_basis")
 
-                    if isinstance(self.vector, StencilVector):
-                        self.vector._data[:] += o_data.vector
+                            # get callable(s) for specified init type
+                            fun_class = getattr(perturbations, _type)
+                            fun_tmp = [fun_class(**_params)]
 
-                    else:
-                        for n in range(3):
-                            self.vector[n]._data[:] += o_data.vector[n]
+                            # pullback callable
+                            fun = TransformedPformComponent(
+                                fun_tmp,
+                                fun_basis,
+                                self.space_key,
+                                domain=domain,
+                            )
+
+                        elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
+                            fun_class = getattr(perturbations, _type)
+                            fun_tmp = []
+                            fun_basis = []
+                            bases = _params["given_in_basis"]
+                            _params.pop("given_in_basis")
+                            for component, base in enumerate(bases):
+                                if base is None:
+                                    fun_basis += ["v"]
+                                    fun_tmp += [None]
+                                else:
+                                    # which transform is to be used: physical, '1', '2' or 'v'
+                                    fun_basis += [base]
+                                    # function parameters of component
+                                    _params_comp = {}
+                                    for key, val in _params.items():
+                                        if isinstance(val, (list, tuple)):
+                                            _params_comp[key] = val[component]
+                                        else:
+                                            _params_comp[key] = val
+
+                                    fun_tmp += [fun_class(**_params_comp)]
+
+                            # pullback callable
+                            fun = []
+                            for n, fform in enumerate(fun_basis):
+                                fun += [
+                                    TransformedPformComponent(
+                                        fun_tmp,
+                                        fform,
+                                        self.space_key,
+                                        comp=n,
+                                        domain=domain,
+                                    ),
+                                ]
+
+                        # peform projection
+                        self.vector += self.derham.P[self.space_key](fun)
+
+                    # loading of MHD eigenfunction (legacy code, might not be up to date)
+                    elif "EigFun" in _type:
+                        # select class
+                        funs = getattr(eigenfunctions, _type)(
+                            self.derham,
+                            **_params,
+                        )
+
+                        # select eigenvector and set coefficients
+                        if hasattr(funs, self.name):
+                            eig_vec = getattr(funs, self.name)
+
+                            self.vector += eig_vec
+
+                    # initialize from existing output file
+                    elif "InitFromOutput" in _type:
+                        # select class
+                        o_data = getattr(utilities, _type)(
+                            self.derham,
+                            self.name,
+                            species,
+                            **_params,
+                        )
+
+                        if isinstance(self.vector, StencilVector):
+                            self.vector._data[:] += o_data.vector
+
+                        else:
+                            for n in range(3):
+                                self.vector[n]._data[:] += o_data.vector[n]
 
             # apply boundary operator (in-place)
             self.derham.boundary_ops[self.space_key].dot(
@@ -1750,7 +1688,7 @@ class Derham:
 
             return out
 
-        def __call__(self, eta1, eta2, eta3, out=None, tmp=None, squeeze_output=False, local=False):
+        def __call__(self, *etas, out=None, tmp=None, squeeze_out=False, local=False):
             """
             Evaluates the spline function on the global domain, unless local=True,
             in which case the spline function is evaluated only on the local domain,
@@ -1758,8 +1696,11 @@ class Derham:
 
             Parameters
             ----------
-            eta1, eta2, eta3 : array-like
-                Logical coordinates at which to evaluate.
+            *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
             out : array[float] or list
                 Array in which to store the values of the spline function at the given point set (list in case of vector-valued spaces).
@@ -1770,7 +1711,7 @@ class Derham:
             flat_eval : bool
                 Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
 
-            squeeze_output : bool
+            squeeze_out : bool
                 Whether to remove singleton dimensions in output "values".
 
             Returns
@@ -1779,80 +1720,44 @@ class Derham:
                     The values of the spline function at the given point set (list in case of vector-valued spaces).
             """
 
-            # all eval points
-            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                eta1,
-                eta2,
-                eta3,
-            )
+            # extract coefficients and update ghost regions
+            self.extract_coeffs(update_ghost_regions=True)
 
-            # check if eval points are "interior points" in domain_array; if so, add small offset
-            dom_arr = self.derham.domain_array
-            if self.derham.comm is not None:
-                rank = self.derham.comm.Get_rank()
+            # get knot vectors
+            T1, T2, T3 = self.derham.Vh_fem["0"].knots
+
+            # marker evaluation
+            if len(etas) == 1:
+                marker_evaluation = True
+                is_sparse_meshgrid = False
+                markers = etas[0]
+                assert markers.ndim == 2
+                self._flag_pts_not_on_proc(markers)
+                tmp_shape = markers.shape[0]
+            # 3D meshgrid evaluation
             else:
-                rank = 0
-
-            if dom_arr[rank, 0] != 0.0:
-                E1[E1 == dom_arr[rank, 0]] += 1e-8
-            if dom_arr[rank, 1] != 1.0:
-                E1[E1 == dom_arr[rank, 1]] += 1e-8
-
-            if dom_arr[rank, 3] != 0.0:
-                E2[E2 == dom_arr[rank, 3]] += 1e-8
-            if dom_arr[rank, 4] != 1.0:
-                E2[E2 == dom_arr[rank, 4]] += 1e-8
-
-            if dom_arr[rank, 6] != 0.0:
-                E3[E3 == dom_arr[rank, 6]] += 1e-8
-            if dom_arr[rank, 7] != 1.0:
-                E3[E3 == dom_arr[rank, 7]] += 1e-8
-
-            # True for eval points on current process
-            E1_on_proc = np.logical_and(
-                E1 >= dom_arr[rank, 0],
-                E1 <= dom_arr[rank, 1],
-            )
-            E2_on_proc = np.logical_and(
-                E2 >= dom_arr[rank, 3],
-                E2 <= dom_arr[rank, 4],
-            )
-            E3_on_proc = np.logical_and(
-                E3 >= dom_arr[rank, 6],
-                E3 <= dom_arr[rank, 7],
-            )
-
-            # flag eval points not on current process
-            E1[~E1_on_proc] = -1.0
-            E2[~E2_on_proc] = -1.0
-            E3[~E3_on_proc] = -1.0
-
-            # prepare arrays for AllReduce
-            if tmp is None:
-                tmp = np.zeros(
-                    (
-                        E1.shape[0],
-                        E2.shape[1],
-                        E3.shape[2],
-                    ),
-                    dtype=float,
-                )
-            else:
-                assert isinstance(tmp, np.ndarray)
-                assert tmp.shape == (
+                marker_evaluation = False
+                E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(*etas)
+                self._flag_pts_not_on_proc(E1, E2, E3)
+                tmp_shape = (
                     E1.shape[0],
                     E2.shape[1],
                     E3.shape[2],
                 )
+
+            # prepare arrays for AllReduce
+            if tmp is None:
+                tmp = np.zeros(
+                    tmp_shape,
+                    dtype=float,
+                )
+            else:
+                assert isinstance(tmp, np.ndarray)
+                assert tmp.shape == tmp_shape
                 assert tmp.dtype.type is np.float64
                 tmp[:] = 0.0
 
-            # extract coefficients and update ghost regions
-            self.extract_coeffs(update_ghost_regions=True)
-
-            # call pyccel kernels
-            T1, T2, T3 = self.derham.Vh_fem["0"].knots
-
+            # scalar-valued field
             if isinstance(self._vector_stencil, StencilVector):
                 kind = self.derham.spline_types_pyccel[self.space_key]
 
@@ -1862,6 +1767,19 @@ class Derham:
                         E1,
                         E2,
                         E3,
+                        self._vector_stencil._data,
+                        kind,
+                        np.array(self.derham.p),
+                        T1,
+                        T2,
+                        T3,
+                        np.array(self.starts),
+                        tmp,
+                    )
+                elif marker_evaluation:
+                    # eval_mpi needs flagged arrays E1, E2, E3 as input
+                    eval_3d.eval_spline_mpi_markers(
+                        markers,
                         self._vector_stencil._data,
                         kind,
                         np.array(self.derham.p),
@@ -1902,18 +1820,20 @@ class Derham:
                     out *= 0.0
                     out += tmp
 
-                if squeeze_output:
+                if squeeze_out:
                     out = np.squeeze(out)
 
                 if out.ndim == 0:
                     out = out.item()
 
+            # vector-valued field
             else:
                 out_is_None = out is None
                 if out_is_None:
                     out = []
                 for n, kind in enumerate(self.derham.spline_types_pyccel[self.space_key]):
                     if is_sparse_meshgrid:
+                        # eval_mpi needs flagged arrays E1, E2, E3 as input
                         eval_3d.eval_spline_mpi_sparse_meshgrid(
                             E1,
                             E2,
@@ -1927,7 +1847,21 @@ class Derham:
                             np.array(self.starts[n]),
                             tmp,
                         )
+                    elif marker_evaluation:
+                        # eval_mpi needs flagged arrays E1, E2, E3 as input
+                        eval_3d.eval_spline_mpi_markers(
+                            markers,
+                            self._vector_stencil[n]._data,
+                            kind,
+                            np.array(self.derham.p),
+                            T1,
+                            T2,
+                            T3,
+                            np.array(self.starts[n]),
+                            tmp,
+                        )
                     else:
+                        # eval_mpi needs flagged arrays E1, E2, E3 as input
                         eval_3d.eval_spline_mpi_matrix(
                             E1,
                             E2,
@@ -1959,7 +1893,7 @@ class Derham:
 
                     tmp[:] = 0.0
 
-                    if squeeze_output:
+                    if squeeze_out:
                         out[-1] = np.squeeze(out[-1])
 
                     if out[-1].ndim == 0:
@@ -1970,6 +1904,77 @@ class Derham:
         #######################
         ### Private methods ###
         #######################
+        def _flag_pts_not_on_proc(self, *etas):
+            """Sets evaluation points outside of process domain to -1 (in place).
+
+            Parameters
+            ----------
+            *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes."""
+
+            # get domain decompoistion info
+            dom_arr = self.derham.domain_array
+            if self.derham.comm is not None:
+                rank = self.derham.comm.Get_rank()
+            else:
+                rank = 0
+
+            # marker evaluation
+            if len(etas) == 1:
+                markers = etas[0]
+
+                # check which particles are on the current process domain
+                is_on_proc_domain = np.logical_and(
+                    markers[:, :3] >= dom_arr[rank, 0::3],
+                    markers[:, :3] <= dom_arr[rank, 1::3],
+                )
+                on_proc = np.all(is_on_proc_domain, axis=1)
+
+                markers[~on_proc, :] = -1.0
+
+            # 3D meshgrid evaluation
+            else:
+                assert len(etas) == 3
+                E1, E2, E3 = etas
+                # check if eval points are "interior points" in domain_array; if so, add small offset
+
+                if dom_arr[rank, 0] != 0.0:
+                    E1[E1 == dom_arr[rank, 0]] += 1e-8
+                if dom_arr[rank, 1] != 1.0:
+                    E1[E1 == dom_arr[rank, 1]] += 1e-8
+
+                if dom_arr[rank, 3] != 0.0:
+                    E2[E2 == dom_arr[rank, 3]] += 1e-8
+                if dom_arr[rank, 4] != 1.0:
+                    E2[E2 == dom_arr[rank, 4]] += 1e-8
+
+                if dom_arr[rank, 6] != 0.0:
+                    E3[E3 == dom_arr[rank, 6]] += 1e-8
+                if dom_arr[rank, 7] != 1.0:
+                    E3[E3 == dom_arr[rank, 7]] += 1e-8
+
+                # True for eval points on current process
+                E1_on_proc = np.logical_and(
+                    E1 >= dom_arr[rank, 0],
+                    E1 <= dom_arr[rank, 1],
+                )
+                E2_on_proc = np.logical_and(
+                    E2 >= dom_arr[rank, 3],
+                    E2 <= dom_arr[rank, 4],
+                )
+                E3_on_proc = np.logical_and(
+                    E3 >= dom_arr[rank, 6],
+                    E3 <= dom_arr[rank, 7],
+                )
+
+                # flag eval points not on current process
+                E1[~E1_on_proc] = -1.0
+                E2[~E2_on_proc] = -1.0
+                E3[~E3_on_proc] = -1.0
+
         def _add_noise(self, direction="e3", amp=0.0001, seed=None, n=None):
             """Add noise to a vector component where init_comps==True, otherwise leave at zero.
 

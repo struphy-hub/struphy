@@ -109,12 +109,13 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
     }
 
     particles = Particles6D(
@@ -164,7 +165,6 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -181,20 +181,22 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n],
+                    "amps": [amp_n],
+                }
+            }
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
+            }
         },
     }
 
@@ -330,12 +332,13 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            },
+        }
     }
 
     particles = Particles6D(
@@ -386,7 +389,6 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -403,21 +405,23 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
             "use_background_n": False,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n1],
+                    "amps": [amp_n1],
+                }
             },
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
             "use_background_n": True,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
             },
         },
     }
@@ -611,12 +615,13 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
     }
 
     particles = Particles6D(
@@ -672,7 +677,6 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -689,20 +693,22 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n1],
+                    "amps": [amp_n1],
+                }
+            }
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
+            }
         },
     }
 
@@ -850,12 +856,13 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
     }
 
     particles = Particles6D(
@@ -912,7 +919,6 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -929,21 +935,23 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
             "use_background_n": False,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n1],
+                    "amps": [amp_n1],
+                }
             },
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
             "use_background_n": True,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
             },
         },
     }

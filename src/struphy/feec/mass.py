@@ -39,7 +39,7 @@ class WeightedMassOperators:
     -----
     Possible choices for key-value pairs in **weights** are, at the moment:
 
-    - ``eq_mhd``: :class:`~struphy.fields_background.mhd_equil.base.MHDequilibrium`
+    - ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`
     """
 
     def __init__(self, derham, domain, matrix_free=False, verbose=True, **weights):
@@ -448,7 +448,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -457,7 +456,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -466,7 +464,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 
@@ -523,7 +520,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -532,7 +528,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -541,7 +536,6 @@ class WeightedMassOperators:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 
@@ -729,7 +723,7 @@ class WeightedMassOperators:
 
             1. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
             2. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
-            3. ``1D list`` : 1d list consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d list: ``weights=['<name>']``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.mhd_equil.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
+            3. ``1D list`` : 1d list consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d list: ``weights=['<name>']``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
             4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
         assemble: bool
@@ -995,7 +989,7 @@ class WeightedMassOperatorsOldForTesting:
     -----
     Possible choices for key-value pairs in **weights** are, at the moment:
 
-    - ``eq_mhd``: :class:`~struphy.fields_background.mhd_equil.base.MHDequilibrium`
+    - ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`
     """
 
     def __init__(self, derham, domain, matrix_free=False, **weights):
@@ -1485,7 +1479,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -1494,7 +1487,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -1503,7 +1495,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 
@@ -1569,7 +1560,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[0]
 
@@ -1578,7 +1568,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[1]
 
@@ -1587,7 +1576,6 @@ class WeightedMassOperatorsOldForTesting:
                     x,
                     y,
                     z,
-                    squeeze_output=False,
                     local=True,
                 )[2]
 

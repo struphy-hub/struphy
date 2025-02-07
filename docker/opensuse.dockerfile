@@ -44,8 +44,6 @@ RUN echo "Reinstalling python3-devel..." \
 # Create a new working directory
 WORKDIR /struphy_install/
 
-COPY dist/struphy*.whl .
-
 # Allow mpirun to run as root (for OpenMPI)
 ENV PATH="/opensuse_latest/venv/bin:$PATH"
 ENV OMPI_ALLOW_RUN_AS_ROOT=1

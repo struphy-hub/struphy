@@ -27,18 +27,17 @@ which can be solved on a variety of :ref:`mapped domains <avail_mappings>`.
    sections/abstract
    sections/install
    sections/quickstart
-   sections/models
-   sections/numerics
-   sections/api
-   sections/tutorials
    sections/userguide
-   sections/developers
+   sections/tutorials
+   sections/numerics
+   sections/models
    sections/domains
+   sections/equilibria
    sections/propagators
    sections/pic_classes
    sections/feec_classes
-   sections/physics
-   sections/examples
+   sections/utilities
+   sections/developers
 
 
 Reference paper

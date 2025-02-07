@@ -38,7 +38,7 @@ class BasisProjectionOperators:
     ----
     Possible choices for key-value pairs in ****weights** are, at the moment:
 
-    - eq_mhd: :class:`struphy.fields_background.mhd_equil.base.MHDequilibrium`
+    - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
     def __init__(self, derham, domain, verbose=True, **weights):

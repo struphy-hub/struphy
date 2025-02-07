@@ -95,8 +95,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
     def propagators_dct():
         return {
             propagators_markers.PushEta: ["species1"],
-            propagators_coupling.VlasovAmpere: ["e_field", "species1"],
             propagators_markers.PushVxB: ["species1"],
+            propagators_coupling.VlasovAmpere: ["e_field", "species1"],
         }
 
     __em_fields__ = species()["em_fields"]
@@ -150,8 +150,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # TODO: assert f0.params[] == 0.
 
         # Initialize background magnetic field from MHD equilibrium
-        if self.projected_mhd_equil:
-            self._b_background = self.projected_mhd_equil.b2
+        if self.projected_equil:
+            self._b_background = self.projected_equil.b2
         else:
             self._b_background = None
 
@@ -165,11 +165,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {"algo": algo_eta}
 
-        self._kwargs[propagators_coupling.VlasovAmpere] = {
-            "c1": self._alpha**2 / self._epsilon,
-            "solver": params_coupling,
-        }
-
         # Only add PushVxB if magnetic field is not zero
         self._kwargs[propagators_markers.PushVxB] = None
         if self._b_background is not None:
@@ -178,6 +173,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 "b_eq": self._b_background,
                 "kappa": 1.0 / self._epsilon,
             }
+
+        self._kwargs[propagators_coupling.VlasovAmpere] = {
+            "c1": self._alpha**2 / self._epsilon,
+            "c2": 1.0 / self._epsilon,
+            "solver": params_coupling,
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -256,10 +257,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         en_E = self.pointer["e_field"].dot(self._tmp1) / 2.0
         self.update_scalar("en_E", en_E)
 
-        # alpha^2 / epsilon / 2 / N * sum_p w_p v_p^2
+        # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = (
             self._alpha**2
-            / self._epsilon
             / (2 * self.pointer["species1"].n_mks)
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
@@ -435,7 +435,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         ] * 3
 
         # Initialize background magnetic field from MHD equilibrium
-        b_backgr = self.projected_mhd_equil.b2
+        b_backgr = self.projected_equil.b2
 
         # propagator parameters
         params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
@@ -701,22 +701,18 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # kinetic parameters
         self._species_params = params["kinetic"]["species1"]
-        # kinetic background params
-        bckgr_params = self._species_params["background"]
-        bckgr_type = bckgr_params["type"]
 
         # Assert Maxwellian background (if list, the first entry is taken)
-        if isinstance(bckgr_type, list):
-            assert bckgr_type[0][:-2] == "Maxwellian3D", (
-                "The background distribution function must be a uniform Maxwellian!"
-            )
-            self._f0 = getattr(maxwellians, bckgr_type[0][:-2])(
-                maxw_params=bckgr_params[bckgr_type[0]],
+        bckgr_params = self._species_params["background"]
+        li_bp = list(bckgr_params)
+        assert li_bp[0] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
+        if len(li_bp) > 1:
+            # overwrite f0 with single Maxwellian
+            self._f0 = getattr(maxwellians, li_bp[0][:-2])(
+                maxw_params=bckgr_params[li_bp[0]],
             )
         else:
-            assert self._species_params["background"]["type"] == "Maxwellian3D", (
-                "The background distribution function must be a uniform Maxwellian!"
-            )
+            # keep allocated background
             self._f0 = self.pointer["species1"].f0
 
         # Assert uniformity of the Maxwellian background
@@ -758,8 +754,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                     block._data[:, :, :] += e0
 
         # Get parameters of the background magnetic field
-        if self.projected_mhd_equil:
-            self._b_background = self.projected_mhd_equil.b2
+        if self.projected_equil:
+            self._b_background = self.projected_equil.b2
         else:
             self._b_background = None
         # ====================================================================================
@@ -1147,13 +1143,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         Z = ions_params["phys_params"]["Z"]
         assert Z > 0  # must be positive ions
-
-        # magnetic background
-        if "braginskii_equilibrium" in params:
-            magn_bckgr = self.braginskii_equil
-            self.mass_ops.selected_weight = "eq_braginskii"
-        else:
-            magn_bckgr = self.mhd_equil
 
         # Poisson right-hand side
         charge_accum = AccumulatorVector(
