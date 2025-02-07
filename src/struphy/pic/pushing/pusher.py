@@ -153,7 +153,10 @@ class Pusher:
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
-        self._residuals = np.zeros(self.particles.markers.shape[0])
+        if self.particles.amrex:
+            self._residuals = np.zeros(self.particles.markers.number_of_particles_at_level(0,True, True))
+        else:
+            self._residuals = np.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.
         self._not_converged_loc = self._residuals == 0.
 
@@ -166,21 +169,22 @@ class Pusher:
         # some idx and slice
         markers = self.particles.markers
         vdim = self.particles.vdim
-        first_pusher_idx = self.particles.first_pusher_idx
-        first_shift_idx = self.particles.args_markers.first_shift_idx
-        residual_idx = self.particles.args_markers.residual_idx
+        if not self.particles.amrex:
+            first_pusher_idx = self.particles.first_pusher_idx
+            first_shift_idx = self.particles.args_markers.first_shift_idx
+            residual_idx = self.particles.args_markers.residual_idx
 
-        init_slice = slice(first_pusher_idx, first_pusher_idx + 3 + vdim)
-        shift_slice = slice(first_shift_idx, first_shift_idx + 3)
+            init_slice = slice(first_pusher_idx, first_pusher_idx + 3 + vdim)
+            shift_slice = slice(first_shift_idx, first_shift_idx + 3)
 
-        # save initial phase space coordinates
-        markers[:, init_slice] = markers[:, :3 + vdim]
+            # save initial phase space coordinates
+            markers[:, init_slice] = markers[:, :3 + vdim]
 
-        # set boundary shifts to zero
-        markers[:, shift_slice] = 0.
+            # set boundary shifts to zero
+            markers[:, shift_slice] = 0.
 
-        # clear buffer columns starting from residual index, dont clear ID (last column)
-        markers[:, residual_idx:-1] = 0.
+            # clear buffer columns starting from residual index, dont clear ID (last column)
+            markers[:, residual_idx:-1] = 0.
 
         if self.verbose:
             rank = self.particles.mpi_rank
@@ -221,7 +225,7 @@ class Pusher:
                     self.particles.derham.comm.Barrier()
 
             n_not_converged[0] = self.particles.n_mks
-            while True:
+            while True: # TODO look this up!!!!
                 k += 1
 
                 # if eval_kernels is not empty, do spline evaluations
@@ -257,69 +261,78 @@ class Pusher:
                     )
 
                 # push markers
-                self.kernel(
-                    dt,
-                    stage,
-                    self.particles.args_markers,
-                    self._args_domain,
-                    *self._args_kernel,
-                )
-
-                self.particles.apply_kinetic_bc(newton=self._newton)
-                self.particles.update_holes()
-
-                # compute number of non-converged particles (maxiter=1 for explicit schemes)
-                if self.maxiter > 1:
-                    self._residuals[:] = markers[:, residual_idx]
-                    max_res = np.max(self._residuals)
-                    if max_res < 0.:
-                        max_res = None
-                    self._converged_loc[:] = self._residuals < self._tol
-                    self._not_converged_loc[:] = ~self._converged_loc
-                    n_not_converged[0] = np.count_nonzero(
-                        self._not_converged_loc,
+                if self.particles.amrex:
+                    self.kernel(
+                        dt,
+                        stage,
+                        self.particles,
+                        self._args_domain,
+                        *self._args_kernel,
+                    )
+                else: 
+                    self.kernel(
+                        dt,
+                        stage,
+                        self.particles.args_markers,
+                        self._args_domain,
+                        *self._args_kernel,
                     )
 
-                    if self.verbose:
-                        print(
-                            f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
-                        )
-                        if self.particles.mpi_comm is not None:
-                            self.particles.derham.comm.Barrier()
+                    self.particles.apply_kinetic_bc(newton=self._newton)
+                    self.particles.update_holes()
 
-                    if self.particles.mpi_comm is not None:
-                        self.particles.derham.comm.Allreduce(
-                            self._mpi_in_place, n_not_converged, op=self._mpi_sum,
-                        )
-
-                    # take converged markers out of the loop
-                    markers[self._converged_loc, first_pusher_idx] = -1.
-
-                # maxiter=1 for explicit schemes
-                if k == self.maxiter:
+                    # compute number of non-converged particles (maxiter=1 for explicit schemes)
                     if self.maxiter > 1:
-                        rank = self.particles.mpi_rank
-                        print(
-                            f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                        self._residuals[:] = markers[:, residual_idx]
+                        max_res = np.max(self._residuals)
+                        if max_res < 0.:
+                            max_res = None
+                        self._converged_loc[:] = self._residuals < self._tol
+                        self._not_converged_loc[:] = ~self._converged_loc
+                        n_not_converged[0] = np.count_nonzero(
+                            self._not_converged_loc,
                         )
-                    # sort markers according to domain decomposition
-                    if self.mpi_sort == 'each':
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
-                    break
 
-                # check for convergence
-                if n_not_converged[0] == 0:
-                    # sort markers according to domain decomposition
-                    if self.mpi_sort == 'each' :
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
+                        if self.verbose:
+                            print(
+                                f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                            )
+                            if self.particles.mpi_comm is not None:
+                                self.particles.derham.comm.Barrier()
 
-                    break
+                        if self.particles.mpi_comm is not None:
+                            self.particles.derham.comm.Allreduce(
+                                self._mpi_in_place, n_not_converged, op=self._mpi_sum,
+                            )
+
+                        # take converged markers out of the loop
+                        markers[self._converged_loc, first_pusher_idx] = -1.
+
+                    # maxiter=1 for explicit schemes
+                    if k == self.maxiter:
+                        if self.maxiter > 1:
+                            rank = self.particles.mpi_rank
+                            print(
+                                f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                            )
+                        # sort markers according to domain decomposition
+                        if self.mpi_sort == 'each':
+                            if self.particles.mpi_comm is not None:
+                                self.particles.mpi_sort_markers()
+                            else:
+                                self.particles.apply_kinetic_bc()
+                        break
+
+                    # check for convergence
+                    if n_not_converged[0] == 0:
+                        # sort markers according to domain decomposition
+                        if self.mpi_sort == 'each' :
+                            if self.particles.mpi_comm is not None:
+                                self.particles.mpi_sort_markers()
+                            else:
+                                self.particles.apply_kinetic_bc()
+
+                        break
 
             # print stage info
             if self.verbose:
@@ -329,12 +342,15 @@ class Pusher:
                 if self.particles.mpi_comm is not None:
                     self.particles.derham.comm.Barrier()
 
-        # sort markers according to domain decomposition
-        if self.mpi_sort == 'last':
-            if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(do_test=True)
+            # sort markers according to domain decomposition
+            if self.particles.amrex:
+                self.particles.markers.redistribute()
             else:
-                self.particles.apply_kinetic_bc()
+                if self.mpi_sort == 'last':
+                    if self.particles.mpi_comm is not None:
+                        self.particles.mpi_sort_markers(do_test=True)
+                    else:
+                        self.particles.apply_kinetic_bc()
 
     @property
     def particles(self):

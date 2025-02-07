@@ -12,7 +12,7 @@ from struphy.io.setup import descend_options_dict
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc, amrex_pusher_kernels
+from struphy.pic.pushing import amrex_pusher, eval_kernels_gc, pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import ButcherTableau, Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
@@ -56,7 +56,13 @@ class PushEta(Propagator):
 
         # get kernel
         if particles.amrex:
-            kernel = amrex_pusher_kernels.push_eta_stage
+            # add accumulation space
+            particles.markers.add_real_comp()
+            particles.markers.add_real_comp()
+            particles.markers.add_real_comp()
+
+            assert particles.markers.num_real_comps == 12
+            kernel = amrex_pusher.push_eta_stage
         else:
             kernel = pusher_kernels.push_eta_stage
 

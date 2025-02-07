@@ -1910,6 +1910,7 @@ def push_eta_stage(
         e3 = markers[ip, 2]
         v[:] = markers[ip, 3:6]
 
+################### extract kernel#################
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
             e1,

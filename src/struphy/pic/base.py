@@ -583,6 +583,8 @@ class Particles(metaclass=ABCMeta):
 
         The column indices referring to different attributes can be obtained from
         :attr:`~struphy.pic.base.Particles.index`.
+        
+        If using AMReX data structures, it returns a ParticleContainer.
         """
         return self._markers
 
@@ -1057,7 +1059,7 @@ class Particles(metaclass=ABCMeta):
             v_th = np.array(
                 self.loading_params["moments"][self.vdim :],
             )
-
+ 
             # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
             if self.vdim == 3:
                 for i in range(markers_array["a"].size):
@@ -1110,6 +1112,11 @@ class Particles(metaclass=ABCMeta):
                 raise NotImplementedError(
                     "Inverse transform sampling of given vdim is not implemented!",
                 )
+            
+            # add missing canonical component
+            self._markers.add_real_comp()
+        
+            assert self._markers.num_real_comps == 9
 
         else:
             # number of markers on the local process at loading stage
