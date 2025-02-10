@@ -206,8 +206,8 @@ class LinearMHDVlasovCC(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": params_vxb["algo"],
             "kappa": 1.0 / epsilon,
-            "b_eq": self._b_eq,
-            "b_tilde": self.pointer["b_field"],
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_eq,
         }
 
         if params_sonic["turn_off"]:
@@ -457,10 +457,10 @@ class LinearMHDVlasovPC(StruphyModel):
         }
 
         self._kwargs[propagators_markers.PushVxB] = {
-            "b_tilde": self.pointer["b_field"],
-            "b_eq": self._b_eq,
             "algo": params_vxb["algo"],
             "kappa": epsilon,
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_eq,
         }
 
         if params_pressure["turn_off"]:
@@ -1137,8 +1137,8 @@ class ColdPlasmaVlasov(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": algo_vxb,
             "kappa": 1.0 / self._epsilon_cold,
-            "b_eq": self._b_background,
-            "b_tilde": self.pointer["b_field"],
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_background,
         }
 
         self._kwargs[propagators_coupling.VlasovAmpere] = {
@@ -1169,7 +1169,6 @@ class ColdPlasmaVlasov(StruphyModel):
     def initialize_from_params(self):
         """:meta private:"""
         from psydac.linalg.stencil import StencilVector
-
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
         # Initialize fields and particles
