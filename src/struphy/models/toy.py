@@ -163,8 +163,8 @@ class Vlasov(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": ions_params["options"]["PushVxB"]["algo"],
             "kappa": 1.0,
-            "b_eq": self._b_eq,
-            "b_tilde": None,
+            "b2": self._b_eq,
+            "b2_add": None,
         }
 
         self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
