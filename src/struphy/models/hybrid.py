@@ -670,6 +670,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
             propagators_coupling.CurrentCoupling5DCurlb: ["energetic_ions", "mhd_velocity"],
             propagators_fields.CurrentCoupling5DDensity: ["mhd_velocity"],
             propagators_fields.ShearAlfvenCurrentCoupling5D: ["mhd_velocity", "b_field"],
+            propagators_fields.ShearAlfvenCurrentCoupling5D2nd: ["mhd_velocity", "b_field"],
             propagators_fields.MagnetosonicCurrentCoupling5D: ["mhd_density", "mhd_velocity", "mhd_pressure"],
         }
 
@@ -703,6 +704,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["u_space"]
         params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfvenCurrentCoupling5D"]
+        params_alfven2nd = params["fluid"]["mhd"]["options"]["ShearAlfvenCurrentCoupling5D2nd"]
         params_sonic = params["fluid"]["mhd"]["options"]["MagnetosonicCurrentCoupling5D"]
         params_density = params["fluid"]["mhd"]["options"]["CurrentCoupling5DDensity"]
 
@@ -860,6 +862,22 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "accumulated_magnetization": self.pointer["accumulated_magnetization"],
                 "boundary_cut": params_alfven["boundary_cut"],
                 "full_f": params_alfven["full_f"],
+            }
+
+        if params_alfven2nd["turn_off"]:
+            self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D2nd] = None
+        else:
+            self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D2nd] = {
+                "particles": self.pointer["energetic_ions"],
+                "unit_b1": self._unit_b1,
+                "absB0": self._absB0,
+                "u_space": u_space,
+                "solver": params_alfven2nd["solver"],
+                "filter": params_alfven2nd["filter"],
+                "coupling_params": self._coupling_params,
+                "accumulated_magnetization": self.pointer["accumulated_magnetization"],
+                "boundary_cut": params_alfven2nd["boundary_cut"],
+                "full_f": params_alfven2nd["full_f"],
             }
 
         if params_sonic["turn_off"]:
