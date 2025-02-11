@@ -18,7 +18,7 @@ from struphy.feec.linear_operators import LinOpWithTransp
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from struphy.feec.mass import WeightedMassOperators
-from struphy.geometry.domains import Tokamak, Cuboid
+from struphy.geometry.domains import Tokamak, Cuboid, HollowCylinder
 from struphy.fields_background.mhd_equil.equils import AdhocTorusQPsi
 from math import comb, log2
 import random
@@ -88,8 +88,12 @@ def direct_solver(A_inv,b, fem_space):
         x_vector = np.dot(A_inv, b_vector)
         x = fem_space.vector_space.zeros()
         
-        for i in range(N[0]):
-            x[starts[0]+i,0,0] = x_vector[i]
+        cont= 0
+        for i0 in range(N[0]):
+            for i1 in range(N[1]):
+                for i2 in range(N[2]):
+                    x[starts[0]+i0,starts[1]+i1,starts[2]+i2] = x_vector[cont]
+                    cont += 1
             
     else:
         spaces = [comp.spaces for comp in fem_space.spaces]
@@ -102,9 +106,11 @@ def direct_solver(A_inv,b, fem_space):
         
         cont = 0
         for h in range(3):
-            for i in range(N[h][0]):
-                x[h][starts[h][0]+i,0,0] = x_vector[cont]
-                cont += 1
+            for i0 in range(N[h][0]):
+                for i1 in range(N[h][1]):
+                    for i2 in range(N[h][2]):
+                        x[h][starts[h][0]+i0,starts[h][1]+i1,starts[h][2]+i2] = x_vector[cont]
+                        cont += 1
     return x
     
 
@@ -166,9 +172,13 @@ def remove_padding(fem_space, v):
         starts = np.array(fem_space.vector_space.starts)
         
         #To make it easier to read I will extract the data out of out disregarding all the padding it come with
-        v_array = np.zeros(N[0], dtype=float)
-        for i in range(N[0]):
-            v_array[i] = v[starts[0]+i,0,0]
+        v_array = np.zeros(N[0]*N[1]*N[2], dtype=float)
+        cont = 0
+        for i0 in range(N[0]):
+            for i1 in range(N[1]):
+                for i2 in range(N[2]):
+                    v_array[cont] = v[starts[0]+i0,starts[1]+i1,starts[2]+i2]
+                    cont += 1
             
     else:
         spaces = [comp.spaces for comp in fem_space.spaces]
@@ -177,12 +187,14 @@ def remove_padding(fem_space, v):
         starts = np.array([vi.starts for vi in fem_space.vector_space.spaces])
         
         #To make it easier to read I will extract the data out of out disregarding all the padding it come with
-        v_array = np.zeros(N[0][0]+N[1][0]+N[2][0], dtype=float)
+        v_array = np.zeros(N[0][0]*N[0][1]*N[0][2]+N[1][0]*N[1][1]*N[1][2]+N[2][0]*N[2][1]*N[2][2], dtype=float)
         cont = 0
         for h in range(3):
-            for i in range(N[h][0]):
-                v_array[cont] = v[h][starts[h][0]+i,0,0]
-                cont += 1
+            for i0 in range(N[h][0]):
+                for i1 in range(N[h][1]):
+                    for i2 in range(N[h][2]):
+                        v_array[cont] = v[h][starts[h][0]+i0,starts[h][1]+i1,starts[h][2]+i2]
+                        cont += 1
         
         
     return v_array
@@ -340,7 +352,7 @@ class RestrictionOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
     
-    def _dot_helper(self, v, out, p, weights, h_range=None):
+    def _dot_helper(self, v, out, p, weights, h=None):
         """Helper function to perform dot product computation."""
         #First we get the number of weights in each direction
         weights_len = []
@@ -349,7 +361,7 @@ class RestrictionOperator(LinOpWithTransp):
                 weights_len.append(p[i] + 2)
             else:
                 weights_len.append(1)
-        if h_range is None:  # Scalar case (H1, L2)
+        if h is None:  # Scalar case (H1, L2)
             for i0 in range(self._out_starts[0], self._out_ends[0] + 1):
                 for i1 in range(self._out_starts[1], self._out_ends[1] + 1):
                     for i2 in range(self._out_starts[2], self._out_ends[2] + 1):
@@ -370,26 +382,25 @@ class RestrictionOperator(LinOpWithTransp):
                                         pos2 = i2
                                     out[i0, i1, i2] += weights[0][j0]* weights[1][j1] *weights[2][j2] * v[pos0, pos1, pos2]
         else:  # Vector case (Hcurl, Hdiv, H1H1H1)
-            for h in h_range:
-                for i0 in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
-                    for i1 in range(self._out_starts[h][1], self._out_ends[h][1] + 1):
-                        for i2 in range(self._out_starts[h][2], self._out_ends[h][2] + 1):
-                            for j0 in range(weights_len[0]):
-                                if self._halving_directions[0]:
-                                    pos0 = (2 * i0 - p[0] + j0) % self._VNbasis[h][0]
+            for i0 in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
+                for i1 in range(self._out_starts[h][1], self._out_ends[h][1] + 1):
+                    for i2 in range(self._out_starts[h][2], self._out_ends[h][2] + 1):
+                        for j0 in range(weights_len[0]):
+                            if self._halving_directions[0]:
+                                pos0 = (2 * i0 - p[0] + j0) % self._VNbasis[h][0]
+                            else:
+                                pos0 = i0
+                            for j1 in range(weights_len[1]):
+                                if self._halving_directions[1]:
+                                    pos1 = (2 * i1 - p[1] + j1) % self._VNbasis[h][1]
                                 else:
-                                    pos0 = i0
-                                for j1 in range(weights_len[1]):
-                                    if self._halving_directions[1]:
-                                        pos1 = (2 * i1 - p[1] + j1) % self._VNbasis[h][1]
+                                    pos1 = i1
+                                for j2 in range(weights_len[2]):
+                                    if self._halving_directions[2]:
+                                        pos2 = (2 * i2 - p[2] + j2) % self._VNbasis[h][2]
                                     else:
-                                        pos1 = i1
-                                    for j2 in range(weights_len[2]):
-                                        if self._halving_directions[2]:
-                                            pos2 = (2 * i2 - p[2] + j2) % self._VNbasis[h][2]
-                                        else:
-                                            pos2 = i2
-                                        out[h][i0, i1, i2] += weights[0][j0]* weights[1][j1] *weights[2][j2] * v[h][pos0, pos1, pos2]
+                                        pos2 = i2
+                                    out[h][i0, i1, i2] += weights[0][j0]* weights[1][j1] *weights[2][j2] * v[h][pos0, pos1, pos2]
             
         return out
 
@@ -400,15 +411,19 @@ class RestrictionOperator(LinOpWithTransp):
         return self._dot_helper(v, out, self._pD, self._all_weightsD)
 
     def dot_Hcurl(self, v, out):
-        out = self._dot_helper(v, out, self._pD, self._all_weightsD, h_range=[0])
-        return self._dot_helper(v, out, self._p, self._all_weights, h_range=[1, 2])
+        out = self._dot_helper(v, out, [self._pD[0],self._p[1],self._p[2]], [self._all_weightsD[0], self._all_weights[1], self._all_weights[2]], h = 0)
+        self._dot_helper(v, out, [self._p[0],self._pD[1],self._p[2]], [self._all_weights[0], self._all_weightsD[1], self._all_weights[2]], h = 1)
+        return self._dot_helper(v, out, [self._p[0],self._p[1],self._pD[2]], [self._all_weights[0], self._all_weights[1], self._all_weightsD[2]], h = 2)
 
     def dot_Hdiv(self, v, out):
-        out = self._dot_helper(v, out, self._p, self._all_weights, h_range=[0])
-        return self._dot_helper(v, out, self._pD, self._all_weightsD, h_range=[1, 2])
+        out = self._dot_helper(v, out, [self._p[0],self._pD[1],self._pD[2]], [self._all_weights[0], self._all_weightsD[1], self._all_weightsD[2]], h = 0)
+        self._dot_helper(v, out, [self._pD[0],self._p[1],self._pD[2]], [self._all_weightsD[0], self._all_weights[1], self._all_weightsD[2]], h = 1)
+        return self._dot_helper(v, out, [self._pD[0],self._pD[1],self._p[2]], [self._all_weightsD[0], self._all_weightsD[1], self._all_weights[2]], h = 2)
 
     def dot_H1H1H1(self, v, out):
-        return self._dot_helper(v, out, self._p, self._all_weights, h_range=[0, 1, 2])
+        out = self._dot_helper(v, out, self._p, self._all_weights, h=0)
+        self._dot_helper(v, out, self._p, self._all_weights, h=1)
+        return self._dot_helper(v, out, self._p, self._all_weights, h=2)
 
     def dot(self, v, out=None):
 
@@ -660,13 +675,13 @@ class ExtensionOperator(LinOpWithTransp):
     def toarray(self):
         pass
     
-    def _dot_helper(self, v, out, p, weights_even, weights_odd, size_even, size_odd, h_range=None):
+    def _dot_helper(self, v, out, p, weights_even, weights_odd, size_even, size_odd, h=None):
         """Helper function to perform dot product computation."""
         parity_match = []
         for i in range(3):
             parity_match.append(p[i] % 2)
             
-        if h_range is None:  # Scalar case (H1, L2)
+        if h is None:  # Scalar case (H1, L2)
             for j0 in range(self._out_starts[0], self._out_ends[0] + 1):
                 parity_j0 = j0 % 2
                 weights0, size0, offset0 = ((weights_even[0], size_even[0], 0) if parity_j0 == parity_match[0] else (weights_odd[0], size_odd[0], 1))
@@ -694,32 +709,31 @@ class ExtensionOperator(LinOpWithTransp):
                                     out[j0, j1, j2] += weights0[i0] * weights1[i1] * weights2[i2] * v[pos0, pos1, pos2]
             
         else:  # Vector case (Hcurl, Hdiv, H1H1H1)
-            for h in h_range:
-                for j0 in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
-                    parity_j0 = j0 % 2
-                    weights0, size0, offset0 = ((weights_even[0], size_even[0], 0) if parity_j0 == parity_match[0] else (weights_odd[0], size_odd[0], 1))
-                    for j1 in range(self._out_starts[h][1], self._out_ends[h][1] + 1):
-                        parity_j1 = j1 % 2
-                        weights1, size1, offset1 = ((weights_even[1], size_even[1], 0) if parity_j1 == parity_match[1] else (weights_odd[1], size_odd[1], 1))
-                        for j2 in range(self._out_starts[h][2], self._out_ends[h][2] + 1):
-                            parity_j2 = j2 % 2
-                            weights2, size2, offset2 = ((weights_even[2], size_even[2], 0) if parity_j2 == parity_match[2] else (weights_odd[2], size_odd[2], 1))
-                            for i0 in range(size0):
-                                if self._halving_directions[0]:
-                                    pos0 = ((j0 + p[0] - 2 * i0 - offset0) // 2) % self._VNbasis[h][0]
+            for j0 in range(self._out_starts[h][0], self._out_ends[h][0] + 1):
+                parity_j0 = j0 % 2
+                weights0, size0, offset0 = ((weights_even[0], size_even[0], 0) if parity_j0 == parity_match[0] else (weights_odd[0], size_odd[0], 1))
+                for j1 in range(self._out_starts[h][1], self._out_ends[h][1] + 1):
+                    parity_j1 = j1 % 2
+                    weights1, size1, offset1 = ((weights_even[1], size_even[1], 0) if parity_j1 == parity_match[1] else (weights_odd[1], size_odd[1], 1))
+                    for j2 in range(self._out_starts[h][2], self._out_ends[h][2] + 1):
+                        parity_j2 = j2 % 2
+                        weights2, size2, offset2 = ((weights_even[2], size_even[2], 0) if parity_j2 == parity_match[2] else (weights_odd[2], size_odd[2], 1))
+                        for i0 in range(size0):
+                            if self._halving_directions[0]:
+                                pos0 = ((j0 + p[0] - 2 * i0 - offset0) // 2) % self._VNbasis[h][0]
+                            else:
+                                pos0 = j0
+                            for i1 in range(size1):
+                                if self._halving_directions[1]:
+                                    pos1 = ((j1 + p[1] - 2 * i1 - offset1) // 2) % self._VNbasis[h][1]
                                 else:
-                                    pos0 = j0
-                                for i1 in range(size1):
-                                    if self._halving_directions[1]:
-                                        pos1 = ((j1 + p[1] - 2 * i1 - offset1) // 2) % self._VNbasis[h][1]
+                                    pos1 = j1
+                                for i2 in range(size2):
+                                    if self._halving_directions[2]:
+                                        pos2 = ((j2 + p[2] - 2 * i2 - offset2) // 2) % self._VNbasis[h][2]
                                     else:
-                                        pos1 = j1
-                                    for i2 in range(size2):
-                                        if self._halving_directions[2]:
-                                            pos2 = ((j2 + p[2] - 2 * i2 - offset2) // 2) % self._VNbasis[h][2]
-                                        else:
-                                            pos2 = j2
-                                        out[h][j0, j1, j2] += weights0[i0] * weights1[i1] * weights2[i2] * v[h][pos0, pos1, pos2]
+                                        pos2 = j2
+                                    out[h][j0, j1, j2] += weights0[i0] * weights1[i1] * weights2[i2] * v[h][pos0, pos1, pos2]
                 
         return out
 
@@ -730,15 +744,21 @@ class ExtensionOperator(LinOpWithTransp):
         return self._dot_helper(v, out, self._pD, self._all_weights_evenD, self._all_weights_oddD, self._all_size_evenD, self._all_size_oddD)
 
     def dot_Hcurl(self, v, out):
-        out = self._dot_helper(v, out, self._pD, self._all_weights_evenD, self._all_weights_oddD, self._all_size_evenD, self._all_size_oddD, h_range=[0])
-        return self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h_range=[1, 2])
+        out = self._dot_helper(v, out, [self._pD[0], self._p[1],self._p[2]], [self._all_weights_evenD[0],self._all_weights_even[1],self._all_weights_even[2]], [self._all_weights_oddD[0],self._all_weights_odd[1],self._all_weights_odd[2]], [self._all_size_evenD[0],self._all_size_even[1],self._all_size_even[2]], [self._all_size_oddD[0],self._all_size_odd[1],self._all_size_odd[2]], h=0)
+        out = self._dot_helper(v, out, [self._p[0], self._pD[1],self._p[2]], [self._all_weights_even[0],self._all_weights_evenD[1],self._all_weights_even[2]], [self._all_weights_odd[0],self._all_weights_oddD[1],self._all_weights_odd[2]], [self._all_size_even[0],self._all_size_evenD[1],self._all_size_even[2]], [self._all_size_odd[0],self._all_size_oddD[1],self._all_size_odd[2]], h=1)
+        return self._dot_helper(v, out, [self._p[0], self._p[1],self._pD[2]], [self._all_weights_even[0],self._all_weights_even[1],self._all_weights_evenD[2]], [self._all_weights_odd[0],self._all_weights_odd[1],self._all_weights_oddD[2]], [self._all_size_even[0],self._all_size_even[1],self._all_size_evenD[2]], [self._all_size_odd[0],self._all_size_odd[1],self._all_size_oddD[2]], h=2)
+
 
     def dot_Hdiv(self, v, out):
-        out = self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h_range=[0])
-        return self._dot_helper(v, out, self._pD, self._all_weights_evenD, self._all_weights_oddD, self._all_size_evenD, self._all_size_oddD, h_range=[1, 2])
+        out = self._dot_helper(v, out, [self._p[0], self._pD[1],self._pD[2]], [self._all_weights_even[0],self._all_weights_evenD[1],self._all_weights_evenD[2]], [self._all_weights_odd[0],self._all_weights_oddD[1],self._all_weights_oddD[2]], [self._all_size_even[0],self._all_size_evenD[1],self._all_size_evenD[2]], [self._all_size_odd[0],self._all_size_oddD[1],self._all_size_oddD[2]], h=0)
+        out = self._dot_helper(v, out, [self._pD[0], self._p[1],self._pD[2]], [self._all_weights_evenD[0],self._all_weights_even[1],self._all_weights_evenD[2]], [self._all_weights_oddD[0],self._all_weights_odd[1],self._all_weights_oddD[2]], [self._all_size_evenD[0],self._all_size_even[1],self._all_size_evenD[2]], [self._all_size_oddD[0],self._all_size_odd[1],self._all_size_oddD[2]], h=1)
+        return self._dot_helper(v, out, [self._pD[0], self._pD[1],self._p[2]], [self._all_weights_evenD[0],self._all_weights_evenD[1],self._all_weights_even[2]], [self._all_weights_oddD[0],self._all_weights_oddD[1],self._all_weights_odd[2]], [self._all_size_evenD[0],self._all_size_evenD[1],self._all_size_even[2]], [self._all_size_oddD[0],self._all_size_oddD[1],self._all_size_odd[2]], h=2)
+
 
     def dot_H1H1H1(self, v, out):
-        return self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h_range=[0, 1, 2])
+        out = self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h = 0)
+        self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h = 1)
+        return self._dot_helper(v, out, self._p, self._all_weights_even, self._all_weights_odd, self._all_size_even, self._all_size_odd, h = 2)
 
     
     
@@ -1286,19 +1306,21 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     rank = comm.Get_rank()
     world_size = comm.Get_size()
     
-    domain = Cuboid()
-    sp_key = '0'
+    #domain = Cuboid()
+    a1 = 0.2
+    domain = HollowCylinder(a1= a1)
+    sp_key = '1'
     
     derham = []
     mass_ops = []
     A = []
     
+    epsilon = 0.01
     for level in range(N_levels):
-    
-        derham.append(Derham([Nel[0]//(2**level),Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
+        derham.append(Derham([Nel[0]//(2**level),Nel[1]//(2**level),Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
         mass_ops.append(WeightedMassOperators(derham[level], domain))
-        A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
-        #A.append(derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
+        #A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
+        A.append(derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
     
     #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
     A_inv = np.linalg.inv(A[-1].toarray())
@@ -1312,8 +1334,10 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
         
     method = 'cg'
     
-    max_iter_list = [7,8,9]
-    N_cycles_list = [2,3,4,5,6,7]
+    #800
+    max_iter_list = [800]
+    #40
+    N_cycles_list = [40]
     
     u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
     #We compute the rhs
@@ -1321,7 +1345,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     
     timei = time.time()
     
-    solver_no = inverse(A[0],method, maxiter = 10000, tol = 10**(-6))
+    solver_no = inverse(A[0],method, maxiter = 1000000, tol = 10**(-6))
     
     u = solver_no.dot(b)
     
@@ -1331,6 +1355,8 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     No_Multigrid_itterations = solver_no._info['niter']
     No_Multigrid_error = solver_no._info['res_norm']
     No_Multigrid_time = timef-timei
+    
+    
     
     print("################")
     print(f'{No_Multigrid_itterations = }')
@@ -1345,10 +1371,12 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
         b = A[0].dot(u_star)
         
         #We define a list where to store the number of itteration it takes at each multigrid level
+        #Change N_levels for 1D case
         Multigrid_itterations = np.zeros(N_levels, dtype=int)
         
         
         def V_cycle(l, r_l):
+            #Change for N_levels-1 for 1D case
             if (l < N_levels-1):
                 solver_ini = inverse(A[l],method, maxiter= max_iter)
                 x_l = solver_ini.dot(r_l)
@@ -1403,7 +1431,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
         print("################")
         print("################")
         print("################")
-        print(f'{Nel[0] = }')
+        print(f'{a1 = }')
         print(f'{max_iter = }')
         print(f'{N_cycles = }')
         print("################")
@@ -1724,7 +1752,7 @@ def verify_Extension_Operator(Nel, plist, spl_kind):
     
 
 if __name__ == '__main__':
-    Nel = [8192, 1, 1]
+    Nel = [128, 128, 1]
     p = [1, 1, 1]
     spl_kind = [True, True, True]
 
@@ -1736,7 +1764,7 @@ if __name__ == '__main__':
     #p=4, Nel= 8192, level = 10. Coarsest one is 16x16 matrix
     
     #multigrid(Nel, p, spl_kind,12)
-    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 12)
+    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 7)
     #Gather_data_V_cycle_scalability([[int(2**i),1,1] for i in range(4,10)], p, spl_kind)
     #make_plot_scalability()
     #verify_formula(Nel, p, spl_kind)
