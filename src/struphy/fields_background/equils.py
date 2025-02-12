@@ -3136,42 +3136,177 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
         return gradBx, gradBy, gradBz
 
 
-class AnalyticSolutionRestelli(FluidEquilibrium):
-    r"""Base class for a constant distribution function on the unit cube.
+class FluxAlignedTokamak(AxisymmMHDequilibrium):
+    r"""
+    Tokamak MHD equilibrium with circular concentric flux surfaces.
 
+    For a cylindrical coordinate system :math:`(R, \phi, Z)` with transformation formulae
+
+    .. math::
+
+        x &= R\cos(\phi)\,,     &&R = \sqrt{x^2 + y^2}\,,
+
+        y &= R\sin(\phi)\,,  &&\phi = \arctan(y/x)\,,
+
+        z &= Z\,,               &&Z = z\,,
+
+    the magnetic field is given by
+
+    .. math::
+
+        \mathbf B = \nabla\psi\times\nabla\phi+g\nabla\phi\,,
+
+    where :math:`g=g(R, Z)=B_0R_0=const.` is the toroidal field function, :math:`R_0` the major radius of the torus and :math:`B_0` the on-axis magnetic field. The ad hoc poloidal flux function :math:`\psi=\psi(r)` is given by
+
+    .. math::
+
+        \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
+
+    for some given safety factor profile. Two profiles in terms of the on-axis :math:`q_0\equiv q(r=0)` and edge :math:`q_1\equiv q(r=a)` safety factor values are available (:math:`a` is the minor radius of the torus):
+
+    .. math::
+
+        q(r) &= \left\{\begin{aligned}
+        &q_0 + ( q_1 - q_0 )\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=0\,,
+
+        &\frac{q_0}{1-\left(1-\frac{r^2}{a^2}\right)^{\frac{q_1}{q_0}}}\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=1\,.
+        \end{aligned}\right.
+
+    The pressure profile
+
+    .. math::
+
+        p^\prime(r) &= -\frac{B_0^2}{R_0^2}\frac{r\left[2q(r)-rq^\prime(r)\right]}{q(r)^3} \quad &&\textnormal{if} \quad p_\textnormal{kind}=0\,,
+
+        p(r) &= \beta \frac{B_{0}^2}{2} \left( p_0 - p_1 \frac{r^2}{a^2} - p_2 \frac{r^4}{a^4} \right) \quad &&\textnormal{if} \quad p_\textnormal{kind}=1\,,
+
+    is either the exact solution of the MHD equilibrium condition in the cylindrical limit (:math:`p_\textnormal{kind}=0`) or an monotonically decreasing adhoc profile for some given on-axis plasma beta (:math:`p_\textnormal{kind}=1`). Finally, the number density profile is chosen as
+
+    .. math::
+
+        n(r) = n_a + ( 1 - n_a ) \left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
+
+    Units are those defned in the parameter file (:code:`struphy units -h`).
+
+    Parameters
+    ----------
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+
+        mhd_equilibrium :
+            type : FluxAlignedTokamak
+            FluxAlignedTokamak :
+                a       : 1.   # minor radius
+                R0      : 2.   # major radius
+                B0      : 10.  # on-axis toroidal magnetic field
+                Bp      : 12.5 # poloidal magnetic field
     """
 
     def __init__(self, **params):
-        params_default = {"R0": 2.0, "a": 1.0, "B0": 10, "Bp": 12.5, "alpha": 0.1, "beta": 1.0}
+
+        # parameters
+        params_default = {
+            "a": 1.0,
+            "R0": 2.0,
+            "B0": 10.0,
+            "Bp": 12.5,
+        }
 
         self._params = set_defaults(params, params_default)
+        
+        self._psi0 = 0.0
+        self._psi1 = self.params["a"] * self.params["R0"] * self.params["Bp"] * 0.5
 
     @property
     def params(self):
         """Parameters dictionary."""
         return self._params
 
-    # equilibrium ion velocity
-    def u_xyz(self, x, y, z):
-        """Velocity of ions and electrons."""
-        ux = self.params["alpha"]*np.sqrt(x**2+y**2)/(self.params["a"]*self.params["R0"])*(-z) + self.params["beta"]*self.params["Bp"]*self.params["R0"]/(self.params["B0"]*self.params["a"]*np.sqrt(x**2+y**2))*z
-        uy = self.params["alpha"]*np.sqrt(x**2+y**2)/(self.params["a"]*self.params["R0"])*(np.sqrt(x**2+y**2)-self.params["R0"]) + self.params["beta"]*self.params["Bp"]*self.params["R0"]/(self.params["B0"]*self.params["a"]*np.sqrt(x**2+y**2))*(-(np.sqrt(x**2+y**2)-self.params["R0"]))
-        uz = self.params["beta"]*self.params["Bp"]*self.params["R0"]/(self.params["B0"]*self.params["a"]*np.sqrt(x**2+y**2))*self.params["B0"]*self.params["a"]/self.params["Bp"]
+    # ===============================================================
+    #           abstract properties
+    # ===============================================================
 
-        return ux, uy, uz
+    @property
+    def psi_range(self):
+        """Psi on-axis and at plasma boundary."""
+        return [self._psi0, self._psi1]
 
-    # equilibrium pressure
+    @property
+    def psi_axis_RZ(self):
+        """Location of magnetic axis in R-Z-coordinates."""
+        return [self.params["R0"], 0.0]
+
+
+    # ===============================================================
+    #           abstract methods
+    # ===============================================================
+
+    def psi(self, R, Z, dR=0, dZ=0):
+        """Poloidal flux function psi = psi(R, Z)."""
+
+        if dR == 0 and dZ == 0:
+            out = (
+                self.params["a"]
+                * self.params["R0"]
+                * self.params["Bp"]
+                * ((R - self.params["R0"]) ** 2 + Z**2)
+                / (2 * self.params["a"] ** 2)
+            )
+        else:
+            if dR == 1 and dZ == 0:
+                out = self.params["R0"] * self.params["Bp"] * (R - self.params["R0"]) / (self.params["a"])
+            elif dR == 0 and dZ == 1:
+                out = self.params["R0"] * self.params["Bp"] * (Z) / (self.params["a"])
+            elif dR == 2 and dZ == 0:
+                out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
+            elif dR == 0 and dZ == 2:
+                out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
+            elif dR == 1 and dZ == 1:
+                out = 0 * R + 0 * Z
+            else:
+                raise NotImplementedError(
+                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
+                )
+
+        return out
+
+    def g_tor(self, R, Z, dR=0, dZ=0):
+        """Toroidal field function g = g(R, Z)."""
+
+        if dR == 0 and dZ == 0:
+            out = self._params["B0"] * self._params["R0"]
+        elif dR == 1 and dZ == 0:
+            out = 0 * R
+        elif dR == 0 and dZ == 1:
+            out = 0 * Z
+        else:
+            raise NotImplementedError(
+                "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
+            )
+
+        return out
+
     def p_xyz(self, x, y, z):
-        """Plasma pressure."""
-        pp = 0.5*self.params["a"]*self.params["B0"]*self.params["alpha"]*(((np.sqrt(x**2+y**2)-self.params["R0"])**2 + z**2)/self.params["a"]**2-2/3)
+        """Pressure p = p(x, y, z)."""
+        pp = 1.0*x
 
         return pp
 
-    # equilibrium number density
     def n_xyz(self, x, y, z):
-        """Number density."""
-        
-        return 0 * x
+        """Number density n = n(x, y, z)."""
+        nn = 1.0*x
+
+        return nn
 
 
 def set_defaults(params_in, params_default):
