@@ -1502,7 +1502,7 @@ class HasegawaWakatani(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.ImplicitDiffusion`
+    1. :class:`~struphy.propagators.propagators_fields.Poisson`
     2. :class:`~struphy.propagators.propagators_fields.HasegawaWakatani`
     
     :ref:`Model info <add_model>`:
@@ -1532,7 +1532,7 @@ class HasegawaWakatani(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_fields.ImplicitDiffusion: ["hw_phi0"],
+            propagators_fields.Poisson: ["hw_phi0"],
             propagators_fields.HasegawaWakatani: ["hw_n0", "hw_omega0"],
         }
         
@@ -1550,12 +1550,17 @@ class HasegawaWakatani(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
+        stab_eps = params["fluid"]["hw"]["options"]["Poisson"]["stabilization"]["stab_eps"]
+        stab_mat = params["fluid"]["hw"]["options"]["Poisson"]["stabilization"]["stab_mat"]
+        solver = params["fluid"]["hw"]["options"]["Poisson"]["solver"]
         algo = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["algo"]
-        sigma_1 = params["fluid"]["hw"]["options"]["ImplicitDiffusion"]["sigma_1"]
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ImplicitDiffusion] = {
-            "sigma_1": sigma_1,
+        self._kwargs[propagators_fields.Poisson] = {
+            "stab_eps": stab_eps,
+            "stab_mat": stab_mat,
+            "rho": self.pointer["hw_omega0"],
+            "solver": solver,
         }
 
         self._kwargs[propagators_fields.HasegawaWakatani] = {

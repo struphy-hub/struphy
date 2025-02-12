@@ -7602,6 +7602,7 @@ class HasegawaWakatani(Propagator):
         n0: StencilVector,
         omega0: StencilVector,
         *,
+        phi: StencilVector = None,
         algo: dict = options(default=True)["algo"],
     ):
         super().__init__(n0, omega0)
