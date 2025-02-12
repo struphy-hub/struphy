@@ -1443,7 +1443,6 @@ class Stokeslike(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        # u_space = params['fluid']['mhd']['options']['u_space']
         stokes_solver = params["fluid"]["mhd"]["options"]["Stokes"]["solver"]
         stokes_nu = params["fluid"]["mhd"]["options"]["Stokes"]["nu"]
         stokes_nu_e = params["fluid"]["mhd"]["options"]["Stokes"]["nu_e"]
@@ -1453,12 +1452,16 @@ class Stokeslike(StruphyModel):
         stokes_Bp = params["fluid"]["mhd"]["options"]["Stokes"]["Bp"]
         stokes_alpha = params["fluid"]["mhd"]["options"]["Stokes"]["alpha"]
         stokes_beta = params["fluid"]["mhd"]["options"]["Stokes"]["beta"]
-        # alfven_solver = params['fluid']['mhd']['options']['ShearAlfven']['solver']
-        # sonic_solver = params['fluid']['mhd']['options']['Magnetosonic']['solver']
 
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P["2"]([self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3])
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._b_eq = self.derham.P["2"](
+            [
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
+            ]
+        )
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -1478,13 +1481,6 @@ class Stokeslike(StruphyModel):
             "alpha": stokes_alpha,
             "beta": stokes_beta,
         }
-
-        # self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
-        #                                                 'solver': alfven_solver}
-
-        # self._kwargs[propagators_fields.Magnetosonic] = {'b': self.pointer['b_field'],
-        #                                                  'u_space': u_space,
-        #                                                  'solver': sonic_solver}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
