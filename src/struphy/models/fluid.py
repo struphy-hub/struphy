@@ -56,6 +56,7 @@ class LinearMHD(StruphyModel):
     def propagators_dct():
         return {
             propagators_fields.ShearAlfven: ["mhd_velocity", "b_field"],
+            propagators_fields.ShearAlfven2nd: ["mhd_velocity", "b_field"],
             propagators_fields.Magnetosonic: ["mhd_density", "mhd_velocity", "mhd_pressure"],
         }
 
@@ -87,6 +88,7 @@ class LinearMHD(StruphyModel):
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["u_space"]
         alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
+        alfven2nd_solver = params["fluid"]["mhd"]["options"]["ShearAlfven2nd"]["solver"]
         sonic_solver = params["fluid"]["mhd"]["options"]["Magnetosonic"]["solver"]
 
         # project background magnetic field (2-form) and pressure (3-form)
@@ -109,6 +111,12 @@ class LinearMHD(StruphyModel):
         self._kwargs[propagators_fields.ShearAlfven] = {
             "u_space": u_space,
             "solver": alfven_solver,
+        }
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.ShearAlfven2nd] = {
+            "u_space": u_space,
+            "solver": alfven2nd_solver,
         }
 
         self._kwargs[propagators_fields.Magnetosonic] = {
