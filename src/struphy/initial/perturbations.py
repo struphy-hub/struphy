@@ -804,14 +804,16 @@ class forcingterm:
         self._beta = beta
 
     def __call__(self, x, y, z):
-        val = self._nu * self._alpha * (self._R0 - 4 * np.sqrt(x**2 + y**2)) / (
-            self._a * self._R0 * np.sqrt(x**2 + y**2)
-        ) - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * (np.sqrt(x**2 + y**2))**3)
+        R = np.sqrt(x**2+y**2)
+        phi = np.arctan(-y/x)
+        force_phi = self._nu * (self._alpha * (self._R0 - 4 * R) / (
+            self._a * self._R0 * R
+        ) - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * R**3))
+        
+        return force_phi
+    
 
-        return val
-
-
-class velocity_analytic:
+class AnalyticSolutionRestelliVelocity_x:
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -837,65 +839,180 @@ class velocity_analytic:
         \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
-
-    Note
-    ----
-    In the parameter .yml, use the following template in the section ``fluid/<mhd>``::
-
-        options:
-            Stokes:  
-                nu: 1.      # viscosity
-                nu_e: 0.01  # viscosity electrons
-                a: 1.       # minor radius
-                R0: 2.      # major radius
-                B0: 10.     # on-axis toroidal magnetic field
-                Bp: 12.5    # poloidal magnetic field
-                alpha: 0.1
-                beta: 1.
     """
-
-    def __init__(self, nu=1.0, R0=2.0, a=1.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        r"""
-        Parameters
+        
+    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
         ----------
-        nu  : 1.    # viscosity
-
-        a   : 1.    # minor radius
-
-        R0  : 2.    # major radius
-
-        B0  : 10.   # on-axis toroidal magnetic field
-
-        Bp  : 12.5  # poloidal magnetic field
-
-        alpha: 0.1
-
-        beta: 1.
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
         """
 
-        self._nu = nu
-        self._R0 = R0
         self._a = a
+        self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
 
+    # equilibrium ion velocity
     def __call__(self, x, y, z):
-        val = [0.0, 0.0, 0.0]
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2+y**2)
+        phi = np.arctan(-y/x)
+        uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
+        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
+        uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
+        
+        ux = np.cos(phi)*uR - R*np.sin(phi)*uphi #signs changed??
+        
+        return ux
+        
+    
+class AnalyticSolutionRestelliVelocity_y:
+    r"""Analytic solution :math:`u=u_e` of the system:
 
-        val = self._alpha * np.sqrt(x**2 + y**2) / (self._a * self._R0)[
-            -z, np.sqrt(x**2 + y**2) - self._R0, 0 * x
-        ] + self._beta * self._Bp * self._R0 / (self._B0 * self._a * np.sqrt(x**2 + y**2)) * [
-            z,
-            -(np.sqrt(x**2 + y**2) - self._R0),
-            self._B0 * self._a / self._Bp,
-        ]
+    .. math::
 
-        return val
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
 
+    where :math:`f` is defined as follows: 
 
-class potential_analytic:
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+    """
+        
+    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
+        ----------
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
+        """
+
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2+y**2)
+        phi = np.arctan(-y/x)
+        uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
+        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
+        uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
+
+        uy = -np.sin(phi)*uR - R*np.cos(phi)*uphi
+        
+        return uy
+    
+class AnalyticSolutionRestelliVelocity_z:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+    """
+        
+    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
+        ----------
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
+        """
+
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2+y**2)
+        phi = np.arctan(-y/x)
+        uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
+        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
+        uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
+
+        uz = uZ
+        
+        return uz
+
+class AnalyticSolutionRestelliPotential:
     r"""Analytic solution :math:`\phi` of the system:
 
     .. math::
@@ -921,58 +1038,38 @@ class potential_analytic:
         \phi = \frac{1}{2} a B_0 \alpha \left( \frac{(R-R_0)^2+z^2}{a^2} - \frac{2}{3} \right)
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
-
-    Note
-    ----
-    In the parameter .yml, use the following template in the section ``fluid/<mhd>``::
-
-        options:
-            Stokes:  
-                nu: 1.      # viscosity
-                nu_e: 0.01  # viscosity electrons
-                a: 1.       # minor radius
-                R0: 2.      # major radius
-                B0: 10.     # on-axis toroidal magnetic field
-                Bp: 12.5    # poloidal magnetic field
-                alpha: 0.1
-                beta: 1.
     """
-
-    def __init__(self, nu=1.0, R0=2.0, a=1.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        r"""
-        Parameters
+        
+    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
         ----------
-        nu  : 1.    # viscosity
-
-        a   : 1.    # minor radius
-
-        R0  : 2.    # major radius
-
-        B0  : 10.   # on-axis toroidal magnetic field
-
-        Bp  : 12.5  # poloidal magnetic field
-
-        alpha: 0.1
-
-        beta: 1.
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
         """
 
-        self._nu = nu
-        self._R0 = R0
         self._a = a
+        self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
 
+    # equilibrium potential
     def __call__(self, x, y, z):
-        val = 0.0
+        """Plasma pressure."""
+        R = np.sqrt(x**2+y**2)
+        pp = 0.5*self._a*self._B0*self._alpha*(((R-self._R0)**2 + z**2)/self._a**2-2/3)
 
-        val = (
-            0.5
-            * self._a
-            * self._B0
-            * self._alpha
-            * (((np.sqrt(x**2 + y**2) - self._R0) ** 2 + z**2) / (self._a) - 2 / 3)
-        )
-        return val
+        return pp
+    
