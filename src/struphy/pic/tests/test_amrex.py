@@ -79,7 +79,7 @@ def test_amrex(plot=False, verbose=False):
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
         ax.set_title('Initial conditions (Struphy)')
-        plt.show()
+        plt.savefig("./initial_struphy.jpg")
 
         fig = plt.figure()
         ax = fig.gca()
@@ -96,7 +96,7 @@ def test_amrex(plot=False, verbose=False):
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
         ax.set_title('Initial conditions (Amrex)')
-        plt.show()
+        plt.savefig("./initial_amrex.jpg")
 
     if verbose:
         print("Struphy positions\n", struphy_particles.positions)
@@ -152,9 +152,50 @@ def test_amrex(plot=False, verbose=False):
         # scaling for plotting
         alpha[n] = (Tend - time) / Tend
 
+        if verbose:
+            print("Time:", time)
+
+    if plot:
+        fig = plt.figure()
+        ax = fig.gca()
+
+        for i in range(Np):
+            ax.scatter(struphy_pos[:, i, 0], struphy_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
+
+        ax.plot([l1, l1], [l2, r2], 'k')
+        ax.plot([r1, r1], [l2, r2], 'k')
+        ax.plot([l1, r1], [l2, l2], 'k')
+        ax.plot([l1, r1], [r2, r2], 'k')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_xlim(-6.5, 6.5)
+        ax.set_ylim(-9, 9)
+        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (Struphy)')
+
+        plt.savefig("./timesteps_struphy.jpg")
+
+        fig = plt.figure()
+        ax = fig.gca()
+
+        for i in range(Np):
+            ax.scatter(amrex_pos[:, i, 0], amrex_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
+
+        ax.plot([l1, l1], [l2, r2], 'k')
+        ax.plot([r1, r1], [l2, r2], 'k')
+        ax.plot([l1, r1], [l2, l2], 'k')
+        ax.plot([l1, r1], [r2, r2], 'k')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_xlim(-6.5, 6.5)
+        ax.set_ylim(-9, 9)
+        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (Amrex)')
+
+        plt.savefig("./timesteps_amrex.jpg")
+
+
     # finalize amrex
     amrex.finalize()
 
 
 if __name__ == "__main__":
-    test_amrex()
+    test_amrex(plot=True, verbose=True)

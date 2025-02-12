@@ -227,6 +227,10 @@ class Pusher:
             n_not_converged[0] = self.particles.n_mks
             while True: # TODO look this up!!!!
                 k += 1
+                
+                # TODO: remove this statement!!!!
+                if k>=1:
+                    break
 
                 # if eval_kernels is not empty, do spline evaluations
                 for ker_args in self.eval_kernels:
@@ -266,7 +270,6 @@ class Pusher:
                         dt,
                         stage,
                         self.particles,
-                        self._args_domain,
                         *self._args_kernel,
                     )
                 else: 
@@ -281,58 +284,58 @@ class Pusher:
                     self.particles.apply_kinetic_bc(newton=self._newton)
                     self.particles.update_holes()
 
-                    # compute number of non-converged particles (maxiter=1 for explicit schemes)
-                    if self.maxiter > 1:
-                        self._residuals[:] = markers[:, residual_idx]
-                        max_res = np.max(self._residuals)
-                        if max_res < 0.:
-                            max_res = None
-                        self._converged_loc[:] = self._residuals < self._tol
-                        self._not_converged_loc[:] = ~self._converged_loc
-                        n_not_converged[0] = np.count_nonzero(
-                            self._not_converged_loc,
+                # compute number of non-converged particles (maxiter=1 for explicit schemes)
+                if self.maxiter > 1:
+                    self._residuals[:] = markers[:, residual_idx]
+                    max_res = np.max(self._residuals)
+                    if max_res < 0.:
+                        max_res = None
+                    self._converged_loc[:] = self._residuals < self._tol
+                    self._not_converged_loc[:] = ~self._converged_loc
+                    n_not_converged[0] = np.count_nonzero(
+                        self._not_converged_loc,
+                    )
+
+                    if self.verbose:
+                        print(
+                            f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                        )
+                        if self.particles.mpi_comm is not None:
+                            self.particles.derham.comm.Barrier()
+
+                    if self.particles.mpi_comm is not None:
+                        self.particles.derham.comm.Allreduce(
+                            self._mpi_in_place, n_not_converged, op=self._mpi_sum,
                         )
 
-                        if self.verbose:
-                            print(
-                                f'rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
-                            )
-                            if self.particles.mpi_comm is not None:
-                                self.particles.derham.comm.Barrier()
+                    # take converged markers out of the loop
+                    markers[self._converged_loc, first_pusher_idx] = -1.
 
+                # maxiter=1 for explicit schemes
+                if k == self.maxiter:
+                    if self.maxiter > 1:
+                        rank = self.particles.mpi_rank
+                        print(
+                            f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
+                        )
+                    # sort markers according to domain decomposition
+                    if self.mpi_sort == 'each':
                         if self.particles.mpi_comm is not None:
-                            self.particles.derham.comm.Allreduce(
-                                self._mpi_in_place, n_not_converged, op=self._mpi_sum,
-                            )
+                            self.particles.mpi_sort_markers()
+                        else:
+                            self.particles.apply_kinetic_bc()
+                    break
 
-                        # take converged markers out of the loop
-                        markers[self._converged_loc, first_pusher_idx] = -1.
+                # check for convergence
+                if n_not_converged[0] == 0:
+                    # sort markers according to domain decomposition
+                    if self.mpi_sort == 'each' :
+                        if self.particles.mpi_comm is not None:
+                            self.particles.mpi_sort_markers()
+                        else:
+                            self.particles.apply_kinetic_bc()
 
-                    # maxiter=1 for explicit schemes
-                    if k == self.maxiter:
-                        if self.maxiter > 1:
-                            rank = self.particles.mpi_rank
-                            print(
-                                f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
-                            )
-                        # sort markers according to domain decomposition
-                        if self.mpi_sort == 'each':
-                            if self.particles.mpi_comm is not None:
-                                self.particles.mpi_sort_markers()
-                            else:
-                                self.particles.apply_kinetic_bc()
-                        break
-
-                    # check for convergence
-                    if n_not_converged[0] == 0:
-                        # sort markers according to domain decomposition
-                        if self.mpi_sort == 'each' :
-                            if self.particles.mpi_comm is not None:
-                                self.particles.mpi_sort_markers()
-                            else:
-                                self.particles.apply_kinetic_bc()
-
-                        break
+                    break
 
             # print stage info
             if self.verbose:

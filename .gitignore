@@ -70,6 +70,7 @@ __epyccel__/
 *acquisition.lock
 *.json
 *Backtrace*
+*.jpg
 
 # Default simulations and diagnostics
 my_diagnostics

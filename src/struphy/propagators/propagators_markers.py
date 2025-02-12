@@ -63,8 +63,10 @@ class PushEta(Propagator):
 
             assert particles.markers.num_real_comps == 12
             kernel = amrex_pusher.push_eta_stage
+            self.amrex = True
         else:
             kernel = pusher_kernels.push_eta_stage
+            self.amrex = False
 
         # define algorithm
         butcher = ButcherTableau(algo)
@@ -94,7 +96,7 @@ class PushEta(Propagator):
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
+        if not self.amrex and self.particles[0].control_variate: # short circuit don't swap
             self.particles[0].update_weights()
 
         if self._eval_density:
