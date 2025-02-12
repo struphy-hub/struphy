@@ -2458,7 +2458,7 @@ class ImplicitDiffusion(Propagator):
             "sigma_1": 1.0,
             "sigma_2": 0.0,
             "sigma_3": 1.0,
-            "stab_mat": ["M0", "M0ad"],
+            "stab_mat": ["M0", "M0ad", "Id"],
             "diffusion_mat": ["M1", "M1perp"],
         }
         dct["solver"] = {
@@ -2470,7 +2470,7 @@ class ImplicitDiffusion(Propagator):
             "maxiter": 3000,
             "info": False,
             "verbose": False,
-            "recycle": False,
+            "recycle": True,
         }
         if default:
             dct = descend_options_dict(dct, [])
@@ -2531,7 +2531,12 @@ class ImplicitDiffusion(Propagator):
         # initial guess and solver params
         self._x0 = x0
         self._info = solver["info"]
-        stab_mat = getattr(self.mass_ops, stab_mat)
+        
+        if stab_mat == "Id":
+            stab_mat = IdentityOperator(phi.space)
+        else:
+            stab_mat = getattr(self.mass_ops, stab_mat)
+            
         if isinstance(diffusion_mat, str):
             diffusion_mat = getattr(self.mass_ops, diffusion_mat)
         else:
@@ -2547,8 +2552,8 @@ class ImplicitDiffusion(Propagator):
         if solver["type"][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(stab_mat)
+            # TODO: waiting for multigrid preconditioner
+            pc = None
 
         # solver just with A_2, but will be set during call with dt
         self._solver = inverse(
@@ -2663,6 +2668,110 @@ class ImplicitDiffusion(Propagator):
             print(info)
 
         self.feec_vars_update(out)
+
+
+class Poisson(ImplicitDiffusion):
+    r"""
+    Weak, implicit discretization of the diffusion (or heat) equation (can be used as a Poisson solver too).
+
+    Find :math:`\phi \in H^1` such that
+
+    .. math::
+
+        \int_\Omega \psi\, n_0(\mathbf x)\frac{\partial \phi}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top D_0(\mathbf x) \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
+
+    where :math:`n_0, \rho_i:\Omega \to \mathbb R` are real-valued functions and
+    :math:`D_0:\Omega \to \mathbb R^{3\times 3}`
+    is a positive diffusion matrix.
+    Boundary terms from integration by parts are assumed to vanish.
+    The equation is discretized as
+
+    .. math::
+
+        \left( \frac{\sigma_1}{\Delta t} \mathbb M^0_{n_0} + \mathbb G^\top \mathbb M^1_{D_0} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \frac{\sigma_2}{\Delta t} \mathbb M^0_{n_0} \boldsymbol\phi^{n} + \frac{\sigma_3}{\Delta t} \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
+
+    where :math:`M^0_{n_0}` and :math:`M^1_{D_0}` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`
+    and :math:`\sigma_1, \sigma_2, \sigma_3 \in \mathbb R` are artificial parameters that can be tuned to
+    change the model (see Notes).
+
+    Notes
+    -----
+
+    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t`: **Poisson solver** with a given charge density :math:`\sum_i\rho_i`.
+    * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
+    * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**.
+
+    Parameters
+    ----------
+    phi : StencilVector
+        FE coefficients of the solution as a discrete 0-form.
+
+    stab_eps : float
+        Stabilization parameter multiplied on stab_mat (default=0.0).
+
+    stab_mat : str
+        Name of the matrix :math:`M^0_{n_0}`.
+
+    diffusion_mat : str
+        Name of the matrix :math:`M^1_{D_0}`.
+
+    rho : StencilVector or tuple or list
+        (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
+        Can be either a) StencilVector or b) 2-tuple, or a list of those.
+        In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
+        and the second entry must be :class:`~struphy.pic.base.Particles`.
+
+    x0 : StencilVector
+        Initial guess for the iterative solver (optional, can be set with a setter later).
+
+    solver : dict
+        Parameters for the iterative solver (see ``__init__`` for details).
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["stabilization"] = {
+            "stab_eps": 0.0,
+            "stab_mat": ["Id", "M0", "M0ad"],
+        }
+        dct["solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        phi: StencilVector,
+        *,
+        stab_eps: float = 0.0,
+        stab_mat: str = options(default=True)["stabilization"]["stab_mat"],
+        rho: StencilVector | tuple | list = None,
+        x0: StencilVector = None,
+        solver: dict = options(default=True)["solver"],
+    ):
+
+        super().__init__(phi, 
+                         sigma_1=stab_eps,
+                         sigma_2 = 0.,
+                         sigma_3 = 1.,
+                         divide_by_dt=False,
+                         stab_mat=stab_mat,
+                         diffusion_mat="M1",
+                         rho=rho,
+                         x0=x0,
+                         solver=solver,)
 
 
 class VariationalMomentumAdvection(Propagator):
@@ -7462,3 +7571,47 @@ class AdiabaticPhi(Propagator):
             "recycle": True,
         }
         return dct
+
+
+class HasegawaWakatani(Propagator):
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
+    find :math:`(n, \omega) \in H^1 \times H^1` such that
+
+    .. math::
+
+        &\int_\Omega\frac{\partial n}{\partial t} m \,\textrm d \mathbf x = C \int_\Omega(\phi - n) \, m \,\textrm d \mathbf x - \int_\Omega \phi [n, m] \,\textrm d \mathbf x - \kappa \int_\Omega  \partial_y \phi \,m \,\textrm d \mathbf x - \nu \int_\Omega \nabla n \cdot \nabla m \,\textrm d \mathbf x \qquad \forall m \in H^1\,, 
+        \\[2mm]
+        &\int_\Omega\frac{\partial \omega}{\partial t} \psi \,\textrm d \mathbf x = C \int_\Omega(\phi - n) \, \psi \,\textrm d \mathbf x - \int_\Omega \phi [\omega, \psi] \,\textrm d \mathbf x - \nu \int_\Omega \nabla \omega \cdot \nabla \psi \,\textrm d \mathbf x \qquad \forall \psi \in H^1\,, 
+
+    where  :math:`\phi \in H^1` is a given stream function, 
+    :math:`C, \kappa` and :math:`\nu` are constants and
+    :math:`[a, b] = \partial_x a \partial_y b - \partial_y a \partial_x b`.
+    :ref:`time_discret`: explicit Runge-Kutta.
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["algo"] = ["rk4", "forward_euler", "heun2", "rk2", "heun3"]
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(
+        self,
+        n0: StencilVector,
+        omega0: StencilVector,
+        *,
+        algo: dict = options(default=True)["algo"],
+    ):
+        super().__init__(n0, omega0)
+
+    def __call__(self, dt):
+        # current variables
+        n_n = self.feec_vars[0]
+        omega_n = self.feec_vars[1]
+
+        # write new coeffs into self.feec_vars
+        #max_dn0, max_domega0 = self.feec_vars_update(n1, omega1)
+
+
