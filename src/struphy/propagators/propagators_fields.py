@@ -29,6 +29,7 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
+from struphy.initial import perturbations
 
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -7561,18 +7562,18 @@ class Stokes(Propagator):
         )
 
         # get callable(s) for specified init type
-        forceterm_class = [_forceterm_logical, _fun, _forceterm_logical]
-        forcetermelectrons_class = [_forceterm_logical, _fun_electrons, _forceterm_logical]
+        forceterm_class = [_forceterm_logical, _forceterm_logical, _fun]
+        forcetermelectrons_class = [_forceterm_logical ,_forceterm_logical, _fun_electrons]
 
         # pullback callable
-        fun = TransformedPformComponent(forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain)
+        fun = TransformedPformComponent(forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain)
         fun_electrons = TransformedPformComponent(
-            forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
         )
 
         # Project into discrete Hdiv to define right hand side
-        self._F1 = self.derham.P["2"]((_forceterm_logical, fun, _forceterm_logical))
-        self._F2 = self.derham.P["2"]((_forceterm_logical, fun_electrons, _forceterm_logical))
+        self._F1 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun))
+        self._F2 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun_electrons))
 
         if _A12 is not None:
             assert _A11.codomain == _A12.codomain
@@ -7597,7 +7598,7 @@ class Stokes(Propagator):
 
         self._block_domainM = BlockVectorSpace(_A.domain, _B.transpose().domain)
         self._block_codomainM = self._block_domainM
-        self._blocks = [[_A, None], [None, None]]
+        self._blocks = [[_A, _B.T], [_B, None]]
         self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
 
         self._solverM = inverse(
