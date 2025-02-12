@@ -87,9 +87,9 @@ class LinearMHD(StruphyModel):
 
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["u_space"]
-        alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
-        alfven2nd_solver = params["fluid"]["mhd"]["options"]["ShearAlfven2nd"]["solver"]
-        sonic_solver = params["fluid"]["mhd"]["options"]["Magnetosonic"]["solver"]
+        params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfven"]
+        params_alfven2nd = params["fluid"]["mhd"]["options"]["ShearAlfven2nd"]
+        params_sonic = params["fluid"]["mhd"]["options"]["Magnetosonic"]
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
@@ -108,22 +108,30 @@ class LinearMHD(StruphyModel):
             self._ones[:] = 1.0
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfven] = {
-            "u_space": u_space,
-            "solver": alfven_solver,
-        }
+        if params_alfven["turn_off"]:
+            self._kwargs[propagators_fields.ShearAlfven] = None
+        else:
+            self._kwargs[propagators_fields.ShearAlfven] = {
+                "u_space": u_space,
+                "solver": params_alfven["solver"],
+            }
 
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfven2nd] = {
-            "u_space": u_space,
-            "solver": alfven2nd_solver,
-        }
+        if params_alfven2nd["turn_off"]:
+            self._kwargs[propagators_fields.ShearAlfven2nd] = None
+        else:
+            self._kwargs[propagators_fields.ShearAlfven2nd] = {
+                "u_space": u_space,
+                "solver": params_alfven2nd["solver"],
+            }
 
-        self._kwargs[propagators_fields.Magnetosonic] = {
-            "b": self.pointer["b_field"],
-            "u_space": u_space,
-            "solver": sonic_solver,
-        }
+        if params_sonic["turn_off"]:
+            self._kwargs[propagators_fields.Magnetosonic] = None
+        else:
+            self._kwargs[propagators_fields.Magnetosonic] = {
+                "b": self.pointer["b_field"],
+                "u_space": u_space,
+                "solver": params_sonic["solver"],
+            }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()

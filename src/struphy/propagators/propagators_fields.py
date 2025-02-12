@@ -577,10 +577,10 @@ class ShearAlfven2nd(Propagator):
         max_du, max_db = self.feec_vars_update(un1, bn1)
 
         if self._info and self.rank == 0:
-            print("Status     for ShearAlfven:", info["success"])
-            print("Iterations for ShearAlfven:", info["niter"])
-            print("Maxdiff up for ShearAlfven:", max_du)
-            print("Maxdiff b2 for ShearAlfven:", max_db)
+            print("Status     for ShearAlfven2nd:", info["success"])
+            print("Iterations for ShearAlfven2nd:", info["niter"])
+            print("Maxdiff up for ShearAlfven2nd:", max_du)
+            print("Maxdiff b2 for ShearAlfven2nd:", max_db)
             print()
 
     def _initialize_projection_operator_TB(self):
