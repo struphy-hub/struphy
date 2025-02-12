@@ -1501,7 +1501,6 @@ class Derham:
                             # which transform is to be used: physical, '0' or '3'
                             fun_basis = _params["given_in_basis"]
                             _params.pop("given_in_basis")
-
                             # get callable(s) for specified init type
                             fun_class = getattr(perturbations, _type)
                             fun_tmp = [fun_class(**_params)]
@@ -1522,7 +1521,10 @@ class Derham:
                             _params.pop("given_in_basis")
                             for component, base in enumerate(bases):
                                 if base is None:
-                                    fun_basis += ["v"]
+                                    #fun_basis += ["physical"]
+                                    filtered_bases = [str(item) for item in bases if item is not None and item != "Null" and item != "null"]
+                                    assert len(set(filtered_bases)) <= 1, f"Non-consistane values in bases: {filtered_bases}"  
+                                    fun_basis += filtered_bases
                                     fun_tmp += [None]
                                 else:
                                     # which transform is to be used: physical, '1', '2' or 'v'
@@ -1534,7 +1536,6 @@ class Derham:
                                             _params_comp[key] = val[component]
                                         else:
                                             _params_comp[key] = val
-
                                     fun_tmp += [fun_class(**_params_comp)]
 
                             # pullback callable
