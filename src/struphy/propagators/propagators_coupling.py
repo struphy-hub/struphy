@@ -1754,7 +1754,7 @@ class CurrentCoupling5DCurlb(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["subtract_equil"] = True
+        dct["nonlinear"] = True
         dct["turn_off"] = False
 
         if default:
@@ -1779,7 +1779,7 @@ class CurrentCoupling5DCurlb(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        subtract_equil: bool = options(default=True)["subtract_equil"],
+        nonlinear: bool = options(default=True)["nonlinear"],
     ):
         super().__init__(particles, u)
 
@@ -1809,7 +1809,7 @@ class CurrentCoupling5DCurlb(Propagator):
 
         self._boundary_cut_e1 = boundary_cut["e1"]
 
-        self._subtract_equil = subtract_equil
+        self._nonlinear = nonlinear
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops["0"].transpose()
@@ -1840,7 +1840,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._u_avg2 = self._EuT.codomain.zeros()
 
         # Call the accumulation and Pusher class
-        if self._subtract_equil:
+        if self._nonlinear:
             accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J1_se
 
             self._args_accum_kernel = (
@@ -1868,6 +1868,9 @@ class CurrentCoupling5DCurlb(Propagator):
 
             self._args_accum_kernel = (
                 self._epsilon,
+                self._b_eq[0]._data,
+                self._b_eq[1]._data,
+                self._b_eq[2]._data,
                 self._b_full2[0]._data,
                 self._b_full2[1]._data,
                 self._b_full2[2]._data,
@@ -1908,6 +1911,9 @@ class CurrentCoupling5DCurlb(Propagator):
         args_pusher_kernel = (
             self.derham.args_derham,
             self._epsilon,
+            self._b_eq[0]._data,
+            self._b_eq[1]._data,
+            self._b_eq[2]._data,
             self._b_full2[0]._data,
             self._b_full2[1]._data,
             self._b_full2[2]._data,
@@ -1921,6 +1927,7 @@ class CurrentCoupling5DCurlb(Propagator):
             self._u_avg2[1]._data,
             self._u_avg2[2]._data,
             self._boundary_cut_e1,
+            self._nonlinear
         )
 
         self._pusher = Pusher(
@@ -2135,7 +2142,7 @@ class CurrentCoupling5DGradB(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["subtract_equil"] = True
+        dct["nonlinear"] = True
         dct["turn_off"] = False
 
         if default:
@@ -2162,7 +2169,7 @@ class CurrentCoupling5DGradB(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        subtract_equil: bool = options(default=True)["subtract_equil"],
+        nonlinear: bool = options(default=True)["nonlinear"],
     ):
         from psydac.linalg.solvers import inverse
 
@@ -2197,7 +2204,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         self._boundary_cut_e1 = boundary_cut["e1"]
 
-        self._subtract_equil = subtract_equil
+        self._nonlinear = nonlinear
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops["0"].transpose()
@@ -2244,7 +2251,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._tmp3 = self._E1T.codomain.zeros()
 
         # Call the accumulation and Pusher class
-        if self._subtract_equil:
+        if self._nonlinear:
             accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J2_se
 
             self._args_accum_kernel = (
@@ -2281,6 +2288,9 @@ class CurrentCoupling5DGradB(Propagator):
 
             self._args_accum_kernel = (
                 self._epsilon,
+                self._b_eq[0]._data,
+                self._b_eq[1]._data,
+                self._b_eq[2]._data,
                 self._b_full2[0]._data,
                 self._b_full2[1]._data,
                 self._b_full2[2]._data,
@@ -2520,6 +2530,9 @@ class CurrentCoupling5DGradB(Propagator):
                 self.domain.args_domain,
                 self.derham.args_derham,
                 self._epsilon,
+                self._b_eq[0]._data,
+                self._b_eq[1]._data,
+                self._b_eq[2]._data,
                 Eb_full[0]._data,
                 Eb_full[1]._data,
                 Eb_full[2]._data,
@@ -2539,6 +2552,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._butcher.b,
                 self._butcher.c,
                 self._boundary_cut_e1,
+                self._nonlinear,
             )
 
             self.particles[0].mpi_sort_markers()

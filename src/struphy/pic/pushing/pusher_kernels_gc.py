@@ -1865,7 +1865,7 @@ def push_gc_cc_J1_Hcurl(
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
-@stack_array('dfm', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
+@stack_array('dfm', 'e', 'u', 'b', 'beq', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hdiv(
     dt: float,
     stage: int,
@@ -1873,11 +1873,12 @@ def push_gc_cc_J1_Hdiv(
     args_domain: 'DomainArguments',
     args_derham: 'DerhamArguments',
     epsilon: float,
+    beq1: 'float[:,:,:]', beq2: 'float[:,:,:]', beq3: 'float[:,:,:]',
     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-    boundary_cut: float,
+    boundary_cut: float, nonlinear: bool,
 ):
     r'''Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
@@ -1897,6 +1898,7 @@ def push_gc_cc_J1_Hdiv(
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
     b = empty(3, dtype=float)
+    beq = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
@@ -1933,6 +1935,16 @@ def push_gc_cc_J1_Hdiv(
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # beq; 2form
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            beq1,
+            beq2,
+            beq3,
+            beq,
+        )
 
         # b; 2form
         eval_2form_spline_mpi(
@@ -1984,7 +1996,11 @@ def push_gc_cc_J1_Hdiv(
         u = u/det_df
 
         # electric field E(1) = B(2) X U(0)
-        linalg_kernels.cross(b, u, e)
+        if nonlinear:
+            linalg_kernels.cross(b, u, e)
+
+        else:
+            linalg_kernels.cross(beq, u, e)
 
         # curl_norm_b dot electric field
         temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
@@ -2167,7 +2183,7 @@ def push_gc_cc_J2_stage_H1vec(
             dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
+@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bbeq', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
 def push_gc_cc_J2_stage_Hdiv(
     dt: float,
     stage: int,
@@ -2175,12 +2191,13 @@ def push_gc_cc_J2_stage_Hdiv(
     args_domain: 'DomainArguments',
     args_derham: 'DerhamArguments',
     epsilon: float,
+    beq1: 'float[:,:,:]', beq2: 'float[:,:,:]', beq3: 'float[:,:,:]',
     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
     norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-    a: 'float[:]', b: 'float[:]', c: 'float[:]', boundary_cut: float,
+    a: 'float[:]', b: 'float[:]', c: 'float[:]', boundary_cut: float, nonlinear: bool,
 ):
     r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
@@ -2206,6 +2223,7 @@ def push_gc_cc_J2_stage_Hdiv(
     norm_b2_prod = zeros((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
+    bbeq = empty(3, dtype=float)
     bb = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
@@ -2259,6 +2277,16 @@ def push_gc_cc_J2_stage_Hdiv(
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
+        # beq; 2form
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            beq1,
+            beq2,
+            beq3,
+            bbeq,
+        )
+
         # b; 2form
         eval_2form_spline_mpi(
             span1, span2, span3,
@@ -2310,12 +2338,20 @@ def push_gc_cc_J2_stage_Hdiv(
         )
 
         # operator bx() as matrix
-        b_prod[0, 1] = -bb[2]
-        b_prod[0, 2] = +bb[1]
-        b_prod[1, 0] = +bb[2]
-        b_prod[1, 2] = -bb[0]
-        b_prod[2, 0] = -bb[1]
-        b_prod[2, 1] = +bb[0]
+        if nonlinear:
+            b_prod[0, 1] = -bb[2]
+            b_prod[0, 2] = +bb[1]
+            b_prod[1, 0] = +bb[2]
+            b_prod[1, 2] = -bb[0]
+            b_prod[2, 0] = -bb[1]
+            b_prod[2, 1] = +bb[0]
+        else:
+            b_prod[0, 1] = -bbeq[2]
+            b_prod[0, 2] = +bbeq[1]
+            b_prod[1, 0] = +bbeq[2]
+            b_prod[1, 2] = -bbeq[0]
+            b_prod[2, 0] = -bbeq[1]
+            b_prod[2, 1] = +bbeq[0]
 
         norm_b2_prod[0, 1] = -norm_b2[2]
         norm_b2_prod[0, 2] = +norm_b2[1]

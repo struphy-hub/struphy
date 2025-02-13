@@ -65,7 +65,7 @@ def gc_density_0form(
     #$ omp end parallel
 
 
-@stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "tmp1", "tmp2", "b", "b_prod", "bstar", "norm_b1", "curl_norm_b")
+@stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "tmp1", "tmp2", "b", "beq", "b_prod", "bstar", "norm_b1", "curl_norm_b")
 def cc_lin_mhd_5d_D(
     markers: "float[:,:]",
     n_markers_tot: "int",
@@ -75,6 +75,9 @@ def cc_lin_mhd_5d_D(
     mat13: "float[:,:,:,:,:,:]",
     mat23: "float[:,:,:,:,:,:]",
     epsilon: float,  # model specific argument
+    beq2_1: "float[:,:,:]",  # model specific argument
+    beq2_2: "float[:,:,:]",  # model specific argument
+    beq2_3: "float[:,:,:]",  # model specific argument
     b2_1: "float[:,:,:]",  # model specific argument
     b2_2: "float[:,:,:]",  # model specific argument
     b2_3: "float[:,:,:]",  # model specific argument
@@ -88,6 +91,7 @@ def cc_lin_mhd_5d_D(
     scale_mat: "float",  # model specific argument
     boundary_cut: float,  # model specific argument
     full_f: bool,  # model specific argument
+    nonlinear:bool, # model specific argument
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`.
 
@@ -118,6 +122,7 @@ def cc_lin_mhd_5d_D(
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
+    beq = empty(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float)
 
     # allocate for metric coefficients
@@ -156,6 +161,7 @@ def cc_lin_mhd_5d_D(
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, beq2_1, beq2_2, beq2_3, beq)
         eval_2form_spline_mpi(span1, span2, span3, args_derham, b2_1, b2_2, b2_3, b)
 
         # norm_b1; 1form
@@ -165,12 +171,21 @@ def cc_lin_mhd_5d_D(
         eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
 
         # operator bx() as matrix
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] = +b[1]
-        b_prod[1, 0] = +b[2]
-        b_prod[1, 2] = -b[0]
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] = +b[0]
+        if nonlinear:
+            b_prod[0, 1] = -b[2]
+            b_prod[0, 2] = +b[1]
+            b_prod[1, 0] = +b[2]
+            b_prod[1, 2] = -b[0]
+            b_prod[2, 0] = -b[1]
+            b_prod[2, 1] = +b[0]
+
+        else:
+            b_prod[0, 1] = -beq[2]
+            b_prod[0, 2] = +beq[1]
+            b_prod[1, 0] = +beq[2]
+            b_prod[1, 2] = -beq[0]
+            b_prod[2, 0] = -beq[1]
+            b_prod[2, 1] = +beq[0]
 
         # evaluate Jacobian matrix and Jacobian determinant
         evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfm)
@@ -253,8 +268,9 @@ def cc_lin_mhd_5d_D(
     "tmp_m",
     "tmp_v",
     "b",
-    "b_prod",
-    "b_prod_negb_star",
+    "b_eq",
+    "beq_prod",
+    "beq_prod_negb_star",
     "norm_b1",
     "curl_norm_b",
 )
@@ -273,6 +289,9 @@ def cc_lin_mhd_5d_J1(
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
     epsilon: float,  # model specific argument
+    beq1: "float[:,:,:]",  # model specific argument
+    beq2: "float[:,:,:]",  # model specific argument
+    beq3: "float[:,:,:]",  # model specific argument
     b1: "float[:,:,:]",  # model specific argument
     b2: "float[:,:,:]",  # model specific argument
     b3: "float[:,:,:]",  # model specific argument
@@ -317,9 +336,10 @@ def cc_lin_mhd_5d_J1(
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
+    beq = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
-    b_prod_neg = zeros((3, 3), dtype=float)
+    beq_prod = zeros((3, 3), dtype=float)
+    beq_prod_neg = zeros((3, 3), dtype=float)
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
@@ -368,6 +388,9 @@ def cc_lin_mhd_5d_J1(
 
         det_df = linalg_kernels.det(dfm)
 
+        # beq; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, beq1, beq2, beq3, beq)
+
         # b; 2form
         eval_2form_spline_mpi(span1, span2, span3, args_derham, b1, b2, b3, b)
 
@@ -387,19 +410,19 @@ def cc_lin_mhd_5d_J1(
         linalg_kernels.outer(curl_norm_b, curl_norm_b, tmp)
 
         # operator bx() as matrix
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] = +b[1]
-        b_prod[1, 0] = +b[2]
-        b_prod[1, 2] = -b[0]
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] = +b[0]
+        beq_prod[0, 1] = -b[2]
+        beq_prod[0, 2] = +b[1]
+        beq_prod[1, 0] = +b[2]
+        beq_prod[1, 2] = -b[0]
+        beq_prod[2, 0] = -b[1]
+        beq_prod[2, 1] = +b[0]
 
-        b_prod_neg[:] = -1.0 * b_prod
+        beq_prod_neg[:] = -1.0 * beq_prod
 
         if basis_u == 0:
-            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
-            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
+            linalg_kernels.matrix_matrix(beq_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
             filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
@@ -435,11 +458,11 @@ def cc_lin_mhd_5d_J1(
             linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
             linalg_kernels.transpose(df_inv, df_inv_t)
             linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
-            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels.matrix_matrix(g_inv, beq_prod, tmp1)
             linalg_kernels.matrix_vector(tmp1, curl_norm_b, tmp_v)
 
             linalg_kernels.matrix_matrix(tmp1, tmp, tmp2)
-            linalg_kernels.matrix_matrix(tmp2, b_prod_neg, tmp1)
+            linalg_kernels.matrix_matrix(tmp2, beq_prod_neg, tmp1)
             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp_m)
 
             filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
@@ -472,9 +495,9 @@ def cc_lin_mhd_5d_J1(
             )
 
         elif basis_u == 2:
-            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
-            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
+            linalg_kernels.matrix_matrix(beq_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**4 * scale_mat
             filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para / det_df**2 * scale_vec
@@ -622,7 +645,8 @@ def cc_lin_mhd_5d_M(
     "tmp2",
     "tmp_v",
     "b",
-    "b_prod",
+    "b_eq",
+    "beq_prod",
     "norm_b2_prod",
     "b_star",
     "curl_norm_b",
@@ -645,6 +669,9 @@ def cc_lin_mhd_5d_J2(
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
     epsilon: float,  # model specific argument
+    beq1: "float[:,:,:]",  # model specific argument
+    beq2: "float[:,:,:]",  # model specific argument
+    beq3: "float[:,:,:]",  # model specific argument
     b1: "float[:,:,:]",  # model specific argument
     b2: "float[:,:,:]",  # model specific argument
     b3: "float[:,:,:]",  # model specific argument
@@ -699,8 +726,9 @@ def cc_lin_mhd_5d_J2(
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
+    beq = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
+    beq_prod = zeros((3, 3), dtype=float)
     norm_b2_prod = zeros((3, 3), dtype=float)
     curl_norm_b = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
@@ -755,6 +783,9 @@ def cc_lin_mhd_5d_J2(
         linalg_kernels.transpose(df_inv, df_inv_t)
         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
+        # beq; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, beq1, beq2, beq3, beq)
+
         # b; 2form
         eval_2form_spline_mpi(span1, span2, span3, args_derham, b1, b2, b3, b)
 
@@ -777,12 +808,12 @@ def cc_lin_mhd_5d_J2(
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # operator bx() as matrix
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] = +b[1]
-        b_prod[1, 0] = +b[2]
-        b_prod[1, 2] = -b[0]
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] = +b[0]
+        beq_prod[0, 1] = -beq[2]
+        beq_prod[0, 2] = +beq[1]
+        beq_prod[1, 0] = +beq[2]
+        beq_prod[1, 2] = -beq[0]
+        beq_prod[2, 0] = -beq[1]
+        beq_prod[2, 1] = +beq[0]
 
         norm_b2_prod[0, 1] = -norm_b2[2]
         norm_b2_prod[0, 2] = +norm_b2[1]
@@ -792,7 +823,7 @@ def cc_lin_mhd_5d_J2(
         norm_b2_prod[2, 1] = +norm_b2[0]
 
         if basis_u == 0:
-            linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+            linalg_kernels.matrix_matrix(beq_prod, g_inv, tmp1)
             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
@@ -806,7 +837,7 @@ def cc_lin_mhd_5d_J2(
             )
 
         elif basis_u == 1:
-            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels.matrix_matrix(g_inv, beq_prod, tmp1)
             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
             linalg_kernels.matrix_matrix(tmp2, norm_b2_prod, tmp1)
             linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
@@ -821,7 +852,7 @@ def cc_lin_mhd_5d_J2(
             )
 
         elif basis_u == 2:
-            linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+            linalg_kernels.matrix_matrix(beq_prod, g_inv, tmp1)
             linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
             linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 

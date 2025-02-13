@@ -2622,6 +2622,7 @@ class CurrentCoupling5DDensity(Propagator):
             "e3": 0.0,
         }
         dct["full_f"] = True
+        dct["nonlinear"] = False
         dct["turn_off"] = False
 
         if default:
@@ -2645,6 +2646,7 @@ class CurrentCoupling5DDensity(Propagator):
         filter: dict = options(default=True)["filter"],
         boundary_cut: dict = options(default=True)["boundary_cut"],
         full_f: bool = options(default=True)["full_f"],
+        nonlinear: bool = options(default=True)["nonlinear"]
     ):
         super().__init__(u)
 
@@ -2674,6 +2676,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._boundary_cut_e1 = boundary_cut["e1"]
 
         self._full_f = full_f
+        self._nonlinear = nonlinear
 
         self._accumulator = Accumulator(
             particles,
@@ -2830,6 +2833,9 @@ class CurrentCoupling5DDensity(Propagator):
 
         self._accumulator(
             self._epsilon,
+            self._b_eq[0]._data,
+            self._b_eq[1]._data,
+            self._b_eq[2]._data,
             Eb_full[0]._data,
             Eb_full[1]._data,
             Eb_full[2]._data,
@@ -2843,6 +2849,7 @@ class CurrentCoupling5DDensity(Propagator):
             self._scale_mat,
             self._boundary_cut_e1,
             self._full_f,
+            self._nonlinear,
         )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n

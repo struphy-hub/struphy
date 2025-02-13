@@ -809,7 +809,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
-                "subtract_equil": params_cc_gradB["subtract_equil"],
+                "nonlinear": params_cc_gradB["nonlinear"],
             }
 
         if params_cc_curlb["turn_off"]:
@@ -828,7 +828,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_curlb["boundary_cut"],
-                "subtract_equil": params_cc_curlb["subtract_equil"],
+                "nonlinear": params_cc_curlb["nonlinear"],
             }
 
         if params_density["turn_off"]:
@@ -846,6 +846,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "epsilon": epsilon,
                 "boundary_cut": params_density["boundary_cut"],
                 "full_f": params_density["full_f"],
+                "nonlinear": params_density["nonlinear"],
             }
 
         if params_alfven["turn_off"]:
