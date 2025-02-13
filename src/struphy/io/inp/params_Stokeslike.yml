@@ -1,6 +1,6 @@
 grid:
     Nel: [10, 10, 1]
-    p: [4, 2, 1]
+    p: [2, 2, 1]
     spl_kind: [false, true, true]
     dirichlet_bc: null
     dims_mask: [true, true, true]
@@ -9,7 +9,7 @@ grid:
     polar_ck: -1
     Nclones: 1
 
-time: {dt: 0.005, Tend: 0.025, split_algo: LieTrotter}
+time: {dt: 0.005, Tend: 0.015, split_algo: LieTrotter}
 
 units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
 

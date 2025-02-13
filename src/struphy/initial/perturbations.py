@@ -806,11 +806,11 @@ class forcingterm:
     def __call__(self, x, y, z):
         R = np.sqrt(x**2+y**2)
         phi = np.arctan(-y/x)
-        force_phi = self._nu * (self._alpha * (self._R0 - 4 * R) / (
+        force_Z = self._nu * (self._alpha * (self._R0 - 4 * R) / (
             self._a * self._R0 * R
         ) - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * R**3))
         
-        return force_phi
+        return force_Z
     
 
 class AnalyticSolutionRestelliVelocity_x:
@@ -941,7 +941,7 @@ class AnalyticSolutionRestelliVelocity_y:
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
         uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
         uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
-
+        
         uy = -np.sin(phi)*uR - R*np.cos(phi)*uphi
         
         return uy
@@ -1007,7 +1007,7 @@ class AnalyticSolutionRestelliVelocity_z:
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
         uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
         uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
-
+        
         uz = uZ
         
         return uz
@@ -1067,9 +1067,9 @@ class AnalyticSolutionRestelliPotential:
 
     # equilibrium potential
     def __call__(self, x, y, z):
-        """Plasma pressure."""
+        """Equilibrium potential."""
         R = np.sqrt(x**2+y**2)
-        pp = 0.5*self._a*self._B0*self._alpha*(((R-self._R0)**2 + z**2)/self._a**2-2/3)
+        pp = 0.5*self._a*self._B0*self._alpha*(((R-self._R0)**2 + z**2)/self._a**2-2.0/3.0)
 
         return pp
     

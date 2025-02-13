@@ -3156,37 +3156,17 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
 
         \mathbf B = \nabla\psi\times\nabla\phi+g\nabla\phi\,,
 
-    where :math:`g=g(R, Z)=B_0R_0=const.` is the toroidal field function, :math:`R_0` the major radius of the torus and :math:`B_0` the on-axis magnetic field. The ad hoc poloidal flux function :math:`\psi=\psi(r)` is given by
+    where :math:`g=g(R, Z)=B_0R_0=const.` is the toroidal field function, :math:`R_0` the major radius of the torus and :math:`B_0` the on-axis magnetic field. The flux  :math:`\psi=\psi(R, Z)` is given by
 
     .. math::
 
         \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
 
-    for some given safety factor profile. Two profiles in terms of the on-axis :math:`q_0\equiv q(r=0)` and edge :math:`q_1\equiv q(r=a)` safety factor values are available (:math:`a` is the minor radius of the torus):
+    for the given constants. 
+    
+    The pressure profile and the number density profile are not specified
 
-    .. math::
-
-        q(r) &= \left\{\begin{aligned}
-        &q_0 + ( q_1 - q_0 )\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=0\,,
-
-        &\frac{q_0}{1-\left(1-\frac{r^2}{a^2}\right)^{\frac{q_1}{q_0}}}\frac{r^2}{a^2} \quad &&\textnormal{if} \quad q_\textnormal{kind}=1\,.
-        \end{aligned}\right.
-
-    The pressure profile
-
-    .. math::
-
-        p^\prime(r) &= -\frac{B_0^2}{R_0^2}\frac{r\left[2q(r)-rq^\prime(r)\right]}{q(r)^3} \quad &&\textnormal{if} \quad p_\textnormal{kind}=0\,,
-
-        p(r) &= \beta \frac{B_{0}^2}{2} \left( p_0 - p_1 \frac{r^2}{a^2} - p_2 \frac{r^4}{a^4} \right) \quad &&\textnormal{if} \quad p_\textnormal{kind}=1\,,
-
-    is either the exact solution of the MHD equilibrium condition in the cylindrical limit (:math:`p_\textnormal{kind}=0`) or an monotonically decreasing adhoc profile for some given on-axis plasma beta (:math:`p_\textnormal{kind}=1`). Finally, the number density profile is chosen as
-
-    .. math::
-
-        n(r) = n_a + ( 1 - n_a ) \left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
-
-    Units are those defned in the parameter file (:code:`struphy units -h`).
+    Units are those defined in the parameter file (:code:`struphy units -h`).
 
     Parameters
     ----------

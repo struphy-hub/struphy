@@ -7619,7 +7619,7 @@ class Stokes(Propagator):
         un = self.feec_vars[0]
         uen = self.feec_vars[1]
         phin = self.feec_vars[2]
-
+    
         # Define block matrix [[A BT], [B 0]]
         _A11 = (
             self.mass_ops.M2 / dt
