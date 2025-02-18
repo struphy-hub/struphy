@@ -7591,15 +7591,16 @@ class Stokes(Propagator):
         self._block_codomainA = self._block_domainA
         self._block_domainB = self._block_domainA
         self._block_codomainB = _B2.codomain
-        _blocks = [[_A11, _A12], [_A21, _A22]]
-        _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocks)
-        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=[[_B1, _B2]])
+        _blocksA = [[_A11, _A12], [_A21, _A22]]
+        _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+        _blocksB = [[_B1, _B2]]
+        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
         _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1
 
         self._block_domainM = BlockVectorSpace(_A.domain, _B.transpose().domain)
         self._block_codomainM = self._block_domainM
-        self._blocks = [[_A, _B.T], [_B, None]]
-        self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
+        _blocksM = [[_A, _B.T], [_B, None]]
+        self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
 
         self._solverM = inverse(
             self._M,
@@ -7610,9 +7611,9 @@ class Stokes(Propagator):
         )
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
-        self._e_tmp1 = u.space.zeros()
-        self._e_tmp2 = ue.space.zeros()
-        self._b_tmp1 = phi.space.zeros()
+        self._e_tmp1 = self._block_codomainM.zeros()
+        # self._e_tmp2 = ue.space.zeros()
+        # self._b_tmp1 = phi.space.zeros()
 
     def __call__(self, dt):
         # current variables
@@ -7651,20 +7652,20 @@ class Stokes(Propagator):
         assert _A22.domain == _B2.domain
         assert _A11.domain == _B1.domain
 
-        _blocks = [[_A11, _A12], [_A21, _A22]]
-        _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocks)
-        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=[[_B1, _B2]])
+        _blocksA = [[_A11, _A12], [_A21, _A22]]
+        _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+        _blocksB = [[_B1, _B2]]
+        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
         _F = BlockVector(self._block_domainA, blocks=[self._F1 + 1 / dt * self.mass_ops.M2.dot(un), self._F2])
 
-        self._M *= 0
-        self._blocks = [[_A, _B.T], [_B, None]]
-        self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
-        self._RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
+        _blocksM = [[_A, _B.T], [_B, None]]
+        _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
+        _RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
 
         # use setter to update lhs matrix
-        self._solverM.linop = self._M
+        self._solverM.linop = _M
 
-        _sol = self._solverM.dot(self._RHS)
+        _sol = self._solverM.dot(_RHS, out = self._e_tmp1 )
         info = self._solverM._info
 
         un = _sol[0][0]
