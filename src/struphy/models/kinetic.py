@@ -48,7 +48,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     .. math::
 
-        \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v} = 0\,.
+        \nabla \times \mathbf B_0 = \frac{\alpha^2}{\varepsilon} \int_{\mathbb{R}^3} \mathbf{v} f_0 \, \text{d}^3 \mathbf{v}\,,
+
+    where :math:`\mathbf B_0` is the static equilibirum magnetic field.
 
     Notes
     -----
@@ -170,7 +172,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         if self._b_background is not None:
             self._kwargs[propagators_markers.PushVxB] = {
                 "algo": algo_vxb,
-                "b_eq": self._b_background,
+                "b2": self._b_background,
                 "kappa": 1.0 / self._epsilon,
             }
 
@@ -295,7 +297,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     .. math::
 
-        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \mathbf{B} \right)
+        &\frac{\partial f}{\partial t} + \mathbf{v} \cdot \, \nabla f + \frac{1}{\varepsilon} \left( \mathbf{E} + \mathbf{v} \times \left( \mathbf{B} + \mathbf{B}_0 \right) \right)
         \cdot \frac{\partial f}{\partial \mathbf{v}} = 0 \,,
         \\[2mm]
         -&\frac{\partial \mathbf{E}}{\partial t} + \nabla \times \mathbf B =
@@ -435,7 +437,10 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         ] * 3
 
         # Initialize background magnetic field from MHD equilibrium
-        b_backgr = self.projected_equil.b2
+        if self.projected_equil:
+            self._b_background = self.projected_equil.b2
+        else:
+            self._b_background = None
 
         # propagator parameters
         params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
@@ -452,8 +457,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": algo_vxb,
             "kappa": 1.0 / self._epsilon,
-            "b_eq": b_backgr,
-            "b_tilde": self.pointer["b_field"],
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_background,
         }
 
         self._kwargs[propagators_coupling.VlasovAmpere] = {
@@ -790,8 +795,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = None
         if self._b_background:
             self._kwargs[propagators_markers.PushVxB] = {
-                "b_eq": self._b_background,
                 "kappa": 1.0 / self.epsilon,
+                "b2": self._b_background,
             }
 
         # Initialize propagators used in splitting substeps

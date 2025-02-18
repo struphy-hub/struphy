@@ -1,9 +1,9 @@
 "Only particle variables are updated."
 
 from numpy import array, polynomial, random
+
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
-
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
@@ -97,9 +97,10 @@ class PushVxB(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa\,\mathbf v_p(t) \times \mathbf B\,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
 
-    where :math:`\kappa \in \mathbb R` is a constant saling factor, and for fixed rotation vector :math:`\mathbf B`, given as a 2-form:
+    where :math:`\kappa \in \mathbb R` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
+    vector :math:`\mathbf B_{\text{add}}`, both given as a 2-form:
 
     .. math::
 
@@ -122,21 +123,21 @@ class PushVxB(Propagator):
         *,
         algo: str = options(default=True)["algo"],
         kappa: float = 1.0,
-        b_eq: BlockVector | PolarVector,
-        b_tilde: BlockVector | PolarVector = None,
+        b2: BlockVector | PolarVector,
+        b2_add: BlockVector | PolarVector = None,
     ):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
-        assert b_eq.space == self.derham.Vh["2"]
-        if b_tilde is not None:
-            assert b_tilde.space == self.derham.Vh["2"]
+        assert b2.space == self.derham.Vh["2"]
+        if b2_add is not None:
+            assert b2_add.space == self.derham.Vh["2"]
 
         # base class constructor call
         super().__init__(particles)
 
         # parameters that need to be exposed
         self._kappa = kappa
-        self._b_eq = b_eq
-        self._b_tilde = b_tilde
+        self._b2 = b2
+        self._b2_add = b2_add
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
 
@@ -169,9 +170,9 @@ class PushVxB(Propagator):
 
     def __call__(self, dt):
         # sum up total magnetic field
-        tmp = self._b_eq.copy(out=self._tmp)
-        if self._b_tilde is not None:
-            tmp += self._b_tilde
+        tmp = self._b2.copy(out=self._tmp)
+        if self._b2_add is not None:
+            tmp += self._b2_add
 
         # extract coefficients to tensor product space
         b_full = self._E2T.dot(tmp, out=self._b_full)
