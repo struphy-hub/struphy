@@ -430,7 +430,7 @@ class WeightedMassOperators:
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
 
-        if not hasattr(self, "_M2B"):
+        if not hasattr(self, "_M2B_div0"):
             a_eq = self.derham.P["1"](
                 [
                     self.weights[self.selected_weight].a1_1,
