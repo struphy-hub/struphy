@@ -7656,7 +7656,11 @@ class Stokes(Propagator):
         _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
         _blocksB = [[_B1, _B2]]
         _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-        _F = BlockVector(self._block_domainA, blocks=[self._F1 + 1 / dt * self.mass_ops.M2.dot(un), self._F2])
+        # Split diffusive term
+        # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(un) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
+        #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
+        _blocksF = [self.mass_ops.M2.dot(self._F1) + 1 / dt * self.mass_ops.M2.dot(un), self.mass_ops.M2.dot(self._F2)]     
+        _F = BlockVector(self._block_domainA, blocks=_blocksF)
 
         _blocksM = [[_A, _B.T], [_B, None]]
         _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
