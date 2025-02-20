@@ -1,7 +1,7 @@
 from struphy.console.run import subp_run
 
 
-def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, yes):
+def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
     Parameters
@@ -30,6 +30,9 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
     dependencies : bool
         Whether to print Struphy kernels (to be compiled) and their dependencies on screen.
+
+    time_execution: bool
+        Prints the time spent in each section of the pyccelization (default=False).
 
     yes : bool
         Whether to say yes to prompt when changing the language.
@@ -191,6 +194,8 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         # pyccel flags
         flags = "--language=" + language
         flags += " --compiler=" + compiler
+        if time_execution:
+            flags += " --time_execution"
 
         # state
         if state["last_used_language"] not in (language, None):
