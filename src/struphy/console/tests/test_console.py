@@ -259,6 +259,7 @@ def test_main_options(args_expected, capsys):
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.parametrize("verbose", [True, False])
 @pytest.mark.parametrize("dependencies", [True, False])
+@pytest.mark.parametrize("time_execution", [True, False])
 @pytest.mark.parametrize("yes", [True])
 def test_struphy_compile(
     language,
@@ -269,6 +270,7 @@ def test_struphy_compile(
     status,
     verbose,
     dependencies,
+    time_execution,
     yes,
 ):
     # Save the original os.remove
@@ -303,6 +305,7 @@ def test_struphy_compile(
             status=status,
             verbose=verbose,
             dependencies=dependencies,
+            time_execution=time_execution,
             yes=yes,
         )
         print(f"{language = }")
@@ -313,6 +316,7 @@ def test_struphy_compile(
         print(f"{status} = ")
         print(f"{verbose = }")
         print(f"{dependencies = }")
+        print(f"{time_execution = }")
         print(f"{yes = }")
         print(f"{mock_save_state.call_count = }")
         print(f"{mock_subprocess_run.call_count = }")

@@ -261,6 +261,12 @@ def struphy():
     )
 
     parser_compile.add_argument(
+        "--time-execution",
+        help="Prints the time spent in each section of the pyccelization.",
+        action="store_true",
+    )
+
+    parser_compile.add_argument(
         "-y",
         "--yes",
         help="say yes to prompt when changing the language",
