@@ -1,9 +1,15 @@
 import pytest
+from matplotlib import pyplot as plt
+from struphy.geometry.domains import Cuboid, HollowCylinder
+from struphy.pic.amrex import Amrex
+from struphy.pic.particles import Particles6D
+from struphy.propagators.propagators_markers import PushEta
+import math
+import numpy as np
 
 
 @pytest.mark.mpi
-def test_amrex(plot=False, verbose=False):
-    from struphy.geometry.domains import Cuboid
+def test_amrex_box(plot=False, verbose=False):
 
     l1 = -5
     r1 = 5.
@@ -13,12 +19,8 @@ def test_amrex(plot=False, verbose=False):
     r3 = 1.
     domain = Cuboid(l1=l1, r1=r1, l2=l2, r2=r2, l3=l3, r3=r3)
 
-    from struphy.pic.amrex import Amrex
-
     # initialize amrex
     amrex = Amrex()
-
-    from struphy.pic.particles import Particles6D
 
     # mandatory parameters
     name = 'test'
@@ -60,8 +62,6 @@ def test_amrex(plot=False, verbose=False):
     amrex_pushed_pos = domain(amrex_positions).T
 
     if plot:
-        from matplotlib import pyplot as plt
-
         colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
 
         fig = plt.figure()
@@ -105,8 +105,6 @@ def test_amrex(plot=False, verbose=False):
         print("Struphy velocities\n", struphy_particles.velocities)
         print("Amrex velocities\n", amrex_particles.velocities)
 
-    from struphy.propagators.propagators_markers import PushEta
-
     # default parameters of Propagator
     opts_eta = PushEta.options(default=True)
     if verbose:
@@ -118,10 +116,6 @@ def test_amrex(plot=False, verbose=False):
     # instantiate Propagator object
     struphy_prop_eta = PushEta(struphy_particles)
     amrex_prop_eta = PushEta(amrex_particles)
-
-    import math
-
-    import numpy as np
 
     # time stepping
     Tend = 10.0
@@ -192,10 +186,169 @@ def test_amrex(plot=False, verbose=False):
 
         plt.savefig("./timesteps_amrex.jpg")
 
+    # finalize amrex
+    amrex.finalize()
+
+
+def test_amrex_cylinder(plot=False, verbose=False):
+
+    a1 = 0.
+    a2 = 5.
+    Lz = 1.
+    domain = HollowCylinder(a1=a1, a2=a2, Lz=Lz)
+
+    # instantiate Particle object
+    name = 'test'
+    Np = 15
+    bc = ['periodic', 'periodic', 'periodic']
+    loading = 'pseudo_random'
+    loading_params = {'seed': None}
+
+    # initialize amrex
+    amrex = Amrex()
+
+    particles = Particles6D(name=name,
+                            Np=Np,
+                            bc=bc,
+                            loading=loading,
+                            loading_params=loading_params,
+                            amrex=amrex)
+
+    # instantiate another Particle object
+    name = 'test_uni'
+    loading_params = {'seed': None, 'spatial': 'disc'}
+    particles_uni = Particles6D(name=name,
+                                Np=Np,
+                                bc=bc,
+                                loading=loading,
+                                loading_params=loading_params,
+                                amrex=amrex)
+
+    particles.draw_markers()
+    particles_uni.draw_markers()
+
+    # positions on the physical domain Omega
+    pushed_pos = domain(particles.positions).T
+    pushed_pos_uni = domain(particles_uni.positions).T
+
+    if plot:
+        fig = plt.figure(figsize=(10, 6))
+
+        plt.subplot(1, 2, 1)
+        plt.scatter(pushed_pos[:, 0], pushed_pos[:, 1], s=2.)
+        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+        ax = plt.gca()
+        ax.add_patch(circle1)
+        ax.set_aspect('equal')
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.title('Draw uniform in logical space')
+
+        plt.subplot(1, 2, 2)
+        plt.scatter(pushed_pos_uni[:, 0], pushed_pos_uni[:, 1], s=2.)
+        circle2 = plt.Circle((0, 0), a2, color='k', fill=False)
+        ax = plt.gca()
+        ax.add_patch(circle2)
+        ax.set_aspect('equal')
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.title('Draw uniform on disc')
+
+        plt.savefig("./disc_uniform_amrex.jpg")
+
+    # instantiate Particle object
+    name = 'test'
+    Np = 15
+    bc = ['periodic', 'periodic', 'periodic']
+    loading = 'pseudo_random'
+    loading_params = {'seed': None}
+
+    particles = Particles6D(name=name,
+                            Np=Np,
+                            bc=bc,
+                            loading=loading,
+                            domain=domain,
+                            loading_params=loading_params,
+                            amrex=amrex)
+
+    particles.draw_markers()
+
+    # positions on the physical domain Omega
+    pushed_pos = domain(particles.positions).T
+    pushed_pos
+
+    if plot:
+        fig = plt.figure()
+        ax = fig.gca()
+
+        colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
+
+        for n, pos in enumerate(pushed_pos):
+            ax.scatter(pos[0], pos[1], c=colors[n % 4])
+            ax.arrow(pos[0], pos[1], particles.velocities[n, 0],
+                     particles.velocities[n, 1], color=colors[n % 4], head_width=.2)
+
+        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+
+        ax.add_patch(circle1)
+        ax.set_aspect('equal')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title('Initial conditions')
+        plt.savefig("./initial_cylinder_amrex.jpg")
+
+    # pass simulation parameters to Propagator class
+    PushEta.domain = domain
+
+    # instantiate Propagator object
+    prop_eta = PushEta(particles)
+
+    # time stepping
+    Tend = 10.
+    dt = .2
+    Nt = int(Tend / dt)
+
+    pos = np.zeros((Nt + 1, Np, 3), dtype=float)
+    alpha = np.ones(Nt + 1, dtype=float)
+
+    pos[0] = pushed_pos
+
+    time = 0.
+    n = 0
+    while time < (Tend - dt):
+        if verbose:
+            print("Time:", time)
+
+        time += dt
+        n += 1
+
+        # advance in time
+        prop_eta(dt)
+
+        # positions on the physical domain Omega
+        pos[n] = domain(particles.positions).T
+
+        # scaling for plotting
+        alpha[n] = (Tend - time)/Tend
+
+    if plot:
+        # make scatter plot for each particle in xy-plane
+        for i in range(Np):
+            ax.scatter(pos[:, i, 0], pos[:, i, 1], c=colors[i % 4], alpha=alpha)
+
+        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+
+        ax.add_patch(circle1)
+        ax.set_aspect('equal')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0)')
+
+        plt.savefig("./final_cylinder_amrex.jpg")
 
     # finalize amrex
     amrex.finalize()
 
 
 if __name__ == "__main__":
-    test_amrex(plot=True, verbose=True)
+    test_amrex_cylinder(plot=True, verbose=True)
