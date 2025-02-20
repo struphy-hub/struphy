@@ -154,7 +154,7 @@ class Pusher:
         self._mpi_in_place = IN_PLACE
 
         if self.particles.amrex:
-            self._residuals = np.zeros(self.particles.markers.number_of_particles_at_level(0,True, True))
+            self._residuals = np.zeros(self.particles.markers.number_of_particles_at_level(0, True, True))
         else:
             self._residuals = np.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.
@@ -225,12 +225,8 @@ class Pusher:
                     self.particles.derham.comm.Barrier()
 
             n_not_converged[0] = self.particles.n_mks
-            while True: # TODO look this up!!!!
+            while True:
                 k += 1
-                
-                # TODO: remove this statement!!!!
-                if k>=1:
-                    break
 
                 # if eval_kernels is not empty, do spline evaluations
                 for ker_args in self.eval_kernels:
@@ -257,22 +253,23 @@ class Pusher:
                         *add_args,
                     )
 
-                # sort according to alpha-weighted average
-                if self.particles.mpi_comm is not None:
-                    self.particles.mpi_sort_markers(
-                        apply_bc=False,
-                        alpha=self._alpha_in_kernel,
-                    )
-
-                # push markers
                 if self.particles.amrex:
+                    # push markers
                     self.kernel(
                         dt,
                         stage,
                         self.particles,
                         *self._args_kernel,
                     )
-                else: 
+                else:
+                    # sort according to alpha-weighted average
+                    if self.particles.mpi_comm is not None:
+                        self.particles.mpi_sort_markers(
+                            apply_bc=False,
+                            alpha=self._alpha_in_kernel,
+                        )
+
+                    # push markers
                     self.kernel(
                         dt,
                         stage,
@@ -319,7 +316,7 @@ class Pusher:
                             f'rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }',
                         )
                     # sort markers according to domain decomposition
-                    if self.mpi_sort == 'each':
+                    if self.mpi_sort == 'each' and not self.particles.amrex:
                         if self.particles.mpi_comm is not None:
                             self.particles.mpi_sort_markers()
                         else:
