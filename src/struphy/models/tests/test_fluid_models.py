@@ -13,6 +13,7 @@ def test_fluid(
     fast: bool,
     vrbose: bool,
     verification: bool,
+    show_plots: bool,
     *,
     model: str = None,
     Tend: float = None,
@@ -49,6 +50,7 @@ def test_fluid(
                     verbose=vrbose,
                     comm=comm,
                     verification=verification,
+                    show_plots=show_plots,
                 )
     else:
         val = getattr(fluid, model)
@@ -66,6 +68,7 @@ def test_fluid(
             verbose=vrbose,
             comm=comm,
             verification=verification,
+            show_plots=show_plots,
         )
 
 
@@ -81,6 +84,7 @@ if __name__ == "__main__":
     fast = sys.argv[3] == "True"
     vrbose = sys.argv[4] == "True"
     verification = sys.argv[5] == "True"
+    show_plots = sys.argv[6] == "True"
 
     map_and_equil = ("Cuboid", "HomogenSlab")
     test_fluid(
@@ -88,6 +92,7 @@ if __name__ == "__main__":
         fast,
         vrbose,
         verification,
+        show_plots,
         model=model,
         Tend=Tend,
     )
@@ -99,6 +104,7 @@ if __name__ == "__main__":
             fast,
             vrbose,
             verification,
+            show_plots,
             model=model,
             Tend=Tend,
         )
@@ -109,6 +115,7 @@ if __name__ == "__main__":
             fast,
             vrbose,
             verification,
+            show_plots,
             model=model,
             Tend=Tend,
         )

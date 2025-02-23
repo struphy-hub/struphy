@@ -165,7 +165,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         params_coupling = params["em_fields"]["options"]["VlasovAmpere"]["solver"]
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushEta] = {"algo": algo_eta}
+        self._kwargs[propagators_markers.PushEta] = {
+            "algo": algo_eta,
+        }
 
         # Only add PushVxB if magnetic field is not zero
         self._kwargs[propagators_markers.PushVxB] = None
@@ -262,7 +264,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = (
             self._alpha**2
-            / (2 * self.pointer["species1"].n_mks)
+            / (2 * self.pointer["species1"].Np)
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
@@ -549,7 +551,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = (
             self._alpha**2
-            / (2 * self.pointer["species1"].n_mks)
+            / (2 * self.pointer["species1"].Np)
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
@@ -864,17 +866,17 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar("en_e", self.en_E)
 
         # evaluate f0
-        self._f0_values[~self.pointer["species1"].holes] = self._f0(*self.pointer["species1"].phasespace_coords.T)
+        self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
         self._tmp[0] = (
             self.alpha**2
             * self.vth**2
-            / (2 * self.pointer["species1"].n_mks)
+            / (2 * self.pointer["species1"].Np)
             * np.dot(
                 self.pointer["species1"].weights ** 2,  # w_p^2
                 self.pointer["species1"].sampling_density
-                / self._f0_values[~self.pointer["species1"].holes],  # s_{0,p} / f_{0,p}
+                / self._f0_values[self.pointer["species1"].valid_mks],  # s_{0,p} / f_{0,p}
             )
         )
 
@@ -1240,10 +1242,10 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
         self._tmp3[0] = (
             1
-            / self.pointer["ions"].n_mks
+            / self.pointer["ions"].Np
             * np.sum(
                 self.pointer["ions"].weights * self.pointer["ions"].velocities[:, 0] ** 2 / 2.0
-                + self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
+                + self.pointer["ions"].markers_wo_holes_and_ghost[:, 8],
             )
         )
 

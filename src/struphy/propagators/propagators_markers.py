@@ -1,9 +1,9 @@
 "Only particle variables are updated."
 
 from numpy import array, polynomial, random
-
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
+
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
@@ -88,7 +88,14 @@ class PushEta(Propagator):
             self.particles[0].update_weights()
 
         if self._eval_density:
-            eval_density = lambda eta1, eta2, eta3: self._particles[0].eval_density(eta1, eta2, eta3, h=0.15)
+            eval_density = lambda eta1, eta2, eta3: self.particles[0].eval_density(
+                eta1,
+                eta2,
+                eta3,
+                h1=0.1,
+                h2=0.1,
+                h3=0.1,
+            )
             self.derham.P["3"](eval_density, out=self._density_field)
 
 
@@ -223,9 +230,9 @@ class PushVinEfield(Propagator):
         # instantiate Pusher
         args_kernel = (
             self.derham.args_derham,
-            self._e_field.blocks[0]._data,
-            self._e_field.blocks[1]._data,
-            self._e_field.blocks[2]._data,
+            self._e_field[0]._data,
+            self._e_field[1]._data,
+            self._e_field[2]._data,
             self.kappa,
         )
 
@@ -1443,3 +1450,96 @@ class PushRandomDiffusion(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
+
+
+class PushVinSPHpressure(Propagator):
+    r"""For each marker :math:`p`, solves
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa \sum_{q} w_p\,w_q \left( \frac{1}{\rho^{N,h}(\mathbf x_p)} + \frac{1}{\rho^{N,h}(\mathbf x_q)} \right) \nabla W_h(\mathbf x_p - \mathbf x_q) \,,
+
+    with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\mathbf x_p) = \frac 1N \sum_q w_q \, W_h(\mathbf x_p - \mathbf x_q)\,,
+
+    where :math:`W_h(\mathbf x)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    Time stepping:
+
+    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["kernel_type"] = [
+            "gaussian_2d",
+        ]
+        dct["algo"] = [
+            "forward_euler",
+        ]  # "heun2", "rk2", "heun3", "rk4"]
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(
+        self,
+        particles: ParticlesSPH,
+        *,
+        kernel_type: str = "gaussian_2d",
+        kernel_width: tuple = (0.1, 0.1, 0.1),
+        algo: str = options(default=True)["algo"],
+    ):
+        # base class constructor call
+        super().__init__(particles)
+
+        # init kernel for evaluating density etc. before each time step.
+        init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
+
+        first_free_idx = particles.args_markers.first_free_idx
+        comps = (0, 1)
+
+        boxes = particles.sorting_boxes.boxes
+        neighbours = particles.sorting_boxes.neighbours
+        holes = particles.holes
+        periodic = [bci == "periodic" for bci in particles.bc]
+        kernel_type = particles.ker_dct[kernel_type]
+
+        # collect arguments for init kernel
+        args_init = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_type,
+            *kernel_width,
+        )
+
+        self.add_init_kernel(
+            init_kernel,
+            first_free_idx,
+            comps,
+            args_init,
+        )
+
+        # kernel for velocity update
+        kernel = pusher_kernels.push_v_sph_pressure_2d
+
+        # same arguments as init kernel
+        args_kernel = args_init
+
+        # the Pusher class wraps around all kernels
+        self._pusher = Pusher(
+            particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=0.0,
+            init_kernels=self.init_kernels,
+        )
+
+    def __call__(self, dt):
+        self.particles[0].put_particles_in_boxes()
+        self._pusher(dt)

@@ -1642,8 +1642,8 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 if __name__ == "__main__":
     # test_maxwellian_3d_uniform(Nel=[64, 1, 1], show_plot=False)
     # test_maxwellian_3d_perturbed(Nel=[64, 1, 1], show_plot=False)
-    # test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=False)
+    test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=False)
     # test_maxwellian_2d_uniform(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_2d_perturbed(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_2d_mhd(Nel=[8, 12, 12], with_desc=None, show_plot=False)
-    test_canonical_maxwellian_uniform(Nel=[64, 1, 1], show_plot=True)
+    # test_canonical_maxwellian_uniform(Nel=[64, 1, 1], show_plot=True)

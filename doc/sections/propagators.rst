@@ -1,9 +1,10 @@
-.. _Tutorial 1 - Particles: ../tutorials/tutorial_01_test_particles.ipynb
-.. _Tutorial 5 - Poisson: ../tutorials/tutorial_02_poisson.ipynb
-.. _Tutorial 6 - Heat equation: ../tutorials/tutorial_03_heat_equation.ipynb
-.. _Tutorial 7 - Maxwell equations: ../tutorials/tutorial_04_maxwell.ipynb
-.. _Tutorial 8 - Vlasov-Maxwell: ../tutorials/tutorial_05_vlasov_maxwell.ipynb
-.. _Tutorial 9 - Linear MHD equations: ../tutorials/tutorial_06_linear_mhd.ipynb
+.. _Tutorial 1 - Kinetic particles: ../tutorials/tutorial_01_kinetic_particles.ipynb
+.. _Tutorial 2 - Fluid particles: ../tutorials/tutorial_02_fluid_particles.ipynb
+.. _Tutorial 6 - Poisson: ../tutorials/tutorial_06_poisson.ipynb
+.. _Tutorial 7 - Heat equation: ../tutorials/tutorial_07_heat_equation.ipynb
+.. _Tutorial 8 - Maxwell equations: ../tutorials/tutorial_08_maxwell.ipynb
+.. _Tutorial 9 - Vlasov-Maxwell: ../tutorials/tutorial_09_vlasov_maxwell.ipynb
+.. _Tutorial 10 - Linear MHD equations: ../tutorials/tutorial_10_linear_mhd.ipynb
 
 .. _propagators:
 
@@ -16,12 +17,13 @@ of a model's variables by one time step, :math:`t \to t + \Delta t`.
 
 Check out the following tutorials for how to use propagators in Struphy:
 
-* `Tutorial 1 - Particles`_
-* `Tutorial 5 - Poisson`_
-* `Tutorial 6 - Heat equation`_
-* `Tutorial 7 - Maxwell equations`_
-* `Tutorial 8 - Vlasov-Maxwell`_
-* `Tutorial 9 - Linear MHD equations`_
+* `Tutorial 1 - Kinetic particles`_
+* `Tutorial 2 - Fluid particles`_
+* `Tutorial 6 - Poisson`_
+* `Tutorial 7 - Heat equation`_
+* `Tutorial 8 - Maxwell equations`_
+* `Tutorial 9 - Vlasov-Maxwell`_
+* `Tutorial 10 - Linear MHD equations`_
 
 .. toctree::
     :maxdepth: 1
