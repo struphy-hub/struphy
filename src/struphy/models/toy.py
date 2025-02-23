@@ -185,7 +185,7 @@ class Vlasov(StruphyModel):
             self.pointer["ions"].markers_wo_holes[:, 3] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
-        ) / (2 * self.pointer["ions"].n_mks)
+        ) / (2 * self.pointer["ions"].Np)
 
         # self.derham.comm.Allreduce(
         #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -299,7 +299,7 @@ class GuidingCenter(StruphyModel):
 
         self._en_fv[0] = self.pointer["ions"].markers[~self.pointer["ions"].holes, 5].dot(
             self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
-        ) / (2.0 * self.pointer["ions"].n_mks)
+        ) / (2.0 * self.pointer["ions"].Np)
 
         self.pointer["ions"].save_magnetic_background_energy()
         self._en_tot[0] = (
@@ -308,7 +308,7 @@ class GuidingCenter(StruphyModel):
             .dot(
                 self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
             )
-            / self.pointer["ions"].n_mks
+            / self.pointer["ions"].Np
         )
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
@@ -1135,7 +1135,6 @@ class PressureLessSPH(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
 
     This is discretized by particles going in straight lines.
-
     """
 
     @staticmethod
@@ -1196,6 +1195,6 @@ class PressureLessSPH(StruphyModel):
             self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 3] ** 2
             + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 4] ** 2
             + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 5] ** 2
-        ) / (2.0 * self.pointer["p_fluid"].n_mks)
+        ) / (2.0 * self.pointer["p_fluid"].Np)
 
         self.update_scalar("en_kin", en_kin)

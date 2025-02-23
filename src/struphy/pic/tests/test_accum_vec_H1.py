@@ -93,13 +93,11 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     }
 
     particles = Particles6D(
-        "test_particles",
-        Np=Np,
-        bc=["periodic"] * 3,
-        loading="pseudo_random",
-        loading_params=loading_params,
         comm=sub_comm,
         inter_comm=inter_comm,
+        Np=Np,
+        bc=["periodic"] * 3,
+        loading_params=loading_params,
         domain=domain,
         domain_array=derham.domain_array,
     )

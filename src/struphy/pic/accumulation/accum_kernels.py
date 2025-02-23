@@ -8,7 +8,7 @@ Function naming conventions:
 These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
 """
 
-from numpy import empty, floor, shape, zeros
+from numpy import empty, floor, log, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
@@ -427,7 +427,7 @@ def linear_vlasov_ampere(
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         # marker positions

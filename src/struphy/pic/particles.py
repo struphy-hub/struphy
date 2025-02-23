@@ -1,3 +1,5 @@
+import numpy as np
+
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
@@ -18,6 +20,8 @@ class Particles6D(Particles):
     ===== ============== ======================= ======= ====== ====== ==========
     value position (eta)    velocities           weight   s0     w0    buffer
     ===== ============== ======================= ======= ====== ====== ==========
+
+    The buffer is partitioned as follows:
 
     Parameters
     ----------
@@ -44,10 +48,6 @@ class Particles6D(Particles):
 
     def __init__(
         self,
-        name: str,
-        Np: int,
-        bc: list,
-        loading: str,
         **kwargs,
     ):
         if "bckgr_params" not in kwargs:
@@ -62,7 +62,7 @@ class Particles6D(Particles):
             self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
             kwargs.pop("n_cols")
 
-        super().__init__(name, Np, bc, loading, **kwargs)
+        super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
         if "CanonicalMaxwellian" in kwargs["bckgr_params"]:
@@ -75,24 +75,9 @@ class Particles6D(Particles):
             self._epsilon = self.equation_params["epsilon"]
 
     @property
-    def n_cols(self):
-        """Number of the columns at each markers."""
-        return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
-
-    @property
     def vdim(self):
         """Dimension of the velocity space."""
         return 3
-
-    @property
-    def first_diagnostics_idx(self):
-        """Starting buffer marker index number for diagnostics."""
-        return 3 + self.vdim + 3
-
-    @property
-    def first_pusher_idx(self):
-        """Starting buffer marker index number for pusher."""
-        return 3 + self.vdim + 3 + self.n_cols_diagnostics
 
     @property
     def n_cols_diagnostics(self):
@@ -150,7 +135,7 @@ class Particles6D(Particles):
                 f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
             )
 
-    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
         """Sampling density function as 0 form.
 
         Parameters
@@ -160,6 +145,9 @@ class Particles6D(Particles):
 
         *v : array_like
             Velocity evaluation points.
+
+        flat_eval : bool
+            If true, perform flat (marker) evaluation (etas must be same size 1D).
 
         remove_holes : bool
             If True, holes are removed from the returned array. If False, holes are evaluated to -1.
@@ -173,7 +161,13 @@ class Particles6D(Particles):
         assert self.domain, f"self.domain must be set to call the sampling density 0-form."
 
         return self.domain.transform(
-            self.svol(eta1, eta2, eta3, *v), self.markers, kind="3_to_0", remove_outside=remove_holes
+            self.svol(eta1, eta2, eta3, *v),
+            eta1,
+            eta2,
+            eta3,
+            flat_eval=flat_eval,
+            kind="3_to_0",
+            remove_outside=remove_holes,
         )
 
     def save_constants_of_motion(self):
@@ -297,10 +291,6 @@ class Particles5D(Particles):
 
     def __init__(
         self,
-        name: str,
-        Np: int,
-        bc: list,
-        loading: str,
         projected_equil: ProjectedFluidEquilibriumWithB,
         **kwargs,
     ):
@@ -311,26 +301,17 @@ class Particles5D(Particles):
         if "n_cols" not in kwargs:
             self._n_cols_diagnostics = 3
             self._n_cols_aux = 12
-
         else:
             self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
             self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
-
             kwargs.pop("n_cols")
 
         super().__init__(
-            name,
-            Np,
-            bc,
-            loading,
             projected_equil=projected_equil,
             **kwargs,
         )
 
         # magnetic background
-        assert isinstance(self.projected_equil, ProjectedFluidEquilibriumWithB), (
-            "Particles5D needs background with magnetic field."
-        )
         if self.equil is not None:
             assert isinstance(self.equil, FluidEquilibriumWithB), "Particles5D needs background with magnetic field."
         self._magn_bckgr = self.equil
@@ -342,24 +323,9 @@ class Particles5D(Particles):
         self._tmp2 = self.derham.Vh["2"].zeros()
 
     @property
-    def n_cols(self):
-        """Number of the columns at each markers."""
-        return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
-
-    @property
     def vdim(self):
         """Dimension of the velocity space."""
         return 2
-
-    @property
-    def first_diagnostics_idx(self):
-        """Starting buffer marker index number for diagnostics."""
-        return 3 + self.vdim + 3
-
-    @property
-    def first_pusher_idx(self):
-        """Starting buffer marker index number for pusher."""
-        return 3 + self.vdim + 3 + self.n_cols_diagnostics
 
     @property
     def n_cols_diagnostics(self):
@@ -468,7 +434,7 @@ class Particles5D(Particles):
 
         return self.svol(eta1, eta2, eta3, *v) / self._svol.velocity_jacobian_det(eta1, eta2, eta3, *v)
 
-    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
         """
         Sampling density function as 0-form.
 
@@ -479,6 +445,9 @@ class Particles5D(Particles):
 
         v_parallel, v_perp : array_like
             Velocity evaluation points.
+
+        flat_eval : bool
+            If true, perform flat (marker) evaluation (etas must be same size 1D).
 
         remove_holes : bool
             If True, holes are removed from the returned array. If False, holes are evaluated to -1.
@@ -491,7 +460,13 @@ class Particles5D(Particles):
         """
 
         return self.domain.transform(
-            self.s3(eta1, eta2, eta3, *v), self.markers, kind="3_to_0", remove_outside=remove_holes
+            self.s3(eta1, eta2, eta3, *v),
+            eta1,
+            eta2,
+            eta3,
+            flat_eval=flat_eval,
+            kind="3_to_0",
+            remove_outside=remove_holes,
         )
 
     def draw_markers(self, sort: bool = True, verbose: bool = True):
@@ -643,10 +618,6 @@ class Particles3D(Particles):
 
     def __init__(
         self,
-        name: str,
-        Np: int,
-        bc: list,
-        loading: str,
         **kwargs,
     ):
         if "bckgr_params" not in kwargs:
@@ -660,30 +631,14 @@ class Particles3D(Particles):
         else:
             self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
             self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
-
             kwargs.pop("n_cols")
 
-        super().__init__(name, Np, bc, loading, **kwargs)
-
-    @property
-    def n_cols(self):
-        """Number of the columns at each markers."""
-        return self.first_pusher_idx + 3 + self.vdim + 3 + self.n_cols_aux + 1
+        super().__init__(**kwargs)
 
     @property
     def vdim(self):
         """Dimension of the velocity space."""
         return 0
-
-    @property
-    def first_diagnostics_idx(self):
-        """Starting buffer marker index number for diagnostics."""
-        return 3 + self.vdim + 3
-
-    @property
-    def first_pusher_idx(self):
-        """Starting buffer marker index number for pusher."""
-        return 3 + self.vdim + 3 + self.n_cols_diagnostics
 
     @property
     def n_cols_diagnostics(self):
@@ -729,7 +684,7 @@ class Particles3D(Particles):
                 f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.',
             )
 
-    def s0(self, eta1, eta2, eta3, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, flat_eval=False, remove_holes=True):
         """Sampling density function as 0 form.
 
         Parameters
@@ -739,6 +694,9 @@ class Particles3D(Particles):
 
         *v : array_like
             Velocity evaluation points.
+
+        flat_eval : bool
+            If true, perform flat (marker) evaluation (etas must be same size 1D).
 
         remove_holes : bool
             If True, holes are removed from the returned array. If False, holes are evaluated to -1.
@@ -750,7 +708,13 @@ class Particles3D(Particles):
         -------
         """
         return self.domain.transform(
-            self.svol(eta1, eta2, eta3), self.markers, kind="3_to_0", remove_outside=remove_holes
+            self.svol(eta1, eta2, eta3),
+            eta1,
+            eta2,
+            eta3,
+            flat_eval=flat_eval,
+            kind="3_to_0",
+            remove_outside=remove_holes,
         )
 
 
@@ -781,38 +745,24 @@ class ParticlesSPH(Particles):
 
     def __init__(
         self,
-        name: str,
-        Np: int,
-        bc: list,
-        loading: str,
         **kwargs,
     ):
+        kwargs["type"] = "sph"
+
         if "bckgr_params" not in kwargs:
             kwargs["bckgr_params"] = self.default_bckgr_params()
 
-        # Load specific loading params for SPH (moment degenerate)
-        loading_params_default = {
-            "seed": 1234,
-            "dir_particles": None,
-            "moments": "degenerate",
-            "spatial": "uniform",
-            "initial": None,
-        }
-
-        if "loading_params" not in kwargs:
-            kwargs["loading_params"] = loading_params_default
+        if "boxes_per_dim" not in kwargs:
+            boxes_per_dim = (1, 1, 1)
         else:
-            kwargs["loading_params"] = set_defaults(
-                kwargs["loading_params"],
-                loading_params_default,
-            )
+            if kwargs["boxes_per_dim"] is None:
+                boxes_per_dim = (1, 1, 1)
 
-        if "sorting_params" not in kwargs:
-            raise ValueError("Sorting parameters must be given for SPH")
-        else:
-            if "communicate" not in kwargs["sorting_params"] or not kwargs["sorting_params"]["communicate"]:
-                print("Enforcing communication of boxes in sph")
-                kwargs["sorting_params"]["communicate"] = True
+        # TODO: maybe this needs a fix
+        # else:
+        #     if "communicate" not in kwargs["sorting_params"] or not kwargs["sorting_params"]["communicate"]:
+        #         print("Enforcing communication of boxes in sph")
+        #         kwargs["sorting_params"]["communicate"] = True
 
         # default number of diagnostics and auxiliary columns
         if "n_cols" not in kwargs:
@@ -825,27 +775,12 @@ class ParticlesSPH(Particles):
 
             kwargs.pop("n_cols")
 
-        super().__init__(name, Np, bc, loading, **kwargs)
-
-    @property
-    def n_cols(self):
-        """Number of the columns at each markers."""
-        return 24
+        super().__init__(**kwargs)
 
     @property
     def vdim(self):
         """Dimension of the velocity space."""
         return 3
-
-    @property
-    def first_diagnostics_idx(self):
-        """Starting buffer marker index number for diagnostics."""
-        return 3 + self.vdim + 3
-
-    @property
-    def first_pusher_idx(self):
-        """Starting buffer marker index number for pusher."""
-        return 3 + self.vdim + 3 + self.n_cols_diagnostics
 
     @property
     def n_cols_diagnostics(self):
@@ -894,7 +829,7 @@ class ParticlesSPH(Particles):
         else:
             raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
-    def s0(self, eta1, eta2, eta3, *v, remove_holes=True):
+    def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
         """Sampling density function as 0 form.
 
         Parameters
@@ -905,6 +840,9 @@ class ParticlesSPH(Particles):
         *v : array_like
             Velocity evaluation points.
 
+        flat_eval : bool
+            If true, perform flat (marker) evaluation (etas must be same size 1D).
+
         remove_holes : bool
             If True, holes are removed from the returned array. If False, holes are evaluated to -1.
 
@@ -914,26 +852,65 @@ class ParticlesSPH(Particles):
             The 0-form sampling density.
         -------
         """
-
         return self.domain.transform(
-            self.svol(eta1, eta2, eta3, *v), self.markers, kind="3_to_0", remove_outside=remove_holes
+            self.svol(eta1, eta2, eta3, *v),
+            eta1,
+            eta2,
+            eta3,
+            flat_eval=flat_eval,
+            kind="3_to_0",
+            remove_outside=remove_holes,
         )
 
-    def eval_density(self, eta1, eta2, eta3, h=0.3):
-        """Density function as 0 form.
+    def eval_density(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        h1,
+        h2,
+        h3,
+        kernel_type="linear_isotropic",
+        derivative=0,
+        fast=True,
+    ):
+        """Density function as 0-form.
 
         Parameters
         ----------
         eta1, eta2, eta3 : array_like
-            Logical evaluation points.
+            Logical evaluation points (flat or meshgrid evaluation).
 
-        h : float
-            Support radius of the smoothing kernel.
+        h1, h2, h3 : float
+            Support radius of the smoothing kernel in each dimension.
+
+        kernel_type : str
+            Name of the smoothing kernel to be used.
+
+        derivative: int
+            0: no kernel derivative
+            1: first component of grad
+            2: second component of grad
+            3: third component of grad
+
+        fast : bool
+            True: box-based evaluation, False: naive evaluation.
 
         Returns
         -------
         out : array-like
-            The 0-form density.
+            Same size as eta1.
         -------
         """
-        return self.eval_density_fun(eta1, eta2, eta3, self.index["weights"], h=h)
+        return self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            self.index["weights"],
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
