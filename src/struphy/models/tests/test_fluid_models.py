@@ -5,15 +5,21 @@ import pytest
 from struphy.models.tests.util import call_model
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "map_and_equil", [("Cuboid", "HomogenSlab"), ("HollowTorus", "AdhocTorus"), ("Tokamak", "EQDSKequilibrium")]
 )
-def test_fluid(map_and_equil, fast, vrbose, model=None, Tend=None, verbose=False):
-    """Tests all models and all possible model.options (except solvers without preconditioner) in models/fluid.py.
+def test_fluid(
+    map_and_equil: tuple | list,
+    fast: bool,
+    vrbose: bool,
+    verification: bool,
+    *,
+    model: str = None,
+    Tend: float = None,
+):
+    """Tests all models in models/fluid.py.
 
     If model is not None, tests the specified model.
-
     The argument "fast" is a pytest option that can be specified at the command line (see conftest.py)."""
 
     from mpi4py import MPI
@@ -35,7 +41,15 @@ def test_fluid(map_and_equil, fast, vrbose, model=None, Tend=None, verbose=False
                         print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
                         continue
 
-                call_model(key, val, map_and_equil, Tend=Tend, verbose=vrbose, comm=comm)
+                call_model(
+                    key,
+                    val,
+                    map_and_equil,
+                    Tend=Tend,
+                    verbose=vrbose,
+                    comm=comm,
+                    verification=verification,
+                )
     else:
         val = getattr(fluid, model)
 
@@ -44,10 +58,57 @@ def test_fluid(map_and_equil, fast, vrbose, model=None, Tend=None, verbose=False
             print(f"Model {model} is currently excluded from tests with mhd_equil other than HomogenSlab.")
             exit()
 
-        call_model(model, val, map_and_equil, Tend=Tend, verbose=vrbose, comm=comm)
+        call_model(
+            model,
+            val,
+            map_and_equil,
+            Tend=Tend,
+            verbose=vrbose,
+            comm=comm,
+            verification=verification,
+        )
 
 
 if __name__ == "__main__":
-    test_fluid(("Cuboid", "HomogenSlab"), False, model="ViscoresistiveMHD")
-    test_fluid(("HollowTorus", "AdhocTorus"), False, model="ViscoresistiveMHD")
-    test_fluid(("Tokamak", "EQDSKequilibrium"), False, model="ViscoresistiveMHD")
+    # This is called in struphy_test in case "group" is a model name
+    import sys
+
+    model = sys.argv[1]
+    if sys.argv[2] == "None":
+        Tend = None
+    else:
+        Tend = float(sys.argv[2])
+    fast = sys.argv[3] == "True"
+    vrbose = sys.argv[4] == "True"
+    verification = sys.argv[5] == "True"
+
+    map_and_equil = ("Cuboid", "HomogenSlab")
+    test_fluid(
+        map_and_equil,
+        fast,
+        vrbose,
+        verification,
+        model=model,
+        Tend=Tend,
+    )
+
+    if not fast and not verification:
+        map_and_equil = ("HollowTorus", "AdhocTorus")
+        test_fluid(
+            map_and_equil,
+            fast,
+            vrbose,
+            verification,
+            model=model,
+            Tend=Tend,
+        )
+
+        map_and_equil = ("Tokamak", "EQDSKequilibrium")
+        test_fluid(
+            map_and_equil,
+            fast,
+            vrbose,
+            verification,
+            model=model,
+            Tend=Tend,
+        )

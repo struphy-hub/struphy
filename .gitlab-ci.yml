@@ -349,7 +349,9 @@ Ubuntu_latest:
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options
-    - struphy test models --fast # this is the models test
+    - struphy test models --fast
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
 
 # Quickstart test
 quickstart_tests:
@@ -423,7 +425,8 @@ c_model_tests:
     - ls -1a
     - struphy compile --status
     - struphy test models --fast
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
 
 c_model_tests_psydac_whl:
   stage: test
@@ -445,6 +448,8 @@ c_model_tests_psydac_whl:
     - pip install src/struphy/psydac*.whl
     - struphy compile --time-execution
     - struphy test models --fast
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
 
 pages_tests:
   stage: test
@@ -479,7 +484,8 @@ c_model_cronjob_tests:
     - ls -1a
     - struphy compile --status
     - struphy test models --fast
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
   artifacts:
     name: 'python-env-installed-2'
     paths:
@@ -530,7 +536,8 @@ fortran_model_tests:
     - ls -1a
     - struphy compile --status
     - struphy test models --fast
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
 Ubuntu_22_04:
