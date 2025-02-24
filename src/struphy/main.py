@@ -100,7 +100,7 @@ def main(
     # within a clone:    : sub_comm
     # between the clones : inter_comm
     # A copy of the params is used since the parker params are updated.
-    params, inter_comm, sub_comm = setup_domain_cloning(comm, copy.deepcopy(params), params["grid"]["Nclones"])
+    params, inter_comm, sub_comm = setup_domain_cloning(comm, params, nclones)
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose

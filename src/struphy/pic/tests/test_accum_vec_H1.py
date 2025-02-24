@@ -71,7 +71,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         "grid": {"num_clones": num_clones, "Nel": Nel},
         "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / np.prod(Nel)}}},
     }
-    params, inter_comm, sub_comm = setup_domain_cloning(mpi_comm, copy.deepcopy(params), num_clones)
+    params, inter_comm, sub_comm = setup_domain_cloning(mpi_comm, params, num_clones)
 
     # DeRham object
     derham = Derham(
