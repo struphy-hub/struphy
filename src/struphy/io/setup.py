@@ -268,7 +268,7 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     return derham
 
 
-def setup_domain_cloning(comm, params, Nclones):
+def setup_domain_cloning(comm, params, num_clones):
     """
     Sets up domain cloning for parallel computation using MPI.
 
@@ -281,7 +281,7 @@ def setup_domain_cloning(comm, params, Nclones):
         MPI communicator used for parallelization.
     params : dict
         Dictionary containing parameters for the simulation.
-    Nclones : int
+    num_clones : int
         Number of clones to be used for domain decomposition.
 
     Returns
@@ -300,15 +300,15 @@ def setup_domain_cloning(comm, params, Nclones):
     size = comm.Get_size()
 
     # Ensure the total number of ranks is divisible by the number of clones
-    if size % Nclones != 0:
+    if size % num_clones != 0:
         if rank == 0:
             print(
-                f"Total number of ranks ({size}) is not divisible by the number of clones ({Nclones}).",
+                f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
             )
         MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
 
     # Determine the color and rank within each clone
-    ranks_per_clone = size // Nclones
+    ranks_per_clone = size // num_clones
     clone_color = rank // ranks_per_clone
 
     # Create a sub-communicator for each clone
@@ -324,12 +324,12 @@ def setup_domain_cloning(comm, params, Nclones):
         root=0,
     )
 
-    if rank == 0 and Nclones > 1:
-        print(f"\nNumber of clones: {Nclones}")
+    if rank == 0 and num_clones > 1:
+        print(f"\nNumber of clones: {num_clones}")
 
         # Generate an ASCII table for each clone
         message = ""
-        for clone in range(Nclones):
+        for clone in range(num_clones):
             message += f"Clone {clone}:\n"
             message += "comm.Get_rank() | sub_comm.Get_rank() | inter_comm.Get_rank()\n"
             message += "-" * 66 + "\n"
@@ -338,9 +338,9 @@ def setup_domain_cloning(comm, params, Nclones):
                     message += f"{entry[0]:15} | {entry[2]:19} | {entry[3]:21}\n"
         print(message)
 
-    # Ensure 'Nclones' is set in the grid parameters
-    if "Nclones" not in params["grid"]:
-        params["grid"]["Nclones"] = 1
+    # Ensure 'num_clones' is set in the grid parameters
+    if "num_clones" not in params["grid"]:
+        params["grid"]["num_clones"] = 1
 
     current_rank = inter_comm.Get_rank()
     clone_particle_info = {"clone": current_rank, current_rank: {}}
@@ -358,13 +358,13 @@ def setup_domain_cloning(comm, params, Nclones):
                 "ppc_original": ppc,
             }
 
-            n_clones = params["grid"]["Nclones"]
+            n_clones = params["grid"]["num_clones"]
             # Calculate the base value and remainder
             base_value = Np // n_clones
             remainder = Np % n_clones
 
             # Distribute the values
-            new_Np = [base_value] * Nclones
+            new_Np = [base_value] * num_clones
             for i in range(remainder):
                 new_Np[i] += 1
 
@@ -384,7 +384,7 @@ def setup_domain_cloning(comm, params, Nclones):
     all_clone_particle_info = comm.gather(clone_particle_info, root=0)
 
     # If the current process is the root, compile and print the message
-    if rank == 0 and Nclones > 1:
+    if rank == 0 and num_clones > 1:
         marker_keys = ["Np", "ppc"]
         data = {ci["clone"]: ci[ci["clone"]] for ci in all_clone_particle_info}
         clone_ids = set([ci["clone"] for ci in all_clone_particle_info])
@@ -563,8 +563,8 @@ def pre_processing(
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
 
-    if not "Nclones" in params["grid"].keys():
-        params["grid"]["Nclones"] = 1
+    if not "num_clones" in params["grid"].keys():
+        params["grid"]["num_clones"] = 1
 
     # Ensure that both ppc Np
     if "kinetic" in params:
@@ -608,7 +608,7 @@ def pre_processing(
         print("python version:".ljust(25), sysconfig.get_python_version())
         print("model:".ljust(25), model_name)
         print("MPI processes:".ljust(25), mpi_size)
-        # print('Num domain clones:'.ljust(25), params['grid']['Nclones'])
+        # print('Num domain clones:'.ljust(25), params['grid']['num_clones'])
         print("parameter file:".ljust(25), parameters_path)
         print("output folder:".ljust(25), path_out)
         print("restart:".ljust(25), restart)

@@ -135,9 +135,9 @@ class Derham:
         self._comm = comm
         self._inter_comm = inter_comm
         if self._inter_comm == None:
-            self._Nclones = 1
+            self._num_clones = 1
         else:
-            self._Nclones = self._inter_comm.Get_size()
+            self._num_clones = self._inter_comm.Get_size()
 
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
@@ -579,9 +579,9 @@ class Derham:
         return self._nq_pr
 
     @property
-    def Nclones(self):
+    def num_clones(self):
         """Number of clones"""
-        return self._Nclones
+        return self._num_clones
 
     @property
     def comm(self):

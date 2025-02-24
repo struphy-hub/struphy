@@ -34,8 +34,8 @@ import pytest
         ],
     ],
 )
-@pytest.mark.parametrize("Nclones", [1, 2])
-def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
+@pytest.mark.parametrize("num_clones", [1, 2])
+def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     r"""DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -68,10 +68,10 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     domain = domain_class(**dom_params)
 
     params = {
-        "grid": {"Nclones": Nclones, "Nel": Nel},
+        "grid": {"num_clones": num_clones, "Nel": Nel},
         "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / np.prod(Nel)}}},
     }
-    params, inter_comm, sub_comm = setup_domain_cloning(mpi_comm, copy.deepcopy(params), Nclones)
+    params, inter_comm, sub_comm = setup_domain_cloning(mpi_comm, copy.deepcopy(params), num_clones)
 
     # DeRham object
     derham = Derham(
@@ -154,7 +154,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
 
 
 if __name__ == "__main__":
-    for Nclones in [1, 2]:
+    for num_clones in [1, 2]:
         test_accum_poisson(
             [8, 9, 10],
             [2, 3, 4],
@@ -163,6 +163,6 @@ if __name__ == "__main__":
                 "Cuboid",
                 {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
             ],
-            Nclones=Nclones,
+            num_clones=num_clones,
             Np=1000,
         )

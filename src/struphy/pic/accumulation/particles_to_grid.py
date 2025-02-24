@@ -260,7 +260,7 @@ class Accumulator:
 
             vec_finished = True
 
-        if self.derham.Nclones > 1:
+        if self.derham.num_clones > 1:
             for data_array in self._args_data:
                 self.derham.inter_comm.Allreduce(
                     MPI.IN_PLACE,
@@ -268,7 +268,7 @@ class Accumulator:
                     op=MPI.SUM,
                 )
 
-                data_array /= self.derham.Nclones
+                data_array /= self.derham.num_clones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
@@ -614,7 +614,7 @@ class AccumulatorVector:
             *optional_args,
         )
 
-        if self.derham.Nclones > 1:
+        if self.derham.num_clones > 1:
             for data_array in self._args_data:
                 self.derham.inter_comm.Allreduce(
                     MPI.IN_PLACE,
@@ -622,7 +622,7 @@ class AccumulatorVector:
                     op=MPI.SUM,
                 )
 
-                data_array /= self.derham.Nclones
+                data_array /= self.derham.num_clones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:

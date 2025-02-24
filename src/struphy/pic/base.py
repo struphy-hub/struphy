@@ -152,10 +152,10 @@ class Particles(metaclass=ABCMeta):
         # check for domain cloning
         self._inter_comm = inter_comm
         if self.inter_comm is None:
-            self._Nclones = 1
+            self._num_clones = 1
             self._clone_rank = 0
         else:
-            self._Nclones = self.inter_comm.Get_size()
+            self._num_clones = self.inter_comm.Get_size()
             self._clone_rank = self.inter_comm.Get_rank()
 
         # domain decomposition (MPI) and cell information
@@ -165,15 +165,15 @@ class Particles(metaclass=ABCMeta):
             self._domain_decomp = domain_array
 
         # total number of cells (equal to mpi_size if no grid)
-        n_cells = np.sum(np.prod(self.domain_decomp[:, 2::3], axis=1, dtype=int)) * self.Nclones
+        n_cells = np.sum(np.prod(self.domain_decomp[:, 2::3], axis=1, dtype=int)) * self.num_clones
         if verbose_boxes:
             print(f"{self.mpi_rank = }, {self.clone_rank = }, {n_cells = }")
 
         # total number of boxes
         if boxes_per_dim is None:
-            n_boxes = self.mpi_size * self.Nclones
+            n_boxes = self.mpi_size * self.num_clones
         else:
-            n_boxes = np.prod(boxes_per_dim, dtype=int) * self.mpi_size * self.Nclones
+            n_boxes = np.prod(boxes_per_dim, dtype=int) * self.mpi_size * self.num_clones
 
         if verbose_boxes:
             print(f"{self.mpi_rank = }, {self.clone_rank = }, {n_boxes = }")
@@ -444,9 +444,9 @@ class Particles(metaclass=ABCMeta):
         return self._inter_comm
 
     @property
-    def Nclones(self):
+    def num_clones(self):
         """Number of clones."""
-        return self._Nclones
+        return self._num_clones
 
     @property
     def clone_rank(self):
@@ -1270,9 +1270,9 @@ class Particles(metaclass=ABCMeta):
                 chunk_size = 10000  # TODO: number of particle chunk
                 total_num_particles_to_load = np.sum(self.n_mks_load)
 
-                while num_loaded_particles < int(total_num_particles_to_load * self.Nclones):
+                while num_loaded_particles < int(total_num_particles_to_load * self.num_clones):
                     # Generate a chunk of random particles
-                    num_to_add = min(chunk_size, int(total_num_particles_to_load * self.Nclones) - num_loaded_particles)
+                    num_to_add = min(chunk_size, int(total_num_particles_to_load * self.num_clones) - num_loaded_particles)
                     temp = np.random.rand(num_to_add, 3 + self.vdim)
 
                     # check which particles are on the current process domain
@@ -1284,7 +1284,7 @@ class Particles(metaclass=ABCMeta):
                     valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
 
                     valid_particles = temp[valid_idx]
-                    valid_particles = np.array_split(valid_particles, self.Nclones)[self.clone_rank]
+                    valid_particles = np.array_split(valid_particles, self.num_clones)[self.clone_rank]
                     num_valid = valid_particles.shape[0]
 
                     # Add the valid particles to the phasespace_coords array
@@ -1296,7 +1296,7 @@ class Particles(metaclass=ABCMeta):
                     num_loaded_particles_loc += num_valid
 
                 # make sure all particles are loaded
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
+                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.num_clones)
 
                 # set new n_mks_load
                 self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
@@ -1306,7 +1306,7 @@ class Particles(metaclass=ABCMeta):
                     self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
 
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
+                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.num_clones)
 
                 # set new holes in markers array to -1
                 self._markers[num_loaded_particles_loc:] = -1.0

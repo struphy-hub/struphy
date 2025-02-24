@@ -69,10 +69,10 @@ class StruphyModel(metaclass=ABCMeta):
 
         if inter_comm == None:
             self._comm_world_rank = comm.Get_rank()
-            self._Nclones = 1
+            self._num_clones = 1
         else:
             self._comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
-            self._Nclones = self._inter_comm.Get_size()
+            self._num_clones = self._inter_comm.Get_size()
 
         # initialize model variable dictionaries
         self._init_variable_dicts()
@@ -273,9 +273,9 @@ class StruphyModel(metaclass=ABCMeta):
         return self._inter_comm
 
     @property
-    def Nclones(self):
+    def num_clones(self):
         """Number of clones."""
-        return self._Nclones
+        return self._num_clones
 
     @property
     def pointer(self):
@@ -545,26 +545,26 @@ class StruphyModel(metaclass=ABCMeta):
                     op=MPI.SUM,
                 )
 
-            if "sum_between_clones" in compute_operations and self.Nclones > 1:
+            if "sum_between_clones" in compute_operations and self.num_clones > 1:
                 self.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "average_between_clones" in compute_operations and self.Nclones > 1:
+            if "average_between_clones" in compute_operations and self.num_clones > 1:
                 self.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
-                value_array /= self.Nclones
+                value_array /= self.num_clones
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
                 n_mks_tot = np.array([self.pointer[species].Np])
                 # The following reduction is not needed imo (Stefan)
-                # if self.Nclones > 1:
+                # if self.num_clones > 1:
                 #     self.inter_comm.Allreduce(
                 #         MPI.IN_PLACE,
                 #         n_mks_tot,
@@ -649,7 +649,7 @@ class StruphyModel(metaclass=ABCMeta):
                 with ProfileRegion(prop_name):
                     propagator(dt)
 
-                # if self.Nclones > 1:
+                # if self.num_clones > 1:
                 #     with ProfileRegion(prop_name + '_barrier'):
                 #         self.comm.Barrier()
                 #         self.inter_comm.Barrier()
