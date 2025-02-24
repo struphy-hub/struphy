@@ -268,8 +268,6 @@ class Accumulator:
                     op=MPI.SUM,
                 )
 
-                data_array /= self.derham.num_clones
-
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
             self._get_L2dofs(
