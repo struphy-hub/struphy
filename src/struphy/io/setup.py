@@ -339,6 +339,7 @@ def setup_domain_cloning(comm, params, num_clones):
         print(message)
 
     current_rank = inter_comm.Get_rank()
+    print(f"{current_rank = }")
     clone_particle_info = {"clone": current_rank, current_rank: {}}
     # Process kinetic parameters if present
     if "kinetic" in params and "grid" in params:
@@ -354,10 +355,9 @@ def setup_domain_cloning(comm, params, num_clones):
                 "ppc_original": ppc,
             }
 
-            n_clones = params["grid"]["num_clones"]
             # Calculate the base value and remainder
-            base_value = Np // n_clones
-            remainder = Np % n_clones
+            base_value = Np // num_clones
+            remainder = Np % num_clones
 
             # Distribute the values
             new_Np = [base_value] * num_clones
@@ -367,15 +367,11 @@ def setup_domain_cloning(comm, params, num_clones):
             # Assign the corresponding value to the current task
             task_Np = new_Np[inter_comm.Get_rank()]
 
-            # Update the params for the current task
+            # Update the particle species info dict
             clone_particle_info[current_rank][species_name]["Np"] = task_Np
-            params["kinetic"][species_name]["markers"]["Np"] = task_Np
-
-            # Update ppc
             task_ppc = task_Np / np.prod(params["grid"]["Nel"])
             clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
-            params["kinetic"][species_name]["markers"]["ppc"] = task_ppc
-
+            
     # Gather the data from all processes
     all_clone_particle_info = comm.gather(clone_particle_info, root=0)
 
