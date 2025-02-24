@@ -108,9 +108,9 @@ class LinearMHDVlasovCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -394,9 +394,9 @@ class LinearMHDVlasovPC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -692,9 +692,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1079,9 +1079,9 @@ class ColdPlasmaVlasov(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 

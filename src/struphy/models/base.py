@@ -30,8 +30,10 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
-    def __init__(self, params, comm=None, inter_comm=None):
+    def __init__(self, params, parallel_config=None): #comm=None, inter_comm=None):
         # TODO: comm=None does not work yet.
+        comm = parallel_config.comm
+        inter_comm = parallel_config.inter_comm
 
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
@@ -129,8 +131,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         self._derham = setup_derham(
             params["grid"],
-            comm=comm,
-            inter_comm=inter_comm,
+            parallel_config=parallel_config,
             domain=self.domain,
             mpi_dims_mask=dims_mask,
             verbose=self.verbose,

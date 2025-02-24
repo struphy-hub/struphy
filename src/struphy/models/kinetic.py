@@ -125,9 +125,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -413,9 +413,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -686,7 +686,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None, baseclass=False):
+    def __init__(self, params, parallel_config, baseclass=False):
         """Initializes the model either as the full model or as a baseclass to inherit from.
         In case of being a baseclass, the propagators will not be initialized in the __init__ which allows other propagators to be added.
 
@@ -697,7 +697,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         """
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1013,7 +1013,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         super().__init__(params=params, comm=comm, inter_comm=inter_comm, baseclass=True)
 
         # propagator parameters
@@ -1135,9 +1135,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, parallel_config):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, parallel_config=parallel_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 

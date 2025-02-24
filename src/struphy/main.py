@@ -9,7 +9,7 @@ def main(
     verbose: bool = False,
     supress_out: bool = False,
     sort_step: int = 0,
-    nclones: int = 1,
+    num_clones: int = 1,
 ):
     """
     Run a Struphy model.
@@ -43,7 +43,7 @@ def main(
     sort_step: int, optional
         Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
 
-    nclones: int, optional
+    num_clones: int, optional
         Number of domain clones (default=1)
     """
 
@@ -100,9 +100,10 @@ def main(
     # within a clone:    : sub_comm
     # between the clones : inter_comm
     # A copy of the params is used since the parker params are updated.
-    pconf = ParallelConfig(comm, params, nclones)
+    pconf = ParallelConfig(params=params,comm=comm, num_clones=num_clones)
     pconf.print_clone_config()
     pconf.print_particle_config()
+    #exit()
     # inter_comm, sub_comm = setup_domain_cloning(comm, params, nclones)
 
     # instantiate Struphy model (will allocate model objects and associated memory)
@@ -116,7 +117,8 @@ def main(
             pass
 
     with ProfileRegion("model_class_setup"):
-        model = model_class(params=params, comm=pconf.sub_comm, inter_comm=pconf.inter_comm)
+        model = model_class(params=params, parallel_config=pconf)
+        #comm=pconf.sub_comm, inter_comm=pconf.inter_comm)
 
     assert isinstance(model, StruphyModel)
 
@@ -433,6 +435,6 @@ if __name__ == "__main__":
             verbose=args.verbose,
             supress_out=args.supress_out,
             sort_step=args.sort_step,
-            nclones=args.nclones,
+            num_clones=args.nclones,
         )
     pylikwid_markerclose()

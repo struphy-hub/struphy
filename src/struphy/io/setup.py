@@ -188,7 +188,7 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     return domain, equil
 
 
-def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=None, verbose=False):
+def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, verbose=False):
     """
     Creates the 3d derham sequence for given grid parameters.
 
@@ -217,6 +217,8 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     """
 
     from struphy.feec.psydac_derham import Derham
+    comm = parallel_config.comm
+    inter_comm = parallel_config.inter_comm
 
     # number of grid cells
     Nel = params_grid["Nel"]
@@ -274,68 +276,74 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
 class ParallelConfig:
     """Class for managing the MPI communicators"""
 
-    def __init__(self, comm, params, num_clones):
+    def __init__(self, params, comm=None, num_clones=1):
         self._comm = comm
         self._num_clones = num_clones
+        
+        self._sub_comm = None
+        self._inter_comm = None
+        self._clone_particle_info = None
+        self._all_clone_particle_info = None
 
-        rank = comm.Get_rank()
-        size = comm.Get_size()
+        if comm is not None:
+            rank = comm.Get_rank()
+            size = comm.Get_size()
 
-        # Ensure the total number of ranks is divisible by the number of clones
-        if size % num_clones != 0:
-            if rank == 0:
-                print(
-                    f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
-                )
-            MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
+            # Ensure the total number of ranks is divisible by the number of clones
+            if size % num_clones != 0:
+                if rank == 0:
+                    print(
+                        f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
+                    )
+                MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
 
-        # Determine the color and rank within each clone
-        ranks_per_clone = size // num_clones
-        clone_color = rank // ranks_per_clone
+            # Determine the color and rank within each clone
+            ranks_per_clone = size // num_clones
+            clone_color = rank // ranks_per_clone
 
-        # Create a sub-communicator for each clone
-        self._sub_comm = comm.Split(clone_color, rank)
-        local_rank = self.sub_comm.Get_rank()
+            # Create a sub-communicator for each clone
+            self._sub_comm = comm.Split(clone_color, rank)
+            local_rank = self.sub_comm.Get_rank()
 
-        # Create an inter-clone communicator for cross-clone communication
-        self._inter_comm = comm.Split(local_rank, rank)
+            # Create an inter-clone communicator for cross-clone communication
+            self._inter_comm = comm.Split(local_rank, rank)
 
-        current_rank = self.inter_comm.Get_rank()
-        clone_particle_info = {"clone": current_rank, current_rank: {}}
-        # Process kinetic parameters if present
-        if "kinetic" in params and "grid" in params:
-            for species_name, species_data in params["kinetic"].items():
-                markers = species_data.get("markers")
-                Np = markers.get("Np")
-                ppc = markers.get("ppc")
+            current_rank = self.inter_comm.Get_rank()
+            clone_particle_info = {"clone": current_rank, current_rank: {}}
+            # Process kinetic parameters if present
+            if "kinetic" in params and "grid" in params:
+                for species_name, species_data in params["kinetic"].items():
+                    markers = species_data.get("markers")
+                    Np = markers.get("Np")
+                    ppc = markers.get("ppc")
 
-                clone_particle_info[current_rank][species_name] = {
-                    "ppc": None,
-                    "Np": None,
-                    "Np_original": Np,
-                    "ppc_original": ppc,
-                }
+                    clone_particle_info[current_rank][species_name] = {
+                        "ppc": None,
+                        "Np": None,
+                        "Np_original": Np,
+                        "ppc_original": ppc,
+                    }
 
-                # Calculate the base value and remainder
-                base_value = Np // num_clones
-                remainder = Np % num_clones
+                    # Calculate the base value and remainder
+                    base_value = Np // num_clones
+                    remainder = Np % num_clones
 
-                # Distribute the values
-                new_Np = [base_value] * num_clones
-                for i in range(remainder):
-                    new_Np[i] += 1
+                    # Distribute the values
+                    new_Np = [base_value] * num_clones
+                    for i in range(remainder):
+                        new_Np[i] += 1
 
-                # Assign the corresponding value to the current task
-                task_Np = new_Np[self._inter_comm.Get_rank()]
+                    # Assign the corresponding value to the current task
+                    task_Np = new_Np[self._inter_comm.Get_rank()]
 
-                # Update the particle species info dict
-                clone_particle_info[current_rank][species_name]["Np"] = task_Np
-                task_ppc = task_Np / np.prod(params["grid"]["Nel"])
-                clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
+                    # Update the particle species info dict
+                    clone_particle_info[current_rank][species_name]["Np"] = task_Np
+                    task_ppc = task_Np / np.prod(params["grid"]["Nel"])
+                    clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
 
-        # Gather the data from all processes
-        self._clone_particle_info = clone_particle_info
-        self._all_clone_particle_info = comm.gather(clone_particle_info, root=0)
+            # Gather the data from all processes
+            self._clone_particle_info = clone_particle_info
+            self._all_clone_particle_info = comm.gather(clone_particle_info, root=0)
 
     def print_clone_config(self):
         rank = self.comm.Get_rank()
@@ -349,8 +357,8 @@ class ParallelConfig:
             root=0,
         )
 
-        print(f"\nNumber of clones: {self.num_clones}")
         if rank == 0:
+            print(f"\nNumber of clones: {self.num_clones}")
             # Generate an ASCII table for each clone
             message = ""
             for clone in range(self.num_clones):
