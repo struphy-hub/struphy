@@ -9,6 +9,7 @@ def main(
     verbose: bool = False,
     supress_out: bool = False,
     sort_step: int = 0,
+    nclones: int = 1,
 ):
     """
     Run a Struphy model.
@@ -42,6 +43,8 @@ def main(
     sort_step: int, optional
         Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
 
+    nclones: int, optional
+        Number of domain clones (default=1)
     """
 
     import copy
@@ -381,6 +384,14 @@ if __name__ == "__main__":
         default=0,
     )
 
+    parser.add_argument(
+        "--nclones",
+        type=int,
+        metavar="N",
+        help="number of domain clones (default=1)",
+        default=1,
+    )
+
     # verbosity (screen output)
     parser.add_argument(
         "-v",
@@ -420,5 +431,6 @@ if __name__ == "__main__":
             verbose=args.verbose,
             supress_out=args.supress_out,
             sort_step=args.sort_step,
+            nclones=args.nclones,
         )
     pylikwid_markerclose()
