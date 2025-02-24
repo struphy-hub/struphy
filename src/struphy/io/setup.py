@@ -197,8 +197,8 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
     params_grid : dict
         Grid parameters dictionary.
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    parallel_config : struphy.io.setup.ParallelConfig
+        Config class for the parallel setup
 
     domain : struphy.geometry.base.Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
@@ -217,7 +217,7 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
     """
 
     from struphy.feec.psydac_derham import Derham
-    comm = parallel_config.comm
+    comm = parallel_config.sub_comm
     inter_comm = parallel_config.inter_comm
 
     # number of grid cells
@@ -247,8 +247,9 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
         dirichlet_bc=dirichlet_bc,
         nquads=nq_el,
         nq_pr=nq_pr,
-        comm=comm,
-        inter_comm=inter_comm,
+        # comm=comm,
+        # inter_comm=inter_comm,
+        parallel_config=parallel_config,
         mpi_dims_mask=mpi_dims_mask,
         with_projectors=True,
         polar_ck=polar_ck,
@@ -277,13 +278,14 @@ class ParallelConfig:
     """Class for managing the MPI communicators"""
 
     def __init__(self, params, comm=None, num_clones=1):
+        self._params = params
         self._comm = comm
         self._num_clones = num_clones
         
-        self._sub_comm = None
-        self._inter_comm = None
-        self._clone_particle_info = None
-        self._all_clone_particle_info = None
+        # self._sub_comm = None
+        # self._inter_comm = None
+        # self._clone_particle_info = None
+        # self._all_clone_particle_info = None
 
         if comm is not None:
             rank = comm.Get_rank()
@@ -308,42 +310,41 @@ class ParallelConfig:
             # Create an inter-clone communicator for cross-clone communication
             self._inter_comm = comm.Split(local_rank, rank)
 
-            current_rank = self.inter_comm.Get_rank()
-            clone_particle_info = {"clone": current_rank, current_rank: {}}
+            self._clone_num_particles = []
             # Process kinetic parameters if present
             if "kinetic" in params and "grid" in params:
-                for species_name, species_data in params["kinetic"].items():
-                    markers = species_data.get("markers")
-                    Np = markers.get("Np")
-                    ppc = markers.get("ppc")
+                for i_clone in range(self.num_clones):
+                    data = {'clone':{}, 'global':{}}
+                    for species_name, species_data in params["kinetic"].items():
+                        markers = species_data.get("markers")
 
-                    clone_particle_info[current_rank][species_name] = {
-                        "ppc": None,
-                        "Np": None,
-                        "Np_original": Np,
-                        "ppc_original": ppc,
-                    }
+                        # Calculate the base value and remainder
+                        base_value = markers["Np"] // num_clones
+                        remainder = markers["Np"] % num_clones
 
-                    # Calculate the base value and remainder
-                    base_value = Np // num_clones
-                    remainder = Np % num_clones
+                        # Distribute the values
+                        new_Np = [base_value] * num_clones
+                        for i in range(remainder):
+                            new_Np[i] += 1
 
-                    # Distribute the values
-                    new_Np = [base_value] * num_clones
-                    for i in range(remainder):
-                        new_Np[i] += 1
+                        # Calculate the values to the current clone
+                        clone_Np = new_Np[self._inter_comm.Get_rank()]
+                        clone_ppc = clone_Np / np.prod(params["grid"]["Nel"])
 
-                    # Assign the corresponding value to the current task
-                    task_Np = new_Np[self._inter_comm.Get_rank()]
+                        data['clone'][species_name] = {"Np": clone_Np, "ppc": clone_ppc}
+                        data['global'][species_name] = {"Np": markers["Np"], "ppc": markers["ppc"]}
+                    self._clone_num_particles.append(data)
+    
+    def get_clone_Np(self, species):
+        return self.clone_num_particles[self.inter_comm.Get_rank()]['clone'][species]['Np']
+    def get_clone_ppc(self, species):
+        return self.clone_num_particles[self.inter_comm.Get_rank()]['clone'][species]['ppc']
+    
+    def get_global_Np(self, species):
+        return self.clone_num_particles[self.inter_comm.Get_rank()]['global'][species]['Np']
 
-                    # Update the particle species info dict
-                    clone_particle_info[current_rank][species_name]["Np"] = task_Np
-                    task_ppc = task_Np / np.prod(params["grid"]["Nel"])
-                    clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
-
-            # Gather the data from all processes
-            self._clone_particle_info = clone_particle_info
-            self._all_clone_particle_info = comm.gather(clone_particle_info, root=0)
+    def get_global_ppc(self, species):
+        return self.clone_num_particles[self.inter_comm.Get_rank()]['global'][species]['ppc']
 
     def print_clone_config(self):
         rank = self.comm.Get_rank()
@@ -372,19 +373,20 @@ class ParallelConfig:
 
     def print_particle_config(self):
         rank = self.comm.Get_rank()
-        current_rank = self.inter_comm.Get_rank()
         # If the current process is the root, compile and print the message
         if rank == 0 and self.num_clones > 1:
+            
+            
             marker_keys = ["Np", "ppc"]
-            data = {ci["clone"]: ci[ci["clone"]] for ci in self.all_clone_particle_info}
-            clone_ids = set([ci["clone"] for ci in self.all_clone_particle_info])
-            species_list = list(data[0].keys())
+            species_list = list(self.clone_num_particles[0]['clone'].keys())
+            column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
 
             # Prepare breakline
             breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
 
             # Prepare the header
-            header = "Particle counting:\nClone  "
+            header = "Particle counting:\n"
+            header += "Clone  "
             for species_name in species_list:
                 for marker_key in marker_keys:
                     column_name = f"{marker_key} ({species_name})"
@@ -393,26 +395,26 @@ class ParallelConfig:
 
             # Prepare the data rows
             rows = ""
-            column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
-            for clone_id in clone_ids:
-                row = f"{clone_id:6} "
+            for i_clone, clone_data in enumerate(self.clone_num_particles):
+                print(i_clone, clone_data)
+                row = f"{i_clone:6} "
                 for species_name in species_list:
                     for marker_key in marker_keys:
-                        value = data[clone_id][species_name][marker_key]
+                        value = clone_data['clone'][species_name][marker_key]
                         row += f"| {str(value):30} "
                         if value is not None:
                             column_sums[species_name][marker_key] += value
                         else:
                             column_sums[species_name][marker_key] = None
                 rows += row + "\n"
-
+            
             # Prepare the sum row
             sum_row = "Sum    "
             for species_name in species_list:
                 for marker_key in marker_keys:
                     sum_value = column_sums[species_name][marker_key]
-                    old_value = self.clone_particle_info[current_rank][species_name][marker_key + "_original"]
-                    assert sum_value == old_value, f"{sum_value = } and {old_value = }"
+                    params_value = self.params["kinetic"][species_name]["markers"][marker_key]
+                    assert sum_value == params_value, f"{sum_value = } and {params_value = }"
                     sum_row += f"| {str(sum_value):30} "
 
             # Print the final message
@@ -422,6 +424,10 @@ class ParallelConfig:
     def free(self):
         self.sub_comm.Free()
         self.inter_comm.Free()
+
+    @property
+    def params(self):
+        return self._params
 
     @property
     def num_clones(self):
@@ -440,13 +446,8 @@ class ParallelConfig:
         return self._inter_comm
 
     @property
-    def all_clone_particle_info(self):
-        return self._all_clone_particle_info
-
-    @property
-    def clone_particle_info(self):
-        return self._clone_particle_info
-
+    def clone_num_particles(self):
+        return self._clone_num_particles
 
 # def setup_domain_cloning(comm, params, num_clones):
 #     """

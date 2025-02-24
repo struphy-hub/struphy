@@ -32,6 +32,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __init__(self, params, parallel_config=None): #comm=None, inter_comm=None):
         # TODO: comm=None does not work yet.
+        self._parallel_config=parallel_config
         comm = parallel_config.comm
         inter_comm = parallel_config.inter_comm
 
@@ -272,6 +273,11 @@ class StruphyModel(metaclass=ABCMeta):
     def inter_comm(self):
         """MPI clone communicator."""
         return self._inter_comm
+
+    @property
+    def parallel_config(self):
+        """Paralell config."""
+        return self._parallel_config
 
     @property
     def num_clones(self):
@@ -1797,8 +1803,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 kinetic_class = getattr(particles, val["space"])
 
                 val["obj"] = kinetic_class(
-                    comm=self.derham.comm,
-                    inter_comm=self.derham.inter_comm,
+                    # comm=self.derham.comm,
+                    # inter_comm=self.derham.inter_comm,
+                    parallel_config=self.parallel_config,
                     **val["params"]["markers"],
                     domain_array=self.derham.domain_array,
                     boxes_per_dim=boxes_per_dim,

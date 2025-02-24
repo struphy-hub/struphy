@@ -9,6 +9,7 @@ from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
+from struphy.io.setup import ParallelConfig
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
@@ -118,8 +119,9 @@ class Particles(metaclass=ABCMeta):
 
     def __init__(
         self,
-        comm: Intracomm = None,
-        inter_comm: Intracomm = None,
+        # comm: Intracomm = None,
+        # inter_comm: Intracomm = None,
+        parallel_config: ParallelConfig = None,
         Np: int = None,
         ppc: int = None,
         domain_array: np.ndarray = None,
@@ -140,6 +142,17 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         verbose_boxes: bool = False,
     ):
+        self._parallel_config = parallel_config
+        comm = parallel_config.sub_comm
+        inter_comm = parallel_config.inter_comm
+
+        # other parameters
+        self._name = name
+        self._domain = domain
+        self._equil = equil
+        self._projected_equil = projected_equil
+        self._equation_params = equation_params
+
         # check for mpi communicator
         self._mpi_comm = comm
         if self.mpi_comm is None:
@@ -246,13 +259,6 @@ class Particles(metaclass=ABCMeta):
             loading_params_default,
         )
         self._spatial = self.loading_params["spatial"]
-
-        # other parameters
-        self._name = name
-        self._domain = domain
-        self._equil = equil
-        self._projected_equil = projected_equil
-        self._equation_params = equation_params
 
         # background
         if bckgr_params is None:
@@ -442,6 +448,10 @@ class Particles(metaclass=ABCMeta):
     def inter_comm(self):
         """MPI communicator between clones."""
         return self._inter_comm
+
+    @property
+    def parallel_config(self):
+        return self._parallel_config
 
     @property
     def num_clones(self):
@@ -899,22 +909,27 @@ class Particles(metaclass=ABCMeta):
             dtype=int,
         )
 
+        clone_Np = self.parallel_config.get_clone_Np(self.name)
+        clone_ppc = self.parallel_config.get_clone_ppc(self.name)
+        
+        # print(f"{self.parallel_config.get_clone_Np(self.name) = }")
+        
         # array of number of markers on each process at loading stage
         self._n_mks_load = np.zeros(self.mpi_size, dtype=int)
 
         if self.mpi_comm is not None:
             self.mpi_comm.Allgather(
-                np.array([int(self.ppc * n_cells_loc)]),
+                np.array([int(clone_ppc * n_cells_loc)]),
                 self._n_mks_load,
             )
         else:
-            self._n_mks_load[0] = int(self.ppc * n_cells_loc)
+            self._n_mks_load[0] = int(clone_ppc * n_cells_loc)
 
         # add deviation from Np to rank 0
-        self._n_mks_load[0] += self.Np - np.sum(self._n_mks_load)
+        self._n_mks_load[0] += clone_Np - np.sum(self._n_mks_load)
 
         # check if all markers are there
-        assert np.sum(self._n_mks_load) == self.Np
+        assert np.sum(self._n_mks_load) == clone_Np
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self._n_mks_load[self._mpi_rank]
@@ -1266,23 +1281,21 @@ class Particles(metaclass=ABCMeta):
 
                 # counting integers
                 num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
-                num_loaded_particles = 0  # number of particles already loaded (each clone)
+                num_loaded_particles_glob = 0  # number of particles already loaded (each clone)
                 chunk_size = 10000  # TODO: number of particle chunk
-                total_num_particles_to_load = np.sum(self.n_mks_load)
 
-                while num_loaded_particles < int(total_num_particles_to_load * self.num_clones):
+                # Total number of markers to draw (sum over all clones)
+                total_num_particles_to_load = self.parallel_config.get_global_Np(self.name)
+                while num_loaded_particles_glob < int(total_num_particles_to_load):
                     # Generate a chunk of random particles
-                    num_to_add = min(chunk_size, int(total_num_particles_to_load * self.num_clones) - num_loaded_particles)
-                    temp = np.random.rand(num_to_add, 3 + self.vdim)
-
+                    num_to_add_glob = min(chunk_size, int(total_num_particles_to_load) - num_loaded_particles_glob)
+                    temp = np.random.rand(num_to_add_glob, 3 + self.vdim)
                     # check which particles are on the current process domain
                     is_on_proc_domain = np.logical_and(
                         temp[:, :3] > self.domain_decomp[self.mpi_rank, 0::3],
                         temp[:, :3] < self.domain_decomp[self.mpi_rank, 1::3],
                     )
-
                     valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
-
                     valid_particles = temp[valid_idx]
                     valid_particles = np.array_split(valid_particles, self.num_clones)[self.clone_rank]
                     num_valid = valid_particles.shape[0]
@@ -1292,22 +1305,19 @@ class Particles(metaclass=ABCMeta):
                         num_loaded_particles_loc : num_loaded_particles_loc + num_valid,
                         : 3 + self.vdim,
                     ] = valid_particles
-                    num_loaded_particles += num_to_add
+                    num_loaded_particles_glob += num_to_add_glob
                     num_loaded_particles_loc += num_valid
-
                 # make sure all particles are loaded
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.num_clones)
+                assert total_num_particles_to_load == int(num_loaded_particles_glob), f"{total_num_particles_to_load = }, {int(num_loaded_particles_glob) = }"
 
                 # set new n_mks_load
                 self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
-                n_mks_load_loc = num_loaded_particles_loc
+                #n_mks_load_loc = num_loaded_particles_loc
 
                 if self.mpi_comm is not None:
                     self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
-
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.num_clones)
-
+                
                 # set new holes in markers array to -1
                 self._markers[num_loaded_particles_loc:] = -1.0
                 self.update_holes()
