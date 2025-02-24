@@ -58,7 +58,7 @@ def main(
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
-    from struphy.io.setup import pre_processing, setup_domain_cloning
+    from struphy.io.setup import ParallelConfig, pre_processing
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
     from struphy.profiling.profiling import ProfileRegion
@@ -100,7 +100,10 @@ def main(
     # within a clone:    : sub_comm
     # between the clones : inter_comm
     # A copy of the params is used since the parker params are updated.
-    params, inter_comm, sub_comm = setup_domain_cloning(comm, params, nclones)
+    pconf = ParallelConfig(comm, params, nclones)
+    pconf.print_clone_config()
+    pconf.print_particle_config()
+    # inter_comm, sub_comm = setup_domain_cloning(comm, params, nclones)
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
@@ -113,7 +116,7 @@ def main(
             pass
 
     with ProfileRegion("model_class_setup"):
-        model = model_class(params=params, comm=sub_comm, inter_comm=inter_comm)
+        model = model_class(params=params, comm=pconf.sub_comm, inter_comm=pconf.inter_comm)
 
     assert isinstance(model, StruphyModel)
 
@@ -296,14 +299,13 @@ def main(
     with open(path_out + "/meta.txt", "a") as f:
         # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
         f.write(
-            f"{rank} {inter_comm.Get_rank()} {sub_comm.Get_rank()} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
+            f"{rank} {pconf.inter_comm.Get_rank()} {pconf.sub_comm.Get_rank()} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
         )
     comm.Barrier()
     if rank == 0:
         print("Struphy run finished.")
 
-    sub_comm.Free()
-    inter_comm.Free()
+    pconf.free()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,7 @@
+from dataclasses import dataclass
+
 import numpy as np
+from mpi4py import MPI
 
 
 def derive_units(
@@ -268,159 +271,331 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     return derham
 
 
-def setup_domain_cloning(comm, params, num_clones):
-    """
-    Sets up domain cloning for parallel computation using MPI.
+class ParallelConfig:
+    """Class for managing the MPI communicators"""
 
-    This function initializes MPI communicators for domain cloning
-    and distributes marker values across clones.
+    def __init__(self, comm, params, num_clones):
+        self._comm = comm
+        self._num_clones = num_clones
 
-    Parameters
-    ----------
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
-    params : dict
-        Dictionary containing parameters for the simulation.
-    num_clones : int
-        Number of clones to be used for domain decomposition.
+        rank = comm.Get_rank()
+        size = comm.Get_size()
 
-    Returns
-    -------
-    params : dict
-        Updated parameters with distributed marker values for each clone.
-    inter_comm : mpi4py.MPI.Intracomm
-        Inter-clone communicator for cross-clone communication.
-    sub_comm : mpi4py.MPI.Intracomm
-        Sub-communicator for intra-clone communication.
-    """
+        # Ensure the total number of ranks is divisible by the number of clones
+        if size % num_clones != 0:
+            if rank == 0:
+                print(
+                    f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
+                )
+            MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
 
-    from mpi4py import MPI
+        # Determine the color and rank within each clone
+        ranks_per_clone = size // num_clones
+        clone_color = rank // ranks_per_clone
 
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+        # Create a sub-communicator for each clone
+        self._sub_comm = comm.Split(clone_color, rank)
+        local_rank = self.sub_comm.Get_rank()
 
-    # Ensure the total number of ranks is divisible by the number of clones
-    if size % num_clones != 0:
+        # Create an inter-clone communicator for cross-clone communication
+        self._inter_comm = comm.Split(local_rank, rank)
+
+        current_rank = self.inter_comm.Get_rank()
+        clone_particle_info = {"clone": current_rank, current_rank: {}}
+        # Process kinetic parameters if present
+        if "kinetic" in params and "grid" in params:
+            for species_name, species_data in params["kinetic"].items():
+                markers = species_data.get("markers")
+                Np = markers.get("Np")
+                ppc = markers.get("ppc")
+
+                clone_particle_info[current_rank][species_name] = {
+                    "ppc": None,
+                    "Np": None,
+                    "Np_original": Np,
+                    "ppc_original": ppc,
+                }
+
+                # Calculate the base value and remainder
+                base_value = Np // num_clones
+                remainder = Np % num_clones
+
+                # Distribute the values
+                new_Np = [base_value] * num_clones
+                for i in range(remainder):
+                    new_Np[i] += 1
+
+                # Assign the corresponding value to the current task
+                task_Np = new_Np[self._inter_comm.Get_rank()]
+
+                # Update the particle species info dict
+                clone_particle_info[current_rank][species_name]["Np"] = task_Np
+                task_ppc = task_Np / np.prod(params["grid"]["Nel"])
+                clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
+
+        # Gather the data from all processes
+        self._clone_particle_info = clone_particle_info
+        self._all_clone_particle_info = comm.gather(clone_particle_info, root=0)
+
+    def print_clone_config(self):
+        rank = self.comm.Get_rank()
+        size = self.comm.Get_size()
+        ranks_per_clone = size // self.num_clones
+        clone_color = rank // ranks_per_clone
+
+        # Gather information from all ranks to the rank 0 process
+        clone_info = self.comm.gather(
+            (rank, clone_color, self.sub_comm.Get_rank(), self.inter_comm.Get_rank()),
+            root=0,
+        )
+
+        print(f"\nNumber of clones: {self.num_clones}")
         if rank == 0:
-            print(
-                f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
-            )
-        MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
+            # Generate an ASCII table for each clone
+            message = ""
+            for clone in range(self.num_clones):
+                message += f"Clone {clone}:\n"
+                message += "comm.Get_rank() | sub_comm.Get_rank() | inter_comm.Get_rank()\n"
+                message += "-" * 66 + "\n"
+                for entry in clone_info:
+                    if entry[1] == clone:
+                        message += f"{entry[0]:15} | {entry[2]:19} | {entry[3]:21}\n"
+            print(message)
 
-    # Determine the color and rank within each clone
-    ranks_per_clone = size // num_clones
-    clone_color = rank // ranks_per_clone
+    def print_particle_config(self):
+        rank = self.comm.Get_rank()
+        current_rank = self.inter_comm.Get_rank()
+        # If the current process is the root, compile and print the message
+        if rank == 0 and self.num_clones > 1:
+            marker_keys = ["Np", "ppc"]
+            data = {ci["clone"]: ci[ci["clone"]] for ci in self.all_clone_particle_info}
+            clone_ids = set([ci["clone"] for ci in self.all_clone_particle_info])
+            species_list = list(data[0].keys())
 
-    # Create a sub-communicator for each clone
-    sub_comm = comm.Split(clone_color, rank)
-    local_rank = sub_comm.Get_rank()
+            # Prepare breakline
+            breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
 
-    # Create an inter-clone communicator for cross-clone communication
-    inter_comm = comm.Split(local_rank, rank)
-
-    # Gather information from all ranks to the rank 0 process
-    clone_info = comm.gather(
-        (rank, clone_color, local_rank, inter_comm.Get_rank()),
-        root=0,
-    )
-
-    if rank == 0 and num_clones > 1:
-        print(f"\nNumber of clones: {num_clones}")
-
-        # Generate an ASCII table for each clone
-        message = ""
-        for clone in range(num_clones):
-            message += f"Clone {clone}:\n"
-            message += "comm.Get_rank() | sub_comm.Get_rank() | inter_comm.Get_rank()\n"
-            message += "-" * 66 + "\n"
-            for entry in clone_info:
-                if entry[1] == clone:
-                    message += f"{entry[0]:15} | {entry[2]:19} | {entry[3]:21}\n"
-        print(message)
-
-    current_rank = inter_comm.Get_rank()
-    print(f"{current_rank = }")
-    clone_particle_info = {"clone": current_rank, current_rank: {}}
-    # Process kinetic parameters if present
-    if "kinetic" in params and "grid" in params:
-        for species_name, species_data in params["kinetic"].items():
-            markers = species_data.get("markers")
-            Np = markers.get("Np")
-            ppc = markers.get("ppc")
-
-            clone_particle_info[current_rank][species_name] = {
-                "ppc": None,
-                "Np": None,
-                "Np_original": Np,
-                "ppc_original": ppc,
-            }
-
-            # Calculate the base value and remainder
-            base_value = Np // num_clones
-            remainder = Np % num_clones
-
-            # Distribute the values
-            new_Np = [base_value] * num_clones
-            for i in range(remainder):
-                new_Np[i] += 1
-
-            # Assign the corresponding value to the current task
-            task_Np = new_Np[inter_comm.Get_rank()]
-
-            # Update the particle species info dict
-            clone_particle_info[current_rank][species_name]["Np"] = task_Np
-            task_ppc = task_Np / np.prod(params["grid"]["Nel"])
-            clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
-            
-    # Gather the data from all processes
-    all_clone_particle_info = comm.gather(clone_particle_info, root=0)
-
-    # If the current process is the root, compile and print the message
-    if rank == 0 and num_clones > 1:
-        marker_keys = ["Np", "ppc"]
-        data = {ci["clone"]: ci[ci["clone"]] for ci in all_clone_particle_info}
-        clone_ids = set([ci["clone"] for ci in all_clone_particle_info])
-        species_list = list(data[0].keys())
-
-        # Prepare breakline
-        breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
-
-        # Prepare the header
-        header = "Particle counting:\nClone  "
-        for species_name in species_list:
-            for marker_key in marker_keys:
-                column_name = f"{marker_key} ({species_name})"
-                header += f"| {column_name:30} "
-        header += "\n"
-
-        # Prepare the data rows
-        rows = ""
-        column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
-        for clone_id in clone_ids:
-            row = f"{clone_id:6} "
+            # Prepare the header
+            header = "Particle counting:\nClone  "
             for species_name in species_list:
                 for marker_key in marker_keys:
-                    value = data[clone_id][species_name][marker_key]
-                    row += f"| {str(value):30} "
-                    if value is not None:
-                        column_sums[species_name][marker_key] += value
-                    else:
-                        column_sums[species_name][marker_key] = None
-            rows += row + "\n"
+                    column_name = f"{marker_key} ({species_name})"
+                    header += f"| {column_name:30} "
+            header += "\n"
 
-        # Prepare the sum row
-        sum_row = "Sum    "
-        for species_name in species_list:
-            for marker_key in marker_keys:
-                sum_value = column_sums[species_name][marker_key]
-                old_value = clone_particle_info[current_rank][species_name][marker_key + "_original"]
-                assert sum_value == old_value, f"{sum_value = } and {old_value = }"
-                sum_row += f"| {str(sum_value):30} "
+            # Prepare the data rows
+            rows = ""
+            column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
+            for clone_id in clone_ids:
+                row = f"{clone_id:6} "
+                for species_name in species_list:
+                    for marker_key in marker_keys:
+                        value = data[clone_id][species_name][marker_key]
+                        row += f"| {str(value):30} "
+                        if value is not None:
+                            column_sums[species_name][marker_key] += value
+                        else:
+                            column_sums[species_name][marker_key] = None
+                rows += row + "\n"
 
-        # Print the final message
-        message = header + breakline + rows + breakline + sum_row
-        print(message)
-    return params, inter_comm, sub_comm
+            # Prepare the sum row
+            sum_row = "Sum    "
+            for species_name in species_list:
+                for marker_key in marker_keys:
+                    sum_value = column_sums[species_name][marker_key]
+                    old_value = self.clone_particle_info[current_rank][species_name][marker_key + "_original"]
+                    assert sum_value == old_value, f"{sum_value = } and {old_value = }"
+                    sum_row += f"| {str(sum_value):30} "
+
+            # Print the final message
+            message = header + breakline + rows + breakline + sum_row
+            print(message)
+
+    def free(self):
+        self.sub_comm.Free()
+        self.inter_comm.Free()
+
+    @property
+    def num_clones(self):
+        return self._num_clones
+
+    @property
+    def comm(self):
+        return self._comm
+
+    @property
+    def sub_comm(self):
+        return self._sub_comm
+
+    @property
+    def inter_comm(self):
+        return self._inter_comm
+
+    @property
+    def all_clone_particle_info(self):
+        return self._all_clone_particle_info
+
+    @property
+    def clone_particle_info(self):
+        return self._clone_particle_info
+
+
+# def setup_domain_cloning(comm, params, num_clones):
+#     """
+#     Sets up domain cloning for parallel computation using MPI.
+
+#     This function initializes MPI communicators for domain cloning
+#     and distributes marker values across clones.
+
+#     Parameters
+#     ----------
+#     comm : mpi4py.MPI.Intracomm
+#         MPI communicator used for parallelization.
+#     params : dict
+#         Dictionary containing parameters for the simulation.
+#     num_clones : int
+#         Number of clones to be used for domain decomposition.
+
+#     Returns
+#     -------
+#     params : dict
+#         Updated parameters with distributed marker values for each clone.
+#     inter_comm : mpi4py.MPI.Intracomm
+#         Inter-clone communicator for cross-clone communication.
+#     sub_comm : mpi4py.MPI.Intracomm
+#         Sub-communicator for intra-clone communication.
+#     """
+
+#     from mpi4py import MPI
+
+#     rank = comm.Get_rank()
+#     size = comm.Get_size()
+
+#     # Ensure the total number of ranks is divisible by the number of clones
+#     if size % num_clones != 0:
+#         if rank == 0:
+#             print(
+#                 f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
+#             )
+#         MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
+
+#     # Determine the color and rank within each clone
+#     ranks_per_clone = size // num_clones
+#     clone_color = rank // ranks_per_clone
+
+#     # Create a sub-communicator for each clone
+#     sub_comm = comm.Split(clone_color, rank)
+#     local_rank = sub_comm.Get_rank()
+
+#     # Create an inter-clone communicator for cross-clone communication
+#     inter_comm = comm.Split(local_rank, rank)
+
+#     # Gather information from all ranks to the rank 0 process
+#     clone_info = comm.gather(
+#         (rank, clone_color, local_rank, inter_comm.Get_rank()),
+#         root=0,
+#     )
+
+#     if rank == 0 and num_clones > 1:
+#         print(f"\nNumber of clones: {num_clones}")
+
+#         # Generate an ASCII table for each clone
+#         message = ""
+#         for clone in range(num_clones):
+#             message += f"Clone {clone}:\n"
+#             message += "comm.Get_rank() | sub_comm.Get_rank() | inter_comm.Get_rank()\n"
+#             message += "-" * 66 + "\n"
+#             for entry in clone_info:
+#                 if entry[1] == clone:
+#                     message += f"{entry[0]:15} | {entry[2]:19} | {entry[3]:21}\n"
+#         print(message)
+
+#     current_rank = inter_comm.Get_rank()
+#     print(f"{current_rank = }")
+#     clone_particle_info = {"clone": current_rank, current_rank: {}}
+#     # Process kinetic parameters if present
+#     if "kinetic" in params and "grid" in params:
+#         for species_name, species_data in params["kinetic"].items():
+#             markers = species_data.get("markers")
+#             Np = markers.get("Np")
+#             ppc = markers.get("ppc")
+
+#             clone_particle_info[current_rank][species_name] = {
+#                 "ppc": None,
+#                 "Np": None,
+#                 "Np_original": Np,
+#                 "ppc_original": ppc,
+#             }
+
+#             # Calculate the base value and remainder
+#             base_value = Np // num_clones
+#             remainder = Np % num_clones
+
+#             # Distribute the values
+#             new_Np = [base_value] * num_clones
+#             for i in range(remainder):
+#                 new_Np[i] += 1
+
+#             # Assign the corresponding value to the current task
+#             task_Np = new_Np[inter_comm.Get_rank()]
+
+#             # Update the particle species info dict
+#             clone_particle_info[current_rank][species_name]["Np"] = task_Np
+#             task_ppc = task_Np / np.prod(params["grid"]["Nel"])
+#             clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
+
+#     # Gather the data from all processes
+#     all_clone_particle_info = comm.gather(clone_particle_info, root=0)
+
+#     # If the current process is the root, compile and print the message
+#     if rank == 0 and num_clones > 1:
+#         marker_keys = ["Np", "ppc"]
+#         data = {ci["clone"]: ci[ci["clone"]] for ci in all_clone_particle_info}
+#         clone_ids = set([ci["clone"] for ci in all_clone_particle_info])
+#         species_list = list(data[0].keys())
+
+#         # Prepare breakline
+#         breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
+
+#         # Prepare the header
+#         header = "Particle counting:\nClone  "
+#         for species_name in species_list:
+#             for marker_key in marker_keys:
+#                 column_name = f"{marker_key} ({species_name})"
+#                 header += f"| {column_name:30} "
+#         header += "\n"
+
+#         # Prepare the data rows
+#         rows = ""
+#         column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
+#         for clone_id in clone_ids:
+#             row = f"{clone_id:6} "
+#             for species_name in species_list:
+#                 for marker_key in marker_keys:
+#                     value = data[clone_id][species_name][marker_key]
+#                     row += f"| {str(value):30} "
+#                     if value is not None:
+#                         column_sums[species_name][marker_key] += value
+#                     else:
+#                         column_sums[species_name][marker_key] = None
+#             rows += row + "\n"
+
+#         # Prepare the sum row
+#         sum_row = "Sum    "
+#         for species_name in species_list:
+#             for marker_key in marker_keys:
+#                 sum_value = column_sums[species_name][marker_key]
+#                 old_value = clone_particle_info[current_rank][species_name][marker_key + "_original"]
+#                 assert sum_value == old_value, f"{sum_value = } and {old_value = }"
+#                 sum_row += f"| {str(sum_value):30} "
+
+#         # Print the final message
+#         message = header + breakline + rows + breakline + sum_row
+#         print(message)
+#     pconf = ParallelConfig(comm=comm, inter_comm=inter_comm, sub_comm=sub_comm)
+#     print(pconf)
+#     exit()
+#     return inter_comm, sub_comm, all_clone_particle_info
 
 
 def pre_processing(
