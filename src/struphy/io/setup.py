@@ -338,10 +338,6 @@ def setup_domain_cloning(comm, params, num_clones):
                     message += f"{entry[0]:15} | {entry[2]:19} | {entry[3]:21}\n"
         print(message)
 
-    # Ensure 'num_clones' is set in the grid parameters
-    if "num_clones" not in params["grid"]:
-        params["grid"]["num_clones"] = 1
-
     current_rank = inter_comm.Get_rank()
     clone_particle_info = {"clone": current_rank, current_rank: {}}
     # Process kinetic parameters if present
@@ -562,9 +558,6 @@ def pre_processing(
 
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
-
-    if not "num_clones" in params["grid"].keys():
-        params["grid"]["num_clones"] = 1
 
     # Ensure that both ppc Np
     if "kinetic" in params:
