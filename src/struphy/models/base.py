@@ -75,7 +75,7 @@ class StruphyModel(metaclass=ABCMeta):
             self._num_clones = 1
         else:
             self._comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
-            self._num_clones = self._inter_comm.Get_size()
+            self._num_clones = self.parallel_config.num_clones
 
         # initialize model variable dictionaries
         self._init_variable_dicts()
