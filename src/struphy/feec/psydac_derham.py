@@ -13,7 +13,6 @@ from psydac.linalg.stencil import StencilVector
 from sympde.topology import Cube
 from sympde.topology import Derham as Derham_psy
 
-from struphy.io.setup import ParallelConfig
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
@@ -92,9 +91,8 @@ class Derham:
         dirichlet_bc: list | tuple = None,
         nquads: list | tuple = None,
         nq_pr: list | tuple = None,
-        # comm: Intracomm = None,
-        # inter_comm: Intracomm = None,
-        parallel_config: ParallelConfig = None,
+        comm: Intracomm = None,
+        inter_comm: Intracomm = None,
         mpi_dims_mask: list = None,
         with_projectors: bool = True,
         polar_ck: int = -1,
@@ -106,8 +104,6 @@ class Derham:
         assert len(p) == 3
         assert len(spl_kind) == 3
 
-        comm = parallel_config.sub_comm
-        inter_comm = parallel_config.inter_comm
         self._Nel = Nel
         self._p = p
         self._spl_kind = spl_kind
@@ -139,9 +135,9 @@ class Derham:
         self._comm = comm
         self._inter_comm = inter_comm
         if self._inter_comm == None:
-            self._num_clones = 1
+            self._Nclones = 1
         else:
-            self._num_clones = self._inter_comm.Get_size()
+            self._Nclones = self._inter_comm.Get_size()
 
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
@@ -583,9 +579,9 @@ class Derham:
         return self._nq_pr
 
     @property
-    def num_clones(self):
+    def Nclones(self):
         """Number of clones"""
-        return self._num_clones
+        return self._Nclones
 
     @property
     def comm(self):
