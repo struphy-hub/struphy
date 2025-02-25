@@ -6,7 +6,7 @@ from mpi4py import MPI
 @pytest.mark.parametrize("Np", [1000, 999])
 @pytest.mark.parametrize("num_clones", [1,2])
 def test_pconf(Nel, Np,num_clones):
-    from struphy.utils.parallel_config import ParallelConfig
+    from struphy.utils.clone_config import CloneConfig
 
     comm = MPI.COMM_WORLD
     species = "ions"
@@ -23,7 +23,7 @@ def test_pconf(Nel, Np,num_clones):
         }
     }
 
-    pconf = ParallelConfig(params=params, comm=comm,num_clones=num_clones)
+    pconf = CloneConfig(params=params, comm=comm,num_clones=num_clones)
 
     assert pconf.get_global_Np(species) == Np
     if Np % num_clones == 0:

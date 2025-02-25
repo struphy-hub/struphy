@@ -188,7 +188,7 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     return domain, equil
 
 
-def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, verbose=False):
+def setup_derham(params_grid, comm=None, domain=None, mpi_dims_mask=None, verbose=False):
     """
     Creates the 3d derham sequence for given grid parameters.
 
@@ -197,8 +197,7 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
     params_grid : dict
         Grid parameters dictionary.
 
-    parallel_config : struphy.io.setup.ParallelConfig
-        Config class for the parallel setup
+    comm:
 
     domain : struphy.geometry.base.Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
@@ -217,8 +216,6 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
     """
 
     from struphy.feec.psydac_derham import Derham
-    comm = parallel_config.sub_comm
-    inter_comm = parallel_config.inter_comm
 
     # number of grid cells
     Nel = params_grid["Nel"]
@@ -235,11 +232,6 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid["polar_ck"]
 
-    if inter_comm == None:
-        comm_world_rank = comm.Get_rank()
-    else:
-        comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
-
     derham = Derham(
         Nel,
         p,
@@ -248,15 +240,13 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
         nquads=nq_el,
         nq_pr=nq_pr,
         comm=comm,
-        inter_comm=inter_comm,
-        # parallel_config=parallel_config,
         mpi_dims_mask=mpi_dims_mask,
         with_projectors=True,
         polar_ck=polar_ck,
         domain=domain,
     )
 
-    if comm_world_rank == 0 and verbose:
+    if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")
         print(f"number of elements:".ljust(25), Nel)
         print(f"spline degrees:".ljust(25), p)
@@ -425,7 +415,7 @@ def setup_derham(params_grid, parallel_config, domain=None, mpi_dims_mask=None, 
 #         # Print the final message
 #         message = header + breakline + rows + breakline + sum_row
 #         print(message)
-#     pconf = ParallelConfig(comm=comm, inter_comm=inter_comm, sub_comm=sub_comm)
+#     pconf = CloneConfig(comm=comm, inter_comm=inter_comm, sub_comm=sub_comm)
 #     print(pconf)
 #     exit()
 #     return inter_comm, sub_comm, all_clone_particle_info

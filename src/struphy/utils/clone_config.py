@@ -1,20 +1,24 @@
 from mpi4py import MPI
 import numpy as np
 
-class ParallelConfig:
+class CloneConfig:
     """Class for managing the MPI communicators"""
 
-    def __init__(self, params=None, comm=None, num_clones=1):
+    def __init__(self,
+                 comm: MPI.Intracomm,
+                 params=None,
+                 num_clones=1,
+                 ):
         self._params = params
-        self._comm = comm
+        #self._comm = comm
         self._num_clones = num_clones
         
         self._sub_comm = None
         self._inter_comm = None
 
         self._species_list = None
-
         if comm is not None:
+
             assert isinstance(comm, MPI.Intracomm)
             rank = comm.Get_rank()
             size = comm.Get_size()
@@ -59,7 +63,6 @@ class ParallelConfig:
                 # Calculate the base value and remainder
                 base_value = Np // num_clones
                 remainder = Np % num_clones
-                # print(base_value, remainder)
                 
                 # Distribute the values
                 new_Np = [base_value] * num_clones
@@ -80,16 +83,17 @@ class ParallelConfig:
                 # self._num_particles_to_load.append(data)
                 self._num_particles_to_load[species_name] = data
     
-    def get_clone_Np(self, species):
-        return self.num_particles_to_load[species]['clone'][self.clone_id]['Np']
-    def get_clone_ppc(self, species):
-        return self.num_particles_to_load[species]['clone'][self.clone_id]['ppc']
-    
-    def get_global_Np(self, species):
-        return self.num_particles_to_load[species]['global']['Np']
-
-    def get_global_ppc(self, species):
-        return self.num_particles_to_load[species]['global']['ppc']
+    def get_Np_clone(self, Np):
+        # Calculate the base value and remainder
+        base_value = Np // self.num_clones
+        remainder = Np % self.num_clones
+        
+        Np_clone = base_value
+        
+        if self.clone_id < remainder:
+            Np_clone += 1
+        
+        return Np_clone
 
     def print_clone_config(self):
         rank = self.comm.Get_rank()
@@ -119,7 +123,7 @@ class ParallelConfig:
     def print_particle_config(self):
         rank = self.comm.Get_rank()
         # If the current process is the root, compile and print the message
-        if rank == 0:
+        if rank == 0 and self.species_list is not None:
             
             
             marker_keys = ["Np", "ppc"]
@@ -177,9 +181,9 @@ class ParallelConfig:
     def num_clones(self):
         return self._num_clones
 
-    @property
-    def comm(self):
-        return self._comm
+    # @property
+    # def comm(self):
+    #     return self._comm
 
     @property
     def sub_comm(self):
@@ -198,9 +202,9 @@ class ParallelConfig:
         return self._species_list
     
 
-    @property
-    def global_rank(self):
-        return self.comm.Get_rank()
+    # @property
+    # def global_rank(self):
+    #     return self.comm.Get_rank()
     
     @property
     def clone_rank(self):

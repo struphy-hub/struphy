@@ -58,7 +58,7 @@ def main(
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
-    from struphy.utils.parallel_config import ParallelConfig
+    from struphy.utils.clone_config import CloneConfig
     from struphy.io.setup import pre_processing
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
@@ -74,10 +74,10 @@ def main(
     if rank == 0:
         print("")
     comm.Barrier()
-    if rank < 32:
-        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
-    if size > 32 and rank == 32:
-        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
+    # if rank < 32:
+    #     print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
+    # if size > 32 and rank == 32:
+    #     print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
 
     # synchronize MPI processes to set same start time of simulation for all processes
     comm.Barrier()
@@ -100,13 +100,15 @@ def main(
     # MPI.COMM_WORLD     : comm
     # within a clone:    : sub_comm
     # between the clones : inter_comm
-    # A copy of the params is used since the parker params are updated.
-    pconf = ParallelConfig(params=params,comm=comm, num_clones=num_clones)
-    pconf.print_clone_config()
-    pconf.print_particle_config()
-    #exit()
-    # inter_comm, sub_comm = setup_domain_cloning(comm, params, nclones)
-
+    if comm is None:
+        clone_config = None
+    else:
+        if num_clones == 1:
+            clone_config = None
+        else:
+            clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
+            # clone_config.print_clone_config()
+            # clone_config.print_particle_config()
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
 
@@ -118,8 +120,7 @@ def main(
             pass
 
     with ProfileRegion("model_class_setup"):
-        model = model_class(params=params, parallel_config=pconf)
-        #comm=pconf.sub_comm, inter_comm=pconf.inter_comm)
+        model = model_class(params=params, comm=comm, clone_config=clone_config)
 
     assert isinstance(model, StruphyModel)
 
@@ -302,13 +303,14 @@ def main(
     with open(path_out + "/meta.txt", "a") as f:
         # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
         f.write(
-            f"{rank} {pconf.inter_comm.Get_rank()} {pconf.sub_comm.Get_rank()} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
+            f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
         )
     comm.Barrier()
     if rank == 0:
         print("Struphy run finished.")
-
-    pconf.free()
+    
+    if clone_config is not None:
+        clone_config.free()
 
 
 if __name__ == "__main__":
