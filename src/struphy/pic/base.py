@@ -170,10 +170,10 @@ class Particles(metaclass=ABCMeta):
         self._inter_comm = inter_comm
         if self.inter_comm is None:
             self._num_clones = 1
-            self._clone_rank = 0
+            self._clone_id = 0
         else:
-            self._num_clones = self.inter_comm.Get_size()
-            self._clone_rank = self.inter_comm.Get_rank()
+            self._num_clones = parallel_config.num_clones
+            self._clone_id = parallel_config.clone_id
 
         # domain decomposition (MPI) and cell information
         if domain_array is None:
@@ -184,7 +184,7 @@ class Particles(metaclass=ABCMeta):
         # total number of cells (equal to mpi_size if no grid)
         n_cells = np.sum(np.prod(self.domain_decomp[:, 2::3], axis=1, dtype=int)) * self.num_clones
         if verbose_boxes:
-            print(f"{self.mpi_rank = }, {self.clone_rank = }, {n_cells = }")
+            print(f"{self.mpi_rank = }, {self.clone_id = }, {n_cells = }")
 
         # total number of boxes
         if boxes_per_dim is None:
@@ -193,7 +193,7 @@ class Particles(metaclass=ABCMeta):
             n_boxes = np.prod(boxes_per_dim, dtype=int) * self.mpi_size * self.num_clones
 
         if verbose_boxes:
-            print(f"{self.mpi_rank = }, {self.clone_rank = }, {n_boxes = }")
+            print(f"{self.mpi_rank = }, {self.clone_id = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
         if Np is not None:
@@ -488,9 +488,9 @@ class Particles(metaclass=ABCMeta):
         return self._num_clones
 
     @property
-    def clone_rank(self):
+    def clone_id(self):
         """Clone rank of current process."""
-        return self._clone_rank
+        return self._clone_id
 
     @property
     def bckgr_params(self):
@@ -1214,6 +1214,7 @@ class Particles(metaclass=ABCMeta):
         """
 
         # number of markers on the local process at loading stage
+        print(f"first; {self.n_mks_load =}")
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
 
         # fill holes in markers array with -1 (all holes are at end of array at loading stage)
@@ -1323,7 +1324,7 @@ class Particles(metaclass=ABCMeta):
                     )
                     valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
-                    valid_particles = np.array_split(valid_particles, self.num_clones)[self.clone_rank]
+                    valid_particles = np.array_split(valid_particles, self.num_clones)[self.clone_id]
                     num_valid = valid_particles.shape[0]
 
                     # Add the valid particles to the phasespace_coords array
@@ -1437,15 +1438,19 @@ class Particles(metaclass=ABCMeta):
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
             # set markers ID in last column
+            self.update_valid_mks()
+            print(f"{self.marker_ids.shape = }")
             print(f"{n_mks_load_cum_sum = }")
             print(f"{self.n_mks_load = }")
             print(f"{self._mpi_rank = }")
-            print(f"{np.arange(n_mks_load_loc, dtype=float) = }")
+            print(f"{(n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] = }")
+            print(f"{np.arange(n_mks_load_loc, dtype=float).shape = }")
             
             self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
                 n_mks_load_loc, dtype=float
             )
             exit()
+            
 
             # set specific initial condition for some particles
             if self.loading_params["initial"] is not None:

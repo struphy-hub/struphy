@@ -81,9 +81,9 @@ class ParallelConfig:
                 self._num_particles_to_load[species_name] = data
     
     def get_clone_Np(self, species):
-        return self.num_particles_to_load[species]['clone'][self.inter_comm.Get_rank()]['Np']
+        return self.num_particles_to_load[species]['clone'][self.clone_id]['Np']
     def get_clone_ppc(self, species):
-        return self.num_particles_to_load[species]['clone'][self.inter_comm.Get_rank()]['ppc']
+        return self.num_particles_to_load[species]['clone'][self.clone_id]['ppc']
     
     def get_global_Np(self, species):
         return self.num_particles_to_load[species]['global']['Np']
@@ -99,7 +99,7 @@ class ParallelConfig:
 
         # Gather information from all ranks to the rank 0 process
         clone_info = self.comm.gather(
-            (rank, clone_color, self.sub_comm.Get_rank(), self.inter_comm.Get_rank()),
+            (rank, clone_color, self.clone_rank, self.clone_id),
             root=0,
         )
 
@@ -197,3 +197,15 @@ class ParallelConfig:
     def species_list(self):
         return self._species_list
     
+
+    @property
+    def global_rank(self):
+        return self.comm.Get_rank()
+    
+    @property
+    def clone_rank(self):
+        return self.sub_comm.Get_rank()
+
+    @property
+    def clone_id(self):
+        return self.inter_comm.Get_rank()
