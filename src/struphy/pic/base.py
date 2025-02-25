@@ -9,7 +9,7 @@ from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
-from struphy.io.setup import ParallelConfig
+from struphy.utils.parallel_config import ParallelConfig
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
@@ -142,9 +142,14 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         verbose_boxes: bool = False,
     ):
-        self._parallel_config = parallel_config
-        comm = parallel_config.sub_comm
-        inter_comm = parallel_config.inter_comm
+        if parallel_config is None:
+            print()
+            self._parallel_config = ParallelConfig()
+        else:
+            self._parallel_config = parallel_config
+        
+        comm = self.parallel_config.sub_comm
+        inter_comm =self.parallel_config.inter_comm
 
         # other parameters
         self._name = name
