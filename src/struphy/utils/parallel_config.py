@@ -1,4 +1,5 @@
 from mpi4py import MPI
+import numpy as np
 
 class ParallelConfig:
     """Class for managing the MPI communicators"""
@@ -12,6 +13,7 @@ class ParallelConfig:
         self._inter_comm = None
 
         if comm is not None:
+            assert isinstance(comm, MPI.Intracomm)
             rank = comm.Get_rank()
             size = comm.Get_size()
 
@@ -34,30 +36,30 @@ class ParallelConfig:
             # Create an inter-clone communicator for cross-clone communication
             self._inter_comm = comm.Split(local_rank, rank)
 
-            self._clone_num_particles = []
-            # Process kinetic parameters if present
-            if "kinetic" in params and "grid" in params:
-                for i_clone in range(self.num_clones):
-                    data = {'clone':{}, 'global':{}}
-                    for species_name, species_data in params["kinetic"].items():
-                        markers = species_data.get("markers")
+        self._clone_num_particles = []
+        # Process kinetic parameters if present
+        if params is not None and ("kinetic" in params and "grid" in params):
+            for i_clone in range(self.num_clones):
+                data = {'clone':{}, 'global':{}}
+                for species_name, species_data in params["kinetic"].items():
+                    markers = species_data.get("markers")
 
-                        # Calculate the base value and remainder
-                        base_value = markers["Np"] // num_clones
-                        remainder = markers["Np"] % num_clones
+                    # Calculate the base value and remainder
+                    base_value = markers["Np"] // num_clones
+                    remainder = markers["Np"] % num_clones
 
-                        # Distribute the values
-                        new_Np = [base_value] * num_clones
-                        for i in range(remainder):
-                            new_Np[i] += 1
+                    # Distribute the values
+                    new_Np = [base_value] * num_clones
+                    for i in range(remainder):
+                        new_Np[i] += 1
 
-                        # Calculate the values to the current clone
-                        clone_Np = new_Np[self._inter_comm.Get_rank()]
-                        clone_ppc = clone_Np / np.prod(params["grid"]["Nel"])
+                    # Calculate the values to the current clone
+                    clone_Np = new_Np[self._inter_comm.Get_rank()]
+                    clone_ppc = clone_Np / np.prod(params["grid"]["Nel"])
 
-                        data['clone'][species_name] = {"Np": clone_Np, "ppc": clone_ppc}
-                        data['global'][species_name] = {"Np": markers["Np"], "ppc": markers["ppc"]}
-                    self._clone_num_particles.append(data)
+                    data['clone'][species_name] = {"Np": clone_Np, "ppc": clone_ppc}
+                    data['global'][species_name] = {"Np": markers["Np"], "ppc": markers["ppc"]}
+                self._clone_num_particles.append(data)
     
     def get_clone_Np(self, species):
         return self.clone_num_particles[self.inter_comm.Get_rank()]['clone'][species]['Np']
@@ -169,6 +171,6 @@ class ParallelConfig:
     def inter_comm(self):
         return self._inter_comm
 
-    # @property
-    # def clone_num_particles(self):
-    #     return self._clone_num_particles
+    @property
+    def clone_num_particles(self):
+        return self._clone_num_particles

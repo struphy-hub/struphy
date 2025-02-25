@@ -143,7 +143,6 @@ class Particles(metaclass=ABCMeta):
         verbose_boxes: bool = False,
     ):
         if parallel_config is None:
-            print()
             self._parallel_config = ParallelConfig()
         else:
             self._parallel_config = parallel_config
@@ -211,6 +210,16 @@ class Particles(metaclass=ABCMeta):
             self._ppc = self.Np / n_cells
 
         assert self.Np >= self.mpi_size
+
+        # Set up the clone configuration
+        if self.num_clones == 1:
+            self._Np_clone = self.Np
+            self._ppc_clone = self.ppc
+            self._ppb_clone = self.ppb
+        else:
+            self._Np_clone = self.parallel_config.get_clone_Np(self.name)
+            self._ppc_clone = self.parallel_config.get_clone_ppc(self.name)
+            self._ppb_clone = self.Np_clone / n_boxes
 
         # create marker array
         self._eps = eps
@@ -428,6 +437,21 @@ class Particles(metaclass=ABCMeta):
     def ppb(self):
         """Particles per sorting box."""
         return self._ppb
+
+    @property
+    def Np_clone(self):
+        """Total number of markers/particles."""
+        return self._Np_clone
+
+    @property
+    def ppc_clone(self):
+        """Particles per cell (=Np if no grid is present)."""
+        return self._ppc_clone
+
+    @property
+    def ppb_clone(self):
+        """Particles per sorting box."""
+        return self._ppb_clone
 
     @property
     def eps(self):
@@ -708,6 +732,8 @@ class Particles(metaclass=ABCMeta):
     @marker_ids.setter
     def marker_ids(self, new):
         assert isinstance(new, np.ndarray)
+        print(f"{new.shape = }")
+        print(f"{self.n_mks_loc = }")
         assert new.shape == (self.n_mks_loc,)
         self._markers[self.valid_mks, self.index["ids"]] = new
 
@@ -913,28 +939,23 @@ class Particles(metaclass=ABCMeta):
             self.domain_decomp[self.mpi_rank, 2::3],
             dtype=int,
         )
-
-        clone_Np = self.parallel_config.get_clone_Np(self.name)
-        clone_ppc = self.parallel_config.get_clone_ppc(self.name)
-        
-        # print(f"{self.parallel_config.get_clone_Np(self.name) = }")
         
         # array of number of markers on each process at loading stage
         self._n_mks_load = np.zeros(self.mpi_size, dtype=int)
 
         if self.mpi_comm is not None:
             self.mpi_comm.Allgather(
-                np.array([int(clone_ppc * n_cells_loc)]),
+                np.array([int(self.ppc_clone * n_cells_loc)]),
                 self._n_mks_load,
             )
         else:
-            self._n_mks_load[0] = int(clone_ppc * n_cells_loc)
+            self._n_mks_load[0] = int(self.ppc_clone * n_cells_loc)
 
         # add deviation from Np to rank 0
-        self._n_mks_load[0] += clone_Np - np.sum(self._n_mks_load)
+        self._n_mks_load[0] += self.Np_clone - np.sum(self._n_mks_load)
 
         # check if all markers are there
-        assert np.sum(self._n_mks_load) == clone_Np
+        assert np.sum(self._n_mks_load) == self.Np_clone
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self._n_mks_load[self._mpi_rank]
@@ -1290,7 +1311,7 @@ class Particles(metaclass=ABCMeta):
                 chunk_size = 10000  # TODO: number of particle chunk
 
                 # Total number of markers to draw (sum over all clones)
-                total_num_particles_to_load = self.parallel_config.get_global_Np(self.name)
+                total_num_particles_to_load = self.Np
                 while num_loaded_particles_glob < int(total_num_particles_to_load):
                     # Generate a chunk of random particles
                     num_to_add_glob = min(chunk_size, int(total_num_particles_to_load) - num_loaded_particles_glob)
@@ -1416,9 +1437,15 @@ class Particles(metaclass=ABCMeta):
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
             # set markers ID in last column
+            print(f"{n_mks_load_cum_sum = }")
+            print(f"{self.n_mks_load = }")
+            print(f"{self._mpi_rank = }")
+            print(f"{np.arange(n_mks_load_loc, dtype=float) = }")
+            
             self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
                 n_mks_load_loc, dtype=float
             )
+            exit()
 
             # set specific initial condition for some particles
             if self.loading_params["initial"] is not None:

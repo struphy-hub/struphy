@@ -58,7 +58,8 @@ def main(
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
-    from struphy.utils.parallel_config import ParallelConfig, pre_processing
+    from struphy.utils.parallel_config import ParallelConfig
+    from struphy.io.setup import pre_processing
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
     from struphy.profiling.profiling import ProfileRegion
