@@ -41,14 +41,24 @@ class ParallelConfig:
         self._num_particles_to_load = {}
         # Process kinetic parameters if present
         if params is not None and ("kinetic" in params and "grid" in params):
+            n_cells = np.prod(params["grid"]["Nel"])
             self._species_list = list(params["kinetic"].keys())
             for species_name, species_data in params["kinetic"].items():
                 data = {'clone':{}, 'global':{}}
                 markers = species_data.get("markers")
+                Np = markers.get("Np", None)
+                ppc = markers.get("ppc", None)
+
+                if Np is not None:
+                    Np = int(Np)
+                    ppc = Np / n_cells
+                elif ppc is not None:
+                    ppc = ppc
+                    Np = int(ppc * n_cells)
 
                 # Calculate the base value and remainder
-                base_value = markers["Np"] // num_clones
-                remainder = markers["Np"] % num_clones
+                base_value = Np // num_clones
+                remainder = Np % num_clones
                 # print(base_value, remainder)
                 
                 # Distribute the values
@@ -56,14 +66,14 @@ class ParallelConfig:
                 for i in range(remainder):
                     new_Np[i] += 1
                 
-                data['global'] = {"Np": markers["Np"], "ppc": markers["ppc"]}
+                data['global'] = {"Np": Np, "ppc": ppc}
 
                 for i_clone in range(self.num_clones):
                     
 
                     # Calculate the values to the current clone
                     clone_Np = new_Np[i_clone]
-                    clone_ppc = clone_Np / np.prod(params["grid"]["Nel"])
+                    clone_ppc = clone_Np / n_cells
                     
                     data['clone'][i_clone] = {"Np": clone_Np, "ppc": clone_ppc}
 
@@ -109,7 +119,7 @@ class ParallelConfig:
     def print_particle_config(self):
         rank = self.comm.Get_rank()
         # If the current process is the root, compile and print the message
-        if rank == 0 and self.num_clones > 1:
+        if rank == 0:
             
             
             marker_keys = ["Np", "ppc"]
@@ -119,7 +129,7 @@ class ParallelConfig:
             breakline = "-" * (6 + 30 * len(self.species_list) * len(marker_keys)) + "\n"
 
             # Prepare the header
-            header = "Particle counting:\n"
+            header = "Particle injection by clone:\n"
             header += "Clone  "
             for species_name in self.species_list:
                 for marker_key in marker_keys:
@@ -146,8 +156,9 @@ class ParallelConfig:
             for species_name in self.species_list:
                 for marker_key in marker_keys:
                     sum_value = column_sums[species_name][marker_key]
-                    params_value = self.params["kinetic"][species_name]["markers"][marker_key]
-                    assert sum_value == params_value, f"{sum_value = } and {params_value = }"
+                    if marker_key in self.params["kinetic"][species_name]["markers"].keys():
+                        params_value = self.params["kinetic"][species_name]["markers"][marker_key]
+                        assert sum_value == params_value, f"{sum_value = } and {params_value = }"
                     sum_row += f"| {str(sum_value):30} "
 
             # Print the final message
