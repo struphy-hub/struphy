@@ -12,6 +12,8 @@ class ParallelConfig:
         self._sub_comm = None
         self._inter_comm = None
 
+        self._species_list = None
+
         if comm is not None:
             assert isinstance(comm, MPI.Intracomm)
             rank = comm.Get_rank()
@@ -36,41 +38,48 @@ class ParallelConfig:
             # Create an inter-clone communicator for cross-clone communication
             self._inter_comm = comm.Split(local_rank, rank)
 
-        self._clone_num_particles = []
+        self._num_particles_to_load = {}
         # Process kinetic parameters if present
         if params is not None and ("kinetic" in params and "grid" in params):
-            for i_clone in range(self.num_clones):
+            self._species_list = list(params["kinetic"].keys())
+            for species_name, species_data in params["kinetic"].items():
                 data = {'clone':{}, 'global':{}}
-                for species_name, species_data in params["kinetic"].items():
-                    markers = species_data.get("markers")
+                markers = species_data.get("markers")
 
-                    # Calculate the base value and remainder
-                    base_value = markers["Np"] // num_clones
-                    remainder = markers["Np"] % num_clones
+                # Calculate the base value and remainder
+                base_value = markers["Np"] // num_clones
+                remainder = markers["Np"] % num_clones
+                # print(base_value, remainder)
+                
+                # Distribute the values
+                new_Np = [base_value] * num_clones
+                for i in range(remainder):
+                    new_Np[i] += 1
+                
+                data['global'] = {"Np": markers["Np"], "ppc": markers["ppc"]}
 
-                    # Distribute the values
-                    new_Np = [base_value] * num_clones
-                    for i in range(remainder):
-                        new_Np[i] += 1
+                for i_clone in range(self.num_clones):
+                    
 
                     # Calculate the values to the current clone
-                    clone_Np = new_Np[self._inter_comm.Get_rank()]
+                    clone_Np = new_Np[i_clone]
                     clone_ppc = clone_Np / np.prod(params["grid"]["Nel"])
+                    
+                    data['clone'][i_clone] = {"Np": clone_Np, "ppc": clone_ppc}
 
-                    data['clone'][species_name] = {"Np": clone_Np, "ppc": clone_ppc}
-                    data['global'][species_name] = {"Np": markers["Np"], "ppc": markers["ppc"]}
-                self._clone_num_particles.append(data)
+                # self._num_particles_to_load.append(data)
+                self._num_particles_to_load[species_name] = data
     
     def get_clone_Np(self, species):
-        return self.clone_num_particles[self.inter_comm.Get_rank()]['clone'][species]['Np']
+        return self.num_particles_to_load[species]['clone'][self.inter_comm.Get_rank()]['Np']
     def get_clone_ppc(self, species):
-        return self.clone_num_particles[self.inter_comm.Get_rank()]['clone'][species]['ppc']
+        return self.num_particles_to_load[species]['clone'][self.inter_comm.Get_rank()]['ppc']
     
     def get_global_Np(self, species):
-        return self.clone_num_particles[self.inter_comm.Get_rank()]['global'][species]['Np']
+        return self.num_particles_to_load[species]['global']['Np']
 
     def get_global_ppc(self, species):
-        return self.clone_num_particles[self.inter_comm.Get_rank()]['global'][species]['ppc']
+        return self.num_particles_to_load[species]['global']['ppc']
 
     def print_clone_config(self):
         rank = self.comm.Get_rank()
@@ -104,16 +113,15 @@ class ParallelConfig:
             
             
             marker_keys = ["Np", "ppc"]
-            species_list = list(self.clone_num_particles[0]['clone'].keys())
-            column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
+            column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in self.species_list}
 
             # Prepare breakline
-            breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
+            breakline = "-" * (6 + 30 * len(self.species_list) * len(marker_keys)) + "\n"
 
             # Prepare the header
             header = "Particle counting:\n"
             header += "Clone  "
-            for species_name in species_list:
+            for species_name in self.species_list:
                 for marker_key in marker_keys:
                     column_name = f"{marker_key} ({species_name})"
                     header += f"| {column_name:30} "
@@ -121,22 +129,21 @@ class ParallelConfig:
 
             # Prepare the data rows
             rows = ""
-            for i_clone, clone_data in enumerate(self.clone_num_particles):
-                print(i_clone, clone_data)
-                row = f"{i_clone:6} "
-                for species_name in species_list:
+            for species_name, species_data in self.num_particles_to_load.items():
+                for i_clone in range(self.num_clones):
+                    row = f"{i_clone:6} "
                     for marker_key in marker_keys:
-                        value = clone_data['clone'][species_name][marker_key]
+                        value = species_data['clone'][i_clone][marker_key]
                         row += f"| {str(value):30} "
                         if value is not None:
                             column_sums[species_name][marker_key] += value
                         else:
                             column_sums[species_name][marker_key] = None
-                rows += row + "\n"
+                    rows += row + "\n"
             
             # Prepare the sum row
             sum_row = "Sum    "
-            for species_name in species_list:
+            for species_name in self.species_list:
                 for marker_key in marker_keys:
                     sum_value = column_sums[species_name][marker_key]
                     params_value = self.params["kinetic"][species_name]["markers"][marker_key]
@@ -172,5 +179,10 @@ class ParallelConfig:
         return self._inter_comm
 
     @property
-    def clone_num_particles(self):
-        return self._clone_num_particles
+    def num_particles_to_load(self):
+        return self._num_particles_to_load
+    
+    @property
+    def species_list(self):
+        return self._species_list
+    
