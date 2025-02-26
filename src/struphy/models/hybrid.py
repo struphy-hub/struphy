@@ -108,7 +108,7 @@ class LinearMHDVlasovCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -394,7 +394,7 @@ class LinearMHDVlasovPC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -692,7 +692,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -1079,7 +1079,7 @@ class ColdPlasmaVlasov(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 

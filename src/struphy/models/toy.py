@@ -55,7 +55,7 @@ class Maxwell(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -141,7 +141,7 @@ class Vlasov(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -257,7 +257,7 @@ class GuidingCenter(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -394,7 +394,7 @@ class ShearAlfven(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -522,7 +522,7 @@ class VariationalPressurelessFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
@@ -626,7 +626,7 @@ class VariationalBarotropicFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
@@ -747,7 +747,7 @@ class VariationalCompressibleFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
         from struphy.feec.projectors import L2Projector
 
@@ -912,7 +912,7 @@ class Poisson(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
@@ -994,7 +994,7 @@ class DeterministicParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
@@ -1082,7 +1082,7 @@ class RandomParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
@@ -1169,7 +1169,7 @@ class PressureLessSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM

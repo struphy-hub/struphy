@@ -78,7 +78,7 @@ class LinearMHD(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -242,7 +242,7 @@ class LinearExtendedMHDuniform(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -419,7 +419,7 @@ class ColdPlasma(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -539,7 +539,7 @@ class VariationalMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -752,7 +752,7 @@ class ViscoresistiveMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -1001,7 +1001,7 @@ class ViscousFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -1215,7 +1215,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -1442,7 +1442,7 @@ class IsothermalEulerSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config):
+    def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # prelim
