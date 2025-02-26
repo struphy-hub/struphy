@@ -420,21 +420,6 @@ class Particles(metaclass=ABCMeta):
         return self._ppb
 
     @property
-    def Np_clone(self):
-        """Total number of markers/particles."""
-        return self._Np_clone
-
-    @property
-    def ppc_clone(self):
-        """Particles per cell (=Np if no grid is present)."""
-        return self._ppc_clone
-
-    @property
-    def ppb_clone(self):
-        """Particles per sorting box."""
-        return self._ppb_clone
-
-    @property
     def eps(self):
         """Relative size of buffer in markers array."""
         return self._eps
