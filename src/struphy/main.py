@@ -74,10 +74,10 @@ def main(
     if rank == 0:
         print("")
     comm.Barrier()
-    # if rank < 32:
-    #     print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
-    # if size > 32 and rank == 32:
-    #     print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
+    if rank < 32:
+        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
+    if size > 32 and rank == 32:
+        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
 
     # synchronize MPI processes to set same start time of simulation for all processes
     comm.Barrier()
@@ -107,8 +107,8 @@ def main(
             # within a clone:    : sub_comm
             # between the clones : inter_comm
             clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
-            # clone_config.print_clone_config()
-            # clone_config.print_particle_config()
+            clone_config.print_clone_config()
+            clone_config.print_particle_config()
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose

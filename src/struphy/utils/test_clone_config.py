@@ -23,20 +23,16 @@ def test_pconf(Nel, Np,num_clones):
         }
     }
 
-    pconf = CloneConfig(params=params, comm=comm,num_clones=num_clones)
+    pconf = CloneConfig(params=params, comm=comm, num_clones=num_clones)
 
-    assert pconf.get_global_Np(species) == Np
     if Np % num_clones == 0:
-        assert pconf.get_clone_Np(species) == Np / num_clones
+        assert pconf.get_Np_clone(Np) == Np / num_clones
     
     # Print outputs
     pconf.print_clone_config()
     pconf.print_particle_config()
-    print(pconf.get_clone_Np(species))
-    print(pconf.get_clone_ppc(species))
-    print(pconf.get_global_Np(species))
-    print(pconf.get_global_ppc(species))
+    print(f"{pconf.get_Np_clone(Np) = }")
 
 
 if __name__ == "__main__":
-    test_pconf([8,8,8], 999, 1)
+    test_pconf([8,8,8], 999, 2)

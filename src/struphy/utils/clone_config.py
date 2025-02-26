@@ -2,7 +2,7 @@ from mpi4py import MPI
 import numpy as np
 
 class CloneConfig:
-    """Class for managing the MPI communicators"""
+    """Class for managing the Clone configuration."""
 
     def __init__(self,
                  comm: MPI.Intracomm,
@@ -10,13 +10,13 @@ class CloneConfig:
                  num_clones=1,
                  ):
         self._params = params
-        #self._comm = comm
         self._num_clones = num_clones
         
         self._sub_comm = None
         self._inter_comm = None
 
         self._species_list = None
+        
         if comm is not None:
 
             assert isinstance(comm, MPI.Intracomm)
@@ -42,72 +42,36 @@ class CloneConfig:
             # Create an inter-clone communicator for cross-clone communication
             self._inter_comm = comm.Split(local_rank, rank)
 
-        self._num_particles_to_load = {}
-        # Process kinetic parameters if present
-        if params is not None and ("kinetic" in params and "grid" in params):
-            n_cells = np.prod(params["grid"]["Nel"])
-            self._species_list = list(params["kinetic"].keys())
-            for species_name, species_data in params["kinetic"].items():
-                data = {'clone':{}, 'global':{}}
-                markers = species_data.get("markers")
-                Np = markers.get("Np", None)
-                ppc = markers.get("ppc", None)
+    def get_Np_clone(self, Np, clone_id = None):
+        if clone_id is None:
+            clone_id = self.clone_id
 
-                if Np is not None:
-                    Np = int(Np)
-                    ppc = Np / n_cells
-                elif ppc is not None:
-                    ppc = ppc
-                    Np = int(ppc * n_cells)
-
-                # Calculate the base value and remainder
-                base_value = Np // num_clones
-                remainder = Np % num_clones
-                
-                # Distribute the values
-                new_Np = [base_value] * num_clones
-                for i in range(remainder):
-                    new_Np[i] += 1
-                
-                data['global'] = {"Np": Np, "ppc": ppc}
-
-                for i_clone in range(self.num_clones):
-                    
-
-                    # Calculate the values to the current clone
-                    clone_Np = new_Np[i_clone]
-                    clone_ppc = clone_Np / n_cells
-                    
-                    data['clone'][i_clone] = {"Np": clone_Np, "ppc": clone_ppc}
-
-                # self._num_particles_to_load.append(data)
-                self._num_particles_to_load[species_name] = data
-    
-    def get_Np_clone(self, Np):
         # Calculate the base value and remainder
         base_value = Np // self.num_clones
         remainder = Np % self.num_clones
         
         Np_clone = base_value
         
-        if self.clone_id < remainder:
+        if clone_id < remainder:
             Np_clone += 1
         
         return Np_clone
 
     def print_clone_config(self):
-        rank = self.comm.Get_rank()
-        size = self.comm.Get_size()
+        comm_world = MPI.COMM_WORLD
+        rank = comm_world.Get_rank()
+        size = comm_world.Get_size()
+        
         ranks_per_clone = size // self.num_clones
         clone_color = rank // ranks_per_clone
 
         # Gather information from all ranks to the rank 0 process
-        clone_info = self.comm.gather(
+        clone_info = comm_world.gather(
             (rank, clone_color, self.clone_rank, self.clone_id),
             root=0,
         )
 
-        if rank == 0:
+        if comm_world.Get_rank() == 0:
             print(f"\nNumber of clones: {self.num_clones}")
             # Generate an ASCII table for each clone
             message = ""
@@ -121,21 +85,26 @@ class CloneConfig:
             print(message)
 
     def print_particle_config(self):
-        rank = self.comm.Get_rank()
-        # If the current process is the root, compile and print the message
-        if rank == 0 and self.species_list is not None:
-            
-            
+        if self.params is None:
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print("No params in clone_config")
+        else:
+
+            assert "kinetic" in self.params
+            assert "grid" in self.params
+
             marker_keys = ["Np", "ppc"]
-            column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in self.species_list}
+
+            species_list = list([sp for sp in self.params["kinetic"].keys()])
+            column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
 
             # Prepare breakline
-            breakline = "-" * (6 + 30 * len(self.species_list) * len(marker_keys)) + "\n"
+            breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
 
             # Prepare the header
             header = "Particle injection by clone:\n"
             header += "Clone  "
-            for species_name in self.species_list:
+            for species_name in species_list:
                 for marker_key in marker_keys:
                     column_name = f"{marker_key} ({species_name})"
                     header += f"| {column_name:30} "
@@ -143,21 +112,26 @@ class CloneConfig:
 
             # Prepare the data rows
             rows = ""
-            for species_name, species_data in self.num_particles_to_load.items():
+            for species_name in species_list:
                 for i_clone in range(self.num_clones):
                     row = f"{i_clone:6} "
-                    for marker_key in marker_keys:
-                        value = species_data['clone'][i_clone][marker_key]
-                        row += f"| {str(value):30} "
-                        if value is not None:
-                            column_sums[species_name][marker_key] += value
-                        else:
-                            column_sums[species_name][marker_key] = None
+                    Np = self.params["kinetic"][species_name]["markers"]["Np"]
+                    n_cells_clone = np.prod(self.params["grid"]["Nel"])
+                    
+                    Np_clone = self.get_Np_clone(Np, clone_id=i_clone)
+                    ppc_clone = Np_clone / n_cells_clone
+
+                    row += f"| {str(Np_clone):30} "
+                    row += f"| {str(ppc_clone):30} "
+
+                    column_sums[species_name]["Np"] += Np_clone
+                    column_sums[species_name]["ppc"] += ppc_clone
+
                     rows += row + "\n"
             
             # Prepare the sum row
             sum_row = "Sum    "
-            for species_name in self.species_list:
+            for species_name in species_list:
                 for marker_key in marker_keys:
                     sum_value = column_sums[species_name][marker_key]
                     if marker_key in self.params["kinetic"][species_name]["markers"].keys():
@@ -167,7 +141,8 @@ class CloneConfig:
 
             # Print the final message
             message = header + breakline + rows + breakline + sum_row
-            print(message)
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(message)
 
     def free(self):
         self.sub_comm.Free()
@@ -181,10 +156,6 @@ class CloneConfig:
     def num_clones(self):
         return self._num_clones
 
-    # @property
-    # def comm(self):
-    #     return self._comm
-
     @property
     def sub_comm(self):
         return self._sub_comm
@@ -192,19 +163,6 @@ class CloneConfig:
     @property
     def inter_comm(self):
         return self._inter_comm
-
-    @property
-    def num_particles_to_load(self):
-        return self._num_particles_to_load
-    
-    @property
-    def species_list(self):
-        return self._species_list
-    
-
-    # @property
-    # def global_rank(self):
-    #     return self.comm.Get_rank()
     
     @property
     def clone_rank(self):
