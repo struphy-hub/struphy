@@ -211,7 +211,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # initialize fields and particles
         super().initialize_from_params()
 
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
@@ -247,12 +247,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
 
         # Solve with dt=1. and compute electric field
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nSolving initial Poisson problem...")
         poisson_solver(1.0)
 
         self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("Done.")
 
     def update_scalar_quantities(self):
@@ -495,7 +495,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # initialize fields and particles
         super().initialize_from_params()
 
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
@@ -531,12 +531,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         )
 
         # Solve with dt=1. and compute electric field
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nSolving initial Poisson problem...")
         poisson_solver(1.0)
 
         self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("Done.")
 
     def update_scalar_quantities(self):
@@ -735,7 +735,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         if self._species_params["options"]["override_eq_params"]:
             self.epsilon = self._species_params["options"]["override_eq_params"]["epsilon"]
             self.alpha = self._species_params["options"]["override_eq_params"]["alpha"]
-            if self._rank == 0:
+            if self.rank_world == 0:
                 print(
                     f"\n!!! Override equation parameters: {self.epsilon = }, {self.alpha = }.\n",
                 )
@@ -852,11 +852,11 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
 
         # Solve with dt=1. and compute electric field
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nSolving initial Poisson problem...")
         poisson_solver(1.0)
         self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("Done.")
 
     def update_scalar_quantities(self):
