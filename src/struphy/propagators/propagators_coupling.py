@@ -1754,7 +1754,6 @@ class CurrentCoupling5DCurlb(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["nonlinear"] = True
         dct["turn_off"] = False
 
         if default:
@@ -1779,7 +1778,6 @@ class CurrentCoupling5DCurlb(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        nonlinear: bool = options(default=True)["nonlinear"],
     ):
         super().__init__(particles, u)
 
@@ -1808,8 +1806,6 @@ class CurrentCoupling5DCurlb(Propagator):
         self._scale_push = 1
 
         self._boundary_cut_e1 = boundary_cut["e1"]
-
-        self._nonlinear = nonlinear
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops["0"].transpose()
@@ -1840,51 +1836,24 @@ class CurrentCoupling5DCurlb(Propagator):
         self._u_avg2 = self._EuT.codomain.zeros()
 
         # Call the accumulation and Pusher class
-        if self._nonlinear:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J1_se
+        accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J1
 
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b[0]._data,
-                self._b[1]._data,
-                self._b[2]._data,
-                self._b_eq[0]._data,
-                self._b_eq[1]._data,
-                self._b_eq[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-            )
-
-        else:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J1
-
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b_eq[0]._data,
-                self._b_eq[1]._data,
-                self._b_eq[2]._data,
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-            )
+        self._args_accum_kernel = (
+            self._epsilon,
+            self._b_full2[0]._data,
+            self._b_full2[1]._data,
+            self._b_full2[2]._data,
+            self._unit_b1[0]._data,
+            self._unit_b1[1]._data,
+            self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data,
+            self._curl_norm_b[1]._data,
+            self._curl_norm_b[2]._data,
+            self._space_key_int,
+            self._coupling_mat,
+            self._coupling_vec,
+            self._boundary_cut_e1,
+        )
 
         self._ACC = Accumulator(
             particles,
@@ -1911,9 +1880,6 @@ class CurrentCoupling5DCurlb(Propagator):
         args_pusher_kernel = (
             self.derham.args_derham,
             self._epsilon,
-            self._b_eq[0]._data,
-            self._b_eq[1]._data,
-            self._b_eq[2]._data,
             self._b_full2[0]._data,
             self._b_full2[1]._data,
             self._b_full2[2]._data,
@@ -1927,7 +1893,6 @@ class CurrentCoupling5DCurlb(Propagator):
             self._u_avg2[1]._data,
             self._u_avg2[2]._data,
             self._boundary_cut_e1,
-            self._nonlinear
         )
 
         self._pusher = Pusher(
@@ -2142,7 +2107,7 @@ class CurrentCoupling5DGradB(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["nonlinear"] = True
+        dct["higher_order"] = True
         dct["turn_off"] = False
 
         if default:
@@ -2169,7 +2134,7 @@ class CurrentCoupling5DGradB(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        nonlinear: bool = options(default=True)["nonlinear"],
+        higher_order: bool = options(default=True)["higher_order"],
     ):
         from psydac.linalg.solvers import inverse
 
@@ -2204,7 +2169,7 @@ class CurrentCoupling5DGradB(Propagator):
 
         self._boundary_cut_e1 = boundary_cut["e1"]
 
-        self._nonlinear = nonlinear
+        self._higher_order = higher_order
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops["0"].transpose()
@@ -2251,66 +2216,31 @@ class CurrentCoupling5DGradB(Propagator):
         self._tmp3 = self._E1T.codomain.zeros()
 
         # Call the accumulation and Pusher class
-        if self._nonlinear:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J2_se
+        accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J2
 
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b[0]._data,
-                self._b[1]._data,
-                self._b[2]._data,
-                self._b_eq[0]._data,
-                self._b_eq[1]._data,
-                self._b_eq[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._unit_b2[0]._data,
-                self._unit_b2[1]._data,
-                self._unit_b2[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._tmp2[0]._data,
-                self._tmp2[1]._data,
-                self._tmp2[2]._data,
-                self._gradB1[0]._data,
-                self._gradB1[1]._data,
-                self._gradB1[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-            )
-
-        else:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_J2
-
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b_eq[0]._data,
-                self._b_eq[1]._data,
-                self._b_eq[2]._data,
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._unit_b2[0]._data,
-                self._unit_b2[1]._data,
-                self._unit_b2[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._tmp3[0]._data,
-                self._tmp3[1]._data,
-                self._tmp3[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-            )
+        self._args_accum_kernel = (
+            self._epsilon,
+            self._b_full2[0]._data,
+            self._b_full2[1]._data,
+            self._b_full2[2]._data,
+            self._unit_b1[0]._data,
+            self._unit_b1[1]._data,
+            self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data,
+            self._curl_norm_b[1]._data,
+            self._curl_norm_b[2]._data,
+            self._gradB1[0]._data,
+            self._gradB1[1]._data,
+            self._gradB1[2]._data,
+            self._tmp3[0]._data,
+            self._tmp3[1]._data,
+            self._tmp3[2]._data,
+            self._higher_order,
+            self._space_key_int,
+            self._coupling_mat,
+            self._coupling_vec,
+            self._boundary_cut_e1,
+        )
 
         self._ACC = Accumulator(
             particles,
@@ -2442,17 +2372,14 @@ class CurrentCoupling5DGradB(Propagator):
         if self._b is not None:
             self._b_full1 += self._b
 
-        PBb = self._PB.dot(self._b, out=self._tmp1)
-        grad_PBb = self.derham.grad.dot(PBb, out=self._tmp2)
-        fullgrad_PBb = self.derham.grad.dot(PBb, out=self._tmp3)
-        fullgrad_PBb.update_ghost_regions()
-        fullgrad_PBb += self._gradB1
+        PBbtilde = self._PB.dot(self._b, out=self._tmp1)
+        grad_Pbtilde = self.derham.grad.dot(PBbtilde, out=self._tmp2)
 
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
         Eb_full.update_ghost_regions()
 
-        Egrad_PBb = self._E1T.dot(fullgrad_PBb, out=self._tmp3)
-        Egrad_PBb.update_ghost_regions()
+        Egrad_Pbtilde = self._E1T.dot(grad_Pbtilde, out=self._tmp3)
+        Egrad_Pbtilde.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
         # if self.particles[0].control_variate:
@@ -2530,18 +2457,12 @@ class CurrentCoupling5DGradB(Propagator):
                 self.domain.args_domain,
                 self.derham.args_derham,
                 self._epsilon,
-                self._b_eq[0]._data,
-                self._b_eq[1]._data,
-                self._b_eq[2]._data,
                 Eb_full[0]._data,
                 Eb_full[1]._data,
                 Eb_full[2]._data,
                 self._unit_b1[0]._data,
                 self._unit_b1[1]._data,
                 self._unit_b1[2]._data,
-                self._unit_b2[0]._data,
-                self._unit_b2[1]._data,
-                self._unit_b2[2]._data,
                 self._curl_norm_b[0]._data,
                 self._curl_norm_b[1]._data,
                 self._curl_norm_b[2]._data,
@@ -2552,7 +2473,6 @@ class CurrentCoupling5DGradB(Propagator):
                 self._butcher.b,
                 self._butcher.c,
                 self._boundary_cut_e1,
-                self._nonlinear,
             )
 
             self.particles[0].mpi_sort_markers()

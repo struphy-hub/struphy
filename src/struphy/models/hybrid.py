@@ -809,7 +809,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
-                "nonlinear": params_cc_gradB["nonlinear"],
+                "higher_order": params_cc_gradB["higher_order"],
             }
 
         if params_cc_curlb["turn_off"]:
@@ -828,7 +828,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_curlb["boundary_cut"],
-                "nonlinear": params_cc_curlb["nonlinear"],
             }
 
         if params_density["turn_off"]:
@@ -865,7 +864,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "full_f": params_alfven["full_f"],
             }
 
-        if params_alfven2nd["turn_off"]:
+        if params_alfven["turn_off"]:
             self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D2nd] = None
         else:
             self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D2nd] = {
@@ -895,6 +894,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_sonic["boundary_cut"],
                 "full_f": params_sonic["full_f"],
+                "particle_on": params_sonic["particle_on"]
             }
 
         # Initialize propagators used in splitting substeps

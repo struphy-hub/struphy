@@ -2277,6 +2277,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             "e3": 0.0,
         }
         dct["full_f"] = True
+        dct["particle_on"] = False
         dct["turn_off"] = False
 
         if default:
@@ -2300,6 +2301,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
         full_f: bool = options(default=True)["full_f"],
+        particle_on: bool = options(default=True)["particle_on"],
     ):
         super().__init__(n, u, p)
 
@@ -2307,6 +2309,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._b = b
         self._unit_b1 = unit_b1
         self._absB0 = absB0
+
+        self._particle_on = particle_on
 
         self._info = solver["info"]
 
@@ -2443,24 +2447,26 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
         #                          self._scale_vec, 0.)
 
-        self._ACC(
-            self._unit_b1[0]._data,
-            self._unit_b1[1]._data,
-            self._unit_b1[2]._data,
-            self._scale_vec,
-            self._boundary_cut_e1,
-            self._full_f,
-        )
-
-        # update time-dependent operator
-        self._b.update_ghost_regions()
-        self._update_weights_TB()
-
         # solve for new u coeffs (no tmps created here)
         byn1 = self._B.dot(pn, out=self._byn1)
         byn2 = self._MJ.dot(self._b, out=self._byn2)
-        b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
-        byn2 += b2acc
+        if self._particle_on:
+
+            self._ACC(
+                self._unit_b1[0]._data,
+                self._unit_b1[1]._data,
+                self._unit_b1[2]._data,
+                self._scale_vec,
+                self._boundary_cut_e1,
+                self._full_f,
+            )
+
+            # update time-dependent operator
+            self._b.update_ghost_regions()
+            self._update_weights_TB()
+
+            b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
+            byn2 += b2acc
         byn2 *= 1 / 2
         byn1 -= byn2
 

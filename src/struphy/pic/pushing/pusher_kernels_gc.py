@@ -1865,7 +1865,7 @@ def push_gc_cc_J1_Hcurl(
         markers[ip, 3] += temp/abs_b_star_para*v*dt
 
 
-@stack_array('dfm', 'e', 'u', 'b', 'beq', 'b_star', 'norm_b1', 'curl_norm_b')
+@stack_array('dfm', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
 def push_gc_cc_J1_Hdiv(
     dt: float,
     stage: int,
@@ -1873,12 +1873,11 @@ def push_gc_cc_J1_Hdiv(
     args_domain: 'DomainArguments',
     args_derham: 'DerhamArguments',
     epsilon: float,
-    beq1: 'float[:,:,:]', beq2: 'float[:,:,:]', beq3: 'float[:,:,:]',
     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-    boundary_cut: float, nonlinear: bool,
+    boundary_cut: float,
 ):
     r'''Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
@@ -1898,7 +1897,6 @@ def push_gc_cc_J1_Hdiv(
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
     b = empty(3, dtype=float)
-    beq = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
@@ -1907,8 +1905,6 @@ def push_gc_cc_J1_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, boundary_cut, eta, v, det_df, dfm, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, u, e, curl_norm_b, norm_b1, b_star, tmp, abs_b_star_para)
-    #$ omp for
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1935,16 +1931,6 @@ def push_gc_cc_J1_Hdiv(
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        # beq; 2form
-        eval_2form_spline_mpi(
-            span1, span2, span3,
-            args_derham,
-            beq1,
-            beq2,
-            beq3,
-            beq,
-        )
 
         # b; 2form
         eval_2form_spline_mpi(
@@ -1987,7 +1973,7 @@ def push_gc_cc_J1_Hdiv(
         )
 
         # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (b + curl_norm_b*v*epsilon)
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -1996,18 +1982,12 @@ def push_gc_cc_J1_Hdiv(
         u = u/det_df
 
         # electric field E(1) = B(2) X U(0)
-        if nonlinear:
-            linalg_kernels.cross(b, u, e)
-
-        else:
-            linalg_kernels.cross(beq, u, e)
+        linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b)
 
         markers[ip, 3] += temp/abs_b_star_para*v*dt
-
-    #$ omp end parallel
 
 
 @stack_array('dfm', 'df_t', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
@@ -2183,7 +2163,7 @@ def push_gc_cc_J2_stage_H1vec(
             dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bbeq', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b2_prod')
+@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b1_prod')
 def push_gc_cc_J2_stage_Hdiv(
     dt: float,
     stage: int,
@@ -2191,13 +2171,11 @@ def push_gc_cc_J2_stage_Hdiv(
     args_domain: 'DomainArguments',
     args_derham: 'DerhamArguments',
     epsilon: float,
-    beq1: 'float[:,:,:]', beq2: 'float[:,:,:]', beq3: 'float[:,:,:]',
     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-    a: 'float[:]', b: 'float[:]', c: 'float[:]', boundary_cut: float, nonlinear: bool,
+    a: 'float[:]', b: 'float[:]', c: 'float[:]', boundary_cut: float,
 ):
     r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
@@ -2220,14 +2198,12 @@ def push_gc_cc_J2_stage_Hdiv(
     tmp1 = zeros((3, 3), dtype=float)
     tmp2 = zeros((3, 3), dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    norm_b2_prod = zeros((3, 3), dtype=float)
+    norm_b1_prod = zeros((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
-    bbeq = empty(3, dtype=float)
     bb = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
     # get marker arguments
@@ -2245,8 +2221,6 @@ def push_gc_cc_J2_stage_Hdiv(
     else:
         last = 0.
 
-    #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, temp1, temp2, abs_b_star_para)
-    #$ omp for
     for ip in range(n_markers):
 
         # check if marker is a hole
@@ -2276,16 +2250,6 @@ def push_gc_cc_J2_stage_Hdiv(
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        # beq; 2form
-        eval_2form_spline_mpi(
-            span1, span2, span3,
-            args_derham,
-            beq1,
-            beq2,
-            beq3,
-            bbeq,
-        )
 
         # b; 2form
         eval_2form_spline_mpi(
@@ -2317,16 +2281,6 @@ def push_gc_cc_J2_stage_Hdiv(
             norm_b1,
         )
 
-        # norm_b; 2form
-        eval_2form_spline_mpi(
-            span1, span2, span3,
-            args_derham,
-            norm_b21,
-            norm_b22,
-            norm_b23,
-            norm_b2,
-        )
-
         # curl_norm_b; 2form
         eval_2form_spline_mpi(
             span1, span2, span3,
@@ -2338,38 +2292,27 @@ def push_gc_cc_J2_stage_Hdiv(
         )
 
         # operator bx() as matrix
-        if nonlinear:
-            b_prod[0, 1] = -bb[2]
-            b_prod[0, 2] = +bb[1]
-            b_prod[1, 0] = +bb[2]
-            b_prod[1, 2] = -bb[0]
-            b_prod[2, 0] = -bb[1]
-            b_prod[2, 1] = +bb[0]
-        else:
-            b_prod[0, 1] = -bbeq[2]
-            b_prod[0, 2] = +bbeq[1]
-            b_prod[1, 0] = +bbeq[2]
-            b_prod[1, 2] = -bbeq[0]
-            b_prod[2, 0] = -bbeq[1]
-            b_prod[2, 1] = +bbeq[0]
+        b_prod[0, 1] = -bb[2]
+        b_prod[0, 2] = +bb[1]
+        b_prod[1, 0] = +bb[2]
+        b_prod[1, 2] = -bb[0]
+        b_prod[2, 0] = -bb[1]
+        b_prod[2, 1] = +bb[0]
 
-        norm_b2_prod[0, 1] = -norm_b2[2]
-        norm_b2_prod[0, 2] = +norm_b2[1]
-        norm_b2_prod[1, 0] = +norm_b2[2]
-        norm_b2_prod[1, 2] = -norm_b2[0]
-        norm_b2_prod[2, 0] = -norm_b2[1]
-        norm_b2_prod[2, 1] = +norm_b2[0]
+        norm_b1_prod[0, 1] = -norm_b1[2]
+        norm_b1_prod[0, 2] = +norm_b1[1]
+        norm_b1_prod[1, 0] = +norm_b1[2]
+        norm_b1_prod[1, 2] = -norm_b1[0]
+        norm_b1_prod[2, 0] = -norm_b1[1]
+        norm_b1_prod[2, 1] = +norm_b1[0]
 
         # b_star; 2form in H1vec
-        b_star[:] = (bb + curl_norm_b*v*epsilon)/det_df
+        b_star[:] = (bb + curl_norm_b*v*epsilon)
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
-
+        linalg_kernels.matrix_matrix(norm_b1_prod, b_prod, tmp1)
         linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
@@ -2381,5 +2324,3 @@ def push_gc_cc_J2_stage_Hdiv(
         # update positions for intermediate stages or last stage
         markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] - \
             dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
-
-    #$ omp end parallel
