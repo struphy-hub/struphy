@@ -1443,7 +1443,7 @@ class IsothermalEulerSPH(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config):
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # prelim
         _p = self.kinetic["euler_fluid"]["params"]

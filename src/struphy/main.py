@@ -96,19 +96,20 @@ def main(
         verbose=verbose,
     )
 
-    # Setup domain cloning communicators
-    # MPI.COMM_WORLD     : comm
-    # within a clone:    : sub_comm
-    # between the clones : inter_comm
     if comm is None:
         clone_config = None
     else:
         if num_clones == 1:
             clone_config = None
         else:
+            # Setup domain cloning communicators
+            # MPI.COMM_WORLD     : comm
+            # within a clone:    : sub_comm
+            # between the clones : inter_comm
             clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
             # clone_config.print_clone_config()
             # clone_config.print_particle_config()
+
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
 

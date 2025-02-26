@@ -1014,7 +1014,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         return dct
 
     def __init__(self, params, comm, clone_config):
-        super().__init__(params=params, comm=comm, inter_comm=inter_comm, baseclass=True)
+        super().__init__(params=params, comm=comm, clone_config=clone_config, baseclass=True)
 
         # propagator parameters
         params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]

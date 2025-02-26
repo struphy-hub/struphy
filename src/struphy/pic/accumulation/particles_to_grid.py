@@ -260,7 +260,12 @@ class Accumulator:
 
             vec_finished = True
 
-        if self.particles.clone_config.num_clones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
                 self.particles.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
@@ -612,7 +617,12 @@ class AccumulatorVector:
             *optional_args,
         )
 
-        if self.particles.clone_config.num_clones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
                 self.particles.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,

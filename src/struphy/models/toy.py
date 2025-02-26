@@ -630,7 +630,7 @@ class VariationalBarotropicFluid(StruphyModel):
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -752,7 +752,7 @@ class VariationalCompressibleFluid(StruphyModel):
         from struphy.feec.projectors import L2Projector
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -913,7 +913,7 @@ class Poisson(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config):
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
         model_params = params["em_fields"]["options"]["ImplicitDiffusion"]["model"]
@@ -995,7 +995,7 @@ class DeterministicParticleDiffusion(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config):
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1083,7 +1083,7 @@ class RandomParticleDiffusion(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config):
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1170,7 +1170,7 @@ class PressureLessSPH(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config):
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
