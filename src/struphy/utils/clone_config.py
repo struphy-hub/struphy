@@ -1,24 +1,25 @@
-from mpi4py import MPI
 import numpy as np
+from mpi4py import MPI
+
 
 class CloneConfig:
     """Class for managing the Clone configuration."""
 
-    def __init__(self,
-                 comm: MPI.Intracomm,
-                 params=None,
-                 num_clones=1,
-                 ):
+    def __init__(
+        self,
+        comm: MPI.Intracomm,
+        params=None,
+        num_clones=1,
+    ):
         self._params = params
         self._num_clones = num_clones
-        
+
         self._sub_comm = None
         self._inter_comm = None
 
         self._species_list = None
-        
-        if comm is not None:
 
+        if comm is not None:
             assert isinstance(comm, MPI.Intracomm)
             rank = comm.Get_rank()
             size = comm.Get_size()
@@ -42,26 +43,26 @@ class CloneConfig:
             # Create an inter-clone communicator for cross-clone communication
             self._inter_comm = comm.Split(local_rank, rank)
 
-    def get_Np_clone(self, Np, clone_id = None):
+    def get_Np_clone(self, Np, clone_id=None):
         if clone_id is None:
             clone_id = self.clone_id
 
         # Calculate the base value and remainder
         base_value = Np // self.num_clones
         remainder = Np % self.num_clones
-        
+
         Np_clone = base_value
-        
+
         if clone_id < remainder:
             Np_clone += 1
-        
+
         return Np_clone
 
     def print_clone_config(self):
         comm_world = MPI.COMM_WORLD
         rank = comm_world.Get_rank()
         size = comm_world.Get_size()
-        
+
         ranks_per_clone = size // self.num_clones
         clone_color = rank // ranks_per_clone
 
@@ -89,7 +90,6 @@ class CloneConfig:
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print("No params in clone_config")
         else:
-
             assert "kinetic" in self.params
             assert "grid" in self.params
 
@@ -117,7 +117,7 @@ class CloneConfig:
                     row = f"{i_clone:6} "
                     Np = self.params["kinetic"][species_name]["markers"]["Np"]
                     n_cells_clone = np.prod(self.params["grid"]["Nel"])
-                    
+
                     Np_clone = self.get_Np_clone(Np, clone_id=i_clone)
                     ppc_clone = Np_clone / n_cells_clone
 
@@ -128,7 +128,7 @@ class CloneConfig:
                     column_sums[species_name]["ppc"] += ppc_clone
 
                     rows += row + "\n"
-            
+
             # Prepare the sum row
             sum_row = "Sum    "
             for species_name in species_list:
@@ -163,7 +163,7 @@ class CloneConfig:
     @property
     def inter_comm(self):
         return self._inter_comm
-    
+
     @property
     def clone_rank(self):
         return self.sub_comm.Get_rank()

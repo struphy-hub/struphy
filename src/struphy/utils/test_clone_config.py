@@ -1,11 +1,12 @@
 import pytest
 from mpi4py import MPI
 
+
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("Np", [1000, 999])
-@pytest.mark.parametrize("num_clones", [1,2])
-def test_pconf(Nel, Np,num_clones):
+@pytest.mark.parametrize("num_clones", [1, 2])
+def test_pconf(Nel, Np, num_clones):
     from struphy.utils.clone_config import CloneConfig
 
     comm = MPI.COMM_WORLD
@@ -14,20 +15,20 @@ def test_pconf(Nel, Np,num_clones):
         "grid": {
             "Nel": Nel,
         },
-        "kinetic":{
-            species:{
-                "markers":{
-                    "Np":Np,
+        "kinetic": {
+            species: {
+                "markers": {
+                    "Np": Np,
                 }
             }
-        }
+        },
     }
 
     pconf = CloneConfig(params=params, comm=comm, num_clones=num_clones)
 
     if Np % num_clones == 0:
         assert pconf.get_Np_clone(Np) == Np / num_clones
-    
+
     # Print outputs
     pconf.print_clone_config()
     pconf.print_particle_config()
@@ -35,4 +36,4 @@ def test_pconf(Nel, Np,num_clones):
 
 
 if __name__ == "__main__":
-    test_pconf([8,8,8], 999, 2)
+    test_pconf([8, 8, 8], 999, 2)
