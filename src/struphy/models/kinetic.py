@@ -272,8 +272,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 self.pointer["species1"].markers_wo_holes[:, 6],
             )
         )
-        if self.comm is not None:
-            self.comm.Allreduce(
+        if self.comm_world is not None:
+            self.comm_world.Allreduce(
                 self._mpi_in_place,
                 self._tmp,
                 op=self._mpi_sum,
@@ -559,8 +559,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 self.pointer["species1"].markers_wo_holes[:, 6],
             )
         )
-        if self.comm is not None:
-            self.comm.Allreduce(
+        if self.comm_world is not None:
+            self.comm_world.Allreduce(
                 self._mpi_in_place,
                 self._tmp,
                 op=self._mpi_sum,
@@ -1249,8 +1249,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             )
         )
 
-        if self.comm is not None:
-            self.comm.Allreduce(
+        if self.comm_world is not None:
+            self.comm_world.Allreduce(
                 self._mpi_in_place,
                 self._tmp3,
                 op=self._mpi_sum,
