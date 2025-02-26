@@ -3,7 +3,16 @@ from mpi4py import MPI
 
 
 class CloneConfig:
-    """Class for managing the Clone configuration."""
+    """
+    Manages the configuration for clone-based parallel processing using MPI.
+
+    This class organizes MPI processes into “clones” by splitting the global communicator
+    into sub_comm (for intra-clone communication) and inter_comm (for
+    cross-clone communication).
+
+    It also provides a method for getting the Np for the current clone, this is needed
+    for injecting the correct number of particles in each clone.
+    """
 
     def __init__(
         self,
@@ -11,6 +20,18 @@ class CloneConfig:
         params=None,
         num_clones=1,
     ):
+        """
+        Initialize a CloneConfig instance.
+
+        Parameters:
+            comm : (MPI.Intracomm)
+                The MPI communicator covering all processes.
+            params : dict, optional
+                Dictionary containing simulation parameters.
+            num_clones : int, optional
+                The number of clones to create. The total number of MPI ranks must be divisible by this number.
+        """
+
         self._params = params
         self._num_clones = num_clones
 
@@ -44,6 +65,23 @@ class CloneConfig:
             self._inter_comm = comm.Split(local_rank, rank)
 
     def get_Np_clone(self, Np, clone_id=None):
+        """
+        Distribute the total number of particles among clones.
+
+        Given the total particle count (Np), this method calculates how many particles
+        should be allocated to a specific clone. The distribution is even, with any remainder
+        distributed to the first few clones.
+
+        Parameters:
+            Np : int
+                Total number of particles to be distributed.
+            clone_id : int, optional
+                The identifier of the clone. If None, the current clone's ID is used.
+
+        Returns:
+            int: The number of particles to inject for the specified clone.
+        """
+
         if clone_id is None:
             clone_id = self.clone_id
 
@@ -59,6 +97,7 @@ class CloneConfig:
         return Np_clone
 
     def print_clone_config(self):
+        """Print a table summarizing the clone configuration."""
         comm_world = MPI.COMM_WORLD
         rank = comm_world.Get_rank()
         size = comm_world.Get_size()
@@ -86,6 +125,8 @@ class CloneConfig:
             print(message)
 
     def print_particle_config(self):
+        """Print the particle configuration for each clone."""
+
         if self.params is None:
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print("No params in clone_config")
@@ -145,29 +186,36 @@ class CloneConfig:
                 print(message)
 
     def free(self):
+        """Free the MPI communicators associated with this clone configuration."""
         self.sub_comm.Free()
         self.inter_comm.Free()
 
     @property
     def params(self):
+        """Get the simulation parameters."""
         return self._params
 
     @property
     def num_clones(self):
+        """Get the number of domain clones."""
         return self._num_clones
 
     @property
     def sub_comm(self):
+        """Get the sub-communicator (for communication within the current clone)."""
         return self._sub_comm
 
     @property
     def inter_comm(self):
+        """Get the inter-communicator for cross-clone communication."""
         return self._inter_comm
 
     @property
     def clone_rank(self):
+        """Get the rank of the process within its clone's sub_comm."""
         return self.sub_comm.Get_rank()
 
     @property
     def clone_id(self):
+        """Get the clone identifier."""
         return self.inter_comm.Get_rank()
