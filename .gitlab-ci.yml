@@ -352,6 +352,7 @@ Ubuntu_latest:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim --mpi 4 --nclones 2
 
 # Quickstart test
 quickstart_tests:
