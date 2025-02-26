@@ -385,6 +385,7 @@ quickstart_tests:
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_2clones --mpi 4 --nclones 2
 
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
