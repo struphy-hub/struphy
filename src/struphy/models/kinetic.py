@@ -686,7 +686,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, clone_config, baseclass=False):
+    def __init__(self, params, comm, clone_config=None, baseclass=False):
         """Initializes the model either as the full model or as a baseclass to inherit from.
         In case of being a baseclass, the propagators will not be initialized in the __init__ which allows other propagators to be added.
 
