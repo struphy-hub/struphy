@@ -440,11 +440,6 @@ class Particles(metaclass=ABCMeta):
         return self._mpi_rank
 
     @property
-    def inter_comm(self):
-        """MPI communicator between clones."""
-        return self._inter_comm
-
-    @property
     def clone_config(self):
         return self._clone_config
 
