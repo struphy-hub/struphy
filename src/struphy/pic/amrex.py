@@ -13,8 +13,9 @@ class Amrex:
                 # # throw exceptions and create core dumps instead of
                 # # AMReX backtrace files: allows to attach to
                 # # debuggers
-                "amrex.throw_exception=1",
-                "amrex.signal_handling=0",
+                "amrex.throw_exception=0",
+                "amrex.signal_handling=1",
+                "tiny_profiler.verbose=1",
             ]
         )
 
