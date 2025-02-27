@@ -1,17 +1,12 @@
 .. _modules:
 
-More Physics
-============
+Utilities
+=========
 
 .. toctree::
     :maxdepth: 1
     :caption: Contents:
 
-    subsections/mhd_equils
-    subsections/braginskii_equils
-    subsections/fluid_equils
-    subsections/kinetic_backgrounds
-    subsections/fluid_backgrounds
     subsections/inits
     subsections/io
     subsections/pproc_tools

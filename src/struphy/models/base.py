@@ -35,7 +35,12 @@ class StruphyModel(metaclass=ABCMeta):
 
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
-        from struphy.fields_background.mhd_equil.projected_equils import ProjectedMHDequilibrium
+        from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+        from struphy.fields_background.projected_equils import (
+            ProjectedFluidEquilibrium,
+            ProjectedFluidEquilibriumWithB,
+            ProjectedMHDequilibrium,
+        )
         from struphy.io.setup import setup_derham, setup_domain_and_equil
 
         assert "em_fields" in self.species()
@@ -80,13 +85,10 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # create domain, equilibrium
-        self._domain, self._mhd_equil = setup_domain_and_equil(
+        self._domain, self._equil = setup_domain_and_equil(
             params,
             units=self.units,
         )
-
-        # TODO: remove
-        self._braginskii_equil = self.mhd_equil
 
         if comm.Get_rank() == 0 and self.verbose:
             print("\nTIME:")
@@ -112,10 +114,10 @@ class StruphyModel(metaclass=ABCMeta):
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
 
-            print("\nEQUILIBRIUM:")
-            if "mhd_equilibrium" in params:
-                print("type:".ljust(25), self.mhd_equil.__class__.__name__)
-                for key, val in self.mhd_equil.params.items():
+            print("\nFIELDS BACKGROUND:")
+            if "fields_background" in params:
+                print("type:".ljust(25), self.equil.__class__.__name__)
+                for key, val in self.equil.params.items():
                     print((key + ":").ljust(25), val)
             else:
                 print("None.")
@@ -134,19 +136,31 @@ class StruphyModel(metaclass=ABCMeta):
             verbose=self.verbose,
         )
 
-        # create projected MHD equilibrium
-        self._projected_mhd_equil = ProjectedMHDequilibrium(
-            self.mhd_equil,
-            self.derham,
-        )
+        # create projected equilibrium
+        if isinstance(self.equil, MHDequilibrium):
+            self._projected_equil = ProjectedMHDequilibrium(
+                self.equil,
+                self.derham,
+            )
+        elif isinstance(self.equil, FluidEquilibriumWithB):
+            self._projected_equil = ProjectedFluidEquilibriumWithB(
+                self.equil,
+                self.derham,
+            )
+        elif isinstance(self.equil, FluidEquilibrium):
+            self._projected_equil = ProjectedFluidEquilibrium(
+                self.equil,
+                self.derham,
+            )
+        else:
+            self._projected_equil = None
 
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
             self.derham,
             self.domain,
             verbose=self.verbose,
-            eq_mhd=self.mhd_equil,
-            eq_braginskii=self.braginskii_equil,
+            eq_mhd=self.equil,
         )
 
         # allocate memory for variables
@@ -170,9 +184,9 @@ class StruphyModel(metaclass=ABCMeta):
             self.derham,
             self.domain,
             verbose=self.verbose,
-            eq_mhd=self.mhd_equil,
+            eq_mhd=self.equil,
         )
-        Propagator.projected_mhd_equil = self.projected_mhd_equil
+        Propagator.projected_equil = self.projected_equil
 
         # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
@@ -297,14 +311,9 @@ class StruphyModel(metaclass=ABCMeta):
         return self._domain
 
     @property
-    def mhd_equil(self):
-        """MHD equilibrium object, see :ref:`mhd_equil`."""
-        return self._mhd_equil
-
-    @property
-    def braginskii_equil(self):
-        """Braginskii equilibrium object, see :ref:`braginskii_equil`."""
-        return self._braginskii_equil
+    def equil(self):
+        """Fluid equilibrium object, see :ref:`fluid_equil`."""
+        return self._equil
 
     @property
     def derham(self):
@@ -312,9 +321,9 @@ class StruphyModel(metaclass=ABCMeta):
         return self._derham
 
     @property
-    def projected_mhd_equil(self):
-        """MHD equilibrium projected on 3d Derham sequence with commuting projectors."""
-        return self._projected_mhd_equil
+    def projected_equil(self):
+        """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
+        return self._projected_equil
 
     @property
     def units(self):
@@ -553,13 +562,14 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = np.array([self.pointer[species].n_mks])
-                if self.Nclones > 1:
-                    self.inter_comm.Allreduce(
-                        MPI.IN_PLACE,
-                        n_mks_tot,
-                        op=MPI.SUM,
-                    )
+                n_mks_tot = np.array([self.pointer[species].Np])
+                # The following reduction is not needed imo (Stefan)
+                # if self.Nclones > 1:
+                #     self.inter_comm.Allreduce(
+                #         MPI.IN_PLACE,
+                #         n_mks_tot,
+                #         op=MPI.SUM,
+                #     )
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -594,7 +604,8 @@ class StruphyModel(metaclass=ABCMeta):
             )
 
             if kwargs_i is None:
-                print(f'\n-> Propagator "{prop.__name__}" will not be used.')
+                if self._comm_world_rank == 0:
+                    print(f'\n-> Propagator "{prop.__name__}" will not be used.')
                 continue
             else:
                 if self._comm_world_rank == 0 and self.verbose:
@@ -615,9 +626,7 @@ class StruphyModel(metaclass=ABCMeta):
                 self._propagators += [prop_instance]
 
         if self._comm_world_rank == 0 and self.verbose:
-            print("\n---------------------------------------")
-            print("Initialization of propagators complete.")
-            print("---------------------------------------")
+            print("\nInitialization of propagators complete.")
 
     def integrate(self, dt, split_algo="LieTrotter"):
         """
@@ -760,57 +769,46 @@ class StruphyModel(metaclass=ABCMeta):
 
                         obj.initialize_coeffs(
                             domain=self.domain,
-                            bckgr_obj=self.mhd_equil,
+                            bckgr_obj=self.equil,
                         )
 
                         if self._comm_world_rank == 0 and self.verbose:
-                            print(f'EM field "{key}" was initialized with:')
+                            print(f'\nEM field "{key}" was initialized with:')
 
-                            if "background" in self.em_fields["params"]:
-                                bckgr_type = self.em_fields["params"]["background"]["type"]
-                                print("background:".ljust(25), bckgr_type)
+                            _params = self.em_fields["params"]
 
-                                if bckgr_type is None:
-                                    pass
-                                elif type(bckgr_type) == str:
-                                    bckgr_types = [bckgr_type]
-                                elif type(bckgr_type) == list:
-                                    bckgr_types = bckgr_type
+                            if "background" in _params:
+                                if key in _params["background"]:
+                                    bckgr_types = _params["background"][key]
+                                    if bckgr_types is None:
+                                        pass
+                                    else:
+                                        print("background:")
+                                        for _type, _bp in bckgr_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _bp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
                                 else:
-                                    raise NotImplemented(
-                                        "The type of initial background must be null or str or list.",
-                                    )
-
-                                if bckgr_type is not None:
-                                    for _type in bckgr_types:
-                                        print(_type, ":")
-                                        for key, val2 in self.em_fields["params"]["background"][_type].items():
-                                            print((key + ":").ljust(25), val2)
+                                    print("No background.")
                             else:
                                 print("No background.")
 
-                            if "perturbation" in self.em_fields["params"]:
-                                pert_type = self.em_fields["params"]["perturbation"]["type"]
-                                print("perturbation:".ljust(25), pert_type)
-
-                                if pert_type is None:
-                                    pass
-                                elif type(pert_type) == str:
-                                    pert_types = [pert_type]
-                                elif type(pert_type) == list:
-                                    pert_types = pert_type
+                            if "perturbation" in _params:
+                                if key in _params["perturbation"]:
+                                    pert_types = _params["perturbation"][key]
+                                    if pert_types is None:
+                                        pass
+                                    else:
+                                        print("perturbation:")
+                                        for _type, _pp in pert_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _pp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
                                 else:
-                                    raise NotImplemented(
-                                        f"The type of initial perturbation must be null or str or list.",
-                                    )
-
-                                if pert_type is not None:
-                                    for _type in pert_types:
-                                        print(_type, ":")
-                                        for key, val2 in self.em_fields["params"]["perturbation"][_type].items():
-                                            print((key + ":").ljust(25), val2)
+                                    print("No perturbation.")
                             else:
                                 print("No perturbation.")
+
         if len(self.fluid) > 0:
             with ProfileManager.profile_region("initialize_fluids"):
                 for species, val in self.fluid.items():
@@ -822,60 +820,55 @@ class StruphyModel(metaclass=ABCMeta):
                             assert isinstance(obj, Derham.Field)
                             obj.initialize_coeffs(
                                 domain=self.domain,
-                                bckgr_obj=self.mhd_equil,
+                                bckgr_obj=self.equil,
                                 species=species,
                             )
 
                     if self._comm_world_rank == 0 and self.verbose:
                         print(
-                            f'Fluid species "{species}" was initialized with:',
+                            f'\nFluid species "{species}" was initialized with:',
                         )
 
-                        if "background" in val["params"]:
-                            bckgr_type = val["params"]["background"]["type"]
-                            print("type:".ljust(25), bckgr_type)
+                        _params = val["params"]
 
-                            if bckgr_type is None:
-                                pass
-                            elif type(bckgr_type) == str:
-                                bckgr_types = [bckgr_type]
-                            elif type(bckgr_type) == list:
-                                bckgr_types = bckgr_type
-                            else:
-                                raise NotImplemented(
-                                    f"The type of initial perturbation must be null or str or list.",
-                                )
-
-                            if bckgr_type is not None:
-                                for _type in bckgr_types:
-                                    print(_type, ":")
-                                    for key, val2 in val["params"]["background"][_type].items():
-                                        print((key + ":").ljust(25), val2)
+                        if "background" in _params:
+                            for variable in val:
+                                if "params" in variable:
+                                    continue
+                                if variable in _params["background"]:
+                                    bckgr_types = _params["background"][variable]
+                                    if bckgr_types is None:
+                                        pass
+                                    else:
+                                        print(f"{variable} background:")
+                                        for _type, _bp in bckgr_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _bp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
+                                else:
+                                    print(f"{variable}: no background.")
                         else:
                             print("No background.")
 
-                        if "perturbation" in val["params"]:
-                            pert_type = val["params"]["perturbation"]["type"]
-                            print("type:".ljust(25), pert_type)
-
-                            if pert_type is None:
-                                pass
-                            elif type(pert_type) == str:
-                                pert_types = [pert_type]
-                            elif type(pert_type) == list:
-                                pert_types = pert_type
-                            else:
-                                raise NotImplemented(
-                                    f"The type of initial perturbation must be null or str or list.",
-                                )
-
-                            if pert_type is not None:
-                                for _type in pert_types:
-                                    print(_type, ":")
-                                    for key, val2 in val["params"]["perturbation"][_type].items():
-                                        print((key + ":").ljust(25), val2)
+                        if "perturbation" in _params:
+                            for variable in val:
+                                if "params" in variable:
+                                    continue
+                                if variable in _params["perturbation"]:
+                                    pert_types = _params["perturbation"][variable]
+                                    if pert_types is None:
+                                        pass
+                                    else:
+                                        print(f"{variable} perturbation:")
+                                        for _type, _pp in pert_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _pp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
+                                else:
+                                    print(f"{variable}: no perturbation.")
                         else:
                             print("No perturbation.")
+
         # initialize particles
         if len(self.kinetic) > 0:
             with ProfileManager.profile_region("initialize_particles"):
@@ -884,29 +877,39 @@ class StruphyModel(metaclass=ABCMeta):
                     assert isinstance(obj, Particles)
 
                     if self._comm_world_rank == 0 and self.verbose:
-                        _type = val["params"]["background"]["type"]
-                        print(
-                            f'Kinetic species "{species}" was initialized with:',
-                        )
-                        print("type:".ljust(25), _type)
-                        if _type is not None:
-                            if not isinstance(_type, list):
-                                _type = [_type]
-                            for _t in _type:
-                                for key, par in val["params"]["background"][_t].items():
-                                    print((key + ":").ljust(25), par)
+                        _params = val["params"]
+                        assert "background" in _params, "Kinetic species must have background."
 
-                    obj.draw_markers(verbose=self.verbose)
+                        bckgr_types = _params["background"]
+                        print(
+                            f'\nKinetic species "{species}" was initialized with:',
+                        )
+                        for _type, _bp in bckgr_types.items():
+                            print(_type, ":")
+                            for _pname, _pval in _bp.items():
+                                print((" " * 4 + _pname + ":").ljust(25), _pval)
+
+                        if "perturbation" in _params:
+                            for variable, pert_types in _params["perturbation"].items():
+                                if pert_types is None:
+                                    pass
+                                else:
+                                    print(f"{variable} perturbation:")
+                                    for _type, _pp in pert_types.items():
+                                        print(" " * 4 + _type, ":")
+                                        for _pname, _pval in _pp.items():
+                                            print((" " * 8 + _pname + ":").ljust(25), _pval)
+                        else:
+                            print("No perturbation.")
+
+                    obj.draw_markers(sort=True, verbose=self.verbose)
                     obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":
                             obj.save_magnetic_moment()
 
-                        if (
-                            val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
-                            and obj.f0.coords == "constants_of_motion"
-                        ):
+                        if val["space"] != "ParticlesSPH" and obj.f0.coords == "constants_of_motion":
                             obj.save_constants_of_motion()
 
                         obj.initialize_weights()
@@ -1785,27 +1788,26 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 else:
                     pert_params = None
 
-                if "sorting" in val["params"]:
-                    sorting_params = val["params"]["sorting"]
+                if "boxes_per_dim" in val["params"]:
+                    boxes_per_dim = val["params"]["boxes_per_dim"]
                 else:
-                    sorting_params = None
+                    boxes_per_dim = None
 
                 kinetic_class = getattr(particles, val["space"])
 
                 val["obj"] = kinetic_class(
-                    name=species,
-                    **val["params"]["markers"],
-                    sorting_params=sorting_params,
                     comm=self.derham.comm,
                     inter_comm=self.derham.inter_comm,
+                    **val["params"]["markers"],
+                    domain_array=self.derham.domain_array,
+                    boxes_per_dim=boxes_per_dim,
+                    name=species,
+                    equation_params=self.equation_params[species],
                     domain=self.domain,
-                    mhd_equil=self.mhd_equil,
-                    braginskii_equil=self.braginskii_equil,
+                    equil=self.equil,
+                    projected_equil=self.projected_equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params,
-                    equation_params=self.equation_params[species],
-                    domain_array=self.derham.domain_array,
-                    projected_mhd_equil=self.projected_mhd_equil,
                 )
 
                 obj = val["obj"]
@@ -1815,8 +1817,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # for storing markers
                 n_markers = val["params"]["save_data"]["n_markers"]
-                assert n_markers <= obj.n_mks, (
-                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.n_mks})"
+                assert n_markers <= obj.Np, (
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
                 )
                 if n_markers > 0:
                     val["kinetic_data"] = {}
@@ -1910,7 +1912,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 Plasma parameters for each species.
         """
 
-        from struphy.fields_background.fluid_equil import equils as fluid_equils
+        from struphy.fields_background import equils
+        from struphy.fields_background.base import FluidEquilibriumWithB
         from struphy.kinetic_background import maxwellians
 
         pparams = {}
@@ -1972,10 +1975,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # transit length (m)
         transit_length = plasma_volume ** (1 / 3)
         # magnetic field (T)
-        if self.mhd_equil is not None:
-            B_tmp = self.mhd_equil.absB0(eta1, eta2, eta3)
+        if isinstance(self.equil, FluidEquilibriumWithB):
+            B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
-            B_tmp = self.braginskii_equil.absB0(eta1, eta2, eta3)
+            B_tmp = np.zeros((eta1.size, eta2.size, eta3.size))
         magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * units["B"]
         B_max = np.max(B_tmp) * units["B"]
         B_min = np.min(B_tmp) * units["B"]
@@ -2022,7 +2025,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # density (m⁻³)
                 pparams[species]["density"] = (
                     np.mean(
-                        self.mhd_equil.n0(
+                        self.equil.n0(
                             eta1,
                             eta2,
                             eta3,
@@ -2036,7 +2039,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # pressure (bar)
                 pparams[species]["pressure"] = (
                     np.mean(
-                        self.mhd_equil.p0(
+                        self.equil.p0(
                             eta1,
                             eta2,
                             eta3,
@@ -2071,7 +2074,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # create temp kinetic object for (default) parameter extraction
                 tmp_bckgr = val["params"]["background"]
 
-                if val["params"]["markers"]["loading_params"]["moments"] != "degenerate":
+                if val["space"] != "ParticlesSPH":
                     tmp = None
                     for fi, maxw_params in tmp_bckgr.items():
                         if fi[-2] == "_":
@@ -2082,24 +2085,19 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         if tmp is None:
                             tmp = getattr(maxwellians, fi_type)(
                                 maxw_params=maxw_params,
-                                mhd_equil=self.mhd_equil,
-                                braginskii_equil=self.braginskii_equil,
+                                equil=self.equil,
                             )
                         else:
                             tmp = tmp + getattr(maxwellians, fi_type)(
                                 maxw_params=maxw_params,
-                                mhd_equil=self.mhd_equil,
-                                braginskii_equil=self.braginskii_equil,
+                                equil=self.equil,
                             )
 
-                if (
-                    val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
-                    and tmp.coords == "constants_of_motion"
-                ):
+                if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
                     # call parameters
                     a1 = self.domain.params_map["a1"]
                     r = eta1mg * (1 - a1) + a1
-                    psi = self.mhd_equil.psi_r(r)
+                    psi = self.equil.psi_r(r)
 
                     # density (m⁻³)
                     pparams[species]["density"] = (

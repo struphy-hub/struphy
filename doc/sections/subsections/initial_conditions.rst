@@ -3,13 +3,13 @@
 Initial conditions
 ------------------
 
-A default parameter fiel for each model ca be created with::
+A default parameter file for each model can be created with::
 
     struphy params MODEL
 
-Suppose a model featuring a fluid species ``mhd`` with three variables ``n3`` (density as 3-form),
+Assume a model features the fluid species ``mhd`` with three variables ``n3`` (density as 3-form),
 ``u2`` (velocity as 2-form) amd ``p0`` (pressure as 0-form). In the parameter file, the section
-for setting their initial conditions reads as follows::
+for setting the corresponding initial conditions reads as follows::
 
     fluid:
         mhd:
@@ -46,7 +46,7 @@ for setting their initial conditions reads as follows::
                     PERT_NAME_2:
                         PERT_PARAMS_2
 
-Available ``BACKR_NAMES`` along with their available ``BACKGR_PARAMS`` are listed in :ref:`fluid_backgrounds`.
+Available ``BACKR_NAMES`` along with their available ``BACKGR_PARAMS`` are listed in :ref:`equils_avail`.
 Available ``PERT_NAMES`` along with their available ``PERT_PARAMS`` are listed in :ref:`avail_inits`.
 Note the following:
 
@@ -55,10 +55,22 @@ Note the following:
 * If **the same (!)** ``BACKR_NAME`` appears multiple times under one varaible one must append ``_1``, ``_2`` to differentiate them in the code.
 * One or both of the sections ``background`` and ``perturbation`` can be removed.
 
-A typical example of a ``kinetic`` initialization looks as as follows::
+A valid example of the above structure reads as follows::
 
-    background : # background is mandatory for kinetic species
-        type : [Maxwellian3D_1, Maxwellian3D_2]
+    fluid:
+        mhd:
+            perturbation:
+                n3:
+                    ModesCos:
+                        given_in_basis: '0'
+                        ls: [0, 1, 2, 4] 
+
+Here, only the variable ``n3`` is initialized with a pertubration composed of 
+cosines with the mode numbers 0, 1, 2, and 4 in the first direction, given as a 0-form.
+
+A typical example of a ``kinetic`` initialization looks as follows::
+
+    background : # at least one background is mandatory for kinetic species
         Maxwellian3D_1 :
             n  : 0.5
             u1 : 3.0
@@ -66,32 +78,42 @@ A typical example of a ``kinetic`` initialization looks as as follows::
             n  : 0.5
             u1 : -3.0
     perturbation :
-        type : TorusModesCos
-        TorusModesCos :
-            comps :
-                n : '0' # perturbation function given as 0-form 
-            ms : # poloidal mode numbers
-                n : [1, 3] # two poloidal modes for the density
+        n : 
+            TorusModesCos :
+                given_in_basis : '0' 
+                ms : [1, 3] # two poloidal modes for the density
 
 * Available kinetic backgrounds can be found in :ref:`kinetic_backgrounds`
 * Available perturbations can be found in :ref:`avail_inits`
 
 For ``kinetic`` species, the ``background`` is mandatory. 
 The moments of :mod:`~struphy.kinetic_background.maxwellians` 
-can be initialized with MHD equilibrium quantities. For this, the value
-of the respective moment must be set to ``mhd``. For example::
+can be initialized with fluid equilibrium quantities. For this, the value
+of the respective moment must be set to ``fluid_background``. For example::
 
-    background : # background is mandatory for kinetic species
-        type : Maxwellian3D
+    background : 
         Maxwellian3D :
             n  : 0.05
-            u1 : mhd
+            u1 : fluid_background
             u2 : 2.5
-            vth1 : mhd
+            vth1 : fluid_background
 
 In the above case, the first component of the mean- and thermal velocity are
-initialized with MHD quantities. An ``mhd_equilibrium`` must be specified
-in the parameter file in this case.
+initialized with fluid background quantities. The ``fluid_background`` specified
+in the parameter file is then taken for initialization of the respective Maxwellian moment.
+
+The moments of :mod:`~struphy.kinetic_background.maxwellians` 
+can be also initialized with functions defined in :ref:`moment_functions`.
+In this case the value of the respective moment must be a dictionary with the
+function parameters, for instance:: 
+
+    background : 
+        Maxwellian3D :
+            n  : 
+                ITPA_density :
+                    given_in_basis : '0'
+                    n0 : 0.00720655
+                    c : [0.491230, 0.298228, 0.198739, 0.521298]
 
 Multiple ``background`` and ``perturbation`` types can be given as in the above fluid case.
 

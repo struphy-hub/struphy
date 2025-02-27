@@ -466,6 +466,7 @@ class Domain(metaclass=ABCMeta):
         self,
         a,
         *etas,
+        flat_eval=False,
         kind="0",
         a_kwargs={},
         change_out_order=False,
@@ -486,6 +487,9 @@ class Domain(metaclass=ABCMeta):
 
             1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
             2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        flat_eval : bool
+            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
 
         kind : str
             Which pull-back to apply, '0', '1', '2', '3' or 'v'.
@@ -517,6 +521,7 @@ class Domain(metaclass=ABCMeta):
             a,
             kind,
             *etas,
+            flat_eval=flat_eval,
             change_out_order=change_out_order,
             squeeze_out=squeeze_out,
             remove_outside=remove_outside,
@@ -525,7 +530,17 @@ class Domain(metaclass=ABCMeta):
         )
 
     # ================================
-    def push(self, a, *etas, kind="0", a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True):
+    def push(
+        self,
+        a,
+        *etas,
+        flat_eval=False,
+        kind="0",
+        a_kwargs={},
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+    ):
         """
         Pushforward of a differential p-form to a Cartesian scalar/vector field .
 
@@ -539,6 +554,9 @@ class Domain(metaclass=ABCMeta):
 
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        flat_eval : bool
+            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
 
         kind : str
             Which pushforward to apply, '0', '1', '2', '3' or 'v'.
@@ -566,6 +584,7 @@ class Domain(metaclass=ABCMeta):
             a,
             kind,
             *etas,
+            flat_eval=flat_eval,
             change_out_order=change_out_order,
             squeeze_out=squeeze_out,
             remove_outside=remove_outside,
@@ -574,7 +593,15 @@ class Domain(metaclass=ABCMeta):
 
     # ================================
     def transform(
-        self, a, *etas, kind="0_to_3", a_kwargs={}, change_out_order=False, squeeze_out=False, remove_outside=True
+        self,
+        a,
+        *etas,
+        flat_eval=False,
+        kind="0_to_3",
+        a_kwargs={},
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
     ):
         """
         Transformation between different differential p-forms and/or vector fields.
@@ -589,6 +616,9 @@ class Domain(metaclass=ABCMeta):
 
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        flat_eval : bool
+            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
 
         kind : str
             Which transformation to apply, such as '0_to_3' for example, see dict_transformations['tran'] for all options.
@@ -620,6 +650,7 @@ class Domain(metaclass=ABCMeta):
             a,
             kind,
             *etas,
+            flat_eval=flat_eval,
             change_out_order=change_out_order,
             squeeze_out=squeeze_out,
             remove_outside=remove_outside,
@@ -751,7 +782,7 @@ class Domain(metaclass=ABCMeta):
             return out.copy()
 
     # ================================
-    def _pull_push_transform(self, which, a, kind_fun, *etas, **kwargs):
+    def _pull_push_transform(self, which, a, kind_fun, *etas, flat_eval=False, **kwargs):
         """
         Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
 
@@ -771,6 +802,9 @@ class Domain(metaclass=ABCMeta):
 
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        flat_eval : bool
+            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
 
         **kwargs
             Addtional keyword arguments (coordinates, change_out_order, squeeze_out, remove_outside, a_kwargs).
@@ -793,8 +827,14 @@ class Domain(metaclass=ABCMeta):
         kind_int = self.dict_transformations[which][kind_fun]
 
         # markers evaluation
-        if len(etas) == 1:
-            markers = etas[0]
+        if len(etas) == 1 or flat_eval:
+            if flat_eval:
+                assert len(etas) == 3
+                assert etas[0].shape == etas[1].shape == etas[2].shape
+                assert etas[0].ndim == 1
+                markers = np.stack(etas, axis=1)
+            else:
+                markers = etas[0]
 
             # coordinates (:, 3) and argument evaluation (without holes)
             if callable(a):
@@ -1743,7 +1783,7 @@ class Spline(Domain):
 
         # get default control points from default GVEC equilibrium
         if params_map["cx"] is None or params_map["cy"] is None or params_map["cz"] is None:
-            from struphy.fields_background.mhd_equil.equils import GVECequilibrium
+            from struphy.fields_background.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
 

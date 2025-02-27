@@ -205,7 +205,7 @@ class Accumulator:
         # accumulate into matrix (and vector) with markers
         self.kernel(
             self.particles.markers,
-            self.particles.n_mks,
+            self.particles.Np,
             self.derham.args_derham,
             self.args_domain,
             *self._args_data,
@@ -607,7 +607,7 @@ class AccumulatorVector:
         # accumulate into matrix (and vector) with markers
         self.kernel(
             self.particles.markers,
-            self.particles.n_mks,
+            self.particles.Np,
             self.derham._args_derham,
             self.args_domain,
             *self._args_data,

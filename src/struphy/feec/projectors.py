@@ -36,7 +36,7 @@ from struphy.feec.utilities_local_projectors import (
     is_spline_zero_at_quadrature_points,
     split_points,
 )
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.equils import set_defaults
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 

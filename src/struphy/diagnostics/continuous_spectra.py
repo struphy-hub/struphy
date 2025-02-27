@@ -233,7 +233,8 @@ if __name__ == "__main__":
     domain, mhd_equil = setup_domain_and_equil(params)
 
     # get MHD equilibrium parameters
-    params_mhd = params["mhd_equilibrium"][params["mhd_equilibrium"]["type"]]
+    for k, v in params["fluid_background"].items():
+        params_mhd = v
 
     # set up spline spaces
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space

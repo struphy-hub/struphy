@@ -19,7 +19,7 @@ Possible combinations for tensor product (BBB):
 * (N N dN/deta)
 """
 
-from numpy import empty, zeros
+from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -345,8 +345,6 @@ def evaluate_matrix(
                 * 43 : N N dN/deta
     """
 
-    from numpy import shape
-
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
@@ -619,8 +617,6 @@ def evaluate_sparse(
                 * 42 : N dN/deta N
                 * 43 : N N dN/deta
     """
-
-    from numpy import shape
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
@@ -1311,8 +1307,6 @@ def eval_spline_mpi_matrix(
             Return array for spline values S_ijk = S(eta1[i,j,k], eta2[i,j,k], eta3[i,j,k]).
     """
 
-    from numpy import shape
-
     shp = shape(eta1)
 
     for i in range(shp[0]):
@@ -1430,8 +1424,6 @@ def eval_spline_mpi_markers(
         values : array[float]
             Return 1D array for spline values S_p = S(*markers[p, :]).
     """
-
-    from numpy import shape
 
     Np = shape(markers)[0]
 

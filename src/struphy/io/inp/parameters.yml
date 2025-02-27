@@ -33,17 +33,8 @@ geometry :
     type : Cuboid
     Cuboid : {}
 
-mhd_equilibrium :
-    type : HomogenSlab 
+fluid_background :
     HomogenSlab : {}
-
-braginskii_equilibrium :
-    type : HomogenSlabITG 
-    HomogenSlabITG : {}
-
-fluid_equilibrium :
-    type : ConstantVelocity 
-    ConstantVelocity : {}
 
 em_fields :
     background: 
@@ -102,6 +93,7 @@ kinetic :
                 # moments       : [0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec. Are now automatically generated.
                 spatial       : uniform # uniform or disc
                 dir_particles : 'path_to_particles' # directory of particles if loaded externally
+        boxes_per_dim: [14, 15, 16] # for particle sorting and sph evaluations via smoothing kernels
         save_data :
             n_markers : 3 # number of markers to be saved during simulation
             f :
@@ -117,9 +109,3 @@ kinetic :
                 TorusModesCos :
                     given_in_basis: '0' # perturbation function given as 0-form 
                     ms : [1, 3] # two poloidal modes for the density
-        sorting:
-            nx: 15
-            ny: 15
-            nz: 15
-            eps: 0.1
-            communicate: False

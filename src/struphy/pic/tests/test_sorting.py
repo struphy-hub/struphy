@@ -36,7 +36,6 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
-    mpi_size = mpi_comm.Get_size()
 
     # DOMAIN object
     dom_type = mapping[0]
@@ -47,17 +46,15 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     # DeRham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
     loading_params = {"seed": 1607, "moments": [0.0, 0.0, 0.0, 1.0, 2.0, 3.0], "spatial": "uniform"}
-    params_sorting = {"nx": 3, "ny": 3, "nz": 3, "eps": 0.25, "communicate": False}
+    boxes_per_dim = (3, 3, 3)
 
     particles = Particles6D(
-        "test_particles",
+        comm=mpi_comm,
         Np=Np,
         bc=["periodic", "periodic", "periodic"],
-        loading="pseudo_random",
         loading_params=loading_params,
-        comm=mpi_comm,
         domain_array=derham.domain_array,
-        sorting_params=params_sorting,
+        boxes_per_dim=boxes_per_dim,
     )
 
     particles.draw_markers(sort=False)

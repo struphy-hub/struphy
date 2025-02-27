@@ -97,7 +97,7 @@ struphy = "struphy.console.main:struphy"
                     'tests/*.yml',
                     'tutorials/*.yml',
                     'longer_examples/*.yml',
-                    'standard_parameters/*.yml',
+                    'verification/*.yml',
                     ]
                     
 struphy = ['compile_struphy.mk',

@@ -287,14 +287,30 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     import matplotlib.pyplot as plt
     import numpy as np
 
-    from struphy.fields_background.mhd_equil import equils
+    from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
-    maxw_params_mhd = {"n": "mhd", "u1": "mhd", "u2": "mhd", "u3": "mhd", "vth1": "mhd", "vth2": "mhd", "vth3": "mhd"}
+    maxw_params_mhd = {
+        "n": "fluid_background",
+        "u1": "fluid_background",
+        "u2": "fluid_background",
+        "u3": "fluid_background",
+        "vth1": "fluid_background",
+        "vth2": "fluid_background",
+        "vth3": "fluid_background",
+    }
 
-    maxw_params_1 = {"n": 1.0, "u1": "mhd", "u2": "mhd", "u3": "mhd", "vth1": "mhd", "vth2": "mhd", "vth3": "mhd"}
+    maxw_params_1 = {
+        "n": 1.0,
+        "u1": "fluid_background",
+        "u2": "fluid_background",
+        "u3": "fluid_background",
+        "vth1": "fluid_background",
+        "vth2": "fluid_background",
+        "vth3": "fluid_background",
+    }
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -317,7 +333,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     e_args_fl = np.concatenate((e1_fl[:, None], e2_fl[:, None], e3_fl[:, None]), axis=1)
 
     for key, val in inspect.getmembers(equils):
-        if inspect.isclass(val) and "MHDequilibrium" not in key:
+        if inspect.isclass(val) and val.__module__ == equils.__name__:
             print(f"{key = }")
 
             if "DESCequilibrium" in key and not with_desc:
@@ -348,10 +364,15 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 mhd_equil.domain = domains.HollowCylinder(
                     a1=1e-3, a2=mhd_equil.params["a"], Lz=mhd_equil.params["R0"] * 2 * np.pi
                 )
+            else:
+                try:
+                    mhd_equil.domain = domains.Cuboid()
+                except:
+                    print(f"Not setting domain for {key}.")
 
-            maxwellian = Maxwellian3D(maxw_params=maxw_params_mhd, mhd_equil=mhd_equil)
+            maxwellian = Maxwellian3D(maxw_params=maxw_params_mhd, equil=mhd_equil)
 
-            maxwellian_1 = Maxwellian3D(maxw_params=maxw_params_1, mhd_equil=mhd_equil)
+            maxwellian_1 = Maxwellian3D(maxw_params=maxw_params_1, equil=mhd_equil)
 
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
@@ -369,7 +390,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             assert np.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))
 
             u_maxw = maxwellian.u(e1_fl, e2_fl, e3_fl)
-            u_eq = mhd_equil.j_cart(e_args_fl)[0] / mhd_equil.n0(e_args_fl)
+            u_eq = mhd_equil.u_cart(e_args_fl)[0]
             assert all([np.allclose(m, e) for m, e in zip(u_maxw, u_eq)])
 
             vth_maxw = maxwellian.vth(e1_fl, e2_fl, e3_fl)
@@ -509,7 +530,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
                         # background + perturbation
                         maxwellian_perturbed = Maxwellian3D(
-                            maxw_params=maxw_params_mhd, pert_params=pert_params, mhd_equil=mhd_equil
+                            maxw_params=maxw_params_mhd, pert_params=pert_params, equil=mhd_equil
                         )
 
                         # test meshgrid evaluation
@@ -520,7 +541,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
                         # pure perturbation
                         maxwellian_zero_bckgr = Maxwellian3D(
-                            maxw_params=maxw_params_zero, pert_params=pert_params, mhd_equil=mhd_equil
+                            maxw_params=maxw_params_zero, pert_params=pert_params, equil=mhd_equil
                         )
 
                         assert np.allclose(maxwellian_zero_bckgr.n(*e_meshgrids), pert(*e_meshgrids))
@@ -1007,14 +1028,25 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     import matplotlib.pyplot as plt
     import numpy as np
 
-    from struphy.fields_background.mhd_equil import equils
+    from struphy.fields_background import equils
+    from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
-    maxw_params_mhd = {"n": "mhd", "u_para": "mhd", "vth_para": "mhd", "vth_perp": "mhd"}
+    maxw_params_mhd = {
+        "n": "fluid_background",
+        "u_para": "fluid_background",
+        "vth_para": "fluid_background",
+        "vth_perp": "fluid_background",
+    }
 
-    maxw_params_1 = {"n": 1.0, "u_para": "mhd", "vth_para": "mhd", "vth_perp": "mhd"}
+    maxw_params_1 = {
+        "n": 1.0,
+        "u_para": "fluid_background",
+        "vth_para": "fluid_background",
+        "vth_perp": "fluid_background",
+    }
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -1035,7 +1067,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     e_args_fl = np.concatenate((e1_fl[:, None], e2_fl[:, None], e3_fl[:, None]), axis=1)
 
     for key, val in inspect.getmembers(equils):
-        if inspect.isclass(val) and "MHDequilibrium" not in key:
+        if inspect.isclass(val) and val.__module__ == equils.__name__:
             print(f"{key = }")
 
             if "DESCequilibrium" in key and not with_desc:
@@ -1043,6 +1075,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 continue
 
             mhd_equil = val()
+            if not isinstance(mhd_equil, FluidEquilibriumWithB):
+                continue
+
             print(f"{mhd_equil.params = }")
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
@@ -1066,10 +1101,15 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 mhd_equil.domain = domains.HollowCylinder(
                     a1=1e-3, a2=mhd_equil.params["a"], Lz=mhd_equil.params["R0"] * 2 * np.pi
                 )
+            else:
+                try:
+                    mhd_equil.domain = domains.Cuboid()
+                except:
+                    print(f"Not setting domain for {key}.")
 
-            maxwellian = GyroMaxwellian2D(maxw_params=maxw_params_mhd, mhd_equil=mhd_equil, volume_form=False)
+            maxwellian = GyroMaxwellian2D(maxw_params=maxw_params_mhd, equil=mhd_equil, volume_form=False)
 
-            maxwellian_1 = GyroMaxwellian2D(maxw_params=maxw_params_1, mhd_equil=mhd_equil, volume_form=False)
+            maxwellian_1 = GyroMaxwellian2D(maxw_params=maxw_params_1, equil=mhd_equil, volume_form=False)
 
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
@@ -1224,7 +1264,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
                         # background + perturbation
                         maxwellian_perturbed = GyroMaxwellian2D(
-                            maxw_params=maxw_params_mhd, pert_params=pert_params, mhd_equil=mhd_equil, volume_form=False
+                            maxw_params=maxw_params_mhd, pert_params=pert_params, equil=mhd_equil, volume_form=False
                         )
 
                         # test meshgrid evaluation
@@ -1237,7 +1277,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                         maxwellian_zero_bckgr = GyroMaxwellian2D(
                             maxw_params=maxw_params_zero,
                             pert_params=pert_params,
-                            mhd_equil=mhd_equil,
+                            equil=mhd_equil,
                             volume_form=False,
                         )
 
@@ -1380,7 +1420,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     import matplotlib.pyplot as plt
     import numpy as np
 
-    from struphy.fields_background.mhd_equil import equils
+    from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
 
@@ -1551,7 +1591,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
         "vth": 1.0,
     }
 
-    maxwellian = CanonicalMaxwellian(maxw_params=maxw_params, mhd_equil=mhd_equil)
+    maxwellian = CanonicalMaxwellian(maxw_params=maxw_params, equil=mhd_equil)
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -1601,8 +1641,8 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
 if __name__ == "__main__":
     # test_maxwellian_3d_uniform(Nel=[64, 1, 1], show_plot=False)
-    test_maxwellian_3d_perturbed(Nel=[64, 1, 1], show_plot=False)
-    # test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=False)
+    # test_maxwellian_3d_perturbed(Nel=[64, 1, 1], show_plot=False)
+    test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=False)
     # test_maxwellian_2d_uniform(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_2d_perturbed(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_2d_mhd(Nel=[8, 12, 12], with_desc=None, show_plot=False)
