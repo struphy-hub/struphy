@@ -920,7 +920,7 @@ class Particles(metaclass=ABCMeta):
         if "reflect" in self._bc:
             raise NotImplementedError("The 'reflect' boundary condition is not implemented with pyAMReX")
 
-        periodicity = [1, 1, 1]  # all periodic TODO: implement different kind of periodicity
+        periodicity = [1, 1, 1]  # all periodic TODO (Mati): implement different kind of periodicity
 
         SINGLE_CELL_SIZE = 32  # default size of single cell in indexing domain
 
@@ -1093,7 +1093,7 @@ class Particles(metaclass=ABCMeta):
                     * v_th[2]
                     + u_mean[2]
                 )
-            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) TODO: implement correctly!
+            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) TODO (Mati): implement correctly!
             elif self.vdim == 2:
                 self._markers[:n_mks_load_loc, 3] = (
                     sp.erfinv(

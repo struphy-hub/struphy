@@ -56,12 +56,6 @@ class PushEta(Propagator):
 
         # get kernel
         if particles.amrex:
-            # add accumulation space
-            particles.markers.add_real_comp()
-            particles.markers.add_real_comp()
-            particles.markers.add_real_comp()
-
-            assert particles.markers.num_real_comps == 12
             kernel = amrex_pusher.push_eta_stage
             self.amrex = True
         else:

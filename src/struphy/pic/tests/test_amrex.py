@@ -190,6 +190,7 @@ def test_amrex_box(plot=False, verbose=False):
     amrex.finalize()
 
 
+@pytest.mark.mpi
 def test_amrex_cylinder(plot=False, verbose=False):
 
     a1 = 0.
@@ -197,15 +198,15 @@ def test_amrex_cylinder(plot=False, verbose=False):
     Lz = 1.
     domain = HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 
+    # initialize amrex
+    amrex = Amrex()
+    
     # instantiate Particle object
     name = 'test'
     Np = 15
     bc = ['periodic', 'periodic', 'periodic']
     loading = 'pseudo_random'
     loading_params = {'seed': None}
-
-    # initialize amrex
-    amrex = Amrex()
 
     particles = Particles6D(name=name,
                             Np=Np,
@@ -275,13 +276,11 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     # positions on the physical domain Omega
     pushed_pos = domain(particles.positions).T
-    pushed_pos
 
+    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
     if plot:
         fig = plt.figure()
         ax = fig.gca()
-
-        colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
 
         for n, pos in enumerate(pushed_pos):
             ax.scatter(pos[0], pos[1], c=colors[n % 4])
@@ -298,6 +297,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
         plt.savefig("./initial_cylinder_amrex.jpg")
 
     # pass simulation parameters to Propagator class
+    PushEta.options(default=True)
     PushEta.domain = domain
 
     # instantiate Propagator object
