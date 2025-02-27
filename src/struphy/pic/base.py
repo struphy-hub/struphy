@@ -685,7 +685,7 @@ class Particles(metaclass=ABCMeta):
     def velocities(self):
         """Array holding the marker velocities in logical space, excluding holes. The i-th row holds the i-th marker info."""
         if self.amrex:
-            return np.ascontiguousarray(self._markers.to_df()[["a", "b", "c"]].to_numpy())
+            return np.ascontiguousarray(self._markers.to_df()[["v1", "v2", "v3"]].to_numpy())
         else:
             return self.markers[~self.holes, self.index["vel"]]
 
@@ -1049,6 +1049,13 @@ class Particles(metaclass=ABCMeta):
             self._markers.init_random(self.Np, _seed, myt, False, amr.RealBox())
 
             assert self._markers.number_of_particles_at_level(0) == self.Np
+            
+            self._markers.add_real_comp("v1")
+            self._markers.add_real_comp("v2")
+            self._markers.add_real_comp("v3")
+            self._markers.add_real_comp("weight")
+            self._markers.add_real_comp("s0")
+            self._markers.add_real_comp("w0")
 
             markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
@@ -1062,31 +1069,30 @@ class Particles(metaclass=ABCMeta):
  
             # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
             if self.vdim == 3:
-                for i in range(markers_array["a"].size):
-                    markers_array["a"][i] = (
-                        sp.erfinv(
-                            2 * rng.random() - 1,
-                        )
-                        * np.sqrt(2)
-                        * v_th[0]
-                        + u_mean[0]
+                markers_array["v1"][:] = (
+                    sp.erfinv(
+                        2 * rng.random(size=markers_array["v1"].size) - 1,
                     )
-                    markers_array["b"][i] = (
-                        sp.erfinv(
-                            2 * rng.random() - 1,
-                        )
-                        * np.sqrt(2)
-                        * v_th[1]
-                        + u_mean[1]
+                    * np.sqrt(2)
+                    * v_th[0]
+                    + u_mean[0]
+                )
+                markers_array["v2"][:] = (
+                    sp.erfinv(
+                        2 * rng.random(size=markers_array["v1"].size) - 1,
                     )
-                    markers_array["c"][i] = (
-                        sp.erfinv(
-                            2 * rng.random() - 1,
-                        )
-                        * np.sqrt(2)
-                        * v_th[2]
-                        + u_mean[2]
+                    * np.sqrt(2)
+                    * v_th[1]
+                    + u_mean[1]
+                )
+                markers_array["v3"][:] = (
+                    sp.erfinv(
+                        2 * rng.random(size=markers_array["v1"].size) - 1,
                     )
+                    * np.sqrt(2)
+                    * v_th[2]
+                    + u_mean[2]
+                )
             # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) TODO: implement correctly!
             elif self.vdim == 2:
                 self._markers[:n_mks_load_loc, 3] = (
@@ -1112,11 +1118,8 @@ class Particles(metaclass=ABCMeta):
                 raise NotImplementedError(
                     "Inverse transform sampling of given vdim is not implemented!",
                 )
-            
-            # add missing canonical component
-            self._markers.add_real_comp()
-        
-            assert self._markers.num_real_comps == 9
+
+            assert self._markers.num_real_comps == 14
 
         else:
             # number of markers on the local process at loading stage

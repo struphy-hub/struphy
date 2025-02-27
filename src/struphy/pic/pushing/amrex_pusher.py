@@ -34,9 +34,9 @@ def push_eta_stage(
     e1 = markers_array["x"][:]
     e2 = markers_array["y"][:]
     e3 = markers_array["z"][:]
-    v1 = markers_array["a"][:]
-    v2 = markers_array["b"][:]
-    v3 = markers_array["c"][:]
+    v1 = markers_array["v1"][:]
+    v2 = markers_array["v2"][:]
+    v3 = markers_array["v3"][:]
 
     # evaluate inverse Jacobian matrices for each point
     etas = array([e1, e2, e3]).T.copy()  # needed for c kernels
@@ -50,11 +50,11 @@ def push_eta_stage(
 
     # accumulation for last stage
     temp = dt * b[stage] * k
-    markers_array["g"][:] = markers_array["g"][:] + temp[:, 0]
-    markers_array["h"][:] = markers_array["h"][:] + temp[:, 1]
-    markers_array["i"][:] = markers_array["i"][:] + temp[:, 2]
+    markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0]
+    markers_array["real_comp1"][:] = markers_array["real_comp1"][:] + temp[:, 1]
+    markers_array["real_comp2"][:] = markers_array["real_comp2"][:] + temp[:, 2]
 
     # update positions for intermediate stages or last stage TODO: this is wrong!
-    markers_array["x"][:] = markers_array["g"][:] + temp[:, 0]
-    markers_array["y"][:] = markers_array["h"][:] + temp[:, 1]
-    markers_array["z"][:] = markers_array["i"][:] + temp[:, 2]
+    markers_array["x"][:] = markers_array["real_comp0"][:] + temp[:, 0]
+    markers_array["y"][:] = markers_array["real_comp1"][:] + temp[:, 1]
+    markers_array["z"][:] = markers_array["real_comp2"][:] + temp[:, 2]
