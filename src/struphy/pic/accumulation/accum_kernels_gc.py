@@ -26,7 +26,7 @@ from struphy.bsplines.evaluation_kernels_3d import get_spans, eval_0form_spline_
 
 
 def gc_density_0form(markers: 'float[:,:]',
-                     n_markers_tot: 'int',
+                     Np: 'int',
                      args_derham: 'DerhamArguments',
                      args_domain: 'DomainArguments',
                      vec: 'float[:,:,:]'):
@@ -52,7 +52,7 @@ def gc_density_0form(markers: 'float[:,:]',
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, 5] / n_markers_tot
+        filling = markers[ip, 5] / Np
 
         particle_to_mat_kernels.vec_fill_b_v0(args_derham, 
                                               eta1, eta2, eta3,
@@ -64,7 +64,7 @@ def gc_density_0form(markers: 'float[:,:]',
 
 @stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bstar', 'norm_b1', 'curl_norm_b')
 def cc_lin_mhd_5d_D(markers: 'float[:,:]', 
-                    n_markers_tot: 'int',
+                    Np: 'int',
                     args_derham: 'DerhamArguments',
                     args_domain: 'DomainArguments',
                     mat12: 'float[:,:,:,:,:,:]',
@@ -253,14 +253,14 @@ def cc_lin_mhd_5d_D(markers: 'float[:,:]',
 
     #$ omp end parallel
 
-    mat12 /= n_markers_tot
-    mat13 /= n_markers_tot
-    mat23 /= n_markers_tot
+    mat12 /= Np
+    mat13 /= Np
+    mat23 /= Np
 
 
 @stack_array('dfm', 'df_inv_t', 'df_inv', 'g_inv', 'filling_m', 'filling_v', 'tmp', 'tmp1', 'tmp2', 'tmp_m', 'tmp_v', 'b', 'b_prod', 'b_prod_neg' 'b_star', 'norm_b1', 'curl_norm_b')
 def cc_lin_mhd_5d_J1(markers: 'float[:,:]', 
-                     n_markers_tot: 'int',
+                     Np: 'int',
                      args_derham: 'DerhamArguments',
                      args_domain: 'DomainArguments',
                      mat11: 'float[:,:,:,:,:,:]',
@@ -497,23 +497,23 @@ def cc_lin_mhd_5d_J1(markers: 'float[:,:]',
                                                      vec1, vec2, vec3,
                                                      filling_v[0], filling_v[1], filling_v[2])
 
-    mat11 /= n_markers_tot
-    mat12 /= n_markers_tot
-    mat13 /= n_markers_tot
-    mat22 /= n_markers_tot
-    mat23 /= n_markers_tot
-    mat33 /= n_markers_tot
+    mat11 /= Np
+    mat12 /= Np
+    mat13 /= Np
+    mat22 /= Np
+    mat23 /= Np
+    mat33 /= Np
 
-    vec1 /= n_markers_tot
-    vec2 /= n_markers_tot
-    vec3 /= n_markers_tot
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
 
     #$ omp end parallel
 
 
 @stack_array('dfm', 'norm_b1', 'filling_v')
 def cc_lin_mhd_5d_M(markers: 'float[:,:]', 
-                    n_markers_tot: 'int',
+                    Np: 'int',
                     args_derham: 'DerhamArguments',
                     args_domain: 'DomainArguments',
                     mat11: 'float[:,:,:,:,:,:]',
@@ -608,16 +608,16 @@ def cc_lin_mhd_5d_M(markers: 'float[:,:]',
                                             vec1, vec2, vec3,
                                             filling_v[0], filling_v[1], filling_v[2])
 
-    vec1 /= n_markers_tot
-    vec2 /= n_markers_tot
-    vec3 /= n_markers_tot
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
 
     #$ omp end parallel
 
 
 @stack_array('dfm', 'df_inv_t', 'df_inv', 'g_inv', 'filling_v', 'tmp1', 'tmp2', 'tmp_v', 'b', 'b_prod', 'norm_b2_prod', 'b_star', 'curl_norm_b', 'norm_b1', 'norm_b2', 'grad_PB')
 def cc_lin_mhd_5d_J2(markers: 'float[:,:]',
-                     n_markers_tot: 'int',
+                     Np: 'int',
                      args_derham: 'DerhamArguments',
                      args_domain: 'DomainArguments',
                      mat11: 'float[:,:,:,:,:,:]',
@@ -853,9 +853,9 @@ def cc_lin_mhd_5d_J2(markers: 'float[:,:]',
                                                 vec1, vec2, vec3,
                                                 filling_v[0], filling_v[1], filling_v[2])
 
-    vec1 /= n_markers_tot
-    vec2 /= n_markers_tot
-    vec3 /= n_markers_tot
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
 
     #$ omp end parallel
 

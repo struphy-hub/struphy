@@ -30,7 +30,7 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 
 def charge_density_0form(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
@@ -57,7 +57,7 @@ def charge_density_0form(
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, 3 + vdim] / n_markers_tot
+        filling = markers[ip, 3 + vdim] / Np
 
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,
@@ -85,7 +85,7 @@ def charge_density_0form(
 )
 def hybrid_fA_density(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat: "float[:,:,:,:,:,:]",
@@ -158,7 +158,7 @@ def hybrid_fA_density(
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
 
-        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / n_markers_tot / det_df
+        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / Np / det_df
 
         ie1 = int(eta1 * Nel[0])
         ie2 = int(eta2 * Nel[1])
@@ -232,7 +232,7 @@ def hybrid_fA_density(
 @stack_array("dfm", "df_t", "df_inv", "df_inv_times_v", "filling_m", "filling_v", "v")
 def hybrid_fA_Arelated(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -305,39 +305,39 @@ def hybrid_fA_Arelated(
         # filling_m
         filling_m[0, 0] = (
             weight
-            / n_markers_tot
+            / Np
             * (df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2])
         )
         filling_m[0, 1] = (
             weight
-            / n_markers_tot
+            / Np
             * (df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2])
         )
         filling_m[0, 2] = (
             weight
-            / n_markers_tot
+            / Np
             * (df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2])
         )
 
         filling_m[1, 1] = (
             weight
-            / n_markers_tot
+            / Np
             * (df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2])
         )
         filling_m[1, 2] = (
             weight
-            / n_markers_tot
+            / Np
             * (df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2])
         )
 
         filling_m[2, 2] = (
             weight
-            / n_markers_tot
+            / Np
             * (df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2])
         )
 
         # filling_v
-        filling_v[:] = weight / n_markers_tot * df_inv_times_v
+        filling_v[:] = weight / Np * df_inv_times_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -377,7 +377,7 @@ def hybrid_fA_Arelated(
 @stack_array("dfm", "df_inv", "v", "df_inv_times_v", "filling_m", "filling_v")
 def linear_vlasov_ampere(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -457,10 +457,10 @@ def linear_vlasov_ampere(
 
         # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
         linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
-        filling_m[:, :] *= f0_values[ip] / (n_markers_tot * markers[ip, 7])
+        filling_m[:, :] *= f0_values[ip] / (Np * markers[ip, 7])
 
         # filling_v = alpha^2 * kappa / N * w_p * DL^{-1} * v_p
-        filling_v[:] = markers[ip, 6] * df_inv_v / n_markers_tot
+        filling_v[:] = markers[ip, 6] * df_inv_v / Np
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -493,7 +493,7 @@ def linear_vlasov_ampere(
 
 def vlasov_maxwell_poisson(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
@@ -526,7 +526,7 @@ def vlasov_maxwell_poisson(
         eta3 = markers[ip, 2]
 
         # filling = w_p
-        filling = markers[ip, 6] / n_markers_tot
+        filling = markers[ip, 6] / Np
 
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,
@@ -543,7 +543,7 @@ def vlasov_maxwell_poisson(
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "v", "df_inv_times_v", "filling_m", "filling_v")
 def vlasov_maxwell(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -618,10 +618,10 @@ def vlasov_maxwell(
         linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
 
         # filling_m = w_p * DF^{-1} * DF^{-T}
-        filling_m[:, :] = markers[ip, 6] * g_inv / n_markers_tot
+        filling_m[:, :] = markers[ip, 6] * g_inv / Np
 
         # filling_v = w_p * DF^{-1} * \V
-        filling_v[:] = markers[ip, 6] * df_inv_times_v / n_markers_tot
+        filling_v[:] = markers[ip, 6] * df_inv_times_v / Np
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -655,7 +655,7 @@ def vlasov_maxwell(
 @stack_array("b", "b_prod", "dfm", "df_inv", "df_inv_tg_inv", "tmp1", "tmp2")
 def cc_lin_mhd_6d_1(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat12: "float[:,:,:,:,:,:]",
@@ -823,9 +823,9 @@ def cc_lin_mhd_6d_1(
 
     #$ omp end parallel
 
-    mat12 /= n_markers_tot
-    mat13 /= n_markers_tot
-    mat23 /= n_markers_tot
+    mat12 /= Np
+    mat13 /= Np
+    mat23 /= Np
 
 
 @stack_array(
@@ -846,7 +846,7 @@ def cc_lin_mhd_6d_1(
 )
 def cc_lin_mhd_6d_2(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -1097,22 +1097,22 @@ def cc_lin_mhd_6d_2(
 
     #$ omp end parallel
 
-    mat11 /= n_markers_tot
-    mat12 /= n_markers_tot
-    mat13 /= n_markers_tot
-    mat22 /= n_markers_tot
-    mat23 /= n_markers_tot
-    mat33 /= n_markers_tot
+    mat11 /= Np
+    mat12 /= Np
+    mat13 /= Np
+    mat22 /= Np
+    mat23 /= Np
+    mat33 /= Np
 
-    vec1 /= n_markers_tot
-    vec2 /= n_markers_tot
-    vec3 /= n_markers_tot
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
 
 
 @stack_array("dfm", "df_t", "df_inv", "df_inv_t", "filling_m", "filling_v", "tmp1", "v", "tmp_v")
 def pc_lin_mhd_6d_full(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11_11: "float[:,:,:,:,:,:]",
@@ -1237,8 +1237,8 @@ def pc_lin_mhd_6d_full(
 
         weight = markers[ip, 8]
 
-        filling_m[:, :] = weight * tmp1 / n_markers_tot * scale_mat
-        filling_v[:] = weight * tmp_v / n_markers_tot * scale_vec
+        filling_m[:, :] = weight * tmp1 / Np * scale_mat
+        filling_v[:] = weight * tmp_v / Np * scale_vec
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure_full(
@@ -1309,7 +1309,7 @@ def pc_lin_mhd_6d_full(
 @stack_array("dfm", "df_inv_t", "df_inv", "filling_m", "filling_v", "tmp1", "v", "tmp_v")
 def pc_lin_mhd_6d(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11_11: "float[:,:,:,:,:,:]",
@@ -1479,28 +1479,28 @@ def pc_lin_mhd_6d(
             v[1],
         )
 
-    mat11_11 /= n_markers_tot
-    mat12_11 /= n_markers_tot
-    mat13_11 /= n_markers_tot
-    mat22_11 /= n_markers_tot
-    mat23_11 /= n_markers_tot
-    mat33_11 /= n_markers_tot
-    mat11_12 /= n_markers_tot
-    mat12_12 /= n_markers_tot
-    mat13_12 /= n_markers_tot
-    mat22_12 /= n_markers_tot
-    mat23_12 /= n_markers_tot
-    mat33_12 /= n_markers_tot
-    mat11_22 /= n_markers_tot
-    mat12_22 /= n_markers_tot
-    mat13_22 /= n_markers_tot
-    mat22_22 /= n_markers_tot
-    mat23_22 /= n_markers_tot
-    mat33_22 /= n_markers_tot
+    mat11_11 /= Np
+    mat12_11 /= Np
+    mat13_11 /= Np
+    mat22_11 /= Np
+    mat23_11 /= Np
+    mat33_11 /= Np
+    mat11_12 /= Np
+    mat12_12 /= Np
+    mat13_12 /= Np
+    mat22_12 /= Np
+    mat23_12 /= Np
+    mat33_12 /= Np
+    mat11_22 /= Np
+    mat12_22 /= Np
+    mat13_22 /= Np
+    mat22_22 /= Np
+    mat23_22 /= Np
+    mat33_22 /= Np
 
-    vec1_1 /= n_markers_tot
-    vec2_1 /= n_markers_tot
-    vec3_1 /= n_markers_tot
-    vec1_2 /= n_markers_tot
-    vec2_2 /= n_markers_tot
-    vec3_2 /= n_markers_tot
+    vec1_1 /= Np
+    vec2_1 /= Np
+    vec3_1 /= Np
+    vec1_2 /= Np
+    vec2_2 /= Np
+    vec3_2 /= Np
