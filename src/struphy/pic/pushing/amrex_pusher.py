@@ -58,16 +58,16 @@ def push_eta_stage(
     temp = dt * a[stage] * k
     markers_array["x"][:] = (
         markers_array["real_comp0"][:]
-        + temp[0]
+        + temp[:, 0]
         + last*markers_array["real_comp0"][:]
     )
     markers_array["y"][:] = (
         markers_array["real_comp1"][:]
-        + temp[1]
+        + temp[:, 1]
         + last*markers_array["real_comp1"][:]
     )
     markers_array["z"][:] = (
         markers_array["real_comp2"][:]
-        + temp[2]
+        + temp[:, 2]
         + last*markers_array["real_comp2"][:]
     )

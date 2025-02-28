@@ -24,7 +24,7 @@ def test_amrex_box(plot=False, verbose=False):
 
     # mandatory parameters
     name = 'test'
-    Np = 15
+    Np = 2
     bc = ['periodic', 'periodic', 'periodic']
     loading = 'pseudo_random'
 
@@ -200,7 +200,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     # initialize amrex
     amrex = Amrex()
-    
+
     # instantiate Particle object
     name = 'test'
     Np = 15
@@ -208,12 +208,12 @@ def test_amrex_cylinder(plot=False, verbose=False):
     loading = 'pseudo_random'
     loading_params = {'seed': None}
 
-    particles = Particles6D(name=name,
-                            Np=Np,
-                            bc=bc,
-                            loading=loading,
-                            loading_params=loading_params,
-                            amrex=amrex)
+    amrex_particles = Particles6D(name=name,
+                                  Np=Np,
+                                  bc=bc,
+                                  loading=loading,
+                                  loading_params=loading_params,
+                                  amrex=amrex)
 
     # instantiate another Particle object
     name = 'test_uni'
@@ -225,11 +225,11 @@ def test_amrex_cylinder(plot=False, verbose=False):
                                 loading_params=loading_params,
                                 amrex=amrex)
 
-    particles.draw_markers()
+    amrex_particles.draw_markers()
     particles_uni.draw_markers()
 
     # positions on the physical domain Omega
-    pushed_pos = domain(particles.positions).T
+    pushed_pos = domain(amrex_particles.positions).T
     pushed_pos_uni = domain(particles_uni.positions).T
 
     if plot:
@@ -257,35 +257,46 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
         plt.savefig("./disc_uniform_amrex.jpg")
 
+####################################################################################
+
     # instantiate Particle object
     name = 'test'
-    Np = 15
+    Np = 2
     bc = ['periodic', 'periodic', 'periodic']
     loading = 'pseudo_random'
     loading_params = {'seed': None}
 
-    particles = Particles6D(name=name,
-                            Np=Np,
-                            bc=bc,
-                            loading=loading,
-                            domain=domain,
-                            loading_params=loading_params,
-                            amrex=amrex)
+    amrex_particles = Particles6D(name=name,
+                                  Np=Np,
+                                  bc=bc,
+                                  loading=loading,
+                                  domain=domain,
+                                  loading_params=loading_params,
+                                  amrex=amrex)
 
-    particles.draw_markers()
+    struphy_particles = Particles6D(name=name,
+                                    Np=Np,
+                                    bc=bc,
+                                    loading=loading,
+                                    domain=domain,
+                                    loading_params=loading_params)
+
+    amrex_particles.draw_markers()
+    struphy_particles.draw_markers()
 
     # positions on the physical domain Omega
-    pushed_pos = domain(particles.positions).T
+    amrex_pushed_pos = domain(amrex_particles.positions).T
+    struphy_pushed_pos = domain(struphy_particles.positions).T
 
     colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
     if plot:
         fig = plt.figure()
         ax = fig.gca()
 
-        for n, pos in enumerate(pushed_pos):
+        for n, pos in enumerate(amrex_pushed_pos):
             ax.scatter(pos[0], pos[1], c=colors[n % 4])
-            ax.arrow(pos[0], pos[1], particles.velocities[n, 0],
-                     particles.velocities[n, 1], color=colors[n % 4], head_width=.2)
+            ax.arrow(pos[0], pos[1], amrex_particles.velocities[n, 0],
+                     amrex_particles.velocities[n, 1], color=colors[n % 4], head_width=.2)
 
         circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
 
@@ -293,25 +304,45 @@ def test_amrex_cylinder(plot=False, verbose=False):
         ax.set_aspect('equal')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
-        ax.set_title('Initial conditions')
+        ax.set_title('Initial conditions (amrex)')
         plt.savefig("./initial_cylinder_amrex.jpg")
+
+        fig = plt.figure()
+        ax = fig.gca()
+
+        for n, pos in enumerate(struphy_pushed_pos):
+            ax.scatter(pos[0], pos[1], c=colors[n % 4])
+            ax.arrow(pos[0], pos[1], struphy_particles.velocities[n, 0],
+                     struphy_particles.velocities[n, 1], color=colors[n % 4], head_width=.2)
+
+        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+
+        ax.add_patch(circle1)
+        ax.set_aspect('equal')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title('Initial conditions (struphy)')
+        plt.savefig("./initial_cylinder_struphy.jpg")
 
     # pass simulation parameters to Propagator class
     PushEta.options(default=True)
     PushEta.domain = domain
 
     # instantiate Propagator object
-    prop_eta = PushEta(particles)
+    amrex_prop_eta = PushEta(amrex_particles)
+    struphy_prop_eta = PushEta(struphy_particles)
 
     # time stepping
     Tend = 10.
     dt = .2
     Nt = int(Tend / dt)
 
-    pos = np.zeros((Nt + 1, Np, 3), dtype=float)
+    amrex_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
+    struphy_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
     alpha = np.ones(Nt + 1, dtype=float)
 
-    pos[0] = pushed_pos
+    amrex_pos[0] = amrex_pushed_pos
+    struphy_pos[0] = struphy_pushed_pos
 
     time = 0.
     n = 0
@@ -323,18 +354,23 @@ def test_amrex_cylinder(plot=False, verbose=False):
         n += 1
 
         # advance in time
-        prop_eta(dt)
+        struphy_prop_eta(dt)
+        amrex_prop_eta(dt)
 
         # positions on the physical domain Omega
-        pos[n] = domain(particles.positions).T
+        amrex_pos[n] = domain(amrex_particles.positions).T
+        struphy_pos[n] = domain(struphy_particles.positions).T
 
         # scaling for plotting
         alpha[n] = (Tend - time)/Tend
 
     if plot:
+        fig = plt.figure()
+        ax = fig.gca()
+
         # make scatter plot for each particle in xy-plane
         for i in range(Np):
-            ax.scatter(pos[:, i, 0], pos[:, i, 1], c=colors[i % 4], alpha=alpha)
+            ax.scatter(amrex_pos[:, i, 0], amrex_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
 
         circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
 
@@ -342,13 +378,29 @@ def test_amrex_cylinder(plot=False, verbose=False):
         ax.set_aspect('equal')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
-        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0)')
+        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (amrex)')
 
         plt.savefig("./final_cylinder_amrex.jpg")
+
+        fig = plt.figure()
+        ax = fig.gca()
+
+        for i in range(Np):
+            ax.scatter(struphy_pos[:, i, 0], struphy_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
+
+        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+
+        ax.add_patch(circle1)
+        ax.set_aspect('equal')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (struphy)')
+
+        plt.savefig("./final_cylinder_struphy.jpg")
 
     # finalize amrex
     amrex.finalize()
 
 
 if __name__ == "__main__":
-    test_amrex_cylinder(plot=True, verbose=True)
+    test_amrex_box(plot=True, verbose=True)
