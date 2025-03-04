@@ -1975,7 +1975,7 @@ def push_gc_cc_J1_Hdiv(
         # b_star; 2form in H1vec
         b_star[:] = (b + curl_norm_b*v*epsilon)
 
-        # calculate abs_b_star_para
+        # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
@@ -2163,7 +2163,7 @@ def push_gc_cc_J2_stage_H1vec(
             dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b1_prod')
+@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'norm_b2', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b_prod')
 def push_gc_cc_J2_stage_Hdiv(
     dt: float,
     stage: int,
@@ -2173,9 +2173,10 @@ def push_gc_cc_J2_stage_Hdiv(
     epsilon: float,
     b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+    norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-    a: 'float[:]', b: 'float[:]', c: 'float[:]', boundary_cut: float,
+    a: 'float[:]', b: 'float[:]', c: 'float[:]', boundary_cut: float, old_scheme: bool,
 ):
     r'''Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
@@ -2198,12 +2199,13 @@ def push_gc_cc_J2_stage_Hdiv(
     tmp1 = zeros((3, 3), dtype=float)
     tmp2 = zeros((3, 3), dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    norm_b1_prod = zeros((3, 3), dtype=float)
+    norm_b_prod = zeros((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
     bb = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
     # get marker arguments
@@ -2281,6 +2283,16 @@ def push_gc_cc_J2_stage_Hdiv(
             norm_b1,
         )
 
+        # norm_b2; 2form
+        eval_2form_spline_mpi(
+            span1, span2, span3,
+            args_derham,
+            norm_b21,
+            norm_b22,
+            norm_b23,
+            norm_b2,
+        )
+
         # curl_norm_b; 2form
         eval_2form_spline_mpi(
             span1, span2, span3,
@@ -2299,24 +2311,42 @@ def push_gc_cc_J2_stage_Hdiv(
         b_prod[2, 0] = -bb[1]
         b_prod[2, 1] = +bb[0]
 
-        norm_b1_prod[0, 1] = -norm_b1[2]
-        norm_b1_prod[0, 2] = +norm_b1[1]
-        norm_b1_prod[1, 0] = +norm_b1[2]
-        norm_b1_prod[1, 2] = -norm_b1[0]
-        norm_b1_prod[2, 0] = -norm_b1[1]
-        norm_b1_prod[2, 1] = +norm_b1[0]
+        if old_scheme:
+            norm_b_prod[0, 1] = -norm_b2[2]
+            norm_b_prod[0, 2] = +norm_b2[1]
+            norm_b_prod[1, 0] = +norm_b2[2]
+            norm_b_prod[1, 2] = -norm_b2[0]
+            norm_b_prod[2, 0] = -norm_b2[1]
+            norm_b_prod[2, 1] = +norm_b2[0]
 
-        # b_star; 2form in H1vec
+        else:
+            norm_b_prod[0, 1] = -norm_b1[2]
+            norm_b_prod[0, 2] = +norm_b1[1]
+            norm_b_prod[1, 0] = +norm_b1[2]
+            norm_b_prod[1, 2] = -norm_b1[0]
+            norm_b_prod[2, 0] = -norm_b1[1]
+            norm_b_prod[2, 1] = +norm_b1[0]
+
+        # b_star; 2form
         b_star[:] = (bb + curl_norm_b*v*epsilon)
 
-        # calculate abs_b_star_para
+        # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg_kernels.matrix_matrix(norm_b1_prod, b_prod, tmp1)
-        linalg_kernels.matrix_vector(tmp1, u, e)
+        if old_scheme:
+            linalg_kernels.matrix_matrix(g_inv, norm_b_prod, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
+            linalg_kernels.matrix_vector(tmp1, u, e)
 
-        e /= abs_b_star_para
-        e /= det_df
+            e /= abs_b_star_para
+
+        else:
+            linalg_kernels.matrix_matrix(norm_b_prod, b_prod, tmp1)
+            linalg_kernels.matrix_vector(tmp1, u, e)
+
+            e /= abs_b_star_para
+            e /= det_df
 
         # accumulation for last stage
         markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e

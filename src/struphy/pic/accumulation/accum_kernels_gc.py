@@ -397,7 +397,7 @@ def cc_lin_mhd_5d_J1(
         # b_star; 2form in H1vec
         b_star[:] = (b + curl_norm_b * v * epsilon)
 
-        # calculate abs_b_star_para
+        # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # calculate tensor product of two curl_norm_b
@@ -419,11 +419,8 @@ def cc_lin_mhd_5d_J1(
         linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
         linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-        filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**4 * scale_mat
-        filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df**2 * scale_vec
-
-        #filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
-        #filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para * scale_vec
+        filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+        filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v2_symm(
@@ -565,13 +562,16 @@ def cc_lin_mhd_5d_M(
     "g_inv",
     "filling_v",
     "tmp",
+    "tmp1",
+    "tmp2",
     "tmp_v",
     "b",
     "b_prod",
-    "norm_b1_prod",
+    "norm_b_prod",
     "b_star",
     "curl_norm_b",
     "norm_b1",
+    "norm_b2",
     "grad_PBeq",
     "grad_PBtilde",
 )
@@ -596,6 +596,9 @@ def cc_lin_mhd_5d_J2(
     norm_b11: "float[:,:,:]",  # model specific argument
     norm_b12: "float[:,:,:]",  # model specific argument
     norm_b13: "float[:,:,:]",  # model specific argument
+    norm_b21: "float[:,:,:]",  # model specific argument
+    norm_b22: "float[:,:,:]",  # model specific argument
+    norm_b23: "float[:,:,:]",  # model specific argument
     curl_norm_b1: "float[:,:,:]",  # model specific argument
     curl_norm_b2: "float[:,:,:]",  # model specific argument
     curl_norm_b3: "float[:,:,:]",  # model specific argument
@@ -610,6 +613,7 @@ def cc_lin_mhd_5d_J2(
     scale_mat: "float",  # model specific argument
     scale_vec: "float",  # model specific argument
     boundary_cut: "float",  # model specific argument
+    old_scheme: "bool",
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
 
@@ -647,12 +651,15 @@ def cc_lin_mhd_5d_J2(
     b = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    norm_b1_prod = zeros((3, 3), dtype=float)
+    norm_b_prod = zeros((3, 3), dtype=float)
     curl_norm_b = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
     grad_PBeq = empty(3, dtype=float)
     grad_PBtilde = empty(3, dtype=float)
     tmp = empty((3, 3), dtype=float)
+    tmp1 = empty((3, 3), dtype=float)
+    tmp2 = empty((3, 3), dtype=float)
     tmp_v = empty(3, dtype=float)
 
     # allocate for metric coeffs
@@ -705,6 +712,9 @@ def cc_lin_mhd_5d_J2(
         # norm_b1; 1form
         eval_1form_spline_mpi(span1, span2, span3, args_derham, norm_b11, norm_b12, norm_b13, norm_b1)
 
+        # norm_b2; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, norm_b21, norm_b22, norm_b23, norm_b2)
+
         # curl_norm_b; 2form
         eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
 
@@ -728,29 +738,52 @@ def cc_lin_mhd_5d_J2(
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] = +b[0]
 
-        norm_b1_prod[0, 1] = -norm_b1[2]
-        norm_b1_prod[0, 2] = +norm_b1[1]
-        norm_b1_prod[1, 0] = +norm_b1[2]
-        norm_b1_prod[1, 2] = -norm_b1[0]
-        norm_b1_prod[2, 0] = -norm_b1[1]
-        norm_b1_prod[2, 1] = +norm_b1[0]
+        if old_scheme:
+            norm_b_prod[0, 1] = -norm_b2[2]
+            norm_b_prod[0, 2] = +norm_b2[1]
+            norm_b_prod[1, 0] = +norm_b2[2]
+            norm_b_prod[1, 2] = -norm_b2[0]
+            norm_b_prod[2, 0] = -norm_b2[1]
+            norm_b_prod[2, 1] = +norm_b2[0]
+
+        else:
+            norm_b_prod[0, 1] = -norm_b1[2]
+            norm_b_prod[0, 2] = +norm_b1[1]
+            norm_b_prod[1, 0] = +norm_b1[2]
+            norm_b_prod[1, 2] = -norm_b1[0]
+            norm_b_prod[2, 0] = -norm_b1[1]
+            norm_b_prod[2, 1] = +norm_b1[0]
 
         assert basis_u == 2
 
-        linalg_kernels.matrix_matrix(b_prod, norm_b1_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+        if old_scheme:
+            linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, norm_b_prod, tmp2)
+            linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-        filling_v[:] = dweight * tmp_v * mu / abs_b_star_para / det_df**2 * scale_vec
-        #filling_v[:] = dweight * tmp_v * mu / abs_b_star_para * scale_vec
+            linalg_kernels.matrix_vector(tmp1, grad_PBeq, tmp_v)
 
-        if higher_order:
+            filling_v[:] = dweight * tmp_v * mu / abs_b_star_para * scale_vec
 
-            linalg_kernels.matrix_matrix(b_prod, norm_b1_prod, tmp)
-            linalg_kernels.matrix_vector(tmp, grad_PBtilde, tmp_v)
+            if higher_order:
+                linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
+                linalg_kernels.matrix_matrix(tmp1, norm_b_prod, tmp2)
+                linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df**2 * scale_vec
-            #filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
+                linalg_kernels.matrix_vector(tmp1, grad_PBtilde, tmp_v)
 
+                filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
+        else:
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] = dweight * tmp_v * mu / abs_b_star_para /det_df * scale_vec
+
+            if higher_order:
+                linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+                linalg_kernels.matrix_vector(tmp, grad_PBtilde, tmp_v)
+
+                filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.vec_fill_v2(

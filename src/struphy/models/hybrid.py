@@ -810,6 +810,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
                 "higher_order": params_cc_gradB["higher_order"],
+                "old_scheme": params_cc_gradB["old_scheme"],
             }
 
         if params_cc_curlb["turn_off"]:

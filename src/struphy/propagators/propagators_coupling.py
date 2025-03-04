@@ -2108,6 +2108,7 @@ class CurrentCoupling5DGradB(Propagator):
             "e3": 0.0,
         }
         dct["higher_order"] = True
+        dct["old_scheme"] = False
         dct["turn_off"] = False
 
         if default:
@@ -2135,6 +2136,7 @@ class CurrentCoupling5DGradB(Propagator):
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
         higher_order: bool = options(default=True)["higher_order"],
+        old_scheme: bool = options(default=True)["old_scheme"],
     ):
         from psydac.linalg.solvers import inverse
 
@@ -2170,6 +2172,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._boundary_cut_e1 = boundary_cut["e1"]
 
         self._higher_order = higher_order
+        self._old_scheme = old_scheme
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops["0"].transpose()
@@ -2226,6 +2229,9 @@ class CurrentCoupling5DGradB(Propagator):
             self._unit_b1[0]._data,
             self._unit_b1[1]._data,
             self._unit_b1[2]._data,
+            self._unit_b2[0]._data,
+            self._unit_b2[1]._data,
+            self._unit_b2[2]._data,
             self._curl_norm_b[0]._data,
             self._curl_norm_b[1]._data,
             self._curl_norm_b[2]._data,
@@ -2240,6 +2246,7 @@ class CurrentCoupling5DGradB(Propagator):
             self._coupling_mat,
             self._coupling_vec,
             self._boundary_cut_e1,
+            self._old_scheme,
         )
 
         self._ACC = Accumulator(
@@ -2463,6 +2470,9 @@ class CurrentCoupling5DGradB(Propagator):
                 self._unit_b1[0]._data,
                 self._unit_b1[1]._data,
                 self._unit_b1[2]._data,
+                self._unit_b2[0]._data,
+                self._unit_b2[1]._data,
+                self._unit_b2[2]._data,
                 self._curl_norm_b[0]._data,
                 self._curl_norm_b[1]._data,
                 self._curl_norm_b[2]._data,
@@ -2473,6 +2483,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._butcher.b,
                 self._butcher.c,
                 self._boundary_cut_e1,
+                self._old_scheme,
             )
 
             self.particles[0].mpi_sort_markers()
