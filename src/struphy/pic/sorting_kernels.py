@@ -49,7 +49,19 @@ def find_box(
     nz: "int",
     domain_array: "float[:]",
 ):
-    """Return the number of the box in which the point (eta1, eta2, eta3) is located, or -1 if the point is not on the process."""
+    """Return the number of the box in which the point (eta1, eta2, eta3) is located, or -1 if the point is not on the process.
+
+    Parameters
+    ----------
+    eta1, eta2, eta3 : array
+        Logical evaluation points.
+
+    nx, ny, nz : int
+        Number of boxes in each dimension.
+
+    domain_array : array
+        Information of the domain on the current mpi process.
+    """
     # Leave some room before and after the end of the domain for the box coming from neighbouring processes
 
     x_l = domain_array[0] - (domain_array[1] - domain_array[0]) / nx

@@ -21,7 +21,7 @@ from struphy.pic.particles import ParticlesSPH
         ["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}],
     ],
 )
-@pytest.mark.parametrize("Np", [400000])
+@pytest.mark.parametrize("Np", [40000])
 def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     mpi_comm = MPI.COMM_WORLD
 
@@ -31,8 +31,8 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
-    params_sorting = {"nx": 3, "ny": 3, "nz": 3, "eps": 0.25}
-    params_loading = {"seed": 1607, "moments": "degenerate", "spatial": "uniform"}
+    boxes_per_dim = (14, 15, 16)
+    params_loading = {"seed": 1607}
 
     bckgr_params = {
         "ConstantVelocity": {"density_profile": "affine", "ux": 1.0, "uy": 0.0, "uz": 0.0, "n": 1.0, "n1": 0.1},
@@ -40,16 +40,14 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     }
 
     particles = ParticlesSPH(
-        "test_particles",
+        comm=mpi_comm,
         Np=Np,
         bc=["periodic", "periodic", "periodic"],
-        loading="pseudo_random",
         eps=10.0,  # Lots a buffering needed since only 3*3*3 box
-        comm=mpi_comm,
         loading_params=params_loading,
         domain=domain,
         bckgr_params=bckgr_params,
-        sorting_params=params_sorting,
+        boxes_per_dim=boxes_per_dim,
     )
 
     particles.draw_markers(sort=False)
@@ -58,7 +56,10 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     eta1 = np.array([0.5])
     eta2 = np.array([0.5])
     eta3 = np.array([0.5])
-    test_eval = particles.eval_density(eta1, eta2, eta3, h=1 / (3 * mpi_comm.Get_size()))
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+    test_eval = particles.eval_density(eta1, eta2, eta3, h1=h1, h2=h2, h3=h3)
 
     assert abs(test_eval[0] - 1.15) < 3.0e-2
 

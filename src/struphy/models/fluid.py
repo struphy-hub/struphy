@@ -1375,6 +1375,107 @@ class ViscoresistiveMHD_with_p(StruphyModel):
     __diagnostics__ = diagnostics_dct()
 
 
+class IsothermalEulerSPH(StruphyModel):
+    r"""Isothermal Euler equations discretized with smoothed particle hydrodynamics (SPH).
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u =  \hat v_\textnormal{th} \,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        \begin{align}
+        \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
+        \\[2mm]
+        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right)\,,
+        \\[2mm]
+        \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
+        \end{align}
+
+    where :math:`S` denotes the entropy per unit mass and the internal energy per unit mass is
+
+    .. math::
+
+        \mathcal U(\rho, S) = \kappa(S) \log \rho\,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_markers.PushEta`
+    2. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
+
+    :ref:`Model info <add_model>`:
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["kinetic"]["euler_fluid"] = "ParticlesSPH"
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "euler_fluid"
+
+    @staticmethod
+    def velocity_scale():
+        return "thermal"
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["projected_density"] = "L2"
+        return dct
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_markers.PushEta: ["euler_fluid"], propagators_markers.PushVinSPHpressure: ["euler_fluid"]}
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    def __init__(self, params, comm, inter_comm=None):
+        super().__init__(params, comm, inter_comm=inter_comm)
+
+        # prelim
+        _p = self.kinetic["euler_fluid"]["params"]
+        algo_eta = _p["options"]["PushEta"]["algo"]
+        kernel_type = _p["options"]["PushVinSPHpressure"]["kernel_type"]
+        algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_markers.PushEta] = {
+            "algo": algo_eta,
+            "density_field": self.pointer["projected_density"],
+        }
+
+        self._kwargs[propagators_markers.PushVinSPHpressure] = {
+            "kernel_type": kernel_type,
+            "algo": algo_sph,
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar("en_kin", compute="from_particles", species="euler_fluid")
+
+    def update_scalar_quantities(self):
+        valid_markers = self.pointer["euler_fluid"].markers_wo_holes_and_ghost
+        en_kin = valid_markers[:, 6].dot(
+            valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2
+        ) / (2.0 * self.pointer["euler_fluid"].Np)
+        self.update_scalar("en_kin", en_kin)
+
+
 class Stokeslike(StruphyModel):
     r"""Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
         return np.power(rho, gam) * np.exp(s / rho)

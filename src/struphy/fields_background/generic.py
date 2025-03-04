@@ -37,15 +37,12 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
         self._n_xyz = n_xyz
 
     def u_xyz(self, x, y, z):
-        assert x.shape == y.shape == z.shape
         return self._u_xyz(x, y, z)
 
     def p_xyz(self, x, y, z):
-        assert x.shape == y.shape == z.shape
         return self._p_xyz(x, y, z)
 
     def n_xyz(self, x, y, z):
-        assert x.shape == y.shape == z.shape
         return self._n_xyz(x, y, z)
 
 
@@ -76,9 +73,7 @@ class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
         self._gradB_xyz = gradB_xyz
 
     def b_xyz(self, x, y, z):
-        assert x.shape == y.shape == z.shape
         return self._b_xyz(x, y, z)
 
     def gradB_xyz(self, x, y, z):
-        assert x.shape == y.shape == z.shape
         return self._gradB_xyz(x, y, z)

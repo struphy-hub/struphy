@@ -11,6 +11,7 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -53,13 +54,13 @@ def push_v_with_efield(
     """
 
     # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinvt = empty((3, 3), dtype=float)
+    dfm = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvt = zeros((3, 3), dtype=float)
 
     # allocate for field evaluations (1-form and Cartesian components)
-    e_form = empty(3, dtype=float)
-    e_cart = empty(3, dtype=float)
+    e_form = zeros(3, dtype=float)
+    e_cart = zeros(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -86,8 +87,7 @@ def push_v_with_efield(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
         linalg_kernels.transpose(dfinv, dfinvt)
 
         # spline evaluation
@@ -164,7 +164,7 @@ def push_vxb_analytic(
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         e1 = markers[ip, 0]
@@ -2761,11 +2761,12 @@ def push_weights_with_efield_lin_va(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
 
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
     #$ omp for
     for ip in range(n_markers):
-        if markers[ip, 0] == -1:
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         # position
@@ -2971,5 +2972,153 @@ def push_random_diffusion_stage(
             continue
 
         markers[ip, 0:3] += sqrt(2 * dt * diffusion_coeff) * noise[ip, :]
+
+    #$ omp end parallel
+
+
+@stack_array("dfm", "dfinv", "dfinvt", "e_form", "e_cart")
+def push_v_sph_pressure_2d(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    boxes: "int[:,:]",
+    neighbours: "int[:, :]",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+):
+    r"""Updates particle velocities as
+
+    .. math::
+
+        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = c \, \bar{DF}^{-\top}  (\mathbb L^1)^\top \mathbf e
+
+    where :math:`\mathbf e \in \mathbb R^{N_1}` are given FE coefficients of the 1-form spline field
+    and :math:`c \in \mathbb R` is some constant.
+
+    Parameters
+    ----------
+        e1_1, e1_2, e1_3 : ndarray[float]
+            3d array of FE coeffs of E-field as 1-form.
+
+        const : float
+            A constant (usuallly related to the charge-to-mass ratio).
+    """
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
+    first_free_idx = args_markers.first_free_idx
+    first_diagnostics_idx = args_markers.first_diagnostics_idx
+
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp for
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        weight = markers[ip, weight_idx]
+        kappa = 1.0  # markers[ip, first_diagnostics_idx]
+        n_at_eta = markers[ip, first_free_idx]
+        loc_box = int(markers[ip, -2])
+        out1_comp1 = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            weight_idx,
+            kernel_type + 1,
+            h1,
+            h2,
+            h3,
+        )
+        out1_comp1 *= kappa * weight / n_at_eta
+
+        out1_comp2 = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            weight_idx,
+            kernel_type + 2,
+            h1,
+            h2,
+            h3,
+        )
+        out1_comp2 *= kappa * weight / n_at_eta
+
+        out2_comp1 = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            first_free_idx + 1,
+            kernel_type + 1,
+            h1,
+            h2,
+            h3,
+        )
+        out2_comp1 *= kappa * weight
+
+        out2_comp2 = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            first_free_idx + 1,
+            kernel_type + 2,
+            h1,
+            h2,
+            h3,
+        )
+
+        out2_comp2 *= kappa * weight
+
+        # update velocities
+        markers[ip, 3] -= dt * (out1_comp1 + out2_comp1)
+        markers[ip, 4] -= dt * (out1_comp2 + out2_comp2)
 
     #$ omp end parallel

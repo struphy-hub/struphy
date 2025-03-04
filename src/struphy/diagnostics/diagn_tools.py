@@ -521,7 +521,7 @@ def plot_distr_fun(
         del delta_f
 
 
-def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, path, model_name, background_params=None):
+def video_2d(t_grid, grid_slices, slice_name, marker_type, species, path, model_name, background_params=None):
     """Create a video of all 2D slices of the distribution function over time.
 
     Parameters
@@ -575,7 +575,6 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         grid_slices=grid_slices,
         data_path=data_path,
         slice_name=slice_name,
-        species=species,
     )
 
     # Make plot series for each 2D slice
@@ -583,8 +582,9 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         # Get indices of where to plot in other directions
         grid_idxs = {}
         for k in range(df_data.ndim - 1):
-            grid_idxs[directions[k]] = np.argmin(
-                np.abs(grids[k] - grid_slices[directions[k]]),
+            direc = directions[k]
+            grid_idxs[direc] = np.argmin(
+                np.abs(grids[direc] - grid_slices[direc]),
             )
 
         eta_grid = np.load(
@@ -616,7 +616,7 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
 
         os.mkdir(imgs_folder)
 
-        phase_space_plots(
+        plots_2d(
             t_grid=t_grid,
             eta_grid=eta_grid,
             v_grid=v_grid,
@@ -671,8 +671,8 @@ def phase_space_video(t_grid, grid_slices, slice_name, marker_type, species, pat
         video.release()
 
 
-def phase_space_plots(t_grid, eta_grid, v_grid, df_binned, save_path, model_name, eta_label=None, v_label=None):
-    """Create a time series of phase space plots for given delta-f data
+def plots_2d(t_grid, eta_grid, v_grid, df_binned, save_path, model_name, eta_label=None, v_label=None):
+    """Create a time series of 2d plots for given delta-f data
 
     Parameters
     ----------
@@ -735,8 +735,17 @@ def phase_space_plots(t_grid, eta_grid, v_grid, df_binned, save_path, model_name
         plt.clf()
 
 
-def phase_space_overview(
-    t_grid, grid_slices, slice_name, marker_type, species, path, model_name, background_params=None
+def overview_2d(
+    t_grid,
+    grid_slices,
+    slice_name,
+    marker_type,
+    species,
+    path,
+    model_name,
+    background_params=None,
+    show_plot=False,
+    save_plot=True,
 ):
     """Create an overview 2D slices of the distribution function for 6 different times.
 
@@ -766,6 +775,12 @@ def phase_space_overview(
 
     background_params : dict [optional]
         parameters of the maxwellian background type if a full_f method was used
+
+    show_plot : boolean | Default = False
+        Display the figure if True.
+
+    save_plot : boolean | Default = False
+        Save the figure if True. Then a path has to be given.
     """
     # Make sure that the slice that was saved during the simulation is at least 2D
     if "_" not in slice_name:
@@ -786,7 +801,6 @@ def phase_space_overview(
         grid_slices=grid_slices,
         data_path=data_path,
         slice_name=slice_name,
-        species=species,
     )
 
     # Make plot series for each 2D slice
@@ -794,8 +808,9 @@ def phase_space_overview(
         # Get indices of where to plot in other directions
         grid_idxs = {}
         for k in range(df_data.ndim - 1):
-            grid_idxs[directions[k]] = np.argmin(
-                np.abs(grids[k] - grid_slices[directions[k]]),
+            direc = directions[k]
+            grid_idxs[direc] = np.argmin(
+                np.abs(grids[direc] - grid_slices[direc]),
             )
 
         eta_grid = np.load(
@@ -873,20 +888,25 @@ def phase_space_overview(
 
         cbar_ax = fig.add_axes([0.9, 0.1, 0.02, 0.7])
         plt.colorbar(im, cax=cbar_ax)
-        # plt.show()
-        plt.savefig(
-            os.path.join(
-                imgs_folder,
-                "overview.png",
-            ),
-            dpi=150,
-        )
+
+        if show_plot:
+            plt.show()
+
+        if save_plot:
+            plt.savefig(
+                os.path.join(
+                    imgs_folder,
+                    "overview.png",
+                ),
+                dpi=150,
+            )
+
         plt.clf()
 
+    plt.close("all")
 
-def get_slices_grids_directions_and_df_data(
-    marker_type, grid_slices, data_path, slice_name, species, background_params=None
-):
+
+def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path, slice_name, background_params=None):
     """Prepare the lists of slices, grids, and directions form the given data and extract the delta-f data.
 
     Parameters
@@ -903,9 +923,6 @@ def get_slices_grids_directions_and_df_data(
 
     slice_name : str
         The name of the slicing, e.g. e2_v1_v2
-
-    species : str
-        the name of the species
 
     background_params : dict [optional]
         parameters of the maxwellian background type if a full_f method was used
@@ -928,13 +945,11 @@ def get_slices_grids_directions_and_df_data(
     directions = slice_name.split("_")
 
     # Load all the grids
-    grids = []
+    grids = {}
     for direction in directions:
-        grids += [
-            np.load(
-                os.path.join(data_path, "grid_" + direction + ".npy"),
-            ),
-        ]
+        grids[direction] = np.load(
+            os.path.join(data_path, "grid_" + direction + ".npy"),
+        )
 
     # If simulation was for full-f subtract the background function
     if marker_type == "full_f":
@@ -972,11 +987,9 @@ def get_slices_grids_directions_and_df_data(
                 )(maxw_params=maxw_params)
 
         bckgr_grids = []
-        k = 0
         for direc in ["e1", "e2", "e3", "v1", "v2", "v3"]:
             if direc in directions:
-                bckgr_grids += [grids[k]]
-                k += 1
+                bckgr_grids += [grids[direc]]
             else:
                 bckgr_grids += [np.array(grid_slices[direc])]
 
@@ -1009,9 +1022,8 @@ def get_slices_grids_directions_and_df_data(
     # combinations of spatial and velocity dimensions
     slices_2d = []
     for direc1 in directions:
-        if direc1[0] == "e":
-            for direc2 in directions:
-                if direc2[0] == "v":
-                    slices_2d += [direc1 + "_" + direc2]
+        for direc2 in directions:
+            if (direc1 != direc2) and (direc2 + "_" + direc1) not in slices_2d:
+                slices_2d += [direc1 + "_" + direc2]
 
     return slices_2d, grids, directions, df_data

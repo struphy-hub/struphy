@@ -5,7 +5,7 @@ Tl;dr
 
 **Struphy provides easy access to partial differential equations (PDEs) in plasma physics.
 The package combines** *performance* **(for HPC),** *flexibility* **(models and physics features)
-and** *usabilty* **(documentation).**  
+and** *usability* **(documentation).**  
 
 *Performance* in Struphy is achieved using three building blocks:
 
