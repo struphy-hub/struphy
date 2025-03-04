@@ -30,6 +30,14 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
 from struphy.initial import perturbations
+from struphy.feec.projectors import L2Projector
+
+from struphy.linear_algebra.saddle_point import (
+        SaddlePointSolver,
+        SaddlePointSolverGMRES,
+        SaddlePointSolverNoCG,
+        SaddlePointSolverTest,
+    )
 
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -7516,6 +7524,7 @@ class Stokes(Propagator):
         Bp: float = 12.5,
         alpha: 0.1,
         beta: 1.0,
+        eps: 0.0,
     ):
         super().__init__(u, ue, phi)
 
@@ -7533,6 +7542,7 @@ class Stokes(Propagator):
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
+        self._eps = eps
 
         # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
         _A11 = (
@@ -7553,28 +7563,58 @@ class Stokes(Propagator):
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
 
+        ### Restelli###
+        # _forceterm_logical = lambda e1, e2, e3: 0 * e1
+        # _fun = getattr(perturbations, "forcingterm")(
+        #     self._nu, self._R0, self._a, self._B0, self._Bp, self._alpha, self._beta
+        # )
+        # _fun_electrons = getattr(perturbations, "forcingterm")(
+        #     self._nu_e, self._R0, self._a, self._B0, self._Bp, self._alpha, self._beta
+        # )
+
+        # # get callable(s) for specified init type
+        # forceterm_class = [_forceterm_logical, _forceterm_logical, _fun]
+        # forcetermelectrons_class = [_forceterm_logical ,_forceterm_logical, _fun_electrons]
+
+        # # pullback callable
+        # fun = TransformedPformComponent(forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain)
+        # fun_electrons = TransformedPformComponent(
+        #     forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+        # ) 
+        # l2_proj = L2Projector(space_id='Hdiv', mass_ops=self.mass_ops)
+        # self._F1 = l2_proj([_forceterm_logical, _forceterm_logical, fun])
+        # self._F2 = l2_proj([_forceterm_logical, _forceterm_logical, fun_electrons])
+        
+        
+        ### Manufactured solution
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
-        _fun = getattr(perturbations, "forcingterm")(
-            self._nu, self._R0, self._a, self._B0, self._Bp, self._alpha, self._beta
-        )
-        _fun_electrons = getattr(perturbations, "forcingterm")(
-            self._nu_e, self._R0, self._a, self._B0, self._Bp, self._alpha, self._beta
-        )
+        _funx = getattr(perturbations, "ManufacturedSolutionForceterm_x")(self._B0, self._nu)
+        _funy = getattr(perturbations, "ManufacturedSolutionForceterm_y")(self._B0, self._nu)
+        _funelectronsx = getattr(perturbations, "ManufacturedSolutionForcetermElectrons_x")(self._B0, self._nu_e)
+        _funelectronsy = getattr(perturbations, "ManufacturedSolutionForcetermElectrons_y")(self._B0, self._nu_e)
 
         # get callable(s) for specified init type
-        forceterm_class = [_forceterm_logical, _forceterm_logical, _fun]
-        forcetermelectrons_class = [_forceterm_logical ,_forceterm_logical, _fun_electrons]
+        forceterm_class = [_funx, _funy, _forceterm_logical]
+        forcetermelectrons_class = [_funelectronsx, _funelectronsy,_forceterm_logical]
 
         # pullback callable
-        fun = TransformedPformComponent(forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain)
-        fun_electrons = TransformedPformComponent(
-            forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
-        )
-
+        funx = TransformedPformComponent(forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain)
+        funy = TransformedPformComponent(forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain)
+        fun_electronsx = TransformedPformComponent(
+            forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+        ) 
+        fun_electronsy = TransformedPformComponent(
+            forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+        ) 
+        l2_proj = L2Projector(space_id='Hdiv', mass_ops=self.mass_ops)
+        self._F1 = l2_proj([funx, funy, _forceterm_logical])
+        self._F2 = l2_proj([fun_electronsx, fun_electronsy, _forceterm_logical])
+        # self._F1 = self.derham.P["2"]((funx, funy, _forceterm_logical))
+        # self._F2 = self.derham.P["2"]((fun_electronsx, fun_electronsy, _forceterm_logical))
+      
         # Project into discrete Hdiv to define right hand side
-        self._F1 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun))
-        self._F2 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun_electrons))
-
+        # self._F1 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun))
+        # self._F2 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun_electrons))
         if _A12 is not None:
             assert _A11.codomain == _A12.codomain
         if _A21 is not None:
@@ -7609,6 +7649,10 @@ class Stokes(Propagator):
             maxiter=solver["maxiter"],
             verbose=solver["verbose"],
         )
+        
+        # self._solverUzawa = SaddlePointSolverGMRES(
+        #     _A, _B, _F, rho=1e-6, solver_name=solver["type"][0], tol=solver["tol"], max_iter=solver["maxiter"], verbose=solver["verbose"], pc=None
+        # )
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = self._block_codomainM.zeros()
@@ -7623,7 +7667,7 @@ class Stokes(Propagator):
     
         # Define block matrix [[A BT], [B 0]]
         _A11 = (
-            self.mass_ops.M2 / dt
+            1.0*self.mass_ops.M2 / dt
             - self.mass_ops.M2B
             + self._nu
             * (
@@ -7633,10 +7677,10 @@ class Stokes(Propagator):
         )
         _A12 = None
         _A21 = _A12
-        _A22 = self.mass_ops.M2B + self._nu_e * (
+        _A22 =   self._nu_e * (
             self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
             + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
-        )
+        ) + self.mass_ops.M2B + self._eps*IdentityOperator(_A11.domain)
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
 
@@ -7659,7 +7703,7 @@ class Stokes(Propagator):
         # Split diffusive term
         # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(un) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
         #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
-        _blocksF = [self.mass_ops.M2.dot(self._F1) + 1 / dt * self.mass_ops.M2.dot(un), self.mass_ops.M2.dot(self._F2)]     
+        _blocksF = [self._F1 + 1.0* 1 / dt * self.mass_ops.M2.dot(un), self._F2]     
         _F = BlockVector(self._block_domainA, blocks=_blocksF)
 
         _blocksM = [[_A, _B.T], [_B, None]]
@@ -7675,6 +7719,13 @@ class Stokes(Propagator):
         un = _sol[0][0]
         uen = _sol[0][1]
         phin = _sol[1]
+        
+        # self._solverUzawa.A = _A
+        # self._solverUzawa.B = _B
+        # self._solverUzawa.F = _F
+        # un_tmp, phin, info = self._solverUzawa()
+        # un = un_tmp[0]
+        # uen = un_tmp[1]
 
         # write new coeffs into self.feec_vars
         max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
