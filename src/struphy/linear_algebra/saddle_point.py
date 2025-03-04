@@ -1,5 +1,5 @@
 import numpy as np
-from psydac.linalg.basic import LinearOperator, Vector
+from psydac.linalg.basic import LinearOperator, Vector, ScaledLinearOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
 
@@ -1427,12 +1427,13 @@ class SaddlePointSolverNoCGPaper:
 
     def __init__(
         self,
-        A11: LinearOperator,
-        A22: LinearOperator,
-        B1: LinearOperator,
-        B2: LinearOperator,
+        A11: ScaledLinearOperator,
+        A22: ScaledLinearOperator,
+        B1: ScaledLinearOperator,
+        B2: ScaledLinearOperator,
         F1: Vector,
         F2: Vector,
+        Pinit: Vector,
         rho: float,
         solver_name: str,
         tol=1e-8,
@@ -1457,6 +1458,7 @@ class SaddlePointSolverNoCGPaper:
         self._B2 = B2
         self._F1 = F1
         self._F2 = F2
+        self._Pinit = Pinit
         self._rho = rho
         self._tol = tol
         self._max_iter = max_iter
@@ -1465,19 +1467,22 @@ class SaddlePointSolverNoCGPaper:
         self._rhs1 = self._F1.copy()
         self._rhs2 = self._F2.copy()
         self._R = B1.codomain.zeros()
+        self._Rf = B1.codomain.zeros()
 
         # Solution vectors
         self._P = B1.codomain.zeros()
         self._U = self._A11.codomain.zeros()
         self._Ue = self._A22.codomain.zeros()
+        self._uf = self._A11.codomain.zeros()
+        self._uef = self._A22.codomain.zeros()
 
         # initialize solver with matrix A
         self._solver_name = solver_name
 
         if solver_params["pc"] is None:
             solver_params.pop("pc")
-
-        self._solverAe = inverse(A11, solver_name, tol=tol, maxiter=max_iter, **solver_params)
+       
+        self._solverAe = inverse(self._A22, solver_name, tol=tol, maxiter=max_iter, **solver_params)
         self._solverA = inverse(self._A11, solver_name, tol=tol, maxiter=max_iter, **solver_params)
 
         # List to store residual norms
@@ -1513,7 +1518,7 @@ class SaddlePointSolverNoCGPaper:
         """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         self._F = f
 
-    def __call__(self, P_init=None, out=None):
+    def __call__(self, out=None):
         """
         Solves the saddle-point problem using the Uzawa algorithm.
 
@@ -1538,32 +1543,50 @@ class SaddlePointSolverNoCGPaper:
         assert self._F2.space == self._A22.domain
 
         # use setter to update lhs matrix
+        self._solverA.linop = self._A11
         self._solverAe.linop = self._A22
 
         # Initialize P to zero or given initial guess
-        self._P = P_init if P_init is not None else self._P
+        self._P = self._Pinit if self._Pinit is not None else self._P
         for iteration in range(self._max_iter):
-            # Step 1: Compute velocity U by solving A U = -Bᵀ P + F
+            # # Step 1a: Compute velocity U by solving A U = -Bᵀ P
+            # self._rhs1 *= 0
+            # self._rhs1 -= self._B1.transpose().dot(self._P)
+            # self._U = self._solverA.dot(self._rhs1)
+            # # Step 1b: Compute velocity Ue by solving Ae Ue = Bᵀ P
+            # self._rhs2 *= 0
+            # self._rhs2 -= self._B2.transpose().dot(self._P)
+            # self._Ue = self._solverAe.dot(self._rhs2)
+
+            # # Step 2: Compute residual R = -B(U-Ue) (divergence of U)
+            # self._R = -(self._B1.dot(self._U)+self._B2.dot(self._Ue))
+            # residual_norm = np.linalg.norm(self._R.toarray())
+            # print(f"{residual_norm =}")
+            
+            # Step3 3a: uf: uf+U=A^-1 (f-Bᵀ P)
             self._rhs1 *= 0
             self._rhs1 -= self._B1.transpose().dot(self._P)
             self._rhs1 += self._F1
-            self._U = self._solverA.dot(self._rhs1)
-
+            self._uf = self._solverA.dot(self._rhs1)
+            
+            # Step3 3b: ufe: ufe+Ue=Ae^-1 (f-Bᵀ P)
             self._rhs2 *= 0
             self._rhs2 -= self._B2.transpose().dot(self._P)
             self._rhs2 += self._F2
-            self._Ue = self._solverAe.dot(self._rhs2)
-
-            # Step 2: Compute residual R = BU (divergence of U)
-            self._R = self._B1.dot(self._U) + self._B2.dot(self._Ue)
-            residual_norm = np.linalg.norm(self._R.toarray())
-            print(f"{residual_norm =}")
-            self._residual_norms.append(residual_norm)  # Store residual norm
+            self._uef = self._solverAe.dot(self._rhs2)
+            
+            # Step 4: Compute residual R = -B((uf+U)-(ufe+Ue)) (divergence of U)
+            self._Rf = self._B1.dot(self._uf) + self._B2.dot(self._uef)
+            rnorm = np.linalg.norm(self._Rf.toarray())
+            self._residual_norms.append(rnorm)  # Store residual norm
+            
+            print(f'residual : {rnorm}')
             # Check for convergence based on residual norm
-            if residual_norm < self._tol:
-                return self._U, self._Ue, self._P, self._solverA._info, self._residual_norms
-
-            self._P += self._rho * self._R
+            if rnorm < 1e-5:#self._tol:
+                return self._uf, self._uef, self._P, self._solverA._info, self._residual_norms
+            
+            
+            self._P += self._rho * self._Rf
 
         # Return with info if maximum iterations reached
         return self._U, self._Ue, self._P, self._solverA._info, self._residual_norms
