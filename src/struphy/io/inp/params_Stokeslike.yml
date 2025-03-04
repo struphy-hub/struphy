@@ -1,7 +1,7 @@
 grid:
-    Nel: [10, 10, 1]
+    Nel: [30, 30, 1]
     p: [2, 2, 1]
-    spl_kind: [false, true, true]
+    spl_kind: [true, true, true]
     dirichlet_bc: null
     dims_mask: [true, true, true]
     nq_el: [2, 2, 1]
@@ -9,94 +9,41 @@ grid:
     polar_ck: -1
     Nclones: 1
 
-time: {dt: 0.005, Tend: 0.015, split_algo: LieTrotter}
+time: {dt: 0.001, Tend: 0.001, split_algo: LieTrotter}
 
 units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
 
 geometry:
-    type: Tokamak
-    Tokamak: 
-        psi_shifts : [2., 2.]
+    type: Cuboid
+    Cuboid: 
+        l1 : 0. # start of x-interval
+        r1 : 1. # end of x-interval, r1>l1
+        l2 : 0. # start of y-interval
+        r2 : 1. # end of y-interval, r2>l2
+        l3 : 0. # start of z-interval
+        r3 : 1. # end of z-interval, r3>l3
 
 fluid_background:
-    FluxAlignedTokamak :
-        a       : 1.   # minor radius
-        R0      : 2.   # major radius
-        B0      : 10.  # on-axis toroidal magnetic field
-        Bp      : 12.5 # poloidal magnetic field
-        
+    HomogenSlab:
+        B0z : 1.
+  
 fluid:
     mhd:
         phys_params: {A: 1, Z: 1}
-        # background:
-        #     u:
-        #         LogicalConst:
-        #             values: [0.0, 0.0, 0.0]
-        #     ue:
-        #         LogicalConst:
-        #             values: [0.0, 0.0, 0.0]
-        #     potential:
-        #         LogicalConst: {values: 0.0}
         perturbation:
             u:
-                AnalyticSolutionRestelliVelocity_x:
+                ManufacturedSolutionVelocity_x:
                     given_in_basis: ['physical', null, null]
-                    a: 1.0
-                    R0: 2.0
-                    B0: 10.0
-                    Bp: 12.5
-                    alpha: 0.1
-                    beta: 1.0
-                AnalyticSolutionRestelliVelocity_y:
+                ManufacturedSolutionVelocity_y:
                     given_in_basis: [null, 'physical', null]
-                    a: 1.0
-                    R0: 2.0
-                    B0: 10.0
-                    Bp: 12.5
-                    alpha: 0.1
-                    beta: 1.0
-                AnalyticSolutionRestelliVelocity_z:
-                    given_in_basis: [null, null, 'physical']
-                    a: 1.0
-                    R0: 2.0
-                    B0: 10.0
-                    Bp: 12.5
-                    alpha: 0.1
-                    beta: 1.0
             ue:
-                AnalyticSolutionRestelliVelocity_x:
+                ManufacturedSolutionVelocityElectrons_x:
                     given_in_basis: ['physical', null, null]
-                    a: 1.0
-                    R0: 2.0
-                    B0: 10.0
-                    Bp: 12.5
-                    alpha: 0.1
-                    beta: 1.0
-                AnalyticSolutionRestelliVelocity_y:
+                ManufacturedSolutionVelocityElectrons_y:
                     given_in_basis: [null, 'physical', null]
-                    a: 1.0
-                    R0: 2.0
-                    B0: 10.0
-                    Bp: 12.5
-                    alpha: 0.1
-                    beta: 1.0
-                AnalyticSolutionRestelliVelocity_z:
-                    given_in_basis: [null, null, 'physical']
-                    a: 1.0
-                    R0: 2.0
-                    B0: 10.0
-                    Bp: 12.5
-                    alpha: 0.1
-                    beta: 1.0
             potential:
-                AnalyticSolutionRestelliPotential:
+                ManufacturedSolutionPotential:
                     given_in_basis : 'physical'
-                    a: 1.0
-                    R0: 2.0
-                    B0: 10.0
-                    Bp: 12.5
-                    alpha: 0.1
-                    beta: 1.0
             
         options:
             Stokes:
@@ -104,14 +51,15 @@ fluid:
                     type: [gmres, null]
                     tol: 1.0e-08
                     maxiter: 3000
-                    info: false
+                    info: true
                     verbose: false
                     recycle: true
-                nu: 1.
+                nu: 1.0
                 nu_e: 0.01
                 a: 1.
                 R0: 2.
-                B0: 10.
+                B0: 1.
                 Bp: 12.5
                 alpha: 0.1
                 beta: 1.
+                eps: 0.
