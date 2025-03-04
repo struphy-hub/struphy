@@ -1077,3 +1077,403 @@ class AnalyticSolutionRestelliPotential:
 
         return pp
     
+class ManufacturedSolutionVelocity_x:
+    r"""Analytic solution :math:`u` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
+    """
+        
+    def __init__(self, b0=1.0):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._b = b0
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #ux = -np.sin(y)
+        #ux = -y**2
+        ux = -np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+        
+        return ux
+    
+class ManufacturedSolutionVelocity_y:
+    r"""Analytic solution :math:`u` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
+    """
+        
+    def __init__(self, b0=1.0):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._b = b0
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #uy = np.cos(x)
+        #uy = x**2
+        uy = -np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
+        
+        return uy
+    
+class ManufacturedSolutionVelocityElectrons_x:
+    r"""Analytic solution :math:`u` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
+    """
+        
+    def __init__(self, b0=1.0):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._b = b0
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #ux = -0.5*np.sin(y)
+        #ux = -y**3
+        ux = -2.0*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+        
+        return ux
+    
+class ManufacturedSolutionVelocityElectrons_y:
+    r"""Analytic solution :math:`u` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
+    """
+        
+    def __init__(self, b0=1.0):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._b = b0
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #uy = 0.5*np.cos(x)
+        #uy = x**3
+        uy = -2.0*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
+        
+        return uy
+    
+class ManufacturedSolutionPotential:
+    r"""Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \phi =  x+y \,.
+    """
+        
+    def __init__(self, b0=1.0):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._ab = b0
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #phi = x+y
+        #phi = x**2+y**2
+        phi = np.cos(2*np.pi*x)+np.sin(2*np.pi*y)
+        
+        return phi
+    
+class ManufacturedSolutionForceterm_x:
+    r"""Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \phi =  x+y \,.
+    """
+        
+    def __init__(self, b0=1.0, nu=1.0):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        nu  : float
+            Viscosity (default: 1.0)
+        """
+
+        self._b = b0
+        self._nu = nu
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #fx = 1.0 - self._nu*np.sin(y)-self._b* np.cos(x)
+        #fx = 2.0*x - self._b*x**2+2.0*self._nu
+        fx = -2.0*np.pi*np.sin(2*np.pi*x)+np.cos(2*np.pi*x)*np.cos(2*np.pi*y)*self._b-self._nu*4.0*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+        
+        return fx
+    
+class ManufacturedSolutionForceterm_y:
+    r"""Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \phi =  x+y \,.
+    """
+        
+    def __init__(self, b0=1.0, nu=1.0):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        nu  : float
+            Viscosity (default: 1.0)
+        """
+
+        self._b = b0
+        self._nu = nu
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #fy = 1.0 + self._nu*np.cos(x)-self._b* np.sin(y)
+        #fy = 2*y - self._b*y**2 -2.0*self._nu
+        fy = 2.0*np.pi*np.cos(2*np.pi*y)-np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*self._b-self._nu*4.0*np.pi**2*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
+        
+        return fy
+    
+class ManufacturedSolutionForcetermElectrons_x:
+    r"""Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \phi =  x+y \,.
+    """
+        
+    def __init__(self, b0=1.0, nu_e=0.01):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        nu  : float
+            Viscosity (default: 1.0)
+        """
+
+        self._b = b0
+        self._nu_e = nu_e
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #fx = -1.0  - self._nu_e*0.5*np.sin(y)+ 0.5*self._b* np.cos(x)
+        #fx = -2*x+self._b*x**3+6.0*y*self._nu_e
+        fx = 2.0*np.pi*np.sin(2*np.pi*x)-2.0*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)*self._b-self._nu_e*8.0*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+        
+        return fx    
+    
+    
+class ManufacturedSolutionForcetermElectrons_y:
+    r"""Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in carthesian coordinates. 
+    The solution is given by:
+    
+    .. math::
+        \phi =  x+y \,.
+    """
+        
+    def __init__(self, b0=1.0, nu_e=0.01):
+        """
+            Parameters
+        ----------
+        b0 : float
+            Magnetic field (default: 1.0).
+        nu  : float
+            Viscosity (default: 1.0)
+        """
+
+        self._b = b0
+        self._nu_e = nu_e
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        #fy = -1.0 + self._nu_e*0.5*np.cos(x)+ 0.5*self._b* np.sin(y) 
+        #fy = -2*y + self._b * y**3 - 6.0*x*self._nu_e
+        print(self._nu_e)
+        fy = -2.0*np.pi*np.cos(2*np.pi*y)+2.0*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*self._b-self._nu_e*8.0*np.pi**2*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
+        
+        return fy
