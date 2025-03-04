@@ -865,7 +865,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "full_f": params_alfven["full_f"],
             }
 
-        if params_alfven["turn_off"]:
+        if params_alfven2nd["turn_off"]:
             self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D2nd] = None
         else:
             self._kwargs[propagators_fields.ShearAlfvenCurrentCoupling5D2nd] = {
