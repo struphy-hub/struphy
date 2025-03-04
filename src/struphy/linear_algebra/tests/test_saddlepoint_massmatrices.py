@@ -13,7 +13,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
-    from struphy.fields_background.mhd_equil.equils import AdhocTorus, HomogenSlab
+    from struphy.fields_background.equils import FluxAlignedTokamak, HomogenSlab
     from struphy.geometry import domains
     from struphy.linear_algebra.saddle_point import (
         SaddlePointSolver,
@@ -55,7 +55,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     print(f"{np.max(abs(x2_rdm.toarray())) =}")
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
-    hodge_mats = BasisProjectionOperators(derham, domain)
+    hodge_mats = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # Change order of input in callable
     M2R = mass_mats.M2B
@@ -127,7 +127,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     # Create the solver
     rho = 0.0005  # Example descent parameter
-    tol = 1e-9
+    tol = 1e-7
     max_iter = 5000
     pc = None  # M2pre # Preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
@@ -192,6 +192,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             B2,
             F1,
             F2,
+            Pinit=None,
             rho=rho,
             solver_name=solver_name,
             tol=tol,
@@ -199,7 +200,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             verbose=verbose,
             pc=pc,
         )
-        x_uzawa[0], x_uzawa[1], y_uzawa, info = solver()
+        x_u, x_ue, y_uzawa, info, residual_norms = solver()
+        x_uzawa={}
+        x_uzawa[0]=x_u
+        x_uzawa[1]=x_ue
 
     end_time = time.time()
 
@@ -278,7 +282,7 @@ if __name__ == "__main__":
     #                        [[False,  False], [False, False], [False, False]],
     #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
     test_saddlepointsolver(
-        "SaddlePointSolverGMRES",
+        "SaddlePointSolverNoCGPaper",
         [3, 4, 5],
         [2, 2, 3],
         [True, False, True],
