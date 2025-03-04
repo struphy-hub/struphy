@@ -1979,7 +1979,7 @@ def push_gc_cc_J1_Hdiv(
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
-        #u = u/det_df
+        u = u/det_df
 
         # electric field E(1) = B(2) X U(0)
         linalg_kernels.cross(b, u, e)
@@ -2316,7 +2316,7 @@ def push_gc_cc_J2_stage_Hdiv(
         linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
-        #e /= det_df
+        e /= det_df
 
         # accumulation for last stage
         markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e
