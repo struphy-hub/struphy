@@ -1452,6 +1452,7 @@ class Stokeslike(StruphyModel):
         stokes_Bp = params["fluid"]["mhd"]["options"]["Stokes"]["Bp"]
         stokes_alpha = params["fluid"]["mhd"]["options"]["Stokes"]["alpha"]
         stokes_beta = params["fluid"]["mhd"]["options"]["Stokes"]["beta"]
+        stokes_eps = params["fluid"]["mhd"]["options"]["Stokes"]["eps"]
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
@@ -1480,6 +1481,7 @@ class Stokeslike(StruphyModel):
             "Bp": stokes_Bp,
             "alpha": stokes_alpha,
             "beta": stokes_beta,
+            "eps": stokes_eps,
         }
 
         # Initialize propagators used in splitting substeps
