@@ -5,7 +5,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     import numpy as np
     from mpi4py import MPI
-    from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+    from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace, LinearOperator
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
@@ -17,6 +17,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         SaddlePointSolverGMRES,
         SaddlePointSolverNoCG,
         SaddlePointSolverTest,
+        SaddlePointSolverNoCGPaper,
     )
 
     mpi_comm = MPI.COMM_WORLD
@@ -107,6 +108,13 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         x_uzawa, y_uzawa, info, residual_norms = solver()
         if show_plots == True:
             _plot_residual_norms(residual_norms)
+    elif method_for_solving == "SaddlePointSolverNoCGPaper":
+        solver = SaddlePointSolverNoCGPaper(
+            A11, A22, B1, B2, F1, F2, Pinit=y1_rdm, rho=rho, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
+        )
+        x_uzawa, y_uzawa, info, residual_norms = solver()
+        if show_plots == True:
+            _plot_residual_norms(residual_norms)
     elif method_for_solving == "SaddlePointSolverGMRES":
         solver = SaddlePointSolverGMRES(
             A, B, F, rho=rho, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
@@ -150,7 +158,7 @@ def _plot_residual_norms(residual_norms):
 
 if __name__ == "__main__":
     test_saddlepointsolver(
-        "SaddlePointSolverGMRES",
+        "SaddlePointSolverNoCGPaper",
         [5, 6, 7],
         [2, 2, 3],
         [True, False, True],
