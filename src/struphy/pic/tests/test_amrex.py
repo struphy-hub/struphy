@@ -79,7 +79,8 @@ def test_amrex_box(plot=False, verbose=False):
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
         ax.set_title('Initial conditions (Struphy)')
-        plt.savefig("./initial_struphy.jpg")
+        plt.grid()
+        plt.savefig("./box_initial_struphy.jpg")
 
         fig = plt.figure()
         ax = fig.gca()
@@ -96,7 +97,8 @@ def test_amrex_box(plot=False, verbose=False):
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
         ax.set_title('Initial conditions (Amrex)')
-        plt.savefig("./initial_amrex.jpg")
+        plt.grid()
+        plt.savefig("./box_initial_amrex.jpg")
 
     if verbose:
         print("Struphy positions\n", struphy_particles.positions)
@@ -119,7 +121,7 @@ def test_amrex_box(plot=False, verbose=False):
 
     # time stepping
     Tend = 10.0
-    dt = 0.2
+    dt = .05
     Nt = int(Tend / dt)
 
     struphy_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
@@ -166,7 +168,8 @@ def test_amrex_box(plot=False, verbose=False):
         ax.set_ylim(-9, 9)
         ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (Struphy)')
 
-        plt.savefig("./timesteps_struphy.jpg")
+        plt.grid()
+        plt.savefig("./box_final_struphy.jpg")
 
         fig = plt.figure()
         ax = fig.gca()
@@ -184,7 +187,8 @@ def test_amrex_box(plot=False, verbose=False):
         ax.set_ylim(-9, 9)
         ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (Amrex)')
 
-        plt.savefig("./timesteps_amrex.jpg")
+        plt.grid()
+        plt.savefig("./box_final_amrex.jpg")
 
     # finalize amrex
     amrex.finalize()
@@ -200,64 +204,6 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     # initialize amrex
     amrex = Amrex()
-
-    # instantiate Particle object
-    name = 'test'
-    Np = 15
-    bc = ['periodic', 'periodic', 'periodic']
-    loading = 'pseudo_random'
-    loading_params = {'seed': None}
-
-    amrex_particles = Particles6D(name=name,
-                                  Np=Np,
-                                  bc=bc,
-                                  loading=loading,
-                                  loading_params=loading_params,
-                                  amrex=amrex)
-
-    # instantiate another Particle object
-    name = 'test_uni'
-    loading_params = {'seed': None, 'spatial': 'disc'}
-    particles_uni = Particles6D(name=name,
-                                Np=Np,
-                                bc=bc,
-                                loading=loading,
-                                loading_params=loading_params,
-                                amrex=amrex)
-
-    amrex_particles.draw_markers()
-    particles_uni.draw_markers()
-
-    # positions on the physical domain Omega
-    pushed_pos = domain(amrex_particles.positions).T
-    pushed_pos_uni = domain(particles_uni.positions).T
-
-    if plot:
-        fig = plt.figure(figsize=(10, 6))
-
-        plt.subplot(1, 2, 1)
-        plt.scatter(pushed_pos[:, 0], pushed_pos[:, 1], s=2.)
-        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
-        ax = plt.gca()
-        ax.add_patch(circle1)
-        ax.set_aspect('equal')
-        plt.xlabel('x')
-        plt.ylabel('y')
-        plt.title('Draw uniform in logical space')
-
-        plt.subplot(1, 2, 2)
-        plt.scatter(pushed_pos_uni[:, 0], pushed_pos_uni[:, 1], s=2.)
-        circle2 = plt.Circle((0, 0), a2, color='k', fill=False)
-        ax = plt.gca()
-        ax.add_patch(circle2)
-        ax.set_aspect('equal')
-        plt.xlabel('x')
-        plt.ylabel('y')
-        plt.title('Draw uniform on disc')
-
-        plt.savefig("./disc_uniform_amrex.jpg")
-
-####################################################################################
 
     # instantiate Particle object
     name = 'test'
@@ -305,7 +251,8 @@ def test_amrex_cylinder(plot=False, verbose=False):
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_title('Initial conditions (amrex)')
-        plt.savefig("./initial_cylinder_amrex.jpg")
+        plt.grid()
+        plt.savefig("./cylinder_initial_amrex.jpg")
 
         fig = plt.figure()
         ax = fig.gca()
@@ -322,7 +269,8 @@ def test_amrex_cylinder(plot=False, verbose=False):
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_title('Initial conditions (struphy)')
-        plt.savefig("./initial_cylinder_struphy.jpg")
+        plt.grid()
+        plt.savefig("./cylinder_initial_struphy.jpg")
 
     # pass simulation parameters to Propagator class
     PushEta.options(default=True)
@@ -334,7 +282,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     # time stepping
     Tend = 10.
-    dt = .2
+    dt = .05
     Nt = int(Tend / dt)
 
     amrex_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
@@ -380,7 +328,8 @@ def test_amrex_cylinder(plot=False, verbose=False):
         ax.set_ylabel('y')
         ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (amrex)')
 
-        plt.savefig("./final_cylinder_amrex.jpg")
+        plt.grid()
+        plt.savefig("./cylinder_final_amrex.jpg")
 
         fig = plt.figure()
         ax = fig.gca()
@@ -395,12 +344,12 @@ def test_amrex_cylinder(plot=False, verbose=False):
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (struphy)')
-
-        plt.savefig("./final_cylinder_struphy.jpg")
+        plt.grid()
+        plt.savefig("./cylinder_final_struphy.jpg")
 
     # finalize amrex
     amrex.finalize()
 
 
 if __name__ == "__main__":
-    test_amrex_box(plot=True, verbose=True)
+    test_amrex_cylinder(plot=True, verbose=True)

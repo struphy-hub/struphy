@@ -1121,6 +1121,8 @@ class Particles(metaclass=ABCMeta):
 
             assert self._markers.num_real_comps == 14
 
+            self._markers.redistribute()
+
         else:
             # number of markers on the local process at loading stage
             n_mks_load_loc = self.n_mks_load[self.mpi_rank]
