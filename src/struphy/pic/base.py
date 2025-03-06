@@ -1019,6 +1019,7 @@ class Particles(metaclass=ABCMeta):
 
         new_moments += [*np.mean(us, axis=0)]
         new_moments += [*(np.max(vths, axis=0) + np.max(np.abs(us), axis=0) - np.mean(us, axis=0))]
+        new_moments = [float(moment) for moment in new_moments]
 
         self.loading_params["moments"] = new_moments
 
