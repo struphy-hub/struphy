@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from mpi4py import MPI
-import yaml
+from struphy.utils.utils import dict_to_yaml
 
 def derive_units(
     Z_bulk: int = None,
@@ -540,19 +540,7 @@ def pre_processing(
 
         # write parameters to file and save it in output folder
         if mpi_rank == 0:
-            
-            
-            with open(parameters_path, "w") as params_file:
-                print(parameters)
-                yaml.dump(
-                            parameters,
-                            params_file,
-                            Dumper=MyDumper,
-                            default_flow_style=None,
-                            sort_keys=False,
-                            indent=4,
-                            line_break="\n",
-                        )
+            dict_to_yaml(parameters, parameters_path)
 
         params = parameters
 
@@ -768,16 +756,3 @@ def descend_options_dict(
 
     if d_default is None:
         return out
-
-
-class MyDumper(yaml.SafeDumper):
-    # HACK: insert blank lines between top-level objects
-    # inspired by https://stackoverflow.com/a/44284819/3786245
-    def write_line_break(self, data=None):
-        super().write_line_break(data)
-
-        if len(self.indents) == 1:
-            super().write_line_break()
-
-    def ignore_aliases(self, data):
-        return True

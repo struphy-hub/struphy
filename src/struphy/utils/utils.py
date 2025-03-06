@@ -66,6 +66,29 @@ def print_all_attr(obj):
                 v = '(arrays not displayed)'
             print(k.ljust(26), v)
 
+def dict_to_yaml(dictionary, output):
+    with open(output, "w") as file:
+        yaml.dump(
+            dictionary,
+            file,
+            Dumper=MyDumper,
+            default_flow_style=None,
+            sort_keys=False,
+            indent=4,
+            line_break="\n",
+        )
+
+class MyDumper(yaml.SafeDumper):
+    # HACK: insert blank lines between top-level objects
+    # inspired by https://stackoverflow.com/a/44284819/3786245
+    def write_line_break(self, data=None):
+        super().write_line_break(data)
+
+        if len(self.indents) == 1:
+            super().write_line_break()
+
+    def ignore_aliases(self, data):
+        return True
 
 if __name__ == '__main__':
     state = read_state()

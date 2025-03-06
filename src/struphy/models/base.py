@@ -8,6 +8,7 @@ import yaml
 from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector
 
+from struphy.utils.utils import dict_to_yaml
 from struphy.profiling.profiling import ProfileRegion
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
@@ -1412,16 +1413,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 yn = input(f"Writing to {file}, are you sure (Y/n)? ")
 
             if yn in ("", "Y", "y", "yes", "Yes"):
-                with open(file, "w") as outfile:
-                    yaml.dump(
-                        parameters,
-                        outfile,
-                        Dumper=MyDumper,
-                        default_flow_style=None,
-                        sort_keys=False,
-                        indent=4,
-                        line_break="\n",
-                    )
+                dict_to_yaml(parameters, file)
                 print(
                     f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".',
                 )
