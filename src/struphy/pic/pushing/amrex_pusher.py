@@ -1,6 +1,7 @@
 "Pusher kernels for full orbit (6D) particles and AMReX data structures."
 
-from numpy import shape, array, newaxis, matmul
+from numpy import array, matmul, newaxis, shape
+
 from struphy.pic.base import Particles
 
 
@@ -57,17 +58,9 @@ def push_eta_stage(
     # update positions for intermediate stages or last stage
     temp = dt * a[stage] * k
     markers_array["x"][:] = (
-        markers_array["real_comp0"][:]
+        markers_array["init_x"][:]  # TODO (Mati) cfr pusher_kernels push_eta_stage, they use first_free_idx!
         + temp[:, 0]
-        + last*markers_array["real_comp0"][:]
+        + last * markers_array["real_comp0"][:]
     )
-    markers_array["y"][:] = (
-        markers_array["real_comp1"][:]
-        + temp[:, 1]
-        + last*markers_array["real_comp1"][:]
-    )
-    markers_array["z"][:] = (
-        markers_array["real_comp2"][:]
-        + temp[:, 2]
-        + last*markers_array["real_comp2"][:]
-    )
+    markers_array["y"][:] = markers_array["init_y"][:] + temp[:, 1] + last * markers_array["real_comp1"][:]
+    markers_array["z"][:] = markers_array["init_z"][:] + temp[:, 2] + last * markers_array["real_comp2"][:]

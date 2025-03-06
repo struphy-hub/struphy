@@ -37,6 +37,7 @@ from struphy.pic.sph_eval_kernels import (
     periodic_distance,
 )
 
+
 class Particles(metaclass=ABCMeta):
     """
     Base class for particle species.
@@ -132,7 +133,7 @@ class Particles(metaclass=ABCMeta):
         amrex: Amrex = None,
     ):
         self._name = name
-        
+
         if amrex is not None:
             self.amrex = True
         else:
@@ -298,21 +299,21 @@ class Particles(metaclass=ABCMeta):
             if self.loading_params["moments"] != "degenerate" and self.f0.coords == "constants_of_motion":
                 # Particles6D
                 if self.vdim == 3:
-                    assert (
-                        self.n_cols_diagnostics >= 7
-                    ), f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
+                    assert self.n_cols_diagnostics >= 7, (
+                        f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
+                    )
 
                     self._f_coords_index = self.index["com"]["6D"]
                     self._f_jacobian_coords_index = self.index["pos+energy"]["6D"]
 
                 # Particles5D
                 elif self.vdim == 2:
-                    assert (
-                        self.n_cols_diagnostics >= 3
-                    ), f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+                    assert self.n_cols_diagnostics >= 3, (
+                        f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
+                    )
 
-                self._f_coords_index = self.index['com']['5D']
-                self._f_jacobian_coords_index = self.index['pos+energy']['5D']
+                self._f_coords_index = self.index["com"]["5D"]
+                self._f_jacobian_coords_index = self.index["pos+energy"]["5D"]
 
             else:
                 self._f_coords_index = self.index["coords"]
@@ -326,9 +327,9 @@ class Particles(metaclass=ABCMeta):
             )
 
             # Have at least 3 spare places in markers array
-            assert (
-                self.args_markers.first_free_idx + 2 < self.n_cols - 1
-            ), f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
+            assert self.args_markers.first_free_idx + 2 < self.n_cols - 1, (
+                f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
+            )
 
             # initialize the sorting
             self._sorting_params = sorting_params
@@ -583,7 +584,7 @@ class Particles(metaclass=ABCMeta):
 
         The column indices referring to different attributes can be obtained from
         :attr:`~struphy.pic.base.Particles.index`.
-        
+
         If using AMReX data structures, it returns a ParticleContainer.
         """
         return self._markers
@@ -679,7 +680,6 @@ class Particles(metaclass=ABCMeta):
             assert isinstance(new, np.ndarray)
             assert new.shape == (self.n_mks_loc, 3)
             self._markers[~np.logical_or(self.holes, self.ghost_particles), self.index["pos"]] = new
-        
 
     @property
     def velocities(self):
@@ -1049,13 +1049,19 @@ class Particles(metaclass=ABCMeta):
             self._markers.init_random(self.Np, _seed, myt, False, amr.RealBox())
 
             assert self._markers.number_of_particles_at_level(0) == self.Np
-            
+
             self._markers.add_real_comp("v1")
             self._markers.add_real_comp("v2")
             self._markers.add_real_comp("v3")
             self._markers.add_real_comp("weight")
             self._markers.add_real_comp("s0")
             self._markers.add_real_comp("w0")
+            self._markers.add_real_comp("init_x")
+            self._markers.add_real_comp("init_y")
+            self._markers.add_real_comp("init_z")
+            self._markers.add_real_comp("init_v1")
+            self._markers.add_real_comp("init_v2")
+            self._markers.add_real_comp("init_v3")
 
             markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
@@ -1066,7 +1072,7 @@ class Particles(metaclass=ABCMeta):
             v_th = np.array(
                 self.loading_params["moments"][self.vdim :],
             )
- 
+
             # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
             if self.vdim == 3:
                 markers_array["v1"][:] = (
@@ -1119,7 +1125,7 @@ class Particles(metaclass=ABCMeta):
                     "Inverse transform sampling of given vdim is not implemented!",
                 )
 
-            assert self._markers.num_real_comps == 14
+            assert self._markers.num_real_comps == 20
 
             self._markers.redistribute()
 
@@ -1226,8 +1232,9 @@ class Particles(metaclass=ABCMeta):
 
                     while num_loaded_particles < int(total_num_particles_to_load * self.Nclones):
                         # Generate a chunk of random particles
-                        num_to_add = min(chunk_size, int(total_num_particles_to_load *
-                                         self.Nclones) - num_loaded_particles)
+                        num_to_add = min(
+                            chunk_size, int(total_num_particles_to_load * self.Nclones) - num_loaded_particles
+                        )
                         temp = np.random.rand(num_to_add, 3 + self.vdim)
 
                         # check which particles are on the current process domain
@@ -1375,7 +1382,9 @@ class Particles(metaclass=ABCMeta):
                         self._markers[:n_mks_load_loc, 0],
                     )
                 else:
-                    assert self._spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
+                    assert self._spatial == "uniform", (
+                        f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
+                    )
 
                 # set markers ID in last column
                 self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(

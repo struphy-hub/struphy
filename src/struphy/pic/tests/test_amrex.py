@@ -1,50 +1,44 @@
+import math
+
+import numpy as np
 import pytest
 from matplotlib import pyplot as plt
+
 from struphy.geometry.domains import Cuboid, HollowCylinder
 from struphy.pic.amrex import Amrex
 from struphy.pic.particles import Particles6D
 from struphy.propagators.propagators_markers import PushEta
-import math
-import numpy as np
 
 
 @pytest.mark.mpi
 def test_amrex_box(plot=False, verbose=False):
-
     l1 = -5
-    r1 = 5.
+    r1 = 5.0
     l2 = -7
-    r2 = 7.
-    l3 = -1.
-    r3 = 1.
+    r2 = 7.0
+    l3 = -1.0
+    r3 = 1.0
     domain = Cuboid(l1=l1, r1=r1, l2=l2, r2=r2, l3=l3, r3=r3)
 
     # initialize amrex
     amrex = Amrex()
 
     # mandatory parameters
-    name = 'test'
+    name = "test"
     Np = 2
-    bc = ['periodic', 'periodic', 'periodic']
-    loading = 'pseudo_random'
+    bc = ["periodic", "periodic", "periodic"]
+    loading = "pseudo_random"
 
     # optional
-    loading_params = {'seed': None}
+    loading_params = {"seed": None}
 
     # instantiate Particle object, pass the amrex object
-    amrex_particles = Particles6D(name=name,
-                                  Np=Np,
-                                  bc=bc,
-                                  loading=loading,
-                                  domain=domain,
-                                  loading_params=loading_params,
-                                  amrex=amrex)
-    struphy_particles = Particles6D(name=name,
-                                    Np=Np,
-                                    bc=bc,
-                                    loading=loading,
-                                    domain=domain,
-                                    loading_params=loading_params)
+    amrex_particles = Particles6D(
+        name=name, Np=Np, bc=bc, loading=loading, domain=domain, loading_params=loading_params, amrex=amrex
+    )
+    struphy_particles = Particles6D(
+        name=name, Np=Np, bc=bc, loading=loading, domain=domain, loading_params=loading_params
+    )
 
     amrex_particles.draw_markers()
     struphy_particles.draw_markers()
@@ -62,23 +56,29 @@ def test_amrex_box(plot=False, verbose=False):
     amrex_pushed_pos = domain(amrex_positions).T
 
     if plot:
-        colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
+        colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
 
         fig = plt.figure()
         ax = fig.gca()
 
         for i, pos in enumerate(struphy_pushed_pos):
             ax.scatter(pos[0], pos[1], c=colors[i % 4])
-            ax.arrow(pos[0], pos[1], struphy_particles.velocities[i, 0],
-                     struphy_particles.velocities[i, 1], color=colors[i % 4], head_width=.2)
+            ax.arrow(
+                pos[0],
+                pos[1],
+                struphy_particles.velocities[i, 0],
+                struphy_particles.velocities[i, 1],
+                color=colors[i % 4],
+                head_width=0.2,
+            )
 
-        ax.plot([l1, l1], [l2, r2], 'k')
-        ax.plot([r1, r1], [l2, r2], 'k')
-        ax.plot([l1, r1], [l2, l2], 'k')
-        ax.plot([l1, r1], [r2, r2], 'k')
+        ax.plot([l1, l1], [l2, r2], "k")
+        ax.plot([r1, r1], [l2, r2], "k")
+        ax.plot([l1, r1], [l2, l2], "k")
+        ax.plot([l1, r1], [r2, r2], "k")
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
-        ax.set_title('Initial conditions (Struphy)')
+        ax.set_title("Initial conditions (Struphy)")
         plt.grid()
         plt.savefig("./box_initial_struphy.jpg")
 
@@ -87,16 +87,22 @@ def test_amrex_box(plot=False, verbose=False):
 
         for i, pos in enumerate(amrex_pushed_pos):
             ax.scatter(pos[0], pos[1], c=colors[i % 4])
-            ax.arrow(pos[0], pos[1], amrex_particles.velocities[i, 0],
-                     amrex_particles.velocities[i, 1], color=colors[i % 4], head_width=.2)
+            ax.arrow(
+                pos[0],
+                pos[1],
+                amrex_particles.velocities[i, 0],
+                amrex_particles.velocities[i, 1],
+                color=colors[i % 4],
+                head_width=0.2,
+            )
 
-        ax.plot([l1, l1], [l2, r2], 'k')
-        ax.plot([r1, r1], [l2, r2], 'k')
-        ax.plot([l1, r1], [l2, l2], 'k')
-        ax.plot([l1, r1], [r2, r2], 'k')
+        ax.plot([l1, l1], [l2, r2], "k")
+        ax.plot([r1, r1], [l2, r2], "k")
+        ax.plot([l1, r1], [l2, l2], "k")
+        ax.plot([l1, r1], [r2, r2], "k")
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
-        ax.set_title('Initial conditions (Amrex)')
+        ax.set_title("Initial conditions (Amrex)")
         plt.grid()
         plt.savefig("./box_initial_amrex.jpg")
 
@@ -121,7 +127,7 @@ def test_amrex_box(plot=False, verbose=False):
 
     # time stepping
     Tend = 10.0
-    dt = .05
+    dt = 0.5
     Nt = int(Tend / dt)
 
     struphy_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
@@ -158,15 +164,15 @@ def test_amrex_box(plot=False, verbose=False):
         for i in range(Np):
             ax.scatter(struphy_pos[:, i, 0], struphy_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
 
-        ax.plot([l1, l1], [l2, r2], 'k')
-        ax.plot([r1, r1], [l2, r2], 'k')
-        ax.plot([l1, r1], [l2, l2], 'k')
-        ax.plot([l1, r1], [r2, r2], 'k')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
+        ax.plot([l1, l1], [l2, r2], "k")
+        ax.plot([r1, r1], [l2, r2], "k")
+        ax.plot([l1, r1], [l2, l2], "k")
+        ax.plot([l1, r1], [r2, r2], "k")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
-        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (Struphy)')
+        ax.set_title(f"{math.ceil(Tend / dt)} time steps (full color at t=0) (Struphy)")
 
         plt.grid()
         plt.savefig("./box_final_struphy.jpg")
@@ -177,15 +183,15 @@ def test_amrex_box(plot=False, verbose=False):
         for i in range(Np):
             ax.scatter(amrex_pos[:, i, 0], amrex_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
 
-        ax.plot([l1, l1], [l2, r2], 'k')
-        ax.plot([r1, r1], [l2, r2], 'k')
-        ax.plot([l1, r1], [l2, l2], 'k')
-        ax.plot([l1, r1], [r2, r2], 'k')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
+        ax.plot([l1, l1], [l2, r2], "k")
+        ax.plot([r1, r1], [l2, r2], "k")
+        ax.plot([l1, r1], [l2, l2], "k")
+        ax.plot([l1, r1], [r2, r2], "k")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
         ax.set_xlim(-6.5, 6.5)
         ax.set_ylim(-9, 9)
-        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (Amrex)')
+        ax.set_title(f"{math.ceil(Tend / dt)} time steps (full color at t=0) (Amrex)")
 
         plt.grid()
         plt.savefig("./box_final_amrex.jpg")
@@ -196,36 +202,28 @@ def test_amrex_box(plot=False, verbose=False):
 
 @pytest.mark.mpi
 def test_amrex_cylinder(plot=False, verbose=False):
-
-    a1 = 0.
-    a2 = 5.
-    Lz = 1.
+    a1 = 0.0
+    a2 = 5.0
+    Lz = 1.0
     domain = HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 
     # initialize amrex
     amrex = Amrex()
 
     # instantiate Particle object
-    name = 'test'
+    name = "test"
     Np = 2
-    bc = ['periodic', 'periodic', 'periodic']
-    loading = 'pseudo_random'
-    loading_params = {'seed': None}
+    bc = ["periodic", "periodic", "periodic"]
+    loading = "pseudo_random"
+    loading_params = {"seed": None}
 
-    amrex_particles = Particles6D(name=name,
-                                  Np=Np,
-                                  bc=bc,
-                                  loading=loading,
-                                  domain=domain,
-                                  loading_params=loading_params,
-                                  amrex=amrex)
+    amrex_particles = Particles6D(
+        name=name, Np=Np, bc=bc, loading=loading, domain=domain, loading_params=loading_params, amrex=amrex
+    )
 
-    struphy_particles = Particles6D(name=name,
-                                    Np=Np,
-                                    bc=bc,
-                                    loading=loading,
-                                    domain=domain,
-                                    loading_params=loading_params)
+    struphy_particles = Particles6D(
+        name=name, Np=Np, bc=bc, loading=loading, domain=domain, loading_params=loading_params
+    )
 
     amrex_particles.draw_markers()
     struphy_particles.draw_markers()
@@ -234,23 +232,29 @@ def test_amrex_cylinder(plot=False, verbose=False):
     amrex_pushed_pos = domain(amrex_particles.positions).T
     struphy_pushed_pos = domain(struphy_particles.positions).T
 
-    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
     if plot:
         fig = plt.figure()
         ax = fig.gca()
 
         for n, pos in enumerate(amrex_pushed_pos):
             ax.scatter(pos[0], pos[1], c=colors[n % 4])
-            ax.arrow(pos[0], pos[1], amrex_particles.velocities[n, 0],
-                     amrex_particles.velocities[n, 1], color=colors[n % 4], head_width=.2)
+            ax.arrow(
+                pos[0],
+                pos[1],
+                amrex_particles.velocities[n, 0],
+                amrex_particles.velocities[n, 1],
+                color=colors[n % 4],
+                head_width=0.2,
+            )
 
-        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
 
         ax.add_patch(circle1)
-        ax.set_aspect('equal')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_title('Initial conditions (amrex)')
+        ax.set_aspect("equal")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_title("Initial conditions (amrex)")
         plt.grid()
         plt.savefig("./cylinder_initial_amrex.jpg")
 
@@ -259,16 +263,22 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
         for n, pos in enumerate(struphy_pushed_pos):
             ax.scatter(pos[0], pos[1], c=colors[n % 4])
-            ax.arrow(pos[0], pos[1], struphy_particles.velocities[n, 0],
-                     struphy_particles.velocities[n, 1], color=colors[n % 4], head_width=.2)
+            ax.arrow(
+                pos[0],
+                pos[1],
+                struphy_particles.velocities[n, 0],
+                struphy_particles.velocities[n, 1],
+                color=colors[n % 4],
+                head_width=0.2,
+            )
 
-        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
 
         ax.add_patch(circle1)
-        ax.set_aspect('equal')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_title('Initial conditions (struphy)')
+        ax.set_aspect("equal")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_title("Initial conditions (struphy)")
         plt.grid()
         plt.savefig("./cylinder_initial_struphy.jpg")
 
@@ -281,8 +291,8 @@ def test_amrex_cylinder(plot=False, verbose=False):
     struphy_prop_eta = PushEta(struphy_particles)
 
     # time stepping
-    Tend = 10.
-    dt = .05
+    Tend = 10.0
+    dt = 0.5
     Nt = int(Tend / dt)
 
     amrex_pos = np.zeros((Nt + 1, Np, 3), dtype=float)
@@ -292,7 +302,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
     amrex_pos[0] = amrex_pushed_pos
     struphy_pos[0] = struphy_pushed_pos
 
-    time = 0.
+    time = 0.0
     n = 0
     while time < (Tend - dt):
         if verbose:
@@ -310,7 +320,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
         struphy_pos[n] = domain(struphy_particles.positions).T
 
         # scaling for plotting
-        alpha[n] = (Tend - time)/Tend
+        alpha[n] = (Tend - time) / Tend
 
     if plot:
         fig = plt.figure()
@@ -320,13 +330,13 @@ def test_amrex_cylinder(plot=False, verbose=False):
         for i in range(Np):
             ax.scatter(amrex_pos[:, i, 0], amrex_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
 
-        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
 
         ax.add_patch(circle1)
-        ax.set_aspect('equal')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (amrex)')
+        ax.set_aspect("equal")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_title(f"{math.ceil(Tend / dt)} time steps (full color at t=0) (amrex)")
 
         plt.grid()
         plt.savefig("./cylinder_final_amrex.jpg")
@@ -337,13 +347,13 @@ def test_amrex_cylinder(plot=False, verbose=False):
         for i in range(Np):
             ax.scatter(struphy_pos[:, i, 0], struphy_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
 
-        circle1 = plt.Circle((0, 0), a2, color='k', fill=False)
+        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
 
         ax.add_patch(circle1)
-        ax.set_aspect('equal')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_title(f'{math.ceil(Tend/dt)} time steps (full color at t=0) (struphy)')
+        ax.set_aspect("equal")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_title(f"{math.ceil(Tend / dt)} time steps (full color at t=0) (struphy)")
         plt.grid()
         plt.savefig("./cylinder_final_struphy.jpg")
 
@@ -352,4 +362,4 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
 
 if __name__ == "__main__":
-    test_amrex_cylinder(plot=True, verbose=True)
+    test_amrex_box(plot=True, verbose=True)
