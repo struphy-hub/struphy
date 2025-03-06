@@ -49,8 +49,7 @@ def get_paths(state, libpath=STRUPHY_LIBPATH):
 def save_state(state, libpath=STRUPHY_LIBPATH):
     """Save the state to the state.yml file."""
     state_file = os.path.join(libpath, 'state.yml')
-    with open(state_file, 'w') as f:
-        yaml.dump(state, f)
+    dict_to_yaml(state, state_file)
 
 
 def print_all_attr(obj):
