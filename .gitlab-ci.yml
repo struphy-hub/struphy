@@ -193,14 +193,13 @@ compile_timing:
     - cat timings_fortran.txt
     - |
       grep 'pyccel --libdir' timings_c.txt | sed -E 's|.*/site-packages/||' | while read filepath; do
-        echo "\n\n\n========================================"
-        echo "Kernel: $filepath\n"
-        echo "\nC:"
+        printf "\n\n\n========================================\n"
+        printf "Kernel: %s\n\n" "$filepath"
+        printf "C:\n"
         grep -A 11 "pyccel.*${filepath}" timings_c.txt | tail -n +2
-        echo "\nFortran:"
+        printf "\nFortran:\n"
         grep -A 11 "pyccel.*${filepath}" timings_fortran.txt | tail -n +2
       done
-
 # Cron-job C:
 c_cronjob_install:
   stage: install
