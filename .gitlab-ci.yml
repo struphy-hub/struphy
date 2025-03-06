@@ -187,8 +187,10 @@ compile_timing:
     - struphy compile --status
     - struphy compile --delete
     - struphy compile --time-execution -y --language c > timings_c.txt
+    - cat timings_c.txt
     - struphy compile --delete
     - struphy compile --time-execution -y --language fortran > timings_fortran.txt
+    - cat timings_fortran.txt
     - |
       grep 'pyccel --libdir' timings_c.txt | sed -E 's|.*/site-packages/||' | while read filepath; do
         echo "\n\n\n========================================"
