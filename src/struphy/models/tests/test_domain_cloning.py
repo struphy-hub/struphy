@@ -8,7 +8,7 @@ from struphy.models.tests.util import call_model
 @pytest.mark.parametrize(
     "map_and_equil", [("Cuboid", "HomogenSlab"), ("HollowTorus", "AdhocTorus"), ("Tokamak", "EQDSKequilibrium")]
 )
-@pytest.mark.parametrize("num_clones", [1,2])
+@pytest.mark.parametrize("num_clones", [1, 2])
 def test_domain_cloning_kinetic(
     map_and_equil: tuple | list,
     num_clones: int,

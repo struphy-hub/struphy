@@ -9,7 +9,6 @@ from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
-from struphy.utils.clone_config import CloneConfig
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
@@ -34,6 +33,7 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
 )
+from struphy.utils.clone_config import CloneConfig
 
 
 class Particles(metaclass=ABCMeta):
@@ -141,7 +141,6 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         verbose_boxes: bool = False,
     ):
-        
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
@@ -149,7 +148,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self._mpi_comm = self.clone_config.sub_comm
             num_clones = self.clone_config.num_clones
-        
+
         # other parameters
         self._name = name
         self._domain = domain
@@ -888,7 +887,7 @@ class Particles(metaclass=ABCMeta):
             self.domain_decomp[self.mpi_rank, 2::3],
             dtype=int,
         )
-        
+
         # array of number of markers on each process at loading stage
         self._n_mks_load = np.zeros(self.mpi_size, dtype=int)
 
@@ -918,7 +917,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self._n_mks_load[self._mpi_rank]
-        
+
         # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
         self._n_rows = round(
             n_mks_load_loc * (1 + 1 / np.sqrt(n_mks_load_loc) + self.eps),
@@ -1298,19 +1297,19 @@ class Particles(metaclass=ABCMeta):
                     ] = valid_particles
                     num_loaded_particles_glob += num_to_add_glob
                     num_loaded_particles_loc += num_valid
-                
+
                 # make sure all particles are loaded
                 assert self.Np == int(num_loaded_particles_glob), f"{self.Np = }, {int(num_loaded_particles_glob) = }"
 
                 # set new n_mks_load
                 self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
-                #n_mks_load_loc = num_loaded_particles_loc
+                # n_mks_load_loc = num_loaded_particles_loc
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
 
                 if self.mpi_comm is not None:
                     self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
-                
+
                 # set new holes in markers array to -1
                 self._markers[num_loaded_particles_loc:] = -1.0
                 self.update_holes()

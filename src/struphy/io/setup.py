@@ -2,7 +2,9 @@ from dataclasses import dataclass
 
 import numpy as np
 from mpi4py import MPI
+
 from struphy.utils.utils import dict_to_yaml
+
 
 def derive_units(
     Z_bulk: int = None,
@@ -262,6 +264,7 @@ def setup_derham(params_grid, comm=None, domain=None, mpi_dims_mask=None, verbos
         print("domain on process 0:".ljust(25), derham.domain_array[0])
 
     return derham
+
 
 # def setup_domain_cloning(comm, params, num_clones):
 #     """

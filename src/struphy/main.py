@@ -58,11 +58,11 @@ def main(
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
-    from struphy.utils.clone_config import CloneConfig
     from struphy.io.setup import pre_processing
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
     from struphy.profiling.profiling import ProfileRegion
+    from struphy.utils.clone_config import CloneConfig
 
     if sort_step:
         from struphy.pic.base import Particles
@@ -303,13 +303,11 @@ def main(
 
     with open(path_out + "/meta.txt", "a") as f:
         # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
-        f.write(
-            f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
-        )
+        f.write(f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n")
     comm.Barrier()
     if rank == 0:
         print("Struphy run finished.")
-    
+
     if clone_config is not None:
         clone_config.free()
 

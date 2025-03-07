@@ -73,7 +73,6 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     }
     clone_config = CloneConfig(comm=mpi_comm, params=params, num_clones=num_clones)
 
-
     # DeRham object
     derham = Derham(
         Nel,

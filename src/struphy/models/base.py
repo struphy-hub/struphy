@@ -8,10 +8,11 @@ import yaml
 from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector
 
-from struphy.utils.utils import dict_to_yaml
 from struphy.profiling.profiling import ProfileRegion
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
+
 
 class StruphyModel(metaclass=ABCMeta):
     """
@@ -24,7 +25,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     comm : mpi4py.MPI.Intracomm
         MPI communicator for parallel runs.
-    
+
     clone_config: struphy.utils.CloneConfig
         Contains the # TODO
 
@@ -34,7 +35,12 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
-    def __init__(self, params: dict, comm: MPI.Intracomm = None, clone_config: CloneConfig = None,):
+    def __init__(
+        self,
+        params: dict,
+        comm: MPI.Intracomm = None,
+        clone_config: CloneConfig = None,
+    ):
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
@@ -58,7 +64,7 @@ class StruphyModel(metaclass=ABCMeta):
                 save=False,
                 prompt=False,
             )
-        
+
         self._comm_world = comm
         self._clone_config = clone_config
 
@@ -127,7 +133,7 @@ class StruphyModel(metaclass=ABCMeta):
             derham_comm = self.comm_world
         else:
             derham_comm = clone_config.sub_comm
-        
+
         self._derham = setup_derham(
             params["grid"],
             comm=derham_comm,
@@ -1752,11 +1758,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 bckgr_params = val["params"].get("background", None)
                 pert_params = val["params"].get("perturbation", None)
                 boxes_per_dim = val["params"].get("boxes_per_dim", None)
-                
+
                 kinetic_class = getattr(particles, val["space"])
 
                 val["obj"] = kinetic_class(
-                    comm_world = self.comm_world,
+                    comm_world=self.comm_world,
                     clone_config=self.clone_config,
                     **val["params"]["markers"],
                     domain_array=self.derham.domain_array,

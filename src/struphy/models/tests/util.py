@@ -36,7 +36,7 @@ def call_model(
 
     map_and_equil : tuple[str]
         Name of mapping and MHD equilibirum.
-    
+
     num_clones : int
         Number of domain clones.
 
