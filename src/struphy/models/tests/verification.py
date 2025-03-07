@@ -44,7 +44,6 @@ def VlasovAmpereOneSpecies_weakLandau(path_out: str, rank: int, show_plots: bool
     # get scalar data
     pa_data = os.path.join(path_out, "data")
     with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
-        print(f"{f = }")
         time = f["time"]["value"][()]
         E = f["scalar"]["en_E"][()]
     logE = np.log10(E)
