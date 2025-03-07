@@ -3,6 +3,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import subprocess
 
 import h5py
 import numpy as np
@@ -10,7 +11,7 @@ import yaml
 
 import struphy
 import struphy.utils.utils as utils
-from struphy.diagnostics.diagn_tools import phase_space_overview, phase_space_video, plot_distr_fun, plot_scalars
+from struphy.diagnostics.diagn_tools import overview_2d, plot_distr_fun, plot_scalars, video_2d
 
 
 def main():
@@ -27,8 +28,8 @@ def main():
                             \n - plot_scalars       : plots the scalar quantities that were saved during the simulation\
                             \n - plot_distr         : plots the distribution function and delta-f (if available)\
                             \n                        set points for slicing with options below (default is middle of the space)\
-                            \n - phase_space_video  : make a video of the distribution function (minus the background) in a 2D slice of phase space\
-                            \n - phase_space_plots  : plots an overview of the distribution function (minus the background) in a 2D slice of phase space\
+                            \n - 2d_video           : make a video of the distribution function (minus the background) in a 2D slice of phase space\
+                            \n - 2d_plots           : plots an overview of the distribution function (minus the background) in a 2D slice of phase space\
                             \n                        for 6 different points in time.
                         """,
     )
@@ -45,6 +46,13 @@ def main():
         action="append",
         default=[],
         help="(for plot_scalars) which quantities to plot",
+    )
+    parser.add_argument(
+        "-slices",
+        nargs="+",
+        action="append",
+        default=[],
+        help="(for 2d_plots & 2d_video) which slices to plot / make a video for",
     )
     parser.add_argument(
         "--log",
@@ -161,6 +169,10 @@ def main():
         scalars_plot = args.scalars[0]
     else:
         scalars_plot = args.scalars
+    if len(args.slices) != 0:
+        slices_plot = args.slices[0]
+    else:
+        slices_plot = args.slices
 
     # Arguments for fitting
     do_fit = args.fit
@@ -220,7 +232,13 @@ def main():
             savedir=path,
         )
 
-    if "plot_distr" or "phase_space_videos" or "phase_space_plots" in actions:
+    if ("plot_distr" in actions) or ("2d_videos" in actions) or ("2d_plots" in actions):
+        # Do post-processing if it wasn't done before
+        if not os.path.exists(os.path.join(path, "post_processing")):
+            print("This folder hasn't been post-processed yet. Starting post-processing..")
+            subprocess.run(["struphy", "pproc", "-d", foldername])
+
+        # iterate over species
         for species in params["kinetic"].keys():
             # Get model class
             from struphy.models import fluid, hybrid, kinetic, toy
@@ -299,7 +317,7 @@ def main():
                 )
 
             # Create a video of the phase space
-            if "phase_space_video" in actions:
+            if "2d_video" in actions:
                 for slice_name in os.listdir(
                     os.path.join(
                         path,
@@ -309,19 +327,27 @@ def main():
                         "distribution_function",
                     ),
                 ):
-                    phase_space_video(
-                        t_grid=saved_time,
-                        grid_slices=grid_slices,
-                        slice_name=slice_name,
-                        marker_type=params["kinetic"][species]["markers"]["type"],
-                        species=species,
-                        path=path,
-                        model_name=model_name,
-                        background_params=params["kinetic"][species]["background"],
-                    )
+                    do_it = False
+                    if slices_plot != []:
+                        if slice_name in slices_plot:
+                            do_it = True
+                    else:
+                        do_it = True
+
+                    if do_it:
+                        video_2d(
+                            t_grid=saved_time,
+                            grid_slices=grid_slices,
+                            slice_name=slice_name,
+                            marker_type=params["kinetic"][species]["markers"]["type"],
+                            species=species,
+                            path=path,
+                            model_name=model_name,
+                            background_params=params["kinetic"][species]["background"],
+                        )
 
             # Create an overview plot of the phase space
-            if "phase_space_plots" in actions:
+            if "2d_plots" in actions:
                 for slice_name in os.listdir(
                     os.path.join(
                         path,
@@ -331,16 +357,26 @@ def main():
                         "distribution_function",
                     ),
                 ):
-                    phase_space_overview(
-                        t_grid=saved_time,
-                        grid_slices=grid_slices,
-                        slice_name=slice_name,
-                        marker_type=params["kinetic"][species]["markers"]["type"],
-                        species=species,
-                        path=path,
-                        model_name=model_name,
-                        background_params=params["kinetic"][species]["background"],
-                    )
+                    do_it = False
+                    if slices_plot != []:
+                        if slice_name in slices_plot:
+                            do_it = True
+                    else:
+                        do_it = True
+
+                    if do_it:
+                        overview_2d(
+                            t_grid=saved_time,
+                            grid_slices=grid_slices,
+                            slice_name=slice_name,
+                            marker_type=params["kinetic"][species]["markers"]["type"],
+                            species=species,
+                            path=path,
+                            model_name=model_name,
+                            background_params=params["kinetic"][species]["background"],
+                            show_plot=show,
+                            save_plot=not nosave,
+                        )
 
     file.close()
 
