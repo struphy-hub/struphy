@@ -806,7 +806,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.init_propagators()
 
         # Scalar variables to be saved during the simulation
-        self.add_scalar("en_e")
+        self.add_scalar("en_E")
         self.add_scalar("en_w")
         self.add_scalar("en_tot")
 
@@ -863,7 +863,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # 0.5 * e^T * M_1 * e
         self._mass_ops.M1.dot(self.pointer["e_field"], out=self._en_e_tmp)
         self.en_E = self.pointer["e_field"].dot(self._en_e_tmp) / 2.0
-        self.update_scalar("en_e", self.en_E)
+        self.update_scalar("en_E", self.en_E)
 
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
