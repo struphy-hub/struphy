@@ -193,13 +193,13 @@ compile_timing:
       cat << 'EOF' > check_pyccel.sh
       #!/bin/bash
       grep 'pyccel --libdir' timings_c.txt | sed -E 's|.*/site-packages/||' | while read filepath; do
-        echo "\n\n\n========================================\n"
-        echo "Kernel: %s\n\n" "$filepath"
+        echo "========================================"
+        echo "Kernel: $filepath"
         echo "-------------------- Timers -------------------------"
-        echo "# Language: C\n"
+        echo "# Language: C"
         grep -A 11 "pyccel.*${filepath}" timings_c.txt | tail -n +3
-        echo "# Language: Fortran\n"
-        grep -A 11 "pyccel.*${filepath}" timings_fortran.txt | tail -n +3
+        echo "# Language: Fortran"
+        grep -A 13 "pyccel.*${filepath}" timings_fortran.txt | tail -n +3
       done
       EOF
     - cat check_pyccel.sh
