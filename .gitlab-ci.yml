@@ -191,7 +191,10 @@ compile_timing:
     - struphy compile --delete
     - struphy compile --time-execution -y --language fortran > timings_fortran.txt
     - cat timings_fortran.txt
+    - touch parse_timings.sh
     - |
+      cat << 'EOF' > check_pyccel.sh
+      #!/bin/bash
       grep 'pyccel --libdir' timings_c.txt | sed -E 's|.*/site-packages/||' | while read filepath; do
         printf "\n\n\n========================================\n"
         printf "Kernel: %s\n\n" "$filepath"
@@ -200,6 +203,10 @@ compile_timing:
         printf "\nFortran:\n"
         grep -A 11 "pyccel.*${filepath}" timings_fortran.txt | tail -n +2
       done
+      EOF
+    - cat check_pyccel.sh
+    - chmod +x check_pyccel.sh
+    - ./check_pyccel.sh
 # Cron-job C:
 c_cronjob_install:
   stage: install
