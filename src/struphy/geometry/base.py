@@ -235,8 +235,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def __call__(self, *etas, change_out_order=False, squeeze_out=False, remove_outside=True, identity_map=False):
-        r"""
-        Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`.
+        r"""Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`.
 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
         The type of evaluation depends on the shape of the input ``etas``.
@@ -281,8 +280,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""
-        Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
+        r"""Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -316,8 +314,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def jacobian_det(self, *etas, squeeze_out=False, remove_outside=True):
-        r"""
-        Evaluates the Jacobian determinant :math:`\sqrt g : (0, 1)^3 \to \mathbb R^+` (only right-handed mappings allowed).
+        r"""Evaluates the Jacobian determinant :math:`\sqrt g : (0, 1)^3 \to \mathbb R^+` (only right-handed mappings allowed).
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -343,8 +340,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""
-        Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
+        r"""Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -383,8 +379,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""
-        Evaluates the metric tensor :math:`G: (0, 1)^3 \to \mathbb R^{3\times 3}`.
+        r"""Evaluates the metric tensor :math:`G: (0, 1)^3 \to \mathbb R^{3\times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -423,8 +418,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""
-        Evaluates the inverse metric tensor :math:`G^{-1}: (0, 1)^3 \to \mathbb R^{3\times 3}`.
+        r"""Evaluates the inverse metric tensor :math:`G^{-1}: (0, 1)^3 \to \mathbb R^{3\times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -474,8 +468,7 @@ class Domain(metaclass=ABCMeta):
         remove_outside=True,
         coordinates="physical",
     ):
-        """
-        Pull-back of a Cartesian scalar/vector field to a differential p-form.
+        """Pull-back of a Cartesian scalar/vector field to a differential p-form.
 
         Parameters
         ----------
@@ -541,8 +534,7 @@ class Domain(metaclass=ABCMeta):
         squeeze_out=False,
         remove_outside=True,
     ):
-        """
-        Pushforward of a differential p-form to a Cartesian scalar/vector field .
+        """Pushforward of a differential p-form to a Cartesian scalar/vector field.
 
         Parameters
         -----------
@@ -603,8 +595,7 @@ class Domain(metaclass=ABCMeta):
         squeeze_out=False,
         remove_outside=True,
     ):
-        """
-        Transformation between different differential p-forms and/or vector fields.
+        """Transformation between different differential p-forms and/or vector fields.
 
         Parameters
         -----------
@@ -663,8 +654,7 @@ class Domain(metaclass=ABCMeta):
 
     # ================================
     def _evaluate_metric_coefficient(self, *etas, which=0, **kwargs):
-        """
-        Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
+        """Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
 
         Parameters
         ----------
@@ -783,8 +773,7 @@ class Domain(metaclass=ABCMeta):
 
     # ================================
     def _pull_push_transform(self, which, a, kind_fun, *etas, flat_eval=False, **kwargs):
-        """
-        Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
+        """Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
 
         Parameters
         ----------
@@ -985,8 +974,7 @@ class Domain(metaclass=ABCMeta):
     # ================================
     @staticmethod
     def prepare_eval_pts(x, y, z, flat_eval=False):
-        """
-        Broadcasts evaluation point sets to 3d arrays of correct shape.
+        """Broadcasts evaluation point sets to 3d arrays of correct shape.
 
         Parameters
         ----------
@@ -1121,8 +1109,7 @@ class Domain(metaclass=ABCMeta):
     # ================================
     @staticmethod
     def prepare_arg(a_in, *Xs, is_sparse_meshgrid=False, a_kwargs={}):
-        """
-        Broadcasts argument to be pulled, pushed or transformed to array of correct shape (2d for markers, 4d else).
+        """Broadcasts argument to be pulled, pushed or transformed to array of correct shape (2d for markers, 4d else).
 
         Parameters
         ----------
@@ -1286,8 +1273,7 @@ class Domain(metaclass=ABCMeta):
     # ================================
     @staticmethod
     def prepare_params_map(params_user, params_default, return_numpy=True):
-        """
-        Sets missing default key-value pairs in dictionary "params_user" according to "params_default".
+        """Sets missing default key-value pairs in dictionary "params_user" according to "params_default".
 
         Parameters
         ----------
@@ -1331,8 +1317,7 @@ class Domain(metaclass=ABCMeta):
 
     @staticmethod
     def prepare_params_map_new(return_numpy=True, **params):
-        """
-        Create parameter dictionary and numpy array.
+        """Create parameter dictionary and numpy array.
 
         Parameters
         ----------
@@ -1370,8 +1355,7 @@ class Domain(metaclass=ABCMeta):
         figsize=(12, 5),
         save_dir=None,
     ):
-        """
-        Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
+        """Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
         Markers can be plotted as well (optional).
 
         Parameters
@@ -1750,7 +1734,7 @@ class Domain(metaclass=ABCMeta):
 
 
 class Spline(Domain):
-    r"""
+    r"""TODO
     .. math::
 
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -1848,8 +1832,7 @@ class Spline(Domain):
 
 
 class PoloidalSpline(Domain):
-    r"""
-    Base class for all mappings that use a 2D spline representation
+    r"""Base class for all mappings that use a 2D spline representation
     :math:`S:(\eta_1, \eta_2) \to (R, Z) \in \mathbb R^2` in the poloidal plane:
 
     .. math::
@@ -1961,7 +1944,7 @@ class PoloidalSpline(Domain):
 
 
 class PoloidalSplineStraight(PoloidalSpline):
-    r"""
+    r"""TODO
     .. math::
 
         F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -2031,7 +2014,7 @@ class PoloidalSplineStraight(PoloidalSpline):
 
 
 class PoloidalSplineTorus(PoloidalSpline):
-    r"""
+    r"""TODO
     .. math::
 
         F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -2101,8 +2084,7 @@ class PoloidalSplineTorus(PoloidalSpline):
 
 
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
-    r"""
-    Interpolates the mapping :math:`F: (0, 1)^3 \to \mathbb R^3` on the given spline space.
+    r"""Interpolates the mapping :math:`F: (0, 1)^3 \to \mathbb R^3` on the given spline space.
 
     Parameters
     -----------
@@ -2174,8 +2156,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
 
 def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.ndarray):
-    """
-    n-dimensional tensor-product spline interpolation with discrete input.
+    """n-dimensional tensor-product spline interpolation with discrete input.
 
     The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
     The last element must be g[-1] = 1 for clamped interpolation and g[-1] < 1 for periodic interpolation.
