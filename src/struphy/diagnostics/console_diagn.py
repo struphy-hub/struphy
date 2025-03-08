@@ -11,7 +11,7 @@ import yaml
 
 import struphy
 import struphy.utils.utils as utils
-from struphy.diagnostics.diagn_tools import overview_2d, plot_distr_fun, plot_scalars, video_2d
+from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
 
 
 def main():
@@ -240,7 +240,7 @@ def main():
             savedir=path,
         )
 
-    if ("plot_distr" in actions) or ("2d_videos" in actions) or ("2d_plots" in actions):
+    if ("plot_distr" in actions) or ("2d_video" in actions) or ("2d_plots" in actions):
         # Do post-processing if it wasn't done before
         if not os.path.exists(os.path.join(path, "post_processing")):
             print("This folder hasn't been post-processed yet. Starting post-processing..")
@@ -325,7 +325,7 @@ def main():
                 )
 
             # Create a video of the phase space
-            if "2d_video" in actions:
+            if ("2d_video" in actions) or ("2d_plots" in actions):
                 for slice_name in os.listdir(
                     os.path.join(
                         path,
@@ -335,59 +335,69 @@ def main():
                         "distribution_function",
                     ),
                 ):
-                    do_it = False
-                    if slices_plot != []:
-                        if slice_name in slices_plot:
-                            do_it = True
-                    else:
-                        do_it = True
+                    for action in actions:
+                        output = None
+                        if action == "2d_video":
+                            output = "video"
+                        elif action == "2d_plots":
+                            output = "overview"
+                        else:
+                            continue
 
-                    if do_it:
-                        video_2d(
-                            t_grid=saved_time,
-                            grid_slices=grid_slices,
+                        slice_name_given, polar_params = do_plot_and_if_polar(
+                            slices_plot=slices_plot,
                             slice_name=slice_name,
-                            marker_type=params["kinetic"][species]["markers"]["type"],
-                            species=species,
-                            path=path,
-                            model_name=model_name,
-                            background_params=params["kinetic"][species]["background"],
+                            geometry_params=params["geometry"],
                         )
 
-            # Create an overview plot of the phase space
-            if "2d_plots" in actions:
-                for slice_name in os.listdir(
-                    os.path.join(
-                        path,
-                        "post_processing",
-                        "kinetic_data",
-                        species,
-                        "distribution_function",
-                    ),
-                ):
-                    do_it = False
-                    if slices_plot != []:
-                        if slice_name in slices_plot:
-                            do_it = True
-                    else:
-                        do_it = True
-
-                    if do_it:
-                        overview_2d(
-                            t_grid=saved_time,
-                            grid_slices=grid_slices,
-                            slice_name=slice_name,
-                            marker_type=params["kinetic"][species]["markers"]["type"],
-                            species=species,
-                            path=path,
-                            model_name=model_name,
-                            n_times=n_times,
-                            background_params=params["kinetic"][species]["background"],
-                            show_plot=show,
-                            save_plot=not nosave,
-                        )
+                        if slice_name_given:
+                            plots_videos_2d(
+                                t_grid=saved_time,
+                                grid_slices=grid_slices,
+                                slice_name=slice_name,
+                                marker_type=params["kinetic"][species]["markers"]["type"],
+                                species=species,
+                                path=path,
+                                model_name=model_name,
+                                output=output,
+                                background_params=params["kinetic"][species]["background"],
+                                n_times=n_times,
+                                show_plot=show,
+                                save_plot=not nosave,
+                                polar_params=polar_params,
+                            )
 
     file.close()
+
+
+def do_plot_and_if_polar(slices_plot, slice_name, geometry_params):
+    """Helper function to determine if a given slice should be plotted, and if yes, wether in polar coords.
+
+    Parameters
+    ----------
+    """
+    slice_name_given = False
+    if slices_plot != []:
+        if slice_name in slices_plot:
+            slice_name_given = True
+    else:
+        slice_name_given = True
+
+    polar_params = {}
+
+    do_polar = False
+    geom_type = geometry_params["type"]
+    if geom_type == "HollowCylinder":
+        if slice_name == "e1_e2":
+            do_polar = True
+            polar_params["radial_coord"] = "e1"
+            polar_params["r_min"] = geometry_params[geom_type]["a1"]
+            polar_params["r_max"] = geometry_params[geom_type]["a2"]
+            polar_params["angular_coord"] = "e2"
+
+    polar_params["do_polar"] = do_polar
+
+    return slice_name_given, polar_params
 
 
 if __name__ == "__main__":
