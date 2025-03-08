@@ -2383,7 +2383,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         _K = getattr(self.basis_ops, id_K)
 
         # initialize projection operator TB
-        self._initialize_projection_operator_TB()
+        self._initialize_projection_operator_TBT()
 
         if id_U is None:
             _U, _UT = IdentityOperator(u.space), IdentityOperator(u.space)
@@ -2397,7 +2397,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
-        self._TC = self._TB.T @ self.derham.curl.T
+        self._TC = self._TBT @ self.derham.curl.T
 
         # preconditioner
         if solver["type"][1] is None:
@@ -2446,12 +2446,13 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         #     self._ACC.accumulate(self._particles,
         #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
         #                          self._scale_vec, 0.)
-
+        
         # solve for new u coeffs (no tmps created here)
         byn1 = self._B.dot(pn, out=self._byn1)
         byn2 = self._MJ.dot(self._b, out=self._byn2)
-        if self._particle_on:
 
+        if self._particle_on:
+            # accumulate
             self._ACC(
                 self._unit_b1[0]._data,
                 self._unit_b1[1]._data,
@@ -2463,10 +2464,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
             # update time-dependent operator
             self._b.update_ghost_regions()
-            self._update_weights_TB()
+            self._update_weights_TBT()
 
             b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
             byn2 += b2acc
+
         byn2 *= 1 / 2
         byn1 -= byn2
 
@@ -2498,7 +2500,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print("Maxdiff p3 for Magnetosonic:", max_dp)
             print()
 
-    def _initialize_projection_operator_TB(self):
+    def _initialize_projection_operator_TBT(self):
         r"""Initialize BasisProjectionOperator TB with the time-varying weight.
 
         .. math::
@@ -2514,22 +2516,36 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         # Femfield for the field evaluation
         self._bf = self.derham.create_field("bf", "Hdiv")
 
-        # define temp callable
-        def tmp(x, y, z):
-            return 0 * x
-
         # Initialize BasisProjectionOperator
         if self.derham._with_local_projectors == True:
-            self._TB = BasisProjectionOperatorLocal(P1, Vh, [[tmp, tmp, tmp]])
+            self._TBT = BasisProjectionOperatorLocal(P1, 
+                                                     Vh, 
+                                                     [[None, None, None],
+                                                      [None, None, None],
+                                                      [None, None, None],], 
+                                                     transposed=True,
+                                                     use_cache=True,
+                                                     polar_shift=True,
+                                                     V_extraction_op=self.derham.extraction_ops[self._u_id],
+                                                     V_boundary_op=self.derham.boundary_ops[self._u_id],
+                                                     P_boundary_op=self.derham.boundary_ops["1"],)
         else:
-            self._TB = BasisProjectionOperator(P1, Vh, [[tmp, tmp, tmp]])
-
-    def _update_weights_TB(self):
+            self._TBT = BasisProjectionOperator(P1, 
+                                                Vh, 
+                                                [[None, None, None],
+                                                 [None, None, None],
+                                                 [None, None, None],], 
+                                                transposed=True,
+                                                use_cache=True,
+                                                polar_shift=True,
+                                                V_extraction_op=self.derham.extraction_ops[self._u_id],
+                                                V_boundary_op=self.derham.boundary_ops[self._u_id],
+                                                P_boundary_op=self.derham.boundary_ops["1"],)
+    def _update_weights_TBT(self):
         """Updats time-dependent weights of the BasisProjectionOperator TB"""
 
         # Update Femfield
         self._bf.vector = self._b
-        self._bf.vector.update_ghost_regions()
 
         # define callable weights
         def bf1(x, y, z):
@@ -2543,7 +2559,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         from struphy.feec.utilities import RotationMatrix
 
-        rot_B = RotationMatrix(bf1, bf2, bf3)
+        rot_B =RotationMatrix(bf1, bf2, bf3)
 
         fun = []
 
@@ -2582,7 +2598,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                     ]
 
         # Initialize BasisProjectionOperator
-        self._TB.update_weights(fun)
+        self._TBT.update_weights(fun)
 
 
 class CurrentCoupling5DDensity(Propagator):
