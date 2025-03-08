@@ -30,7 +30,7 @@ def main():
                             \n                        set points for slicing with options below (default is middle of the space)\
                             \n - 2d_video           : make a video of the distribution function (minus the background) in a 2D slice of phase space\
                             \n - 2d_plots           : plots an overview of the distribution function (minus the background) in a 2D slice of phase space\
-                            \n                        for 6 different points in time.
+                            \n                        for up to 8 different points in time.
                         """,
     )
     parser.add_argument(
@@ -62,7 +62,14 @@ def main():
     parser.add_argument(
         "--show",
         action="store_true",
-        help="(for plot_scalars) if the plot should be shown",
+        help="(for plot_scalars and 2d_plots) if the plot should be shown",
+    )
+    parser.add_argument(
+        "-times",
+        nargs=1,
+        type=int,
+        default=[6],
+        help="(for 2_plots) at how many points in time should be plotted (default=6)",
     )
     parser.add_argument(
         "--nosave",
@@ -84,14 +91,14 @@ def main():
         nargs=1,
         type=int,
         default=[1],
-        help="(for plot_scalars --fit) the degree of the fit curve",
+        help="(for plot_scalars --fit) the degree of the fit curve (default=1)",
     )
     parser.add_argument(
         "-extrema",
         nargs=1,
         type=int,
         default=[4],
-        help="(for plot_scalars --fit) how many extrema should be used for the fit",
+        help="(for plot_scalars --fit) how many extrema should be used for the fit (default=4)",
     )
     parser.add_argument(
         "-startextr",
@@ -164,6 +171,7 @@ def main():
     time = args.t[0]
     do_log = args.log
     show = args.show
+    n_times = args.times[0]
     nosave = args.nosave
     if len(args.scalars) != 0:
         scalars_plot = args.scalars[0]
@@ -373,6 +381,7 @@ def main():
                             species=species,
                             path=path,
                             model_name=model_name,
+                            n_times=n_times,
                             background_params=params["kinetic"][species]["background"],
                             show_plot=show,
                             save_plot=not nosave,

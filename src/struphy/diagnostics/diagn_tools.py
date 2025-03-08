@@ -623,8 +623,8 @@ def video_2d(t_grid, grid_slices, slice_name, marker_type, species, path, model_
             df_binned=df_data[tuple(f_slicing)].squeeze(),
             save_path=imgs_folder,
             model_name=model_name,
-            eta_label=slc[:2],
-            v_label=slc[-2:],
+            label_1=slc[:2],
+            label_2=slc[-2:],
         )
         print("Phase space plots have been successfully created!")
 
@@ -671,7 +671,7 @@ def video_2d(t_grid, grid_slices, slice_name, marker_type, species, path, model_
         video.release()
 
 
-def plots_2d(t_grid, eta_grid, v_grid, df_binned, save_path, model_name, eta_label=None, v_label=None):
+def plots_2d(t_grid, eta_grid, v_grid, df_binned, save_path, model_name, label_1=None, label_2=None):
     """Create a time series of 2d plots for given delta-f data
 
     Parameters
@@ -721,10 +721,14 @@ def plots_2d(t_grid, eta_grid, v_grid, df_binned, save_path, model_name, eta_lab
         t = f"%.{len_dt}f" % t_grid[n]
         plt.pcolor(ee1, vv1, df_binned[n], cmap=cmap, vmin=-vscale, vmax=vscale)
         plt.title(f'$t=${t}, from Struphy model "{model_name}"')
-        if eta_label is not None:
-            plt.xlabel(rf"$\eta_{eta_label[-1]}$")
-        if v_label is not None:
-            plt.ylabel(rf"$v_{v_label[-1]}$")
+        if label_1[0] == "e":
+            plt.xlabel(rf"$\eta_{label_1[-1]}$")
+        else:
+            plt.xlabel(rf"$v_{label_1[-1]}$")
+        if label_2[0] == "e":
+            plt.ylabel(rf"$\eta_{label_2[-1]}$")
+        else:
+            plt.ylabel(rf"$v_{label_2[-1]}$")
         plt.savefig(
             os.path.join(
                 save_path,
@@ -744,6 +748,7 @@ def overview_2d(
     path,
     model_name,
     background_params=None,
+    n_times=6,
     show_plot=False,
     save_plot=True,
 ):
@@ -775,6 +780,9 @@ def overview_2d(
 
     background_params : dict [optional]
         parameters of the maxwellian background type if a full_f method was used
+
+    n_times : int
+        How many points in time should be plotted
 
     show_plot : boolean | Default = False
         Display the figure if True.
@@ -850,20 +858,44 @@ def overview_2d(
         ee1, vv1 = np.meshgrid(eta_grid, v_grid, indexing="ij")
 
         # polish data
-        df_binned[np.where(np.abs(df_binned) >= 1.0)] = 0.0
+        # df_binned[np.where(np.abs(df_binned) >= 1.0)] = 0.0
         # df_binned[:, :] -= np.mean(df_binned)
 
         len_dt = len(str(t_grid[1]).split(".")[1])
 
+        times = []
+        for k in range(n_times):
+            times += [int((len(t_grid) - 1) * k / 5)]
+
         cmap = "seismic"
-        vmin = np.min(df_binned) / 3
-        vmax = np.max(df_binned) / 3
+        vmin = []
+        vmax = []
+
+        for time in times:
+            vmin += [np.min(df_binned[time]) / 3]
+            vmax += [np.max(df_binned[time]) / 3]
+
+        vmin = np.min(vmin)
+        vmax = np.max(vmax)
+
         vscale = np.max(np.abs([vmin, vmax]))
 
-        eta_label = slc[:2]
-        v_label = slc[-2:]
+        label_1 = slc[:2]
+        label_2 = slc[-2:]
 
-        fig, axes = plt.subplots(3, 2, figsize=(12, 10))
+        n_rows = 1
+        n_cols = 1
+
+        if n_times < 4:
+            n_rows = 1
+        elif n_times <= 6:
+            n_cols = 2
+        else:
+            n_cols = 3
+
+        n_rows = int(np.ceil(n_times / n_cols))
+
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 10))
         # fig.tight_layout(h_pad=5.0, w_pad=5.0)
         # fig.tight_layout(pad=5.0)
         plt.subplots_adjust(
@@ -875,16 +907,24 @@ def overview_2d(
             hspace=0.35,
         )
 
+        # So we an use .flatten() even for just 1 plot
+        if not isinstance(axes, np.ndarray):
+            axes = np.array([axes])
+
         fig.suptitle(f'Struphy model "{model_name}"')
-        for k in np.arange(6):
-            n = int((len(t_grid) - 1) * k / 5)
+        for k in np.arange(n_times):
+            n = times[k]
             t = f"%.{len_dt}f" % t_grid[n]
             im = axes.flatten()[k].pcolor(ee1, vv1, df_binned[n], cmap=cmap, vmin=-vscale, vmax=vscale)
             axes.flatten()[k].title.set_text(f"$t=${t}")
-            if eta_label is not None:
-                axes.flatten()[k].set_xlabel(rf"$\eta_{eta_label[-1]}$")
-            if v_label is not None:
-                axes.flatten()[k].set_ylabel(rf"$v_{v_label[-1]}$")
+            if label_1[0] == "e":
+                axes.flatten()[k].set_xlabel(rf"$\eta_{label_1[-1]}$")
+            else:
+                axes.flatten()[k].set_xlabel(rf"$v_{label_1[-1]}$")
+            if label_2[0] == "e":
+                axes.flatten()[k].set_ylabel(rf"$\eta_{label_2[-1]}$")
+            else:
+                axes.flatten()[k].set_ylabel(rf"$v_{label_2[-1]}$")
 
         cbar_ax = fig.add_axes([0.9, 0.1, 0.02, 0.7])
         plt.colorbar(im, cax=cbar_ax)
