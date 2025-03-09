@@ -775,6 +775,9 @@ class ParticlesSPH(Particles):
 
             kwargs.pop("n_cols")
 
+        clone_config = kwargs.get("clone_config", None)
+        assert clone_config is None, "SPH can only be launched with --nclones 1"
+
         super().__init__(**kwargs)
 
     @property
