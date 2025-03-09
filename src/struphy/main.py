@@ -9,6 +9,7 @@ def main(
     verbose: bool = False,
     supress_out: bool = False,
     sort_step: int = 0,
+    num_clones: int = 1,
 ):
     """
     Run a Struphy model.
@@ -42,6 +43,8 @@ def main(
     sort_step: int, optional
         Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
 
+    num_clones: int, optional
+        Number of domain clones (default=1)
     """
 
     import copy
@@ -55,10 +58,11 @@ def main(
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
-    from struphy.io.setup import pre_processing, setup_domain_cloning
+    from struphy.io.setup import pre_processing
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
     from struphy.profiling.profiling import ProfileRegion
+    from struphy.utils.clone_config import CloneConfig
 
     if sort_step:
         from struphy.pic.base import Particles
@@ -92,12 +96,19 @@ def main(
         verbose=verbose,
     )
 
-    # Setup domain cloning communicators
-    # MPI.COMM_WORLD     : comm
-    # within a clone:    : sub_comm
-    # between the clones : inter_comm
-    # A copy of the params is used since the parker params are updated.
-    params, inter_comm, sub_comm = setup_domain_cloning(comm, copy.deepcopy(params), params["grid"]["Nclones"])
+    if comm is None:
+        clone_config = None
+    else:
+        if num_clones == 1:
+            clone_config = None
+        else:
+            # Setup domain cloning communicators
+            # MPI.COMM_WORLD     : comm
+            # within a clone:    : sub_comm
+            # between the clones : inter_comm
+            clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
+            clone_config.print_clone_config()
+            clone_config.print_particle_config()
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
@@ -110,7 +121,7 @@ def main(
             pass
 
     with ProfileRegion("model_class_setup"):
-        model = model_class(params=params, comm=sub_comm, inter_comm=inter_comm)
+        model = model_class(params=params, comm=comm, clone_config=clone_config)
 
     assert isinstance(model, StruphyModel)
 
@@ -292,15 +303,13 @@ def main(
 
     with open(path_out + "/meta.txt", "a") as f:
         # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
-        f.write(
-            f"{rank} {inter_comm.Get_rank()} {sub_comm.Get_rank()} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
-        )
+        f.write(f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n")
     comm.Barrier()
     if rank == 0:
         print("Struphy run finished.")
 
-    sub_comm.Free()
-    inter_comm.Free()
+    if clone_config is not None:
+        clone_config.free()
 
 
 if __name__ == "__main__":
@@ -381,6 +390,14 @@ if __name__ == "__main__":
         default=0,
     )
 
+    parser.add_argument(
+        "--nclones",
+        type=int,
+        metavar="N",
+        help="number of domain clones (default=1)",
+        default=1,
+    )
+
     # verbosity (screen output)
     parser.add_argument(
         "-v",
@@ -420,5 +437,6 @@ if __name__ == "__main__":
             verbose=args.verbose,
             supress_out=args.supress_out,
             sort_step=args.sort_step,
+            num_clones=args.nclones,
         )
     pylikwid_markerclose()

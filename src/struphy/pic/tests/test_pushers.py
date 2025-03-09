@@ -57,7 +57,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
         domain_array=derham.domain_array,
         bc=["periodic", "periodic", "periodic"],
@@ -190,7 +190,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
         domain_array=derham.domain_array,
         bc=["periodic", "periodic", "periodic"],
@@ -334,7 +334,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
         domain_array=derham.domain_array,
         bc=["periodic", "periodic", "periodic"],
@@ -478,7 +478,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
         domain_array=derham.domain_array,
         bc=["periodic", "periodic", "periodic"],
@@ -622,7 +622,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
         domain_array=derham.domain_array,
         bc=["periodic", "periodic", "periodic"],
@@ -770,7 +770,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
         domain_array=derham.domain_array,
         bc=["periodic", "periodic", "periodic"],

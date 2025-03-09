@@ -55,9 +55,9 @@ class Maxwell(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
         solver = params["em_fields"]["options"]["Maxwell"]["solver"]
@@ -141,9 +141,9 @@ class Vlasov(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -257,9 +257,9 @@ class GuidingCenter(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -394,9 +394,9 @@ class ShearAlfven(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from struphy.polar.basic import PolarVector
 
@@ -522,11 +522,11 @@ class VariationalPressurelessFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -626,11 +626,11 @@ class VariationalBarotropicFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -747,12 +747,12 @@ class VariationalCompressibleFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
         from struphy.feec.projectors import L2Projector
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -912,8 +912,8 @@ class Poisson(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
         model_params = params["em_fields"]["options"]["ImplicitDiffusion"]["model"]
@@ -994,8 +994,8 @@ class DeterministicParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1082,8 +1082,8 @@ class RandomParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1169,8 +1169,8 @@ class PressureLessSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
