@@ -24,7 +24,6 @@ def test_kinetic(
     If model is not None, tests the specified model.
     The argument "fast" is a pytest option that can be specified at the command line (see conftest.py)."""
 
-
     print(f"{nclones = } from def test_kinetic")
 
     from mpi4py import MPI
