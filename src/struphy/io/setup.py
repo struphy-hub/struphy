@@ -282,6 +282,7 @@ def pre_processing(
     save_step: int,
     mpi_rank: int,
     mpi_size: int,
+    num_clones: int,
     verbose: bool = False,
 ):
     """
@@ -312,6 +313,9 @@ def pre_processing(
 
     mpi_size : int
         Total number of MPI processes of the run.
+
+    num_clones: int
+        Number of domain clones.
 
     verbose : bool
         Show full screen output.
@@ -445,7 +449,7 @@ def pre_processing(
         print("python version:".ljust(25), sysconfig.get_python_version())
         print("model:".ljust(25), model_name)
         print("MPI processes:".ljust(25), mpi_size)
-        # print('Num domain clones:'.ljust(25), params['grid']['num_clones'])
+        print("number of domain clones:".ljust(25), num_clones)
         print("parameter file:".ljust(25), parameters_path)
         print("output folder:".ljust(25), path_out)
         print("restart:".ljust(25), restart)
