@@ -13,6 +13,7 @@ def test_hybrid(
     fast: bool,
     vrbose: bool,
     verification: bool,
+    nclones: int,
     show_plots: bool,
     *,
     model: str = None,
@@ -22,7 +23,7 @@ def test_hybrid(
 
     If model is not None, tests the specified model.
     The argument "fast" is a pytest option that can be specified at the command line (see conftest.py)."""
-
+    print(f"{nclones = }")
     from mpi4py import MPI
 
     from struphy.models import hybrid
@@ -43,6 +44,7 @@ def test_hybrid(
                     verbose=vrbose,
                     comm=comm,
                     verification=verification,
+                    nclones=nclones,
                     show_plots=show_plots,
                 )
     else:
@@ -55,6 +57,7 @@ def test_hybrid(
             verbose=vrbose,
             comm=comm,
             verification=verification,
+            nclones=nclones,
             show_plots=show_plots,
         )
 

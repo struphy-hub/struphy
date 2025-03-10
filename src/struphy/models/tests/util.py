@@ -20,8 +20,8 @@ def call_model(
     Tend: float = None,
     verbose: bool = True,
     comm=None,
-    num_clones: int = 1,
     verification: bool = False,
+    nclones: int = 1,
     show_plots: bool = False,
 ):
     """Does testing of one model, either all options or verification.
@@ -37,7 +37,7 @@ def call_model(
     map_and_equil : tuple[str]
         Name of mapping and MHD equilibirum.
 
-    num_clones : int
+    nclones : int
         Number of domain clones.
 
     Tend : float
@@ -52,7 +52,11 @@ def call_model(
     show_plots: bool
         Show plots of verification tests.
     """
-
+    print(f"{nclones = }")
+    print(f"{nclones = }")
+    print(f"{nclones = }")
+    print(f"{nclones = }")
+    print(f"{nclones = }")
     rank = comm.Get_rank()
 
     if verification:
@@ -109,7 +113,7 @@ def call_model(
                 save_step=int(
                     Tend / parameters["time"]["dt"],
                 ),
-                num_clones=num_clones,
+                num_clones=nclones,
                 verbose=verbose,
             )
             return
@@ -121,7 +125,7 @@ def call_model(
                 model_name,
                 parameters,
                 path_out,
-                num_clones=num_clones,
+                num_clones=nclones,
                 verbose=verbose,
             )
 
@@ -155,7 +159,7 @@ def call_model(
                             model_name,
                             parameters,
                             path_out,
-                            num_clones=num_clones,
+                            num_clones=nclones,
                             verbose=verbose,
                         )
 
@@ -177,7 +181,7 @@ def call_model(
                                 model_name,
                                 parameters,
                                 path_out,
-                                num_clones=num_clones,
+                                num_clones=nclones,
                                 verbose=verbose,
                             )
 
@@ -199,7 +203,7 @@ def call_model(
                                 model_name,
                                 parameters,
                                 path_out,
-                                num_clones=num_clones,
+                                num_clones=nclones,
                                 verbose=verbose,
                             )
 

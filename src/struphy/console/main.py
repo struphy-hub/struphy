@@ -694,6 +694,14 @@ def struphy():
         )
 
         parser_test.add_argument(
+            "--nclones",
+            type=int,
+            metavar="N",
+            help="number of domain clones (default=1)",
+            default=1,
+        )
+
+        parser_test.add_argument(
             "--show-plots",
             help="show plots of tests",
             action="store_true",
