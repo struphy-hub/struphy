@@ -16,7 +16,6 @@ grid :
     nq_el        : [2, 2, 1] # quadrature points per grid cell
     nq_pr        : [2, 2, 1] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck     : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
-    Nclones      : 1
 
 time :
     dt         : 0.005 # time step

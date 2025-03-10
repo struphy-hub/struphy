@@ -390,6 +390,14 @@ def struphy():
     )
 
     parser_run.add_argument(
+        "--nclones",
+        type=int,
+        metavar="N",
+        help="number of domain clones (default=1)",
+        default=1,
+    )
+
+    parser_run.add_argument(
         "--debug",
         help="launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs",
         action="store_true",

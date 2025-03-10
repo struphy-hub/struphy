@@ -62,9 +62,6 @@ class Derham:
     comm : mpi4py.MPI.Intracomm
         MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
 
-    inter_comm : mpi4py.MPI.Intracomm
-        MPI communicator (between clones if domain cloning is used, otherwise None)
-
     mpi_dims_mask: list of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
@@ -92,7 +89,6 @@ class Derham:
         nquads: list | tuple = None,
         nq_pr: list | tuple = None,
         comm: Intracomm = None,
-        inter_comm: Intracomm = None,
         mpi_dims_mask: list = None,
         with_projectors: bool = True,
         polar_ck: int = -1,
@@ -133,11 +129,6 @@ class Derham:
 
         # MPI communicators
         self._comm = comm
-        self._inter_comm = inter_comm
-        if self._inter_comm == None:
-            self._Nclones = 1
-        else:
-            self._Nclones = self._inter_comm.Get_size()
 
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
@@ -579,19 +570,9 @@ class Derham:
         return self._nq_pr
 
     @property
-    def Nclones(self):
-        """Number of clones"""
-        return self._Nclones
-
-    @property
     def comm(self):
         """MPI communicator."""
         return self._comm
-
-    @property
-    def inter_comm(self):
-        """MPI communicator between clones."""
-        return self._inter_comm
 
     @property
     def polar_ck(self):

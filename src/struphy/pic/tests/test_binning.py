@@ -558,7 +558,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         Np=Np,
         bc=bc_params,
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
     )
     particles.draw_markers()
@@ -616,7 +616,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         Np=Np,
         bc=bc_params,
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         pert_params=pert_params,
     )
@@ -702,7 +702,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         Np=Np,
         bc=bc_params,
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
@@ -854,7 +854,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         bc=bc_params,
         type="delta_f",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         pert_params=pert_params,
     )
@@ -943,7 +943,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         bc=bc_params,
         type="delta_f",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,

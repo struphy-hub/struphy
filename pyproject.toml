@@ -76,6 +76,7 @@ changelog = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/CHANGELOG.
 
 [project.scripts]
 struphy = "struphy.console.main:struphy"
+kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 
 [tool.setuptools.package-data]
 'struphy.fields_background.mhd_equil.eqdsk' = [

@@ -17,6 +17,7 @@ def struphy_run(
     sort_step=0,
     restart=False,
     mpi=1,
+    nclones=1,
     debug=False,
     cprofile=False,
     verbose=False,
@@ -62,6 +63,9 @@ def struphy_run(
 
     mpi : int
         Number of MPI processes for runs with "mpirun".
+
+    nclones : int
+        Number of domain clones.
 
     debug : bool
         Whether to run in Cobra debug mode, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs'.
@@ -195,6 +199,8 @@ def struphy_run(
         str(save_step),
         "--sort-step",
         str(sort_step),
+        "--nclones",
+        str(nclones),
     ]
     if verbose:
         cmd_main += ["-v"]

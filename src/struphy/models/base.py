@@ -10,6 +10,8 @@ from psydac.linalg.stencil import StencilVector
 
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
+from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -24,15 +26,21 @@ class StruphyModel(metaclass=ABCMeta):
     comm : mpi4py.MPI.Intracomm
         MPI communicator for parallel runs.
 
+    clone_config: struphy.utils.CloneConfig
+        Contains the # TODO
+
     Note
     ----
     All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
-    def __init__(self, params, comm=None, inter_comm=None):
-        # TODO: comm=None does not work yet.
-
+    def __init__(
+        self,
+        params: dict,
+        comm: MPI.Intracomm = None,
+        clone_config: CloneConfig = None,
+    ):
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
@@ -57,22 +65,16 @@ class StruphyModel(metaclass=ABCMeta):
                 prompt=False,
             )
 
+        self._comm_world = comm
+        self._clone_config = clone_config
+
         self._params = params
-        self._comm = comm
-        self._inter_comm = inter_comm
 
         # get rank and size
-        if self.comm is None:
-            self._rank = 0
+        if self.comm_world is None:
+            self._rank_world = 0
         else:
-            self._rank = self.comm.Get_rank()
-
-        if inter_comm == None:
-            self._comm_world_rank = comm.Get_rank()
-            self._Nclones = 1
-        else:
-            self._comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
-            self._Nclones = self._inter_comm.Get_size()
+            self._rank_world = self.comm_world.Get_rank()
 
         # initialize model variable dictionaries
         self._init_variable_dicts()
@@ -81,7 +83,7 @@ class StruphyModel(metaclass=ABCMeta):
         self._units, self._equation_params = self.model_units(
             self.params,
             verbose=self.verbose,
-            comm=self._comm,
+            comm=self.comm_world,
         )
 
         # create domain, equilibrium
@@ -127,10 +129,14 @@ class StruphyModel(metaclass=ABCMeta):
         if dims_mask is None:
             dims_mask = [True] * 3
 
+        if clone_config is None:
+            derham_comm = self.comm_world
+        else:
+            derham_comm = clone_config.sub_comm
+
         self._derham = setup_derham(
             params["grid"],
-            comm=comm,
-            inter_comm=inter_comm,
+            comm=derham_comm,
             domain=self.domain,
             mpi_dims_mask=dims_mask,
             verbose=self.verbose,
@@ -168,12 +174,12 @@ class StruphyModel(metaclass=ABCMeta):
         self._allocate_variables()
 
         # store plasma parameters
-        if self._comm_world_rank == 0:
+        if self.rank_world == 0:
             self._pparams = self._compute_plasma_params(verbose=self.verbose)
         else:
             self._pparams = self._compute_plasma_params(verbose=False)
 
-        # if self._comm_world_rank == 0:
+        # if self.rank_world == 0:
         #     self._show_chosen_options()
 
         # set propagators base class attributes (then available to all propagators)
@@ -263,19 +269,19 @@ class StruphyModel(metaclass=ABCMeta):
         return self._equation_params
 
     @property
-    def comm(self):
-        """MPI communicator."""
-        return self._comm
+    def comm_world(self):
+        """MPI_COMM_WORLD communicator."""
+        return self._comm_world
 
     @property
-    def inter_comm(self):
-        """MPI clone communicator."""
-        return self._inter_comm
+    def rank_world(self):
+        """Global rank."""
+        return self._rank_world
 
     @property
-    def Nclones(self):
-        """Number of clones."""
-        return self._Nclones
+    def clone_config(self):
+        """Config in case domain clones are used."""
+        return self._clone_config
 
     @property
     def pointer(self):
@@ -544,32 +550,29 @@ class StruphyModel(metaclass=ABCMeta):
                     value_array,
                     op=MPI.SUM,
                 )
+            if self.clone_config is None:
+                num_clones = 1
+            else:
+                num_clones = self.clone_config.num_clones
 
-            if "sum_between_clones" in compute_operations and self.Nclones > 1:
-                self.inter_comm.Allreduce(
+            if "sum_between_clones" in compute_operations and num_clones > 1:
+                self.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "average_between_clones" in compute_operations and self.Nclones > 1:
-                self.inter_comm.Allreduce(
+            if "average_between_clones" in compute_operations and num_clones > 1:
+                self.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
-                value_array /= self.Nclones
+                value_array /= num_clones
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
                 n_mks_tot = np.array([self.pointer[species].Np])
-                # The following reduction is not needed imo (Stefan)
-                # if self.Nclones > 1:
-                #     self.inter_comm.Allreduce(
-                #         MPI.IN_PLACE,
-                #         n_mks_tot,
-                #         op=MPI.SUM,
-                #     )
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -596,7 +599,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def init_propagators(self):
         """Initialize the propagator objects specified in :attr:`~propagators_cls`."""
-        if self._comm_world_rank == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nPROPAGATORS:")
         for (prop, variables), (prop2, kwargs_i) in zip(self.propagators_dct().items(), self.kwargs.items()):
             assert prop == prop2, (
@@ -604,11 +607,11 @@ class StruphyModel(metaclass=ABCMeta):
             )
 
             if kwargs_i is None:
-                if self._comm_world_rank == 0:
+                if self.rank_world == 0:
                     print(f'\n-> Propagator "{prop.__name__}" will not be used.')
                 continue
             else:
-                if self._comm_world_rank == 0 and self.verbose:
+                if self.rank_world == 0 and self.verbose:
                     print(f'\n-> Initializing propagator "{prop.__name__}"')
                     print(f"-> for variables {variables}")
                     print(f"-> with the following parameters:")
@@ -625,7 +628,7 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(prop_instance, Propagator)
                 self._propagators += [prop_instance]
 
-        if self._comm_world_rank == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nInitialization of propagators complete.")
 
     def integrate(self, dt, split_algo="LieTrotter"):
@@ -649,11 +652,6 @@ class StruphyModel(metaclass=ABCMeta):
                 with ProfileManager.profile_region(prop_name):
                     propagator(dt)
 
-                # if self.Nclones > 1:
-                #     with ProfileManager.profile_region(prop_name + '_barrier'):
-                #         self.comm.Barrier()
-                #         self.inter_comm.Barrier()
-
         # second order in time
         elif split_algo == "Strang":
             assert len(self.propagators) > 1
@@ -663,19 +661,11 @@ class StruphyModel(metaclass=ABCMeta):
                 with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)
 
-                # with ProfileManager.profile_region(prop_name + '_barrier'):
-                #         self.comm.Barrier()
-                #         self.inter_comm.Barrier()
-
             for propagator in self.propagators[::-1]:
                 prop_name = type(propagator).__name__
 
                 with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)
-
-                # with ProfileManager.profile_region(prop_name + '_barrier'):
-                #     self.comm.Barrier()
-                #     self.inter_comm.Barrier()
 
         else:
             raise NotImplementedError(
@@ -754,7 +744,7 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.feec.psydac_derham import Derham
         from struphy.pic.base import Particles
 
-        if self._comm_world_rank == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nINITIAL CONDITIONS:")
 
         # initialize em fields
@@ -772,7 +762,7 @@ class StruphyModel(metaclass=ABCMeta):
                             bckgr_obj=self.equil,
                         )
 
-                        if self._comm_world_rank == 0 and self.verbose:
+                        if self.rank_world == 0 and self.verbose:
                             print(f'\nEM field "{key}" was initialized with:')
 
                             _params = self.em_fields["params"]
@@ -824,7 +814,7 @@ class StruphyModel(metaclass=ABCMeta):
                                 species=species,
                             )
 
-                    if self._comm_world_rank == 0 and self.verbose:
+                    if self.rank_world == 0 and self.verbose:
                         print(
                             f'\nFluid species "{species}" was initialized with:',
                         )
@@ -876,7 +866,7 @@ class StruphyModel(metaclass=ABCMeta):
                     obj = val["obj"]
                     assert isinstance(obj, Particles)
 
-                    if self._comm_world_rank == 0 and self.verbose:
+                    if self.rank_world == 0 and self.verbose:
                         _params = val["params"]
                         assert "background" in _params, "Kinetic species must have background."
 
@@ -1429,16 +1419,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 yn = input(f"Writing to {file}, are you sure (Y/n)? ")
 
             if yn in ("", "Y", "y", "yes", "Yes"):
-                with open(file, "w") as outfile:
-                    yaml.dump(
-                        parameters,
-                        outfile,
-                        Dumper=MyDumper,
-                        default_flow_style=None,
-                        sort_keys=False,
-                        indent=4,
-                        line_break="\n",
-                    )
+                dict_to_yaml(parameters, file)
                 print(
                     f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".',
                 )
@@ -1630,7 +1611,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         self._kinetic = {}
         self._diagnostics = {}
 
-        if self._comm_world_rank == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nMODEL SPECIES:")
 
         # create dictionaries for each em-field/species and fill in space/class name and parameters
@@ -1638,7 +1619,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
             assert "em_fields" in self.params, 'Top-level key "em_fields" is missing in parameter file.'
 
-            if self._comm_world_rank == 0 and self.verbose:
+            if self.rank_world == 0 and self.verbose:
                 print("em_field:".ljust(25), f'"{var_name}" ({space})')
 
             self._em_fields[var_name] = {}
@@ -1666,7 +1647,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert "fluid" in self.params, 'Top-level key "fluid" is missing in parameter file.'
             assert var_name in self.params["fluid"], f"Fluid species {var_name} is missing in parameter file."
 
-            if self._comm_world_rank == 0 and self.verbose:
+            if self.rank_world == 0 and self.verbose:
                 print("fluid:".ljust(25), f'"{var_name}" ({space})')
 
             self._fluid[var_name] = {}
@@ -1703,7 +1684,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert "kinetic" in self.params, 'Top-level key "kinetic" is missing in parameter file.'
             assert var_name in self.params["kinetic"], f"Kinetic species {var_name} is missing in parameter file."
 
-            if self._comm_world_rank == 0 and self.verbose:
+            if self.rank_world == 0 and self.verbose:
                 print("kinetic:".ljust(25), f'"{var_name}" ({space})')
 
             self._kinetic[var_name] = {}
@@ -1714,7 +1695,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             for var_name, space in self.diagnostics_dct().items():
                 assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
 
-                if self.comm.Get_rank() == 0 and self.verbose:
+                if self.rank_world == 0 and self.verbose:
                     print("diagnostics:".ljust(25), f'"{var_name}" ({space})')
 
                 self._diagnostics[var_name] = {}
@@ -1772,32 +1753,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # marker arrays and plasma parameters of kinetic species
         if "kinetic" in self.params:
             for species, val in self.kinetic.items():
-                assert "Np" in val["params"]["markers"]
-                assert "bc" in val["params"]["markers"]
-                assert "loading" in val["params"]["markers"]
+                assert any([key in val["params"]["markers"] for key in ["Np", "ppc", "ppb"]])
 
-                # background parameters
-                if "background" in val["params"]:
-                    bckgr_params = val["params"]["background"]
-                else:
-                    bckgr_params = None
-
-                # perturbation parameters
-                if "perturbation" in val["params"]:
-                    pert_params = val["params"]["perturbation"]
-                else:
-                    pert_params = None
-
-                if "boxes_per_dim" in val["params"]:
-                    boxes_per_dim = val["params"]["boxes_per_dim"]
-                else:
-                    boxes_per_dim = None
+                bckgr_params = val["params"].get("background", None)
+                pert_params = val["params"].get("perturbation", None)
+                boxes_per_dim = val["params"].get("boxes_per_dim", None)
 
                 kinetic_class = getattr(particles, val["space"])
 
                 val["obj"] = kinetic_class(
-                    comm=self.derham.comm,
-                    inter_comm=self.derham.inter_comm,
+                    comm_world=self.comm_world,
+                    clone_config=self.clone_config,
                     **val["params"]["markers"],
                     domain_array=self.derham.domain_array,
                     boxes_per_dim=boxes_per_dim,
@@ -1933,7 +1899,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         units, equation_params = self.model_units(
             self.params,
             verbose=False,
-            comm=self.comm,
+            comm=self.comm_world,
         )
 
         # units affices for printing
