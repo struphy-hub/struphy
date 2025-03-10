@@ -116,7 +116,7 @@ def LinearVlasovAmpereOneSpecies_weakLandau(path_out, rank, show_plots=False):
     pa_data = os.path.join(path_out, "data")
     with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
         time = f["time"]["value"][()]
-        E = f["scalar"]["en_e"][()]
+        E = f["scalar"]["en_E"][()]
     logE = np.log10(E)
 
     # find where time derivative of E is zero

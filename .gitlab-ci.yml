@@ -352,6 +352,7 @@ Ubuntu_latest:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim --mpi 4 --nclones 2
 
 # Quickstart test
 quickstart_tests:
@@ -384,6 +385,9 @@ quickstart_tests:
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
 
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 

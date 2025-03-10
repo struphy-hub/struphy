@@ -1,4 +1,9 @@
+from dataclasses import dataclass
+
 import numpy as np
+from mpi4py import MPI
+
+from struphy.utils.utils import dict_to_yaml
 
 
 def derive_units(
@@ -185,7 +190,13 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     return domain, equil
 
 
-def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=None, verbose=False):
+def setup_derham(
+    params_grid,
+    comm=None,
+    domain=None,
+    mpi_dims_mask=None,
+    verbose=False,
+):
     """
     Creates the 3d derham sequence for given grid parameters.
 
@@ -194,8 +205,8 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     params_grid : dict
         Grid parameters dictionary.
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
+    comm: Intracomm
+        MPI communicator (sub_comm if clones are used).
 
     domain : struphy.geometry.base.Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
@@ -230,11 +241,6 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid["polar_ck"]
 
-    if inter_comm == None:
-        comm_world_rank = comm.Get_rank()
-    else:
-        comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
-
     derham = Derham(
         Nel,
         p,
@@ -243,14 +249,13 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
         nquads=nq_el,
         nq_pr=nq_pr,
         comm=comm,
-        inter_comm=inter_comm,
         mpi_dims_mask=mpi_dims_mask,
         with_projectors=True,
         polar_ck=polar_ck,
         domain=domain,
     )
 
-    if comm_world_rank == 0 and verbose:
+    if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")
         print(f"number of elements:".ljust(25), Nel)
         print(f"spline degrees:".ljust(25), p)
@@ -266,169 +271,6 @@ def setup_derham(params_grid, comm, inter_comm=None, domain=None, mpi_dims_mask=
         print("domain on process 0:".ljust(25), derham.domain_array[0])
 
     return derham
-
-
-def setup_domain_cloning(comm, params, Nclones):
-    """
-    Sets up domain cloning for parallel computation using MPI.
-
-    This function initializes MPI communicators for domain cloning
-    and distributes marker values across clones.
-
-    Parameters
-    ----------
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator used for parallelization.
-    params : dict
-        Dictionary containing parameters for the simulation.
-    Nclones : int
-        Number of clones to be used for domain decomposition.
-
-    Returns
-    -------
-    params : dict
-        Updated parameters with distributed marker values for each clone.
-    inter_comm : mpi4py.MPI.Intracomm
-        Inter-clone communicator for cross-clone communication.
-    sub_comm : mpi4py.MPI.Intracomm
-        Sub-communicator for intra-clone communication.
-    """
-
-    from mpi4py import MPI
-
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-
-    # Ensure the total number of ranks is divisible by the number of clones
-    if size % Nclones != 0:
-        if rank == 0:
-            print(
-                f"Total number of ranks ({size}) is not divisible by the number of clones ({Nclones}).",
-            )
-        MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
-
-    # Determine the color and rank within each clone
-    ranks_per_clone = size // Nclones
-    clone_color = rank // ranks_per_clone
-
-    # Create a sub-communicator for each clone
-    sub_comm = comm.Split(clone_color, rank)
-    local_rank = sub_comm.Get_rank()
-
-    # Create an inter-clone communicator for cross-clone communication
-    inter_comm = comm.Split(local_rank, rank)
-
-    # Gather information from all ranks to the rank 0 process
-    clone_info = comm.gather(
-        (rank, clone_color, local_rank, inter_comm.Get_rank()),
-        root=0,
-    )
-
-    if rank == 0 and Nclones > 1:
-        print(f"\nNumber of clones: {Nclones}")
-
-        # Generate an ASCII table for each clone
-        message = ""
-        for clone in range(Nclones):
-            message += f"Clone {clone}:\n"
-            message += "comm.Get_rank() | sub_comm.Get_rank() | inter_comm.Get_rank()\n"
-            message += "-" * 66 + "\n"
-            for entry in clone_info:
-                if entry[1] == clone:
-                    message += f"{entry[0]:15} | {entry[2]:19} | {entry[3]:21}\n"
-        print(message)
-
-    # Ensure 'Nclones' is set in the grid parameters
-    if "Nclones" not in params["grid"]:
-        params["grid"]["Nclones"] = 1
-
-    current_rank = inter_comm.Get_rank()
-    clone_particle_info = {"clone": current_rank, current_rank: {}}
-    # Process kinetic parameters if present
-    if "kinetic" in params and "grid" in params:
-        for species_name, species_data in params["kinetic"].items():
-            markers = species_data.get("markers")
-            Np = markers.get("Np")
-            ppc = markers.get("ppc")
-
-            clone_particle_info[current_rank][species_name] = {
-                "ppc": None,
-                "Np": None,
-                "Np_original": Np,
-                "ppc_original": ppc,
-            }
-
-            n_clones = params["grid"]["Nclones"]
-            # Calculate the base value and remainder
-            base_value = Np // n_clones
-            remainder = Np % n_clones
-
-            # Distribute the values
-            new_Np = [base_value] * Nclones
-            for i in range(remainder):
-                new_Np[i] += 1
-
-            # Assign the corresponding value to the current task
-            task_Np = new_Np[inter_comm.Get_rank()]
-
-            # Update the params for the current task
-            clone_particle_info[current_rank][species_name]["Np"] = task_Np
-            params["kinetic"][species_name]["markers"]["Np"] = task_Np
-
-            # Update ppc
-            task_ppc = task_Np / np.prod(params["grid"]["Nel"])
-            clone_particle_info[current_rank][species_name]["ppc"] = task_ppc
-            params["kinetic"][species_name]["markers"]["ppc"] = task_ppc
-
-    # Gather the data from all processes
-    all_clone_particle_info = comm.gather(clone_particle_info, root=0)
-
-    # If the current process is the root, compile and print the message
-    if rank == 0 and Nclones > 1:
-        marker_keys = ["Np", "ppc"]
-        data = {ci["clone"]: ci[ci["clone"]] for ci in all_clone_particle_info}
-        clone_ids = set([ci["clone"] for ci in all_clone_particle_info])
-        species_list = list(data[0].keys())
-
-        # Prepare breakline
-        breakline = "-" * (6 + 30 * len(species_list) * len(marker_keys)) + "\n"
-
-        # Prepare the header
-        header = "Particle counting:\nClone  "
-        for species_name in species_list:
-            for marker_key in marker_keys:
-                column_name = f"{marker_key} ({species_name})"
-                header += f"| {column_name:30} "
-        header += "\n"
-
-        # Prepare the data rows
-        rows = ""
-        column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
-        for clone_id in clone_ids:
-            row = f"{clone_id:6} "
-            for species_name in species_list:
-                for marker_key in marker_keys:
-                    value = data[clone_id][species_name][marker_key]
-                    row += f"| {str(value):30} "
-                    if value is not None:
-                        column_sums[species_name][marker_key] += value
-                    else:
-                        column_sums[species_name][marker_key] = None
-            rows += row + "\n"
-
-        # Prepare the sum row
-        sum_row = "Sum    "
-        for species_name in species_list:
-            for marker_key in marker_keys:
-                sum_value = column_sums[species_name][marker_key]
-                old_value = clone_particle_info[current_rank][species_name][marker_key + "_original"]
-                assert sum_value == old_value, f"{sum_value = } and {old_value = }"
-                sum_row += f"| {str(sum_value):30} "
-
-        # Print the final message
-        message = header + breakline + rows + breakline + sum_row
-        print(message)
-    return params, inter_comm, sub_comm
 
 
 def pre_processing(
@@ -550,9 +392,7 @@ def pre_processing(
 
         # write parameters to file and save it in output folder
         if mpi_rank == 0:
-            params_file = open(parameters_path, "w")
-            yaml.dump(parameters, params_file)
-            params_file.close()
+            dict_to_yaml(parameters, parameters_path)
 
         params = parameters
 
@@ -562,9 +402,6 @@ def pre_processing(
 
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
-
-    if not "Nclones" in params["grid"].keys():
-        params["grid"]["Nclones"] = 1
 
     # Ensure that both ppc Np
     if "kinetic" in params:
@@ -608,7 +445,7 @@ def pre_processing(
         print("python version:".ljust(25), sysconfig.get_python_version())
         print("model:".ljust(25), model_name)
         print("MPI processes:".ljust(25), mpi_size)
-        # print('Num domain clones:'.ljust(25), params['grid']['Nclones'])
+        # print('Num domain clones:'.ljust(25), params['grid']['num_clones'])
         print("parameter file:".ljust(25), parameters_path)
         print("output folder:".ljust(25), path_out)
         print("restart:".ljust(25), restart)

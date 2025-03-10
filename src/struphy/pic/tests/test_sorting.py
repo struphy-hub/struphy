@@ -49,7 +49,7 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     boxes_per_dim = (3, 3, 3)
 
     particles = Particles6D(
-        comm=mpi_comm,
+        comm_world=mpi_comm,
         Np=Np,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loading_params,
