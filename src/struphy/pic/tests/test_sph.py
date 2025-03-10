@@ -40,7 +40,7 @@ def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
     }
 
     particles = ParticlesSPH(
-        comm=mpi_comm,
+        comm_world=mpi_comm,
         Np=Np,
         bc=["periodic", "periodic", "periodic"],
         eps=10.0,  # Lots a buffering needed since only 3*3*3 box
