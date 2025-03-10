@@ -176,8 +176,8 @@ compile_timing:
       when: never
     - if: $MAKE_PAGES == "true"
       when: never
-    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $TEST_SCHEDULED == "true"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - pip install $(echo dist/struphy*.whl)[test]
     - pip show struphy
