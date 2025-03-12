@@ -1127,6 +1127,15 @@ class Particles(metaclass=ABCMeta):
 
             assert self._markers.num_real_comps == 20
 
+            # inversion method for drawing uniformly on the disc
+            self._spatial = self.loading_params["spatial"]
+            if self._spatial == "disc":
+                markers_array["x"][:] = np.sqrt(
+                    markers_array["x"][:],
+                )
+            else:
+                assert self._spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
+
             self._markers.redistribute()
 
         else:

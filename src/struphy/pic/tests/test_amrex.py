@@ -361,5 +361,113 @@ def test_amrex_cylinder(plot=False, verbose=False):
     amrex.finalize()
 
 
+@pytest.mark.mpi
+def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
+    a1 = 0.0
+    a2 = 5.0
+    Lz = 1.0
+    domain = HollowCylinder(a1=a1, a2=a2, Lz=Lz)
+
+    # instantiate Particle object
+    name = "test"
+    Np = 1000
+    bc = ["periodic", "periodic", "periodic"]
+    loading = "pseudo_random"
+    loading_params = {"seed": None}
+
+    struphy_particles = Particles6D(name=name, Np=Np, bc=bc, loading=loading, loading_params=loading_params)
+
+    # instantiate another Particle object
+    name = "test_uni"
+    loading_params = {"seed": None, "spatial": "disc"}
+    struphy_particles_uni = Particles6D(name=name, Np=Np, bc=bc, loading=loading, loading_params=loading_params)
+
+    struphy_particles.draw_markers()
+    struphy_particles_uni.draw_markers()
+
+    # positions on the physical domain Omega
+    struphy_pushed_pos = domain(struphy_particles.positions).T
+    struphy_pushed_pos_uni = domain(struphy_particles_uni.positions).T
+
+    if plot:
+        fig = plt.figure(figsize=(10, 6))
+
+        plt.subplot(1, 2, 1)
+        plt.scatter(struphy_pushed_pos[:, 0], struphy_pushed_pos[:, 1], s=2.0)
+        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
+        ax = plt.gca()
+        ax.add_patch(circle1)
+        ax.set_aspect("equal")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Draw uniform in logical space")
+
+        plt.subplot(1, 2, 2)
+        plt.scatter(struphy_pushed_pos_uni[:, 0], struphy_pushed_pos_uni[:, 1], s=2.0)
+        circle2 = plt.Circle((0, 0), a2, color="k", fill=False)
+        ax = plt.gca()
+        ax.add_patch(circle2)
+        ax.set_aspect("equal")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Draw uniform on disc")
+        plt.suptitle("Struphy")
+        plt.savefig("./uniform_draw_cylinder_struphy.jpg")
+
+    # instantiate Amrex object
+    amrex = Amrex()
+
+    # instantiate Particle object
+    name = "test"
+    Np = 1000
+    bc = ["periodic", "periodic", "periodic"]
+    loading = "pseudo_random"
+    loading_params = {"seed": None}
+
+    amrex_particles = Particles6D(name=name, Np=Np, bc=bc, loading=loading, loading_params=loading_params, amrex=amrex)
+
+    # instantiate another Particle object
+    name = "test_uni"
+    loading_params = {"seed": None, "spatial": "disc"}
+    amrex_particles_uni = Particles6D(
+        name=name, Np=Np, bc=bc, loading=loading, loading_params=loading_params, amrex=amrex
+    )
+
+    amrex_particles.draw_markers()
+    amrex_particles_uni.draw_markers()
+
+    # positions on the physical domain Omega
+    amrex_pushed_pos = domain(amrex_particles.positions).T
+    amrex_pushed_pos_uni = domain(amrex_particles_uni.positions).T
+
+    if plot:
+        fig = plt.figure(figsize=(10, 6))
+
+        plt.subplot(1, 2, 1)
+        plt.scatter(amrex_pushed_pos[:, 0], amrex_pushed_pos[:, 1], s=2.0)
+        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
+        ax = plt.gca()
+        ax.add_patch(circle1)
+        ax.set_aspect("equal")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Draw uniform in logical space")
+
+        plt.subplot(1, 2, 2)
+        plt.scatter(amrex_pushed_pos_uni[:, 0], amrex_pushed_pos_uni[:, 1], s=2.0)
+        circle2 = plt.Circle((0, 0), a2, color="k", fill=False)
+        ax = plt.gca()
+        ax.add_patch(circle2)
+        ax.set_aspect("equal")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Draw uniform on disc")
+        plt.suptitle("Amrex")
+        plt.savefig("./uniform_draw_cylinder_amrex.jpg")
+
+    # finalize Amrex
+    amrex.finalize()
+
+
 if __name__ == "__main__":
-    test_amrex_box(plot=True, verbose=True)
+    test_amrex_draw_uniform_cylinder(plot=True, verbose=True)
