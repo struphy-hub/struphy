@@ -811,13 +811,13 @@ def plots_2d_video(
         # Only add axis labels for non-polar plots since it confuses
         if not do_polar:
             if label_1[0] == "e":
-                obj.set_xlabel(rf"$\eta_{label_1[-1]}$")
+                obj.xlabel(rf"$\eta_{label_1[-1]}$")
             else:
-                obj.set_xlabel(rf"$v_{label_1[-1]}$")
+                obj.xlabel(rf"$v_{label_1[-1]}$")
             if label_2[0] == "e":
-                obj.set_ylabel(rf"$\eta_{label_2[-1]}$")
+                obj.ylabel(rf"$\eta_{label_2[-1]}$")
             else:
-                obj.set_ylabel(rf"$v_{label_2[-1]}$")
+                obj.ylabel(rf"$v_{label_2[-1]}$")
 
         # Save the current frame
         plt.savefig(
