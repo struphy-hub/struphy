@@ -20,6 +20,7 @@ from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.amrex import Amrex
+from struphy.pic.pushing.amrex_pusher import amrex_reflect
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
@@ -917,10 +918,11 @@ class Particles(metaclass=ABCMeta):
 
         coord_int = 0  # Cartesian
 
-        if "reflect" in self._bc:
-            raise NotImplementedError("The 'reflect' boundary condition is not implemented with pyAMReX")
-
-        periodicity = [1, 1, 1]  # all periodic TODO (Mati): implement different kind of periodicity
+        periodicity = [
+            1,
+            1,
+            1,
+        ]  # all periodic (other types of boundary conditions are handled in apply_amrex_kinetic_bc)
 
         SINGLE_CELL_SIZE = 32  # default size of single cell in indexing domain
 
@@ -1813,6 +1815,88 @@ class Particles(metaclass=ABCMeta):
 
                 self.markers[self._is_outside, self.first_pusher_idx] = -1.0
 
+            else:
+                raise NotImplementedError("Given bc_type is not implemented!")
+
+    def apply_amrex_kinetic_bc(self, newton=False):
+        """
+        Apply boundary conditions to markers that are outside of the logical unit cube.
+
+        Parameters
+        ----------
+        newton : bool
+            Whether the shift due to boundary conditions should be computed
+            for a Newton step or for a strandard (explicit or Picard) step.
+        """
+
+        markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
+
+        axes = ["x", "y", "z"]
+        for i, bc in enumerate(self.bc):
+            axis = axes[i]
+            # determine particles outside of the logical unit cube
+            is_outside_right = markers_array[axis] > 1.0
+            is_outside_left = markers_array[axis] < 0.0
+
+            is_outside = np.logical_or(
+                is_outside_right,
+                is_outside_left,
+            )
+
+            # indices or particles that are outside of the logical unit cube
+            outside_inds = np.nonzero(is_outside)[0]
+
+            if len(outside_inds) == 0:
+                continue
+
+            # apply boundary conditions
+            if bc == "remove":
+                continue
+                # TODO (Mati) implement this!
+                # if self.bc_refill is not None:
+                # self.particle_refilling()
+
+                # self._markers[self._is_outside, :-1] = -1.0
+                # self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
+
+            elif bc == "periodic":
+                continue
+                # TODO (Mati) check this out and see how it interacts with out of the box periodic bc
+
+                # self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
+
+                # # set shift for alpha-weighted mid-point computation
+                # outside_right_inds = np.nonzero(self._is_outside_right)[0]
+                # outside_left_inds = np.nonzero(self._is_outside_left)[0]
+                # if newton:
+                #     self.markers[
+                #         outside_right_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] += 1.0
+                #     self.markers[
+                #         outside_left_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] += -1.0
+                # else:
+                #     self.markers[
+                #         :,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] = 0.0
+                #     self.markers[
+                #         outside_right_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] = 1.0
+                #     self.markers[
+                #         outside_left_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] = -1.0
+
+            elif bc == "reflect":
+                amrex_reflect(
+                    self,
+                    outside_inds,
+                    i,
+                )
             else:
                 raise NotImplementedError("Given bc_type is not implemented!")
 

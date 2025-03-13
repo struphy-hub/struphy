@@ -276,6 +276,7 @@ class Pusher:
                         self.particles,
                         *self._args_kernel,
                     )
+                    self.particles.apply_amrex_kinetic_bc(newton=self._newton)
                 else:
                     # sort according to alpha-weighted average
                     if self.particles.mpi_comm is not None:

@@ -451,7 +451,7 @@ def test_amrex_boundary_conditions(plot=False, verbose=False):
     # initialize amrex
     amrex = Amrex()
 
-    bc = ["periodic", "periodic", "periodic"]
+    bc = ["reflect", "periodic", "periodic"]
 
     struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
 
