@@ -276,6 +276,25 @@ class Accumulator:
 
                     self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
 
+                elif self.filter_params["use_filter"] == "hybrid3":
+                    for _ in range(self.filter_params["repeat"]):
+                        for i in range(3):
+                            filters.apply_three_point_filter_3d_clamped(
+                                vec[i]._data,
+                                i,
+                                int(self.form),
+                                np.array(self.derham.Nel),
+                                np.array(self.derham.spl_kind),
+                                np.array(self.derham.p),
+                                np.array(self.derham.Vh[self.form][i].starts),
+                                np.array(self.derham.Vh[self.form][i].ends),
+                                alpha=self.filter_params["alpha"],
+                            )
+
+                        vec.update_ghost_regions()
+
+                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
+
                 elif self.filter_params["use_filter"] == "old_three_point":
 
                     for _ in range(self.filter_params["repeat"]):
