@@ -32,7 +32,6 @@ dependencies = [
     'argcomplete',
     'gvec-to-python',
     'desc-opt',
-    'netcdf4<1.7',
 ]
 
 [project.optional-dependencies]
