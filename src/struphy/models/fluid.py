@@ -1425,11 +1425,11 @@ class IsothermalEulerSPH(StruphyModel):
     def velocity_scale():
         return "thermal"
 
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["projected_density"] = "L2"
-        return dct
+    # @staticmethod
+    # def diagnostics_dct():
+    #     dct = {}
+    #     dct["projected_density"] = "L2"
+    #     return dct
 
     @staticmethod
     def propagators_dct():
@@ -1454,7 +1454,7 @@ class IsothermalEulerSPH(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
-            "density_field": self.pointer["projected_density"],
+            # "density_field": self.pointer["projected_density"],
         }
 
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
@@ -1466,7 +1466,7 @@ class IsothermalEulerSPH(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar("en_kin", compute="from_particles", species="euler_fluid")
+        self.add_scalar("en_kin", compute="from_sph", species="euler_fluid")
 
     def update_scalar_quantities(self):
         valid_markers = self.pointer["euler_fluid"].markers_wo_holes_and_ghost

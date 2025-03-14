@@ -146,7 +146,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self._epsilon = self.equation_params["species1"]["epsilon"]
 
         # Check if it is control-variate method
-        self._control_variate = species1_params["markers"]["type"] == "control_variate"
+        self._control_variate = species1_params["markers"]["control_variate"]
 
         # check mean velocity
         # TODO: assert f0.params[] == 0.
@@ -643,7 +643,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
         dct["em_fields"]["e_field"] = "Hcurl"
-        dct["kinetic"]["species1"] = "Particles6D"
+        dct["kinetic"]["species1"] = "DeltaFParticles6D"
         return dct
 
     @staticmethod
@@ -969,7 +969,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         dct["em_fields"]["e_field"] = "Hcurl"
         dct["em_fields"]["b_field"] = "Hdiv"
-        dct["kinetic"]["species1"] = "Particles6D"
+        dct["kinetic"]["species1"] = "DeltaFParticles6D"
         return dct
 
     @staticmethod
@@ -1163,7 +1163,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         rho = (charge_accum, self.pointer["ions"])
 
         # get neutralizing background density
-        if "full_f" in ions_params["markers"]["type"]:
+        if not self.pointer["ions"].control_variate:
             l2_proj = L2Projector("H1", self.mass_ops)
             f0e = Z * self.pointer["ions"].f0
             assert isinstance(f0e, KineticBackground)
