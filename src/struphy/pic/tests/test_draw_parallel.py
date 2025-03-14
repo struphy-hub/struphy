@@ -69,7 +69,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     }
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=ppc,
         domain_array=derham.domain_array,
         bc=["periodic", "periodic", "periodic"],
