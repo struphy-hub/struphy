@@ -48,6 +48,11 @@ def main():
         help="(for plot_scalars) which quantities to plot",
     )
     parser.add_argument(
+        "--full-f",
+        action="store_true",
+        help="whether to plot full-f instead of delta-f data",
+    )
+    parser.add_argument(
         "-slices",
         nargs="+",
         action="append",
@@ -169,6 +174,7 @@ def main():
     actions = args.actions
     foldername = args.f[0]
     time = args.t[0]
+    plot_full_f = args.full_f
     do_log = args.log
     show = args.show
     n_times = args.times[0]
@@ -355,7 +361,7 @@ def main():
                                 t_grid=saved_time,
                                 grid_slices=grid_slices,
                                 slice_name=slice_name,
-                                marker_type=params["kinetic"][species]["markers"]["type"],
+                                plot_full_f=plot_full_f,
                                 species=species,
                                 path=path,
                                 model_name=model_name,

@@ -233,9 +233,16 @@ class Domain(metaclass=ABCMeta):
         """Dictionary of str->int for pull, push and transformation functions."""
         return self._dict_transformations
 
-    # ========================
-    def __call__(self, *etas, change_out_order=False, squeeze_out=False, remove_outside=True, identity_map=False):
-        r"""Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`.
+    def __call__(
+        self,
+        *etas,
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+        identity_map=False,
+    ):
+        r"""
+        Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`.
 
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
         The type of evaluation depends on the shape of the input ``etas``.
@@ -278,9 +285,16 @@ class Domain(metaclass=ABCMeta):
             remove_outside=remove_outside,
         )
 
-    # ========================
-    def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
+    def jacobian(
+        self,
+        *etas,
+        transposed=False,
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+    ):
+        r"""
+        Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -312,9 +326,14 @@ class Domain(metaclass=ABCMeta):
             remove_outside=remove_outside,
         )
 
-    # ========================
-    def jacobian_det(self, *etas, squeeze_out=False, remove_outside=True):
-        r"""Evaluates the Jacobian determinant :math:`\sqrt g : (0, 1)^3 \to \mathbb R^+` (only right-handed mappings allowed).
+    def jacobian_det(
+        self,
+        *etas,
+        squeeze_out=False,
+        remove_outside=True,
+    ):
+        r"""
+        Evaluates the Jacobian determinant :math:`\sqrt g : (0, 1)^3 \to \mathbb R^+` (only right-handed mappings allowed).
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -324,10 +343,10 @@ class Domain(metaclass=ABCMeta):
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
-        squeeze_out : bool, optional
+        squeeze_out : bool
             Whether to remove singleton dimensions in output array.
 
-        remove_outside : bool, optional
+        remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
 
         Returns
@@ -336,11 +355,24 @@ class Domain(metaclass=ABCMeta):
             The Jacobian determinant evaluated at given logical coordinates.
         """
 
-        return self._evaluate_metric_coefficient(*etas, which=2, squeeze_out=squeeze_out, remove_outside=remove_outside)
+        return self._evaluate_metric_coefficient(
+            *etas,
+            which=2,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+        )
 
-    # ========================
-    def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
+    def jacobian_inv(
+        self,
+        *etas,
+        transposed=False,
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+        avoid_round_off=True,
+    ):
+        r"""
+        Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -350,17 +382,20 @@ class Domain(metaclass=ABCMeta):
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
-        transposed : bool, optional
+        transposed : bool
             If True, the transposed Jacobian matrix is evaluated.
 
-        change_out_order : bool, optional
+        change_out_order : bool
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
 
-        squeeze_out : bool, optional
+        squeeze_out : bool
             Whether to remove singleton dimensions in output array.
 
-        remove_outside : bool, optional
+        remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
+
+        avoid_round_off : bool
+            Whether to manually set exact zeros in arrays.
 
         Returns
         -------
@@ -375,11 +410,20 @@ class Domain(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
             transposed=transposed,
             remove_outside=remove_outside,
+            avoid_round_off=avoid_round_off,
         )
 
-    # ========================
-    def metric(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""Evaluates the metric tensor :math:`G: (0, 1)^3 \to \mathbb R^{3\times 3}`.
+    def metric(
+        self,
+        *etas,
+        transposed=False,
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+        avoid_round_off=True,
+    ):
+        r"""
+        Evaluates the metric tensor :math:`G: (0, 1)^3 \to \mathbb R^{3\times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -389,17 +433,20 @@ class Domain(metaclass=ABCMeta):
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
-        transposed : bool, optional
+        transposed : bool
             If True, the transposed Jacobian matrix is evaluated.
 
-        change_out_order : bool, optional
+        change_out_order : bool
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
 
-        squeeze_out : bool, optional
+        squeeze_out : bool
             Whether to remove singleton dimensions in output array.
 
-        remove_outside : bool, optional
+        remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
+
+        avoid_round_off : bool
+            Whether to manually set exact zeros in arrays.
 
         Returns
         -------
@@ -414,11 +461,20 @@ class Domain(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
             transposed=transposed,
             remove_outside=remove_outside,
+            avoid_round_off=avoid_round_off,
         )
 
-    # ========================
-    def metric_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
-        r"""Evaluates the inverse metric tensor :math:`G^{-1}: (0, 1)^3 \to \mathbb R^{3\times 3}`.
+    def metric_inv(
+        self,
+        *etas,
+        transposed=False,
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+        avoid_round_off=True,
+    ):
+        r"""
+        Evaluates the inverse metric tensor :math:`G^{-1}: (0, 1)^3 \to \mathbb R^{3\times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
 
         Parameters
@@ -428,17 +484,20 @@ class Domain(metaclass=ABCMeta):
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
-        transposed : bool, optional
+        transposed : bool
             If True, the transposed Jacobian matrix is evaluated.
 
-        change_out_order : bool, optional
+        change_out_order : bool
             If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
 
-        squeeze_out : bool, optional
+        squeeze_out : bool
             Whether to remove singleton dimensions in output array.
 
-        remove_outside : bool, optional
+        remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
+
+        avoid_round_off : bool
+            Whether to manually set exact zeros in arrays.
 
         Returns
         -------
@@ -453,9 +512,9 @@ class Domain(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
             transposed=transposed,
             remove_outside=remove_outside,
+            avoid_round_off=avoid_round_off,
         )
 
-    # ================================
     def pull(
         self,
         a,
@@ -490,16 +549,16 @@ class Domain(metaclass=ABCMeta):
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
-        change_out_order : bool, optional
+        change_out_order : bool
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
 
-        squeeze_out : bool, optional
+        squeeze_out : bool
             Whether to remove singleton dimensions in output array.
 
-        remove_outside : bool, optional
+        remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
 
-        coordinates : str, optional
+        coordinates : str
             In which coordinates the input "a" is given (in case of callables). "physical" : a = a(x, y, z).
             "logical"  : a = a(eta1, eta2, eta3).
 
@@ -522,7 +581,6 @@ class Domain(metaclass=ABCMeta):
             a_kwargs=a_kwargs,
         )
 
-    # ================================
     def push(
         self,
         a,
@@ -556,13 +614,13 @@ class Domain(metaclass=ABCMeta):
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
-        change_out_order : bool, optional
+        change_out_order : bool
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
 
-        squeeze_out : bool, optional
+        squeeze_out : bool
             Whether to remove singleton dimensions in output array.
 
-        remove_outside : bool, optional
+        remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
 
         Returns
@@ -583,7 +641,6 @@ class Domain(metaclass=ABCMeta):
             a_kwargs=a_kwargs,
         )
 
-    # ================================
     def transform(
         self,
         a,
@@ -617,13 +674,13 @@ class Domain(metaclass=ABCMeta):
         a_kwargs : dict
             Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
 
-        change_out_order : bool, optional
+        change_out_order : bool
             If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
 
-        squeeze_out : bool, optional
+        squeeze_out : bool
             Whether to remove singleton dimensions in output array.
 
-        remove_outside : bool, optional
+        remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
 
         Returns
@@ -668,7 +725,7 @@ class Domain(metaclass=ABCMeta):
             Which metric coefficients to be evaluated (0 : F, 1 : DF, 2 : det(DF), 3 : DF^(-1), 4 : G, 5 : G^(-1)).
 
         **kwargs
-            Addtional boolean keyword arguments (transposed, change_out_order, squeeze_out, remove_outside).
+            Addtional boolean keyword arguments (transposed, change_out_order, squeeze_out, remove_outside, avoid_round_off).
 
         Returns
         -------
@@ -681,6 +738,7 @@ class Domain(metaclass=ABCMeta):
         change_out_order = kwargs.get("change_out_order", False)
         squeeze_out = kwargs.get("squeeze_out", True)
         remove_outside = kwargs.get("remove_outside", False)
+        avoid_round_off = kwargs.get("avoid_round_off", True)
 
         # markers evaluation
         if len(etas) == 1:
@@ -695,6 +753,7 @@ class Domain(metaclass=ABCMeta):
                 self.args_domain,
                 out,
                 remove_outside,
+                avoid_round_off,
             )
 
             # move the (3, 3)-part to front
@@ -740,6 +799,7 @@ class Domain(metaclass=ABCMeta):
                 self.args_domain,
                 out,
                 is_sparse_meshgrid,
+                avoid_round_off,
             )
 
             # move the (3, 3)-part to front
@@ -1366,18 +1426,18 @@ class Domain(metaclass=ABCMeta):
         plane : str
             Which physical coordinates to plot (xy, xz or yz) in case of logical=False.
 
-        grid_info : array-like, optional
+        grid_info : array-like
             Information about the grid. If not given, the domain is shown with high resolution. If given, can be either
                 * a list of # of elements [Nel1, Nel2, (Nel3)], OR
                 * a 2d array with information about MPI decomposition.
 
-        markers : array-like, optional
+        markers : array-like
             Markers to be plotted. Can be of shape (Np, 3) or (:, Np, 3). For the former, all markers are plotted with the same color. For the latter, with different colors (are interpreted as orbits in time).
 
-        marker_coords : bool, optional
+        marker_coords : bool
             Whether the marker coordinates are logical or physical.
 
-        save_dir : str, optional
+        save_dir : str
             If given, the figure is saved according the given directory.
         """
 
