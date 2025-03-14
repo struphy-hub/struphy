@@ -176,7 +176,7 @@ def apply_three_point_filter_3d_clamped(
     ir = empty(3, dtype=int)
     isDspline = zeros(3, dtype=int)
 
-    clamped = ones((3,2), dtype=int)
+    clamped = ones((3,2), dtype=float)
 
     # copy vectors
     vec_copy[:, :, :] = vec[:, :, :]
@@ -213,14 +213,14 @@ def apply_three_point_filter_3d_clamped(
                 i_bottom[i] = 0
             else:
                 i_bottom[i] = +1
-                clamped[i,0] = 0
+                clamped[i,0] = 0.
 
         if ends[i] == top[i]:
             if spl_kind[i]:
                 i_top[i] = 0
             else:
                 i_top[i] = -1
-                clamped[i,1] = 0
+                clamped[i,1] = 0.
 
     # index range
     for i in range(3):
@@ -256,14 +256,19 @@ def apply_three_point_filter_3d_clamped(
                             tmp += mask[il, jl, kl] * vec_copy[fi[0], fi[1], fi[2]]
 
                 vec[pn[0] + i, pn[1] + j, pn[2] + k] = tmp
-    
-    # set the edge value 0 if spl_kinds = False
-    vec[pn[0],:,:] *= clamped[0,0]
-    vec[-pn[0]-1,:,:] *= clamped[0,1]
-    vec[:,pn[1],:] *= clamped[1,0]
-    vec[:,-pn[1]-1,:] *= clamped[1,1]
-    vec[:,:,pn[2]] *= clamped[2,0]
-    vec[:,:,-pn[2]-1] *= clamped[2,1]
+
+                if i == 0 :
+                    vec[pn[0] + i, pn[1] + j, pn[2] + k] *= clamped[0,0]
+                if i == ir[0] - 1:
+                    vec[pn[0] + i, pn[1] + j, pn[2] + k] *= clamped[0,1]
+                if j == 0 :
+                    vec[pn[0] + i, pn[1] + j, pn[2] + k] *= clamped[1,0]
+                if j == ir[1] - 1:
+                    vec[pn[0] + i, pn[1] + j, pn[2] + k] *= clamped[1,1]
+                if k == 0 :
+                    vec[pn[0] + i, pn[1] + j, pn[2] + k] *= clamped[2,0]
+                if k == ir[2] - 1:
+                    vec[pn[0] + i, pn[1] + j, pn[2] + k] *= clamped[2,1]
 
 
 @stack_array("vec_copy", "mask1d", "mask", "top", "i_bottom", "i_top", "fi", "ir")
