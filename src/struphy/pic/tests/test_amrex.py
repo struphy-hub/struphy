@@ -10,7 +10,6 @@ from struphy.pic.particles import Particles6D
 from struphy.propagators.propagators_markers import PushEta
 
 
-@pytest.mark.mpi
 def test_amrex_box(plot=False, verbose=False):
     l1 = -5
     r1 = 5.0
@@ -164,7 +163,6 @@ def test_amrex_box(plot=False, verbose=False):
     amrex.finalize()
 
 
-@pytest.mark.mpi
 def test_amrex_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -198,53 +196,23 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
     if plot:
-        fig = plt.figure()
-        ax = fig.gca()
+        plot_cylinder(
+            amrex_pushed_pos,
+            amrex_particles.velocities,
+            colors,
+            a2,
+            "Initial conditions (amrex)",
+            "./cylinder_initial_amrex.jpg",
+        )
 
-        for n, pos in enumerate(amrex_pushed_pos):
-            ax.scatter(pos[0], pos[1], c=colors[n % 4])
-            ax.arrow(
-                pos[0],
-                pos[1],
-                amrex_particles.velocities[n, 0],
-                amrex_particles.velocities[n, 1],
-                color=colors[n % 4],
-                head_width=0.2,
-            )
-
-        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
-
-        ax.add_patch(circle1)
-        ax.set_aspect("equal")
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_title("Initial conditions (amrex)")
-        plt.grid()
-        plt.savefig("./cylinder_initial_amrex.jpg")
-
-        fig = plt.figure()
-        ax = fig.gca()
-
-        for n, pos in enumerate(struphy_pushed_pos):
-            ax.scatter(pos[0], pos[1], c=colors[n % 4])
-            ax.arrow(
-                pos[0],
-                pos[1],
-                struphy_particles.velocities[n, 0],
-                struphy_particles.velocities[n, 1],
-                color=colors[n % 4],
-                head_width=0.2,
-            )
-
-        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
-
-        ax.add_patch(circle1)
-        ax.set_aspect("equal")
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_title("Initial conditions (struphy)")
-        plt.grid()
-        plt.savefig("./cylinder_initial_struphy.jpg")
+        plot_cylinder(
+            struphy_pushed_pos,
+            struphy_particles.velocities,
+            colors,
+            a2,
+            "Initial conditions (struphy)",
+            "./cylinder_initial_struphy.jpg",
+        )
 
     # pass simulation parameters to Propagator class
     PushEta.options(default=True)
@@ -287,45 +255,30 @@ def test_amrex_cylinder(plot=False, verbose=False):
         alpha[n] = (Tend - time) / Tend
 
     if plot:
-        fig = plt.figure()
-        ax = fig.gca()
+        plot_cylinder_over_time(
+            pos,
+            Np,
+            colors,
+            alpha,
+            a2,
+            f"{math.ceil(Tend / dt)} time steps (full color at t=0) (amrex)",
+            "./cylinder_final_amrex.jpg",
+        )
 
-        # make scatter plot for each particle in xy-plane
-        for i in range(Np):
-            ax.scatter(amrex_pos[:, i, 0], amrex_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
-
-        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
-
-        ax.add_patch(circle1)
-        ax.set_aspect("equal")
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_title(f"{math.ceil(Tend / dt)} time steps (full color at t=0) (amrex)")
-
-        plt.grid()
-        plt.savefig("./cylinder_final_amrex.jpg")
-
-        fig = plt.figure()
-        ax = fig.gca()
-
-        for i in range(Np):
-            ax.scatter(struphy_pos[:, i, 0], struphy_pos[:, i, 1], c=colors[i % 4], alpha=alpha)
-
-        circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
-
-        ax.add_patch(circle1)
-        ax.set_aspect("equal")
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_title(f"{math.ceil(Tend / dt)} time steps (full color at t=0) (struphy)")
-        plt.grid()
-        plt.savefig("./cylinder_final_struphy.jpg")
+        plot_cylinder_over_time(
+            pos,
+            Np,
+            colors,
+            alpha,
+            a2,
+            f"{math.ceil(Tend / dt)} time steps (full color at t=0) (struphy)",
+            "./cylinder_final_struphy.jpg",
+        )
 
     # finalize amrex
     amrex.finalize()
 
 
-@pytest.mark.mpi
 def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -433,8 +386,7 @@ def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
     amrex.finalize()
 
 
-@pytest.mark.mpi
-def test_amrex_boundary_conditions(plot=False, verbose=False):
+def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     l1 = -5
     r1 = 5.0
     l2 = -7
@@ -461,10 +413,44 @@ def test_amrex_boundary_conditions(plot=False, verbose=False):
         colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
 
         plot_box_over_time(
-            struphy_pos, Np, colors, alpha, l1, l2, r1, r2, "Struphy boundary behaviour", "./bc_struphy.jpg"
+            struphy_pos, Np, colors, alpha, l1, l2, r1, r2, "Struphy boundary behaviour", "./bc_box_struphy.jpg"
         )
 
-        plot_box_over_time(amrex_pos, Np, colors, alpha, l1, l2, r1, r2, "Amrex boundary behaviour", "./bc_amrex.jpg")
+        plot_box_over_time(
+            amrex_pos, Np, colors, alpha, l1, l2, r1, r2, "Amrex boundary behaviour", "./bc_box_amrex.jpg"
+        )
+
+    amrex.finalize()
+
+
+def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
+    a1 = 0.0
+    a2 = 5.0
+    Lz = 1.0
+    domain = HollowCylinder(a1=a1, a2=a2, Lz=Lz)
+
+    # simulation parameters
+    Tend = 20.0
+    dt = 0.5
+    Np = 2
+
+    # initialize amrex
+    amrex = Amrex()
+
+    bc = ["reflect", "periodic", "periodic"]
+
+    struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
+
+    struphy_pos, amrex_pos, alpha = push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt)
+
+    if plot:
+        colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
+
+        plot_cylinder_over_time(
+            struphy_pos, Np, colors, alpha, a2, "Struphy boundary behaviour", "./bc_cylinder_struphy.jpg"
+        )
+
+        plot_cylinder_over_time(amrex_pos, Np, colors, alpha, a2, "Amrex boundary behaviour", "./bc_cylinder_amrex.jpg")
 
     amrex.finalize()
 
@@ -583,5 +569,51 @@ def push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt):
     return struphy_pos, amrex_pos, alpha
 
 
+def plot_cylinder_over_time(pos, Np, colors, alpha, a2, title, path):
+    fig = plt.figure()
+    ax = fig.gca()
+
+    # make scatter plot for each particle in xy-plane
+    for i in range(Np):
+        ax.scatter(pos[:, i, 0], pos[:, i, 1], c=colors[i % 4], alpha=alpha)
+
+    circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
+
+    ax.add_patch(circle1)
+    ax.set_aspect("equal")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_title(title)
+
+    plt.grid()
+    plt.savefig(path)
+
+
+def plot_cylinder(positions, velocities, colors, a2, title, path):
+    fig = plt.figure()
+    ax = fig.gca()
+
+    for n, pos in enumerate(positions):
+        ax.scatter(pos[0], pos[1], c=colors[n % 4])
+        ax.arrow(
+            pos[0],
+            pos[1],
+            velocities[n, 0],
+            velocities[n, 1],
+            color=colors[n % 4],
+            head_width=0.2,
+        )
+
+    circle1 = plt.Circle((0, 0), a2, color="k", fill=False)
+
+    ax.add_patch(circle1)
+    ax.set_aspect("equal")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_title(title)
+    plt.grid()
+    plt.savefig(path)
+
+
 if __name__ == "__main__":
-    test_amrex_boundary_conditions(plot=True, verbose=True)
+    test_amrex_boundary_conditions_box(plot=True, verbose=True)
