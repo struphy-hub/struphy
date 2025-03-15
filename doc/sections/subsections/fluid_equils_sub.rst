@@ -3,7 +3,7 @@
 Base classes
 ^^^^^^^^^^^^
 
-.. automodule:: struphy.fields_background.fluid_equils.base
+.. automodule:: struphy.fields_background.fluid_equil.base
     :members:
     :undoc-members: 
     :exclude-members: 
@@ -15,7 +15,7 @@ Base classes
 Available fluid equilibria
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.fields_background.fluid_equils.equils
+.. automodule:: struphy.fields_background.fluid_equil.equils
     :members:
     :undoc-members:
     :show-inheritance:

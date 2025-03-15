@@ -6,27 +6,28 @@ Particle-in-cell methods (PIC)
 Basics
 ^^^^^^
 
-PIC methods are efficient for the discretization of conservation laws of the form
+PIC methods are well-suited for the discretization of conservation laws of the form
 
 .. math::
     :label: conservelaw
 
-    \partial_t f + \nabla_q \cdot (G(f) \, f) &= S(f) \qquad q \in \Omega \subset \mathbb R^n\,,
+    \partial_t f + \nabla_q \cdot (\mathbf u(t, q) \, f) &= S(f) \qquad q \in \Omega \subset \mathbb R^n\,,
     \\[2mm]
     f(t=0) &= f_\textnormal{in}\,,
 
-where :math:`\Omega\subset \mathbb R^n` open, some (curvilinear) cooridinates :math:`q \in \Omega` and appropriate boundary conditions on :math:`\partial\Omega`.
-Here, the solution :math:`f: \mathbb R \times \Omega \to \mathbb R^+` 
-is often called "distribution function", :math:`G(f)`
-is a (nonlinear) flow velocity, and :math:`S(f)` is a (nonlinear) source term. 
+where :math:`\Omega\subset \mathbb R^n` is open, :math:`q` denotes a set of suitable coordinates in :math:`\Omega`,
+and we assume appropriate boundary conditions on :math:`\partial\Omega`.
+Here, :math:`f: (t,q) \mapsto \mathbb R^+` 
+is a positive density or "volume form", :math:`\mathbf u: (t,q) \mapsto \mathbb R^n` is the vector-field defining the flow, 
+and :math:`S(f)` is a (nonlinear) source term. 
 Equation :math:numref:`conservelaw` can be re-written as 
 
 .. math::
 
-    \partial_t f + G(f) \cdot \nabla_q f = S(f) - f \nabla_q \cdot G(f) \,,
+    \partial_t f + \mathbf u \cdot \nabla_q f = S(f) - f \nabla_q \cdot \mathbf u \,,
 
 which represents an advection equation with a source term.
-The PIC ansatz for solving such equations is 
+The PIC ansatz for solving equation :math:numref:`conservelaw` is 
 
 .. math::
     :label: pic:ansatz
@@ -57,46 +58,21 @@ Assuming that boundary terms vanish, the time derivative of the :math:`f`-integr
 
 .. math::
 
-    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f \phi\,\textrm d q &= - \int_\Omega \nabla_q \cdot (G(f) \, f) \phi\,\textrm d q + \int_\Omega S(f) \phi\,\textrm d q
+    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f \phi\,\textrm d q &= - \int_\Omega \nabla_q \cdot (\mathbf u \, f) \phi\,\textrm d q + \int_\Omega S(f) \phi\,\textrm d q
     \\[2mm]
-    &= \int_\Omega  f\,G(f) \cdot \nabla_q \phi\,\textrm d q + \int_\Omega S(f) \phi\,\textrm d q \,.
+    &= \int_\Omega  f\,\mathbf u \cdot \nabla_q \phi\,\textrm d q + \int_\Omega S(f) \phi\,\textrm d q \,.
 
 These integrals are now viewed as :ref:`monte_carlo` in the following way: 
-assume :math:`s: \mathbb R \times \Omega \to \mathbb R^+` 
+assume :math:`s: (t,q) \mapsto \mathbb R^+` 
 to be a time-dependent probability distribution function (PDF) on :math:`\Omega`, 
 and let :math:`\mathbb E(X)_s` denote the expectation value of a random variable :math:`X`
 distributed according to :math:`s`. Then,
 
 .. math::
     
-    \frac{\textrm{d}}{\textrm{d} t} \int_\Omega f \phi\,\textrm d q &= \int_\Omega  \frac fs\,G(f) \cdot \nabla_q \phi\,s\,\textrm d q + \int_\Omega \frac 1s S(f) \phi\,s \,\textrm d q
+    \int_\Omega  f\,\mathbf u \cdot \nabla_q \phi\,\textrm d q &= \int_\Omega  \frac fs\,\mathbf u \cdot \nabla_q \phi\,s\,\textrm d q = \mathbb E\left(\frac fs\,\mathbf u \cdot \nabla_q \phi \right)_s\,,
     \\[2mm]
-    &= \mathbb E\left(\frac fs\,G(f) \cdot \nabla_q \phi \right)_s + \mathbb E\left(\frac 1s S(f) \phi \right)_s\,.
-
-.. Here,  We can assume that the PDF :math:`s` satisfies the transport equation
-
-.. .. math::
-..     :label: s_eq
-
-..     \partial_t s + G(f) \cdot \nabla_q s &= 0\,,
-..     \\[2mm]
-..     s(t=0) &= s_{\textnormal{in}}\,.
-
-.. (note :math:`G(f)` and not :math:`G(s)`) which means that :math:`s` is constant along the characteristics 
-
-.. .. math::
-..     :label: chars
-
-..     \dot q_k = G(f(q_k)) \qquad q_k(0) = q_{k0}\,.
-
-.. More clearly,
-
-.. .. math::
-
-..     s(q_k(t)) = s_{\textnormal{in}}(q_{k0})\,.
-
-.. If the :math:`q_{k0}` are drawn from :math:`s_{\textnormal{in}}` it means that the :math:`q_k(t)`
-.. are distributed according to :math:`s`.
+    \int_\Omega S(f) \phi\,\textrm d q &= \int_\Omega \frac 1s S(f) \phi\,s \,\textrm d q = \mathbb E\left(\frac 1s S(f) \phi \right)_s\,.
 
 At each time :math:`t` we can estimate 
 the above expectation values from the :math:`N` samples :math:`q_k`:
@@ -104,7 +80,7 @@ the above expectation values from the :math:`N` samples :math:`q_k`:
 .. math::
     :label: expectvals
 
-    \mathbb E\left(\frac fs\,G(f) \cdot \nabla_q \phi \right)_s &\approx \frac 1N \sum_{k=1}^N \frac{f(q_k)}{s(q_k)}\,G(f(q_k)) \cdot \nabla_q \phi(q_k) + O(N^{-1/2})\,,
+    \mathbb E\left(\frac fs\,\mathbf u \cdot \nabla_q \phi \right)_s &\approx \frac 1N \sum_{k=1}^N \frac{f(q_k)}{s(q_k)}\,\mathbf u(t, q_k) \cdot \nabla_q \phi(q_k) + O(N^{-1/2})\,,
     \\[2mm]
     \mathbb E\left(\frac 1s S(f) \phi \right)_s &\approx \frac 1N \sum_{k=1}^N\frac{1}{s(q_k)}\,S(f(q_k)) \phi(q_k) + O(N^{-1/2})\,.
 
@@ -113,9 +89,9 @@ holds for any :math:`\phi`, by comparing coefficients we deduce
 
 .. math::
 
-    w_k\, \dot q_k &= \frac{f(q_k)}{s(q_k)}\,G(f(q_k))\,,
+    w_k\, \dot q_k &= \frac{f(q_k)}{s(q_k)}\,\mathbf u(t, q_k)\,, 
     \\[2mm]
-    \dot w_k &= \frac{1}{s(q_k)}\,S(f(q_k))\,.
+    \dot w_k &= \frac{1}{s(q_k)}\,S(f(q_k))\,. 
 
 Let us define the weights to be
 
@@ -124,13 +100,24 @@ Let us define the weights to be
 
     w_k := \frac{f(q_k)}{s(q_k)} \,,
 
-and check under which circumstances the above time derivative :math:`\dot w_k` is consistent:
+which implies 
 
 .. math::
+    :label: def:dot_qw
 
-    \dot w_k = \frac{\dot f(q_k)}{s(q_k)} - \frac{f(q_k)}{s(q_k)^2} \dot s(q_k) = \frac{1}{s(q_k)}\,S(f(q_k))\,.
+    \dot q_k &= \mathbf u(t, q_k)\,, 
+    \\[2mm]
+    \dot w_k &= \frac{1}{s(q_k)}\,S(f(q_k))\,. 
 
-This implies
+and also
+
+.. math::
+    :label: def:dot_w2
+
+    \dot w_k = \frac{\dot f(q_k)}{s(q_k)} - \frac{f(q_k)}{s(q_k)^2} \dot s(q_k) \,.
+
+By comparing the equations :math:numref:`def:dot_qw` and :math:numref:`def:dot_w2` we find the equation 
+that must be satisfied by the PDF :math:`s`:
 
 .. math::
 
@@ -140,35 +127,46 @@ Since, from equation (1),
 
 .. math::
 
-    \dot f(q_k) = S(f(q_k)) - f(q_k) \nabla_q \cdot G(f(q_k))\,,
+    \dot f(q_k) = S(f(q_k)) - f(q_k) \nabla_q \cdot \mathbf u(t, q_k)\,,
 
 we deduce
 
 .. math::
 
-    \dot s(q_k) = - s(q_k) \nabla_q \cdot G(f(q_k)) \,.
+    \dot s(q_k) = - s(q_k) \nabla_q \cdot \mathbf u(t, q_k) \,.
 
-For incompressible flow, :math:`\nabla_q \cdot G = 0`, the PDF 
-:math:`s` satisfies the same equation as :math:`f`
-and is constant along the characteristics :math:`q_k`.
-In this case the PIC solution :math:numref:`pic:ansatz` is obtained by solving
+Therefore, with the choice of the weights made in equation :math:numref:`def:weights`, 
+the PDF :math:`s` must satisfy
+
+.. math::
+
+    \partial_t s + \nabla_q \cdot (\mathbf u(t, q) \, s) = 0\,.
+
+This means that :math:`s` is a density (or volume form) advected by the flow of :math:`\mathbf u`. 
+For incompressible flow, :math:`\nabla_q \cdot \mathbf u = 0`, the PDF 
+:math:`s` is constant along the flow of :math:`\mathbf u` and the PIC solution :math:numref:`pic:ansatz` 
+is obtained by solving
 
 .. math::
     :label: pic:eqs
 
-    \dot q_k &= G(t, q_k, f(t=0, q_{k0})) \qquad &&q_k(0) = q_{k0}\,,
+    \dot q_k &= \mathbf u(t, q_k) \qquad &&q_k(0) = q_{k0}\,,
     \\[2mm]
-    \dot w_k &= \frac{1}{s(t=0, q_{k0})}\,S(f(t=0, q_{k0}))  \qquad &&w_k(0) = \frac{f(t=0, q_{k0})}{s(t=0, q_{k0})}\,,
+    \dot w_k &= \frac{1}{s(t=0, q_{k0})}\,S(f)  \qquad &&w_k(0) = \frac{f(t=0, q_{k0})}{s(t=0, q_{k0})}\,,
 
 where the :math:`q_{k0}` are drawn according to the PDF :math:`s(t=0)`.
-For compressible flow one has to solve
+On the other hand, for compressible flow :math:`\nabla_q \cdot \mathbf u \neq 0`
+the weights update is more complicated:
 
 .. math::
     :label: pic:eqs:compressible
 
-    \dot q_k &= G(t, q_k, f(t, q_k)) \qquad &&q_k(0) = q_{k0}\,,
+    \dot q_k &= \mathbf u(t, q_k) \qquad &&q_k(0) = q_{k0}\,,
     \\[2mm]
-    \dot w_k &= w_k\,\frac{1}{f(t, q_k)}\,S(f(t, q_k))  \qquad &&w_k(0) = \frac{f(t=0, q_{k0})}{s(t=0, q_{k0})}\,.
+    \dot w_k &= \frac{w_k}{f(t, q_k)}\,S(f)  \qquad &&w_k(0) = \frac{f(t=0, q_{k0})}{s(t=0, q_{k0})}\,.
+
+Note that when there is no source, :math:`S(f) = 0`, the weights are constant for compressible
+and incompressible flow.
 
 PIC methods are popular for solving these types of equations because
 

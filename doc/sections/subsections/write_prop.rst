@@ -54,7 +54,7 @@ and projected MHD equilibria:
 * ``self.domain`` returns the simulation instance of :class:`~struphy.geometry.base.Domain`
 * ``self.mass_ops`` returns the simulation instance of :class:`~struphy.feec.mass.WeightedMassOperators`
 * ``self.basis_ops`` returns the simulation instance of :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`
-* ``self.projected_mhd_equil`` returns the simulation instance of :class:`~struphy.fields_background.mhd_equil.projected_equils.ProjectedMHDequilibrium`
+* ``self.projected_mhd_equil`` returns the simulation instance of :class:`~struphy.fields_background.projected_equils.ProjectedMHDequilibrium`
 
 You can check the Struphy :ref:`api` for more details on how to use these objects.
 As an example, here is a small snippet of :class:`struphy.propagators.propagators_fields.Maxwell`::

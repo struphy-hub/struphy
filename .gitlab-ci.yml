@@ -161,7 +161,7 @@ default_install:
     - struphy
     - pyccel --version
     - struphy compile --status
-    - struphy compile -y # compiles struphy, psydac with language c 
+    - struphy compile --time-execution -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
   artifacts:
     name: 'python-env-installed'
@@ -183,7 +183,7 @@ c_cronjob_install:
     - struphy
     - pyccel --version
     - struphy compile --status
-    - struphy compile -y # compiles struphy, psydac with language c 
+    - struphy compile --time-execution -y # compiles struphy, psydac with language c 
   artifacts:
     name: 'python-env-installed'
     paths:
@@ -333,7 +333,7 @@ Ubuntu_latest:
     - pip install $(echo dist/struphy*.whl)[test]
     - struphy compile --status
     - make -v
-    - struphy compile
+    - struphy compile --time-execution
     - struphy -h # this is the Quickstart
     - struphy compile --status
     - struphy -p
@@ -349,7 +349,10 @@ Ubuntu_latest:
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options
-    - struphy test models --fast # this is the models test
+    - struphy test models --fast
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim --mpi 4 --nclones 2
 
 # Quickstart test
 quickstart_tests:
@@ -368,7 +371,7 @@ quickstart_tests:
     - pwd
     - ls -1a
     - struphy -h # this is the Quickstart
-    - struphy compile 
+    - struphy compile --time-execution 
     - struphy -p
     - struphy --set-i .
     - struphy --set-o . 
@@ -382,6 +385,9 @@ quickstart_tests:
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
 
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
@@ -423,7 +429,8 @@ c_model_tests:
     - ls -1a
     - struphy compile --status
     - struphy test models --fast
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
 
 c_model_tests_psydac_whl:
   stage: test
@@ -443,8 +450,10 @@ c_model_tests_psydac_whl:
     - struphy compile --status
     - pip uninstall -y psydac
     - pip install src/struphy/psydac*.whl
-    - struphy compile
+    - struphy compile --time-execution
     - struphy test models --fast
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
 
 pages_tests:
   stage: test
@@ -466,7 +475,7 @@ pages_tests:
     - module load pandoc
     - module list
     - pip install $(echo dist/struphy*.whl)[doc]
-    - struphy compile -y
+    - struphy compile --time-execution -y
     - cd doc ; make html; cd ..
 
 c_model_cronjob_tests:
@@ -479,7 +488,8 @@ c_model_cronjob_tests:
     - ls -1a
     - struphy compile --status
     - struphy test models --fast
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
   artifacts:
     name: 'python-env-installed-2'
     paths:
@@ -499,7 +509,7 @@ fortran_cronjob_install:
     - struphy
     - pyccel --version
     - struphy compile --status
-    - struphy compile --language=fortran -y # compiles struphy, psydac with language fortran
+    - struphy compile --time-execution --language=fortran -y # compiles struphy, psydac with language fortran
   artifacts:
     name: 'python-env-installed-3'
     paths:
@@ -530,7 +540,8 @@ fortran_model_tests:
     - ls -1a
     - struphy compile --status
     - struphy test models --fast
-    #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
 Ubuntu_22_04:
@@ -561,9 +572,9 @@ Ubuntu_22_04:
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile
+    - struphy compile --time-execution
     - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --time-execution --language=fortran -y 
     - struphy test models --fast
 
 struphy_ubuntu_python_3_11:
@@ -588,9 +599,9 @@ struphy_ubuntu_python_3_11:
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile
+    - struphy compile --time-execution
     - struphy test models --fast
-    - struphy compile --language=fortran -y
+    - struphy compile --time-execution --language=fortran -y
     - struphy test models --fast
 
 struphy_ubuntu_latest:
@@ -619,9 +630,9 @@ struphy_ubuntu_latest:
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile
+    - struphy compile --time-execution
     - struphy test models --fast
-    - struphy compile --language=fortran -y
+    - struphy compile --time-execution --language=fortran -y
     - struphy test models --fast
 
 Fedora:
@@ -667,9 +678,9 @@ Fedora:
     - module list 
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile 
+    - struphy compile --time-execution 
     - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --time-execution --language=fortran -y 
     - struphy test models --fast
 
 struphy_fedora_latest:
@@ -700,9 +711,9 @@ struphy_fedora_latest:
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile 
+    - struphy compile --time-execution 
     - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --time-execution --language=fortran -y 
     - struphy test models --fast
 
 OpenSuse:
@@ -743,9 +754,9 @@ OpenSuse:
     - echo $CI_COMMIT_MESSAGE
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile 
+    - struphy compile --time-execution 
     - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --time-execution --language=fortran -y 
     - struphy test models --fast
 
 struphy_opensuse_latest:
@@ -776,35 +787,9 @@ struphy_opensuse_latest:
     - echo $TEST_SCHEDULED
     - pip install --upgrade pip
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile
+    - struphy compile --time-execution
     - struphy test models --fast
-    - struphy compile --language=fortran -y
-    - struphy test models --fast
-
-struphy_opensuse_python_3_11:
-  stage: test
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_python_3_11
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $TEST_SCHEDULED == "true"
-  needs: ['default_build']
-  before_script:
-    - date
-    - uname -a
-    - ls -a
-    - ls dist/
-    - ls /
-  script:
-    - python3 -V
-    - python3 -m pip list
-    - python3 -m venv env
-    - source env/bin/activate
-    - echo $CI_COMMIT_MESSAGE
-    - echo $TEST_SCHEDULED
-    - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
-    - struphy compile 
-    - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --time-execution --language=fortran -y
     - struphy test models --fast
 
 AlmaLinux:
@@ -850,9 +835,9 @@ AlmaLinux:
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - pip list
-    - struphy compile 
+    - struphy compile --time-execution 
     - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --time-execution --language=fortran -y 
     - struphy test models --fast
 
 struphy_almalinux_latest:
@@ -884,9 +869,9 @@ struphy_almalinux_latest:
     - echo $TEST_SCHEDULED
     - pip install --no-cache-dir $(echo $STRUPHY_SOURCE_DOCKER)[test]
     - pip list
-    - struphy compile 
+    - struphy compile --time-execution 
     - struphy test models --fast
-    - struphy compile --language=fortran -y 
+    - struphy compile --time-execution --language=fortran -y 
     - struphy test models --fast
 
 ###################
@@ -897,11 +882,13 @@ pages:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: pages
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $TEST_SCHEDULED == "true"
       when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
       when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "true"
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
     - if: $MAKE_PAGES == "true"
   needs: ['default_build']
   before_script:
@@ -922,7 +909,7 @@ pages:
   script:
     - struphy -h
     - struphy compile --status
-    - struphy compile -y
+    - struphy compile --time-execution -y
     #- struphy test timings
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
     - cd doc ; make html

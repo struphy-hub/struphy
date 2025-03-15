@@ -5,6 +5,7 @@ Quickstart
 
 Get familiar with Struphy objects using the notebook :ref:`tutorials`.
 What follows is an introduction to the CLI (command line interface) of Struphy.
+For a more in-depth manual please go to :ref:`userguide`.
 
 Get help on Struphy console commands::
 

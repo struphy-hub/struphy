@@ -8,7 +8,7 @@ Install
 Requirements
 ------------
 
-- Python >=3.10 and <3.12 
+- Python >=3.10 
 - C or Fortran compiler like gcc, gfortran
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
@@ -335,14 +335,8 @@ encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
 
-Availabe Struphy images:
+`Link to Struphy's container registry <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`
 
-* `struphy_ubuntu_python_3_11 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-* `struphy_fedora_python_3_10 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-* `struphy_opensuse_python_3_11 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-* `struphy_almalinux_python_3_10 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-
-Each of these images comes with a recent build of the ``devel`` branch under ``/struphy_install/struphy*.whl``.
 Check out the `corresponding docker files <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/tree/devel/docker?ref_type=heads>`_.
 
 .. _user_install:

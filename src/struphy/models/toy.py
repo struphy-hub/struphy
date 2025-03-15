@@ -55,9 +55,9 @@ class Maxwell(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
         solver = params["em_fields"]["options"]["Maxwell"]["solver"]
@@ -141,9 +141,9 @@ class Vlasov(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -153,9 +153,9 @@ class Vlasov(StruphyModel):
         # project magnetic background
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
@@ -163,8 +163,8 @@ class Vlasov(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": ions_params["options"]["PushVxB"]["algo"],
             "kappa": 1.0,
-            "b_eq": self._b_eq,
-            "b_tilde": None,
+            "b2": self._b_eq,
+            "b2_add": None,
         }
 
         self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
@@ -185,7 +185,7 @@ class Vlasov(StruphyModel):
             self.pointer["ions"].markers_wo_holes[:, 3] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
-        ) / (2 * self.pointer["ions"].n_mks)
+        ) / (2 * self.pointer["ions"].Np)
 
         # self.derham.comm.Allreduce(
         #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -257,9 +257,9 @@ class GuidingCenter(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -299,7 +299,7 @@ class GuidingCenter(StruphyModel):
 
         self._en_fv[0] = self.pointer["ions"].markers[~self.pointer["ions"].holes, 5].dot(
             self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
-        ) / (2.0 * self.pointer["ions"].n_mks)
+        ) / (2.0 * self.pointer["ions"].Np)
 
         self.pointer["ions"].save_magnetic_background_energy()
         self._en_tot[0] = (
@@ -308,7 +308,7 @@ class GuidingCenter(StruphyModel):
             .dot(
                 self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
             )
-            / self.pointer["ions"].n_mks
+            / self.pointer["ions"].Np
         )
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
@@ -394,9 +394,9 @@ class ShearAlfven(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from struphy.polar.basic import PolarVector
 
@@ -406,9 +406,9 @@ class ShearAlfven(StruphyModel):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
@@ -522,11 +522,11 @@ class VariationalPressurelessFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -626,11 +626,11 @@ class VariationalBarotropicFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -747,12 +747,12 @@ class VariationalCompressibleFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
         from struphy.feec.projectors import L2Projector
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
@@ -912,8 +912,8 @@ class Poisson(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
         model_params = params["em_fields"]["options"]["ImplicitDiffusion"]["model"]
@@ -994,8 +994,8 @@ class DeterministicParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1005,9 +1005,9 @@ class DeterministicParticleDiffusion(StruphyModel):
         diffusion_coefficient = params["options"]["PushDeterministicDiffusion"]["diffusion_coefficient"]
 
         # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-        #                                  self.mhd_equil.b2_2,
-        #                                  self.mhd_equil.b2_3])
+        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
+        #                                  self.equil.b2_2,
+        #                                  self.equil.b2_3])
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushDeterministicDiffusion] = {
@@ -1082,8 +1082,8 @@ class RandomParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1093,9 +1093,9 @@ class RandomParticleDiffusion(StruphyModel):
         diffusion_coefficient = species1_params["options"]["PushRandomDiffusion"]["diffusion_coefficient"]
 
         # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-        #                                  self.mhd_equil.b2_2,
-        #                                  self.mhd_equil.b2_3])
+        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
+        #                                  self.equil.b2_2,
+        #                                  self.equil.b2_3])
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushRandomDiffusion] = {
@@ -1135,7 +1135,6 @@ class PressureLessSPH(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
 
     This is discretized by particles going in straight lines.
-
     """
 
     @staticmethod
@@ -1170,8 +1169,8 @@ class PressureLessSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1196,6 +1195,6 @@ class PressureLessSPH(StruphyModel):
             self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 3] ** 2
             + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 4] ** 2
             + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 5] ** 2
-        ) / (2.0 * self.pointer["p_fluid"].n_mks)
+        ) / (2.0 * self.pointer["p_fluid"].Np)
 
         self.update_scalar("en_kin", en_kin)

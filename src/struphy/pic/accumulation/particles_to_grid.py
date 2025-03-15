@@ -205,7 +205,7 @@ class Accumulator:
         # accumulate into matrix (and vector) with markers
         self.kernel(
             self.particles.markers,
-            self.particles.n_mks,
+            self.particles.Np,
             self.derham.args_derham,
             self.args_domain,
             *self._args_data,
@@ -260,15 +260,18 @@ class Accumulator:
 
             vec_finished = True
 
-        if self.derham.Nclones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
-                self.derham.inter_comm.Allreduce(
+                self.particles.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     data_array,
                     op=MPI.SUM,
                 )
-
-                data_array /= self.derham.Nclones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
@@ -607,22 +610,25 @@ class AccumulatorVector:
         # accumulate into matrix (and vector) with markers
         self.kernel(
             self.particles.markers,
-            self.particles.n_mks,
+            self.particles.Np,
             self.derham._args_derham,
             self.args_domain,
             *self._args_data,
             *optional_args,
         )
 
-        if self.derham.Nclones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
-                self.derham.inter_comm.Allreduce(
+                self.particles.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     data_array,
                     op=MPI.SUM,
                 )
-
-                data_array /= self.derham.Nclones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
@@ -719,7 +725,7 @@ class AccumulatorVector:
         else:
             args = (0.5, 0.5, eta)
 
-        plt.plot(eta, field(*args, squeeze_output=True))
+        plt.plot(eta, field(*args, squeeze_out=True))
         plt.title(
             f'Spline field accumulated with the kernel "{self.kernel}"',
         )

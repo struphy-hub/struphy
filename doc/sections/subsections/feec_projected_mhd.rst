@@ -3,7 +3,7 @@
 Projected MHD equilibrium
 -------------------------
 
-.. automodule:: struphy.fields_background.mhd_equil.projected_equils
+.. automodule:: struphy.fields_background.projected_equils
     :members:
     :undoc-members:
     :show-inheritance:

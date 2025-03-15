@@ -24,7 +24,7 @@ The installed version is obtained by::
     :maxdepth: 1
     :caption: Contents:
 
-    subsections/solving_pdes
+    subsections/struphy_cli
     subsections/parameters
     subsections/initial_conditions
     subsections/boundary_conditions

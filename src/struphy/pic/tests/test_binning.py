@@ -64,10 +64,8 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     # ===== Test Maxwellian in v1 direction =====
     # ===========================================
     particles = Particles6D(
-        name="energetic_ions",
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
         loading_params=loading_params,
         domain=domain,
     )
@@ -109,19 +107,18 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
     }
 
     particles = Particles6D(
-        name="energetic_ions",
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
         loading_params=loading_params,
         domain=domain,
         pert_params=pert_params,
@@ -164,7 +161,6 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -181,28 +177,28 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n],
+                    "amps": [amp_n],
+                }
+            }
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
+            }
         },
     }
 
     particles = Particles6D(
-        name="energetic_ions",
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
         loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr_params,
@@ -227,12 +223,12 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     if show_plot:
         s0_dict = {
             "n": 1.0,
-            "u1": particles.marker_params["loading"]["moments"][0],
-            "u2": particles.marker_params["loading"]["moments"][1],
-            "u3": particles.marker_params["loading"]["moments"][2],
-            "vth1": particles.marker_params["loading"]["moments"][3],
-            "vth2": particles.marker_params["loading"]["moments"][4],
-            "vth3": particles.marker_params["loading"]["moments"][5],
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 
@@ -304,7 +300,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.pic.particles import Particles6D
+    from struphy.pic.particles import DeltaFParticles6D
 
     # Set seed
     seed = 1234
@@ -330,20 +326,18 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            },
+        }
     }
 
-    particles = Particles6D(
-        name="energetic_ions",
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
-        type="delta_f",
         loading_params=loading_params,
         domain=domain,
         pert_params=pert_params,
@@ -386,7 +380,6 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -403,31 +396,30 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
             "use_background_n": False,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n1],
+                    "amps": [amp_n1],
+                }
             },
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
             "use_background_n": True,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
             },
         },
     }
 
-    particles = Particles6D(
-        name="energetic_ions",
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
-        type="delta_f",
         loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr_params,
@@ -452,12 +444,12 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     if show_plot:
         s0_dict = {
             "n": 1.0,
-            "u1": particles.marker_params["loading"]["moments"][0],
-            "u2": particles.marker_params["loading"]["moments"][1],
-            "u3": particles.marker_params["loading"]["moments"][2],
-            "vth1": particles.marker_params["loading"]["moments"][3],
-            "vth2": particles.marker_params["loading"]["moments"][4],
-            "vth3": particles.marker_params["loading"]["moments"][5],
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 
@@ -561,12 +553,10 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     # ===== Test Maxwellian in v1 direction =====
     # ===========================================
     particles = Particles6D(
-        name="energetic_ions",
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
     )
     particles.draw_markers()
@@ -611,21 +601,20 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
     }
 
     particles = Particles6D(
-        name="energetic_ions",
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         pert_params=pert_params,
     )
@@ -672,7 +661,6 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -689,30 +677,30 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n1],
+                    "amps": [amp_n1],
+                }
+            }
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
-            },
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
+            }
         },
     }
 
     particles = Particles6D(
-        name="energetic_ions",
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
@@ -741,12 +729,12 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     if show_plot and rank == 0:
         s0_dict = {
             "n": 1.0,
-            "u1": particles.marker_params["loading"]["moments"][0],
-            "u2": particles.marker_params["loading"]["moments"][1],
-            "u3": particles.marker_params["loading"]["moments"][2],
-            "vth1": particles.marker_params["loading"]["moments"][3],
-            "vth2": particles.marker_params["loading"]["moments"][4],
-            "vth3": particles.marker_params["loading"]["moments"][5],
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 
@@ -818,7 +806,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.pic.particles import Particles6D
+    from struphy.pic.particles import DeltaFParticles6D
 
     # Set seed
     seed = 1234
@@ -850,22 +838,20 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     amp_n = 0.1
     l_n = 2
     pert_params = {
-        "type": "ModesCos",
-        "ModesCos": {
-            "comps": {"n": "0"},
-            "ls": {"n": [l_n]},
-            "amps": {"n": [amp_n]},
-        },
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
     }
 
-    particles = Particles6D(
-        name="energetic_ions",
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
-        type="delta_f",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         pert_params=pert_params,
     )
@@ -912,7 +898,6 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
-        "type": ["Maxwellian3D_1", "Maxwellian3D_2"],
         "Maxwellian3D_1": {
             "n": n1,
         },
@@ -929,33 +914,32 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     l_n2 = 4
     pert_params = {
         "Maxwellian3D_1": {
-            "type": "ModesCos",
             "use_background_n": False,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n1]},
-                "amps": {"n": [amp_n1]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n1],
+                    "amps": [amp_n1],
+                }
             },
         },
         "Maxwellian3D_2": {
-            "type": "ModesCos",
             "use_background_n": True,
-            "ModesCos": {
-                "comps": {"n": "0"},
-                "ls": {"n": [l_n2]},
-                "amps": {"n": [amp_n2]},
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
             },
         },
     }
 
-    particles = Particles6D(
-        name="energetic_ions",
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        loading="pseudo_random",
-        type="delta_f",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
@@ -984,12 +968,12 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     if show_plot and rank == 0:
         s0_dict = {
             "n": 1.0,
-            "u1": particles.marker_params["loading"]["moments"][0],
-            "u2": particles.marker_params["loading"]["moments"][1],
-            "u3": particles.marker_params["loading"]["moments"][2],
-            "vth1": particles.marker_params["loading"]["moments"][3],
-            "vth2": particles.marker_params["loading"]["moments"][4],
-            "vth3": particles.marker_params["loading"]["moments"][5],
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 

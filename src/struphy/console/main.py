@@ -261,6 +261,12 @@ def struphy():
     )
 
     parser_compile.add_argument(
+        "--time-execution",
+        help="Prints the time spent in each section of the pyccelization.",
+        action="store_true",
+    )
+
+    parser_compile.add_argument(
         "-y",
         "--yes",
         help="say yes to prompt when changing the language",
@@ -372,6 +378,14 @@ def struphy():
         type=int,
         metavar="N",
         help='use "mpirun -n N" to launch a parallel Struphy run (default=1)',
+        default=1,
+    )
+
+    parser_run.add_argument(
+        "--nclones",
+        type=int,
+        metavar="N",
+        help="number of domain clones (default=1)",
         default=1,
     )
 
@@ -632,8 +646,8 @@ def struphy():
             type=str,
             choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
             metavar="GROUP",
-            help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
-                                    \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
+            help='can be either:\na) a model name \
+                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "unit" for performing unit tests',
         )
 
@@ -641,7 +655,7 @@ def struphy():
             "--mpi",
             type=int,
             metavar="N",
-            help="set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)",
+            help="set number of MPI processes used in tests (default=2))",
             default=2,
         )
 
@@ -670,6 +684,18 @@ def struphy():
             "-v",
             "--vrbose",
             help="print output of testing on screen",
+            action="store_true",
+        )
+
+        parser_test.add_argument(
+            "--verification",
+            help="perform verification runs specified in io/inp/verification/",
+            action="store_true",
+        )
+
+        parser_test.add_argument(
+            "--show-plots",
+            help="show plots of tests",
             action="store_true",
         )
 

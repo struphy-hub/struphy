@@ -1,0 +1,67 @@
+grid:
+    Nel: [32, 1, 1]
+    p: [3, 1, 1]
+    spl_kind: [true, true, true]
+    dirichlet_bc: null
+    dims_mask: [true, true, true]
+    nq_el: [2, 2, 1]
+    nq_pr: [2, 2, 1]
+    polar_ck: -1
+
+time: {dt: 0.05, Tend: 15, split_algo: LieTrotter}
+
+units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
+
+geometry:
+    type: Cuboid
+    Cuboid: {l1: 0., r1: 12.56, l2: 0., r2: 1., l3: 0., r3: 1.}
+
+em_fields:
+    options:
+        EfieldWeights:
+            solver:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+                recycle: true
+        ImplicitDiffusion:
+            model: {sigma_1: 1.0, sigma_2: 0.0, sigma_3: 1.0, stab_mat: M0, diffusion_mat: M1}
+            solver:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+                recycle: false
+
+kinetic:
+    species1:
+        phys_params: {A: 1, Z: 1}
+        markers:
+            ppc: 1000
+            bc: [periodic, periodic, periodic]
+            eps: 0.4
+            loading: pseudo_random
+            loading_params: {seed: 1234, spatial: uniform, dir_particles: path_to_particles}
+        boxes_per_dim: [16, 1, 1]
+        save_data:
+            n_markers: 1
+            f:
+                slices: [e1_v1]
+                n_bins: [[128, 128]]
+                ranges: [[[0., 1.], [-5., 5.]]]
+        perturbation:
+            n:
+                ModesCos:
+                    given_in_basis: '0'
+                    ls: [1]
+                    amps: [0.001]
+        options:
+            PushEta: {algo: rk4}
+            PushVinEfield: null
+            PushVxB: {algo: analytic}
+            override_eq_params: {alpha: 1.0, epsilon: -1.0}
+        background:
+            Maxwellian3D: {n: 1}
