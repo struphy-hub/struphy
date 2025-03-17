@@ -25,7 +25,7 @@ def test_pconf(Nel, Np, num_clones):
     }
 
     pconf = CloneConfig(params=params, comm=comm, num_clones=num_clones)
-
+    assert pconf.get_Np_global(species_name=species) == Np
     if Np % num_clones == 0:
         assert pconf.get_Np_clone(Np) == Np / num_clones
 
