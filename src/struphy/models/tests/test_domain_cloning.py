@@ -2,7 +2,7 @@ import inspect
 
 import pytest
 
-from struphy.models.tests.util import call_model
+from struphy.models.tests.util import call_test
 
 
 @pytest.mark.parametrize(
@@ -37,7 +37,7 @@ def test_domain_cloning_kinetic(
                 if fast and "Cuboid" not in map_and_equil[0]:
                     print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
                     continue
-                call_model(
+                call_test(
                     key,
                     val,
                     map_and_equil,
@@ -49,7 +49,7 @@ def test_domain_cloning_kinetic(
                 )
     else:
         val = getattr(kinetic, model)
-        call_model(
+        call_test(
             model,
             val,
             map_and_equil,
