@@ -121,10 +121,7 @@ def main(
             pass
 
     with ProfileManager.profile_region("model_class_setup"):
-        model = model_class(
-            params=params,
-            clone_config=clone_config,
-        )
+        model = model_class(params=params, comm=comm, clone_config=clone_config)
 
     assert isinstance(model, StruphyModel)
 
