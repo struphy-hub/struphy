@@ -160,23 +160,14 @@ def generate_ptest_params():
     params_prefix = args.prefix
 
     # mpi_values = [8, 16, 32, 48, 64, 72]
-    mpi_values = [72 * _i for _i in [1, 2, 4, 8, 16, 32, 64]]
-    # Save LIKWID configuration
-    for mpi_val in mpi_values:
-        parameter_file = f"{i_path}/likwid_config_mpi{mpi_val}.yml"
-        nperdomain = min(int(mpi_val / 2), 36)
-        for param in yaml_data["likwid_config"]["likwid-mpirun"]["options"]:
-            if type(param) == dict:
-                if "-nperdomain" in param.keys():
-                    param["-nperdomain"] = f"S:{nperdomain}"
-        save_parameter_file(yaml_data["likwid_config"], parameter_file)
+    mpi_values = [72 * _i for _i in [1, 2]]
 
     # Define models and their parameters
     for model in [
         # "Maxwell",
         # "Vlasov",
         "LinearMHDDriftkineticCC",
-        "LinearMHDVlasovCC",
+        # "LinearMHDVlasovCC",
     ]:
         # base_params = yaml_data[f"params_{model}"]
         base_params = copy.deepcopy(yaml_data[f"params_{model}"])

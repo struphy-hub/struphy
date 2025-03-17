@@ -117,8 +117,10 @@ def main():
                 "--runtime",
                 "90",
                 "--likwid",
-                "-li",
-                f"likwid_config_mpi{nmpi}.yml",
+                "-g", "MEM_DP",
+                "--stats",
+                "--marker",
+                "--hpcmd_suspend",
                 "-lr",
                 "1",
             ]

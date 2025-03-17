@@ -22,8 +22,10 @@ def struphy_run(
     cprofile=False,
     verbose=False,
     likwid=False,
-    likwid_inp=None,
-    likwid_input_abs=None,
+    nperdomain=None,
+    stats=None,
+    marker=None,
+    hpcmd_suspend=None,
     likwid_repetitions=1,
     group="MEM_DP",
 ):
@@ -79,11 +81,11 @@ def struphy_run(
     likwid : bool
         Whether to run with Likwid (Needs to be installed first). Default is False.
 
-    likwid_inp : str, optional
-        The .yml input parameter file for Likwid relative to <struphy_path>/io/inp. Default is None.
-
-    likwid_input_abs : str, optional
-        The absolute path to the .yml input parameter file for Likwid. Default is None.
+    nperdomain
+    stats=None,
+    marker=None,
+    hpcmd_suspend=None,
+    
 
     likwid_repetitions : int, optional
         Number of repetitions for Likwid profiling. Default is 1.
@@ -149,41 +151,16 @@ def struphy_run(
 
     # Read likwid params
     if likwid:
-        if likwid_inp is None and likwid_input_abs is None:
-            # use default likwid parameters
-            likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-stats", "-marker", '-mpi', 'openmpi']
-        else:
-            if likwid_inp is not None:
-                likwid_input_abs = os.path.join(i_path, likwid_inp)
-
-            with open(likwid_input_abs, "r") as file:
-                config = yaml.safe_load(file)
-
-            # Get the command from the configuration
-            command_base = config.get("command", None)
-            if not command_base:
-                print("Missing required configuration: 'command'")
-                exit(1)
-
-            likwid_config = config.get(command_base, {})
-
-            # Get the options list
-            options = likwid_config.get("options", [])
-
-            # Flatten the options list
-            flattened_options = ["-np", str(mpi)]
-            for item in options:
-                if isinstance(item, dict):
-                    for key, value in item.items():
-                        flattened_options.append(key)
-                        flattened_options.append(str(value))  # Ensure the value is a string
-                else:
-                    flattened_options.append(item)
-
-            # Construct the command as a list
-            likwid_command = [command_base]
-            likwid_command.extend(flattened_options)
-
+        # if likwid_inp is None and likwid_input_abs is None:
+        #     # use default likwid parameters
+        likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, '-mpi', 'openmpi']
+        if nperdomain:
+            likwid_command += ["-nperdomain", nperdomain]
+        if stats:
+            likwid_command += ["-stats"]
+        if marker:
+            likwid_command += ["-marker"]
+        
     # command parts
     cmd_python = ["python3"]
     cmd_main = [
