@@ -6,7 +6,7 @@ from mpi4py import MPI
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("Np", [1000, 999])
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_pconf(Nel, Np, num_clones):
+def test_clone_config(Nel, Np, num_clones):
     from struphy.utils.clone_config import CloneConfig
 
     comm = MPI.COMM_WORLD
@@ -36,4 +36,4 @@ def test_pconf(Nel, Np, num_clones):
 
 
 if __name__ == "__main__":
-    test_pconf([8, 8, 8], 999, 2)
+    test_clone_config([8, 8, 8], 999, 2)
