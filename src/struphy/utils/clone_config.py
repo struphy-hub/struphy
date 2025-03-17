@@ -130,8 +130,12 @@ class CloneConfig:
         if self.params is None:
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print("No params in clone_config")
+            return
         else:
-            assert "kinetic" in self.params
+            if "kinetic" not in self.params:
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    print("No kinetic parameters")
+                    return
             assert "grid" in self.params
 
             marker_keys = ["Np", "ppc"]
