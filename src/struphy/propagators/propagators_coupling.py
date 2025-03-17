@@ -2533,10 +2533,6 @@ class CurrentCoupling5DGradB(Propagator):
 
             self.particles[0].mpi_sort_markers()
 
-            # update_weights
-            if self.particles[0].control_variate:
-                self.particles[0].update_weights()
-
             # solve linear system for updated u coefficients
             _ku = self._solver.dot(self._ACC.vectors[0], out=self._u_temp2)
 
