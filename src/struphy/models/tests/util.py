@@ -12,7 +12,7 @@ from struphy.models.base import StruphyModel
 libpath = struphy.__path__[0]
 
 
-def call_model(
+def call_test(
     model_name: str,
     model: StruphyModel,
     map_and_equil: tuple,
@@ -20,6 +20,7 @@ def call_model(
     Tend: float = None,
     verbose: bool = True,
     comm=None,
+    num_clones: int = 1,
     verification: bool = False,
     show_plots: bool = False,
 ):
@@ -35,6 +36,9 @@ def call_model(
 
     map_and_equil : tuple[str]
         Name of mapping and MHD equilibirum.
+
+    num_clones : int
+        Number of domain clones.
 
     Tend : float
         End time of simulation other than default.
@@ -105,6 +109,7 @@ def call_model(
                 save_step=int(
                     Tend / parameters["time"]["dt"],
                 ),
+                num_clones=num_clones,
                 verbose=verbose,
             )
             return
@@ -116,6 +121,7 @@ def call_model(
                 model_name,
                 parameters,
                 path_out,
+                num_clones=num_clones,
                 verbose=verbose,
             )
 
@@ -149,6 +155,7 @@ def call_model(
                             model_name,
                             parameters,
                             path_out,
+                            num_clones=num_clones,
                             verbose=verbose,
                         )
 
@@ -170,6 +177,7 @@ def call_model(
                                 model_name,
                                 parameters,
                                 path_out,
+                                num_clones=num_clones,
                                 verbose=verbose,
                             )
 
@@ -191,6 +199,7 @@ def call_model(
                                 model_name,
                                 parameters,
                                 path_out,
+                                num_clones=num_clones,
                                 verbose=verbose,
                             )
 

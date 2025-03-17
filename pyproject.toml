@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.4.0"
+version = "2.4.1"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -32,7 +32,6 @@ dependencies = [
     'argcomplete',
     'gvec-to-python',
     'desc-opt',
-    'netcdf4<1.7',
 ]
 
 [project.optional-dependencies]
@@ -75,6 +74,7 @@ changelog = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/CHANGELOG.
 
 [project.scripts]
 struphy = "struphy.console.main:struphy"
+kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 
 [tool.setuptools.package-data]
 'struphy.fields_background.mhd_equil.eqdsk' = [
@@ -100,7 +100,7 @@ struphy = "struphy.console.main:struphy"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-2.4.0-py3-none-any.whl',]
+           'psydac-2.4.1-py3-none-any.whl',]
 
 [tool.autopep8]
 # Add specific settings for autopep8

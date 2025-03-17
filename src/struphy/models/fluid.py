@@ -78,9 +78,9 @@ class LinearMHD(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from struphy.polar.basic import PolarVector
 
@@ -242,9 +242,9 @@ class LinearExtendedMHDuniform(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from struphy.polar.basic import PolarVector
 
@@ -419,9 +419,9 @@ class ColdPlasma(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # model parameters
         self._alpha = self.equation_params["electrons"]["alpha"]
@@ -539,7 +539,7 @@ class VariationalMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -547,7 +547,7 @@ class VariationalMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
@@ -752,7 +752,7 @@ class ViscoresistiveMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -760,7 +760,7 @@ class ViscoresistiveMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
@@ -1001,7 +1001,7 @@ class ViscousFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -1009,7 +1009,7 @@ class ViscousFluid(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
@@ -1215,7 +1215,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -1223,7 +1223,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
@@ -1425,11 +1425,11 @@ class IsothermalEulerSPH(StruphyModel):
     def velocity_scale():
         return "thermal"
 
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["projected_density"] = "L2"
-        return dct
+    # @staticmethod
+    # def diagnostics_dct():
+    #     dct = {}
+    #     dct["projected_density"] = "L2"
+    #     return dct
 
     @staticmethod
     def propagators_dct():
@@ -1442,8 +1442,8 @@ class IsothermalEulerSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # prelim
         _p = self.kinetic["euler_fluid"]["params"]
@@ -1454,7 +1454,7 @@ class IsothermalEulerSPH(StruphyModel):
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
-            "density_field": self.pointer["projected_density"],
+            # "density_field": self.pointer["projected_density"],
         }
 
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
@@ -1466,7 +1466,7 @@ class IsothermalEulerSPH(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar("en_kin", compute="from_particles", species="euler_fluid")
+        self.add_scalar("en_kin", compute="from_sph", species="euler_fluid")
 
     def update_scalar_quantities(self):
         valid_markers = self.pointer["euler_fluid"].markers_wo_holes_and_ghost

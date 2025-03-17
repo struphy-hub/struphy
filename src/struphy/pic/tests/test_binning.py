@@ -300,7 +300,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.pic.particles import Particles6D
+    from struphy.pic.particles import DeltaFParticles6D
 
     # Set seed
     seed = 1234
@@ -335,10 +335,9 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         }
     }
 
-    particles = Particles6D(
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        type="delta_f",
         loading_params=loading_params,
         domain=domain,
         pert_params=pert_params,
@@ -418,10 +417,9 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         },
     }
 
-    particles = Particles6D(
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        type="delta_f",
         loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr_params,
@@ -558,7 +556,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         Np=Np,
         bc=bc_params,
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
     )
     particles.draw_markers()
@@ -616,7 +614,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         Np=Np,
         bc=bc_params,
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         pert_params=pert_params,
     )
@@ -702,7 +700,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         Np=Np,
         bc=bc_params,
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
@@ -808,7 +806,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.pic.particles import Particles6D
+    from struphy.pic.particles import DeltaFParticles6D
 
     # Set seed
     seed = 1234
@@ -849,12 +847,11 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         }
     }
 
-    particles = Particles6D(
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        type="delta_f",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         pert_params=pert_params,
     )
@@ -938,12 +935,11 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         },
     }
 
-    particles = Particles6D(
+    particles = DeltaFParticles6D(
         Np=Np,
         bc=bc_params,
-        type="delta_f",
         loading_params=loading_params,
-        comm=comm,
+        comm_world=comm,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,

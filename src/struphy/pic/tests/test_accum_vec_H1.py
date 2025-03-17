@@ -34,8 +34,8 @@ import pytest
         ],
     ],
 )
-@pytest.mark.parametrize("Nclones", [1, 2])
-def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
+@pytest.mark.parametrize("num_clones", [1, 2])
+def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     r"""DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -52,10 +52,10 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
-    from struphy.io.setup import setup_domain_cloning
     from struphy.pic.accumulation import accum_kernels
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
+    from struphy.utils.clone_config import CloneConfig
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -68,19 +68,22 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     domain = domain_class(**dom_params)
 
     params = {
-        "grid": {"Nclones": Nclones, "Nel": Nel},
+        "grid": {"Nel": Nel},
         "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / np.prod(Nel)}}},
     }
-    params, inter_comm, sub_comm = setup_domain_cloning(mpi_comm, copy.deepcopy(params), Nclones)
+    clone_config = CloneConfig(comm=mpi_comm, params=params, num_clones=num_clones)
 
     # DeRham object
     derham = Derham(
         Nel,
         p,
         spl_kind,
-        comm=sub_comm,
-        inter_comm=inter_comm,
+        comm=clone_config.sub_comm,
     )
+
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
 
     if mpi_rank == 0:
         print("Domain decomposition according to", derham.domain_array)
@@ -93,13 +96,13 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     }
 
     particles = Particles6D(
-        comm=sub_comm,
-        inter_comm=inter_comm,
+        comm_world=mpi_comm,
+        clone_config=clone_config,
         Np=Np,
         bc=["periodic"] * 3,
         loading_params=loading_params,
         domain=domain,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
     )
 
     particles.draw_markers()
@@ -134,7 +137,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     # sum all MC integrals
     _sum_within_clone = np.empty(1, dtype=float)
     _sum_within_clone[0] = np.sum(acc.vectors[0].toarray())
-    sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
+    clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
 
     print(f"rank {mpi_rank}: {_sum_within_clone = }, {_sqrtg = }")
 
@@ -145,7 +148,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
     _sum_between_clones = np.empty(1, dtype=float)
     _sum_between_clones[0] = np.sum(acc.vectors[0].toarray())
     mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
-    inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
+    clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
 
     print(f"rank {mpi_rank}: {_sum_between_clones = }, {_sqrtg = }")
 
@@ -154,7 +157,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, Nclones, Np=1000):
 
 
 if __name__ == "__main__":
-    for Nclones in [1, 2]:
+    for num_clones in [1, 2]:
         test_accum_poisson(
             [8, 9, 10],
             [2, 3, 4],
@@ -163,6 +166,6 @@ if __name__ == "__main__":
                 "Cuboid",
                 {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
             ],
-            Nclones=Nclones,
+            num_clones=num_clones,
             Np=1000,
         )

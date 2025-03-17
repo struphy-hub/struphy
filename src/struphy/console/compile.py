@@ -242,7 +242,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         if source_install:
             if psydac_installed:
                 # only install (from .whl) if psydac not up-to-date
-                if psydac_ver != struphy_ver:
+                if psydac_ver < struphy_ver:
                     print(
                         f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n"
                     )
@@ -256,7 +256,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
             if psydac_installed:
                 # only install (from .whl) if psydac not up-to-date
                 if psydac_ver != struphy_ver:
-                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is available.\n")
+                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is required.\n")
                     install_psydac = True
             else:
                 install_psydac = True

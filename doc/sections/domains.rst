@@ -28,7 +28,7 @@ Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
 
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Contents:
 
     subsections/domains_avail
