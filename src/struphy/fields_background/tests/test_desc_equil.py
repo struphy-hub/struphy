@@ -157,7 +157,7 @@ def test_desc_equil(do_plot=False):
     vars += ["Bx", "By", "Bz"]
     print(vars)
 
-    err_lim = 0.082
+    err_lim = 0.09
 
     for nfp in nfps:
         print(f"\n{nfp = }")

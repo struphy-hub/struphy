@@ -9,11 +9,14 @@ from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
+from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
-from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, NumericalFluidEquilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial import perturbations
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
@@ -33,6 +36,7 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
 )
+from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
 
 
@@ -58,14 +62,21 @@ class Particles(metaclass=ABCMeta):
 
     Parameters
     ----------
+    comm_world : Intracomm
+        World MPI communicator.
+
+    clone_config : CloneConfig
+        Manages the configuration for clone-based (copied grids) parallel processing using MPI.
+
     Np : int
         Number of particles.
 
     ppc : int
         Particles per cell. Cells are defined from ``domain_array``.
 
-    domain_array : np.array
-        Holds info on the domain decomposition and cells on each process, see :class:`~struphy.feec.psydac_derham.Derham`.
+    domain_decomp : tuple
+        The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
+        the second entry is the number of MPI processes in each direction.
 
     ppb : int
         Particles per sorting box. Boxes are defined from ``boxes_per_dim``.
@@ -73,33 +84,36 @@ class Particles(metaclass=ABCMeta):
     boxes_per_dim : tuple
         Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
 
+    box_buff_size : float
+        Between 0 and 1, relative buffer size for box array (default = 0.25).
+
     bc : list
         Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
+
+    bc_refill : list
+        Either 'inner' or 'outer'.
+
+    type : str
+        Either 'full_f' (default), 'delta_f' or 'sph'.
+
+    control_variate : bool
+        Whether to use a control variate for noise reduction (only if type is 'full_f' or 'sph').
+
+    name : str
+        Name of particle species.
 
     loading : str
         Drawing of markers; either 'pseudo_random', 'sobol_standard',
         'sobol_antithetic', 'external' or 'restart'.
 
-    eps : float
-        Size of buffer (as fraction of total size, default=.25) in markers array.
-
-    type : str
-        Either 'full_f' (default), 'control_variate', 'delta_f' or 'sph'.
-
-    name : str
-        Name of particle species.
-
     loading_params : dict
         Parameterts for loading, see defaults below.
 
-    bc_refill : list
-        Either 'inner' or 'outer'.
+    weights_params : dict
+        Parameterts for initializing weights, see defaults below.
 
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
-
-    inter_comm : mpi4py.MPI.Intracomm
-        MPI communicator (between clones if domain cloning is used, otherwise None)
+    eps : float
+        Size of buffer (as fraction of total size, default=.25) in markers array.
 
     domain : Domain
         Struphy domain object.
@@ -107,14 +121,20 @@ class Particles(metaclass=ABCMeta):
     equil : FluidEquilibrium
         Struphy fluid equilibrium object.
 
+    projected_equil : ProjectedFluidEquilibrium
+        Struphy fluid equilibrium projected into a discrete Derham complex.
+
     bckgr_params : dict
         Kinetic background parameters.
 
     pert_params : dict
         Kinetic perturbation parameters.
 
-    projected_equil : ProjectedFluidEquilibrium
-        Struphy fluid equilibrium projected into a discrete Derham complex.
+    equation_params : dict
+        Normalization parameters (epsilon, alpha, ...)
+
+    verbose : bool
+        Show some more Particle info.
     """
 
     def __init__(
@@ -123,23 +143,26 @@ class Particles(metaclass=ABCMeta):
         clone_config: CloneConfig = None,
         Np: int = None,
         ppc: int = None,
-        domain_array: np.ndarray = None,
+        domain_decomp: tuple = None,
         ppb: int = 10,
         boxes_per_dim: tuple | list = None,
+        box_buff_size: float = 0.25,
         bc: list = None,
         bc_refill: str = None,
         type: str = "full_f",
+        control_variate: bool = False,
         name: str = "some_name",
         loading: str = "pseudo_random",
         loading_params: dict = None,
+        weights_params: dict = None,
         eps: float = 0.25,
-        equation_params: dict = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
         bckgr_params: dict = None,
         pert_params: dict = None,
-        verbose_boxes: bool = False,
+        equation_params: dict = None,
+        verbose: bool = False,
     ):
         self._clone_config = clone_config
         if self.clone_config is None:
@@ -166,23 +189,31 @@ class Particles(metaclass=ABCMeta):
             self._mpi_rank = self.mpi_comm.Get_rank()
 
         # domain decomposition (MPI) and cell information
-        if domain_array is None:
-            self._domain_decomp = self._get_domain_decomp()
+        self._boxes_per_dim = boxes_per_dim
+        if domain_decomp is None:
+            self._domain_array, self._nprocs = self._get_domain_decomp()
         else:
-            self._domain_decomp = domain_array
+            self._domain_array = domain_decomp[0]
+            self._nprocs = domain_decomp[1]
 
         # total number of cells (equal to mpi_size if no grid)
-        n_cells = np.sum(np.prod(self.domain_decomp[:, 2::3], axis=1, dtype=int)) * num_clones
-        if verbose_boxes:
+        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
+        if verbose:
             print(f"{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
-        if boxes_per_dim is None:
+        if self.boxes_per_dim is None:
             n_boxes = self.mpi_size * num_clones
         else:
-            n_boxes = np.prod(boxes_per_dim, dtype=int) * self.mpi_size * num_clones
+            assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
+                f"There must be at least one box {self.boxes_per_dim = } on each process {self.nprocs = } in each direction."
+            )
+            assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
+                f"Number of boxes {self.boxes_per_dim = } must be divisible by number of processes {self.nprocs = } in each direction."
+            )
+            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * num_clones
 
-        if verbose_boxes:
+        if verbose:
             print(f"{self.mpi_rank = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
@@ -221,13 +252,12 @@ class Particles(metaclass=ABCMeta):
         self._bc_refill = bc_refill
 
         # particle type
-        assert type in ("full_f", "control_variate", "delta_f", "sph")
+        assert type in ("full_f", "delta_f", "sph")
         self._type = type
-        self._control_variate = self.type == "control_variate"
+        self._control_variate = control_variate
 
         # initialize sorting boxes
-        self._boxes_per_dim = boxes_per_dim
-        self._verbose_boxes = verbose_boxes
+        self._verbose = verbose
         self._initialize_sorting_boxes()
 
         # particle loading parameters
@@ -237,6 +267,7 @@ class Particles(metaclass=ABCMeta):
             "sobol_antithetic",
             "external",
             "restart",
+            "tesselation",
         )
         self._loading = loading
 
@@ -246,6 +277,7 @@ class Particles(metaclass=ABCMeta):
             "moments": None,
             "spatial": "uniform",
             "initial": None,
+            "n_quad": 1,
         }
 
         self._loading_params = set_defaults(
@@ -254,6 +286,18 @@ class Particles(metaclass=ABCMeta):
         )
         self._spatial = self.loading_params["spatial"]
 
+        # weights parameters
+        weights_params_default = {
+            "reject_weights": False,
+            "threshold": 0.0,
+            "from_tesselation": False,
+        }
+
+        self._weights_params = set_defaults(
+            weights_params,
+            weights_params_default,
+        )
+
         # background
         if bckgr_params is None:
             bckgr_params = {"Maxwellian3D": {}, "pforms": [None, None]}
@@ -261,7 +305,7 @@ class Particles(metaclass=ABCMeta):
 
         # background p-form description in [eta, v] (None means 0-form, "vol" means volume form -> divide by det)
         if isinstance(bckgr_params, FluidEquilibrium):
-            self._pforms = ["vol", None]
+            self._pforms = [None, None]
         else:
             self._pforms = bckgr_params.pop("pforms", [None, None])
 
@@ -289,10 +333,7 @@ class Particles(metaclass=ABCMeta):
     @classmethod
     @abstractmethod
     def default_bckgr_params(cls):
-        """Dictionary holding the minimal information of the default background.
-
-        Must contain at least a keyword 'type' with corresponding value a valid choice of background.
-        """
+        """Dictionary holding the minimal information of the default background."""
         pass
 
     @abstractmethod
@@ -385,7 +426,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def type(self):
-        """Particle type: 'full_f', 'control_variate' 'delta_f' or 'sph'."""
+        """Particle type: 'full_f', 'delta_f' or 'sph'."""
         return self._type
 
     @property
@@ -458,14 +499,19 @@ class Particles(metaclass=ABCMeta):
         return self._loading_params
 
     @property
+    def weights_params(self):
+        """Parameters for initializing weights."""
+        return self._weights_params
+
+    @property
     def boxes_per_dim(self):
         """Tuple, number of sorting boxes per dimension."""
         return self._boxes_per_dim
 
     @property
-    def verbose_boxes(self):
-        """Show some sorting box info."""
-        return self._verbose_boxes
+    def verbose(self):
+        """Show some more particles info."""
+        return self._verbose
 
     @property
     def equation_params(self):
@@ -474,15 +520,27 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def f_init(self):
+        """Callable initial condition (background + perturbation).
+        For kinetic models this is a Maxwellian.
+        For SPH models this is a :class:`~struphy.fields_background.base.FluidEquilibrium`."""
         assert hasattr(self, "_f_init"), AttributeError(
-            'The method "initialize_weights" has not yet been called.',
+            'The method "_set_initial_condition" has not yet been called.',
         )
         return self._f_init
 
     @property
+    def u_init(self):
+        """Callable initial condition (background + perturbation) for the Cartesian velocity
+        in SPH models."""
+        assert hasattr(self, "_u_init"), AttributeError(
+            'The method "_set_initial_condition" has not yet been called.',
+        )
+        return self._u_init
+
+    @property
     def f0(self):
         assert hasattr(self, "_f0"), AttributeError(
-            "No background distribution available, maybe this is a full-f model?",
+            "No background distribution available, please run self._set_background_function()",
         )
         return self._f0
 
@@ -492,16 +550,21 @@ class Particles(metaclass=ABCMeta):
         return self._control_variate
 
     @property
-    def domain_decomp(self):
+    def domain_array(self):
         """
         A 2d array[float] of shape (comm.Get_size(), 9). The row index denotes the process number and
         for n=0,1,2:
 
-            * domain_decomp[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
-            * domain_decomp[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
-            * domain_decomp[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
+            * domain_array[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
+            * domain_array[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+            * domain_array[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
         """
-        return self._domain_decomp
+        return self._domain_array
+
+    @property
+    def nprocs(self):
+        """Number of MPI processes in each dimension."""
+        return self._nprocs
 
     @property
     def n_mks_load(self):
@@ -627,7 +690,7 @@ class Particles(metaclass=ABCMeta):
     @velocities.setter
     def velocities(self, new):
         assert isinstance(new, np.ndarray)
-        assert new.shape == (self.n_mks_loc, self.vdim)
+        assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc = } and {self.vdim = } but {new.shape = }"
         self._markers[self.valid_mks, self.index["vel"]] = new
 
     @property
@@ -750,16 +813,24 @@ class Particles(metaclass=ABCMeta):
         return self._sorting_boxes
 
     @property
+    def tesselation(self):
+        """Tesselation of the current process domain."""
+        return self._tesselation
+
+    @classmethod
     def ker_dct(self):
-        """Available smoothing kernels, numbers must be multiples of 100."""
+        """Available smoothing kernels, numbers must be multiplies of 100."""
         return {
-            "linear_isotropic": 0,
-            "trigonometric": 100,
-            "gaussian": 200,
-            "linear_tp": 300,
-            "trigonometric_2d": 400,
-            "gaussian_2d": 500,
-            "linear_tp_2d": 600,
+            "trigonometric_1d": 100,
+            "gaussian_1d": 110,
+            "linear_1d": 120,
+            "trigonometric_2d": 340,
+            "gaussian_2d": 350,
+            "linear_2d": 360,
+            "trigonometric_3d": 670,
+            "gaussian_3d": 680,
+            "linear_isotropic_3d": 690,
+            "linear_3d": 700,
         }
 
     def _get_domain_decomp(self):
@@ -773,6 +844,9 @@ class Particles(metaclass=ABCMeta):
                 - arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
                 - arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
                 - arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
+
+        nprocs : tuple
+            The number of processes in each direction.
         """
 
         dom_arr = np.zeros((self.mpi_size, 9), dtype=float)
@@ -785,9 +859,18 @@ class Particles(metaclass=ABCMeta):
                 factors_vec += [fac]
 
         # processes in each direction
+        skip_dims = False
+        boxes_per_dim = (1, 1, 1)
+        if self.boxes_per_dim is not None:
+            boxes_per_dim = self.boxes_per_dim
+            if not all([bpd == 1 for bpd in self.boxes_per_dim]):
+                skip_dims = True
+
         nprocs = [1, 1, 1]
         for m, fac in enumerate(factors_vec):
             mm = m % 3
+            while boxes_per_dim[mm] == 1 and skip_dims:
+                mm = (mm + 1) % 3
             nprocs[mm] *= fac
 
         assert np.prod(nprocs) == self.mpi_size
@@ -813,7 +896,7 @@ class Particles(metaclass=ABCMeta):
             dom_arr[n, 7] = breaks[2][k + 1]
             dom_arr[n, 8] = 1
 
-        return dom_arr
+        return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
         self._f0 = None
@@ -826,14 +909,16 @@ class Particles(metaclass=ABCMeta):
                 else:
                     fi_type = fi
 
-                # SPH case: f0 is set to n0
+                # SPH case: f0 is set to a FluidEquilibrium
                 if self.type == "sph":
-                    eq_class = getattr(equils, fi_type)
-                    eq_class.domain = self.domain
+                    _eq = getattr(equils, fi_type)(**maxw_params)
+                    if not isinstance(_eq, NumericalFluidEquilibrium):
+                        _eq.domain = self.domain
                     if self._f0 is None:
-                        self._f0 = lambda eta: eq_class.n0(*eta)
+                        self._f0 = _eq
                     else:
-                        self._f0 = self._f0 + (lambda eta: eq_class.n0(*eta))
+                        raise NotImplementedError("Summation of fluid backgrounds not yet implemented.")
+                        # self._f0 = self._f0 + (lambda e1, e2, e3: _eq.n0(e1, e2, e3))
                 # default case
                 else:
                     if self._f0 is None:
@@ -884,7 +969,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of cells on current process
         n_cells_loc = np.prod(
-            self.domain_decomp[self.mpi_rank, 2::3],
+            self.domain_array[self.mpi_rank, 2::3],
             dtype=int,
         )
 
@@ -896,7 +981,7 @@ class Particles(metaclass=ABCMeta):
                 _ppc = self.ppc
                 _n_mks_load_tot = self.Np
             else:
-                _n_cells_clone = np.sum(np.prod(self.domain_decomp[:, 2::3], axis=1, dtype=int))
+                _n_cells_clone = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
                 _n_mks_load_tot = self.clone_config.get_Np_clone(self.Np)
                 _ppc = _n_mks_load_tot / _n_cells_clone
 
@@ -950,14 +1035,16 @@ class Particles(metaclass=ABCMeta):
     def _initialize_sorting_boxes(self):
         self._initialized_sorting = False
         if self.boxes_per_dim is not None:
+            nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
+
             self._sorting_boxes = self.SortingBoxes(
                 self.markers.shape,
                 self.type == "sph",
-                nx=self.boxes_per_dim[0],
-                ny=self.boxes_per_dim[1],
-                nz=self.boxes_per_dim[2],
+                nx=nboxes[0],
+                ny=nboxes[1],
+                nz=nboxes[2],
                 comm=self.mpi_comm,
-                verbose=self.verbose_boxes,
+                verbose=self.verbose,
             )
             if self.sorting_boxes.communicate:
                 self._get_neighbouring_proc()
@@ -1022,72 +1109,120 @@ class Particles(metaclass=ABCMeta):
 
         self.loading_params["moments"] = new_moments
 
-    def _set_initial_condition(self):
-        # load distribution function (with given parameters or default parameters)
-        if not isinstance(self.bckgr_params, FluidEquilibrium):
+    def _set_initial_condition(self, bp_copy=None, pp_copy=None):
+        """Compute callable initial condition from background + perturbation."""
+        if bp_copy is None:
             bp_copy = copy.deepcopy(self.bckgr_params)
-        pp_copy = copy.deepcopy(self.pert_params)
-
-        # Prepare delta-f perturbation parameters
-        if self.type == "delta_f":
-            for fi in bp_copy:
-                if fi[-2] == "_":
-                    fi_type = fi[:-2]
-                else:
-                    fi_type = fi
-
-                if pp_copy is not None:
-                    # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
-                    if fi in pp_copy:
-                        if "use_background_n" in pp_copy[fi]:
-                            if not pp_copy[fi]["use_background_n"]:
-                                bp_copy[fi]["n"] = 0.0
-                        else:
-                            bp_copy[fi]["n"] = 0.0
-                    else:
-                        bp_copy[fi]["n"] = 0.0
+        if pp_copy is None:
+            pp_copy = copy.deepcopy(self.pert_params)
 
         # Get the initialization function and pass the correct arguments
         self._f_init = None
-
-        if self.type == "sph":
-            if isinstance(self.bckgr_params, FluidEquilibrium):
-                self._f_init = self.bckgr_params
+        for fi, maxw_params in bp_copy.items():
+            if fi[-2] == "_":
+                fi_type = fi[:-2]
             else:
-                for fi, params in bp_copy.items():
-                    if fi[-2] == "_":
-                        fi_type = fi[:-2]
-                    else:
-                        fi_type = fi
+                fi_type = fi
 
-                    if self._f_init is None:
-                        self._f_init = getattr(equils, fi_type)(**params)
-                    else:
-                        self._f_init = self._f_init + getattr(equils, fi_type)(**params)
+            pert_params = pp_copy
+            if pp_copy is not None:
+                if fi in pp_copy:
+                    pert_params = pp_copy[fi]
+
+            if self._f_init is None:
+                self._f_init = getattr(maxwellians, fi_type)(
+                    maxw_params=maxw_params,
+                    pert_params=pert_params,
+                    equil=self.equil,
+                )
+            else:
+                self._f_init = self._f_init + getattr(maxwellians, fi_type)(
+                    maxw_params=maxw_params,
+                    pert_params=pert_params,
+                    equil=self.equil,
+                )
+
+    def _load_external(
+        self,
+        n_mks_load_loc: int,
+        n_mks_load_cum_sum: np.ndarray,
+    ):
+        """Load markers from external .hdf5 file.
+
+        Parameters
+        ----------
+        n_mks_load_loc: int
+            Number of markers on the local process at loading stage.
+
+        n_mks_load_cum_sum: np.ndarray
+            Cumulative sum of number of markers on each process at loading stage.
+        """
+        if self.mpi_rank == 0:
+            file = h5py.File(
+                self.loading_params["dir_external"],
+                "r",
+            )
+            print(f"\nLoading markers from file: {file}")
+
+            self._markers[
+                : n_mks_load_cum_sum[0],
+                :,
+            ] = file["markers"][: n_mks_load_cum_sum[0], :]
+
+            for i in range(1, self._mpi_size):
+                self._mpi_comm.Send(
+                    file["markers"][n_mks_load_cum_sum[i - 1] : n_mks_load_cum_sum[i], :],
+                    dest=i,
+                    tag=123,
+                )
+
+            file.close()
         else:
-            for fi, maxw_params in bp_copy.items():
-                if fi[-2] == "_":
-                    fi_type = fi[:-2]
-                else:
-                    fi_type = fi
+            recvbuf = np.zeros(
+                (n_mks_load_loc, self.markers.shape[1]),
+                dtype=float,
+            )
+            self._mpi_comm.Recv(recvbuf, source=0, tag=123)
+            self._markers[:n_mks_load_loc, :] = recvbuf
 
-                pert_params = pp_copy
-                if pp_copy is not None:
-                    if fi in pp_copy:
-                        pert_params = pp_copy[fi]
+    def _load_restart(self):
+        """Load markers from restart .hdf5 file."""
+        # Read struphy state file
+        state = utils.read_state()
 
-                if self._f_init is None:
-                    self._f_init = getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params,
-                        pert_params=pert_params,
-                        equil=self.equil,
-                    )
-                else:
-                    self._f_init = self._f_init + getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params,
-                        pert_params=pert_params,
-                        equil=self.equil,
-                    )
+        o_path = state["o_path"]
+
+        if self.loading_params["dir_particles_abs"] is None:
+            data_path = os.path.join(
+                o_path,
+                self.loading_params["dir_particles"],
+            )
+        else:
+            data_path = self.loading_params["dir_particles_abs"]
+
+        data = DataContainer(data_path, comm=self.mpi_comm)
+        self._markers[:, :] = data.file["restart/" + self.loading_params["key"]][-1, :, :]
+
+    def _load_tesselation(self, n_quad: int = 1):
+        """
+        Load markers on a grid defined by the center-of-mass points of a tesselation.
+
+        Parameters
+        ----------
+        n_quad: int
+            Number of quadrature points for the Gauss-Legendre quadrature for cell averages.
+        """
+        self._tesselation = Tesselation(
+            self.ppb,
+            comm=self.mpi_comm,
+            domain_array=self.domain_array,
+            sorting_boxes=self.sorting_boxes,
+        )
+        eta1, eta2, eta3 = self.tesselation.draw_markers()
+        self._markers[: eta1.size, 0] = eta1
+        self._markers[: eta2.size, 1] = eta2
+        self._markers[: eta3.size, 2] = eta3
+        self.update_valid_mks()
 
     def draw_markers(
         self,
@@ -1196,61 +1331,23 @@ class Particles(metaclass=ABCMeta):
             print(("bc_refill:").ljust(25), self.bc_refill)
             print(("loading:").ljust(25), self.loading)
             print(("type:").ljust(25), self.type)
-            print(("domain_decomp[0]:").ljust(25), self.domain_decomp[0])
+            print(("control_variate:").ljust(25), self.control_variate)
+            print(("domain_array[0]:").ljust(25), self.domain_array[0])
             print(("boxes_per_dim:").ljust(25), self.boxes_per_dim)
 
-        # load markers from external .hdf5 file
         if self.loading == "external":
-            if self.mpi_rank == 0:
-                file = h5py.File(
-                    self.loading_params["dir_external"],
-                    "r",
-                )
-                print(f"\nLoading markers from file: {file}")
-
-                self._markers[
-                    : n_mks_load_cum_sum[0],
-                    :,
-                ] = file["markers"][: n_mks_load_cum_sum[0], :]
-
-                for i in range(1, self._mpi_size):
-                    self._mpi_comm.Send(
-                        file["markers"][n_mks_load_cum_sum[i - 1] : n_mks_load_cum_sum[i], :],
-                        dest=i,
-                        tag=123,
-                    )
-
-                file.close()
-            else:
-                recvbuf = np.zeros(
-                    (n_mks_load_loc, self.markers.shape[1]),
-                    dtype=float,
-                )
-                self._mpi_comm.Recv(recvbuf, source=0, tag=123)
-                self._markers[:n_mks_load_loc, :] = recvbuf
-
-        # load markers from restart .hdf5 file
+            self._load_external()
         elif self.loading == "restart":
-            import struphy.utils.utils as utils
-
-            # Read struphy state file
-            state = utils.read_state()
-
-            o_path = state["o_path"]
-
-            if self.loading_params["dir_particles_abs"] is None:
-                data_path = os.path.join(
-                    o_path,
-                    self.loading_params["dir_particles"],
-                )
-            else:
-                data_path = self.loading_params["dir_particles_abs"]
-
-            data = DataContainer(data_path, comm=self.mpi_comm)
-
-            self.markers[:, :] = data.file["restart/" + self.loading_params["key"]][-1, :, :]
-
-        # load fresh markers
+            self._load_restart()
+        elif self.loading == "tesselation":
+            self._load_tesselation()
+            if self.type == "sph":
+                self._set_initial_condition()
+                self.velocities = np.array(self.u_init(self.positions)[0]).T
+            # set markers ID in last column
+            self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
+                n_mks_load_loc, dtype=float
+            )
         else:
             if self.mpi_rank == 0 and verbose:
                 print("\nLoading fresh markers:")
@@ -1282,8 +1379,8 @@ class Particles(metaclass=ABCMeta):
                     temp = np.random.rand(num_to_add_glob, 3 + self.vdim)
                     # check which particles are on the current process domain
                     is_on_proc_domain = np.logical_and(
-                        temp[:, :3] > self.domain_decomp[self.mpi_rank, 0::3],
-                        temp[:, :3] < self.domain_decomp[self.mpi_rank, 1::3],
+                        temp[:, :3] > self.domain_array[self.mpi_rank, 0::3],
+                        temp[:, :3] < self.domain_array[self.mpi_rank, 1::3],
                     )
                     valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
@@ -1348,9 +1445,7 @@ class Particles(metaclass=ABCMeta):
             # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
             if self.type == "sph":
                 self._set_initial_condition()
-                positions_xyz = self.domain(self.positions.astype(float))
-                self.velocities = np.array(self._f_init.u_xyz(*positions_xyz)).T
-
+                self.velocities = np.array(self.u_init(self.positions)[0]).T
             else:
                 # inverse transform sampling in velocity space
                 u_mean = np.array(self.loading_params["moments"][: self.vdim])
@@ -1436,7 +1531,8 @@ class Particles(metaclass=ABCMeta):
         self,
         apply_bc: bool = True,
         alpha: tuple | list | int | float = 1.0,
-        do_test=False,
+        do_test: bool = False,
+        remove_ghost: bool = True,
     ):
         """
         Sorts markers according to MPI domain decomposition.
@@ -1458,8 +1554,13 @@ class Particles(metaclass=ABCMeta):
 
         do_test : bool
             Check if all markers are on the right process after sorting.
+
+        remove_ghost : bool
+            Remove ghost particles before send.
         """
-        self.remove_ghost_particles()
+        if remove_ghost:
+            self.remove_ghost_particles()
+
         self.mpi_comm.Barrier()
 
         # before sorting, apply kinetic bc
@@ -1491,8 +1592,8 @@ class Particles(metaclass=ABCMeta):
         if do_test:
             all_on_right_proc = np.all(
                 np.logical_and(
-                    self.positions > self.domain_decomp[self.mpi_rank, 0::3],
-                    self.positions < self.domain_decomp[self.mpi_rank, 1::3],
+                    self.positions > self.domain_array[self.mpi_rank, 0::3],
+                    self.positions < self.domain_array[self.mpi_rank, 1::3],
                 ),
             )
 
@@ -1508,6 +1609,7 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         reject_weights: bool = False,
         threshold: float = 1e-8,
+        from_tesselation: bool = False,
     ):
         r"""
         Computes the initial weights
@@ -1534,41 +1636,51 @@ class Particles(metaclass=ABCMeta):
 
         threshold : float
             Minimal value of a weight; below the marker is set to a hole.
+
+        from_tesselation : bool
+            Whether to compute weights as the cell averages over tiles.
         """
 
-        assert self.domain is not None, "A domain is needed to initialize weights."
-
-        # set initial condition
-        if bckgr_params is not None:
-            self._bckgr_params = bckgr_params
-
-        if pert_params is not None:
-            self._pert_params = pert_params
-
-        # was already set in draw_markers for sph
-        if self.type != "sph":
-            self._set_initial_condition()
-
-        # evaluate initial distribution function
-        if self.type == "sph":
-            f_init = self.f_init.n0(self.positions)
+        if from_tesselation:
+            if self.pforms[0] is None:
+                fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
+            else:
+                fvol = self.f_init
+            cell_avg = self.tesselation.cell_averages(fvol, n_quad=self.loading_params["n_quad"])
+            self.weights0 = cell_avg.flatten()
         else:
-            f_init = self.f_init(*self.f_coords.T)
+            assert self.domain is not None, "A domain is needed to initialize weights."
 
-        # if f_init is vol-form, transform to 0-form
-        if self.pforms[0] == "vol":
-            f_init /= self.domain.jacobian_det(self.positions)
+            # set initial condition
+            if bckgr_params is not None:
+                self._bckgr_params = bckgr_params
 
-        if self.pforms[1] == "vol":
-            f_init /= self.f_init.velocity_jacobian_det(
-                *self.f_jacobian_coords.T,
-            )
+            if pert_params is not None:
+                self._pert_params = pert_params
 
-        # compute s0 and save at vdim + 4
-        self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
+            if self.type != "sph":
+                self._set_initial_condition()
 
-        # compute w0 and save at vdim + 5
-        self.weights0 = f_init / self.sampling_density
+            # evaluate initial distribution function
+            if self.type == "sph":
+                f_init = self.f_init(self.positions)
+            else:
+                f_init = self.f_init(*self.f_coords.T)
+
+            # if f_init is vol-form, transform to 0-form
+            if self.pforms[0] == "vol":
+                f_init /= self.domain.jacobian_det(self.positions)
+
+            if self.pforms[1] == "vol":
+                f_init /= self.f_init.velocity_jacobian_det(
+                    *self.f_jacobian_coords.T,
+                )
+
+            # compute s0 and save at vdim + 4
+            self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
+
+            # compute w0 and save at vdim + 5
+            self.weights0 = f_init / self.sampling_density
 
         if reject_weights:
             reject = self.markers[:, self.index["w0"]] < threshold
@@ -1579,7 +1691,7 @@ class Particles(metaclass=ABCMeta):
             )
 
         # compute (time-dependent) weights at vdim + 3
-        if self._control_variate:
+        if self.control_variate:
             self.update_weights()
         else:
             self.weights = self.weights0
@@ -1591,11 +1703,13 @@ class Particles(metaclass=ABCMeta):
         The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
 
-        # in case of CanonicalMaxwellian, evaluate constants_of_motion
-        if self.f0.coords == "constants_of_motion":
-            self.save_constants_of_motion()
-
-        f0 = self.f0(*self.f_coords.T)
+        if self.type == "sph":
+            f0 = self.f0.n0(self.positions)
+        else:
+            # in case of CanonicalMaxwellian, evaluate constants_of_motion
+            if self.f0.coords == "constants_of_motion":
+                self.save_constants_of_motion()
+            f0 = self.f0(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
         if self.pforms[0] == "vol":
@@ -1950,7 +2064,7 @@ class Particles(metaclass=ABCMeta):
         markers_shape : tuple
             shape of 2D marker array.
 
-        for_sph : bool
+        is_sph : bool
             True if particle type is "sph".
 
         nx : int
@@ -1969,19 +2083,20 @@ class Particles(metaclass=ABCMeta):
             Column index of the particles array to store the box number, counted from
             the end (e.g. -2 for the second-to-last).
 
-        eps : float
+        box_buff_size : float
             additional buffer space in the size of the boxes"""
 
         def __init__(
             self,
             markers_shape: tuple,
-            for_sph: bool,
+            is_sph: bool,
+            *,
             nx: int = 1,
             ny: int = 1,
             nz: int = 1,
             comm: Intracomm = None,
             box_index: "int" = -2,
-            eps: "float" = 0.25,
+            box_buff_size: "float" = 1.0,
             verbose: str = False,
         ):
             self._markers_shape = markers_shape
@@ -1990,7 +2105,7 @@ class Particles(metaclass=ABCMeta):
             self._nz = nz
             self._comm = comm
             self._box_index = box_index
-            self._eps = eps
+            self._box_buff_size = box_buff_size
             self._verbose = verbose
 
             if comm is None:
@@ -2000,7 +2115,7 @@ class Particles(metaclass=ABCMeta):
 
             self._set_boxes()
 
-            self._communicate = for_sph and comm is not None
+            self._communicate = is_sph
 
             if self.communicate:
                 self._set_boundary_boxes()
@@ -2048,13 +2163,17 @@ class Particles(metaclass=ABCMeta):
 
             n_particles = self._markers_shape[0]
             n_mkr = int(n_particles / n_box_in) + 1
-            eps = self._eps
-            n_rows = round(
-                n_mkr * (1 + 1 / np.sqrt(n_mkr) + eps),
+            n_cols = round(
+                n_mkr * (1 + 1 / np.sqrt(n_mkr) + self._box_buff_size),
             )
 
             # cartesian boxes
-            self._boxes = np.zeros((self._n_boxes, n_rows), dtype=int)
+            self._boxes = np.zeros((self._n_boxes + 1, n_cols), dtype=int)
+
+            # TODO: there is still a bug here
+            # the row number in self._boxes should not be n_boxes + 1; this is just a temporary fix to avoid an error that I dont understand.
+            # Must be fixed soon!
+
             self._next_index = np.zeros((self._n_boxes + 1), dtype=int)
             self._cumul_next_index = np.zeros((self._n_boxes + 2), dtype=int)
             self._neighbours = np.zeros((self._n_boxes, 27), dtype=int)
@@ -2069,64 +2188,75 @@ class Particles(metaclass=ABCMeta):
 
         def _set_boundary_boxes(self):
             """Gather all the boxes that are part of a boundary"""
+            gather_x_boxes = self.nx > 1
+            gather_y_boxes = self.ny > 1
+            gather_z_boxes = self.nz > 1
 
             # x boundary
             # negative direction
             self._bnd_boxes_x_m = []
             # positive direction
             self._bnd_boxes_x_p = []
-            for j in range(1, self.ny + 1):
-                for k in range(1, self.nz + 1):
-                    self._bnd_boxes_x_m.append(flatten_index(1, j, k, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_x_p.append(flatten_index(self.nx, j, k, self.nx, self.ny, self.nz))
+
+            if gather_x_boxes:
+                for j in range(1, self.ny + 1):
+                    for k in range(1, self.nz + 1):
+                        self._bnd_boxes_x_m.append(flatten_index(1, j, k, self.nx, self.ny, self.nz))
+                        self._bnd_boxes_x_p.append(flatten_index(self.nx, j, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta1 boundary - {self._rank = }\n{self._bnd_boxes_x_m = }\n{self._bnd_boxes_x_p = }")
+                print(f"eta1 boundary on {self._rank = }:\n{self._bnd_boxes_x_m = }\n{self._bnd_boxes_x_p = }")
 
             # y boundary
             # negative direction
             self._bnd_boxes_y_m = []
             # positive direction
             self._bnd_boxes_y_p = []
-            for i in range(1, self.nx + 1):
-                for k in range(1, self.nz + 1):
-                    self._bnd_boxes_y_m.append(flatten_index(i, 1, k, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_y_p.append(flatten_index(i, self.ny, k, self.nx, self.ny, self.nz))
+
+            if gather_y_boxes:
+                for i in range(1, self.nx + 1):
+                    for k in range(1, self.nz + 1):
+                        self._bnd_boxes_y_m.append(flatten_index(i, 1, k, self.nx, self.ny, self.nz))
+                        self._bnd_boxes_y_p.append(flatten_index(i, self.ny, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta2 boundary - {self._rank = }\n{self._bnd_boxes_y_m = }\n{self._bnd_boxes_y_p = }")
+                print(f"eta2 boundary on {self._rank = }:\n{self._bnd_boxes_y_m = }\n{self._bnd_boxes_y_p = }")
 
             # z boundary
             # negative direction
             self._bnd_boxes_z_m = []
             # positive direction
             self._bnd_boxes_z_p = []
-            for i in range(1, self.nx + 1):
-                for j in range(1, self.ny + 1):
-                    self._bnd_boxes_z_m.append(flatten_index(i, j, 1, self.nx, self.ny, self.nz))
-                    self._bnd_boxes_z_p.append(flatten_index(i, j, self.nz, self.nx, self.ny, self.nz))
+
+            if gather_z_boxes:
+                for i in range(1, self.nx + 1):
+                    for j in range(1, self.ny + 1):
+                        self._bnd_boxes_z_m.append(flatten_index(i, j, 1, self.nx, self.ny, self.nz))
+                        self._bnd_boxes_z_p.append(flatten_index(i, j, self.nz, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta3 boundary - {self._rank = }\n{self._bnd_boxes_z_m = }\n{self._bnd_boxes_z_p = }")
+                print(f"eta3 boundary on {self._rank = }:\n{self._bnd_boxes_z_m = }\n{self._bnd_boxes_z_p = }")
 
             # x-y edges
             self._bnd_boxes_x_m_y_m = []
             self._bnd_boxes_x_m_y_p = []
             self._bnd_boxes_x_p_y_m = []
             self._bnd_boxes_x_p_y_p = []
-            for k in range(1, self.nz + 1):
-                self._bnd_boxes_x_m_y_m.append(flatten_index(1, 1, k, self.nx, self.ny, self.nz))
-                self._bnd_boxes_x_m_y_p.append(flatten_index(1, self.ny, k, self.nx, self.ny, self.nz))
-                self._bnd_boxes_x_p_y_m.append(flatten_index(self.nx, 1, k, self.nx, self.ny, self.nz))
-                self._bnd_boxes_x_p_y_p.append(flatten_index(self.nx, self.ny, k, self.nx, self.ny, self.nz))
+
+            if gather_x_boxes and gather_y_boxes:
+                for k in range(1, self.nz + 1):
+                    self._bnd_boxes_x_m_y_m.append(flatten_index(1, 1, k, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_x_m_y_p.append(flatten_index(1, self.ny, k, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_x_p_y_m.append(flatten_index(self.nx, 1, k, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_x_p_y_p.append(flatten_index(self.nx, self.ny, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
                 print(
                     (
-                        f"eta1-eta2 edge - {self._rank = }\n{self._bnd_boxes_x_m_y_m = }"
-                        "\n{self._bnd_boxes_x_m_y_p = }"
-                        "\n{self._bnd_boxes_x_p_y_m = }"
-                        "\n{self._bnd_boxes_x_p_y_p = }"
+                        f"eta1-eta2 edge on {self._rank = }:\n{self._bnd_boxes_x_m_y_m = }"
+                        f"\n{self._bnd_boxes_x_m_y_p = }"
+                        f"\n{self._bnd_boxes_x_p_y_m = }"
+                        f"\n{self._bnd_boxes_x_p_y_p = }"
                     )
                 )
 
@@ -2135,19 +2265,21 @@ class Particles(metaclass=ABCMeta):
             self._bnd_boxes_x_m_z_p = []
             self._bnd_boxes_x_p_z_m = []
             self._bnd_boxes_x_p_z_p = []
-            for j in range(1, self.ny + 1):
-                self._bnd_boxes_x_m_z_m.append(flatten_index(1, j, 1, self.nx, self.ny, self.nz))
-                self._bnd_boxes_x_m_z_p.append(flatten_index(1, j, self.nz, self.nx, self.ny, self.nz))
-                self._bnd_boxes_x_p_z_m.append(flatten_index(self.nx, j, 1, self.nx, self.ny, self.nz))
-                self._bnd_boxes_x_p_z_p.append(flatten_index(self.nx, j, self.nz, self.nx, self.ny, self.nz))
+
+            if gather_x_boxes and gather_z_boxes:
+                for j in range(1, self.ny + 1):
+                    self._bnd_boxes_x_m_z_m.append(flatten_index(1, j, 1, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_x_m_z_p.append(flatten_index(1, j, self.nz, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_x_p_z_m.append(flatten_index(self.nx, j, 1, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_x_p_z_p.append(flatten_index(self.nx, j, self.nz, self.nx, self.ny, self.nz))
 
             if self._verbose:
                 print(
                     (
-                        f"eta1-eta3 edge - {self._rank = }\n{self._bnd_boxes_x_m_z_m = }"
-                        "\n{self._bnd_boxes_x_m_z_p = }"
-                        "\n{self._bnd_boxes_x_p_z_m = }"
-                        "\n{self._bnd_boxes_x_p_z_p = }"
+                        f"eta1-eta3 edge on {self._rank = }:\n{self._bnd_boxes_x_m_z_m = }"
+                        f"\n{self._bnd_boxes_x_m_z_p = }"
+                        f"\n{self._bnd_boxes_x_p_z_m = }"
+                        f"\n{self._bnd_boxes_x_p_z_p = }"
                     )
                 )
 
@@ -2156,43 +2288,55 @@ class Particles(metaclass=ABCMeta):
             self._bnd_boxes_y_m_z_p = []
             self._bnd_boxes_y_p_z_m = []
             self._bnd_boxes_y_p_z_p = []
-            for i in range(1, self.nx + 1):
-                self._bnd_boxes_y_m_z_m.append(flatten_index(i, 1, 1, self.nx, self.ny, self.nz))
-                self._bnd_boxes_y_m_z_p.append(flatten_index(i, 1, self.nz, self.nx, self.ny, self.nz))
-                self._bnd_boxes_y_p_z_m.append(flatten_index(i, self.ny, 1, self.nx, self.ny, self.nz))
-                self._bnd_boxes_y_p_z_p.append(flatten_index(i, self.ny, self.nz, self.nx, self.ny, self.nz))
+
+            if gather_y_boxes and gather_z_boxes:
+                for i in range(1, self.nx + 1):
+                    self._bnd_boxes_y_m_z_m.append(flatten_index(i, 1, 1, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_y_m_z_p.append(flatten_index(i, 1, self.nz, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_y_p_z_m.append(flatten_index(i, self.ny, 1, self.nx, self.ny, self.nz))
+                    self._bnd_boxes_y_p_z_p.append(flatten_index(i, self.ny, self.nz, self.nx, self.ny, self.nz))
 
             if self._verbose:
                 print(
                     (
-                        f"eta2-eta3 edge - {self._rank = }\n{self._bnd_boxes_y_m_z_m = }"
-                        "\n{self._bnd_boxes_y_m_z_p = }"
-                        "\n{self._bnd_boxes_y_p_z_m = }"
-                        "\n{self._bnd_boxes_y_p_z_p = }"
+                        f"eta2-eta3 edge on {self._rank = }:\n{self._bnd_boxes_y_m_z_m = }"
+                        f"\n{self._bnd_boxes_y_m_z_p = }"
+                        f"\n{self._bnd_boxes_y_p_z_m = }"
+                        f"\n{self._bnd_boxes_y_p_z_p = }"
                     )
                 )
 
             # corners
-            self._bnd_boxes_x_m_y_m_z_m = [flatten_index(1, 1, 1, self.nx, self.ny, self.nz)]
-            self._bnd_boxes_x_m_y_m_z_p = [flatten_index(1, 1, self.nz, self.nx, self.ny, self.nz)]
-            self._bnd_boxes_x_m_y_p_z_m = [flatten_index(1, self.ny, 1, self.nx, self.ny, self.nz)]
-            self._bnd_boxes_x_p_y_m_z_m = [flatten_index(self.nx, 1, 1, self.nx, self.ny, self.nz)]
-            self._bnd_boxes_x_m_y_p_z_p = [flatten_index(1, self.ny, self.nz, self.nx, self.ny, self.nz)]
-            self._bnd_boxes_x_p_y_m_z_p = [flatten_index(self.nx, 1, self.nz, self.nx, self.ny, self.nz)]
-            self._bnd_boxes_x_p_y_p_z_m = [flatten_index(self.nx, self.ny, 1, self.nx, self.ny, self.nz)]
-            self._bnd_boxes_x_p_y_p_z_p = [flatten_index(self.nx, self.ny, self.nz, self.nx, self.ny, self.nz)]
+            self._bnd_boxes_x_m_y_m_z_m = []
+            self._bnd_boxes_x_m_y_m_z_p = []
+            self._bnd_boxes_x_m_y_p_z_m = []
+            self._bnd_boxes_x_p_y_m_z_m = []
+            self._bnd_boxes_x_m_y_p_z_p = []
+            self._bnd_boxes_x_p_y_m_z_p = []
+            self._bnd_boxes_x_p_y_p_z_m = []
+            self._bnd_boxes_x_p_y_p_z_p = []
+
+            if gather_x_boxes and gather_y_boxes and gather_z_boxes:
+                self._bnd_boxes_x_m_y_m_z_m = [flatten_index(1, 1, 1, self.nx, self.ny, self.nz)]
+                self._bnd_boxes_x_m_y_m_z_p = [flatten_index(1, 1, self.nz, self.nx, self.ny, self.nz)]
+                self._bnd_boxes_x_m_y_p_z_m = [flatten_index(1, self.ny, 1, self.nx, self.ny, self.nz)]
+                self._bnd_boxes_x_p_y_m_z_m = [flatten_index(self.nx, 1, 1, self.nx, self.ny, self.nz)]
+                self._bnd_boxes_x_m_y_p_z_p = [flatten_index(1, self.ny, self.nz, self.nx, self.ny, self.nz)]
+                self._bnd_boxes_x_p_y_m_z_p = [flatten_index(self.nx, 1, self.nz, self.nx, self.ny, self.nz)]
+                self._bnd_boxes_x_p_y_p_z_m = [flatten_index(self.nx, self.ny, 1, self.nx, self.ny, self.nz)]
+                self._bnd_boxes_x_p_y_p_z_p = [flatten_index(self.nx, self.ny, self.nz, self.nx, self.ny, self.nz)]
 
             if self._verbose:
                 print(
                     (
-                        f"corners - {self._rank = }\n{self._bnd_boxes_x_m_y_m_z_m = }"
-                        "\n{self._bnd_boxes_x_m_y_m_z_p = }"
-                        "\n{self._bnd_boxes_x_m_y_p_z_m = }"
-                        "\n{self._bnd_boxes_x_p_y_m_z_m = }"
-                        "\n{self._bnd_boxes_x_m_y_p_z_p = }"
-                        "\n{self._bnd_boxes_x_p_y_m_z_p = }"
-                        "\n{self._bnd_boxes_x_p_y_p_z_m = }"
-                        "\n{self._bnd_boxes_x_p_y_p_z_p = }"
+                        f"corners on {self._rank = }:\n{self._bnd_boxes_x_m_y_m_z_m = }"
+                        f"\n{self._bnd_boxes_x_m_y_m_z_p = }"
+                        f"\n{self._bnd_boxes_x_m_y_p_z_m = }"
+                        f"\n{self._bnd_boxes_x_p_y_m_z_m = }"
+                        f"\n{self._bnd_boxes_x_m_y_p_z_p = }"
+                        f"\n{self._bnd_boxes_x_p_y_m_z_p = }"
+                        f"\n{self._bnd_boxes_x_p_y_p_z_m = }"
+                        f"\n{self._bnd_boxes_x_p_y_p_z_p = }"
                     )
                 )
 
@@ -2216,14 +2360,17 @@ class Particles(metaclass=ABCMeta):
             self._sorting_boxes.nz,
             self._sorting_boxes._boxes,
             self._sorting_boxes._next_index,
-            self.domain_decomp[self.mpi_rank],
+            self.domain_array[self.mpi_rank],
         )
 
         if self.sorting_boxes.communicate:
             self.communicate_boxes()
-
-            reassign_boxes(self._markers, self.holes, self._sorting_boxes._boxes, self._sorting_boxes._next_index)
-
+            reassign_boxes(
+                self._markers,
+                self.holes,
+                self._sorting_boxes._boxes,
+                self._sorting_boxes._next_index,
+            )
             self.update_ghost_particles()
 
     def do_sort(self):
@@ -2279,7 +2426,7 @@ class Particles(metaclass=ABCMeta):
             (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
         )
 
-        # Put last index to -2 to indicate that they should not move
+        # Put last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m[:, -1] = -2.0
         self._markers_x_p[:, -1] = -2.0
         self._markers_y_m[:, -1] = -2.0
@@ -2307,7 +2454,7 @@ class Particles(metaclass=ABCMeta):
             -self._sorting_boxes.nx - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
         )
 
-        # Put first last index to -2 to indicate that they should not move
+        # Put first last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m_y_m[:, -1] = -2.0
         self._markers_x_m_y_p[:, -1] = -2.0
         self._markers_x_p_y_m[:, -1] = -2.0
@@ -2337,7 +2484,7 @@ class Particles(metaclass=ABCMeta):
             - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
         )
 
-        # Put first last index to -2 to indicate that they should not move
+        # Put first last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m_z_m[:, -1] = -2.0
         self._markers_x_m_z_p[:, -1] = -2.0
         self._markers_x_p_z_m[:, -1] = -2.0
@@ -2369,7 +2516,7 @@ class Particles(metaclass=ABCMeta):
             - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
         )
 
-        # Put first last index to -2 to indicate that they should not move
+        # Put first last index to -2 to indicate that they are ghosts on the new process
         self._markers_y_m_z_m[:, -1] = -2.0
         self._markers_y_m_z_p[:, -1] = -2.0
         self._markers_y_p_z_m[:, -1] = -2.0
@@ -2426,7 +2573,8 @@ class Particles(metaclass=ABCMeta):
             - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
             - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
         )
-        # Put first last index to -2 to indicate that they should not move
+
+        # Put first last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m_y_m_z_m[:, -1] = -2.0
         self._markers_x_m_y_m_z_p[:, -1] = -2.0
         self._markers_x_m_y_p_z_m[:, -1] = -2.0
@@ -2595,11 +2743,12 @@ class Particles(metaclass=ABCMeta):
         self.determine_send_markers_box()
         self.get_destinations_box()
         self.self_communication_boxes()
-        self.mpi_comm.Barrier()
-        self.sendrecv_all_to_all_boxes()
         self.update_holes()
-        self.sendrecv_markers_boxes()
-        self.update_holes()
+        if self.mpi_comm is not None:
+            self.mpi_comm.Barrier()
+            self.sendrecv_all_to_all_boxes()
+            self.sendrecv_markers_boxes()
+            self.update_holes()
         self.update_ghost_particles()
 
         if verbose:
@@ -2659,8 +2808,10 @@ class Particles(metaclass=ABCMeta):
 
     def _get_neighbouring_proc(self):
         """Find the neighbouring processes for the sending of boxes"""
-        dd = self.domain_decomp
-        periodic1, periodic2, periodic3 = [bci == "periodic" for bci in self.bc]
+        dd = self.domain_array
+        periodic1, periodic2, periodic3 = (
+            [True] * 3
+        )  # for the moment we always assume periodicity for the evaluation near the boundary, TODO: fill ghost boxes with suitable markers for other bcs?
         # Determine which proc are on which side
         x_l = dd[self.mpi_rank][0]
         x_r = dd[self.mpi_rank][1]
@@ -2914,6 +3065,59 @@ class Particles(metaclass=ABCMeta):
             ):
                 self._x_p_y_p_z_p_proc = i
 
+    def eval_density(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        h1,
+        h2,
+        h3,
+        kernel_type="gaussian_1d",
+        derivative=0,
+        fast=True,
+    ):
+        """Density function as 0-form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points (flat or meshgrid evaluation).
+
+        h1, h2, h3 : float
+            Support radius of the smoothing kernel in each dimension.
+
+        kernel_type : str
+            Name of the smoothing kernel to be used.
+
+        derivative: int
+            0: no kernel derivative
+            1: first component of grad
+            2: second component of grad
+            3: third component of grad
+
+        fast : bool
+            True: box-based evaluation, False: naive evaluation.
+
+        Returns
+        -------
+        out : array-like
+            Same size as eta1.
+        -------
+        """
+        return self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            self.index["weights"],
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+
     def eval_sph(
         self,
         eta1: np.ndarray,
@@ -2922,7 +3126,7 @@ class Particles(metaclass=ABCMeta):
         index: int,
         out: np.ndarray = None,
         fast: bool = True,
-        kernel_type: str = "linear_isotropic",
+        kernel_type: str = "gaussian_1d",
         derivative: int = "0",
         h1: float = 0.1,
         h2: float = 0.1,
@@ -2936,7 +3140,7 @@ class Particles(metaclass=ABCMeta):
 
         The coefficients :math:`\beta_k` must be stored at ``self.markers[k, index]``.
         The possible choices for :math:`W_h` are listed in :mod:`~struphy.pic.sph_smoothing_kernels`
-        and in ``self.ker_dct``.
+        and in :meth:`~struphy.pic.base.Particles.ker_dct`.
 
         Parameters
         ----------
@@ -2955,7 +3159,7 @@ class Particles(metaclass=ABCMeta):
 
         kernel_type : str
             Name of the smoothing kernel, see :mod:`~struphy.pic.sph_smoothing_kernels`
-            and ``ker_dct`` below.
+            and :meth:`~struphy.pic.base.Particles.ker_dct`.
 
         derivative: int
             0: no kernel derivative
@@ -2966,27 +3170,35 @@ class Particles(metaclass=ABCMeta):
         h1, h2, h3 : float
             Radius of the smoothing kernel in each dimension.
         """
-
-        assert np.shape(eta1) == np.shape(eta2)
-        assert np.shape(eta1) == np.shape(eta3)
+        _shp = np.shape(eta1)
+        assert _shp == np.shape(eta2) == np.shape(eta3)
         if out is not None:
-            assert np.shape(eta1) == np.shape(out)
+            assert _shp == np.shape(out)
         else:
             out = np.zeros_like(eta1)
 
         assert derivative in {0, 1, 2, 3}, f"derivative must be 0, 1, 2 or 3, but is {derivative}."
 
-        ker_id = self.ker_dct[kernel_type]
+        ker_id = self.ker_dct()[kernel_type]
         ker_id += derivative
 
-        periodic1, periodic2, periodic3 = [bci == "periodic" for bci in self.bc]
+        # for the moment we always assume periodicity for the evaluation near the boundary, TODO: fill ghost boxes with suitable markers for other bcs?
+        periodic1, periodic2, periodic3 = [True] * 3  # [bci == "periodic" for bci in self.bc]
 
         if fast:
             self.put_particles_in_boxes()
-            if len(np.shape(eta1)) == 1:
+
+            if len(_shp) == 1:
                 func = box_based_evaluation_flat
-            elif len(np.shape(eta1)) == 3:
+            elif len(_shp) == 3:
+                if _shp[0] > 1:
+                    assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
+                if _shp[1] > 1:
+                    assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
+                if _shp[2] > 1:
+                    assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
                 func = box_based_evaluation_meshgrid
+
             func(
                 eta1,
                 eta2,
@@ -2994,7 +3206,7 @@ class Particles(metaclass=ABCMeta):
                 self.sorting_boxes.nx,
                 self.sorting_boxes.ny,
                 self.sorting_boxes.nz,
-                self.domain_decomp[self.mpi_rank],
+                self.domain_array[self.mpi_rank],
                 self.sorting_boxes.boxes,
                 self.sorting_boxes.neighbours,
                 self.markers,
@@ -3011,9 +3223,9 @@ class Particles(metaclass=ABCMeta):
                 out,
             )
         else:
-            if len(np.shape(eta1)) == 1:
+            if len(_shp) == 1:
                 func = naive_evaluation_flat
-            elif len(np.shape(eta1)) == 3:
+            elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
             func(
                 eta1,
@@ -3081,15 +3293,16 @@ class Particles(metaclass=ABCMeta):
 
         # check which particles are on the current process domain
         self._is_on_proc_domain = np.logical_and(
-            self._sorting_etas > self.domain_decomp[self.mpi_rank, 0::3],
-            self._sorting_etas < self.domain_decomp[self.mpi_rank, 1::3],
+            self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
+            self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
         )
 
         # to stay on the current process, all three columns must be True
         self._can_stay = np.all(self._is_on_proc_domain, axis=1)
 
-        # holes can stay, too
+        # holes and ghosts can stay, too
         self._can_stay[self.holes] = True
+        self._can_stay[self.ghost_particles] = True
 
         # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
         send_inds = np.nonzero(~self._can_stay)[0]
@@ -3118,8 +3331,8 @@ class Particles(metaclass=ABCMeta):
         # TODO: do not loop over all processes, start with neighbours and work outwards (using while)
         for i in range(self.mpi_size):
             conds = np.logical_and(
-                self._sorting_etas[send_inds] > self.domain_decomp[i, 0::3],
-                self._sorting_etas[send_inds] < self.domain_decomp[i, 1::3],
+                self._sorting_etas[send_inds] > self.domain_array[i, 0::3],
+                self._sorting_etas[send_inds] < self.domain_array[i, 1::3],
             )
 
             self._send_to_i[i] = np.nonzero(np.all(conds, axis=1))[0]
@@ -3191,3 +3404,323 @@ class Particles(metaclass=ABCMeta):
 
                         test_reqs.pop()
                         self._reqs[i] = None
+
+
+class Tesselation:
+    """
+    Make a tesselation of the simulation domain into tiles of equal size.
+
+    Parameters
+    ----------
+    tiles_pb : int
+        Number of equally sized tiles per box defined in sorting boxes (there is 1 box if sorting_boxes=None).
+        This is equal to particels per box (ppb) when used for SPH markers.
+
+    comm : Intracomm
+        MPI communicator.
+
+    domain_array : np.ndarray
+        A 2d array[float] of shape (comm.Get_size(), 9) holding info on the domain decomposition.
+
+    sorting_boxes : Particles.SortingBoxes
+        Box info for SPH evaluations.
+    """
+
+    def __init__(
+        self,
+        tiles_pb: int | float,
+        *,
+        comm: Intracomm = None,
+        domain_array: np.ndarray = None,
+        sorting_boxes: Particles.SortingBoxes = None,
+    ):
+        if isinstance(tiles_pb, int):
+            self._tiles_pb = tiles_pb
+        else:
+            if tiles_pb == int(tiles_pb):
+                self._tiles_pb = int(tiles_pb)
+            else:
+                self._tiles_pb = int(tiles_pb + 1)
+
+        if comm is None:
+            self._rank = 0
+        else:
+            self._rank = comm.Get_rank()
+            assert domain_array is not None
+
+        if domain_array is None:
+            self._starts = np.zeros(3)
+            self._ends = np.ones(3)
+        else:
+            self._starts = domain_array[self.rank, 0::3]
+            self._ends = domain_array[self.rank, 1::3]
+
+        if sorting_boxes is None:
+            self._boxes_per_dim = [1, 1, 1]
+        else:
+            self._boxes_per_dim = [
+                sorting_boxes.nx,
+                sorting_boxes.ny,
+                sorting_boxes.nz,
+            ]
+
+        self._box_widths = [(ri - le) / nb for ri, le, nb in zip(self._ends, self._starts, self.boxes_per_dim)]
+
+        n_boxes = 1
+        for nbi in self.boxes_per_dim:
+            n_boxes *= nbi
+
+        if n_boxes == 1:
+            self._dims_mask = [True] * 3
+        else:
+            self._dims_mask = np.array(self.boxes_per_dim) > 1
+
+        min_tiles = 2 ** np.count_nonzero(self.dims_mask)
+        assert self.tiles_pb >= min_tiles, (
+            f"At least {min_tiles} tiles per sorting box is enforced, but you have {self.tiles_pb}!"
+        )
+
+        self._n_tiles = n_boxes * self.tiles_pb
+
+        self.get_tiles()
+
+    def get_tiles(self):
+        """Compute tesselation of a single sorting box."""
+        # factorize tiles per box
+        factors = factorint(self.tiles_pb)
+        factors_vec = []
+        for fac, multiplicity in factors.items():
+            for m in range(multiplicity):
+                factors_vec += [fac]
+
+        # print(f'{self.tiles_pb = }')
+        # print(f'{factors_vec = }')
+        # print(f'{self.dims_mask = }')
+
+        # tiles in one sorting box
+        self._nt_per_dim = np.array([1, 1, 1])
+        _ids = np.nonzero(self._dims_mask)[0]
+        for fac in factors_vec:
+            _nt = self.nt_per_dim[self._dims_mask]
+            d = _ids[np.argmin(_nt)]
+            self._nt_per_dim[d] *= fac
+            # print(f'{_nt = }, {d = }, {self.nt_per_dim = }')
+
+        assert np.prod(self.nt_per_dim) == self.tiles_pb
+
+        # tiles between [0, box_width] in each direction
+        self._tile_breaks = [np.linspace(0.0, bw, nt + 1) for bw, nt in zip(self.box_widths, self.nt_per_dim)]
+        self._tile_midpoints = [(np.roll(tbs, -1)[:-1] + tbs[:-1]) / 2 for tbs in self.tile_breaks]
+        self._tile_volume = 1.0
+        for tb in self.tile_breaks:
+            self._tile_volume *= tb[1]
+
+    def draw_markers(self):
+        """Draw markers on the tile midpoints."""
+        _, eta1 = self._tile_output_arrays()
+        eta2 = np.zeros_like(eta1)
+        eta3 = np.zeros_like(eta1)
+
+        nt_x, nt_y, nt_z = self.nt_per_dim
+
+        for i in range(self.boxes_per_dim[0]):
+            x_midpoints = self._get_midpoints(i, 0)
+            for j in range(self.boxes_per_dim[1]):
+                y_midpoints = self._get_midpoints(j, 1)
+                for k in range(self.boxes_per_dim[2]):
+                    z_midpoints = self._get_midpoints(k, 2)
+
+                    xx, yy, zz = np.meshgrid(
+                        x_midpoints,
+                        y_midpoints,
+                        z_midpoints,
+                        indexing="ij",
+                    )
+
+                    eta1[
+                        i * nt_x : (i + 1) * nt_x,
+                        j * nt_y : (j + 1) * nt_y,
+                        k * nt_z : (k + 1) * nt_z,
+                    ] = xx
+
+                    eta2[
+                        i * nt_x : (i + 1) * nt_x,
+                        j * nt_y : (j + 1) * nt_y,
+                        k * nt_z : (k + 1) * nt_z,
+                    ] = yy
+
+                    eta3[
+                        i * nt_x : (i + 1) * nt_x,
+                        j * nt_y : (j + 1) * nt_y,
+                        k * nt_z : (k + 1) * nt_z,
+                    ] = zz
+
+        return eta1.flatten(), eta2.flatten(), eta3.flatten()
+
+    def _get_quad_pts(self, n_quad=None):
+        """Compute the quadrature points and weights in a single tile."""
+        if n_quad is None:
+            n_quad = [1, 1, 1]
+        elif isinstance(n_quad, int):
+            n_quad = [n_quad] * 3
+
+        self._tile_quad_pts = []
+        self._tile_quad_wts = []
+        for nq, tb in zip(n_quad, self.tile_breaks):
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(nq)
+            pts, wts = quadrature_grid(tb[:2], pts_loc, wts_loc)
+            self._tile_quad_pts += [pts[0]]
+            self._tile_quad_wts += [wts[0]]
+
+    def cell_averages(self, fun, n_quad=None):
+        """Compute cell averages of fun over all tiles on current process.
+
+        Parameters
+        ----------
+        fun: callable
+            Some callable function.
+        """
+        self._get_quad_pts(n_quad=n_quad)
+        # print(f'{self.tile_quad_pts = }')
+
+        single_box_out, out = self._tile_output_arrays()
+
+        nt_x, nt_y, nt_z = self.nt_per_dim
+
+        for i in range(self.boxes_per_dim[0]):
+            x_pts = self._get_box_quad_pts(i, 0)
+            for j in range(self.boxes_per_dim[1]):
+                y_pts = self._get_box_quad_pts(j, 1)
+                for k in range(self.boxes_per_dim[2]):
+                    z_pts = self._get_box_quad_pts(k, 2)
+
+                    xx, yy, zz = np.meshgrid(
+                        x_pts.flatten(),
+                        y_pts.flatten(),
+                        z_pts.flatten(),
+                        indexing="ij",
+                    )
+
+                    fun_vals = fun(xx, yy, zz)
+
+                    sampling_kernels.tile_int_kernel(
+                        fun_vals,
+                        *self.tile_quad_wts,
+                        single_box_out,
+                    )
+
+                    single_box_out /= self.tile_volume
+
+                    out[
+                        i * nt_x : (i + 1) * nt_x,
+                        j * nt_y : (j + 1) * nt_y,
+                        k * nt_z : (k + 1) * nt_z,
+                    ] = single_box_out
+        return out
+
+    def _tile_output_arrays(self):
+        """Returns two 3d arrays filled with zeros:
+        * the first with one entry for each tile on one sorting box
+        * the second with one entry for each tile on current process
+        """
+        # self._quad_pts = [np.zeros((nt, nq)).flatten() for nt, nq in zip(self.nt_per_dim, self.tile_quad_pts)]
+        single_box_out = np.zeros(self.nt_per_dim)
+        out = np.tile(single_box_out, self.boxes_per_dim)
+        return single_box_out, out
+
+    def _get_midpoints(self, i: int, dim: int):
+        """Compute all tile midpoints within one sorting box."""
+        xl = self.starts[dim] + i * self.box_widths[dim]
+        return xl + self.tile_midpoints[dim]
+
+    def _get_box_quad_pts(self, i: int, dim: int):
+        """Compute all quadrature points for cell averages within the i-th sorting box in direction dim.
+
+        Parameters
+        ----------
+        i : int
+            Index of the box, starting at 0.
+
+        dim : int
+            Direction, either 0, 1, or 2.
+
+        Returns
+        -------
+        x_pts : np.array
+            2d array of shape (n_tiles_pb, n_tile_quad_pts)
+        """
+        xl = self.starts[dim] + i * self.box_widths[dim]
+        x_tile_breaks = xl + self.tile_breaks[dim][:-1]
+        x_tile_pts = self.tile_quad_pts[dim]
+        x_pts = np.tile(x_tile_breaks, (x_tile_pts.size, 1)).T + x_tile_pts
+        return x_pts
+
+    @property
+    def tiles_pb(self):
+        """Number of equally sized tiles per sorting box."""
+        return self._tiles_pb
+
+    @property
+    def n_tiles(self):
+        """Total number of tiles on current process."""
+        return self._n_tiles
+
+    @property
+    def nt_per_dim(self):
+        """3-list of number of equally sized tiles per sorting box per direction."""
+        return self._nt_per_dim
+
+    @property
+    def starts(self):
+        """3-list of domain starts (left boundaries) on current process."""
+        return self._starts
+
+    @property
+    def ends(self):
+        """3-list of domain ends (right boundaries) on current process."""
+        return self._ends
+
+    @property
+    def tile_breaks(self):
+        """3-list of tile break points within the single sorting box [0.0, sorting_box_width], in each direction."""
+        return self._tile_breaks
+
+    @property
+    def tile_midpoints(self):
+        """3-list of tile midpoints within the single sorting box [0.0, sorting_box_width], in each direction."""
+        return self._tile_midpoints
+
+    @property
+    def tile_volume(self):
+        """Volume of a single tile."""
+        return self._tile_volume
+
+    @property
+    def tile_quad_pts(self):
+        """3-list of quadrature points (GL) within a single tile, in each direction."""
+        return self._tile_quad_pts
+
+    @property
+    def tile_quad_wts(self):
+        """3-list of quadrature weights (GL) within a single tile, in each direction."""
+        return self._tile_quad_wts
+
+    @property
+    def rank(self):
+        """Current process rank."""
+        return self._rank
+
+    @property
+    def boxes_per_dim(self):
+        """Sorting boxes per direction."""
+        return self._boxes_per_dim
+
+    @property
+    def box_widths(self):
+        """3-list of sorting box widths in each direction."""
+        return self._box_widths
+
+    @property
+    def dims_mask(self):
+        """Boolean array of size 3; entry is True if direction participates in tesselation."""
+        return self._dims_mask

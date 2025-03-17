@@ -20,8 +20,6 @@ def distance(x: "float", y: "float", periodic: "bool") -> float:
 ########################
 # single-point kernels #
 ########################
-
-
 def naive_evaluation_kernel(
     eta1: "float",
     eta2: "float",
@@ -155,8 +153,6 @@ def boxed_based_kernel(
 ####################
 # naive evaluation #
 ####################
-
-
 def naive_evaluation_flat(
     eta1: "float[:]",
     eta2: "float[:]",
@@ -298,8 +294,6 @@ def naive_evaluation_meshgrid(
 ########################
 # box-based evaluation #
 ########################
-
-
 def box_based_evaluation_flat(
     eta1: "float[:]",
     eta2: "float[:]",
@@ -374,7 +368,15 @@ def box_based_evaluation_flat(
         e1 = eta1[i]
         e2 = eta2[i]
         e3 = eta3[i]
-        loc_box = sorting_kernels.find_box(e1, e2, e3, n1, n2, n3, domain_array)
+        loc_box = sorting_kernels.find_box(
+            e1,
+            e2,
+            e3,
+            n1,
+            n2,
+            n3,
+            domain_array,
+        )
         if loc_box == -1:
             continue
         else:
@@ -472,12 +474,26 @@ def box_based_evaluation_meshgrid(
     n_eval_3 = eta1.shape[2]
     out[:] = 0.0
     for i in range(n_eval_1):
+        e1 = eta1[i, 0, 0]
+        if e1 < domain_array[0] or e1 > domain_array[1]:
+            continue
         for j in range(n_eval_2):
+            e2 = eta2[0, j, 0]
+            if e2 < domain_array[3] or e2 > domain_array[4]:
+                continue
             for k in range(n_eval_3):
-                e1 = eta1[i, j, k]
-                e2 = eta2[i, j, k]
-                e3 = eta3[i, j, k]
-                loc_box = sorting_kernels.find_box(e1, e2, e3, n1, n2, n3, domain_array)
+                e3 = eta3[0, 0, k]
+                if e3 < domain_array[6] or e3 > domain_array[7]:
+                    continue
+                loc_box = sorting_kernels.find_box(
+                    e1,
+                    e2,
+                    e3,
+                    n1,
+                    n2,
+                    n3,
+                    domain_array,
+                )
                 if loc_box == -1:
                     continue
                 else:

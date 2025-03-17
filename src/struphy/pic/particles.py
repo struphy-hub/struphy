@@ -1,7 +1,6 @@
-import numpy as np
+import copy
 
 from struphy.fields_background.base import FluidEquilibriumWithB
-from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
@@ -20,26 +19,6 @@ class Particles6D(Particles):
     ===== ============== ======================= ======= ====== ====== ==========
     value position (eta)    velocities           weight   s0     w0    buffer
     ===== ============== ======================= ======= ====== ====== ==========
-
-    The buffer is partitioned as follows:
-
-    Parameters
-    ----------
-    name : str
-        Name of particle species.
-
-    Np : int
-        Number of particles.
-
-    bc : list
-        Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
-
-    loading : str
-        Drawing of markers; either 'pseudo_random', 'sobol_standard',
-        'sobol_antithetic', 'external' or 'restart'.
-
-    **kwargs : dict
-        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
     @classmethod
@@ -50,17 +29,14 @@ class Particles6D(Particles):
         self,
         **kwargs,
     ):
+        kwargs["type"] = "full_f"
+
         if "bckgr_params" not in kwargs:
             kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        if "n_cols" not in kwargs:
-            self._n_cols_diagnostics = 0
-            self._n_cols_aux = 5
-        else:
-            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
-            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
-            kwargs.pop("n_cols")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
         super().__init__(**kwargs)
 
@@ -254,6 +230,43 @@ class Particles6D(Particles):
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
 
 
+class DeltaFParticles6D(Particles6D):
+    """
+    A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
+    """
+
+    @classmethod
+    def default_bckgr_params(cls):
+        return {"Maxwellian3D": {}}
+
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        kwargs["type"] = "delta_f"
+        kwargs["control_variate"] = False
+        super().__init__(**kwargs)
+
+    def _set_initial_condition(self):
+        bp_copy = copy.deepcopy(self.bckgr_params)
+        pp_copy = copy.deepcopy(self.pert_params)
+
+        # Prepare delta-f perturbation parameters
+        if pp_copy is not None:
+            for fi in bp_copy:
+                # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
+                if fi in pp_copy:
+                    if "use_background_n" in pp_copy[fi]:
+                        if not pp_copy[fi]["use_background_n"]:
+                            bp_copy[fi]["n"] = 0.0
+                    else:
+                        bp_copy[fi]["n"] = 0.0
+                else:
+                    bp_copy[fi]["n"] = 0.0
+
+        super()._set_initial_condition(bp_copy=bp_copy, pp_copy=pp_copy)
+
+
 class Particles5D(Particles):
     """
     A class for initializing particles in guiding-center, drift-kinetic or gyro-kinetic models that use the 5D phase space.
@@ -294,17 +307,14 @@ class Particles5D(Particles):
         projected_equil: ProjectedFluidEquilibriumWithB,
         **kwargs,
     ):
+        kwargs["type"] = "full_f"
+
         if "bckgr_params" not in kwargs:
             kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        if "n_cols" not in kwargs:
-            self._n_cols_diagnostics = 3
-            self._n_cols_aux = 12
-        else:
-            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
-            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
-            kwargs.pop("n_cols")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 3)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 12)
 
         super().__init__(
             projected_equil=projected_equil,
@@ -620,18 +630,14 @@ class Particles3D(Particles):
         self,
         **kwargs,
     ):
+        kwargs["type"] = "full_f"
+
         if "bckgr_params" not in kwargs:
             kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        if "n_cols" not in kwargs:
-            self._n_cols_diagnostics = 0
-            self._n_cols_aux = 5
-
-        else:
-            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
-            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
-            kwargs.pop("n_cols")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
         super().__init__(**kwargs)
 
@@ -765,15 +771,8 @@ class ParticlesSPH(Particles):
         #         kwargs["sorting_params"]["communicate"] = True
 
         # default number of diagnostics and auxiliary columns
-        if "n_cols" not in kwargs:
-            self._n_cols_diagnostics = 0
-            self._n_cols_aux = 5
-
-        else:
-            self._n_cols_diagnostics = kwargs["n_cols"]["diagnostics"]
-            self._n_cols_aux = kwargs["n_cols"]["auxiliary"]
-
-            kwargs.pop("n_cols")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
         clone_config = kwargs.get("clone_config", None)
         assert clone_config is None, "SPH can only be launched with --nclones 1"
@@ -794,11 +793,6 @@ class ParticlesSPH(Particles):
     def n_cols_aux(self):
         """Number of the auxiliary columns."""
         return self._n_cols_aux
-
-    @property
-    def bufferindex(self):
-        """Starting buffer marker index number"""
-        return 9
 
     @property
     def coords(self):
@@ -865,55 +859,44 @@ class ParticlesSPH(Particles):
             remove_outside=remove_holes,
         )
 
-    def eval_density(
-        self,
-        eta1,
-        eta2,
-        eta3,
-        h1,
-        h2,
-        h3,
-        kernel_type="linear_isotropic",
-        derivative=0,
-        fast=True,
-    ):
-        """Density function as 0-form.
+    def _set_initial_condition(self):
+        """Set a callable initial condition f_init as a 0-form (scalar), and u_init in Cartesian coordinates."""
+        from struphy.feec.psydac_derham import transform_perturbation
+        from struphy.fields_background.base import FluidEquilibrium
 
-        Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points (flat or meshgrid evaluation).
+        pp_copy = copy.deepcopy(self.pert_params)
 
-        h1, h2, h3 : float
-            Support radius of the smoothing kernel in each dimension.
+        # Get the initialization function and pass the correct arguments
+        self._f_init = None
+        assert isinstance(self.f0, FluidEquilibrium)
+        self._f_init = self.f0.n0
+        self._u_init = self.f0.u_cart
 
-        kernel_type : str
-            Name of the smoothing kernel to be used.
+        if pp_copy is not None:
+            if "n" in pp_copy:
+                for _type, _params in pp_copy["n"].items():  # only one perturbation is taken into account at the moment
+                    _fun = transform_perturbation(_type, _params, "0", self.domain)
 
-        derivative: int
-            0: no kernel derivative
-            1: first component of grad
-            2: second component of grad
-            3: third component of grad
+                def _f_init(*etas):
+                    if len(etas) == 1:
+                        return self.f0.n0(etas[0]) + _fun(*etas[0].T)
+                    else:
+                        assert len(etas) == 3
+                        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                            etas[0],
+                            etas[1],
+                            etas[2],
+                            flat_eval=False,
+                        )
+                        return self.f0.n0(E1, E2, E3) + _fun(E1, E2, E3)
 
-        fast : bool
-            True: box-based evaluation, False: naive evaluation.
+                self._f_init = _f_init
 
-        Returns
-        -------
-        out : array-like
-            Same size as eta1.
-        -------
-        """
-        return self.eval_sph(
-            eta1,
-            eta2,
-            eta3,
-            self.index["weights"],
-            kernel_type=kernel_type,
-            derivative=derivative,
-            h1=h1,
-            h2=h2,
-            h3=h3,
-            fast=fast,
-        )
+            if "u1" in pp_copy:
+                for _type, _params in pp_copy[
+                    "u1"
+                ].items():  # only one perturbation is taken into account at the moment
+                    _fun = transform_perturbation(_type, _params, "v", self.domain)
+                    _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
+                self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                # TODO: add other velocity components

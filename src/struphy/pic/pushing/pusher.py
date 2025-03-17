@@ -157,6 +157,11 @@ class Pusher:
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
+        if self.particles.sorting_boxes is not None:
+            self._box_comm = self.particles.sorting_boxes.communicate
+        else:
+            self._box_comm = False
+
     def __call__(self, dt: float):
         """
         Applies the chosen pusher kernel by a time step dt,
@@ -192,9 +197,9 @@ class Pusher:
             rank = self.particles.mpi_rank
             print(f"rank {rank}: starting {self.kernel} ...")
             if self.particles.mpi_comm is not None:
-                self.particles.derham.comm.Barrier()
+                self.particles.mpi_comm.Barrier()
 
-        # if init_kernels is not empty, do spline evaluations at initial positions 0:3
+        # if init_kernels is not empty, do evaluations at initial positions 0:3
         for ker_args in self.init_kernels:
             ker = ker_args[0]
             column_nr = ker_args[1]
@@ -210,6 +215,10 @@ class Pusher:
                 *add_args,
             )
 
+            # update boxes
+            if self._box_comm:
+                self.particles.put_particles_in_boxes()
+
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
@@ -223,7 +232,7 @@ class Pusher:
                     f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                 )
                 if self.particles.mpi_comm is not None:
-                    self.particles.derham.comm.Barrier()
+                    self.particles.mpi_comm.Barrier()
 
             n_not_converged[0] = self.particles.Np
             while True:
@@ -242,6 +251,7 @@ class Pusher:
                         self.particles.mpi_sort_markers(
                             apply_bc=False,
                             alpha=alpha[:3],
+                            remove_ghost=False,
                         )
 
                     # evaluate
@@ -254,11 +264,16 @@ class Pusher:
                         *add_args,
                     )
 
+                    # update boxes
+                    if self._box_comm:
+                        self.particles.put_particles_in_boxes()
+
                 # sort according to alpha-weighted average
                 if self.particles.mpi_comm is not None:
                     self.particles.mpi_sort_markers(
                         apply_bc=False,
                         alpha=self._alpha_in_kernel,
+                        remove_ghost=False,
                     )
 
                 # push markers
@@ -272,6 +287,10 @@ class Pusher:
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
                 self.particles.update_holes()
+
+                # update boxes
+                if self._box_comm:
+                    self.particles.put_particles_in_boxes()
 
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
@@ -290,10 +309,10 @@ class Pusher:
                             f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                         )
                         if self.particles.mpi_comm is not None:
-                            self.particles.derham.comm.Barrier()
+                            self.particles.mpi_comm.Barrier()
 
                     if self.particles.mpi_comm is not None:
-                        self.particles.derham.comm.Allreduce(
+                        self.particles.mpi_comm.Allreduce(
                             self._mpi_in_place,
                             n_not_converged,
                             op=self._mpi_sum,
@@ -334,7 +353,7 @@ class Pusher:
                     f"rank {rank}: stage {stage + 1} of {self.n_stages} done.",
                 )
                 if self.particles.mpi_comm is not None:
-                    self.particles.derham.comm.Barrier()
+                    self.particles.mpi_comm.Barrier()
 
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
