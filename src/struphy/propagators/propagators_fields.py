@@ -3010,7 +3010,7 @@ class VariationalDensityEvolve(Propagator):
     ):
         super().__init__(rho, u)
 
-        assert model in ["pressureless", "barotropic", "full", "full_p", "linear"]
+        assert model in ["pressureless", "barotropic", "full", "full_p", "linear", "deltaf"]
         if model == "full":
             assert s is not None
         assert mass_ops is not None
@@ -3038,6 +3038,11 @@ class VariationalDensityEvolve(Propagator):
         self._initialize_projectors_and_mass()
         if self._model == "linear":
             self.rhof1.vector = self.projected_equil.n3
+        elif self._model == "deltaf":
+            self._tmp_rho_deltaf = rho.space.zeros()
+            rhotmp = rho.copy(out = self._tmp_rho_deltaf)
+            rhotmp += self.projected_equil.n3
+            self.rhof1.vector = rhotmp
         else:
             self.rhof1.vector = rho
         self._update_weighted_MM()
@@ -3091,8 +3096,13 @@ class VariationalDensityEvolve(Propagator):
             self.feec_vars_update(rhon1, un)
             return
 
+        if self._model == "deltaf":
+            rho = rhon.copy(out = self._tmp_rho_deltaf)
+            rho += self.projected_equil.n3
+            self.rhof1.vector = rho
+        else:
+            self.rhof1.vector = rhon
         self.rhof.vector = rhon
-        self.rhof1.vector = rhon
         self._update_weighted_MM()
         mn = self._Mrho.dot(un, out=self._tmp_mn)
 
@@ -3133,12 +3143,22 @@ class VariationalDensityEvolve(Propagator):
             s = self._s
             self.sf.vector = s
 
-        self.rhof1.vector = rhon1
+        if self._model == "deltaf":
+            rho = rhon1.copy(out = self._tmp_rho_deltaf)
+            rho += self.projected_equil.n3
+            self.rhof1.vector = rho
+        else:
+            self.rhof1.vector = rhon1
         self._update_Pirho()
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
         rhon1 += self._tmp_rhon_diff
-        self.rhof1.vector = rhon1
+        if self._model == "deltaf":
+            rho = rhon1.copy(out = self._tmp_rho_deltaf)
+            rho += self.projected_equil.n3
+            self.rhof1.vector = rho
+        else:
+            self.rhof1.vector = rhon1
         self._update_weighted_MM()
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
@@ -3206,7 +3226,13 @@ class VariationalDensityEvolve(Propagator):
             rhon1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            self.rhof1.vector = rhon1
+            
+            if self._model == "deltaf":
+                rho = rhon1.copy(out = self._tmp_rho_deltaf)
+                rho += self.projected_equil.n3
+                self.rhof1.vector = rho
+            else:
+                self.rhof1.vector = rhon1
             self._update_weighted_MM()
             mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
 
@@ -6263,7 +6289,7 @@ class VariationalPBEvolve(Propagator):
         super().__init__(p, b, u)
 
 
-        assert model in ["full","full_p", "linear"]
+        assert model in ["full_p", "linear", "deltaf"]
         self._model = model
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
@@ -6310,9 +6336,11 @@ class VariationalPBEvolve(Propagator):
         self._tmp_advection2 = u.space.zeros()
         self._tmp_advection3 = u.space.zeros()
         self._tmp_b_advection = b.space.zeros()
+        self._tmp_b_advection2 = b.space.zeros()
         self._linear_form_dl_db = b.space.zeros()
 
         self._tmp_p_advection = p.space.zeros()
+        self._tmp_p_advection2 = p.space.zeros()
 
         self._create_linear_form_p()
 
@@ -6322,20 +6350,22 @@ class VariationalPBEvolve(Propagator):
     def __call__(self, dt):
         if self._nonlin_solver["type"] == "Newton":
             self.__call_newton(dt)
-        elif self._nonlin_solver["type"] == "Picard":
-            self.__call_picard(dt)
+        else:
+            raise ValueError("Only Newton solver is implemented for VariationalPBEvolve")
 
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
+        # In fact it is linear due to the explicit update, only one iteration will be done at each time step
         if self._info:
             print()
-            print("Newton iteration in VariationalMagFieldEvolve")
-        # Compute implicit approximation of s^{n+1}
+            print("Newton iteration in VariationalPBEvolve")
+
         pn = self.feec_vars[0]
         bn = self.feec_vars[1]
         un = self.feec_vars[2]
 
         self.uf.vector = un
+
 
         self.bf.vector = bn
         self._update_Pib()
@@ -6376,18 +6406,15 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_advection,
                 )
 
-                advection2 = self.curlPibT.dot(
+                advection += self.curlPibT.dot(
                     self._linear_form_dl_db0,
                     out=self._tmp_advection2,
                 )
 
-                advection += advection2
-
-                advection3 = self._transop_pT.dot(
+                advection += self._transop_pT.dot(
                     self._linear_form_dl_dp,
                     out = self._tmp_advection2)
                 
-                advection += advection3
 
                 b_advection = self.curlPib0.dot(
                 un12,
@@ -6398,6 +6425,47 @@ class VariationalPBEvolve(Propagator):
                     un12,
                     out=self._tmp_p_advection,
                 )
+
+            elif self._model == "deltaf":
+                advection = self.curlPibT0.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection,
+                )
+
+                advection += self.curlPibT.dot(
+                    self._linear_form_dl_db0,
+                    out=self._tmp_advection2,
+                )
+
+                advection += self.curlPibT.dot(
+                    self._linear_form_dl_db,
+                    out=self._tmp_advection2,
+                )
+
+                advection += self._transop_pT.dot(
+                    self._linear_form_dl_dp,
+                    out = self._tmp_advection2)
+                
+                b_advection = self.curlPib.dot(
+                un12,
+                out=self._tmp_b_advection,
+                )
+
+                b_advection += self.curlPib0.dot(
+                un12,
+                out=self._tmp_b_advection2,
+                )
+
+                p_advection = self._transop_p0.dot(
+                    un12,
+                    out=self._tmp_p_advection,
+                )
+
+                p_advection += self._transop_p.dot(
+                    un12,
+                    out=self._tmp_p_advection2,
+                )
+
             else:
                 advection = self.curlPibT.dot(
                     self._linear_form_dl_db,
@@ -6430,9 +6498,9 @@ class VariationalPBEvolve(Propagator):
             bn_diff -= bn
             bn_diff += b_advection
 
-            pn_diff = pn1.copy(out= self._tmp_pn_diff)
-            pn_diff -= pn
-            pn_diff += p_advection
+            # pn_diff = pn1.copy(out= self._tmp_pn_diff)
+            # pn_diff -= pn
+            # pn_diff += p_advection
 
             mn_diff = mn1.copy(out=self._tmp_mn_diff)
             mn_diff -= mn
@@ -6442,7 +6510,7 @@ class VariationalPBEvolve(Propagator):
             pn1 -= p_advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, bn_diff, pn_diff)
+            err = self._get_error_newton(mn_diff, bn_diff)
 
             if self._info:
                 print("iteration : ", it, " error : ", err)
@@ -6478,83 +6546,6 @@ class VariationalPBEvolve(Propagator):
         self._tmp_bn_diff = bn1 - bn
         self._tmp_pn_diff = pn1 - pn
         self.feec_vars_update(pn1, bn1, un1)
-
-    def __call_picard(self, dt):
-        # Initialize variable for Picard iteration
-
-        bn = self.feec_vars[0]
-        bn1 = bn.copy(out=self._tmp_bn1)
-        self.bf.vector = bn
-        self._update_Pib()
-
-        un = self.feec_vars[1]
-        un1 = un.copy(out=self._tmp_un1)
-        un2 = un1.copy(out=self._tmp_un2)
-
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
-        mn1 = mn.copy(out=self._tmp_mn1)
-
-        self.pc.update_mass_operator(self._Mrho)
-
-        tol = self._nonlin_solver["tol"]
-        err = tol + 1
-        for it in range(self._nonlin_solver["maxiter"]):
-            # Picard iteration
-            if err < tol**2 or np.isnan(err):
-                break
-            # half time step approximation
-            bn12 = bn.copy(out=self._tmp_bn12)
-            bn12 += bn1
-            bn12 *= 0.5
-
-            un12 = un.copy(out=self._tmp_un12)
-            un12 += un1
-            un12 *= 0.5
-
-            self._update_linear_form_u2()
-
-            # Compute the advection terms
-            advection = self.curlPibT.dot(
-                self._linear_form_dl_db,
-                out=self._tmp_advection,
-            )
-            advection *= dt
-
-            b_advection = self.curlPib.dot(
-                un12,
-                out=self._tmp_b_advection,
-            )
-            b_advection *= dt
-
-            # Get diff before update
-            bn_diff = bn1.copy(out=self._tmp_bn_diff)
-            bn_diff -= bn
-            bn_diff += b_advection
-
-            # Update : m^{n+1,r+1} = m^n-advection
-            mn1 = mn.copy(out=self._tmp_mn1)
-            mn1 -= advection
-
-            # Update : b^{n+1,r+1} = b^n-b_avection
-            bn1 = bn.copy(out=self._tmp_bn1)
-            bn1 -= b_advection
-
-            # Inverse the mass matrix to get the velocity
-            un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
-
-            # get the error
-            un_diff = un1.copy(out=self._tmp_un_diff)
-            un_diff -= un2
-            un2 = un1.copy(out=self._tmp_un2)
-
-            err = self._get_error_picard(un_diff, bn_diff)
-
-            if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
-                print(
-                    f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }",
-                )
-
-        self.feec_vars_update(bn1, un1)
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -6849,6 +6840,22 @@ class VariationalPBEvolve(Propagator):
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
 
+        elif self._model == "deltaf":
+            # initialize the jacobian differently if linear model
+            self.bf.vector = self.projected_equil.b2
+            self._create_Pib0()
+            self._create_transop0()
+            self.curlPib0 = self.curl @ self.Pib0
+            self.curlPibT0 = self.Pib0.T @ self.curl.T
+
+            self._full_curlPib = self.curlPib0+self.curlPib
+            self._full_curlPibT = self.curlPibT0+self.curlPibT
+
+            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
+
+            self._mdt2_pc_curlPibT_M = 2 * (self._full_curlPibT @ self.mass_ops.M2)
+            self._dt2_curlPib = 2 * self._full_curlPib
+
         else:
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib
@@ -7094,14 +7101,14 @@ class VariationalPBEvolve(Propagator):
     def _create_linear_form_p(self):
         """Update the linearform representing integration in V3 against pressure energy"""
 
-        if self._model in ["full_p", "linear"]:
+        if self._model in ["full_p", "linear", "deltaf"]:
             self._tmp_int_grid *= 0.0
             self._tmp_int_grid -= 1.0 / (self._gamma - 1.0)
             self._tmp_int_grid *= self._energy_metric_term
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
 
-    def _get_error_newton(self, mn_diff, bn_diff, pn_diff):
+    def _get_error_newton(self, mn_diff, bn_diff): #, pn_diff):
         weak_un_diff = self._inv_Mv.dot(
             self.derham.boundary_ops["v"].dot(mn_diff),
             out=self._tmp_un_weak_diff,
@@ -7110,14 +7117,18 @@ class VariationalPBEvolve(Propagator):
             bn_diff,
             out=self._tmp_bn_weak_diff,
         )
-        weak_pn_diff = self.mass_ops.M3.dot(
-            pn_diff,
-            out=self._tmp_pn_weak_diff,
-        )
+        # weak_pn_diff = self.mass_ops.M3.dot(
+        #     pn_diff,
+        #     out=self._tmp_pn_weak_diff,
+        # )
         err_b = weak_bn_diff.dot(bn_diff)
-        err_p = weak_pn_diff.dot(pn_diff)
+        #err_p = weak_pn_diff.dot(pn_diff)
         err_u = weak_un_diff.dot(mn_diff)
-        return max(max(err_b, err_u),err_p)
+        #print("err_b :"+str(err_b))
+        #print("err_p :"+str(err_p))
+        #print("err_u :"+str(err_u))
+        return max(err_b, err_u)
+        #return max(max(err_b, err_u),err_p)
 
     def _get_error_picard(self, un_diff, bn_diff):
         weak_un_diff = self.mass_ops.Mv.dot(
