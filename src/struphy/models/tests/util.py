@@ -52,11 +52,8 @@ def call_test(
     show_plots: bool
         Show plots of verification tests.
     """
-    print(f"{nclones = }")
-    print(f"{nclones = }")
-    print(f"{nclones = }")
-    print(f"{nclones = }")
-    print(f"{nclones = }")
+    if "SPH" in model_name:
+        nclones = 1
     rank = comm.Get_rank()
 
     if verification:
