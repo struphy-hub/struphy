@@ -81,6 +81,10 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         comm=clone_config.sub_comm,
     )
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if mpi_rank == 0:
         print("Domain decomposition according to", derham.domain_array)
 
@@ -98,7 +102,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         bc=["periodic"] * 3,
         loading_params=loading_params,
         domain=domain,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
     )
 
     particles.draw_markers()

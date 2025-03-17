@@ -8,7 +8,7 @@ In Struphy they can be used for setting :ref:`initial_conditions`, or for provid
 ":math:`\delta f`-models", where solutions are computed w.r.t a given background.
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Contents:
 
     subsections/mhd_equils

@@ -484,6 +484,7 @@ def plot_distr_fun(
                 plt.plot(grids[k], delta_f[tuple(f_slicing)].squeeze())
                 plt.xlabel(directions[k])
                 plt.ylabel(r"$\delta f$")
+                plt.title(f"time step n={time_idx}")
                 print(f"Created plot for delta_f in {directions[k]}")
 
                 if save_plot:
@@ -503,6 +504,7 @@ def plot_distr_fun(
                 plt.plot(grids[k], f[tuple(f_slicing)].squeeze())
                 plt.xlabel(directions[k])
                 plt.ylabel(r"$f$")
+                plt.title(f"time step n={time_idx}")
                 print(f"Created plot for f in {directions[k]}")
 
                 if save_plot:
@@ -525,7 +527,7 @@ def plots_videos_2d(
     t_grid,
     grid_slices,
     slice_name,
-    marker_type,
+    plot_full_f,
     species,
     path,
     model_name,
@@ -565,7 +567,7 @@ def plots_videos_2d(
             os.mkdir(diagn_path)
 
     slices_2d, grids, directions, df_data = get_slices_grids_directions_and_df_data(
-        marker_type=marker_type,
+        plot_full_f=plot_full_f,
         background_params=background_params,
         grid_slices=grid_slices,
         data_path=data_path,
@@ -695,8 +697,8 @@ def video_2d(slc, diagn_path, images_path):
     slice_name : str
         The name of the slicing, e.g. e2_v1_v2
 
-    marker_type : str
-        one of full_f, control_variate, delta_f
+    plot_full_f : bool
+        whether to plot full-f instead of delta-f data
 
     species : str
         the name of the species
@@ -962,13 +964,13 @@ def plots_2d_overview(
     plt.close("all")
 
 
-def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path, slice_name, background_params=None):
-    """Prepare the lists of slices, grids, and directions form the given data and extract the delta-f data.
+def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path, slice_name, background_params=None):
+    """Prepare the lists of slices, grids, and directions from the given data and extract the delta-f data.
 
     Parameters
     ----------
-    marker_type : str
-        one of full_f, control_variate, delta_f
+    plot_full_f : bool
+        whether to plot full-f instead of delta-f data
 
     grid_slices : dict
         holds the names of the directions as keys and the values at where the function should
@@ -1008,71 +1010,11 @@ def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path,
         )
 
     # If simulation was for full-f subtract the background function
-    if marker_type == "full_f":
-        assert background_params is not None
-
-        # Load background
-        from struphy.kinetic_background import maxwellians
-
-        background_type = background_params["type"]
-
-        if not isinstance(background_type, list):
-            background_type = [background_type]
-
-        background_function = None
-        for fi in background_type:
-            if fi[-2] == "_":
-                fi_type = fi[:-2]
-            else:
-                fi_type = fi
-
-            if fi_type in background_params.keys():
-                maxw_params = background_params[fi_type]
-            else:
-                maxw_params = None
-
-            if background_function is None:
-                background_function = getattr(
-                    maxwellians,
-                    fi_type,
-                )(maxw_params=maxw_params)
-            else:
-                background_function = background_function + getattr(
-                    maxwellians,
-                    fi_type,
-                )(maxw_params=maxw_params)
-
-        bckgr_grids = []
-        for direc in ["e1", "e2", "e3", "v1", "v2", "v3"]:
-            if direc in directions:
-                bckgr_grids += [grids[direc]]
-            else:
-                bckgr_grids += [np.array(grid_slices[direc])]
-
-        bckgr_mesh = np.meshgrid(*bckgr_grids, indexing="ij")
-
-        background_data = background_function(*bckgr_mesh)
-
-        df_data = (
-            np.load(
-                os.path.join(
-                    data_path,
-                    "f_binned.npy",
-                ),
-            )
-            - background_data[None, :, :, :, :, :, :].squeeze()
-        )
-    elif marker_type in ["control_variate", "delta_f"]:
-        df_data = np.load(
-            os.path.join(
-                data_path,
-                "delta_f_binned.npy",
-            ),
-        )
+    if plot_full_f:
+        _name = "f_binned.npy"
     else:
-        raise NotImplementedError(
-            f"Making a video for marker type {marker_type} is not implemented!",
-        )
+        _name = "delta_f_binned.npy"
+    _data = np.load(os.path.join(data_path, _name))
 
     # Check how many slicings have been given and make slices_2d for all
     # combinations of spatial and velocity dimensions
@@ -1082,4 +1024,4 @@ def get_slices_grids_directions_and_df_data(marker_type, grid_slices, data_path,
             if (direc1 != direc2) and (direc2 + "_" + direc1) not in slices_2d:
                 slices_2d += [direc1 + "_" + direc2]
 
-    return slices_2d, grids, directions, df_data
+    return slices_2d, grids, directions, _data

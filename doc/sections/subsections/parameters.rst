@@ -495,20 +495,18 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - Type of marker discretization.
-     - str
-     - * ``full_f``: solve PDE for full-:math:`f`
-       * ``control_variate``: solve PDE for full-:math:`f`, compute integrals with :ref:`control_var`
-       * ``delta_f``: solve PDE for :math:`\delta f = f - f_0` (update weights)
-   * - ``ppc``
-     - Number of markers per 3d grid cell.
-     - int
-     - If ``null``, ``Np`` is used.
    * - ``Np``
      - Total number of markers.
      - int
-     - Takes effect only if ``ppc`` is ``null``.
+     - 
+   * - ``ppc``
+     - Number of markers per grid cell.
+     - int
+     - Takes effect only if ``Np`` is absent.
+   * - ``ppb``
+     - Number of markers per sorting box.
+     - int
+     - Takes effect only if both ``Np`` and ``ppc`` are absent.
    * - ``eps``
      - Size of MPI-buffer in markers array as fraction of markers per process (0.1 <= eps <= 1.0).
      - float
@@ -544,6 +542,10 @@ Parameters:
        * optional: ``dir_external`` (str): path to .hdf5 file
        * optional: ``dir_particles`` (str): simulation folder relative to current output path 
        * optional: ``dir_particles_abs`` (str): simulation folder, absolute path
+   * - ``control_variate``
+     - Whether to use a :ref:`control_var` for noise reduction (only if ``type`` is ``full_f`` or ``sph``).
+     - bool
+     -
 
 
 .. list-table:: ``save_data``

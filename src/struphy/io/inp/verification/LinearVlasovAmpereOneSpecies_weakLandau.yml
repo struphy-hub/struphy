@@ -42,11 +42,10 @@ kinetic:
         markers:
             ppc: 1000
             bc: [periodic, periodic, periodic]
-            type: delta_f
             eps: 0.4
             loading: pseudo_random
             loading_params: {seed: 1234, spatial: uniform, dir_particles: path_to_particles}
-        boxes_per_dim: [2, 2, 2]
+        boxes_per_dim: [16, 1, 1]
         save_data:
             n_markers: 1
             f:

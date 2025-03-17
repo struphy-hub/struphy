@@ -42,7 +42,7 @@ kinetic:
         markers:
             ppc: 1000
             bc: [periodic, periodic, periodic]
-            type: control_variate
+            control_variate: true
             eps: 0.4
             loading: pseudo_random
             loading_params: {seed: 1234, spatial: uniform, dir_particles: path_to_particles}
@@ -60,7 +60,7 @@ kinetic:
                     given_in_basis: '0'
                     ls: [1]
                     amps: [0.001]
-        boxes_per_dim: [2, 2, 2]
+        boxes_per_dim: [16, 1, 1]
         options:
             PushEta: {algo: rk4}
             override_eq_params: {use: true, epsilon: -1., alpha: 1.}

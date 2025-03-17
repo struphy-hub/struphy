@@ -56,6 +56,10 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if rank == 0:
         print()
         print("Domain decomposition according to : ")
@@ -71,7 +75,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     particles = Particles6D(
         comm_world=comm,
         ppc=ppc,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loading_params,
         domain=domain,
