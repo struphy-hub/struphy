@@ -12,6 +12,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
 
 from psydac.linalg.solvers import inverse
+from struphy.feec import preconditioner
 from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
 from psydac.fem.projectors import knot_insertion_projection_operator
 from struphy.feec.linear_operators import LinOpWithTransp
@@ -24,7 +25,7 @@ from math import comb, log2
 import random
 
 
-def jacobi(A, b, x_init=None, tol=1e-10, max_iter=1000, verbose = False):
+def jacobi(A, b, x_init=None, tol=1e-6, max_iter=1000, verbose = False):
     """
     Solves the linear system Ax = b using the Jacobi iterative method.
     
@@ -54,14 +55,14 @@ def jacobi(A, b, x_init=None, tol=1e-10, max_iter=1000, verbose = False):
             x_new[i] = (b[i] - sum_except_i) / A[i, i]
         
         
-        error = np.linalg.norm(x_new - x, ord=np.inf)
+        error = np.linalg.norm(b - np.dot(A,x_new), ord=np.inf)
         if error < tol:
             converged = True
             if verbose:
                 print(f'{converged = }')
                 print(f'{itterations = }')
                 print(f'{error = }')
-            return x_new
+            return x_new, itterations
         
         x[:] = x_new  # Update x
     
@@ -70,10 +71,87 @@ def jacobi(A, b, x_init=None, tol=1e-10, max_iter=1000, verbose = False):
         print(f'{converged = }')
         print(f'{itterations = }')
         print(f'{error = }')
-    return x_new
+    return x_new, itterations
     #raise ValueError("Jacobi method did not converge within the maximum number of iterations")
 
 
+def will_jacobi_converge(A, verbose = False):
+    converges = False
+    #We get the diagonal, lower triangular and uper tireangular parts of A
+    Darr = np.diag(np.diag(A))
+    Darr_inv = np.diag(1.0 / np.diag(Darr)) 
+    Larr = np.tril(A, k=-1)
+    Uarr = np.triu(A, k=1)
+    #Then the Jacobi iteration matrix is
+    Jarr = np.matmul(Darr_inv,(Larr+Uarr))
+    #Now we get its eigenvalues
+    eigenvalues = np.linalg.eigvals(Jarr)
+    max_eigen_value = abs(eigenvalues[np.argmax(np.abs(eigenvalues))])
+    
+    if max_eigen_value < 1.0:
+        converges = True
+    
+    if(verbose):
+        print(f'{max_eigen_value = }')
+    
+    return converges
+    
+
+def will_gauss_seidel_converge(A, verbose = False):
+    converges = False
+    #We get the diagonal, lower triangular and uper triangular parts of A
+    Darr = np.diag(np.diag(A))
+    Larr = np.tril(A, k=-1)
+    Uarr = np.triu(A, k=1)
+    Aux =  np.linalg.inv(Darr - Larr)
+    #Then the Gauss-Seidel iteration matrix is
+    Garr = np.matmul(Aux, Uarr)
+    #Now we get its eigenvalues
+    eigenvalues = np.linalg.eigvals(Garr)
+    max_eigen_value = abs(eigenvalues[np.argmax(np.abs(eigenvalues))])
+    
+    if max_eigen_value < 1.0:
+        converges = True
+    
+    if(verbose):
+        print(f'{max_eigen_value = }')
+    
+    return converges
+
+
+def from_array_to_psydac(x_vector, fem_space):
+    #fem_space = derham.Vh_fem[sp_key]
+    symbolic_name = fem_space.symbolic_space.name
+    
+    if(symbolic_name == 'H1' or symbolic_name == "L2"):
+        spaces = [fem_space.spaces]
+        N = [spaces[0][i].nbasis for i in range(3)]
+        starts = np.array(fem_space.vector_space.starts)
+        x = fem_space.vector_space.zeros()
+        
+        cont= 0
+        for i0 in range(N[0]):
+            for i1 in range(N[1]):
+                for i2 in range(N[2]):
+                    x[starts[0]+i0,starts[1]+i1,starts[2]+i2] = x_vector[cont]
+                    cont += 1
+            
+    else:
+        spaces = [comp.spaces for comp in fem_space.spaces]
+        N = [[spaces[h][i].nbasis for i in range(3)] for h in range(3)]
+        starts = np.array([vi.starts for vi in fem_space.vector_space.spaces])
+        x = fem_space.vector_space.zeros()
+        
+        cont = 0
+        for h in range(3):
+            for i0 in range(N[h][0]):
+                for i1 in range(N[h][1]):
+                    for i2 in range(N[h][2]):
+                        x[h][starts[h][0]+i0,starts[h][1]+i1,starts[h][2]+i2] = x_vector[cont]
+                        cont += 1
+    return x
+    
+    
 def direct_solver(A_inv,b, fem_space):
     # A_inv is already the inverse matrix of A
     #fem_space = derham.Vh_fem[sp_key]
@@ -804,6 +882,1368 @@ class ExtensionOperator(LinOpWithTransp):
         return out
         
 
+def Compute_rate_of_smoothing(Nel, plist, spl_kind):
+    
+    from struphy.feec.utilities import create_equal_random_arrays
+    # get global communicator
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    world_size = comm.Get_size()
+    
+    a1= 0.2
+    #domain = HollowCylinder(a1 = a1)
+    domain = Cuboid()
+    sp_key = '1'
+    derham = []
+    mass_ops = []
+    A = []
+    
+    epsilon = 0.0002
+    derham.append(Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
+    mass_ops.append(WeightedMassOperators(derham[0], domain))
+    A.append(epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl + mass_ops[0].M1)
+       
+    
+    field_star = derham[0].create_field('fh', 'Hcurl')
+    field_aprox = derham[0].create_field('fh', 'Hcurl')
+    
+    #We are gonna use the method of manufacture solutions to determine the behaviour of our error
+    #Our exact solution is u_star
+    u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
+    #We compute the rhs
+    b = A[0].dot(u_star)
+    field_star.vector = u_star
+    
+    #We store the number of itterations
+    N_itter = []
+    #We define a set of point to evaluate the exact solution and the aproximated one
+    pointsx = np.linspace(0.0,1.0,100)
+    pointsy = np.linspace(0.0,1.0,100)
+    pointsz = np.array([0.0,0.5])
+    dx = pointsx[1] - pointsx[0]  # Spacing between points
+    dy = pointsy[1] - pointsy[0]  # Spacing between points
+    dz = pointsz[1] - pointsz[0]  # Spacing between points
+    X, Y, Z = np.meshgrid(pointsx, pointsy, pointsz, indexing="ij")
+    
+    
+    
+    #We define a list where to store the arrays with the values of the errors for each aproximation and vector component
+    errorsx = []
+    errorsy = []
+    errorsz = []
+    
+    #Fourier Transform coefficients of the error function for each vector component
+    fourier_coeffsx = []
+    fourier_coeffs_shiftedx = []
+    fourier_coeffsy = []
+    fourier_coeffs_shiftedy = []
+    fourier_coeffsz = []
+    fourier_coeffs_shiftedz = []
+    Max_iter = 10
+    for i in range(Max_iter):
+        solver = inverse(A[0],'cg', maxiter = int(i+2))
+        u = solver.dot(b)
+        field_aprox.vector = u
+        errorsx.append(field_star(X,Y,Z)[0]-field_aprox(X,Y,Z)[0])
+        errorsy.append(field_star(X,Y,Z)[1]-field_aprox(X,Y,Z)[1])
+        errorsz.append(field_star(X,Y,Z)[2]-field_aprox(X,Y,Z)[2])
+        N_itter.append(solver._info['niter'])
+        
+        # Compute Fourier Transform coefficients
+        fourier_coeffsx.append(np.fft.fftn(errorsx[-1]))
+        fourier_coeffs_shiftedx.append(np.fft.fftshift(fourier_coeffsx[-1]))
+        fourier_coeffsy.append(np.fft.fftn(errorsy[-1]))
+        fourier_coeffs_shiftedy.append(np.fft.fftshift(fourier_coeffsy[-1]))
+        fourier_coeffsz.append(np.fft.fftn(errorsz[-1]))
+        fourier_coeffs_shiftedz.append(np.fft.fftshift(fourier_coeffsz[-1]))
+    
+    # Compute corresponding frequencies
+    freqsx = np.fft.fftshift(np.fft.fftfreq(len(pointsx), d=dx))
+    freqsy = np.fft.fftshift(np.fft.fftfreq(len(pointsy), d=dy))
+    freqsz = np.fft.fftshift(np.fft.fftfreq(len(pointsz), d=dz))
+    # Create a 3D meshgrid of frequencies
+    #Fx, Fy, Fz = np.meshgrid(freq_x[-1], freq_y[-1], freq_z[-1], indexing="ij")
+        
+    #Now we compute the magnitude of the high frequencies between two interations
+    def get_smoothing_rate(freqsx,freqsy,freqsz, coeff_old, coeff_new, hx,hy,hz):
+        smoothing_rate = -1.0
+        freq = np.zeros(3,dtype=float)
+        for ix in range(len(freqsx)):
+            for iy in range(len(freqsy)):
+                for iz in range(len(freqsz)):
+                    if((abs(freqsx[ix])> 1.0 / (4.0*hx) or abs(freqsy[iy])> 1.0 / (4.0*hy) or abs(freqsz[iz])> 1.0 / (4.0*hz) ) and abs(coeff_new[ix,iy,iz])>10.0**-6):
+                        smoothing_rate = max(smoothing_rate,abs(coeff_new[ix,iy,iz]/coeff_old[ix,iy,iz])) 
+                        freq[0] = freqsx[ix]
+                        freq[1] = freqsx[iy]
+                        freq[2] = freqsx[iz]
+                
+        return smoothing_rate, freq
+                
+    
+    for i in range(Max_iter-1):
+    
+        smoothing_rate, freq = get_smoothing_rate(freqsx,freqsy,freqsz,fourier_coeffs_shiftedx[i],fourier_coeffs_shiftedx[i+1],1.0/Nel[0],1.0/Nel[1],0.00000001)  
+        
+        print("#######################")
+        print(f'{i =}')
+        print(f'{smoothing_rate =}')
+        print(f'{freq =}')
+        print("#######################")
+    
+    #for i in range(Max_iter-1):
+        #smoothing_rate_1d(freqsx, coeff_old, coeff_new, h)
+
+
+def Visualized_high_frequency_dampening(Nel, plist, spl_kind):
+    
+    from struphy.feec.utilities import create_equal_random_arrays
+    # get global communicator
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    world_size = comm.Get_size()
+    
+    a1= 0.2
+    #domain = HollowCylinder(a1 = a1)
+    domain = Cuboid()
+    sp_key = '2'
+    sp_id = 'Hdiv'
+    derham = []
+    mass_ops = []
+    A = []
+    
+    epsilon = 1.0
+    derham.append(Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
+    mass_ops.append(WeightedMassOperators(derham[0], domain))
+    #Poisson
+    #A.append(derham[0].grad.T @ mass_ops[0].M1 @ derham[0].grad)
+    #Hall-ish
+    #A.append(epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl + mass_ops[0].M1)
+    #Hall
+    #A.append(mass_ops[0].M1 -epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl)
+    #Shear-Alfven-ish
+    #A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ mass_ops[0].M1 @ derham[0].curl.T @ mass_ops[0].M2)
+    #Shear-Alfven
+    pc_class = getattr(preconditioner,"MassMatrixPreconditioner")
+    pc = pc_class(mass_ops[0].M1)
+    M1_inv = inverse(
+        mass_ops[0].M1,
+        "pcg",
+        pc=pc,
+        maxiter=3000,
+        verbose=False,
+    )
+    A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ M1_inv @ derham[0].curl.T @ mass_ops[0].M2)
+    #Shear-Alfven-v2
+    #A.append(mass_ops[0].M2 -epsilon* derham[0].curl @ M1_inv @ derham[0].curl.T)
+    
+    
+       
+    
+    field_star = derham[0].create_field('fh', sp_id)
+    field_aprox = derham[0].create_field('fh', sp_id)
+    
+    #We are gonna use the method of manufacture solutions to determine the behaviour of our error
+    #Our exact solution is u_star
+    u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
+    #We compute the rhs
+    b = A[0].dot(u_star)
+    field_star.vector = u_star
+    
+    #Turn b into an array
+    #barr = remove_padding(derham[0].Vh_fem[sp_key],b)
+    #Turn A[0] into an array
+    #Aarr = A[0].toarray()
+    
+    #Gauss = will_gauss_seidel_converge(Aarr, verbose=True)
+    #print(f"{Gauss = }")
+    
+    
+    #We store the number of itterations
+    N_itter = []
+    #We define a set of point to evaluate the exact solution and the aproximated one
+    pointsx = np.linspace(0.0,1.0,Nel[0])
+    #pointsx = np.array([0.0,0.5])
+    #pointsy = np.linspace(0.0,1.0,Nel[1])
+    pointsy = np.array([0.0,0.5])
+    pointsz = np.array([0.0,0.5])
+    dx = pointsx[1] - pointsx[0]  # Spacing between points
+    dy = pointsy[1] - pointsy[0]  # Spacing between points
+    dz = pointsz[1] - pointsz[0]  # Spacing between points
+    X, Y, Z = np.meshgrid(pointsx, pointsy, pointsz, indexing="ij")
+    
+    
+    
+    #We define a list where to store the arrays with the values of the errors for each aproximation and vector component
+    errorsx = []
+    errorsy = []
+    errorsz = []
+    
+    #Fourier Transform coefficients of the error function for each vector component
+    fourier_coeffsx = []
+    fourier_coeffs_shiftedx = []
+    fourier_coeffsy = []
+    fourier_coeffs_shiftedy = []
+    fourier_coeffsz = []
+    fourier_coeffs_shiftedz = []
+    max_iter_list = [3]
+    #max_iter_list = [0,2,3,4,5,6,7,8,9,10]
+    Number_of_iter = len(max_iter_list)
+    for i in range(Number_of_iter):
+        
+        if(max_iter_list[i]>1):
+        
+            solver = inverse(A[0],'cg', maxiter = max_iter_list[i], tol = 10.0**-6)
+            u = solver.dot(b)
+            #uarr, itter = jacobi(Aarr,barr,max_iter=max_iter_list[i])
+            #u = from_array_to_psydac(uarr, derham[0].Vh_fem[sp_key])
+            N_itter.append(solver._info['niter'])
+            #N_itter.append(itter)
+            
+        else:
+            u = derham[0].Vh[derham[0].space_to_form[sp_id]].zeros()
+            N_itter.append(0)
+        
+        
+        field_aprox.vector = u
+        #errorsx.append(field_star(X,Y,Z)-field_aprox(X,Y,Z))
+        errorsx.append(field_star(X,Y,Z)[0]-field_aprox(X,Y,Z)[0])
+        errorsy.append(field_star(X,Y,Z)[1]-field_aprox(X,Y,Z)[1])
+        errorsz.append(field_star(X,Y,Z)[2]-field_aprox(X,Y,Z)[2])
+        
+        
+        # Compute Fourier Transform coefficients
+        fourier_coeffsx.append(np.fft.fftn(errorsx[-1]))
+        fourier_coeffs_shiftedx.append(np.fft.fftshift(fourier_coeffsx[-1]))
+        fourier_coeffsy.append(np.fft.fftn(errorsy[-1]))
+        fourier_coeffs_shiftedy.append(np.fft.fftshift(fourier_coeffsy[-1]))
+        fourier_coeffsz.append(np.fft.fftn(errorsz[-1]))
+        fourier_coeffs_shiftedz.append(np.fft.fftshift(fourier_coeffsz[-1]))
+    
+    # Compute corresponding frequencies
+    freqsx = np.fft.fftshift(np.fft.fftfreq(len(pointsx), d=dx))
+    freqsy = np.fft.fftshift(np.fft.fftfreq(len(pointsy), d=dy))
+    freqsz = np.fft.fftshift(np.fft.fftfreq(len(pointsz), d=dz))
+    # Create a 3D meshgrid of frequencies
+    #Fx, Fy, Fz = np.meshgrid(freq_x[-1], freq_y[-1], freq_z[-1], indexing="ij")
+        
+    #Now we compute the magnitude of the high frequencies between two interations
+    def get_magnitude_maximum_nasty_frequency_scalar(freqsx,freqsy,freqsz, coeff_new,hx,hy,hz):
+        value= 0.0
+        freq = np.zeros(3,dtype=float)
+        for ix in range(len(freqsx)):
+            for iy in range(len(freqsy)):
+                for iz in range(len(freqsz)):
+                    if((abs(freqsx[ix])> 1.0/(4.0*hx) or abs(freqsy[iy])> 1.0/(4.0*hy) or abs(freqsz[iz])> 1.0/(4.0*hz) ) and abs(coeff_new[ix,iy,iz])>10.0**-6):
+                        if(abs(coeff_new[ix,iy,iz]) > value ):
+                            value = abs(coeff_new[ix,iy,iz])
+                            freq[0] = freqsx[ix]
+                            freq[1] = freqsy[iy]
+                            freq[2] = freqsz[iz]
+                                
+        return value, freq
+    
+    
+    
+    
+    def get_magnitude_maximum_nasty_frequency(freqsx,freqsy,freqsz, coeff_newx, coeff_newy, coeff_newz,hx,hy,hz):
+        value= 0.0
+        freq = np.zeros(3,dtype=float)
+        for ix in range(len(freqsx)):
+            for iy in range(len(freqsy)):
+                for iz in range(len(freqsz)):
+                    if((abs(freqsx[ix])> 1.0/(4.0*hx) or abs(freqsy[iy])> 1.0/(4.0*hy) or abs(freqsz[iz])> 1.0/(4.0*hz) ) and (abs(coeff_newx[ix,iy,iz])>10.0**-6  or abs(coeff_newy[ix,iy,iz])>10.0**-6 or abs(coeff_newz[ix,iy,iz])>10.0**-6)):
+                        if(abs(coeff_newx[ix,iy,iz]) > value and abs(coeff_newx[ix,iy,iz]) >= abs(coeff_newy[ix,iy,iz]) and abs(coeff_newx[ix,iy,iz])>= abs(coeff_newz[ix,iy,iz])):
+                            value = abs(coeff_newx[ix,iy,iz])
+                            freq[0] = freqsx[ix]
+                            freq[1] = freqsy[iy]
+                            freq[2] = freqsz[iz]
+                            
+                        elif(abs(coeff_newy[ix,iy,iz]) > value and abs(coeff_newy[ix,iy,iz]) >= abs(coeff_newx[ix,iy,iz]) and abs(coeff_newy[ix,iy,iz])>= abs(coeff_newz[ix,iy,iz])):
+                            value = abs(coeff_newy[ix,iy,iz])
+                            freq[0] = freqsx[ix]
+                            freq[1] = freqsy[iy]
+                            freq[2] = freqsz[iz]
+                            
+                        elif(abs(coeff_newz[ix,iy,iz]) > value and abs(coeff_newz[ix,iy,iz]) >= abs(coeff_newx[ix,iy,iz]) and abs(coeff_newz[ix,iy,iz])>= abs(coeff_newy[ix,iy,iz])):
+                            value = abs(coeff_newz[ix,iy,iz])
+                            freq[0] = freqsx[ix]
+                            freq[1] = freqsy[iy]
+                            freq[2] = freqsz[iz]
+                
+        return value, freq
+                
+    
+    magnitudes = []
+    bad_frequencies = []
+    
+    for i in range(Number_of_iter):
+        #magnitude, freq = get_magnitude_maximum_nasty_frequency_scalar(freqsx,freqsy,freqsz,fourier_coeffs_shiftedx[i],1.0/Nel[0],1.0/Nel[1],0.000001)  
+        magnitude, freq = get_magnitude_maximum_nasty_frequency(freqsx,freqsy,freqsz,fourier_coeffs_shiftedx[i],fourier_coeffs_shiftedy[i], fourier_coeffs_shiftedz[i],1.0/Nel[0],0.000001,0.000001)  
+        magnitudes.append(magnitude)
+        bad_frequencies.append(freq)
+    
+    
+    print(f'{Nel[0] = }')
+    print(f'{Nel[1] = }')
+    print("magnitudes")
+    for i in magnitudes:
+        print(i)
+    print("N_itter")
+    for i in N_itter:
+        print(i)
+    print("bad_frequencies")
+    for i in bad_frequencies:
+        print(i[0:2])
+
+    
+    
+    plt.figure()
+    plt.scatter(N_itter,magnitudes)
+    #plt.yscale("log")
+    plt.show()
+
+
+def Visualized_all_frequencies_dampening(Nel, plist, spl_kind, Is):
+    
+    from struphy.feec.utilities import create_equal_random_arrays
+    # get global communicator
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    world_size = comm.Get_size()
+    
+    a1= 0.2
+    #domain = HollowCylinder(a1 = a1)
+    domain = Cuboid()
+    model = 'Shear-Alfven'
+    smoother = 'cg'
+    derham = []
+    mass_ops = []
+    A = []
+    
+    epsilon = 10.0**-6.0
+    derham.append(Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
+    mass_ops.append(WeightedMassOperators(derham[0], domain))
+    if(model == "Poisson"):
+        sp_key = '0'
+        sp_id = 'H1'
+        #Poisson
+        A.append(derham[0].grad.T @ mass_ops[0].M1 @ derham[0].grad)
+    #Hall-ish
+    #A.append(epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl + mass_ops[0].M1)
+    elif(model == "Hall"):
+        sp_key = '1'
+        sp_id = 'Hcurl'
+        #Hall
+        A.append(mass_ops[0].M1 -epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl)
+    #Shear-Alfven-ish
+    #A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ mass_ops[0].M1 @ derham[0].curl.T @ mass_ops[0].M2)
+    elif(model == 'Shear-Alfven' or model == 'Shear-Alfven-v2'):
+        sp_key = '2'
+        sp_id = 'Hdiv'
+        pc_class = getattr(preconditioner,"MassMatrixPreconditioner")
+        pc = pc_class(mass_ops[0].M1)
+        M1_inv = inverse(
+            mass_ops[0].M1,
+            "pcg",
+            pc=pc,
+            maxiter=3000,
+            verbose=False,
+        )
+        #Shear-Alfven
+        if (model == "Shear-Alfven"):
+            A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ M1_inv @ derham[0].curl.T @ mass_ops[0].M2)
+        else:
+            #Shear-Alfven-v2
+            A.append(mass_ops[0].M2 -epsilon* derham[0].curl @ M1_inv @ derham[0].curl.T)
+    
+    field_star = derham[0].create_field('fh', sp_id)
+    field_aprox = derham[0].create_field('fh', sp_id)
+    
+    #We are gonna use the method of manufacture solutions to determine the behaviour of our error
+    #Our exact solution is u_star
+    u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
+    #We compute the rhs
+    b = A[0].dot(u_star)
+    field_star.vector = u_star
+    
+    #Turn b into an array
+    #barr = remove_padding(derham[0].Vh_fem[sp_key],b)
+    #Turn A[0] into an array
+    #Aarr = A[0].toarray()
+    
+    #Gauss = will_gauss_seidel_converge(Aarr, verbose=True)
+    #print(f"{Gauss = }")
+    
+    
+    #We store the number of itterations
+    N_itter = []
+    #We define a set of point to evaluate the exact solution and the aproximated one
+    pointsx = np.linspace(0.0,1.0,Nel[0])
+    #pointsx = np.array([0.0,0.5])
+    pointsy = np.linspace(0.0,1.0,Nel[1])
+    #pointsy = np.array([0.0,0.5])
+    pointsz = np.array([0.0,0.5])
+    dx = pointsx[1] - pointsx[0]  # Spacing between points
+    dy = pointsy[1] - pointsy[0]  # Spacing between points
+    dz = pointsz[1] - pointsz[0]  # Spacing between points
+    X, Y, Z = np.meshgrid(pointsx, pointsy, pointsz, indexing="ij")
+    
+    
+    
+    #We define a list where to store the arrays with the values of the errors for each aproximation and vector component
+    errorsx = []
+    errorsy = []
+    errorsz = []
+    
+    #Fourier Transform coefficients of the error function for each vector component
+    fourier_coeffsx = []
+    fourier_coeffs_shiftedx = []
+    fourier_coeffsy = []
+    fourier_coeffs_shiftedy = []
+    fourier_coeffsz = []
+    fourier_coeffs_shiftedz = []
+    max_iter_list = [0,Is, int(10*Is)]
+    #max_iter_list = [0,2,3,4,5,6,7,8,9,10]
+    Number_of_iter = len(max_iter_list)
+    for i in range(Number_of_iter):
+        
+        if(max_iter_list[i]>1):
+        
+            solver = inverse(A[0],smoother, maxiter = max_iter_list[i], tol = 10.0**-6)
+            u = solver.dot(b)
+            #uarr, itter = jacobi(Aarr,barr,max_iter=max_iter_list[i])
+            #u = from_array_to_psydac(uarr, derham[0].Vh_fem[sp_key])
+            N_itter.append(solver._info['niter'])
+            #N_itter.append(itter)
+            
+        else:
+            u = derham[0].Vh[derham[0].space_to_form[sp_id]].zeros()
+            N_itter.append(0)
+        
+        
+        field_aprox.vector = u
+        if(model == "Poisson"):
+            errorsx.append(field_star(X,Y,Z)-field_aprox(X,Y,Z))
+        else:
+            errorsx.append(field_star(X,Y,Z)[0]-field_aprox(X,Y,Z)[0])
+            errorsy.append(field_star(X,Y,Z)[1]-field_aprox(X,Y,Z)[1])
+            errorsz.append(field_star(X,Y,Z)[2]-field_aprox(X,Y,Z)[2])
+        
+        # Compute Fourier Transform coefficients
+        fourier_coeffsx.append(np.fft.fftn(errorsx[-1]))
+        fourier_coeffs_shiftedx.append(np.fft.fftshift(fourier_coeffsx[-1]))
+        if(model != "Poisson"):
+            fourier_coeffsy.append(np.fft.fftn(errorsy[-1]))
+            fourier_coeffs_shiftedy.append(np.fft.fftshift(fourier_coeffsy[-1]))
+            fourier_coeffsz.append(np.fft.fftn(errorsz[-1]))
+            fourier_coeffs_shiftedz.append(np.fft.fftshift(fourier_coeffsz[-1]))
+    
+    # Compute corresponding frequencies
+    freqsx = np.fft.fftshift(np.fft.fftfreq(len(pointsx), d=dx))
+    freqsy = np.fft.fftshift(np.fft.fftfreq(len(pointsy), d=dy))
+    freqsz = np.fft.fftshift(np.fft.fftfreq(len(pointsz), d=dz))
+    # Create a 3D meshgrid of frequencies
+    #Fx, Fy, Fz = np.meshgrid(freq_x[-1], freq_y[-1], freq_z[-1], indexing="ij")
+    
+    #i also want to visiualize the maximum freqeuncies the next 3 coarser grids can handle
+    hx = 1/Nel[0]
+    next_max_frequenciesx = [1.0/(4.0*hx),1.0/(8.0*hx),1.0/(16.0*hx)]
+    hy = 1/Nel[1]
+    next_max_frequenciesy = [1.0/(4.0*hy),1.0/(8.0*hy),1.0/(16.0*hy)]
+    #I get the amplitude of the maximum initial error wave
+    max_amplitude = np.max(np.abs(fourier_coeffs_shiftedx[0][:,1,1]))
+    
+    if(model == "Poisson"):
+        plt.figure(figsize=(10,10))
+        plt.title("Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedx[0][:,1,1]), label = "Initial")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedx[1][:,1,1]), label = "After "+str(max_iter_list[1])+" iterations ")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedx[2][:,1,1]), label = "After "+str(max_iter_list[2])+" iterations ")
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Amplitude")
+        plt.legend()
+        #plt.ylim(0,30)
+        plt.yscale("log")
+        plt.savefig("./Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+".pdf")
+        plt.close()
+        
+    
+        #We also want to see the relative difference between the initial amplitude and the amplitude after smoothing.
+        #We compute abs(A_0)-abs(A_i)/abs(A_0), this tell us which percentage of the initial amplitude has been eliminated
+        #A values of 0 means it all still remains, a value of 1 means we eliminated all the amplitude. And a negative value 
+        #means that the amplitude increased.
+        eliminated_portion = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedx[0][:,1,1]) - np.abs(fourier_coeffs_shiftedx[i+1][:,1,1]))/np.abs(fourier_coeffs_shiftedx[0][:,1,1])
+            eliminated_portion.append(aux)
+        
+        mp = np.min(eliminated_portion[0])
+        aux = np.min(eliminated_portion[1])
+        mp = min(mp,aux)
+        
+        plt.figure(figsize=(10,10))
+        plt.title("Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,eliminated_portion[0], label = "Portion of amplitude eliminated after " + str(max_iter_list[1]))
+        plt.scatter(freqsx,eliminated_portion[1], label = "Portion of amplitude eliminated after " + str(max_iter_list[2]))
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Eliminated portion of the amplitude.")
+        plt.legend()
+        #plt.ylim(0,30)
+        #plt.yscale("log")
+        plt.savefig("./Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+".pdf")
+        plt.close()
+        
+    else:
+        #I get the amplitude of the maximum initial error wave
+        max_amplitudey = np.max(np.abs(fourier_coeffs_shiftedy[0][:,1,1]))
+        #I get the amplitude of the maximum initial error wave
+        max_amplitudez = np.max(np.abs(fourier_coeffs_shiftedz[0][:,1,1]))
+        
+        plt.figure(figsize=(10,10))
+        plt.title("X-component. Epsilon 10^-6 Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedx[0][:,1,1]), label = "Initial")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedx[1][:,1,1]), label = "After "+str(max_iter_list[1])+" iterations ")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedx[2][:,1,1]), label = "After "+str(max_iter_list[2])+" iterations ")
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitude,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Amplitude")
+        plt.legend()
+        #plt.ylim(0,30)
+        plt.yscale("log")
+        plt.savefig("./Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"X-component-Epsilon-10-6.pdf")
+        plt.close()
+        
+        plt.figure(figsize=(10,10))
+        plt.title("Y-component. Epsilon 10^-6 Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedy[0][:,1,1]), label = "Initial")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedy[1][:,1,1]), label = "After "+str(max_iter_list[1])+" iterations ")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedy[2][:,1,1]), label = "After "+str(max_iter_list[2])+" iterations ")
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitudey,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitudey,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitudey,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitudey,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitudey,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitudey,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Amplitude")
+        plt.legend()
+        #plt.ylim(0,30)
+        plt.yscale("log")
+        plt.savefig("./Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"Y-component-Epsilon-10-6.pdf")
+        plt.close()
+        
+        
+        plt.figure(figsize=(10,10))
+        plt.title("Z-component. Epsilon 10^-6 Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedz[0][:,1,1]), label = "Initial")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedz[1][:,1,1]), label = "After "+str(max_iter_list[1])+" iterations ")
+        plt.scatter(freqsx,np.abs(fourier_coeffs_shiftedz[2][:,1,1]), label = "After "+str(max_iter_list[2])+" iterations ")
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitudez,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(0,max_amplitudez,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitudez,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(0,max_amplitudez,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitudez,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(0,max_amplitudez,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Amplitude")
+        plt.legend()
+        #plt.ylim(0,30)
+        plt.yscale("log")
+        plt.savefig("./Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"Z-component-Epsilon-10-6.pdf")
+        plt.close()
+        
+    
+        #We also want to see the relative difference between the initial amplitude and the amplitude after smoothing.
+        #We compute abs(A_0)-abs(A_i)/abs(A_0), this tell us which percentage of the initial amplitude has been eliminated
+        #A values of 0 means it all still remains, a value of 1 means we eliminated all the amplitude. And a negative value 
+        #means that the amplitude increased.
+        eliminated_portionx = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedx[0][:,1,1]) - np.abs(fourier_coeffs_shiftedx[i+1][:,1,1]))/np.abs(fourier_coeffs_shiftedx[0][:,1,1])
+            eliminated_portionx.append(aux)
+        
+        mp = np.min(eliminated_portionx[0])
+        aux = np.min(eliminated_portionx[1])
+        mp = min(mp,aux)
+        
+        plt.figure(figsize=(10,10))
+        plt.title("X-component. Epsilon 10^-6 Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,eliminated_portionx[0], label = "Portion of amplitude eliminated after " + str(max_iter_list[1]))
+        plt.scatter(freqsx,eliminated_portionx[1], label = "Portion of amplitude eliminated after " + str(max_iter_list[2]))
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Eliminated portion of the amplitude.")
+        plt.legend()
+        #plt.ylim(0,30)
+        #plt.yscale("log")
+        plt.savefig("./Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"X-component-Epsilon-10-6.pdf")
+        plt.close()
+        
+        
+        eliminated_portiony = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedy[0][:,1,1]) - np.abs(fourier_coeffs_shiftedy[i+1][:,1,1]))/np.abs(fourier_coeffs_shiftedy[0][:,1,1])
+            eliminated_portiony.append(aux)
+        
+        mp = np.min(eliminated_portiony[0])
+        aux = np.min(eliminated_portiony[1])
+        mp = min(mp,aux)
+        
+        plt.figure(figsize=(10,10))
+        plt.title("Y-component. Epsilon 10^-6 Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,eliminated_portiony[0], label = "Portion of amplitude eliminated after " + str(max_iter_list[1]))
+        plt.scatter(freqsx,eliminated_portiony[1], label = "Portion of amplitude eliminated after " + str(max_iter_list[2]))
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Eliminated portion of the amplitude.")
+        plt.legend()
+        #plt.ylim(0,30)
+        #plt.yscale("log")
+        plt.savefig("./Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"Y-component-Epsilon-10-6.pdf")
+        plt.close()
+        
+        
+        eliminated_portionz = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedz[0][:,1,1]) - np.abs(fourier_coeffs_shiftedz[i+1][:,1,1]))/np.abs(fourier_coeffs_shiftedz[0][:,1,1])
+            eliminated_portionz.append(aux)
+        
+        mp = np.min(eliminated_portionz[0])
+        aux = np.min(eliminated_portionz[1])
+        mp = min(mp,aux)
+        
+        plt.figure(figsize=(10,10))
+        plt.title("Z-component. Epsilon 10^-6 Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",size = 10)
+        plt.scatter(freqsx,eliminated_portionz[0], label = "Portion of amplitude eliminated after " + str(max_iter_list[1]))
+        plt.scatter(freqsx,eliminated_portionz[1], label = "Portion of amplitude eliminated after " + str(max_iter_list[2]))
+        plt.plot(next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue',label = "Max freuency level - 1.")
+        plt.plot(-next_max_frequenciesx[0]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='blue')
+        plt.plot(next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple',label = "Max freuency level - 2.")
+        plt.plot(-next_max_frequenciesx[1]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='purple')
+        plt.plot(next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red',label = "Max freuency level - 3.")
+        plt.plot(-next_max_frequenciesx[2]*np.ones(100),np.linspace(mp,1,100),linestyle = 'dashed', color ='red')
+        plt.xlabel("Frequency")
+        plt.ylabel("Eliminated portion of the amplitude.")
+        plt.legend()
+        #plt.ylim(0,30)
+        #plt.yscale("log")
+        plt.savefig("./Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"Z-component-Epsilon-10-6.pdf")
+        plt.close()
+    
+
+def Visualized_all_frequencies_dampening_2D(Nel, plist, spl_kind, Is):
+    
+    from struphy.feec.utilities import create_equal_random_arrays
+    import plotly.graph_objects as go
+
+    # get global communicator
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    world_size = comm.Get_size()
+    
+    a1= 0.2
+    #domain = HollowCylinder(a1 = a1)
+    domain = Cuboid()
+    model = 'Shear-Alfven'
+    smoother = 'gmres'
+    derham = []
+    mass_ops = []
+    A = []
+    
+    epsilon = 1.0
+    derham.append(Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
+    mass_ops.append(WeightedMassOperators(derham[0], domain))
+    if(model == "Poisson"):
+        sp_key = '0'
+        sp_id = 'H1'
+        #Poisson
+        A.append(derham[0].grad.T @ mass_ops[0].M1 @ derham[0].grad)
+    #Hall-ish
+    #A.append(epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl + mass_ops[0].M1)
+    elif(model == "Hall"):
+        sp_key = '1'
+        sp_id = 'Hcurl'
+        #Hall
+        A.append(mass_ops[0].M1 -epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl)
+    #Shear-Alfven-ish
+    #A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ mass_ops[0].M1 @ derham[0].curl.T @ mass_ops[0].M2)
+    elif(model == 'Shear-Alfven' or model == 'Shear-Alfven-v2'):
+        sp_key = '2'
+        sp_id = 'Hdiv'
+        pc_class = getattr(preconditioner,"MassMatrixPreconditioner")
+        pc = pc_class(mass_ops[0].M1)
+        M1_inv = inverse(
+            mass_ops[0].M1,
+            "pcg",
+            pc=pc,
+            maxiter=3000,
+            verbose=False,
+        )
+        #Shear-Alfven
+        if (model == "Shear-Alfven"):
+            A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ M1_inv @ derham[0].curl.T @ mass_ops[0].M2)
+        else:
+            #Shear-Alfven-v2
+            A.append(mass_ops[0].M2 -epsilon* derham[0].curl @ M1_inv @ derham[0].curl.T)
+    
+    field_star = derham[0].create_field('fh', sp_id)
+    field_aprox = derham[0].create_field('fh', sp_id)
+    
+    #We are gonna use the method of manufacture solutions to determine the behaviour of our error
+    #Our exact solution is u_star
+    u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
+    #We compute the rhs
+    b = A[0].dot(u_star)
+    field_star.vector = u_star
+    
+    #Turn b into an array
+    #barr = remove_padding(derham[0].Vh_fem[sp_key],b)
+    #Turn A[0] into an array
+    #Aarr = A[0].toarray()
+    
+    #Gauss = will_gauss_seidel_converge(Aarr, verbose=True)
+    #print(f"{Gauss = }")
+    
+    
+    #We store the number of itterations
+    N_itter = []
+    #We define a set of point to evaluate the exact solution and the aproximated one
+    pointsx = np.linspace(0.0,1.0,Nel[0])
+    #pointsx = np.array([0.0,0.5])
+    pointsy = np.linspace(0.0,1.0,Nel[1])
+    #pointsy = np.array([0.0,0.5])
+    pointsz = np.array([0.0,0.5])
+    dx = pointsx[1] - pointsx[0]  # Spacing between points
+    dy = pointsy[1] - pointsy[0]  # Spacing between points
+    dz = pointsz[1] - pointsz[0]  # Spacing between points
+    X, Y, Z = np.meshgrid(pointsx, pointsy, pointsz, indexing="ij")
+    
+    
+    
+    #We define a list where to store the arrays with the values of the errors for each aproximation and vector component
+    errorsx = []
+    errorsy = []
+    errorsz = []
+    
+    #Fourier Transform coefficients of the error function for each vector component
+    fourier_coeffsx = []
+    fourier_coeffs_shiftedx = []
+    fourier_coeffsy = []
+    fourier_coeffs_shiftedy = []
+    fourier_coeffsz = []
+    fourier_coeffs_shiftedz = []
+    max_iter_list = [0,Is, int(10*Is)]
+    #max_iter_list = [0,2,3,4,5,6,7,8,9,10]
+    Number_of_iter = len(max_iter_list)
+    for i in range(Number_of_iter):
+        
+        if(max_iter_list[i]>1):
+        
+            solver = inverse(A[0],smoother, maxiter = max_iter_list[i], tol = 10.0**-6)
+            u = solver.dot(b)
+            #uarr, itter = jacobi(Aarr,barr,max_iter=max_iter_list[i])
+            #u = from_array_to_psydac(uarr, derham[0].Vh_fem[sp_key])
+            N_itter.append(solver._info['niter'])
+            #N_itter.append(itter)
+            
+        else:
+            u = derham[0].Vh[derham[0].space_to_form[sp_id]].zeros()
+            N_itter.append(0)
+        
+        
+        field_aprox.vector = u
+        if(model == "Poisson"):
+            errorsx.append(field_star(X,Y,Z)-field_aprox(X,Y,Z))
+        else:
+            errorsx.append(field_star(X,Y,Z)[0]-field_aprox(X,Y,Z)[0])
+            errorsy.append(field_star(X,Y,Z)[1]-field_aprox(X,Y,Z)[1])
+            errorsz.append(field_star(X,Y,Z)[2]-field_aprox(X,Y,Z)[2])
+        
+        # Compute Fourier Transform coefficients
+        fourier_coeffsx.append(np.fft.fftn(errorsx[-1]))
+        fourier_coeffs_shiftedx.append(np.fft.fftshift(fourier_coeffsx[-1]))
+        if(model != "Poisson"):
+            fourier_coeffsy.append(np.fft.fftn(errorsy[-1]))
+            fourier_coeffs_shiftedy.append(np.fft.fftshift(fourier_coeffsy[-1]))
+            fourier_coeffsz.append(np.fft.fftn(errorsz[-1]))
+            fourier_coeffs_shiftedz.append(np.fft.fftshift(fourier_coeffsz[-1]))
+    
+    # Compute corresponding frequencies
+    freqsx = np.fft.fftshift(np.fft.fftfreq(len(pointsx), d=dx))
+    freqsy = np.fft.fftshift(np.fft.fftfreq(len(pointsy), d=dy))
+    freqsz = np.fft.fftshift(np.fft.fftfreq(len(pointsz), d=dz))
+    # Create a 3D meshgrid of frequencies
+    Fx, Fy= np.meshgrid(freqsx, freqsy, indexing="ij")
+    
+    #i also want to visiualize the maximum freqeuncies the next 3 coarser grids can handle
+    hx = 1/Nel[0]
+    next_max_frequenciesx = [1.0/(4.0*hx),1.0/(8.0*hx),1.0/(16.0*hx)]
+    hy = 1/Nel[1]
+    next_max_frequenciesy = [1.0/(4.0*hy),1.0/(8.0*hy),1.0/(16.0*hy)]
+    #I get the amplitude of the maximum initial error wave
+    #max_amplitude = np.max(np.abs(fourier_coeffs_shiftedx[0][:,1,1]))
+    
+    if(model == "Poisson"):
+        magnitude_spectrum = []
+        log_magnitude_spectrum = [] 
+        #We also want to see the relative difference between the initial amplitude and the amplitude after smoothing.
+        #We compute abs(A_0)-abs(A_i)/abs(A_0), this tell us which percentage of the initial amplitude has been eliminated
+        #A values of 0 means it all still remains, a value of 1 means we eliminated all the amplitude. And a negative value 
+        #means that the amplitude increased.
+        eliminated_portion = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedx[0][:,:,1]) - np.abs(fourier_coeffs_shiftedx[i+1][:,:,1]))/np.abs(fourier_coeffs_shiftedx[0][:,:,1])
+            eliminated_portion.append(aux)
+             # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=eliminated_portion[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="Iteration "+str(max_iter_list[i+1])+". Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Eliminated portion of initial amplitude",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i+1])+".html")
+
+            # Show in browser
+            #fig.show()
+            
+            
+        for i in range(3):
+            magnitude_spectrum.append(np.abs(fourier_coeffs_shiftedx[i][:,:,1]))
+            log_magnitude_spectrum.append(np.log1p(magnitude_spectrum[i]))
+            
+            # Plot 3D surface of Fourier magnitude spectrum
+            #fig = plt.figure(figsize=(10, 7))
+            #ax = fig.add_subplot(111, projection="3d")
+            #ax.plot_surface(Fx, Fy, log_magnitude_spectrum[i], cmap="viridis")
+            
+            # Add contour plot at the bottom (Z = 0)
+            #contour = ax.contourf(Fx, Fy, log_magnitude_spectrum[i], zdir="z", offset=log_magnitude_spectrum[i].min(), cmap="viridis")
+            
+            # Labels
+            #ax.set_xlabel("Frequency X")
+            #ax.set_ylabel("Frequency Y")
+            #ax.set_zlabel("Log(Amplitude + 1)")
+            #ax.set_title("Iteration "+str(max_iter_list[i])+". Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".")
+            # Adjust view angle for better visibility
+            #ax.view_init(elev=30, azim=135)
+            #plt.show()
+            #plt.close()
+            
+            # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=log_magnitude_spectrum[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="Iteration "+str(max_iter_list[i])+". Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Log(Amplitude + 1)",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i])+".html")
+
+            # Show in browser
+            #fig.show()
+               
+        
+        
+    else:
+        
+        magnitude_spectrumx = []
+        log_magnitude_spectrumx = [] 
+        #We also want to see the relative difference between the initial amplitude and the amplitude after smoothing.
+        #We compute abs(A_0)-abs(A_i)/abs(A_0), this tell us which percentage of the initial amplitude has been eliminated
+        #A values of 0 means it all still remains, a value of 1 means we eliminated all the amplitude. And a negative value 
+        #means that the amplitude increased.
+        eliminated_portionx = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedx[0][:,:,1]) - np.abs(fourier_coeffs_shiftedx[i+1][:,:,1]))/np.abs(fourier_coeffs_shiftedx[0][:,:,1])
+            eliminated_portionx.append(aux)
+             # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=eliminated_portionx[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="X-component. Iteration "+str(max_iter_list[i+1])+". Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Eliminated portion of initial amplitude",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i+1])+"X-component.html")
+
+            # Show in browser
+            #fig.show()
+            
+            
+        for i in range(3):
+            magnitude_spectrumx.append(np.abs(fourier_coeffs_shiftedx[i][:,:,1]))
+            log_magnitude_spectrumx.append(np.log1p(magnitude_spectrumx[i]))
+            
+            # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=log_magnitude_spectrumx[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="X-component. Iteration "+str(max_iter_list[i])+". Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Log(Amplitude + 1)",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i])+"X-component.html")
+
+            # Show in browser
+            #fig.show()
+            
+            
+        magnitude_spectrumy = []
+        log_magnitude_spectrumy = [] 
+        #We also want to see the relative difference between the initial amplitude and the amplitude after smoothing.
+        #We compute abs(A_0)-abs(A_i)/abs(A_0), this tell us which percentage of the initial amplitude has been eliminated
+        #A values of 0 means it all still remains, a value of 1 means we eliminated all the amplitude. And a negative value 
+        #means that the amplitude increased.
+        eliminated_portiony = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedy[0][:,:,1]) - np.abs(fourier_coeffs_shiftedy[i+1][:,:,1]))/np.abs(fourier_coeffs_shiftedy[0][:,:,1])
+            eliminated_portiony.append(aux)
+             # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=eliminated_portiony[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="Y-component. Iteration "+str(max_iter_list[i+1])+". Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Eliminated portion of initial amplitude",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i+1])+"Y-component.html")
+
+            # Show in browser
+            #fig.show()
+            
+            
+        for i in range(3):
+            magnitude_spectrumy.append(np.abs(fourier_coeffs_shiftedy[i][:,:,1]))
+            log_magnitude_spectrumy.append(np.log1p(magnitude_spectrumy[i]))
+            
+            # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=log_magnitude_spectrumy[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="Y-component. Iteration "+str(max_iter_list[i])+". Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Log(Amplitude + 1)",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i])+"Y-component.html")
+
+            # Show in browser
+            #fig.show()
+            
+        magnitude_spectrumz = []
+        log_magnitude_spectrumz = [] 
+        #We also want to see the relative difference between the initial amplitude and the amplitude after smoothing.
+        #We compute abs(A_0)-abs(A_i)/abs(A_0), this tell us which percentage of the initial amplitude has been eliminated
+        #A values of 0 means it all still remains, a value of 1 means we eliminated all the amplitude. And a negative value 
+        #means that the amplitude increased.
+        eliminated_portionz = []
+        for i in range(2):
+            aux = (np.abs(fourier_coeffs_shiftedz[0][:,:,1]) - np.abs(fourier_coeffs_shiftedz[i+1][:,:,1]))/np.abs(fourier_coeffs_shiftedz[0][:,:,1])
+            eliminated_portionz.append(aux)
+             # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=eliminated_portionz[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="Z-component. Iteration "+str(max_iter_list[i+1])+". Eliminated portion of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Eliminated portion of initial amplitude",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Eliminated-Portion-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i+1])+"Z-component.html")
+
+            # Show in browser
+            #fig.show()
+            
+            
+        for i in range(3):
+            magnitude_spectrumz.append(np.abs(fourier_coeffs_shiftedz[i][:,:,1]))
+            log_magnitude_spectrumz.append(np.log1p(magnitude_spectrumz[i]))
+            
+            # Create interactive 3D surface plot with Plotly
+            fig = go.Figure()
+
+            fig.add_trace(go.Surface(z=log_magnitude_spectrumz[i], x=Fx, y=Fy, colorscale="Viridis"))
+
+            # Set log scale for Z-axis
+            fig.update_layout(
+                title="Z-component. Iteration "+str(max_iter_list[i])+". Amplitude of error waves for " + model + " with " +smoother+" solver, with resolution " + str(Nel)+".",
+                scene=dict(
+                    xaxis_title="Frequency X",
+                    yaxis_title="Frequency Y",
+                    zaxis_title="Log(Amplitude + 1)",
+                    #zaxis_type="log",  # Apply log scale to Z-axis
+                )
+            )
+
+            # Save as an interactive HTML file
+            fig.write_html("Wave-Amplitude-Cuboid-"+model+"-"+smoother+"-"+str(Nel)+"-iteration-"+str(max_iter_list[i])+"Z-component.html")
+
+            # Show in browser
+            #fig.show()
+        
+
+def make_plot_smoothing():
+    from numpy import array
+    
+    #######
+    #Example 1
+    #Shear-Alfven
+    #Cuboid
+    #2D
+    #CG
+    ######
+    
+    #Nel = [128,128,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #CG
+    
+    #Magnitude of the high frequency (period smaller than 4h) with highest magnitude
+    
+    
+    ############################
+    #Nel = [64,64,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #CG
+    
+
+    ############################
+    #Nel = [32,32,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #CG
+    
+
+    ############################
+    #Nel = [16,16,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #CG
+    
+
+    
+    ############################
+    #Nel = [8,8,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #CG
+    
+    
+    ################################################################
+    ################################################################
+    ################################################################
+    ################################################################
+    #######
+    #Example 2
+    #Shear-Alfven
+    #Cuboid
+    #2D
+    #biCG
+    ######
+    
+    ############################
+    #Nel = [128,128,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #biCG
+    
+
+
+    
+    ############################
+    #Nel = [64,64,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #biCG
+    
+
+    ############################
+    #Nel = [32,32,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #biCG
+    
+    
+
+    ############################
+    #Nel = [16,16,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #biCG
+    
+    
+    
+    
+    ################################################################
+    ################################################################
+    ################################################################
+    ################################################################
+    #######
+    #Example 3
+    #Shear-Alfven
+    #Cuboid
+    #2D
+    #bicgstab
+    ######
+    #Terrible the high frequency errors increase with the number of itterations
+    
+    ############################
+    #Nel = [128,128,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #bicgstab
+    
+    
+
+    
+    ############################
+    #Nel = [64,64,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #bicgstab
+    
+    
+    
+
+    ################################################################
+    ################################################################
+    ################################################################
+    ################################################################
+    
+    
+    #######
+    #Example 4
+    #Shear-Alfven
+    #Cuboid
+    #2D
+    #minres
+    
+    ############################
+    #Nel = [128,128,1]
+    #p = [1,1,1]
+    #Hall
+    #Cuboid
+    #minres
+    
+    magnitudes = [23475.547406074205, 23507.57071761296, 23401.98167905894, 8975.398716277663, 5547.855656375274, 2215.014445147343, 1060.3501137658902, 829.7441809688149, 220.71658497349233, 257.8922866406492]
+    bad_frequencies = [array([ 44.6484375, -14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([ 62.5078125, -31.75     , -62.5078125]), array([-63.5      , -43.65625  , -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125]), array([ 59.53125  , -62.5078125, -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125])]
+    N_itter = [2, 10, 20, 100, 200, 300, 400, 500, 600, 700]
+
+
+    ############################
+    #Nel = [64,64,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #minres
+    
+    magnitudes = [4816.563672246145, 4820.683874727215, 4750.075275409996, 1435.7294516177942, 230.5875341851168, 45.396511954402975, 6.7027103058152555, 6.6240853651862395, 5.862590252251258, 0.753372104197576]
+    bad_frequencies = [array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-30.515625,  25.59375 , -30.515625]), array([-30.515625,  25.59375 , -30.515625]), array([ 29.53125 ,  30.515625, -30.515625]), array([-30.515625,  25.59375 , -30.515625]), array([-29.53125 , -30.515625, -30.515625]), array([-29.53125 , -30.515625, -30.515625]), array([-24.609375, -12.796875, -30.515625])]
+    N_itter = [2, 10, 20, 100, 200, 300, 400, 500, 600, 700]
+
+    
+    ############################
+    #Nel = [32,32,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #minres
+    
+    magnitudes = [1319.382611683582, 1271.7302885073973, 1096.5001351152466, 66.25984056212276, 2.305135582316737, 0.5738656559575724, 0.13428796602415516, 0.0666372580855523, 0.045512532749170435, 0.030227161820733185]
+    bad_frequencies = [array([-13.5625 ,   0.     , -14.53125]), array([-13.5625 ,   0.     , -14.53125]), array([-13.5625 ,   0.     , -14.53125]), array([-12.59375, -13.5625 , -14.53125]), array([-12.59375, -13.5625 , -14.53125]), array([-13.5625 , -14.53125, -14.53125]), array([-13.5625 , -14.53125, -14.53125]), array([-12.59375, -15.5    , -14.53125]), array([-12.59375, -13.5625 , -14.53125]), array([ 14.53125,  14.53125, -14.53125])]
+    N_itter = [2, 10, 20, 100, 200, 300, 400, 500, 600, 700]
+
+    
+    ################################################################
+    ################################################################
+    ################################################################
+    ################################################################
+    
+    #######
+    #Example 5
+    #Shear-Alfven
+    #Cuboid
+    #2D
+    #lsmr
+    
+    ############################
+    #Nel = [128,128,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #lsmr
+    magnitudes = [23625.08035709719, 23546.07810652249, 23555.35959665252, 23553.74183488159, 23553.11191281097, 23552.06535579401, 23550.62355697153, 23548.584106844555, 23546.582190989895, 23543.658419538646]
+    bad_frequencies = [array([-40.6796875,  -0.9921875, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125])]
+    N_itter = [2, 10, 20, 100, 200, 300, 400, 500, 600, 700]
+
+    ############################
+    #Nel = [64,64,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #lsmr
+    
+    magnitudes = [4902.303542373743, 4846.903947432333, 4849.383867406714, 4849.313905985293, 4847.890279297882, 4845.825151419513, 4842.427718581035, 4839.574277539976, 4832.651039101285, 4824.670040396377]
+    bad_frequencies = [array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([ 24.609375,  11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625]), array([-24.609375, -11.8125  , -30.515625])]
+    N_itter = [2, 10, 20, 100, 200, 300, 400, 500, 600, 700]
+
+    
+    ################################################################
+    ################################################################
+    ################################################################
+    ################################################################
+    
+    #######
+    #Example 6
+    #Shear-Alfven
+    #Cuboid
+    #2D
+    #gmres
+    
+    ############################
+    #Nel = [128,128,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #gmres
+    
+    magnitudes = [23631.325965428965, 23517.072741223346, 23415.519704485465, 9143.805698693457, 5620.759347312477, 2224.5465588280504, 1062.7363141542924, 813.4419688746405, 239.7543262098424, 257.9845124527011]
+    bad_frequencies = [array([-40.6796875,  -0.9921875, -62.5078125]), array([-44.6484375,  14.8828125, -62.5078125]), array([ 44.6484375, -14.8828125, -62.5078125]), array([-62.5078125,  31.75     , -62.5078125]), array([-63.5      , -43.65625  , -62.5078125]), array([ 59.53125  , -62.5078125, -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125]), array([-59.53125  ,  62.5078125, -62.5078125])]
+    N_itter = [2, 10, 20, 100, 200, 300, 400, 500, 600, 700]
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    #######
+    #Example 
+    #Shear-Alfven
+    #Cuboid
+    #1D
+    #CG
+    ######
+    
+    
+    ############################
+    #Nel = [1024,1,1]
+    #p = [1,1,1]
+    #Shear-Alfven
+    #Cuboid
+    #CG
+    
+    
+    #As you can see in 1D the CG reduces the magnitude of all problematic high frequencies to 2 e-05. In 1D the CG for the shear-alfven matrix is a good smoother. Thus the Multigrid method works
+    #with it. But in 2D the CG method is a terrible smoother for this matrix so the multigrid method becomes almost useless with it.
+
+
 def multigrid_Alfven(Nel, plist, spl_kind, u_space):
     # get global communicator
     comm = MPI.COMM_WORLD
@@ -846,110 +2286,111 @@ def multigrid(Nel, plist, spl_kind, N_levels):
     rank = comm.Get_rank()
     world_size = comm.Get_size()
     
-    
-    #domain = Tokamak(p = [3,3], psi_shifts = [2.,2.])
     domain = Cuboid()
-    
+    #a1 = 0.002
+    #domain = HollowCylinder(a1= a1)
     sp_key = '0'
-    
-    #mhd_equil = AdhocTorusQPsi()
-    # must set domain of Cartesian MHD equilibirum
-    #mhd_equil.domain = domain
-    
     
     derham = []
     mass_ops = []
     A = []
     
-    
+    epsilon = 0.0002
     for level in range(N_levels):
-    
-        derham.append(Derham([Nel[0]//(2**level),Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
+        derham.append(Derham([Nel[0]//(2**level),Nel[1]//(2**level),Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
         mass_ops.append(WeightedMassOperators(derham[level], domain))
         A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
-        #print(f'{level = }')
-        #print(f'{ Nel[0]//(2**level)= }')
-        #A.append(mass_ops[level].M0.toarray_struphy())
+        #A.append(epsilon*derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
     
+    #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
     A_inv = np.linalg.inv(A[-1].toarray())
+    
     R = []
     E = []
     
     for level in range(N_levels-1):
         R.append(RestrictionOperator(derham[level].Vh_fem[sp_key],derham[level+1].Vh_fem[sp_key]))
         E.append(R[level].transpose())
-        #R.append(RestrictionOperator(derham[level].Vh_fem[sp_key],derham[level+1].Vh_fem[sp_key]).toarray_struphy())
-        #E.append(ExtensionOperator(derham[level+1].Vh_fem[sp_key],derham[level].Vh_fem[sp_key]).toarray_struphy())
-    
-    
-    
-    #_B = -1 / 2 * _T.T @ derham.curl.T @ mass_ops.M2
-    #_C = 1 / 2 * derham.curl @ _T
-    #_BC = _B @ _C
-
-    Multigrid = 'V-cycle'
+        
     method = 'cg'
-    max_iter = 5
-    N_cycles = 6
     
-    if(Multigrid == 'V-cycle'):
-        
-        
-        #barr, b = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=4568)
-        #barr = barr[0].flatten()
+    #800
+    max_iter_list = [14,14,14,18,12,10]
+    #40
+    N_cycles = 2
+    
+    u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
+    #We compute the rhs
+    b = A[0].dot(u_star)
+    
+    timei = time.time()
+    
+    solver_no = inverse(A[0],method, maxiter = 1000000, tol = 10**(-6))
+    
+    u = solver_no.dot(b)
+    
+    timef = time.time()
+    
+    #We get the total number of itterations
+    No_Multigrid_itterations = solver_no._info['niter']
+    No_Multigrid_error = solver_no._info['res_norm']
+    No_Multigrid_time = timef-timei
+    
+    #No_Multigrid_itterations = 35088
+    #No_Multigrid_error = 9.22E-07
+    #No_Multigrid_time = 451.228641271591
+    
+    print("################")
+    print(f'{No_Multigrid_itterations = }')
+    print(f'{No_Multigrid_error = }')
+    print(f'{No_Multigrid_time = }')
+    print("################")
+    
+    
+    def call_multigrid(max_iter, N_cycles):
         u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
         #We compute the rhs
         b = A[0].dot(u_star)
         
-        timei = time.time()
-        
-        solver_no = inverse(A[0],method, maxiter = 10000)
-        
-        #barr, b = create_equal_random_arrays(derham[level].Vh_fem[sp_key], seed=4568)
-        #barr = remove_padding(derham[level].Vh_fem[sp_key], b)
-        #barr = barr[level].flatten()
-        
-        
-        
-        u = solver_no.dot(b)
-        
-        timef = time.time()
-        
-        #We get the total number of itterations
-        No_Multigrid_itterations = solver_no._info['niter']
-        No_Multigrid_error = solver_no._info['res_norm']
-        No_Multigrid_time = timef-timei
-        
         #We define a list where to store the number of itteration it takes at each multigrid level
+        #Change N_levels for 1D case
         Multigrid_itterations = np.zeros(N_levels, dtype=int)
-        
+        converged = np.zeros(N_levels, dtype=bool)
         
         def V_cycle(l, r_l):
+            #Change for N_levels-1 for 1D case
             if (l < N_levels-1):
-                solver_ini = inverse(A[l],method, maxiter= max_iter*2**(l))
+                solver_ini = inverse(A[l],method, maxiter= max_iter[l])
                 x_l = solver_ini.dot(r_l)
                 
                 #We count the number of itterations
                 Multigrid_itterations[l] += solver_ini._info['niter']
                 
-                #print(f'{l = }')
-                #print(f'{solver_ini._info = }')
+                #We determine if the itterative solver converged in the maximum number of itterations
+                converged[l] = solver_ini._info['success']
+                if converged[l] == True:
+                    return x_l
                 
                 r_l = r_l - A[l].dot(x_l)
                 
                 r_l_plus_1 = R[l].dot(r_l)
                 x_l_plus_1 = V_cycle(l+1, r_l_plus_1)
+                #New
+                #x_l_aux = E[l].dot(x_l_plus_1)
+                #x_l = x_l + x_l_aux
+                #r_l = r_l  - A[l].dot(x_l_aux)
+                #solver_end = inverse(A[l].T,method, maxiter= max_iter, x0 =x_l)
+                #x_l = solver_end.dot(r_l)
+                #Multigrid_itterations[l] += solver_end._info['niter']
+                ####
+                #old
                 x_l = x_l + E[l].dot(x_l_plus_1)
-                
-                
-                #r_l = r_l - A[l].dot(E[l].dot(x_l_plus_1))
-                #solver = inverse(A[l].T,method, maxiter= max_iter*2**(l), x0 = x_l)
-                #x_l = solver.dot(r_l)  
+                ###
                 
             else:
                 #Solve directly
                 x_l = direct_solver(A_inv,r_l, derham[l].Vh_fem[sp_key])
-               
+                
             return x_l 
         
         #N_cycles = 6
@@ -957,22 +2398,31 @@ def multigrid(Nel, plist, spl_kind, N_levels):
         
         timei = time.time()
         for cycle in range(N_cycles):
-            solver = inverse(A[0],method, maxiter= max_iter, x0 = x_0)
+            solver = inverse(A[0],method, maxiter= max_iter[0], x0 = x_0)
             x_0 = solver.dot(b)
             
             Multigrid_itterations[0] += solver._info['niter']
+            
+            #We determine if the itterative solver converged in the maximum number of itterations
+            converged[0] = solver._info['success']
+            if converged[0] == True:
+                print("Hello")
+                x = x_0
+                break
             
             r_0 = b - A[0].dot(x_0)
             r_1 = R[0].dot(r_0)
             
             x_0 = x_0 + E[0].dot(V_cycle(1,r_1))
         
-        solver = inverse(A[0],method,x0 = x_0)
-        x = solver.dot(b)
+        if converged[0] == False:
+            solver = inverse(A[0],method,x0 = x_0, tol = 10**(-6))
+            x = solver.dot(b)
+            Multigrid_itterations[0] += solver._info['niter']
         
         timef = time.time()
         
-        Multigrid_itterations[0] += solver._info['niter']
+        
         
         #We get the final error
         Multigrid_error = solver._info['res_norm']
@@ -980,11 +2430,14 @@ def multigrid(Nel, plist, spl_kind, N_levels):
         Multigrid_time = timef- timei
         
         speed_up = No_Multigrid_time / Multigrid_time
+        #speed_up = 27.3452200889587 / Multigrid_time
         
         print("################")
-        print(f'{No_Multigrid_itterations = }')
-        print(f'{No_Multigrid_error = }')
-        print(f'{No_Multigrid_time = }')
+        print("################")
+        print("################")
+        #print(f'{a1 = }')
+        print(f'{max_iter = }')
+        print(f'{N_cycles = }')
         print("################")
         print("################")
         print(f'{Multigrid_itterations = }')
@@ -992,233 +2445,9 @@ def multigrid(Nel, plist, spl_kind, N_levels):
         print(f'{Multigrid_time = }')
         print("################")
         print("################")
-        print(f'{speed_up = }')
+        print(f'{speed_up = }')   
         
-        #print(f'{solver._info = }')
-        #print(f'{answer._data = }')
-        #print(f'{b._data = }')
-        
-        #solver = inverse(A,'cg', maxiter= max_iter)
-        #u = solver.dot(b)
-        
-        #r = b - A.dot(u)
-        
-        #r_2 = R.dot(r)
-        
-        #solver_2 = inverse(A_2, 'cg')
-        #e_2 = solver_2.dot(r_2)
-        
-        #e = E.dot(e_2)
-        
-        #u = u + e
-        
-        #solver = inverse(A,'cg', x0 = u)
-        
-        #u = solver.dot(b)
-        
-        #print(f'{solver._info = }')
-        #print(f'{solver_2._info = }')
-        
-    elif((Multigrid == 'v-cycle')):
-        
-        level = 0   
-        
-        solver_no = inverse(A[level],'cg')
-        
-        
-        u_stararr, u_star = create_equal_random_arrays(derham[level].Vh_fem[sp_key], seed=45)
-        #We compute the rhs
-        b = A[level].dot(u_star)
-        
-        #barr, b = create_equal_random_arrays(derham[level].Vh_fem[sp_key], seed=4568)
-        #barr = remove_padding(derham[level].Vh_fem[sp_key], b)
-        #barr = barr[level].flatten()
-        
-        u = solver_no.dot(b)
-        
-        #answer = A[level].dot(u)
-        print(f'{ solver_no._info = }')
-        #print(f'{answer._data =}')
-        #print(f'{b._data =}')
-        
-        
-        fieldr = derham[level].create_field('fh', 'H1')
-        fielde = derham[level+1].create_field('fh', 'H1')
-        use_projectors = False
-        
-        
-        #N_cycles = 5
-        
-        u = derham[level].Vh_fem[sp_key].vector_space.zeros()
-        #uarr = remove_padding(derham[level].Vh_fem[sp_key], u)
-        
-        for i in range(N_cycles):
-            #print(f'{i =}')
-        
-        
-
-            solver = inverse(A[level],'cg', x0 = u, maxiter= 5)
-            u = solver.dot(b)
-            #uarr = jacobi(A[level], barr, x_init=uarr, max_iter=5)
-            
-            
-            
-            
-        
-            #print(f'{solver._info =}')
-            #b_arr = remove_padding(derham[level].Vh_fem[sp_key], b)
-            #print( f'{ b_arr = }')
-            
-            
-            
-            
-            r = b - A[level].dot(u)
-            #rarr = barr - np.matmul(A[level],uarr)
-            
-            
-            
-            
-            #r_arr = remove_padding(derham[level].Vh_fem[sp_key], r)
-            #print( f'{ r_arr = }')
-            
-            
-            
-            if use_projectors:
-                fieldr.vector = r
-                r_2 = derham[level+1].P[sp_key](fieldr)            
-            else:
-                r_2 = R[level].dot(r)
-                
-            #r_2arr = np.matmul(R[level],rarr)   
-            
-                
-            
-            #r_2arr = remove_padding(derham[level+1].Vh_fem[sp_key], r_2)
-            #print(f'{ r_2arr =}')
-            
-            
-            
-            
-            
-            solver_2 = inverse(A[level+1], 'cg')
-            e_2 = solver_2.dot(r_2)
-            
-            #e_2arr = jacobi(A[level+1], r_2arr, max_iter=1000)
-            #e_2arr = np.linalg.solve(A[level+1], r_2arr)
-            #print(f'{e_2arr =}')
-            
-            
-            
-            
-            #e_2arr = remove_padding(derham[level+1].Vh_fem[sp_key], e_2)
-            #print(f'{e_2arr = }')
-            
-            
-            
-            if use_projectors:
-                fielde.vector = e_2
-                e = derham[level].P[sp_key](fielde)
-            else:
-                e = E[level].dot(e_2)
-            #e_arr = np.matmul(E[level],e_2arr)
-            
-            
-            
-            
-            #e_arr = remove_padding(derham[level].Vh_fem[sp_key], e)
-            
-            #print(f'{e_arr = }')
-            
-            
-            #u_arr = remove_padding(derham[level].Vh_fem[sp_key], u)
-            #print(f'{u_arr = }')
-            
-            
-            
-            
-            
-            u = u + e
-            #uarr = uarr + e_arr
-            
-            
-            
-            #u_arr = remove_padding(derham[level].Vh_fem[sp_key], u)
-            #print(f'{u_arr = }')
-        
-        
-        
-        solver_final = inverse(A[level],'cg', x0 = u)
-        u = solver_final.dot(b)
-        #uarr = jacobi(A[level],barr, x_init=uarr, verbose=True)
-        
-        
-        
-        print(f'{solver_final._info = }')
-        print(f'{solver_2._info = }')
-    
-    elif(Multigrid == 'Full'):
-        #We will use the method of the manufactured solutions
-        #u_star is the solution of the system
-        u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
-        #For this method we need to compute a projection of the rhs for each level
-        b = []
-        for level in range(N_levels):
-            if level == 0:
-                b.append(A[0].dot(u_star))
-            else:
-                b.append(R[level-1].dot(b[-1]))
-         
-        #We compute the number of iterations it tkaes to solve the system without multigrid.
-        solver_no = inverse(A[0],method)
-        u = solver_no.dot(b[0])
-        print(f'{ solver_no._info = }')
-        
-        def V_cycle(l, r_l):
-            if (l < N_levels-1):
-                solver_ini = inverse(A[l],method, maxiter= max_iter*2**(l))
-                x_l = solver_ini.dot(r_l)
-                
-                r_l = r_l - A[l].dot(x_l)
-                
-                r_l_plus_1 = R[l].dot(r_l)
-                x_l_plus_1 = V_cycle(l+1, r_l_plus_1)
-                x_l = x_l + E[l].dot(x_l_plus_1)
-            else:
-                #Solve directly
-                x_l = direct_solver(A_inv,r_l, derham[l].Vh_fem[sp_key])
-               
-            return x_l 
-        
-        def Full():
-            #l determines our current level
-            l = N_levels-1
-            #First we solve the system directly in the coarsest level
-            #If the coarsest level is still to coarse to solve directly then you can solve it itteratively instead.
-            x_l = direct_solver(A_inv,b[l], derham[l].Vh_fem[sp_key])
-            
-            while(l > 0):
-                #We extend the solution of the coarser level to the finner level to use as a first guess for the itterative solver
-                x_l = E[l-1].dot(x_l)
-                
-                for cycle in range(N_cycles):
-                
-                    #We smooth the error on the finner grid
-                    solver = inverse(A[l-1],method, maxiter= max_iter*2**(l-1), x0 = x_l)
-                    x_l  = solver.dot(b[l-1])
-                    r_l_minus_1 = b[l-1] - A[l-1].dot(x_l)
-                    r_l = R[l-1].dot(r_l_minus_1)
-                    
-                    x_l = x_l + E[l-1].dot(V_cycle(l,r_l))
-            
-                l= l -1
-            
-            return x_l
-        
-        x_0 = Full()
-        solver = inverse(A[0],method,x0 = x_0)
-        x = solver.dot(b[0])
-        
-        print(f'{solver._info = }')
+    call_multigrid(max_iter_list, N_cycles) 
           
         
 def Error_analysis(Nel, plist, spl_kind, N_levels):
@@ -1306,21 +2535,42 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     rank = comm.Get_rank()
     world_size = comm.Get_size()
     
-    #domain = Cuboid()
-    a1 = 0.2
-    domain = HollowCylinder(a1= a1)
-    sp_key = '1'
+    domain = Cuboid()
+    a1 = 0.002
+    #domain = HollowCylinder(a1= a1)
+    sp_key = '2'
     
     derham = []
     mass_ops = []
     A = []
     
-    epsilon = 0.01
+    epsilon = 1.0
     for level in range(N_levels):
         derham.append(Derham([Nel[0]//(2**level),Nel[1]//(2**level),Nel[2]], plist, spl_kind, comm=comm, local_projectors=False))
         mass_ops.append(WeightedMassOperators(derham[level], domain))
+        #Poisson
         #A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
-        A.append(derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
+        #Hall-ish
+        #A.append(epsilon*derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
+        #Hall
+        #A.append(mass_ops[level].M1 -epsilon*derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl)
+        #Shear-Alfven-ish
+        #A.append(mass_ops[level].M2 -epsilon* mass_ops[level].M2@ derham[level].curl @ mass_ops[level].M1 @ derham[level].curl.T @ mass_ops[level].M2)
+        #Shear-Alfven-ish-v2
+        #A.append(mass_ops[level].M2 -epsilon* derham[level].curl @ mass_ops[level].M1 @ derham[level].curl.T)
+        #Shear-Alfven
+        pc_class = getattr(preconditioner,"MassMatrixPreconditioner")
+        pc = pc_class(mass_ops[level].M1)
+        M1_inv = inverse(
+            mass_ops[level].M1,
+            "pcg",
+            pc=pc,
+            maxiter=3000,
+            verbose=False,
+        )
+        A.append(mass_ops[level].M2 -epsilon* mass_ops[level].M2@ derham[level].curl @ M1_inv @ derham[level].curl.T @ mass_ops[level].M2)
+        #Shear-Alfven-v2
+        #A.append(mass_ops[level].M2 -epsilon* derham[level].curl @ M1_inv @ derham[level].curl.T)
     
     #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
     A_inv = np.linalg.inv(A[-1].toarray())
@@ -1335,9 +2585,9 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     method = 'cg'
     
     #800
-    max_iter_list = [800]
+    max_iter_list = [93]
     #40
-    N_cycles_list = [40]
+    N_cycles_list = [5]
     
     u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
     #We compute the rhs
@@ -1345,7 +2595,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     
     timei = time.time()
     
-    solver_no = inverse(A[0],method, maxiter = 1000000, tol = 10**(-6))
+    solver_no = inverse(A[0],method, maxiter = 10000)
     
     u = solver_no.dot(b)
     
@@ -1356,6 +2606,15 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
     No_Multigrid_error = solver_no._info['res_norm']
     No_Multigrid_time = timef-timei
     
+    #No_Multigrid_itterations = 9485
+    #No_Multigrid_error = 9.72E-07
+    #No_Multigrid_time = 867.623549938202
+    print("################")
+    print("################")
+    print(f'{Nel[0] = }')
+    print(f'{Nel[1] = }')
+    print("################")
+    print("################")
     
     
     print("################")
@@ -1373,7 +2632,7 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
         #We define a list where to store the number of itteration it takes at each multigrid level
         #Change N_levels for 1D case
         Multigrid_itterations = np.zeros(N_levels, dtype=int)
-        
+        converged = np.zeros(N_levels, dtype=bool)
         
         def V_cycle(l, r_l):
             #Change for N_levels-1 for 1D case
@@ -1384,11 +2643,26 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
                 #We count the number of itterations
                 Multigrid_itterations[l] += solver_ini._info['niter']
                 
+                #We determine if the itterative solver converged in the maximum number of itterations
+                converged[l] = solver_ini._info['success']
+                if converged[l] == True:
+                    return x_l
+                
                 r_l = r_l - A[l].dot(x_l)
                 
                 r_l_plus_1 = R[l].dot(r_l)
                 x_l_plus_1 = V_cycle(l+1, r_l_plus_1)
+                #New
+                #x_l_aux = E[l].dot(x_l_plus_1)
+                #x_l = x_l + x_l_aux
+                #r_l = r_l  - A[l].dot(x_l_aux)
+                #solver_end = inverse(A[l].T,method, maxiter= max_iter, x0 =x_l)
+                #x_l = solver_end.dot(r_l)
+                #Multigrid_itterations[l] += solver_end._info['niter']
+                ####
+                #old
                 x_l = x_l + E[l].dot(x_l_plus_1)
+                ###
                 
             else:
                 #Solve directly
@@ -1406,17 +2680,26 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
             
             Multigrid_itterations[0] += solver._info['niter']
             
+            #We determine if the itterative solver converged in the maximum number of itterations
+            converged[0] = solver._info['success']
+            if converged[0] == True:
+                print("Hello")
+                x = x_0
+                break
+            
             r_0 = b - A[0].dot(x_0)
             r_1 = R[0].dot(r_0)
             
             x_0 = x_0 + E[0].dot(V_cycle(1,r_1))
         
-        solver = inverse(A[0],method,x0 = x_0, tol = 10**(-6))
-        x = solver.dot(b)
+        if converged[0] == False:
+            solver = inverse(A[0],method, maxiter = 1000,x0 = x_0,)
+            x = solver.dot(b)
+            Multigrid_itterations[0] += solver._info['niter']
         
         timef = time.time()
         
-        Multigrid_itterations[0] += solver._info['niter']
+        
         
         #We get the final error
         Multigrid_error = solver._info['res_norm']
@@ -1424,14 +2707,11 @@ def Gather_data_V_cycle_parameter_study(Nel, plist, spl_kind, N_levels):
         Multigrid_time = timef- timei
         
         speed_up = No_Multigrid_time / Multigrid_time
-        #speed_up = 27.3452200889587 / Multigrid_time
-        
-
         
         print("################")
         print("################")
         print("################")
-        print(f'{a1 = }')
+        #print(f'{a1 = }')
         print(f'{max_iter = }')
         print(f'{N_cycles = }')
         print("################")
@@ -1456,26 +2736,44 @@ def Gather_data_V_cycle_scalability(Nellist, plist, spl_kind):
 
           
 def make_plot_scalability():  
-    Nel = [int(2**i) for i in range(4,14)]
-    Multi_time = [0.0167179107666016, 0.0275583267211914, 0.0449323654174805, 0.0735518932342529, 0.188658952713013, 0.173357963562012, 0.291205167770386, 0.464969396591187, 0.960138320922852, 2.02050709724426]    
-    No_Multi_time = [0.00164151191711426, 0.00258350372314453, 0.00557708740234375, 0.0137369632720947, 0.0344779491424561, 0.101414680480957, 0.479604005813599, 1.46064519882202, 7.63734912872314, 33.2413830757141]
-    speed_up = [0.098188819167142, 0.0937467557185867, 0.124121829565956, 0.186765597295291, 0.182752785630607, 0.585001567837869, 1.64696255044404, 3.14137921663317, 7.95442590124139, 16.4520001543432]
+    
+    model = 'Hall'
+    
+    Nel = [int(2**i * 2**i) for i in range(4,8)]
+    Multi_time = [0.933451652526856,
+                    4.96578407287598,
+                    21.1356129646301,
+                    121.159014463425
+                    ]    
+    No_Multi_time = [0.853443145751953,
+                        6.89243221282959,
+                        75.1050372123718,
+                        1334.72232866287
+                        ]
+    speed_up = []
+    
+    for i in range(len(Multi_time)):
+        speed_up.append(No_Multi_time[i]/Multi_time[i])
     
     plt.figure()
-    plt.plot(Nel, Multi_time, label = 'Multigrid solver run time.')
+    plt.title('2D ' +model+' run times.')
+    plt.plot(Nel, Multi_time, label = 'Multigrid.')
     plt.scatter(Nel, No_Multi_time, label = 'CG run time.')
-    plt.xlabel("Nel[0]")
+    plt.xlabel("Nel[0] x Nel[1]")
     plt.ylabel('Time (s)')
     plt.legend()
-    plt.show()
+    plt.savefig("2D-"+model+"-runtime.pdf")
+    #plt.show()
     plt.close()
     
     plt.figure()
+    plt.title('2D ' +model+ ' speed up.')
     plt.scatter(Nel, speed_up, label = 'Speed_up.')
-    plt.xlabel("Nel[0]")
+    plt.xlabel("Nel[0] x Nel[1]")
     plt.ylabel('Speed_up')
     plt.legend()
-    plt.show()
+    #plt.show()
+    plt.savefig("2D-"+model+"-speed-up.pdf")
     plt.close()
 
     
@@ -1745,17 +3043,181 @@ def verify_Extension_Operator(Nel, plist, spl_kind):
         print(f'{where = }')
 
     
+def testing_random_stuff(Nel,plist,spl_kind):
+    epsilon = 10.0**-6.0
+    Nel = 512
+    jarray = []
+    for j in range(Nel):
+        jarray.append(float(j))
     
+    jarray = np.array(jarray)
+    
+    compute_directly = True
+    
+    #matrix = 'Shear-Alfven'
+    matrix = 'Hall'
+    if matrix == 'Shear-Alfven':
+    
+        def funl(j):
+            return 9.0*Nel - epsilon * (243.0/2.0) * (Nel**3.0) *  (1.0-np.cos(2.0*np.pi *j / Nel)) /(2.0+np.cos(2.0*np.pi *j / Nel))
+        
+        max_eigen_value_x = 4.0/Nel
+        
+        
+        
+        
+    elif( matrix == 'Hall'):
+        def funl(j):
+            return 8.0 /(3.0*Nel) - 18.0*epsilon*Nel + (4.0/(3.0*Nel)+18.0*epsilon*Nel)*np.cos(2.0*np.pi*j/Nel)
+        
+        max_eigen_value_x = 9.0*Nel
+        
+        
+        
+    eigen_values_y_z = funl(jarray)
+    max_eigen_value_y_z=abs(eigen_values_y_z[np.argmax(np.abs(eigen_values_y_z))])
+    
+    
+    order_of_magnitude_disparity = np.log10(max_eigen_value_y_z/max_eigen_value_x)
+    print(f'{max_eigen_value_y_z = }')
+    print(f'{max_eigen_value_x = }')
+    print(f'{order_of_magnitude_disparity = }')
+    
+    plt.figure()
+    plt.scatter(jarray,eigen_values_y_z)
+    plt.show()
+    
+    
+    if compute_directly:
+        # get global communicator
+        comm = MPI.COMM_WORLD
+        
+        domain = Cuboid()
+        derham = []
+        mass_ops = []
+        A = []
+        
+        derham.append(Derham([Nel,1,1], [1,1,1], [True,True,True], comm=comm, local_projectors=False))
+        mass_ops.append(WeightedMassOperators(derham[0], domain))
+        if(matrix == "Poisson"):
+            sp_key = '0'
+            sp_id = 'H1'
+            #Poisson
+            A.append(derham[0].grad.T @ mass_ops[0].M1 @ derham[0].grad)
+        #Hall-ish
+        #A.append(epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl + mass_ops[0].M1)
+        elif(matrix == "Hall"):
+            sp_key = '1'
+            sp_id = 'Hcurl'
+            #Hall
+            A.append(mass_ops[0].M1 -epsilon*derham[0].curl.T @ mass_ops[0].M2 @ derham[0].curl)
+        #Shear-Alfven-ish
+        #A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ mass_ops[0].M1 @ derham[0].curl.T @ mass_ops[0].M2)
+        elif(matrix == 'Shear-Alfven' or matrix == 'Shear-Alfven-v2'):
+            sp_key = '2'
+            sp_id = 'Hdiv'
+            pc_class = getattr(preconditioner,"MassMatrixPreconditioner")
+            pc = pc_class(mass_ops[0].M1)
+            M1_inv = inverse(
+                mass_ops[0].M1,
+                "pcg",
+                pc=pc,
+                maxiter=3000,
+                verbose=False,
+            )
+            #Shear-Alfven
+            if (matrix == "Shear-Alfven"):
+                A.append(mass_ops[0].M2 -epsilon* mass_ops[0].M2@ derham[0].curl @ M1_inv @ derham[0].curl.T @ mass_ops[0].M2)
+
+        Aarr = A[0].toarray()
+        Aarrx = Aarr[0:Nel,0:Nel]
+        Aarry = Aarr[Nel:2*Nel,Nel:2*Nel]
+        eigenvaluesx = np.linalg.eigvals(Aarrx)
+        max_x = abs(eigenvaluesx[np.argmax(np.abs(eigenvaluesx))])
+        eigenvaluesy = np.linalg.eigvals(Aarry)
+        
+        plt.figure()
+        plt.plot(jarray,eigenvaluesy)
+        plt.show()
+        
+        max_y = abs(eigenvaluesy[np.argmax(np.abs(eigenvaluesy))])
+        print(f'{max_x =}')
+        
+        
+        
+        
+    
+    
+    
+    #from struphy.feec.utilities import create_equal_random_arrays
+    # get global communicator
+    #comm = MPI.COMM_WORLD
+    #rank = comm.Get_rank()
+    #world_size = comm.Get_size()
+    
+    #domain = Cuboid()
+    #a1 = 0.002
+    #domain = HollowCylinder(a1= a1)
+    #sp_key = '0'
+    
+    #derham =Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False)
+    #mass_ops=WeightedMassOperators(derham, domain)
+    
+    #u_stararr, u_star = create_equal_random_arrays(derham.Vh_fem[sp_key], seed=45)
+    #u_stararr = remove_padding(derham.Vh_fem[sp_key], u_star)
+    
+    #G = derham.grad
+    #Garr =G.toarray()
+    
+    #GT = derham.grad.T
+    #GTarr = GT.toarray()
+    
+    #C = derham.curl
+    #Carr = C.toarray()
+    
+    #M1 = mass_ops.M1
+    #M1arr = M1.toarray()
+    
+    #Po = GT @ M1 @ G
+    #Poarr = Po.toarray()
+    
+    
+    #eigenvalues = np.linalg.eigvals(Poarr)
+    #max_eigen_value = abs(eigenvalues[np.argmax(np.abs(eigenvalues))])
+    #min_eigen_value = abs(eigenvalues[np.argmin(np.abs(eigenvalues))])
+    #b = G.dot(u_star)
+    #barr = np.matmul(Garr, u_stararr)
+    
+    #b = remove_padding(derham.Vh_fem['1'], b)
+    
+    #same = True
+    #for i in range(np.size(b)):
+        #if(barr[i]!= b[i]):
+            #same = False
+            #break
+        
+    #print(same)
+    #print(f'{M1arr[32,32:64] =}')
+    #print(f'{max_eigen_value =}')
+    #print(f'{min_eigen_value =}')
+    #for i in range(0,3):
+        #print(f'{Garr[i,:] =}')
     
     
     
     
 
 if __name__ == '__main__':
-    Nel = [128, 128, 1]
-    p = [1, 1, 1]
-    spl_kind = [True, True, True]
+    #for i in range(7,8):
+        #Nel = [int(2**i),int(2**i), 1]
+        #p = [1, 1, 1]
+        #spl_kind = [True, True, True]
+        #Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, i)
+        #Visualized_high_frequency_dampening(Nel, p, spl_kind)
+        #Visualized_all_frequencies_dampening(Nel, p, spl_kind,7)
+        #Visualized_all_frequencies_dampening_2D(Nel, p, spl_kind,100)
 
+    testing_random_stuff([32,1,1],[1,1,1],[True,True,True])
     #128,64,32,16, 8
     # h, 2h,4h,8h,16h
     
@@ -1763,8 +3225,8 @@ if __name__ == '__main__':
     #p=2, Nel= 8192, level = 11. Coarsest one is 8x8 matrix
     #p=4, Nel= 8192, level = 10. Coarsest one is 16x16 matrix
     
-    #multigrid(Nel, p, spl_kind,12)
-    Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 7)
+    #multigrid(Nel, p, spl_kind,6)
+    #Gather_data_V_cycle_parameter_study(Nel, p, spl_kind, 11)
     #Gather_data_V_cycle_scalability([[int(2**i),1,1] for i in range(4,10)], p, spl_kind)
     #make_plot_scalability()
     #verify_formula(Nel, p, spl_kind)
@@ -1772,3 +3234,6 @@ if __name__ == '__main__':
     #verify_Extension_Operator(Nel, p, spl_kind)
     #Error_analysis(Nel, p, spl_kind, 1)
     #trying_New_Restriction(Nel, p, spl_kind, 4)
+    #Compute_rate_of_smoothing(Nel, p, spl_kind)
+    #Visualized_high_frequency_dampening(Nel, p, spl_kind)
+    
