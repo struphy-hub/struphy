@@ -516,10 +516,11 @@ def sph_isotherm_pressure_coeffs(
     n_cols = shape(markers)[1]
     Np = args_markers.Np
     weight_idx = args_markers.weight_idx
+    valid_mks = args_markers.valid_mks
 
     for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        # only do something if particle is a "true" particle
+        if not valid_mks[ip]:
             continue
 
         eta1 = markers[ip, 0]

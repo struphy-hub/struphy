@@ -2847,7 +2847,10 @@ def push_deterministic_diffusion_stage(
     for each marker :math:`p` in markers array, where :math:`\frac{\nabla \hat u^0}{\hat u^0}` is constant in time. :math:`D>0` is a positive, constant diffusion coefficient.
     """
 
-    # allocate metric coeffs
+    # allocate arrays
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
+    tmp3 = zeros((3, 3), dtype=float)
     ginv = zeros((3, 3), dtype=float)
 
     # intermediate k-vector
@@ -2911,6 +2914,10 @@ def push_deterministic_diffusion_stage(
             e2,
             e3,
             args_domain,
+            tmp1,
+            tmp2,
+            tmp3,
+            False,
             ginv,
         )
 
@@ -2976,8 +2983,8 @@ def push_random_diffusion_stage(
     #$ omp end parallel
 
 
-@stack_array("dfm", "dfinv", "dfinvt", "e_form", "e_cart")
-def push_v_sph_pressure_2d(
+@stack_array("grad_u", "grad_u_cart", "tmp1", "tmp2", "tmp3", "ginv")
+def push_v_sph_pressure(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2997,32 +3004,56 @@ def push_v_sph_pressure_2d(
 
     .. math::
 
-        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = c \, \bar{DF}^{-\top}  (\mathbb L^1)^\top \mathbf e
+        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = \kappa_p \sum_{q} w_p\,w_q \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_q)} \right) G^{-1}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_q) \,,
 
-    where :math:`\mathbf e \in \mathbb R^{N_1}` are given FE coefficients of the 1-form spline field
-    and :math:`c \in \mathbb R` is some constant.
+    where :math:`G^{-1}` denotes the inverse metric tensor, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta_p) = \frac 1N \sum_q w_q \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_q)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
 
     Parameters
     ----------
-        e1_1, e1_2, e1_3 : ndarray[float]
-            3d array of FE coeffs of E-field as 1-form.
+    boxes : 2d array
+        Box array of the sorting boxes structure.
 
-        const : float
-            A constant (usuallly related to the charge-to-mass ratio).
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
     """
+    # allocate arrays
+    grad_u = zeros(3, dtype=float)
+    grad_u_cart = zeros(3, dtype=float)
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
+    tmp3 = zeros((3, 3), dtype=float)
+    ginv = zeros((3, 3), dtype=float)
+
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     Np = args_markers.Np
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
-    first_diagnostics_idx = args_markers.first_diagnostics_idx
+    valid_mks = args_markers.valid_mks
 
     #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
     #$ omp for
     for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
+        if not valid_mks[ip]:
             continue
 
         eta1 = markers[ip, 0]
@@ -3032,7 +3063,9 @@ def push_v_sph_pressure_2d(
         kappa = 1.0  # markers[ip, first_diagnostics_idx]
         n_at_eta = markers[ip, first_free_idx]
         loc_box = int(markers[ip, -2])
-        out1_comp1 = sph_eval_kernels.boxed_based_kernel(
+
+        # first component
+        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
             eta1,
             eta2,
             eta3,
@@ -3051,30 +3084,9 @@ def push_v_sph_pressure_2d(
             h2,
             h3,
         )
-        out1_comp1 *= kappa * weight / n_at_eta
+        grad_u[0] *= kappa * weight / n_at_eta
 
-        out1_comp2 = sph_eval_kernels.boxed_based_kernel(
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            markers,
-            Np,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            weight_idx,
-            kernel_type + 2,
-            h1,
-            h2,
-            h3,
-        )
-        out1_comp2 *= kappa * weight / n_at_eta
-
-        out2_comp1 = sph_eval_kernels.boxed_based_kernel(
+        sum2 = sph_eval_kernels.boxed_based_kernel(
             eta1,
             eta2,
             eta3,
@@ -3093,32 +3105,114 @@ def push_v_sph_pressure_2d(
             h2,
             h3,
         )
-        out2_comp1 *= kappa * weight
+        sum2 *= kappa * weight
+        grad_u[0] += sum2
 
-        out2_comp2 = sph_eval_kernels.boxed_based_kernel(
+        if kernel_type >= 340:
+            # second component
+            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                weight_idx,
+                kernel_type + 2,
+                h1,
+                h2,
+                h3,
+            )
+            grad_u[1] *= kappa * weight / n_at_eta
+
+            sum4 = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                first_free_idx + 1,
+                kernel_type + 2,
+                h1,
+                h2,
+                h3,
+            )
+            sum4 *= kappa * weight
+            grad_u[1] += sum4
+
+        if kernel_type >= 670:
+            # third component
+            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                weight_idx,
+                kernel_type + 3,
+                h1,
+                h2,
+                h3,
+            )
+            grad_u[2] *= kappa * weight / n_at_eta
+
+            sum6 = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                first_free_idx + 1,
+                kernel_type + 3,
+                h1,
+                h2,
+                h3,
+            )
+            sum6 *= kappa * weight
+            grad_u[2] += sum6
+
+        # push to Cartesian coordinates
+        evaluation_kernels.g_inv(
             eta1,
             eta2,
             eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            markers,
-            Np,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx + 1,
-            kernel_type + 2,
-            h1,
-            h2,
-            h3,
+            args_domain,
+            tmp1,
+            tmp2,
+            tmp3,
+            False,
+            ginv,
         )
-
-        out2_comp2 *= kappa * weight
+        linalg_kernels.matrix_vector(ginv, grad_u, grad_u_cart)
 
         # update velocities
-        markers[ip, 3] -= dt * (out1_comp1 + out2_comp1)
-        markers[ip, 4] -= dt * (out1_comp2 + out2_comp2)
+        markers[ip, 3:6] -= dt * grad_u_cart
 
     #$ omp end parallel

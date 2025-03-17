@@ -125,49 +125,54 @@ class StruphyModel(metaclass=ABCMeta):
                 print("None.")
 
         # create discrete derham sequence
-        dims_mask = params["grid"]["dims_mask"]
-        if dims_mask is None:
-            dims_mask = [True] * 3
+        if "grid" in params:
+            dims_mask = params["grid"]["dims_mask"]
+            if dims_mask is None:
+                dims_mask = [True] * 3
 
-        if clone_config is None:
-            derham_comm = self.comm_world
-        else:
-            derham_comm = clone_config.sub_comm
+            if clone_config is None:
+                derham_comm = self.comm_world
+            else:
+                derham_comm = clone_config.sub_comm
 
-        self._derham = setup_derham(
-            params["grid"],
-            comm=derham_comm,
-            domain=self.domain,
-            mpi_dims_mask=dims_mask,
-            verbose=self.verbose,
-        )
-
-        # create projected equilibrium
-        if isinstance(self.equil, MHDequilibrium):
-            self._projected_equil = ProjectedMHDequilibrium(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibriumWithB):
-            self._projected_equil = ProjectedFluidEquilibriumWithB(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibrium):
-            self._projected_equil = ProjectedFluidEquilibrium(
-                self.equil,
-                self.derham,
+            self._derham = setup_derham(
+                params["grid"],
+                comm=derham_comm,
+                domain=self.domain,
+                mpi_dims_mask=dims_mask,
+                verbose=self.verbose,
             )
         else:
-            self._projected_equil = None
+            self._derham = None
+            print("\nDERHAM:\nMeshless simulation - no Derham complex set up.")
 
-        # create weighted mass operators
-        self._mass_ops = WeightedMassOperators(
-            self.derham,
-            self.domain,
-            verbose=self.verbose,
-            eq_mhd=self.equil,
-        )
+        self._projected_equil = None
+        self._mass_ops = None
+        if self.derham is not None:
+            # create projected equilibrium
+            if isinstance(self.equil, MHDequilibrium):
+                self._projected_equil = ProjectedMHDequilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibriumWithB):
+                self._projected_equil = ProjectedFluidEquilibriumWithB(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibrium):
+                self._projected_equil = ProjectedFluidEquilibrium(
+                    self.equil,
+                    self.derham,
+                )
+
+            # create weighted mass operators
+            self._mass_ops = WeightedMassOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
 
         # allocate memory for variables
         self._pointer = {}
@@ -185,14 +190,15 @@ class StruphyModel(metaclass=ABCMeta):
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham,
-            self.domain,
-            verbose=self.verbose,
-            eq_mhd=self.equil,
-        )
-        Propagator.projected_equil = self.projected_equil
+        if self.derham is not None:
+            Propagator.mass_ops = self.mass_ops
+            Propagator.basis_ops = BasisProjectionOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
+            Propagator.projected_equil = self.projected_equil
 
         # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
@@ -531,6 +537,11 @@ class StruphyModel(metaclass=ABCMeta):
                 "sum_between_clones",
                 "divide_n_mks",
             ]
+        elif compute == "from_sph":
+            compute_operations = [
+                "sum_world",
+                "divide_n_mks",
+            ]
         elif compute == "from_field":
             compute_operations = []
         else:
@@ -544,6 +555,13 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
+            if "sum_world" in compute_operations:
+                self.comm_world.Allreduce(
+                    MPI.IN_PLACE,
+                    value_array,
+                    op=MPI.SUM,
+                )
+
             if "sum_within_clone" in compute_operations:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
@@ -656,14 +674,18 @@ class StruphyModel(metaclass=ABCMeta):
         elif split_algo == "Strang":
             assert len(self.propagators) > 1
 
-            for propagator in self.propagators:
+            for propagator in self.propagators[:-1]:
                 prop_name = type(propagator).__name__
                 with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)
 
-            for propagator in self.propagators[::-1]:
-                prop_name = type(propagator).__name__
+            propagator = self.propagators[-1]
+            prop_name = type(propagator).__name__
+            with ProfileManager.profile_region(prop_name):
+                propagator(dt)
 
+            for propagator in self.propagators[:-1][::-1]:
+                prop_name = type(propagator).__name__
                 with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)
 
@@ -683,7 +705,7 @@ class StruphyModel(metaclass=ABCMeta):
             obj = val["obj"]
             assert isinstance(obj, Particles)
 
-            n_mks_save = val["params"]["save_data"]["n_markers"]
+            n_mks_save = val["params"]["save_data"].get("n_markers", 0)
             if n_mks_save > 0:
                 markers_on_proc = np.logical_and(
                     obj.markers[:, -1] >= 0.0,
@@ -723,6 +745,23 @@ class StruphyModel(metaclass=ABCMeta):
 
                     val["kinetic_data"]["f"][slice_i][:] = f_slice
                     val["kinetic_data"]["df"][slice_i][:] = df_slice
+
+            if "n_sph" in val["params"]["save_data"]:
+                h1 = 1 / obj.boxes_per_dim[0]
+                h2 = 1 / obj.boxes_per_dim[1]
+                h3 = 1 / obj.boxes_per_dim[2]
+                ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                kernel_type = "gaussian_" + str(ndim) + "d"
+                for i, pts in enumerate(val["plot_pts"]):
+                    n_sph = obj.eval_density(
+                        *pts,
+                        h1=h1,
+                        h2=h2,
+                        h3=h3,
+                        kernel_type=kernel_type,
+                        fast=True,
+                    )
+                    val["kinetic_data"]["n_sph"][i][:] = n_sph
 
     def print_scalar_quantities(self):
         """
@@ -902,7 +941,11 @@ class StruphyModel(metaclass=ABCMeta):
                         if val["space"] != "ParticlesSPH" and obj.f0.coords == "constants_of_motion":
                             obj.save_constants_of_motion()
 
-                        obj.initialize_weights()
+                        obj.initialize_weights(
+                            reject_weights=obj.weights_params["reject_weights"],
+                            threshold=obj.weights_params["threshold"],
+                            from_tesselation=obj.weights_params["from_tesselation"],
+                        )
 
     def initialize_from_restart(self, data):
         """
@@ -988,7 +1031,7 @@ class StruphyModel(metaclass=ABCMeta):
             data.add_data({key_scalar: val})
 
         # store grid_info only for runs with 512 ranks or smaller
-        if self._scalar_quantities:
+        if self._scalar_quantities and self.derham is not None:
             if size <= 512:
                 data.file["scalar"].attrs["grid_info"] = self.derham.domain_array
             else:
@@ -1107,6 +1150,7 @@ class StruphyModel(metaclass=ABCMeta):
             for key1, val1 in val["kinetic_data"].items():
                 key_dat = key_spec + "/" + key1
 
+                # case of "f" and "df"
                 if isinstance(val1, dict):
                     for key2, val2 in val1.items():
                         key_f = key_dat + "/" + key2
@@ -1118,7 +1162,12 @@ class StruphyModel(metaclass=ABCMeta):
                                 val["bin_edges"][key2][dim][:-1]
                                 + (val["bin_edges"][key2][dim][1] - val["bin_edges"][key2][dim][0]) / 2
                             )
-
+                # case of "n_sph"
+                elif isinstance(val1, list):
+                    for i, v1 in enumerate(val1):
+                        key_n = key_dat + "/view_" + str(i)
+                        data.add_data({key_n: v1})
+                        data.file[key_n].attrs["plot_pts"] = val["plot_pts"][i]
                 else:
                     data.add_data({key_dat: val1})
 
@@ -1758,6 +1807,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 bckgr_params = val["params"].get("background", None)
                 pert_params = val["params"].get("perturbation", None)
                 boxes_per_dim = val["params"].get("boxes_per_dim", None)
+                weights_params = val["params"].get("weights", None)
+
+                if self.derham is None:
+                    domain_decomp = None
+                else:
+                    domain_array = self.derham.domain_array
+                    nprocs = self.derham.domain_decomposition.nprocs
+                    domain_decomp = (domain_array, nprocs)
 
                 kinetic_class = getattr(particles, val["space"])
 
@@ -1765,7 +1822,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     comm_world=self.comm_world,
                     clone_config=self.clone_config,
                     **val["params"]["markers"],
-                    domain_array=self.derham.domain_array,
+                    weights_params=weights_params,
+                    domain_decomp=domain_decomp,
                     boxes_per_dim=boxes_per_dim,
                     name=species,
                     equation_params=self.equation_params[species],
@@ -1782,12 +1840,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 self._pointer[species] = obj
 
                 # for storing markers
-                n_markers = val["params"]["save_data"]["n_markers"]
+                val["kinetic_data"] = {}
+
+                n_markers = val["params"]["save_data"].get("n_markers", 0)
                 assert n_markers <= obj.Np, (
                     f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
                 )
                 if n_markers > 0:
-                    val["kinetic_data"] = {}
                     val["kinetic_data"]["markers"] = np.zeros(
                         (n_markers, obj.markers.shape[1]),
                         dtype=float,
@@ -1826,6 +1885,26 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                 n_bins[i],
                                 dtype=float,
                             )
+
+                # for storing an sph evaluation of the density n
+                if "n_sph" in val["params"]["save_data"]:
+                    plot_pts = val["params"]["save_data"]["n_sph"]["plot_pts"]
+
+                    val["kinetic_data"]["n_sph"] = []
+                    val["plot_pts"] = []
+                    for i, pts in enumerate(plot_pts):
+                        assert len(pts) == 3
+                        eta1 = np.linspace(0.0, 1.0, pts[0])
+                        eta2 = np.linspace(0.0, 1.0, pts[1])
+                        eta3 = np.linspace(0.0, 1.0, pts[2])
+                        ee1, ee2, ee3 = np.meshgrid(
+                            eta1,
+                            eta2,
+                            eta3,
+                            indexing="ij",
+                        )
+                        val["plot_pts"] += [(ee1, ee2, ee3)]
+                        val["kinetic_data"]["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
@@ -1951,7 +2030,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         if magnetic_field < 1e-14:
             magnetic_field = np.nan
-            print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
+            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
         if verbose:
             print("\nPLASMA PARAMETERS:")
@@ -2144,7 +2223,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if verbose:
             print("\nSPECIES PARAMETERS:")
             for species, ch in pparams.items():
-                print(f"\nname:".ljust(25), species)
+                print(f"\nname:".ljust(26), species)
                 print(f"type:".ljust(25), ch["type"])
                 ch.pop("type")
                 print(f"is bulk:".ljust(25), species == self.bulk_species())

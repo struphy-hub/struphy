@@ -403,31 +403,6 @@ def pre_processing(
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
 
-    # Ensure that both ppc Np
-    if "kinetic" in params:
-        total_cells = np.prod(params["grid"]["Nel"])
-        for species_name, species_data in params["kinetic"].items():
-            markers = species_data.get("markers")
-            ppc = markers.get("ppc")
-            Np = markers.get("Np")
-
-            assert ppc is not None or Np is not None, f"Either 'ppc' or 'Np' must be set for species '{species_name}'"
-
-            if ppc is None:
-                ppc = float(Np / total_cells)
-                markers["ppc"] = ppc
-            elif Np is None:
-                assert isinstance(ppc, int), "ppc must be an integer"
-                Np = int(ppc * total_cells)
-                markers["Np"] = Np
-            else:
-                # Both ppc and Np are provided; check for consistency
-                expected_Np = ppc * total_cells
-                assert np.isclose(
-                    Np,
-                    expected_Np,
-                ), "Inconsistent 'ppc' and 'Np' for species '{species_name}, 'Np' should be {expected_Np}, but is {Np}"
-
     if mpi_rank == 0:
         # copy parameter file to output folder
         if parameters_path != os.path.join(path_out, "parameters.yml"):

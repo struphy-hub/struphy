@@ -12,7 +12,7 @@ from struphy.models.base import StruphyModel
 libpath = struphy.__path__[0]
 
 
-def call_model(
+def call_test(
     model_name: str,
     model: StruphyModel,
     map_and_equil: tuple,
