@@ -25,7 +25,6 @@ def load_yaml_files(file_paths):
 standard_params_dir = os.path.join(libpath, "io/inp/standard_parameters")
 
 yaml_files = [
-    f"{standard_params_dir}/likwid_config.yml",
     f"{standard_params_dir}/params_Vlasov.yml",
     f"{standard_params_dir}/params_Maxwell.yml",
     f"{standard_params_dir}/params_LinearMHD.yml",
