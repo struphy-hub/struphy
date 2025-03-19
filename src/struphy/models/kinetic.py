@@ -125,9 +125,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -146,7 +146,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self._epsilon = self.equation_params["species1"]["epsilon"]
 
         # Check if it is control-variate method
-        self._control_variate = species1_params["markers"]["type"] == "control_variate"
+        self._control_variate = species1_params["markers"]["control_variate"]
 
         # check mean velocity
         # TODO: assert f0.params[] == 0.
@@ -165,7 +165,9 @@ class VlasovAmpereOneSpecies(StruphyModel):
         params_coupling = params["em_fields"]["options"]["VlasovAmpere"]["solver"]
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushEta] = {"algo": algo_eta}
+        self._kwargs[propagators_markers.PushEta] = {
+            "algo": algo_eta,
+        }
 
         # Only add PushVxB if magnetic field is not zero
         self._kwargs[propagators_markers.PushVxB] = None
@@ -209,7 +211,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # initialize fields and particles
         super().initialize_from_params()
 
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
@@ -245,12 +247,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
 
         # Solve with dt=1. and compute electric field
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nSolving initial Poisson problem...")
         poisson_solver(1.0)
 
         self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("Done.")
 
     def update_scalar_quantities(self):
@@ -262,7 +264,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = (
             self._alpha**2
-            / (2 * self.pointer["species1"].n_mks)
+            / (2 * self.pointer["species1"].Np)
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
@@ -270,8 +272,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 self.pointer["species1"].markers_wo_holes[:, 6],
             )
         )
-        if self.comm is not None:
-            self.comm.Allreduce(
+        if self.comm_world is not None:
+            self.comm_world.Allreduce(
                 self._mpi_in_place,
                 self._tmp,
                 op=self._mpi_sum,
@@ -411,9 +413,9 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -493,7 +495,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # initialize fields and particles
         super().initialize_from_params()
 
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nINITIAL POISSON SOLVE:")
 
         # use control variate method
@@ -529,12 +531,12 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         )
 
         # Solve with dt=1. and compute electric field
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nSolving initial Poisson problem...")
         poisson_solver(1.0)
 
         self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("Done.")
 
     def update_scalar_quantities(self):
@@ -549,7 +551,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # alpha^2 / 2 / N * sum_p w_p v_p^2
         self._tmp[0] = (
             self._alpha**2
-            / (2 * self.pointer["species1"].n_mks)
+            / (2 * self.pointer["species1"].Np)
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
@@ -557,8 +559,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 self.pointer["species1"].markers_wo_holes[:, 6],
             )
         )
-        if self.comm is not None:
-            self.comm.Allreduce(
+        if self.comm_world is not None:
+            self.comm_world.Allreduce(
                 self._mpi_in_place,
                 self._tmp,
                 op=self._mpi_sum,
@@ -641,7 +643,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
         dct["em_fields"]["e_field"] = "Hcurl"
-        dct["kinetic"]["species1"] = "Particles6D"
+        dct["kinetic"]["species1"] = "DeltaFParticles6D"
         return dct
 
     @staticmethod
@@ -684,7 +686,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None, baseclass=False):
+    def __init__(self, params, comm, clone_config=None, baseclass=False):
         """Initializes the model either as the full model or as a baseclass to inherit from.
         In case of being a baseclass, the propagators will not be initialized in the __init__ which allows other propagators to be added.
 
@@ -695,7 +697,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         """
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -733,7 +735,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         if self._species_params["options"]["override_eq_params"]:
             self.epsilon = self._species_params["options"]["override_eq_params"]["epsilon"]
             self.alpha = self._species_params["options"]["override_eq_params"]["alpha"]
-            if self._rank == 0:
+            if self.rank_world == 0:
                 print(
                     f"\n!!! Override equation parameters: {self.epsilon = }, {self.alpha = }.\n",
                 )
@@ -804,7 +806,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.init_propagators()
 
         # Scalar variables to be saved during the simulation
-        self.add_scalar("en_e")
+        self.add_scalar("en_E")
         self.add_scalar("en_w")
         self.add_scalar("en_tot")
 
@@ -850,31 +852,31 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
 
         # Solve with dt=1. and compute electric field
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("\nSolving initial Poisson problem...")
         poisson_solver(1.0)
         self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
-        if self._rank == 0:
+        if self.rank_world == 0:
             print("Done.")
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
         self._mass_ops.M1.dot(self.pointer["e_field"], out=self._en_e_tmp)
         self.en_E = self.pointer["e_field"].dot(self._en_e_tmp) / 2.0
-        self.update_scalar("en_e", self.en_E)
+        self.update_scalar("en_E", self.en_E)
 
         # evaluate f0
-        self._f0_values[~self.pointer["species1"].holes] = self._f0(*self.pointer["species1"].phasespace_coords.T)
+        self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
         self._tmp[0] = (
             self.alpha**2
             * self.vth**2
-            / (2 * self.pointer["species1"].n_mks)
+            / (2 * self.pointer["species1"].Np)
             * np.dot(
                 self.pointer["species1"].weights ** 2,  # w_p^2
                 self.pointer["species1"].sampling_density
-                / self._f0_values[~self.pointer["species1"].holes],  # s_{0,p} / f_{0,p}
+                / self._f0_values[self.pointer["species1"].valid_mks],  # s_{0,p} / f_{0,p}
             )
         )
 
@@ -967,7 +969,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         dct["em_fields"]["e_field"] = "Hcurl"
         dct["em_fields"]["b_field"] = "Hdiv"
-        dct["kinetic"]["species1"] = "Particles6D"
+        dct["kinetic"]["species1"] = "DeltaFParticles6D"
         return dct
 
     @staticmethod
@@ -1011,8 +1013,8 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params=params, comm=comm, inter_comm=inter_comm, baseclass=True)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params=params, comm=comm, clone_config=clone_config, baseclass=True)
 
         # propagator parameters
         params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
@@ -1133,9 +1135,9 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1161,7 +1163,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         rho = (charge_accum, self.pointer["ions"])
 
         # get neutralizing background density
-        if "full_f" in ions_params["markers"]["type"]:
+        if not self.pointer["ions"].control_variate:
             l2_proj = L2Projector("H1", self.mass_ops)
             f0e = Z * self.pointer["ions"].f0
             assert isinstance(f0e, KineticBackground)
@@ -1240,15 +1242,15 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # 1/N sum_p (w_p v_p^2/2 + mu_p |B0|_p)
         self._tmp3[0] = (
             1
-            / self.pointer["ions"].n_mks
+            / self.pointer["ions"].Np
             * np.sum(
                 self.pointer["ions"].weights * self.pointer["ions"].velocities[:, 0] ** 2 / 2.0
-                + self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
+                + self.pointer["ions"].markers_wo_holes_and_ghost[:, 8],
             )
         )
 
-        if self.comm is not None:
-            self.comm.Allreduce(
+        if self.comm_world is not None:
+            self.comm_world.Allreduce(
                 self._mpi_in_place,
                 self._tmp3,
                 op=self._mpi_sum,

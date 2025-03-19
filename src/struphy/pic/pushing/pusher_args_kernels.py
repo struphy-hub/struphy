@@ -1,35 +1,64 @@
 class MarkerArguments:
-    '''Holds the mandatory arguments pertaining to :class:`~struphy.pic.base.Particles` 
-    passed to particle pusher kernels.
+    """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
+    passed to particle kernels.
 
     Paramaters
     ----------
     markers : array[float]
         Markers array.
 
+    Np : int
+        Total number of particles.
+
     vdim : int
         Dimension of velocity space.
 
+    weight_idx : int
+        Column index of particle weight.
+
+    first_diagnostics_idx : int
+        Starting index for diagnostics columns:
+        after 3 positions, vdim velocities, weight, s0 and w0.
+
     first_pusher_idx : int
         Starting buffer marker index number for pusher.
-    '''
+
+    first_shift_idx : int
+        First index for storing shifts due to boundary conditions in eta-space.
+
+    residual_idx: int
+        Column for storing the residual in iterative pushers.
+
+    first_free_idx : int
+        First index for storing auxiliary quantities for each particle.
+    """
 
     def __init__(
         self,
-        markers: 'float[:, :]',
+        markers: "float[:, :]",
+        valid_mks: "bool[:]",
+        Np: int,
         vdim: int,
+        weight_idx: int,
+        first_diagnostics_idx: int,
         first_pusher_idx: int,
+        first_shift_idx: int,
+        residual_idx: int,
+        first_free_idx: int,
     ):
-
         self.markers = markers
+        self.valid_mks = valid_mks
+        self.Np = Np
         self.vdim = vdim
+        self.weight_idx = weight_idx
         self.n_markers = markers.shape[0]
 
         # useful indices
+        self.first_diagnostics_idx = first_diagnostics_idx
         self.first_init_idx = first_pusher_idx
-        self.first_shift_idx = first_pusher_idx + 3 + vdim  # starting idx for eta-shifts due to boundary conditions
-        self.residual_idx = self.first_shift_idx + 3  # residual in iterative solvers
-        self.first_free_idx = self.residual_idx + 1  # index after which auxiliary saving is possible
+        self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
+        self.residual_idx = residual_idx  # residual in iterative solvers
+        self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
 
         # only used for Particles5D
         self.energy_idx = 8  # particle energy
@@ -38,7 +67,7 @@ class MarkerArguments:
 
 
 class DerhamArguments:
-    '''Holds the mandatory arguments pertaining to :class:`~struphy.feec.psydac_derham.Derham` passed to particle pusher kernels.
+    """Holds the mandatory arguments pertaining to :class:`~struphy.feec.psydac_derham.Derham` passed to particle pusher kernels.
 
     Paramaters
     ----------
@@ -50,21 +79,22 @@ class DerhamArguments:
 
     starts : array[int]
         Start indices (current MPI process) of :class:`~struphy.feec.psydac_derham.Derham`.
-    '''
+    """
 
     def __init__(
         self,
-        pn: 'int[:]',
-        tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-        starts: 'int[:]',
-        bn1: 'float[:]',
-        bn2: 'float[:]',
-        bn3: 'float[:]',
-        bd1: 'float[:]',
-        bd2: 'float[:]',
-        bd3: 'float[:]',
+        pn: "int[:]",
+        tn1: "float[:]",
+        tn2: "float[:]",
+        tn3: "float[:]",
+        starts: "int[:]",
+        bn1: "float[:]",
+        bn2: "float[:]",
+        bn3: "float[:]",
+        bd1: "float[:]",
+        bd2: "float[:]",
+        bd3: "float[:]",
     ):
-
         self.pn = pn
         self.tn1 = tn1
         self.tn2 = tn2
@@ -79,7 +109,7 @@ class DerhamArguments:
 
 
 class DomainArguments:
-    '''Holds the mandatory arguments pertaining to :class:`~struphy.geometry.base.Domain` passed to particle pusher kernels.
+    """Holds the mandatory arguments pertaining to :class:`~struphy.geometry.base.Domain` passed to particle pusher kernels.
 
     Paramaters
     ----------
@@ -100,18 +130,23 @@ class DomainArguments:
 
     cx, cy, cz : array[float]
         Spline coefficients (control points) of :class:`~struphy.geometry.base.Domain`.
-    '''
+    """
 
     def __init__(
         self,
         kind_map: int,
-        params: 'float[:]',
-        p: 'int[:]',
-        t1: 'float[:]', t2: 'float[:]', t3: 'float[:]',
-        ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
-        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+        params: "float[:]",
+        p: "int[:]",
+        t1: "float[:]",
+        t2: "float[:]",
+        t3: "float[:]",
+        ind1: "int[:,:]",
+        ind2: "int[:,:]",
+        ind3: "int[:,:]",
+        cx: "float[:,:,:]",
+        cy: "float[:,:,:]",
+        cz: "float[:,:,:]",
     ):
-
         self.kind_map = kind_map
         self.params = params
         self.p = p

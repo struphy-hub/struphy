@@ -292,9 +292,9 @@ class TorusModesSin:
         \begin{aligned}
         &\sin(l_s\pi\eta_1)\,,
         \\[2mm]
-        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,,
+        &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
         \\[2mm]
-        & -2(\eta_1 - r_0)/\sigma)\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
+        & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
         \end{aligned}
         \right.
 
@@ -395,11 +395,15 @@ class TorusModesSin:
                 self._pfuns += [lambda eta1: np.sin(ls * np.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / params[1]),
+                    lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / np.sqrt(2 * np.pi * params[1] ** 2),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -2 * (eta1 - params[0]) / params[1] * np.exp(-((eta1 - params[0]) ** 2) / params[1]),
+                    lambda eta1: -(eta1 - params[0])
+                    / params[1] ** 2
+                    * np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / np.sqrt(2 * np.pi * params[1] ** 2),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -433,9 +437,9 @@ class TorusModesCos:
         \begin{aligned}
         &\sin(\pi\eta_1)\,,
         \\[2mm]
-        &\exp^{-(\eta_1 - r_0)^2/\sigma} \,,
+        &\exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,,
         \\[2mm]
-        & -2(\eta_1 - r_0)/\sigma)\exp^{-(\eta_1 - r_0)^2/\sigma} \,.
+        & - \frac{\eta_1 - r_0}{\sigma} \exp \left(- \frac{(\eta_1 - r_0)^2}{2 \sigma^2} \right) \,.
         \end{aligned}
         \right.
 
@@ -538,11 +542,15 @@ class TorusModesCos:
                 self._pfuns += [lambda eta1: np.cos(np.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / params[1]),
+                    lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / np.sqrt(2 * np.pi * params[1] ** 2),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda eta1: -2 * (eta1 - params[0]) / params[1] * np.exp(-((eta1 - params[0]) ** 2) / params[1]),
+                    lambda eta1: -(eta1 - params[0])
+                    / params[1] ** 2
+                    * np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / np.sqrt(2 * np.pi * params[1] ** 2),
                 ]
             else:
                 raise ValueError(

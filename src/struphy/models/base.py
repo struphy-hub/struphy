@@ -10,6 +10,8 @@ from psydac.linalg.stencil import StencilVector
 
 from struphy.profiling.profiling import ProfileRegion
 from struphy.propagators.base import Propagator
+from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -24,15 +26,21 @@ class StruphyModel(metaclass=ABCMeta):
     comm : mpi4py.MPI.Intracomm
         MPI communicator for parallel runs.
 
+    clone_config: struphy.utils.CloneConfig
+        Contains the # TODO
+
     Note
     ----
     All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
-    def __init__(self, params, comm=None, inter_comm=None):
-        # TODO: comm=None does not work yet.
-
+    def __init__(
+        self,
+        params: dict,
+        comm: MPI.Intracomm = None,
+        clone_config: CloneConfig = None,
+    ):
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
         from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
@@ -57,22 +65,16 @@ class StruphyModel(metaclass=ABCMeta):
                 prompt=False,
             )
 
+        self._comm_world = comm
+        self._clone_config = clone_config
+
         self._params = params
-        self._comm = comm
-        self._inter_comm = inter_comm
 
         # get rank and size
-        if self.comm is None:
-            self._rank = 0
+        if self.comm_world is None:
+            self._rank_world = 0
         else:
-            self._rank = self.comm.Get_rank()
-
-        if inter_comm == None:
-            self._comm_world_rank = comm.Get_rank()
-            self._Nclones = 1
-        else:
-            self._comm_world_rank = comm.Get_rank() + (inter_comm.Get_rank() * comm.Get_size())
-            self._Nclones = self._inter_comm.Get_size()
+            self._rank_world = self.comm_world.Get_rank()
 
         # initialize model variable dictionaries
         self._init_variable_dicts()
@@ -81,7 +83,7 @@ class StruphyModel(metaclass=ABCMeta):
         self._units, self._equation_params = self.model_units(
             self.params,
             verbose=self.verbose,
-            comm=self._comm,
+            comm=self.comm_world,
         )
 
         # create domain, equilibrium
@@ -123,70 +125,80 @@ class StruphyModel(metaclass=ABCMeta):
                 print("None.")
 
         # create discrete derham sequence
-        dims_mask = params["grid"]["dims_mask"]
-        if dims_mask is None:
-            dims_mask = [True] * 3
+        if "grid" in params:
+            dims_mask = params["grid"]["dims_mask"]
+            if dims_mask is None:
+                dims_mask = [True] * 3
 
-        self._derham = setup_derham(
-            params["grid"],
-            comm=comm,
-            inter_comm=inter_comm,
-            domain=self.domain,
-            mpi_dims_mask=dims_mask,
-            verbose=self.verbose,
-        )
+            if clone_config is None:
+                derham_comm = self.comm_world
+            else:
+                derham_comm = clone_config.sub_comm
 
-        # create projected equilibrium
-        if isinstance(self.equil, MHDequilibrium):
-            self._projected_equil = ProjectedMHDequilibrium(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibriumWithB):
-            self._projected_equil = ProjectedFluidEquilibriumWithB(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibrium):
-            self._projected_equil = ProjectedFluidEquilibrium(
-                self.equil,
-                self.derham,
+            self._derham = setup_derham(
+                params["grid"],
+                comm=derham_comm,
+                domain=self.domain,
+                mpi_dims_mask=dims_mask,
+                verbose=self.verbose,
             )
         else:
-            self._projected_equil = None
+            self._derham = None
+            print("\nDERHAM:\nMeshless simulation - no Derham complex set up.")
 
-        # create weighted mass operators
-        self._mass_ops = WeightedMassOperators(
-            self.derham,
-            self.domain,
-            verbose=self.verbose,
-            eq_mhd=self.equil,
-        )
+        self._projected_equil = None
+        self._mass_ops = None
+        if self.derham is not None:
+            # create projected equilibrium
+            if isinstance(self.equil, MHDequilibrium):
+                self._projected_equil = ProjectedMHDequilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibriumWithB):
+                self._projected_equil = ProjectedFluidEquilibriumWithB(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibrium):
+                self._projected_equil = ProjectedFluidEquilibrium(
+                    self.equil,
+                    self.derham,
+                )
+
+            # create weighted mass operators
+            self._mass_ops = WeightedMassOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
 
         # allocate memory for variables
         self._pointer = {}
         self._allocate_variables()
 
         # store plasma parameters
-        if self._comm_world_rank == 0:
+        if self.rank_world == 0:
             self._pparams = self._compute_plasma_params(verbose=self.verbose)
         else:
             self._pparams = self._compute_plasma_params(verbose=False)
 
-        # if self._comm_world_rank == 0:
+        # if self.rank_world == 0:
         #     self._show_chosen_options()
 
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham,
-            self.domain,
-            verbose=self.verbose,
-            eq_mhd=self.equil,
-        )
-        Propagator.projected_equil = self.projected_equil
+        if self.derham is not None:
+            Propagator.mass_ops = self.mass_ops
+            Propagator.basis_ops = BasisProjectionOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
+            Propagator.projected_equil = self.projected_equil
 
         # create dummy lists/dicts to be filled by the sub-class
         self._propagators = []
@@ -263,19 +275,19 @@ class StruphyModel(metaclass=ABCMeta):
         return self._equation_params
 
     @property
-    def comm(self):
-        """MPI communicator."""
-        return self._comm
+    def comm_world(self):
+        """MPI_COMM_WORLD communicator."""
+        return self._comm_world
 
     @property
-    def inter_comm(self):
-        """MPI clone communicator."""
-        return self._inter_comm
+    def rank_world(self):
+        """Global rank."""
+        return self._rank_world
 
     @property
-    def Nclones(self):
-        """Number of clones."""
-        return self._Nclones
+    def clone_config(self):
+        """Config in case domain clones are used."""
+        return self._clone_config
 
     @property
     def pointer(self):
@@ -525,6 +537,11 @@ class StruphyModel(metaclass=ABCMeta):
                 "sum_between_clones",
                 "divide_n_mks",
             ]
+        elif compute == "from_sph":
+            compute_operations = [
+                "sum_world",
+                "divide_n_mks",
+            ]
         elif compute == "from_field":
             compute_operations = []
         else:
@@ -538,37 +555,42 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
+            if "sum_world" in compute_operations:
+                self.comm_world.Allreduce(
+                    MPI.IN_PLACE,
+                    value_array,
+                    op=MPI.SUM,
+                )
+
             if "sum_within_clone" in compute_operations:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
+            if self.clone_config is None:
+                num_clones = 1
+            else:
+                num_clones = self.clone_config.num_clones
 
-            if "sum_between_clones" in compute_operations and self.Nclones > 1:
-                self.inter_comm.Allreduce(
+            if "sum_between_clones" in compute_operations and num_clones > 1:
+                self.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "average_between_clones" in compute_operations and self.Nclones > 1:
-                self.inter_comm.Allreduce(
+            if "average_between_clones" in compute_operations and num_clones > 1:
+                self.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
-                value_array /= self.Nclones
+                value_array /= num_clones
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = np.array([self.pointer[species].n_mks])
-                if self.Nclones > 1:
-                    self.inter_comm.Allreduce(
-                        MPI.IN_PLACE,
-                        n_mks_tot,
-                        op=MPI.SUM,
-                    )
+                n_mks_tot = np.array([self.pointer[species].Np])
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -595,7 +617,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def init_propagators(self):
         """Initialize the propagator objects specified in :attr:`~propagators_cls`."""
-        if self._comm_world_rank == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nPROPAGATORS:")
         for (prop, variables), (prop2, kwargs_i) in zip(self.propagators_dct().items(), self.kwargs.items()):
             assert prop == prop2, (
@@ -603,10 +625,11 @@ class StruphyModel(metaclass=ABCMeta):
             )
 
             if kwargs_i is None:
-                print(f'\n-> Propagator "{prop.__name__}" will not be used.')
+                if self.rank_world == 0:
+                    print(f'\n-> Propagator "{prop.__name__}" will not be used.')
                 continue
             else:
-                if self._comm_world_rank == 0 and self.verbose:
+                if self.rank_world == 0 and self.verbose:
                     print(f'\n-> Initializing propagator "{prop.__name__}"')
                     print(f"-> for variables {variables}")
                     print(f"-> with the following parameters:")
@@ -623,10 +646,8 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(prop_instance, Propagator)
                 self._propagators += [prop_instance]
 
-        if self._comm_world_rank == 0 and self.verbose:
-            print("\n---------------------------------------")
-            print("Initialization of propagators complete.")
-            print("---------------------------------------")
+        if self.rank_world == 0 and self.verbose:
+            print("\nInitialization of propagators complete.")
 
     def integrate(self, dt, split_algo="LieTrotter"):
         """
@@ -649,33 +670,24 @@ class StruphyModel(metaclass=ABCMeta):
                 with ProfileRegion(prop_name):
                     propagator(dt)
 
-                # if self.Nclones > 1:
-                #     with ProfileRegion(prop_name + '_barrier'):
-                #         self.comm.Barrier()
-                #         self.inter_comm.Barrier()
-
         # second order in time
         elif split_algo == "Strang":
             assert len(self.propagators) > 1
 
-            for propagator in self.propagators:
+            for propagator in self.propagators[:-1]:
                 prop_name = type(propagator).__name__
                 with ProfileRegion(prop_name):
                     propagator(dt / 2)
 
-                # with ProfileRegion(prop_name + '_barrier'):
-                #         self.comm.Barrier()
-                #         self.inter_comm.Barrier()
+            propagator = self.propagators[-1]
+            prop_name = type(propagator).__name__
+            with ProfileRegion(prop_name):
+                propagator(dt)
 
-            for propagator in self.propagators[::-1]:
+            for propagator in self.propagators[:-1][::-1]:
                 prop_name = type(propagator).__name__
-
                 with ProfileRegion(prop_name):
                     propagator(dt / 2)
-
-                # with ProfileRegion(prop_name + '_barrier'):
-                #     self.comm.Barrier()
-                #     self.inter_comm.Barrier()
 
         else:
             raise NotImplementedError(
@@ -693,7 +705,7 @@ class StruphyModel(metaclass=ABCMeta):
             obj = val["obj"]
             assert isinstance(obj, Particles)
 
-            n_mks_save = val["params"]["save_data"]["n_markers"]
+            n_mks_save = val["params"]["save_data"].get("n_markers", 0)
             if n_mks_save > 0:
                 markers_on_proc = np.logical_and(
                     obj.markers[:, -1] >= 0.0,
@@ -734,6 +746,23 @@ class StruphyModel(metaclass=ABCMeta):
                     val["kinetic_data"]["f"][slice_i][:] = f_slice
                     val["kinetic_data"]["df"][slice_i][:] = df_slice
 
+            if "n_sph" in val["params"]["save_data"]:
+                h1 = 1 / obj.boxes_per_dim[0]
+                h2 = 1 / obj.boxes_per_dim[1]
+                h3 = 1 / obj.boxes_per_dim[2]
+                ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                kernel_type = "gaussian_" + str(ndim) + "d"
+                for i, pts in enumerate(val["plot_pts"]):
+                    n_sph = obj.eval_density(
+                        *pts,
+                        h1=h1,
+                        h2=h2,
+                        h3=h3,
+                        kernel_type=kernel_type,
+                        fast=True,
+                    )
+                    val["kinetic_data"]["n_sph"][i][:] = n_sph
+
     def print_scalar_quantities(self):
         """
         Check if scalar_quantities are not "nan" and print to screen.
@@ -754,7 +783,7 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.feec.psydac_derham import Derham
         from struphy.pic.base import Particles
 
-        if self._comm_world_rank == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nINITIAL CONDITIONS:")
 
         # initialize em fields
@@ -772,54 +801,43 @@ class StruphyModel(metaclass=ABCMeta):
                             bckgr_obj=self.equil,
                         )
 
-                        if self._comm_world_rank == 0 and self.verbose:
-                            print(f'EM field "{key}" was initialized with:')
+                        if self.rank_world == 0 and self.verbose:
+                            print(f'\nEM field "{key}" was initialized with:')
 
-                            if "background" in self.em_fields["params"]:
-                                bckgr_type = self.em_fields["params"]["background"]["type"]
-                                print("background:".ljust(25), bckgr_type)
+                            _params = self.em_fields["params"]
 
-                                if bckgr_type is None:
-                                    pass
-                                elif type(bckgr_type) == str:
-                                    bckgr_types = [bckgr_type]
-                                elif type(bckgr_type) == list:
-                                    bckgr_types = bckgr_type
+                            if "background" in _params:
+                                if key in _params["background"]:
+                                    bckgr_types = _params["background"][key]
+                                    if bckgr_types is None:
+                                        pass
+                                    else:
+                                        print("background:")
+                                        for _type, _bp in bckgr_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _bp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
                                 else:
-                                    raise NotImplemented(
-                                        "The type of initial background must be null or str or list.",
-                                    )
-
-                                if bckgr_type is not None:
-                                    for _type in bckgr_types:
-                                        print(_type, ":")
-                                        for key, val2 in self.em_fields["params"]["background"][_type].items():
-                                            print((key + ":").ljust(25), val2)
+                                    print("No background.")
                             else:
                                 print("No background.")
 
-                            if "perturbation" in self.em_fields["params"]:
-                                pert_type = self.em_fields["params"]["perturbation"]["type"]
-                                print("perturbation:".ljust(25), pert_type)
-
-                                if pert_type is None:
-                                    pass
-                                elif type(pert_type) == str:
-                                    pert_types = [pert_type]
-                                elif type(pert_type) == list:
-                                    pert_types = pert_type
+                            if "perturbation" in _params:
+                                if key in _params["perturbation"]:
+                                    pert_types = _params["perturbation"][key]
+                                    if pert_types is None:
+                                        pass
+                                    else:
+                                        print("perturbation:")
+                                        for _type, _pp in pert_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _pp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
                                 else:
-                                    raise NotImplemented(
-                                        f"The type of initial perturbation must be null or str or list.",
-                                    )
-
-                                if pert_type is not None:
-                                    for _type in pert_types:
-                                        print(_type, ":")
-                                        for key, val2 in self.em_fields["params"]["perturbation"][_type].items():
-                                            print((key + ":").ljust(25), val2)
+                                    print("No perturbation.")
                             else:
                                 print("No perturbation.")
+
         if len(self.fluid) > 0:
             with ProfileRegion("initialize_fluids"):
                 for species, val in self.fluid.items():
@@ -835,56 +853,51 @@ class StruphyModel(metaclass=ABCMeta):
                                 species=species,
                             )
 
-                    if self._comm_world_rank == 0 and self.verbose:
+                    if self.rank_world == 0 and self.verbose:
                         print(
-                            f'Fluid species "{species}" was initialized with:',
+                            f'\nFluid species "{species}" was initialized with:',
                         )
 
-                        if "background" in val["params"]:
-                            bckgr_type = val["params"]["background"]["type"]
-                            print("type:".ljust(25), bckgr_type)
+                        _params = val["params"]
 
-                            if bckgr_type is None:
-                                pass
-                            elif type(bckgr_type) == str:
-                                bckgr_types = [bckgr_type]
-                            elif type(bckgr_type) == list:
-                                bckgr_types = bckgr_type
-                            else:
-                                raise NotImplemented(
-                                    f"The type of initial perturbation must be null or str or list.",
-                                )
-
-                            if bckgr_type is not None:
-                                for _type in bckgr_types:
-                                    print(_type, ":")
-                                    for key, val2 in val["params"]["background"][_type].items():
-                                        print((key + ":").ljust(25), val2)
+                        if "background" in _params:
+                            for variable in val:
+                                if "params" in variable:
+                                    continue
+                                if variable in _params["background"]:
+                                    bckgr_types = _params["background"][variable]
+                                    if bckgr_types is None:
+                                        pass
+                                    else:
+                                        print(f"{variable} background:")
+                                        for _type, _bp in bckgr_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _bp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
+                                else:
+                                    print(f"{variable}: no background.")
                         else:
                             print("No background.")
 
-                        if "perturbation" in val["params"]:
-                            pert_type = val["params"]["perturbation"]["type"]
-                            print("type:".ljust(25), pert_type)
-
-                            if pert_type is None:
-                                pass
-                            elif type(pert_type) == str:
-                                pert_types = [pert_type]
-                            elif type(pert_type) == list:
-                                pert_types = pert_type
-                            else:
-                                raise NotImplemented(
-                                    f"The type of initial perturbation must be null or str or list.",
-                                )
-
-                            if pert_type is not None:
-                                for _type in pert_types:
-                                    print(_type, ":")
-                                    for key, val2 in val["params"]["perturbation"][_type].items():
-                                        print((key + ":").ljust(25), val2)
+                        if "perturbation" in _params:
+                            for variable in val:
+                                if "params" in variable:
+                                    continue
+                                if variable in _params["perturbation"]:
+                                    pert_types = _params["perturbation"][variable]
+                                    if pert_types is None:
+                                        pass
+                                    else:
+                                        print(f"{variable} perturbation:")
+                                        for _type, _pp in pert_types.items():
+                                            print(" " * 4 + _type, ":")
+                                            for _pname, _pval in _pp.items():
+                                                print((" " * 8 + _pname + ":").ljust(25), _pval)
+                                else:
+                                    print(f"{variable}: no perturbation.")
                         else:
                             print("No perturbation.")
+
         # initialize particles
         if len(self.kinetic) > 0:
             with ProfileRegion("initialize_particles"):
@@ -892,33 +905,47 @@ class StruphyModel(metaclass=ABCMeta):
                     obj = val["obj"]
                     assert isinstance(obj, Particles)
 
-                    if self._comm_world_rank == 0 and self.verbose:
-                        _type = val["params"]["background"]["type"]
-                        print(
-                            f'Kinetic species "{species}" was initialized with:',
-                        )
-                        print("type:".ljust(25), _type)
-                        if _type is not None:
-                            if not isinstance(_type, list):
-                                _type = [_type]
-                            for _t in _type:
-                                for key, par in val["params"]["background"][_t].items():
-                                    print((key + ":").ljust(25), par)
+                    if self.rank_world == 0 and self.verbose:
+                        _params = val["params"]
+                        assert "background" in _params, "Kinetic species must have background."
 
-                    obj.draw_markers(verbose=self.verbose)
+                        bckgr_types = _params["background"]
+                        print(
+                            f'\nKinetic species "{species}" was initialized with:',
+                        )
+                        for _type, _bp in bckgr_types.items():
+                            print(_type, ":")
+                            for _pname, _pval in _bp.items():
+                                print((" " * 4 + _pname + ":").ljust(25), _pval)
+
+                        if "perturbation" in _params:
+                            for variable, pert_types in _params["perturbation"].items():
+                                if pert_types is None:
+                                    pass
+                                else:
+                                    print(f"{variable} perturbation:")
+                                    for _type, _pp in pert_types.items():
+                                        print(" " * 4 + _type, ":")
+                                        for _pname, _pval in _pp.items():
+                                            print((" " * 8 + _pname + ":").ljust(25), _pval)
+                        else:
+                            print("No perturbation.")
+
+                    obj.draw_markers(sort=True, verbose=self.verbose)
                     obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":
                             obj.save_magnetic_moment()
 
-                        if (
-                            val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
-                            and obj.f0.coords == "constants_of_motion"
-                        ):
+                        if val["space"] != "ParticlesSPH" and obj.f0.coords == "constants_of_motion":
                             obj.save_constants_of_motion()
 
-                        obj.initialize_weights()
+                        obj.initialize_weights(
+                            reject_weights=obj.weights_params["reject_weights"],
+                            threshold=obj.weights_params["threshold"],
+                            from_tesselation=obj.weights_params["from_tesselation"],
+                        )
 
     def initialize_from_restart(self, data):
         """
@@ -1004,7 +1031,7 @@ class StruphyModel(metaclass=ABCMeta):
             data.add_data({key_scalar: val})
 
         # store grid_info only for runs with 512 ranks or smaller
-        if self._scalar_quantities:
+        if self._scalar_quantities and self.derham is not None:
             if size <= 512:
                 data.file["scalar"].attrs["grid_info"] = self.derham.domain_array
             else:
@@ -1123,6 +1150,7 @@ class StruphyModel(metaclass=ABCMeta):
             for key1, val1 in val["kinetic_data"].items():
                 key_dat = key_spec + "/" + key1
 
+                # case of "f" and "df"
                 if isinstance(val1, dict):
                     for key2, val2 in val1.items():
                         key_f = key_dat + "/" + key2
@@ -1134,7 +1162,12 @@ class StruphyModel(metaclass=ABCMeta):
                                 val["bin_edges"][key2][dim][:-1]
                                 + (val["bin_edges"][key2][dim][1] - val["bin_edges"][key2][dim][0]) / 2
                             )
-
+                # case of "n_sph"
+                elif isinstance(val1, list):
+                    for i, v1 in enumerate(val1):
+                        key_n = key_dat + "/view_" + str(i)
+                        data.add_data({key_n: v1})
+                        data.file[key_n].attrs["plot_pts"] = val["plot_pts"][i]
                 else:
                     data.add_data({key_dat: val1})
 
@@ -1435,16 +1468,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 yn = input(f"Writing to {file}, are you sure (Y/n)? ")
 
             if yn in ("", "Y", "y", "yes", "Yes"):
-                with open(file, "w") as outfile:
-                    yaml.dump(
-                        parameters,
-                        outfile,
-                        Dumper=MyDumper,
-                        default_flow_style=None,
-                        sort_keys=False,
-                        indent=4,
-                        line_break="\n",
-                    )
+                dict_to_yaml(parameters, file)
                 print(
                     f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".',
                 )
@@ -1636,7 +1660,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         self._kinetic = {}
         self._diagnostics = {}
 
-        if self._comm_world_rank == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nMODEL SPECIES:")
 
         # create dictionaries for each em-field/species and fill in space/class name and parameters
@@ -1644,7 +1668,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
             assert "em_fields" in self.params, 'Top-level key "em_fields" is missing in parameter file.'
 
-            if self._comm_world_rank == 0 and self.verbose:
+            if self.rank_world == 0 and self.verbose:
                 print("em_field:".ljust(25), f'"{var_name}" ({space})')
 
             self._em_fields[var_name] = {}
@@ -1672,7 +1696,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert "fluid" in self.params, 'Top-level key "fluid" is missing in parameter file.'
             assert var_name in self.params["fluid"], f"Fluid species {var_name} is missing in parameter file."
 
-            if self._comm_world_rank == 0 and self.verbose:
+            if self.rank_world == 0 and self.verbose:
                 print("fluid:".ljust(25), f'"{var_name}" ({space})')
 
             self._fluid[var_name] = {}
@@ -1709,7 +1733,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert "kinetic" in self.params, 'Top-level key "kinetic" is missing in parameter file.'
             assert var_name in self.params["kinetic"], f"Kinetic species {var_name} is missing in parameter file."
 
-            if self._comm_world_rank == 0 and self.verbose:
+            if self.rank_world == 0 and self.verbose:
                 print("kinetic:".ljust(25), f'"{var_name}" ({space})')
 
             self._kinetic[var_name] = {}
@@ -1720,7 +1744,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             for var_name, space in self.diagnostics_dct().items():
                 assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
 
-                if self.comm.Get_rank() == 0 and self.verbose:
+                if self.rank_world == 0 and self.verbose:
                     print("diagnostics:".ljust(25), f'"{var_name}" ({space})')
 
                 self._diagnostics[var_name] = {}
@@ -1778,42 +1802,36 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # marker arrays and plasma parameters of kinetic species
         if "kinetic" in self.params:
             for species, val in self.kinetic.items():
-                assert "Np" in val["params"]["markers"]
-                assert "bc" in val["params"]["markers"]
-                assert "loading" in val["params"]["markers"]
+                assert any([key in val["params"]["markers"] for key in ["Np", "ppc", "ppb"]])
 
-                # background parameters
-                if "background" in val["params"]:
-                    bckgr_params = val["params"]["background"]
-                else:
-                    bckgr_params = None
+                bckgr_params = val["params"].get("background", None)
+                pert_params = val["params"].get("perturbation", None)
+                boxes_per_dim = val["params"].get("boxes_per_dim", None)
+                weights_params = val["params"].get("weights", None)
 
-                # perturbation parameters
-                if "perturbation" in val["params"]:
-                    pert_params = val["params"]["perturbation"]
+                if self.derham is None:
+                    domain_decomp = None
                 else:
-                    pert_params = None
-
-                if "sorting" in val["params"]:
-                    sorting_params = val["params"]["sorting"]
-                else:
-                    sorting_params = None
+                    domain_array = self.derham.domain_array
+                    nprocs = self.derham.domain_decomposition.nprocs
+                    domain_decomp = (domain_array, nprocs)
 
                 kinetic_class = getattr(particles, val["space"])
 
                 val["obj"] = kinetic_class(
-                    name=species,
+                    comm_world=self.comm_world,
+                    clone_config=self.clone_config,
                     **val["params"]["markers"],
-                    sorting_params=sorting_params,
-                    comm=self.derham.comm,
-                    inter_comm=self.derham.inter_comm,
+                    weights_params=weights_params,
+                    domain_decomp=domain_decomp,
+                    boxes_per_dim=boxes_per_dim,
+                    name=species,
+                    equation_params=self.equation_params[species],
                     domain=self.domain,
                     equil=self.equil,
+                    projected_equil=self.projected_equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params,
-                    equation_params=self.equation_params[species],
-                    domain_array=self.derham.domain_array,
-                    projected_equil=self.projected_equil,
                 )
 
                 obj = val["obj"]
@@ -1822,12 +1840,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 self._pointer[species] = obj
 
                 # for storing markers
-                n_markers = val["params"]["save_data"]["n_markers"]
-                assert n_markers <= obj.n_mks, (
-                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.n_mks})"
+                val["kinetic_data"] = {}
+
+                n_markers = val["params"]["save_data"].get("n_markers", 0)
+                assert n_markers <= obj.Np, (
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
                 )
                 if n_markers > 0:
-                    val["kinetic_data"] = {}
                     val["kinetic_data"]["markers"] = np.zeros(
                         (n_markers, obj.markers.shape[1]),
                         dtype=float,
@@ -1866,6 +1885,26 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                 n_bins[i],
                                 dtype=float,
                             )
+
+                # for storing an sph evaluation of the density n
+                if "n_sph" in val["params"]["save_data"]:
+                    plot_pts = val["params"]["save_data"]["n_sph"]["plot_pts"]
+
+                    val["kinetic_data"]["n_sph"] = []
+                    val["plot_pts"] = []
+                    for i, pts in enumerate(plot_pts):
+                        assert len(pts) == 3
+                        eta1 = np.linspace(0.0, 1.0, pts[0])
+                        eta2 = np.linspace(0.0, 1.0, pts[1])
+                        eta3 = np.linspace(0.0, 1.0, pts[2])
+                        ee1, ee2, ee3 = np.meshgrid(
+                            eta1,
+                            eta2,
+                            eta3,
+                            indexing="ij",
+                        )
+                        val["plot_pts"] += [(ee1, ee2, ee3)]
+                        val["kinetic_data"]["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
@@ -1939,7 +1978,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         units, equation_params = self.model_units(
             self.params,
             verbose=False,
-            comm=self.comm,
+            comm=self.comm_world,
         )
 
         # units affices for printing
@@ -1991,7 +2030,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         if magnetic_field < 1e-14:
             magnetic_field = np.nan
-            print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
+            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
         if verbose:
             print("\nPLASMA PARAMETERS:")
@@ -2080,7 +2119,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # create temp kinetic object for (default) parameter extraction
                 tmp_bckgr = val["params"]["background"]
 
-                if val["params"]["markers"]["loading_params"]["moments"] != "degenerate":
+                if val["space"] != "ParticlesSPH":
                     tmp = None
                     for fi, maxw_params in tmp_bckgr.items():
                         if fi[-2] == "_":
@@ -2099,10 +2138,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                                 equil=self.equil,
                             )
 
-                if (
-                    val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
-                    and tmp.coords == "constants_of_motion"
-                ):
+                if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
                     # call parameters
                     a1 = self.domain.params_map["a1"]
                     r = eta1mg * (1 - a1) + a1
@@ -2187,7 +2223,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if verbose:
             print("\nSPECIES PARAMETERS:")
             for species, ch in pparams.items():
-                print(f"\nname:".ljust(25), species)
+                print(f"\nname:".ljust(26), species)
                 print(f"type:".ljust(25), ch["type"])
                 ch.pop("type")
                 print(f"is bulk:".ljust(25), species == self.bulk_species())

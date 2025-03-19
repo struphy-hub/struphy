@@ -49,15 +49,36 @@ def find_box(
     nz: "int",
     domain_array: "float[:]",
 ):
-    """Return the number of the box in which the point (eta1, eta2, eta3) is located, or -1 if the point is not on the process."""
-    # Leave some room before and after the end of the domain for the box coming from neighbouring processes
+    """Return the number of the box in which the point (eta1, eta2, eta3) is located,
+    or -1 if the point is not on the process.
 
+    Parameters
+    ----------
+    eta1, eta2, eta3 : array
+        Logical evaluation points.
+
+    nx, ny, nz : int
+        Number of boxes in each dimension, per mpi process.
+
+    domain_array : array
+        Information of the domain on the current mpi process.
+    """
+    # offset if point is on right boundary
+    if eta1 == domain_array[1]:
+        eta1 -= 1e-8
+    if eta2 == domain_array[4]:
+        eta2 -= 1e-8
+    if eta3 == domain_array[7]:
+        eta3 -= 1e-8
+
+    # Leave some room before and after the end of the domain for the box coming from neighbouring processes
     x_l = domain_array[0] - (domain_array[1] - domain_array[0]) / nx
     x_r = domain_array[1] + (domain_array[1] - domain_array[0]) / nx
     y_l = domain_array[3] - (domain_array[4] - domain_array[3]) / ny
     y_r = domain_array[4] + (domain_array[4] - domain_array[3]) / ny
     z_l = domain_array[6] - (domain_array[7] - domain_array[6]) / nz
     z_r = domain_array[7] + (domain_array[7] - domain_array[6]) / nz
+
     if eta1 < x_l or eta1 > x_r or eta2 < y_l or eta2 > y_r or eta3 < z_l or eta3 > z_r:
         return -1
     n1 = int(floor((eta1 - x_l) / (x_r - x_l) * (nx + 2)))
@@ -85,7 +106,15 @@ def put_particles_in_boxes_kernel(
         if holes[p]:
             n_box = (nx + 2) * (ny + 2) * (nz + 2)
         else:
-            a = find_box(markers[p, 0], markers[p, 1], markers[p, 2], nx, ny, nz, domain_array)
+            a = find_box(
+                markers[p, 0],
+                markers[p, 1],
+                markers[p, 2],
+                nx,
+                ny,
+                nz,
+                domain_array,
+            )
             if a >= (nx + 2) * (ny + 2) * (nz + 2) or a < 0:
                 n_box = (nx + 2) * (ny + 2) * (nz + 2)
             else:
@@ -149,7 +178,11 @@ def sort_boxed_particles(
 
 
 def reassign_boxes(
-    markers: "float[:,:]", holes: "bool[:]", boxes: "int[:,:]", next_index: "int[:]", box_index: "int" = -2
+    markers: "float[:,:]",
+    holes: "bool[:]",
+    boxes: "int[:,:]",
+    next_index: "int[:]",
+    box_index: "int" = -2,
 ):
     """Reloop over the particles after communication to update the neighbouring boxes
     with the right particles and the next_index for later sorting."""
@@ -160,7 +193,6 @@ def reassign_boxes(
         if holes[p]:
             continue
         else:
-            # print(markers[p,l+box_index])
             a = int(markers[p, l + box_index])
             boxes[a, next_index[a]] = p
             next_index[a] += 1

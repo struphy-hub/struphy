@@ -1,61 +1,56 @@
-## Version 2.4.0
+## Version 2.4.1
 
 ### Headlines
 
-* Remove `python<3.12` and `numpy<2` requirements !600
+* Implemetation of the SPH method - see Tutorial 02 and the new model `IsothermalEulerSPH`. This required refactoring `Particles.__init__` and other parts of the base class !632
 
-* No more fixed dependencies; this enhances compatibility of `struphy` with other packages !618
+* Sound wave verification test for `IsothermalEulerSPH` !636
 
-* Use of optional dependencies: 
-  * unit testing can be enabled with `pip install .[test]` (or `pip install struphy[test]` from PyPI)
-  * usual development (testing + linting + formatting) is enabled by `pip install .[dev]`
-  * building the doc is enabled by `pip install .[doc]`
-  * These can be also combined, e.g. you get the full version (as until now) via `pip install .[dev,doc]`. !609
-
-* Use of new psydac fork https://github.com/max-models/psydac-for-struphy !563
+* New class `Tesselation`. The new marker loading mode "tesselation" allows to draw markers on a regular grid given by the center-of-mass points of a tesselation; unit tests were added. New entries for initializing weights to parameters.yml and in Particle base class: 
+```
+    weights : 
+        reject_weights : False # reject particles with a weight < threshold
+        threshold : 0.0
+        from_tesselation : False # compute weights from cell averages over a tesellation
+```
+!636
 
 
 ### User news
 
-* Reduce memory consumption at mpi sort markers and draw markers within the process domain !599
+* New variational MHD model using the pressure variable instead of the entropy.
+The model equivalent at the continuous level and have only small changes at the discrete level, requiring only the addition of a `VariationalPressureEvolve` and minor changes to the dissipative propagators !613
 
-* Possible first guess in the solve of Interpolation/Histpolation matrix (used in polar splines mainly) !598
+* Updated docker images !619
 
-* Speedup and linearization on variational propagators !597
+* More general fluid backgrounds: `FluidEquilibrium`, `FluidEquilibriumWithB` and `MHDequilibrium` !627
 
-* Removes assertion that `Np` should be in params file !588
+* Use optional dependencies for test, dev and doc. The command `pip install .` will just make a base installation for running code; unit testing can be enabled with `pip install .[test]`; usual development (testing + linting + formatting) is enabled by `pip install .[dev]`; building the doc is enabled by `pip install .[doc]`. These can be also combined - for example: you get the full version (as until now) via `pip install .[dev, doc]`. See also the updated install doc !609
 
-* New MHD tutorial notebook with slab dispersion relation !603
+* Restructure how parameters are passed to `background:` and `perturbation:`. The `type` keyword is removed from the parameter file; `comps` is replaced by `given_in_basis`: Moreover, allow passing `bckgr_params` and `pert_params` to `initialize_weights()` !626
 
-* Added `-v (--verbose)` flag to struphy run command and to StruphyModel base class; by default the major outputs of the model initialization are now suppressed (see the model tests for instance). !605
+* Improved console diagnostics !639
 
-* New toy model `PressurlessSPH` : first try to sph models. New Particle class `HydroParticles`, New background `FluidEquilibrium`. Added the possibility to pass `moments: degenerate` to the loading of the particles. In this case the velocity will be initialized as a function of the position without any randomness. !579
-
-* Basis Projection Operators with **local projectors**, based on quasi inter-/histopolation !562
-
-* Added the linearized Vlasov-Maxwell model (same as linearized Vlasov-Ampère but with Maxwell step). Added background magnetic field to `VlasovAmpereOneSpecies` and `LinearVlasovAmpereOneSpecies`. Updated Documentation of all kinetic models with Maxwell/Ampere equation + Vlasov equation to have a consistent normalization !601
+* New Particles sub-class `DeltaFParticles6D`. The Particle type is now set automatically at the init of the Particles class. In the parameter file we replaced `markers["type"]` keyword by `markers["control_variate"]` boolean !636
 
 
 ### Developer news
 
-* Set ruff as the default option (which is used in the CI) for code formatting !592
+* Added pre-commit hooks !573
 
-* Check OpenMP pragma formatting with `struphy lint` !604
+* Cleanup residual code from old versions of Vlasov Ampere / Maxwell !630
 
-* Add a job that tests `make html` to the CI !606
+* Added the flag `--time-execution` to struphy compile. This enables the timings of each step of the pyccelization of the kernels in struphy.
 
-* Remove `pytest-monitor` package and its use in console. This gets rid of the annoying pymon error when locally running parallel unit test. Also added the function `subp_run` which launches a subprocess and prints the command on screen. !605
+* New option `--verification` in `struphy test`.
+This option allows to call parameter files that are specified in io/inp/verification/. Added weak Landau damping verification tests for `VlasovAmpereOneSpecies` and `LinearVlasovAmpereOneSpecies`. `struphy test <model_name>` can now be called with `--mpi N` and any other option from test !633
 
-* Add tests for console commands !570
+* Refactored domain cloning !634
 
-* Scheduled CI pipelines can be started from Gitlab by clicking Pipelines --> Run Pipeline !600
+* Re-factoring of `geometry.evaluation_kernels`: `det_df`, `df_inv`, `g` and `ginv` can now be directly used in particle kernels
 
 
 ### Bug fixes
 
-* Fix DESC speedup - troubleshoot why it takes a LinearMHD simulation too long to ramp up when using a DESC equilibrium on many processes. !594
-
-* Resolve "Linting of OpenMP pragmas" !587
-
-* Fix libpython error: the error occured since the kernels in `psydac-for-struphy` was pyccelized without the --libdir LIBDIR flag. This meant that LD_LIBRARY_PATH had to be manually set. !610
+* Landau damping: pass correct equation parameters to propagator `VlasovAmpere` !628
 

@@ -698,3 +698,83 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
     # close hdf5 files
     for file in files:
         file.close()
+
+
+def post_process_n_sph(path_in, path_out, species, step=1, compute_bckgr=False):
+    """
+    Computes and saves the density n of saved sph data during a simulation.
+
+    Parameters
+    ----------
+    path_in : str
+        Absolute path of simulation output folder.
+
+    path_out : str
+        Absolute path of where to store the .txt files. Will be in path_out/orbits.
+
+    species : str
+        Name of the species for which the post processing should be performed.
+
+    step : int, optional
+        Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
+
+    compute_bckgr : bool
+        Whehter to compute the kinetic background values and add them to the binning data.
+        This is used if non-standard weights are binned.
+    """
+
+    # get model name and # of MPI processes from meta.txt file
+    with open(os.path.join(path_in, "meta.txt"), "r") as f:
+        lines = f.readlines()
+
+    nproc = lines[4].split()[-1]
+
+    # load parameters
+    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
+        params = yaml.load(f, Loader=yaml.FullLoader)
+
+    # open hdf5 files
+    files = [
+        h5py.File(
+            os.path.join(
+                path_in,
+                "data/",
+                f"data_proc{i}.hdf5",
+            ),
+            "r",
+        )
+        for i in range(int(nproc))
+    ]
+
+    # directory for .npy files
+    path_n_sph = os.path.join(path_out, "n_sph")
+
+    try:
+        os.mkdir(path_n_sph)
+    except:
+        shutil.rmtree(path_n_sph)
+        os.mkdir(path_n_sph)
+
+    print("Evaluation of sph density for " + str(species))
+
+    # Create grids
+    for i, view in enumerate(files[0]["kinetic/" + species + "/n_sph"]):
+        # create a new folder for each view
+        path_view = os.path.join(path_n_sph, view)
+        os.mkdir(path_view)
+
+        # save grid
+        for _, grid in files[0]["kinetic/" + species + "/n_sph/" + view].attrs.items():
+            grid_path = os.path.join(
+                path_view,
+                "grid_n_sph.npy",
+            )
+            np.save(grid_path, grid[:])
+
+        # load n_sph data
+        data = files[0]["kinetic/" + species + "/n_sph/" + view][::step].copy()
+        for rank in range(1, int(nproc)):
+            data += files[rank]["kinetic/" + species + "/n_sph/" + view][::step]
+
+        # save distribution functions
+        np.save(os.path.join(path_view, "n_sph.npy"), data)

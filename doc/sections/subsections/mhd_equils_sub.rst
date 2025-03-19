@@ -35,6 +35,21 @@ These classes provide discrete representations of fluid equilibria in De Rham sp
     :show-inheritance:
 
 
+.. _generic_equils:
+
+Generic fluid equilibria
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+These classes can be used to quickly pass callables to Struphy objects 
+(for instance in Jupyter notebooks).
+
+.. automodule:: struphy.fields_background.generic
+    :members:
+    :undoc-members:
+    :exclude-members: set_defaults
+    :show-inheritance:
+
+
 .. _mhd_base:
 
 Base classes

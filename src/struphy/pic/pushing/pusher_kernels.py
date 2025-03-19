@@ -11,6 +11,7 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -53,13 +54,13 @@ def push_v_with_efield(
     """
 
     # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinvt = empty((3, 3), dtype=float)
+    dfm = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvt = zeros((3, 3), dtype=float)
 
     # allocate for field evaluations (1-form and Cartesian components)
-    e_form = empty(3, dtype=float)
-    e_cart = empty(3, dtype=float)
+    e_form = zeros(3, dtype=float)
+    e_cart = zeros(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -86,8 +87,7 @@ def push_v_with_efield(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
         linalg_kernels.transpose(dfinv, dfinvt)
 
         # spline evaluation
@@ -164,7 +164,7 @@ def push_vxb_analytic(
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         e1 = markers[ip, 0]
@@ -2761,11 +2761,12 @@ def push_weights_with_efield_lin_va(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
 
     #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
     for ip in range(n_markers):
-        if markers[ip, 0] == -1:
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         # position
@@ -2846,7 +2847,10 @@ def push_deterministic_diffusion_stage(
     for each marker :math:`p` in markers array, where :math:`\frac{\nabla \hat u^0}{\hat u^0}` is constant in time. :math:`D>0` is a positive, constant diffusion coefficient.
     """
 
-    # allocate metric coeffs
+    # allocate arrays
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
+    tmp3 = zeros((3, 3), dtype=float)
     ginv = zeros((3, 3), dtype=float)
 
     # intermediate k-vector
@@ -2910,6 +2914,10 @@ def push_deterministic_diffusion_stage(
             e2,
             e3,
             args_domain,
+            tmp1,
+            tmp2,
+            tmp3,
+            False,
             ginv,
         )
 
@@ -2971,5 +2979,240 @@ def push_random_diffusion_stage(
             continue
 
         markers[ip, 0:3] += sqrt(2 * dt * diffusion_coeff) * noise[ip, :]
+
+    #$ omp end parallel
+
+
+@stack_array("grad_u", "grad_u_cart", "tmp1", "tmp2", "tmp3", "ginv")
+def push_v_sph_pressure(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    boxes: "int[:,:]",
+    neighbours: "int[:, :]",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+):
+    r"""Updates particle velocities as
+
+    .. math::
+
+        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = \kappa_p \sum_{q} w_p\,w_q \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_q)} \right) G^{-1}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_q) \,,
+
+    where :math:`G^{-1}` denotes the inverse metric tensor, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta_p) = \frac 1N \sum_q w_q \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_q)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+
+    Parameters
+    ----------
+    boxes : 2d array
+        Box array of the sorting boxes structure.
+
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+    """
+    # allocate arrays
+    grad_u = zeros(3, dtype=float)
+    grad_u_cart = zeros(3, dtype=float)
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
+    tmp3 = zeros((3, 3), dtype=float)
+    ginv = zeros((3, 3), dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
+    first_free_idx = args_markers.first_free_idx
+    valid_mks = args_markers.valid_mks
+
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp for
+    for ip in range(n_markers):
+        if not valid_mks[ip]:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        weight = markers[ip, weight_idx]
+        kappa = 1.0  # markers[ip, first_diagnostics_idx]
+        n_at_eta = markers[ip, first_free_idx]
+        loc_box = int(markers[ip, -2])
+
+        # first component
+        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            weight_idx,
+            kernel_type + 1,
+            h1,
+            h2,
+            h3,
+        )
+        grad_u[0] *= kappa * weight / n_at_eta
+
+        sum2 = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            first_free_idx + 1,
+            kernel_type + 1,
+            h1,
+            h2,
+            h3,
+        )
+        sum2 *= kappa * weight
+        grad_u[0] += sum2
+
+        if kernel_type >= 340:
+            # second component
+            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                weight_idx,
+                kernel_type + 2,
+                h1,
+                h2,
+                h3,
+            )
+            grad_u[1] *= kappa * weight / n_at_eta
+
+            sum4 = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                first_free_idx + 1,
+                kernel_type + 2,
+                h1,
+                h2,
+                h3,
+            )
+            sum4 *= kappa * weight
+            grad_u[1] += sum4
+
+        if kernel_type >= 670:
+            # third component
+            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                weight_idx,
+                kernel_type + 3,
+                h1,
+                h2,
+                h3,
+            )
+            grad_u[2] *= kappa * weight / n_at_eta
+
+            sum6 = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                first_free_idx + 1,
+                kernel_type + 3,
+                h1,
+                h2,
+                h3,
+            )
+            sum6 *= kappa * weight
+            grad_u[2] += sum6
+
+        # push to Cartesian coordinates
+        evaluation_kernels.g_inv(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            tmp1,
+            tmp2,
+            tmp3,
+            False,
+            ginv,
+        )
+        linalg_kernels.matrix_vector(ginv, grad_u, grad_u_cart)
+
+        # update velocities
+        markers[ip, 3:6] -= dt * grad_u_cart
 
     #$ omp end parallel

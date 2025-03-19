@@ -2,18 +2,25 @@ import inspect
 
 import pytest
 
-from struphy.models.tests.util import call_model
+from struphy.models.tests.util import call_test
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "map_and_equil", [("Cuboid", "HomogenSlab"), ("HollowTorus", "AdhocTorus"), ("Tokamak", "EQDSKequilibrium")]
 )
-def test_toy(map_and_equil, fast, vrbose, model=None, Tend=None):
-    """Tests all models and all possible model.options (except solvers without preconditioner) in models/toy.py.
+def test_toy(
+    map_and_equil: tuple | list,
+    fast: bool,
+    vrbose: bool,
+    verification: bool,
+    show_plots: bool,
+    *,
+    model: str = None,
+    Tend: float = None,
+):
+    """Tests models in models/toy.py.
 
     If model is not None, tests the specified model.
-
     The argument "fast" is a pytest option that can be specified at the command line (see conftest.py)."""
 
     from mpi4py import MPI
@@ -30,13 +37,74 @@ def test_toy(map_and_equil, fast, vrbose, model=None, Tend=None):
                         print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
                         continue
 
-                call_model(key, val, map_and_equil, Tend=Tend, verbose=vrbose, comm=comm)
+                call_test(
+                    key,
+                    val,
+                    map_and_equil,
+                    Tend=Tend,
+                    verbose=vrbose,
+                    comm=comm,
+                    verification=verification,
+                    show_plots=show_plots,
+                )
     else:
         val = getattr(toy, model)
-        call_model(model, val, map_and_equil, Tend=Tend, verbose=vrbose, comm=comm)
+        call_test(
+            model,
+            val,
+            map_and_equil,
+            Tend=Tend,
+            verbose=vrbose,
+            comm=comm,
+            verification=verification,
+            show_plots=show_plots,
+        )
 
 
 if __name__ == "__main__":
-    test_toy(("Cuboid", "HomogenSlab"), True, True)
-    test_toy(("HollowTorus", "AdhocTorus"), True, True)
-    test_toy(("Tokamak", "EQDSKequilibrium"), True, True)
+    # This is called in struphy_test in case "group" is a model name
+    import sys
+
+    model = sys.argv[1]
+    if sys.argv[2] == "None":
+        Tend = None
+    else:
+        Tend = float(sys.argv[2])
+    fast = sys.argv[3] == "True"
+    vrbose = sys.argv[4] == "True"
+    verification = sys.argv[5] == "True"
+    show_plots = sys.argv[6] == "True"
+
+    map_and_equil = ("Cuboid", "HomogenSlab")
+    test_toy(
+        map_and_equil,
+        fast,
+        vrbose,
+        verification,
+        show_plots,
+        model=model,
+        Tend=Tend,
+    )
+
+    if not fast and not verification:
+        map_and_equil = ("HollowTorus", "AdhocTorus")
+        test_toy(
+            map_and_equil,
+            fast,
+            vrbose,
+            verification,
+            show_plots,
+            model=model,
+            Tend=Tend,
+        )
+
+        map_and_equil = ("Tokamak", "EQDSKequilibrium")
+        test_toy(
+            map_and_equil,
+            fast,
+            vrbose,
+            verification,
+            show_plots,
+            model=model,
+            Tend=Tend,
+        )
