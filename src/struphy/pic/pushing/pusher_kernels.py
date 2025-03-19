@@ -3050,7 +3050,7 @@ def push_v_sph_pressure(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, ginv)
     #$ omp for
     for ip in range(n_markers):
         if not valid_mks[ip]:
