@@ -120,7 +120,7 @@ class CloneConfig:
             return int(markers["ppc"] * n_cells)
         elif "ppb" in markers:
             n_boxes = np.prod(species["boxes_per_dim"], dtype=int)
-            return int(markers["bbc"] * n_boxes)
+            return int(markers["ppb"] * n_boxes)
 
     def print_clone_config(self):
         """Print a table summarizing the clone configuration."""
