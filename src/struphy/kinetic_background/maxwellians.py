@@ -4,9 +4,8 @@ import numpy as np
 
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.initial import perturbations
 from struphy.kinetic_background import moment_functions
-from struphy.kinetic_background.base import CanonicalMaxwellian, KineticBackground, Maxwellian
+from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
 
 
 class Maxwellian3D(Maxwellian):
