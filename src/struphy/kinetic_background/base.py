@@ -5,9 +5,10 @@ from abc import ABCMeta, abstractmethod
 
 import numpy as np
 
-from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.initial import perturbations
+from struphy.initial.utilities import Noise
 from struphy.kinetic_background import moment_functions
 
 
@@ -611,17 +612,26 @@ class Maxwellian(KineticBackground):
         if name in self.pert_params:
             pp_copy = copy.deepcopy(self.pert_params)
             for pert, params in pp_copy[name].items():
-                assert params["given_in_basis"] == "0", "Moment perturbations must be passed as 0-forms to Maxwellians."
-                params.pop("given_in_basis")
-
-                perturbation = getattr(perturbations, pert)(
-                    **params,
-                )
-
-                if eta1.ndim == 1:
-                    out += perturbation(eta1, eta2, eta3)
+                if pert == "Noise":
+                    noise = Noise(**params)
+                    if eta1.ndim == 1:
+                        out += noise(eta1, eta2, eta3)
+                    else:
+                        out += noise(*etas)
                 else:
-                    out += perturbation(*etas)
+                    assert params["given_in_basis"] == "0", (
+                        "Moment perturbations must be passed as 0-forms to Maxwellians."
+                    )
+                    params.pop("given_in_basis")
+
+                    perturbation = getattr(perturbations, pert)(
+                        **params,
+                    )
+
+                    if eta1.ndim == 1:
+                        out += perturbation(eta1, eta2, eta3)
+                    else:
+                        out += perturbation(*etas)
 
         return out
 
