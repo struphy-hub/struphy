@@ -13,9 +13,7 @@ __version__ = importlib.metadata.version("struphy")
 
 
 def struphy():
-    """
-    Struphy main executable. Performs argument parsing and sub-command call.
-    """
+    """Struphy main executable. Performs argument parsing and sub-command call."""
 
     import argparse
     import pickle
@@ -619,6 +617,12 @@ def struphy():
     parser_pproc.add_argument(
         "--classify",
         help="classify guiding-center trajectories (passing, trapped or lost)",
+        action="store_true",
+    )
+
+    parser_pproc.add_argument(
+        "--no-vtk",
+        help="whether vtk files creation should be skipped",
         action="store_true",
     )
 
