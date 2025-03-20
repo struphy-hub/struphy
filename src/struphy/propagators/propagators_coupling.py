@@ -1755,6 +1755,7 @@ class CurrentCoupling5DCurlb(Propagator):
             "e3": 0.0,
         }
         dct["reduced_coupling"] = False
+        dct["full_f"] = False
         dct["turn_off"] = False
 
         if default:
@@ -1779,7 +1780,8 @@ class CurrentCoupling5DCurlb(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        reduced_coupling: dict = options(default=True)["reduced_coupling"]
+        reduced_coupling: dict = options(default=True)["reduced_coupling"],
+        full_f: dict = options(default=True)["full_f"],
     ):
         super().__init__(particles, u)
 
@@ -1880,6 +1882,7 @@ class CurrentCoupling5DCurlb(Propagator):
                 self._coupling_mat,
                 self._coupling_vec,
                 self._boundary_cut_e1,
+                full_f,
             )
 
         self._ACC = Accumulator(

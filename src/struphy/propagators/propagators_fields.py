@@ -1917,10 +1917,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
-        b2acc = self._B2.dot(self._ACC.vectors[0]*2., out=self._tmp_acc)
+        b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
         byn += b2acc
 
-        # b2acc.copy(out=self._accumulated_magnetization)
+        b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 

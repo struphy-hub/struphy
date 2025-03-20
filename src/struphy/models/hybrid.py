@@ -776,18 +776,20 @@ class LinearMHDDriftkineticCC(StruphyModel):
         else:
             self._ones[:] = 1.0
 
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = None
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = None
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
-            "b_tilde": self.pointer["b_field"],
-            "algo": params_bxE["algo"],
-            "epsilon": epsilon,
-        }
+        # self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
+        #     "b_tilde": self.pointer["b_field"],
+        #     "algo": params_bxE["algo"],
+        #     "epsilon": epsilon,
+        # }
 
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
-            "b_tilde": self.pointer["b_field"],
-            "algo": params_parallel["algo"],
-            "epsilon": epsilon,
-        }
+        # self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
+        #     "b_tilde": self.pointer["b_field"],
+        #     "algo": params_parallel["algo"],
+        #     "epsilon": epsilon,
+        # }
 
         if params_cc_gradB["turn_off"]:
             self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None
@@ -827,6 +829,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_curlb["boundary_cut"],
                 "reduced_coupling": params_cc_curlb["reduced_coupling"],
+                "full_f": params_cc_curlb["full_f"],
             }
 
         if params_density["turn_off"]:
@@ -907,13 +910,14 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._tmp_b = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
+
         self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u)
-        en_U = self.pointer["mhd_velocity"].dot(self._tmp_u) / 2
+        en_U = self.pointer["mhd_velocity"].dot(self._tmp_u) / 2.
 
         en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)
 
         self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b)
-        en_B = self.pointer["b_field"].dot(self._tmp_b) / 2
+        en_B = self.pointer["b_field"].dot(self._tmp_b) / 2.
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_p", en_p)
@@ -921,7 +925,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self._en_fv[0] = (
             self.pointer["energetic_ions"]
-            .markers[~self.pointer["energetic_ions"].holes, 5]
+            .markers[~self.pointer["energetic_ions"].holes, 7]
             .dot(
                 self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 3] ** 2,
             )
@@ -937,9 +941,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self.pointer["b_field"],
         )
 
+        # self.pointer["energetic_ions"].save_magnetic_background_energy()
+
         self._en_fB[0] = (
             self.pointer["energetic_ions"]
-            .markers[~self.pointer["energetic_ions"].holes, 5]
+            .markers[~self.pointer["energetic_ions"].holes, 7]
             .dot(
                 self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 8],
             )

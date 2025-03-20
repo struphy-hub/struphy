@@ -806,6 +806,7 @@ def cc_lin_mhd_5d_curlb(
     scale_mat: "float",  # model specific argument
     scale_vec: "float",  # model specific argument
     boundary_cut: "float",  # model specific argument
+    full_f: "bool",  # model specific argument
 ):
     r"""TODO"""
 
@@ -913,8 +914,13 @@ def cc_lin_mhd_5d_curlb(
         linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
         linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
 
-        filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-        filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+        if full_f:
+            filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+            filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+
+        else:
+            filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+            filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
 
         # b contribution
         linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)

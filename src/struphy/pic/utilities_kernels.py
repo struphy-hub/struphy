@@ -322,7 +322,7 @@ def eval_magnetic_energy(
         b_para = linalg_kernels.scalar_dot(norm_b1, b)
         b_para /= det_df
 
-        markers[ip, first_diagnostics_idx] = mu * (abs_B + b_para)
+        markers[ip, first_diagnostics_idx] = mu * abs(abs_B + b_para)
 
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
