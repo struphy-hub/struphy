@@ -13,6 +13,7 @@ def test_kinetic(
     fast: bool,
     vrbose: bool,
     verification: bool,
+    nclones: int,
     show_plots: bool,
     *,
     model: str = None,
@@ -22,6 +23,8 @@ def test_kinetic(
 
     If model is not None, tests the specified model.
     The argument "fast" is a pytest option that can be specified at the command line (see conftest.py)."""
+
+    print(f"{nclones = } from def test_kinetic")
 
     from mpi4py import MPI
 
@@ -43,6 +46,7 @@ def test_kinetic(
                     verbose=vrbose,
                     comm=comm,
                     verification=verification,
+                    nclones=nclones,
                     show_plots=show_plots,
                 )
     else:
@@ -55,6 +59,7 @@ def test_kinetic(
             verbose=vrbose,
             comm=comm,
             verification=verification,
+            nclones=nclones,
             show_plots=show_plots,
         )
 
