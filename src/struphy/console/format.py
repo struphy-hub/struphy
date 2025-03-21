@@ -1288,7 +1288,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
                         html_content.append("</div>")
                 else:
                     html_content.append(
-                        f"<p>Cannot read file <code>{filename}</code> or invalid row " f"<code>{row}</code>.</p>"
+                        f"<p>Cannot read file <code>{filename}</code> or invalid row <code>{row}</code>.</p>"
                     )
 
                 html_content.append("</div>")
