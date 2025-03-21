@@ -389,6 +389,7 @@ Ubuntu_latest:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
     - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim --mpi 4 --nclones 2
 
 # Quickstart test
@@ -468,6 +469,7 @@ c_model_tests:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
 
 c_model_tests_psydac_whl:
   stage: test
@@ -491,6 +493,7 @@ c_model_tests_psydac_whl:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
 
 pages_tests:
   stage: test
@@ -527,6 +530,7 @@ c_model_cronjob_tests:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
   artifacts:
     name: 'python-env-installed-2'
     paths:
@@ -579,6 +583,7 @@ fortran_model_tests:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
 Ubuntu_22_04:

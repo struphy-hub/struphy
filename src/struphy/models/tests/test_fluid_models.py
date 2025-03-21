@@ -13,6 +13,7 @@ def test_fluid(
     fast: bool,
     vrbose: bool,
     verification: bool,
+    nclones: int,
     show_plots: bool,
     *,
     model: str = None,
@@ -50,6 +51,7 @@ def test_fluid(
                     verbose=vrbose,
                     comm=comm,
                     verification=verification,
+                    nclones=nclones,
                     show_plots=show_plots,
                 )
     else:
@@ -68,6 +70,7 @@ def test_fluid(
             verbose=vrbose,
             comm=comm,
             verification=verification,
+            nclones=nclones,
             show_plots=show_plots,
         )
 
