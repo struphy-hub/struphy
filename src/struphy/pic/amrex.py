@@ -15,7 +15,6 @@ class Amrex:
                 # # debuggers
                 "amrex.throw_exception=0",
                 "amrex.signal_handling=1",
-                "tiny_profiler.verbose=1",
             ]
         )
 

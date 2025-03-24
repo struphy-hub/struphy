@@ -9,6 +9,7 @@ from struphy.pic.amrex import Amrex
 from struphy.pic.particles import Particles6D
 from struphy.propagators.propagators_markers import PushEta
 
+Np = 20
 
 def test_amrex_box(plot=False, verbose=False):
     l1 = -5
@@ -24,7 +25,7 @@ def test_amrex_box(plot=False, verbose=False):
 
     # mandatory parameters
     name = "test"
-    Np = 2
+    
     bc = ["periodic", "periodic", "periodic"]
     loading = "pseudo_random"
 
@@ -174,7 +175,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     # instantiate Particle object
     name = "test"
-    Np = 2
+    
     bc = ["periodic", "periodic", "periodic"]
     loading = "pseudo_random"
     loading_params = {"seed": None}
@@ -256,7 +257,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     if plot:
         plot_cylinder_over_time(
-            pos,
+            amrex_pos,
             Np,
             colors,
             alpha,
@@ -266,7 +267,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
         )
 
         plot_cylinder_over_time(
-            pos,
+            struphy_pos,
             Np,
             colors,
             alpha,
@@ -398,7 +399,7 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     # simulation parameters
     Tend = 20.0
     dt = 0.5
-    Np = 2
+    
 
     # initialize amrex
     amrex = Amrex()
@@ -432,7 +433,7 @@ def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
     # simulation parameters
     Tend = 20.0
     dt = 0.5
-    Np = 2
+    000
 
     # initialize amrex
     amrex = Amrex()
@@ -565,6 +566,8 @@ def push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt):
 
         # scaling for plotting
         alpha[n] = (Tend - time) / Tend
+        
+        print("Time: ", time)
 
     return struphy_pos, amrex_pos, alpha
 
@@ -617,3 +620,4 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 if __name__ == "__main__":
     test_amrex_boundary_conditions_box(plot=True, verbose=True)
+    # test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)

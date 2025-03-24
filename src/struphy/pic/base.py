@@ -1892,6 +1892,8 @@ class Particles(metaclass=ABCMeta):
                 #     ] = -1.0
 
             elif bc == "reflect":
+                markers_array[axis][is_outside_left] = 1e-4
+                markers_array[axis][is_outside_right] = 1 - 1e-4
                 amrex_reflect(
                     self,
                     outside_inds,
