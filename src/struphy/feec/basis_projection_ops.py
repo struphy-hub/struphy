@@ -512,7 +512,7 @@ class BasisProjectionOperators:
 
         .. math::
 
-            \mathcal{S}^{21}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^1_{(\mu, ijk)} \left[\hat{p}_{\text{eq}} \frac{G_{\mu, \nu}}{\sqrt{g}} \Lambda^2_{(\nu, mno)} \right] \,.
+            \mathcal{S}^{21}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^1_{(\mu, ijk)} \left[ \frac{G_{\mu, \nu}}{\sqrt{g}} \Lambda^2_{(\nu, mno)} \right] \,.
         """
         if not hasattr(self, "_S21"):
             fun = []
@@ -520,12 +520,8 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self.weights["eq_mhd"].p0(
-                            e1,
-                            e2,
-                            e3,
-                        )
-                        * self.G(e1, e2, e3)[:, :, :, m, n]
+                        lambda e1, e2, e3, m=m, n=n: 
+                        self.G(e1, e2, e3)[:, :, :, m, n]
                         / self.sqrt_g(e1, e2, e3),
                     ]
 
