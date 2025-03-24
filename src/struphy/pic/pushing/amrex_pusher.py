@@ -97,9 +97,8 @@ def amrex_reflect(
 
     # evaluate inverse Jacobian matrices for each point
     etas = array([e1, e2, e3]).T.copy()  # needed for c kernels
-    etas = append(etas, [[0, 0, 0]], axis=0)
-    jacobian = particles.domain.jacobian(etas, change_out_order=True)  # Npx3x3
-    jacobian_inv = particles.domain.jacobian_inv(etas, change_out_order=True)  # Npx3x3
+    jacobian = particles.domain.jacobian(etas, change_out_order=True, remove_outside=False)  # Npx3x3
+    jacobian_inv = particles.domain.jacobian_inv(etas, change_out_order=True, remove_outside=False)  # Npx3x3
 
     # pull-back of velocity
     v = array([v1, v2, v3]).T
@@ -114,6 +113,6 @@ def amrex_reflect(
     v = matmul(jacobian, v_logical)
 
     # update the particle velocities
-    markers_array["v1"][outside_inds] = v[:, 0]
-    markers_array["v2"][outside_inds] = v[:, 1]
-    markers_array["v3"][outside_inds] = v[:, 2]
+    markers_array["v1"][outside_inds] = v[:, 0].squeeze()
+    markers_array["v2"][outside_inds] = v[:, 1].squeeze()
+    markers_array["v3"][outside_inds] = v[:, 2].squeeze()

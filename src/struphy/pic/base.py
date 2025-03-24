@@ -1041,10 +1041,12 @@ class Particles(metaclass=ABCMeta):
                 print("\nLoading fresh markers:")
                 print(("seed:").ljust(25), _seed)
 
+            rng = np.random.default_rng(_seed)
+            
             if _seed is None:
-                rng = np.random.default_rng()
-                _seed = rng.integers(1000)  # random seed
+                _seed = rng.integers(1, 1000)  # random seed
 
+                
             myt = amr.ParticleInitType_pureSoA_8_0()  # the data is 0 by default
 
             # initialize particles in the whole domain, in each process (non serialized)
@@ -1860,6 +1862,7 @@ class Particles(metaclass=ABCMeta):
                 # self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
             elif bc == "periodic":
+                # self._markers.redistribute()
                 continue
                 # TODO (Mati) check this out and see how it interacts with out of the box periodic bc
 
@@ -1894,11 +1897,19 @@ class Particles(metaclass=ABCMeta):
             elif bc == "reflect":
                 markers_array[axis][is_outside_left] = 1e-4
                 markers_array[axis][is_outside_right] = 1 - 1e-4
+                
+                self._markers.redistribute()
+                
                 amrex_reflect(
                     self,
                     outside_inds,
                     i,
                 )
+                
+                markers_array["init_x"][is_outside] = -1.0
+                
+                self._markers.redistribute()
+                
             else:
                 raise NotImplementedError("Given bc_type is not implemented!")
 

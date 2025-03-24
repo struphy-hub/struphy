@@ -1,4 +1,6 @@
 import math
+import cProfile, pstats, io
+from pstats import SortKey
 
 import numpy as np
 import pytest
@@ -9,7 +11,7 @@ from struphy.pic.amrex import Amrex
 from struphy.pic.particles import Particles6D
 from struphy.propagators.propagators_markers import PushEta
 
-Np = 20
+Np = 4
 
 def test_amrex_box(plot=False, verbose=False):
     l1 = -5
@@ -400,7 +402,6 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     Tend = 20.0
     dt = 0.5
     
-
     # initialize amrex
     amrex = Amrex()
 
@@ -620,4 +621,4 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 if __name__ == "__main__":
     test_amrex_boundary_conditions_box(plot=True, verbose=True)
-    # test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)
+    test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)
