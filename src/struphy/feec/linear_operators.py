@@ -50,10 +50,9 @@ class LinOpWithTransp(LinearOperator):
         v = self.domain.zeros()
         # We define a temporal vector
         tmp2 = self.codomain.zeros()
-
-        if isinstance(self.domain, BlockVectorSpace):
+        if isinstance(self.domain.starts[0], tuple): #isinstance(self.domain, BlockVectorSpace):
             comm = self.domain.spaces[0].cart.comm
-        elif isinstance(self.domain, StencilVectorSpace):
+        elif isinstance(self.domain.starts[0], np.int64): #isinstance(self.domain, StencilVectorSpace):
             comm = self.domain.cart.comm
         rank = comm.Get_rank()
         size = comm.Get_size()
@@ -83,7 +82,7 @@ class LinOpWithTransp(LinearOperator):
             colarr = []
 
         # V is either a BlockVector or a StencilVector depending on the domain of the linear operator.
-        if isinstance(self.domain, BlockVectorSpace):
+        if isinstance(self.domain.starts[0], tuple): #if isinstance(self.domain, BlockVectorSpace):
             # we collect all starts and ends in two big lists
             starts = [vi.starts for vi in v]
             ends = [vi.ends for vi in v]
@@ -160,7 +159,7 @@ class LinOpWithTransp(LinearOperator):
                     spoint += cummulative
                     npredim += ndim[h]
                 currentrank += 1
-        elif isinstance(self.domain, StencilVectorSpace):
+        elif isinstance(self.domain.starts[0], np.int64): #elif isinstance(self.domain, StencilVectorSpace):
             # We get the start and endpoint for each sublist in v
             starts = v.starts
             ends = v.ends
