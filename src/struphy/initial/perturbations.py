@@ -938,10 +938,6 @@ class AnalyticSolutionRestelliVelocity_y:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2+y**2)
         phi = np.arctan2(-y, x)
-        # print(f'{max(R) = }')
-        # print(f'{min(R) = }')
-        # print(f'{max(phi) = }')
-        # print(f'{min(phi) = }')
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
         uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
         uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
@@ -1202,7 +1198,7 @@ class ManufacturedSolutionVelocityElectrons_x:
         """Velocity of ions and electrons."""
         #ux = -0.5*np.sin(y)
         #ux = -y**3
-        ux = -2.0*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+        ux = -np.sin(4*np.pi*x)*np.sin(4*np.pi*y)
         
         return ux
     
@@ -1245,7 +1241,7 @@ class ManufacturedSolutionVelocityElectrons_y:
         """Velocity of ions and electrons."""
         #uy = 0.5*np.cos(x)
         #uy = x**3
-        uy = -2.0*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
+        uy = -np.cos(4*np.pi*x)*np.cos(4*np.pi*y)
         
         return uy
     
@@ -1334,7 +1330,7 @@ class ManufacturedSolutionForceterm_x:
         """Velocity of ions and electrons."""
         #fx = 1.0 - self._nu*np.sin(y)-self._b* np.cos(x)
         #fx = 2.0*x - self._b*x**2+2.0*self._nu
-        fx = -2.0*np.pi*np.sin(2*np.pi*x)+np.cos(2*np.pi*x)*np.cos(2*np.pi*y)*self._b-self._nu*4.0*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+        fx = -2.0*np.pi*np.sin(2*np.pi*x)+np.cos(2*np.pi*x)*np.cos(2*np.pi*y)*self._b-self._nu*8.0*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
         
         return fx
     
@@ -1380,7 +1376,7 @@ class ManufacturedSolutionForceterm_y:
         """Velocity of ions and electrons."""
         #fy = 1.0 + self._nu*np.cos(x)-self._b* np.sin(y)
         #fy = 2*y - self._b*y**2 -2.0*self._nu
-        fy = 2.0*np.pi*np.cos(2*np.pi*y)-np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*self._b-self._nu*4.0*np.pi**2*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
+        fy = 2.0*np.pi*np.cos(2*np.pi*y)-np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*self._b-self._nu*8.0*np.pi**2*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
         
         return fy
     
@@ -1426,8 +1422,8 @@ class ManufacturedSolutionForcetermElectrons_x:
         """Velocity of ions and electrons."""
         #fx = -1.0  - self._nu_e*0.5*np.sin(y)+ 0.5*self._b* np.cos(x)
         #fx = -2*x+self._b*x**3+6.0*y*self._nu_e
-        fx = 2.0*np.pi*np.sin(2*np.pi*x)-2.0*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)*self._b-self._nu_e*8.0*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-        
+        fx = 2.0*np.pi*np.sin(2*np.pi*x)-np.cos(4*np.pi*x)*np.cos(4*np.pi*y)*self._b-self._nu_e*32.0*np.pi**2*np.sin(4*np.pi*x)*np.sin(4*np.pi*y)
+
         return fx    
     
     
@@ -1473,7 +1469,6 @@ class ManufacturedSolutionForcetermElectrons_y:
         """Velocity of ions and electrons."""
         #fy = -1.0 + self._nu_e*0.5*np.cos(x)+ 0.5*self._b* np.sin(y) 
         #fy = -2*y + self._b * y**3 - 6.0*x*self._nu_e
-        print(self._nu_e)
-        fy = -2.0*np.pi*np.cos(2*np.pi*y)+2.0*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*self._b-self._nu_e*8.0*np.pi**2*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
-        
+        fy = -2.0*np.pi*np.cos(2*np.pi*y)+np.sin(4*np.pi*x)*np.sin(4*np.pi*y)*self._b-self._nu_e*32.0*np.pi**2*np.cos(4*np.pi*x)*np.cos(4*np.pi*y)
+
         return fy
