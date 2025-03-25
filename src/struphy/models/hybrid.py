@@ -776,20 +776,18 @@ class LinearMHDDriftkineticCC(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = None
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = None
         # set keyword arguments for propagators
-        # self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
-        #     "b_tilde": self.pointer["b_field"],
-        #     "algo": params_bxE["algo"],
-        #     "epsilon": epsilon,
-        # }
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
+            "b_tilde": self.pointer["b_field"],
+            "algo": params_bxE["algo"],
+            "epsilon": epsilon,
+        }
 
-        # self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
-        #     "b_tilde": self.pointer["b_field"],
-        #     "algo": params_parallel["algo"],
-        #     "epsilon": epsilon,
-        # }
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
+            "b_tilde": self.pointer["b_field"],
+            "algo": params_parallel["algo"],
+            "epsilon": epsilon,
+        }
 
         if params_cc_gradB["turn_off"]:
             self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None
@@ -890,6 +888,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.add_scalar("en_U", compute="from_field")
         self.add_scalar("en_p", compute="from_field")
         self.add_scalar("en_B", compute="from_field")
+        self.add_scalar("en_Bx", compute="from_field")
+        self.add_scalar("en_By", compute="from_field")
+        self.add_scalar("en_Bz", compute="from_field")
         self.add_scalar("en_fv", compute="from_particles", species="energetic_ions")
         self.add_scalar("en_fB", compute="from_particles", species="energetic_ions")
         self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_fv", "en_fB"])
@@ -899,8 +900,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._b_full1 = self._b_eq.space.zeros()
-        self._PBb = self._absB0.space.zeros()
+        self._b_tempx = self._b_eq.space.zeros()
+        self._b_tempy = self._b_eq.space.zeros()
+        self._b_tempz = self._b_eq.space.zeros()
 
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
@@ -919,9 +921,26 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b)
         en_B = self.pointer["b_field"].dot(self._tmp_b) / 2.
 
+        # evaluation en_Bx, en_By and en_Bz
+        self._b_tempx[0] = self.pointer["b_field"][0]
+        self._b_tempy[1] = self.pointer["b_field"][1]
+        self._b_tempz[2] = self.pointer["b_field"][2]
+
+        self._mass_ops.M2.dot(self._b_tempx, out=self._tmp_b)
+        en_Bx = self._b_tempx.dot(self._tmp_b) / 2.
+
+        self._mass_ops.M2.dot(self._b_tempy, out=self._tmp_b)
+        en_By = self._b_tempy.dot(self._tmp_b) / 2.
+
+        self._mass_ops.M2.dot(self._b_tempz, out=self._tmp_b)
+        en_Bz = self._b_tempz.dot(self._tmp_b) / 2.
+
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_p", en_p)
         self.update_scalar("en_B", en_B)
+        self.update_scalar("en_Bx", en_Bx)
+        self.update_scalar("en_By", en_By)
+        self.update_scalar("en_Bz", en_Bz)
 
         self._en_fv[0] = (
             self.pointer["energetic_ions"]
