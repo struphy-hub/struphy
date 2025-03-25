@@ -183,9 +183,10 @@ pyccel_devel_install:
     - pip show struphy
     - pip list
     - struphy
+    - pip uninstall pyccel
     - git clone --recurse-submodules https://github.com/pyccel/pyccel.git
     - cd pyccel
-    - pip install .
+    - pip install ".[test]"
     - cd ../
     - pyccel --version
     - struphy compile --status
