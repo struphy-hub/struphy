@@ -46,7 +46,7 @@ variables:
     description: "Source to install struphy from in the docker jobs."
 
 default:
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_12-openmpi_4_1
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_14-openmpi_5_0:2025
 
   before_script:
     - date
@@ -54,7 +54,7 @@ default:
     - uname -a
     - module list
     - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
+    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
     - module list
     - make -v
     - python3 --version
@@ -92,7 +92,7 @@ default_venv:
     - echo "This is job ${CI_JOB_ID}"
     - module list
     - module avail
-    - module load gcc/12 openmpi/4 anaconda/3/2023.03 git graphviz/8
+    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
     - module list
   script:
     - pip install -U virtualenv
@@ -169,6 +169,43 @@ default_install:
       - env_$CI_PIPELINE_ID/
     expire_in: 1 day
 
+compile_timing:
+  stage: install
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $MAKE_PAGES == "true"
+      when: never
+    - if: $TEST_SCHEDULED == "true"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - pip install $(echo dist/struphy*.whl)[test]
+    - pip show struphy
+    - pip list
+    - struphy
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --delete
+    - struphy compile --time-execution -y --language c > timings_c.txt
+    - struphy compile --delete
+    - struphy compile --time-execution -y --language fortran > timings_fortran.txt
+    - |
+      cat << 'EOF' > check_pyccel.sh
+      #!/bin/bash
+      grep 'pyccel --libdir' timings_c.txt | sed -E 's|.*/site-packages/||' | while read filepath; do
+        echo "========================================"
+        echo "Kernel: $filepath"
+        echo "-------------------- Timers -------------------------"
+        echo "# Language: C"
+        grep -A 11 "pyccel.*${filepath}" timings_c.txt | tail -n +3
+        echo "# Language: Fortran"
+        grep -A 13 "pyccel.*${filepath}" timings_fortran.txt | tail -n +3
+      done
+      EOF
+    - cat check_pyccel.sh
+    - chmod +x check_pyccel.sh
+    - ./check_pyccel.sh
+
 # Compile with OpenMP
 openmp_install:
   stage: install
@@ -186,7 +223,7 @@ openmp_install:
     - struphy
     - pyccel --version
     - struphy compile --status
-    - struphy compile --omp-pic --omp-pic --language=fortran -y # compiles struphy, psydac with language fortran and using OpenMP
+    - struphy compile --omp-pic --language=fortran -y # compiles struphy, psydac with language fortran and using OpenMP
     - struphy --refresh-models
   # artifacts:
   #   name: 'python-env-installed-openmp'
@@ -377,6 +414,7 @@ Ubuntu_latest:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
     - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim --mpi 4 --nclones 2
 
 # Quickstart test
@@ -456,6 +494,7 @@ c_model_tests:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
 
 c_model_tests_psydac_whl:
   stage: test
@@ -479,6 +518,7 @@ c_model_tests_psydac_whl:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
 
 pages_tests:
   stage: test
@@ -515,6 +555,7 @@ c_model_cronjob_tests:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
   artifacts:
     name: 'python-env-installed-2'
     paths:
@@ -567,6 +608,7 @@ fortran_model_tests:
     - struphy test models --fast
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
 Ubuntu_22_04:

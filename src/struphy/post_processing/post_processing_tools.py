@@ -18,8 +18,7 @@ def create_femfields(
     *,
     step: int = 1,
 ):
-    """
-    Creates instances of :class:`~struphy.feec.psydac_derham.Derham.Field` from distributed Struphy data.
+    """Creates instances of :class:`~struphy.feec.psydac_derham.Derham.Field` from distributed Struphy data.
 
     Parameters
     ----------
@@ -154,8 +153,7 @@ def eval_femfields(
     celldivide: list = [1, 1, 1],
     physical: bool = False,
 ):
-    """
-    Evaluate FEM fields obtained from :meth:`struphy.post_processing.post_processing_tools.create_femfields`.
+    """Evaluate FEM fields obtained from :meth:`struphy.post_processing.post_processing_tools.create_femfields`.
 
     Parameters
     ----------
@@ -299,8 +297,7 @@ def create_vtk(
     *,
     physical: bool = False,
 ):
-    """
-    Creates structured virtual toolkit files (.vts) for Paraview from evaluated field data.
+    """Creates structured virtual toolkit files (.vts) for Paraview from evaluated field data.
 
     Parameters
     ----------
@@ -361,8 +358,7 @@ def create_vtk(
 
 
 def post_process_markers(path_in, path_out, species, kind, step=1):
-    """
-    Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them to a .npy files and to .txt files.
+    """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them to a .npy files and to .txt files.
 
     * ``.npy`` files:
 
@@ -525,8 +521,7 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
 
 
 def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
-    """
-    Computes and saves distribution functions of saved binning data during a simulation.
+    """Computes and saves distribution functions of saved binning data during a simulation.
 
     Parameters
     ----------
@@ -701,8 +696,7 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
 
 
 def post_process_n_sph(path_in, path_out, species, step=1, compute_bckgr=False):
-    """
-    Computes and saves the density n of saved sph data during a simulation.
+    """Computes and saves the density n of saved sph data during a simulation.
 
     Parameters
     ----------

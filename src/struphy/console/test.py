@@ -11,6 +11,7 @@ def struphy_test(
     vrbose: bool = False,
     verification: bool = False,
     show_plots: bool = False,
+    nclones: int = 1,
 ):
     """
     Run Struphy unit and/or model tests.
@@ -92,6 +93,8 @@ def struphy_test(
             cmd += ["--vrbose"]
         if verification:
             cmd += ["--verification"]
+        if nclones > 1:
+            cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
         subp_run(cmd)

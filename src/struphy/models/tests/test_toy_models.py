@@ -13,6 +13,7 @@ def test_toy(
     fast: bool,
     vrbose: bool,
     verification: bool,
+    nclones: int,
     show_plots: bool,
     *,
     model: str = None,
@@ -45,6 +46,7 @@ def test_toy(
                     verbose=vrbose,
                     comm=comm,
                     verification=verification,
+                    nclones=nclones,
                     show_plots=show_plots,
                 )
     else:
@@ -57,6 +59,7 @@ def test_toy(
             verbose=vrbose,
             comm=comm,
             verification=verification,
+            nclones=nclones,
             show_plots=show_plots,
         )
 

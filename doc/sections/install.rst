@@ -442,7 +442,7 @@ A common installation looks like this
 1. Load necessary modules and create a virtual environment::
 
     module purge
-    module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git pandoc graphviz/8
     pip install -U virtualenv
     python3 -m venv <some_name>
     source <some_name>/bin/activate
