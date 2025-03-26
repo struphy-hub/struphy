@@ -21,6 +21,7 @@ from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
+from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import eigenfunctions, perturbations, utilities
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
@@ -62,9 +63,6 @@ class Derham:
     comm : mpi4py.MPI.Intracomm
         MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
 
-    inter_comm : mpi4py.MPI.Intracomm
-        MPI communicator (between clones if domain cloning is used, otherwise None)
-
     mpi_dims_mask: list of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
@@ -92,7 +90,6 @@ class Derham:
         nquads: list | tuple = None,
         nq_pr: list | tuple = None,
         comm: Intracomm = None,
-        inter_comm: Intracomm = None,
         mpi_dims_mask: list = None,
         with_projectors: bool = True,
         polar_ck: int = -1,
@@ -133,11 +130,6 @@ class Derham:
 
         # MPI communicators
         self._comm = comm
-        self._inter_comm = inter_comm
-        if self._inter_comm == None:
-            self._Nclones = 1
-        else:
-            self._Nclones = self._inter_comm.Get_size()
 
         # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
         assert polar_ck in {-1, 1}
@@ -579,19 +571,9 @@ class Derham:
         return self._nq_pr
 
     @property
-    def Nclones(self):
-        """Number of clones"""
-        return self._Nclones
-
-    @property
     def comm(self):
         """MPI communicator."""
         return self._comm
-
-    @property
-    def inter_comm(self):
-        """MPI communicator between clones."""
-        return self._inter_comm
 
     @property
     def polar_ck(self):
@@ -1497,59 +1479,7 @@ class Derham:
 
                     # given function class
                     elif _type in dir(perturbations):
-                        if self.space_id in {"H1", "L2"}:
-                            # which transform is to be used: physical, '0' or '3'
-                            fun_basis = _params["given_in_basis"]
-                            _params.pop("given_in_basis")
-                            # get callable(s) for specified init type
-                            fun_class = getattr(perturbations, _type)
-                            fun_tmp = [fun_class(**_params)]
-
-                            # pullback callable
-                            fun = TransformedPformComponent(
-                                fun_tmp,
-                                fun_basis,
-                                self.space_key,
-                                domain=domain,
-                            )
-
-                        elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                            fun_class = getattr(perturbations, _type)
-                            fun_tmp = []
-                            fun_basis = []
-                            bases = _params["given_in_basis"]
-                            _params.pop("given_in_basis")
-                            for component, base in enumerate(bases):
-                                if base is None:
-                                    #fun_basis += ["physical"]
-                                    filtered_bases = [str(item) for item in bases if item is not None and item != "Null" and item != "null"]
-                                    assert len(set(filtered_bases)) <= 1, f"Non-consistane values in bases: {filtered_bases}"  
-                                    fun_basis += filtered_bases
-                                    fun_tmp += [None]
-                                else:
-                                    # which transform is to be used: physical, '1', '2' or 'v'
-                                    fun_basis += [base]
-                                    # function parameters of component
-                                    _params_comp = {}
-                                    for key, val in _params.items():
-                                        if isinstance(val, (list, tuple)):
-                                            _params_comp[key] = val[component]
-                                        else:
-                                            _params_comp[key] = val
-                                    fun_tmp += [fun_class(**_params_comp)]
-
-                            # pullback callable
-                            fun = []
-                            for n, fform in enumerate(fun_basis):
-                                fun += [
-                                    TransformedPformComponent(
-                                        fun_tmp,
-                                        fform,
-                                        self.space_key,
-                                        comp=n,
-                                        domain=domain,
-                                    ),
-                                ]
+                        fun = transform_perturbation(_type, _params, self.space_key, domain)
 
                         # peform projection
                         self.vector += self.derham.P[self.space_key](fun)
@@ -2270,141 +2200,84 @@ class Derham:
                     return _amps
 
 
-class TransformedPformComponent:
-    r"""
-    Construct callable component of p-form on logical domain (unit cube).
+def transform_perturbation(
+    pert_type: str,
+    pert_params: dict,
+    space_key: str,
+    domain: Domain,
+):
+    """Creates callabe(s) from perturbation parameters.
 
     Parameters
     ----------
-    fun : list
-        Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
+    pert_type: str
+        Class name of the perturbation, see :mod:`~struphy.initial.perturbations`.
 
-    fun_basis : str
-        In which basis fun is represented: either a p-form,
-        then '0' or '3' for scalar
-        and 'v', '1' or '2' for vector-valued,
-        'physical' when defined on the physical (mapped) domain,
-        'physical_at_eta' when given the Cartesian components defined on the logical domain,
-        and 'norm' when given in the normalized contra-variant basis (:math:`\delta_i / |\delta_i|`).
+    pert_params: dict
+        Parameters of the perturbation.
 
-    out_form : str
+    space_key: str
         The p-form representation of the output: '0', '1', '2' '3' or 'v'.
 
-    comp : int
-        Which component of the transformed p-form is returned, 0, 1, or 2 (only needed for vector-valued fun).
-
-    domain: struphy.geometry.domains
-        All things mapping. If None, the input fun is just evaluated and not transformed at __call__.
+    domain: Domain
+        Domain object (mapping).
 
     Returns
     -------
-    out : array[float]
-        The values of the component comp of fun transformed from fun_basis to out_form.
+    fun: list
+        A callable or list of callables in the space defined by ``space_key``.
     """
 
-    def __init__(self, fun: list, fun_basis: str, out_form: str, comp=0, domain=None):
-        assert len(fun) == 1 or len(fun) == 3
+    if space_key in {"0", "3"}:
+        # which transform is to be used: physical, '0' or '3'
+        fun_basis = pert_params["given_in_basis"]
+        pert_params.pop("given_in_basis")
 
-        self._fun = []
-        for f in fun:
-            if f is None:
+        # get callable(s) for specified init type
+        fun_class = getattr(perturbations, pert_type)
+        fun_tmp = [fun_class(**pert_params)]
 
-                def f_zero(x, y, z):
-                    return 0 * x
-
-                self._fun += [f_zero]
+        # pullback callable
+        fun = TransformedPformComponent(
+            fun_tmp,
+            fun_basis,
+            space_key,
+            domain=domain,
+        )
+    elif space_key in {"1", "2", "v"}:
+        fun_class = getattr(perturbations, pert_type)
+        fun_tmp = []
+        fun_basis = []
+        bases = pert_params["given_in_basis"]
+        pert_params.pop("given_in_basis")
+        for component, base in enumerate(bases):
+            if base is None:
+                fun_basis += ["v"]  # TODO: this should be set to the non-zero components value
+                fun_tmp += [None]
             else:
-                assert callable(f)
-                self._fun += [f]
-
-        self._fun_basis = fun_basis
-        self._out_form = out_form
-        self._comp = comp
-        self._domain = domain
-
-        self._is_scalar = len(fun) == 1
-
-        # define which component of the field is evaluated (=0 for scalar fields)
-        if self._is_scalar:
-            self._fun = self._fun[0]
-            assert callable(self._fun)
-        else:
-            assert len(self._fun) == 3
-            assert all([callable(f) for f in self._fun])
-
-    def __call__(self, eta1, eta2, eta3):
-        """
-        Evaluate the component of the transformed p-form specified in self._comp.
-
-        Depending on the dimension of eta1 either point-wise, tensor-product,
-        slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
-        """
-
-        if self._fun_basis == self._out_form or self._domain is None:
-            if self._is_scalar:
-                out = self._fun(eta1, eta2, eta3)
-            else:
-                out = self._fun[self._comp](eta1, eta2, eta3)
-
-        elif self._fun_basis == "physical":
-            if self._is_scalar:
-                out = self._domain.pull(
-                    self._fun,
-                    eta1,
-                    eta2,
-                    eta3,
-                    kind=self._out_form,
-                )
-            else:
-                out = self._domain.pull(
-                    self._fun,
-                    eta1,
-                    eta2,
-                    eta3,
-                    kind=self._out_form,
-                )[self._comp]
-
-        elif self._fun_basis == "physical_at_eta":
-            if self._is_scalar:
-                out = self._domain.pull(
-                    self._fun,
-                    eta1,
-                    eta2,
-                    eta3,
-                    kind=self._out_form,
-                    coordinates="logical",
-                )
-            else:
-                out = self._domain.pull(
-                    self._fun,
-                    eta1,
-                    eta2,
-                    eta3,
-                    kind=self._out_form,
-                    coordinates="logical",
-                )[self._comp]
-
-        else:
-            dict_tran = self._fun_basis + "_to_" + self._out_form
-
-            if self._is_scalar:
-                out = self._domain.transform(
-                    self._fun,
-                    eta1,
-                    eta2,
-                    eta3,
-                    kind=dict_tran,
-                )
-            else:
-                out = self._domain.transform(
-                    self._fun,
-                    eta1,
-                    eta2,
-                    eta3,
-                    kind=dict_tran,
-                )[self._comp]
-
-        return out
+                # which transform is to be used: physical, '1', '2' or 'v'
+                fun_basis += [base]
+                # function parameters of component
+                _params_comp = {}
+                for key, val in pert_params.items():
+                    if isinstance(val, (list, tuple)):
+                        _params_comp[key] = val[component]
+                    else:
+                        _params_comp[key] = val
+                fun_tmp += [fun_class(**_params_comp)]
+        # pullback callable
+        fun = []
+        for n, fform in enumerate(fun_basis):
+            fun += [
+                TransformedPformComponent(
+                    fun_tmp,
+                    fform,
+                    space_key,
+                    comp=n,
+                    domain=domain,
+                ),
+            ]
+    return fun
 
 
 def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):

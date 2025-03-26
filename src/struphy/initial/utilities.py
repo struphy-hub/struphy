@@ -1,15 +1,14 @@
 import os
 
 import h5py
-import yaml
+import numpy as np
 
-import struphy
 from struphy.fields_background.equils import set_defaults
 from struphy.io.output_handling import DataContainer
 
 
 class InitFromOutput:
-    r"""Assemble FEEC coefficients array form output files.
+    r"""Assemble FEEC coefficients array from output files.
 
     Note
     ----
@@ -71,3 +70,34 @@ class InitFromOutput:
         """vectors from output data"""
 
         return self._vector
+
+
+class Noise:
+    r"""Random noise
+
+    Note
+    ----
+    Example of use in a ``.yml`` parameter file::
+
+        perturbations :
+            n :
+                Noise :
+                    amp : 0.001
+    """
+
+    def __init__(
+        self,
+        amp=1e-4,
+    ):
+        r"""
+        Parameters
+        ----------
+        amp : float
+            Amplitude of the noise.
+        """
+        self._amp = amp
+
+    def __call__(self, x, y, z):
+        val = self._amp * np.random.rand(*x.shape).squeeze()
+
+        return val

@@ -74,6 +74,10 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     # DeRham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     mass_ops = WeightedMassOperators(derham, domain)
 
     if rank == 0:
@@ -83,12 +87,12 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     loading_params = {"seed": 1607, "moments": [0.0, 0.0, 0.0, 1.0, 2.0, 3.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=mpi_comm,
+        comm_world=mpi_comm,
         Np=Np,
         bc=["periodic"] * 3,
         loading_params=loading_params,
         domain=domain,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
     )
 
     particles.draw_markers()

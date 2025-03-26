@@ -3004,7 +3004,15 @@ class ConstantVelocity(CartesianFluidEquilibrium):
     """
 
     def __init__(self, **params):
-        params_default = {"ux": 1.0, "uy": 1.0, "uz": 1.0, "n": 1.0, "n1": 0.0, "density_profile": "affine", "p0": 1.0}
+        params_default = {
+            "ux": 1.0,
+            "uy": 1.0,
+            "uz": 1.0,
+            "n": 1.0,
+            "n1": 0.0,
+            "density_profile": "affine",
+            "p0": 1.0,
+        }
 
         self._params = set_defaults(params, params_default)
 

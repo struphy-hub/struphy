@@ -13,9 +13,7 @@ __version__ = importlib.metadata.version("struphy")
 
 
 def struphy():
-    """
-    Struphy main executable. Performs argument parsing and sub-command call.
-    """
+    """Struphy main executable. Performs argument parsing and sub-command call."""
 
     import argparse
     import pickle
@@ -382,6 +380,14 @@ def struphy():
     )
 
     parser_run.add_argument(
+        "--nclones",
+        type=int,
+        metavar="N",
+        help="number of domain clones (default=1)",
+        default=1,
+    )
+
+    parser_run.add_argument(
         "--debug",
         help="launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs",
         action="store_true",
@@ -614,6 +620,12 @@ def struphy():
         action="store_true",
     )
 
+    parser_pproc.add_argument(
+        "--no-vtk",
+        help="whether vtk files creation should be skipped",
+        action="store_true",
+    )
+
     # 7. "test" sub-command
     try:
         import pytest_mpi
@@ -683,6 +695,14 @@ def struphy():
             "--verification",
             help="perform verification runs specified in io/inp/verification/",
             action="store_true",
+        )
+
+        parser_test.add_argument(
+            "--nclones",
+            type=int,
+            metavar="N",
+            help="number of domain clones (default=1)",
+            default=1,
         )
 
         parser_test.add_argument(

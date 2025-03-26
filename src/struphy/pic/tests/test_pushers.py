@@ -45,6 +45,10 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
@@ -57,9 +61,9 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loader_params,
     )
@@ -178,6 +182,10 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
@@ -190,9 +198,9 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loader_params,
     )
@@ -322,6 +330,10 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
@@ -334,9 +346,9 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loader_params,
     )
@@ -466,6 +478,10 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
@@ -478,9 +494,9 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loader_params,
     )
@@ -610,6 +626,10 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
@@ -622,9 +642,9 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loader_params,
     )
@@ -758,6 +778,10 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     # discrete Derham sequence (psydac and legacy struphy)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
@@ -770,9 +794,9 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
 
     particles = Particles6D(
-        comm=comm,
+        comm_world=comm,
         ppc=2,
-        domain_array=derham.domain_array,
+        domain_decomp=domain_decomp,
         bc=["periodic", "periodic", "periodic"],
         loading_params=loader_params,
     )
@@ -862,8 +886,9 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
 
 if __name__ == "__main__":
-    # test_push_vxb_analytic([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
-    #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
+    test_push_vxb_analytic(
+        [8, 9, 5], [4, 2, 3], [False, True, True], ["Colella", {"Lx": 2.0, "Ly": 2.0, "alpha": 0.1, "Lz": 4.0}], False
+    )
     # test_push_bxu_Hdiv([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     # test_push_bxu_Hcurl([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
@@ -872,18 +897,18 @@ if __name__ == "__main__":
     #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     # test_push_bxu_Hdiv_pauli([8, 9, 5], [2, 3, 1], [False, True, True], ['Colella', {
     #     'Lx': 2., 'Ly': 3., 'alpha': .1, 'Lz': 4.}], False)
-    test_push_eta_rk4(
-        [8, 9, 5],
-        [4, 2, 3],
-        [False, True, True],
-        [
-            "Colella",
-            {
-                "Lx": 2.0,
-                "Ly": 2.0,
-                "alpha": 0.1,
-                "Lz": 4.0,
-            },
-        ],
-        False,
-    )
+    # test_push_eta_rk4(
+    #     [8, 9, 5],
+    #     [4, 2, 3],
+    #     [False, True, True],
+    #     [
+    #         "Colella",
+    #         {
+    #             "Lx": 2.0,
+    #             "Ly": 2.0,
+    #             "alpha": 0.1,
+    #             "Lz": 4.0,
+    #         },
+    #     ],
+    #     False,
+    # )
