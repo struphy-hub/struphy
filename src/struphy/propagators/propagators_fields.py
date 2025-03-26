@@ -7,6 +7,7 @@ from numpy import zeros
 from psydac.linalg.basic import IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
+from struphy.feec.preconditioner import MassMatrixPreconditioner
 from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
@@ -20,7 +21,6 @@ from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
-from struphy.linear_algebra.saddle_point import SaddlePointSolverGMRES
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
@@ -36,7 +36,9 @@ from struphy.linear_algebra.saddle_point import (
         SaddlePointSolver,
         SaddlePointSolverGMRES,
         SaddlePointSolverNoCG,
-        SaddlePointSolverTest,
+        SaddlePointSolverInexactUzawa,
+        ArrayAsLinearOperator,
+        SaddlePointSolverGMRESwithPC,
     )
 
 class Maxwell(Propagator):
@@ -7551,19 +7553,19 @@ class Stokes(Propagator):
             + self._nu
             * (
                 self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-                + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+                + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
             )
         )
         _A12 = None
         _A21 = _A12
         _A22 = self.mass_ops.M2B + self._nu_e * (
             self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-            + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+            + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
         )
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
 
-        ### Restelli###
+        # ### Restelli###
         # _forceterm_logical = lambda e1, e2, e3: 0 * e1
         # _fun = getattr(perturbations, "forcingterm")(
         #     self._nu, self._R0, self._a, self._B0, self._Bp, self._alpha, self._beta
@@ -7587,6 +7589,7 @@ class Stokes(Propagator):
         
         
         ### Manufactured solution
+        print(f'propagator {self._nu_e = }')
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
         _funx = getattr(perturbations, "ManufacturedSolutionForceterm_x")(self._B0, self._nu)
         _funy = getattr(perturbations, "ManufacturedSolutionForceterm_y")(self._B0, self._nu)
@@ -7609,12 +7612,7 @@ class Stokes(Propagator):
         l2_proj = L2Projector(space_id='Hdiv', mass_ops=self.mass_ops)
         self._F1 = l2_proj([funx, funy, _forceterm_logical])
         self._F2 = l2_proj([fun_electronsx, fun_electronsy, _forceterm_logical])
-        # self._F1 = self.derham.P["2"]((funx, funy, _forceterm_logical))
-        # self._F2 = self.derham.P["2"]((fun_electronsx, fun_electronsy, _forceterm_logical))
-      
-        # Project into discrete Hdiv to define right hand side
-        # self._F1 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun))
-        # self._F2 = self.derham.P["2"]((_forceterm_logical, _forceterm_logical, fun_electrons))
+        
         if _A12 is not None:
             assert _A11.codomain == _A12.codomain
         if _A21 is not None:
@@ -7642,6 +7640,13 @@ class Stokes(Propagator):
         _blocksM = [[_A, _B.T], [_B, None]]
         self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
 
+        M2pre = MassMatrixPreconditioner(self.mass_ops.M2)
+        
+        # Preconditioner
+        _A11_0 = self._nu*self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.mass_ops.M2/0.01
+        _A22_0 = self._nu_e*self.derham.div.T @ self.mass_ops.M3 @ self.derham.div +self.mass_ops.M2 +  self._eps * IdentityOperator(_A11.domain)
+        
+        
         self._solverM = inverse(
             self._M,
             solver["type"][0],
@@ -7650,9 +7655,55 @@ class Stokes(Propagator):
             verbose=solver["verbose"],
         )
         
-        # self._solverUzawa = SaddlePointSolverGMRES(
-        #     _A, _B, _F, rho=1e-6, solver_name=solver["type"][0], tol=solver["tol"], max_iter=solver["maxiter"], verbose=solver["verbose"], pc=None
+        
+        # Preconditioner with cg
+        
+        self._solverA = inverse(
+            _A11,
+            'pcg',
+            pc = M2pre,
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
+        )
+        
+        self._solverAe = inverse(
+            _A22,
+            'pcg',
+            pc = M2pre,
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
+        )
+        
+        # self._solver_InexactUzawa = SaddlePointSolverInexactUzawa(
+        #     _A,
+        #     _B,
+        #     _F,
+        #     _A11_0,
+        #     _A22_0,
+        #     rho = 0.005,
+        #     solver_name = solver["type"][0],
+        #     tol=solver["tol"],
+        #     max_iter=solver["maxiter"],
+        #     verbose=solver["verbose"],
+        #     pc = None
         # )
+        
+        self._solver_GMRESwithPC = SaddlePointSolverGMRESwithPC(
+            _A,
+            _B,
+            _A11_0,
+            _A22_0,
+            _F,
+            precdt = M2pre,
+            rho = 0.005,
+            solver_name = solver["type"][0],
+            tol=solver["tol"],
+            max_iter=solver["maxiter"],
+            verbose=solver["verbose"],
+            pc = None
+        )
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = self._block_codomainM.zeros()
@@ -7672,14 +7723,14 @@ class Stokes(Propagator):
             + self._nu
             * (
                 self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-                + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+                + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
             )
         )
         _A12 = None
         _A21 = _A12
         _A22 =   self._nu_e * (
             self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-            + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p
+            + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
         ) + self.mass_ops.M2B + self._eps*IdentityOperator(_A11.domain)
         _B1 = -self.mass_ops.M3 @ self.derham.div
         _B2 = self.mass_ops.M3 @ self.derham.div
@@ -7705,27 +7756,58 @@ class Stokes(Propagator):
         #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
         _blocksF = [self._F1 + 1.0* 1 / dt * self.mass_ops.M2.dot(un), self._F2]     
         _F = BlockVector(self._block_domainA, blocks=_blocksF)
-
+        
         _blocksM = [[_A, _B.T], [_B, None]]
         _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
         _RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
+        
+        # Preconditioner
+        _A11_0 = self._nu*self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.mass_ops.M2/dt
+        _A22_0 = self._nu_e*self.derham.div.T @ self.mass_ops.M3 @ self.derham.div +self.mass_ops.M2 +  self._eps * IdentityOperator(_A11.domain)
+        
+        # cg inverse for preconditioner
+        self._solverA.linop = _A11_0
+        self._solverAe.linop = _A22_0
+        self._solverA._k=0
+        self._solverAe._k=0
+        _blocksinv = [[self._solverA, None], [None, self._solverAe]]
+        _Ainv = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksinv)
+        _P = IdentityOperator(_B.codomain) #_B @ _Ainv @ _B.T#
+        _blocksPrecadded = [[_Ainv, None], [None, _P]]
+       
+        _Prec = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksPrecadded)        
+        
+        _M = _Prec@_M
+        _RHS = _Prec.dot(_RHS)
 
+        # self._solver_GMRESwithPC._A=_A
+        # self._solver_GMRESwithPC._A11=_A11
+        # self._solver_GMRESwithPC._A22=_A22
+        # self._solver_GMRESwithPC._F = _F
+        # _sol = self._solver_GMRESwithPC(dt, un, uen, phin)
+        # info = _sol[2]
+        
+        
         # use setter to update lhs matrix
         self._solverM.linop = _M
 
-        _sol = self._solverM.dot(_RHS, out = self._e_tmp1 )
+        _sol = self._solverM.solve(_RHS, out = self._e_tmp1 )
         info = self._solverM._info
+        print(f'{info =}')
+        infoA = self._solverA._info
+        print(f'{infoA =}')
+        infoAe = self._solverAe._info
+        print(f'{infoAe =}')
 
         un = _sol[0][0]
         uen = _sol[0][1]
         phin = _sol[1]
         
-        # self._solverUzawa.A = _A
-        # self._solverUzawa.B = _B
-        # self._solverUzawa.F = _F
-        # un_tmp, phin, info = self._solverUzawa()
-        # un = un_tmp[0]
-        # uen = un_tmp[1]
+        # self._solver_InexactUzawa.A = _A
+        # self._solver_InexactUzawa.B = _B
+        # self._solver_InexactUzawa.F = _F
+        # un, uen, phin, info, residual_norms = self._solver_InexactUzawa(un, uen, phin)
+        
 
         # write new coeffs into self.feec_vars
         max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
