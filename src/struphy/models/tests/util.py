@@ -1,7 +1,10 @@
 import copy
+import inspect
 import os
+import sys
 
 import yaml
+from mpi4py import MPI
 
 import struphy
 from struphy.console.main import recursive_get_files
@@ -10,6 +13,81 @@ from struphy.main import main
 from struphy.models.base import StruphyModel
 
 libpath = struphy.__path__[0]
+
+
+def wrapper_for_testing(
+    mtype: str = "fluid",
+    map_and_equil: tuple | list = ("Cuboid", "HomogenSlab"),
+    fast: bool = True,
+    vrbose: bool = False,
+    verification: bool = False,
+    nclones: int = 1,
+    show_plots: bool = False,
+    model: str = None,
+    Tend: float = None,
+):
+    """Wrapper for testing Struphy models.
+
+    If model is not None, tests the specified model.
+    The argument "fast" is a pytest option that can be specified at the command line (see conftest.py).
+    """
+
+    if mtype == "fluid":
+        from struphy.models import fluid as modmod
+    elif mtype == "kinetic":
+        from struphy.models import kinetic as modmod
+    elif mtype == "hybrid":
+        from struphy.models import hybrid as modmod
+    elif mtype == "toy":
+        from struphy.models import toy as modmod
+    else:
+        raise ValueError(f'{mtype} must be either "fluid", "kinetic", "hybrid" or "toy".')
+
+    comm = MPI.COMM_WORLD
+
+    if model is None:
+        for key, val in inspect.getmembers(modmod):
+            if inspect.isclass(val) and val.__module__ == modmod.__name__:
+                # TODO: remove if-clauses
+                if "LinearExtendedMHD" in key and "HomogenSlab" not in map_and_equil[1]:
+                    print(f"Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.")
+                    continue
+
+                if fast and "Cuboid" not in map_and_equil[0]:
+                    print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
+                    continue
+
+                call_test(
+                    key,
+                    val,
+                    map_and_equil,
+                    Tend=Tend,
+                    verbose=vrbose,
+                    comm=comm,
+                    verification=verification,
+                    nclones=nclones,
+                    show_plots=show_plots,
+                )
+    else:
+        assert model in modmod.__dir__(), f"{model} not in {modmod.__name__}, please specify correct model type."
+        val = getattr(modmod, model)
+
+        # TODO: remove if-clause
+        if "LinearExtendedMHD" in model and "HomogenSlab" not in map_and_equil[1]:
+            print(f"Model {model} is currently excluded from tests with mhd_equil other than HomogenSlab.")
+            exit()
+
+        call_test(
+            model,
+            val,
+            map_and_equil,
+            Tend=Tend,
+            verbose=vrbose,
+            comm=comm,
+            verification=verification,
+            nclones=nclones,
+            show_plots=show_plots,
+        )
 
 
 def call_test(
@@ -288,3 +366,61 @@ def find_model_options(
                 test_list += [parameters["kinetic"][species]["options"]]
 
     return d_opts, test_list
+
+
+if __name__ == "__main__":
+    # This is called in struphy_test in case "group" is a model name
+    mtype = sys.argv[1]
+    group = sys.argv[2]
+    if sys.argv[3] == "None":
+        Tend = None
+    else:
+        Tend = float(sys.argv[3])
+    fast = sys.argv[4] == "True"
+    vrbose = sys.argv[5] == "True"
+    verification = sys.argv[6] == "True"
+    if sys.argv[7] == "None":
+        nclones = 1
+    else:
+        nclones = int(sys.argv[7])
+    show_plots = sys.argv[8] == "True"
+
+    map_and_equil = ("Cuboid", "HomogenSlab")
+    wrapper_for_testing(
+        mtype,
+        map_and_equil,
+        fast,
+        vrbose,
+        verification,
+        nclones,
+        show_plots,
+        model=group,
+        Tend=Tend,
+    )
+
+    if not fast and not verification:
+        map_and_equil = ("HollowTorus", "AdhocTorus")
+        wrapper_for_testing(
+            mtype,
+            map_and_equil,
+            fast,
+            vrbose,
+            verification,
+            nclones,
+            show_plots,
+            model=group,
+            Tend=Tend,
+        )
+
+        map_and_equil = ("Tokamak", "EQDSKequilibrium")
+        wrapper_for_testing(
+            mtype,
+            map_and_equil,
+            fast,
+            vrbose,
+            verification,
+            nclones,
+            show_plots,
+            model=group,
+            Tend=Tend,
+        )
