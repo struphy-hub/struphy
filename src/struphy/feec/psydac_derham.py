@@ -207,11 +207,13 @@ class Derham:
         for i, sp_form in enumerate(self.space_to_form.values()):
             # FEM space and projector
             if sp_form == "v":
-                self._Vh_fem[sp_form] = VectorFemSpace(
+                _h1vec_space = VectorFemSpace(
                     _derham.V0,
                     _derham.V0,
                     _derham.V0,
                 )
+                _h1vec_space.symbolic_space = 'H1vec'
+                self._Vh_fem[sp_form] = _h1vec_space
                 self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
             else:
                 self._Vh_fem[sp_form] = getattr(_derham, "V" + str(i))

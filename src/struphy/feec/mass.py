@@ -1958,6 +1958,8 @@ class WeightedMassOperator(LinOpWithTransp):
         # set domain and codomain symbolic names
         if hasattr(V.symbolic_space, "name"):
             V_name = V.symbolic_space.name
+        elif isinstance(V.symbolic_space, str):
+            V_name = V.symbolic_space
         else:
             if V.ldim == 3 or V.ldim == 2:
                 V_name = "H1vec"
@@ -1969,6 +1971,8 @@ class WeightedMassOperator(LinOpWithTransp):
 
         if hasattr(W.symbolic_space, "name"):
             W_name = W.symbolic_space.name
+        elif isinstance(W.symbolic_space, str):
+            W_name = W.symbolic_space
         else:
             if W.ldim == 3 or W.ldim == 2:
                 W_name = "H1vec"
@@ -2501,7 +2505,7 @@ class WeightedMassOperator(LinOpWithTransp):
                                 block._data[:] = 0.0
 
             # identify rank for printing
-            if self._domain_symbolic_name in {"H1", "L2"}:
+            if self._domain_symbolic_name in {"H1", "L2", None}:
                 if self._V.vector_space.cart.comm is not None:
                     rank = self._V.vector_space.cart.comm.Get_rank()
                 else:

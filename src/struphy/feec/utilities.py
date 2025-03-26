@@ -82,6 +82,8 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
 
     if hasattr(V.symbolic_space, 'name'):
         V_name = V.symbolic_space.name
+    elif isinstance(V.symbolic_space, str):
+        V_name = V.symbolic_space
     else:
         V_name = 'H1vec'
 
