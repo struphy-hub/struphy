@@ -11,10 +11,12 @@ from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
-from psydac.api.feec         import DiscreteDerham
 from psydac.fem.tensor       import TensorFemSpace
 from psydac.fem.partitioning import create_cart
 from psydac.ddm.cart import DomainDecomposition
+from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
+from psydac.feec.derivatives       import Gradient_3D, Curl_3D, Divergence_3D
+from psydac.fem.basic              import FemSpace
 
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
@@ -25,7 +27,7 @@ from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
-from struphy.initial import eigenfunctions, perturbations, utilities
+from struphy.initial import perturbations, utilities
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
@@ -797,7 +799,7 @@ class Derham:
                 spl_kind=spl_kind,
                 ddm=ddm,
             )
-        else:      
+        else:     
             from sympde.topology import Cube
             from sympde.topology import Derham as Derham_psy
             from psydac.api.discretization import discretize
@@ -905,7 +907,7 @@ class Derham:
                                           ddm=ddm,)
                 for V, basis in zip(derham_spaces, bases)]
 
-        return DiscreteDerham(None, *spaces)
+        return DiscreteDerham(*spaces)
 
     def _discretize_space(self, 
                           V: str, 
@@ -1627,6 +1629,8 @@ class Derham:
 
                     # loading of MHD eigenfunction (legacy code, might not be up to date)
                     elif "EigFun" in _type:
+                        print("Warning: Eigfun is not regularly tested ...")
+                        from struphy.initial import eigenfunctions
                         # select class
                         funs = getattr(eigenfunctions, _type)(
                             self.derham,
@@ -2339,6 +2343,128 @@ class Derham:
 
                 if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
                     return _amps
+
+
+class DiscreteDerham:
+    """ A discrete de Rham sequence built over a single-patch geometry.
+
+    Parameters
+    ----------
+    *spaces : list of FemSpace
+        The discrete spaces of the de Rham sequence.
+    """
+    
+    def __init__(self, *spaces):
+
+        assert len(spaces) == 4
+        assert all(isinstance(space, FemSpace) for space in spaces)
+
+        self._spaces  = spaces
+        self._dim     = 3
+
+        D0 =   Gradient_3D(spaces[0], spaces[1])
+        D1 =       Curl_3D(spaces[1], spaces[2])
+        D2 = Divergence_3D(spaces[2], spaces[3])
+
+        spaces[0].diff = spaces[0].grad = D0
+        spaces[1].diff = spaces[1].curl = D1
+        spaces[2].diff = spaces[2].div  = D2
+
+    #--------------------------------------------------------------------------
+    @property
+    def dim(self):
+        """Dimension of the physical and logical domains, which are assumed to be the same."""
+        return self._dim
+
+    @property
+    def V0(self):
+        """First space of the de Rham sequence : H1 space"""
+        return self._spaces[0]
+
+    @property
+    def V1(self):
+        """Second space of the de Rham sequence :
+        - 1d : L2 space
+        - 2d : either Hdiv or Hcurl space
+        - 3d : Hcurl space"""
+        return self._spaces[1]
+
+    @property
+    def V2(self):
+        """Third space of the de Rham sequence :
+        - 2d : L2 space
+        - 3d : Hdiv space"""
+        return self._spaces[2]
+
+    @property
+    def V3(self):
+        """Fourth space of the de Rham sequence : L2 space in 3d"""
+        return self._spaces[3]
+
+    @property
+    def spaces(self):
+        """Spaces of the proper de Rham sequence (excluding Hvec)."""
+        return self._spaces
+
+    @property
+    def derivatives_as_matrices(self):
+        """Differential operators of the De Rham sequence as LinearOperator objects."""
+        return tuple(V.diff.matrix for V in self.spaces[:-1])
+
+    @property
+    def derivatives(self):
+        """Differential operators of the De Rham sequence as `DiffOperator` objects.
+
+        Those are objects with `domain` and `codomain` properties that are `FemSpace`, 
+        they act on `FemField` (they take a `FemField` of their `domain` as input and return 
+        a `FemField` of their `codomain`.
+        """
+        return tuple(V.diff for V in self.spaces[:-1])
+
+    #--------------------------------------------------------------------------
+    def projectors(self, *, kind='global', nquads=None):
+        """Projectors mapping callable functions of the physical coordinates to a 
+        corresponding `FemField` object in the De Rham sequence.
+
+        Parameters
+        ----------
+        kind : str
+            Type of the projection : at the moment, only global is accepted and
+            returns geometric commuting projectors based on interpolation/histopolation 
+            for the De Rham sequence (GlobalProjector objects).
+
+        nquads : list(int) | tuple(int)
+            Number of quadrature points along each direction, to be used in Gauss
+            quadrature rule for computing the (approximated) degrees of freedom.
+
+        Returns
+        -------
+        P0, ..., Pn : callables
+            Projectors that can be called on any callable function that maps 
+            from the physical space to R (scalar case) or R^d (vector case) and
+            returns a FemField belonging to the i-th space of the De Rham sequence
+        """
+
+        if not (kind == 'global'):
+            raise NotImplementedError('only global projectors are available')
+
+        if nquads is None:
+            nquads = [p + 1 for p in self.V0.degree]
+        elif isinstance(nquads, int):
+            nquads = [nquads] * self.dim
+        else:
+            assert hasattr(nquads, '__iter__')
+            nquads = list(nquads)
+
+        assert all(isinstance(nq, int) for nq in nquads)
+        assert all(nq >= 1 for nq in nquads)
+
+        P0 = Projector_H1   (self.V0)
+        P1 = Projector_Hcurl(self.V1, nquads)
+        P2 = Projector_Hdiv (self.V2, nquads)
+        P3 = Projector_L2   (self.V3, nquads)
+
+        return P0, P1, P2, P3
 
 
 def transform_perturbation(
