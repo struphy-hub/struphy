@@ -280,7 +280,7 @@ class Domain(metaclass=ABCMeta):
         )
 
     # ========================
-    def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
+    def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, calculate_outside=False):
         r"""
         Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -312,6 +312,7 @@ class Domain(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
             transposed=transposed,
             remove_outside=remove_outside,
+            calculate_outside=calculate_outside,
         )
 
     # ========================
@@ -342,7 +343,7 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=2, squeeze_out=squeeze_out, remove_outside=remove_outside)
 
     # ========================
-    def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True):
+    def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, calculate_outside=False):
         r"""
         Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -379,6 +380,7 @@ class Domain(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
             transposed=transposed,
             remove_outside=remove_outside,
+            calculate_outside=calculate_outside
         )
 
     # ========================
@@ -660,6 +662,7 @@ class Domain(metaclass=ABCMeta):
         change_out_order = kwargs.get("change_out_order", False)
         squeeze_out = kwargs.get("squeeze_out", True)
         remove_outside = kwargs.get("remove_outside", False)
+        calculate_outside = kwargs.get("calculate_outside", False)
 
         # markers evaluation
         if len(etas) == 1:
@@ -674,6 +677,7 @@ class Domain(metaclass=ABCMeta):
                 self.args_domain,
                 out,
                 remove_outside,
+                calculate_outside,
             )
 
             # move the (3, 3)-part to front

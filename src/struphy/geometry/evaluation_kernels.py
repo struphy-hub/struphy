@@ -500,7 +500,8 @@ def kernel_evaluate_pic(markers : 'float[:,:]',
                         kind_coeff : int, 
                         args: 'DomainArguments',
                         mat_f : 'float[:,:,:]', 
-                        remove_outside : bool) -> int:
+                        remove_outside : bool, 
+                        calculate_outside : bool) -> int:
     """
     Evaluation of metric coefficients for given markers.
 
@@ -526,7 +527,7 @@ def kernel_evaluate_pic(markers : 'float[:,:]',
         e2 = markers[i, 1]
         e3 = markers[i, 2]
         
-        if e1 < 0. or e1 > 1. or e2 < 0. or e2 > 1. or e3 < 0. or e3 > 1.:
+        if not calculate_outside and (e1 < 0. or e1 > 1. or e2 < 0. or e2 > 1. or e3 < 0. or e3 > 1.):
             if remove_outside:
                 continue
             else:
