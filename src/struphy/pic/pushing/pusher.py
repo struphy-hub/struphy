@@ -333,23 +333,34 @@ class Pusher:
                         print(
                             f"rank {rank}: {k=}, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0]=}, {max_res=}",
                         )
-                    # sort markers according to domain decomposition
-                    if self.mpi_sort == "each" and not self.particles.amrex:
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
+                        
+                    if self.particles.amrex:
+                        self.particles.apply_amrex_kinetic_bc()
+                        self.particles.markers.redistribute()
+                    else:
+                        # sort markers according to domain decomposition
+                        if self.mpi_sort == "each":
+                            if self.particles.mpi_comm is not None:
+                                self.particles.mpi_sort_markers()
+                            else:
+                                self.particles.apply_kinetic_bc()
+                    
+                    
                     break
 
                 # check for convergence
                 if n_not_converged[0] == 0:
-                    # sort markers according to domain decomposition
-                    if self.mpi_sort == "each":
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
-                        else:
-                            self.particles.apply_kinetic_bc()
-
+                    if self.particles.amrex:
+                        self.particles.apply_amrex_kinetic_bc()
+                        self.particles.markers.redistribute()
+                    else:
+                        # sort markers according to domain decomposition
+                        if self.mpi_sort == "each":
+                            if self.particles.mpi_comm is not None:
+                                self.particles.mpi_sort_markers()
+                            else:
+                                self.particles.apply_kinetic_bc()
+                   
                     break
 
             # print stage info
@@ -362,6 +373,7 @@ class Pusher:
 
             # sort markers according to domain decomposition
             if self.particles.amrex:
+                self.particles.apply_amrex_kinetic_bc()
                 self.particles.markers.redistribute()
             else:
                 if self.mpi_sort == "last":

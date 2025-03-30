@@ -1898,20 +1898,17 @@ class Particles(metaclass=ABCMeta):
                 markers_array[axis][is_outside_left] = 1e-4
                 markers_array[axis][is_outside_right] = 1 - 1e-4
                 
-                self._markers.redistribute()
-                
                 amrex_reflect(
                     self,
                     outside_inds,
                     i,
                 )
                 
-                markers_array["init_x"][is_outside] = -1.0
-                
-                self._markers.redistribute()
                 
             else:
                 raise NotImplementedError("Given bc_type is not implemented!")
+        
+        self._markers.redistribute()
 
     def auto_sampling_params(self):
         """Automatically determine sampling parameters from the background given"""
