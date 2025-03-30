@@ -22,6 +22,10 @@ def pytest_generate_tests(metafunc):
     except AttributeError:
         pass
 
-    option_value = metafunc.config.option.vrbose
-    if "vrbose" in metafunc.fixturenames and option_value is not None:
-        metafunc.parametrize("vrbose", [option_value])
+    try:
+        option_value = metafunc.config.option.vrbose
+        if "vrbose" in metafunc.fixturenames and option_value is not None:
+            metafunc.parametrize("vrbose", [option_value])
+    except AttributeError:
+        pass
+
