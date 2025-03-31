@@ -819,8 +819,8 @@ class Derham:
             self._domain_log_h = discretize(
                 self._domain_log,
                 ncells=Nel,
-                comm=self._comm,
-                periodic=self.spl_kind,
+                comm=comm,
+                periodic=spl_kind,
                 mpi_dims_mask=mpi_dims_mask,
             )
 
@@ -828,7 +828,7 @@ class Derham:
             _derham = discretize(
                 self._derham_symb,
                 self._domain_log_h,
-                degree=self.p,
+                degree=p,
             )  # , nquads=self.nquads) # nquads can no longer be passed to a call to discretize on a FemSpace #403
         
         return _derham
