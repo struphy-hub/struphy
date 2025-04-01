@@ -188,6 +188,7 @@ class Derham:
         self._quad_grid_bases = {}
 
         # i is an int that represents the id of the p-form space. For instance, for V_0, i = 0.
+        psydac_ver = importlib.metadata.version("psydac")
         for i, sp_form in enumerate(self.space_to_form.values()):
             # FEM space and projector
             if sp_form == "v":
@@ -196,7 +197,8 @@ class Derham:
                     _derham.V0,
                     _derham.V0,
                 )
-                _h1vec_space.symbolic_space = 'H1vec'
+                if "dev" in psydac_ver:
+                    _h1vec_space.symbolic_space = 'H1vec'
                 self._Vh_fem[sp_form] = _h1vec_space
                 self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
             else:
