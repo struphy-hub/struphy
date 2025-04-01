@@ -6262,7 +6262,7 @@ class VariationalPBEvolve(Propagator):
         dct["nonlin_solver"] = {
             "tol": 1e-8,
             "maxiter": 100,
-            "type": ["Newton", "Picard"],
+            "type": ["Picard"],
             "info": False,
             "implicit_transport": False,
             "linearize": False,
@@ -6348,12 +6348,12 @@ class VariationalPBEvolve(Propagator):
             self._extracted_b2 = self.derham.extraction_ops["2"].dot(self.projected_equil.b2)
 
     def __call__(self, dt):
-        if self._nonlin_solver["type"] == "Newton":
-            self.__call_newton(dt)
+        if self._nonlin_solver["type"] == "Picard":
+            self.__call_picard(dt)
         else:
-            raise ValueError("Only Newton solver is implemented for VariationalPBEvolve")
+            raise ValueError("Only Picard solver is implemented for VariationalPBEvolve")
 
-    def __call_newton(self, dt):
+    def __call_picard(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         # In fact it is linear due to the explicit update, only one iteration will be done at each time step
         if self._info:
@@ -6366,11 +6366,6 @@ class VariationalPBEvolve(Propagator):
 
         self.uf.vector = un
 
-
-        self.bf.vector = bn
-        self._update_Pib()
-        self.pf.vector = pn
-        self._update_Projp()
         self.pc.update_mass_operator(self._Mrho)
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
@@ -6386,8 +6381,9 @@ class VariationalPBEvolve(Propagator):
         err = tol + 1
 
         for it in range(self._nonlin_solver["maxiter"]):
-            # Newton iteration
+            # Picard iteration
             # half time step approximation
+
             bn12 = bn.copy(out=self._tmp_bn12)
             bn12 += bn1
             bn12 *= 0.5
@@ -6396,6 +6392,14 @@ class VariationalPBEvolve(Propagator):
             un12 += un1
             un12 *= 0.5
 
+            pn12 = pn.copy(out=self._tmp_pn12)
+            pn12 += pn1
+            pn12 *= 0.5
+
+            self.bf.vector = bn12
+            self._update_Pib()
+            self.pf.vector = pn12
+            self._update_Projp()
             # Update the linear form
             self._update_linear_form_u2()
 
