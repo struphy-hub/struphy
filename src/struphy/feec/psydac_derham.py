@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-import numpy as np
 import importlib.metadata
+
+import numpy as np
 import psydac.core.bsplines as bsp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
-from psydac.feec.global_projectors import Projector_H1vec
+from psydac.ddm.cart import DomainDecomposition
+from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
+from psydac.feec.global_projectors import Projector_H1, Projector_H1vec, Projector_Hcurl, Projector_Hdiv, Projector_L2
+from psydac.fem.basic import FemSpace
+from psydac.fem.partitioning import create_cart
 from psydac.fem.splines import SplineSpace
+from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace, VectorFemSpace
 from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
-
-from psydac.fem.tensor       import TensorFemSpace
-from psydac.fem.partitioning import create_cart
-from psydac.ddm.cart import DomainDecomposition
-from psydac.feec.global_projectors import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2
-from psydac.feec.derivatives       import Gradient_3D, Curl_3D, Divergence_3D
-from psydac.fem.basic              import FemSpace
 
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
@@ -141,11 +140,13 @@ class Derham:
         self._polar_ck = polar_ck
 
         # derham sequence
-        _derham = self.init_derham(Nel,
-                                   self.p,
-                                   self.spl_kind, 
-                                   comm=self.comm,
-                                   mpi_dims_mask=mpi_dims_mask,)
+        _derham = self.init_derham(
+            Nel,
+            self.p,
+            self.spl_kind,
+            comm=self.comm,
+            mpi_dims_mask=mpi_dims_mask,
+        )
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
         # expose name-to-form dict
@@ -198,7 +199,7 @@ class Derham:
                     _derham.V0,
                 )
                 if "dev" in psydac_ver:
-                    _h1vec_space.symbolic_space = 'H1vec'
+                    _h1vec_space.symbolic_space = "H1vec"
                 self._Vh_fem[sp_form] = _h1vec_space
                 self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
             else:
@@ -782,14 +783,16 @@ class Derham:
     # --------------------------
     #      methods:
     # --------------------------
-    def init_derham(self, 
-                    Nel: tuple | list,
-                    p: tuple | list,
-                    spl_kind: tuple | list,
-                    comm: Intracomm = None,
-                    mpi_dims_mask: tuple | list = None,):
-        '''Discretize the Derahm complex. Allows for the use of tiny-psydac.
-        
+    def init_derham(
+        self,
+        Nel: tuple | list,
+        p: tuple | list,
+        spl_kind: tuple | list,
+        comm: Intracomm = None,
+        mpi_dims_mask: tuple | list = None,
+    ):
+        """Discretize the Derahm complex. Allows for the use of tiny-psydac.
+
         Parameters
         ----------
         Nel : list[int]
@@ -807,8 +810,8 @@ class Derham:
         mpi_dims_mask: list of bool
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-        '''
-        
+        """
+
         psydac_ver = importlib.metadata.version("psydac")
 
         if "dev" in psydac_ver:
@@ -820,11 +823,11 @@ class Derham:
                 spl_kind=spl_kind,
                 ddm=ddm,
             )
-        else:     
+        else:
+            from psydac.api.discretization import discretize
             from sympde.topology import Cube
             from sympde.topology import Derham as Derham_psy
-            from psydac.api.discretization import discretize
-            
+
             # Psydac symbolic logical domain (unit cube)
             self._domain_log = Cube(
                 "C",
@@ -851,7 +854,7 @@ class Derham:
                 self._domain_log_h,
                 degree=p,
             )  # , nquads=self.nquads) # nquads can no longer be passed to a call to discretize on a FemSpace #403
-        
+
         return _derham
 
     def create_field(self, name, space_id, bckgr_params=None, pert_params=None):
@@ -911,13 +914,15 @@ class Derham:
     # --------------------------
     #      private methods:
     # --------------------------
-    def _discretize_derham(self, 
-                           Nel: tuple | list,
-                           p: tuple | list,
-                           spl_kind: tuple | list,
-                           ddm: DomainDecomposition = None,):
-        '''Call routines copied and simplified from psydac.
-        
+    def _discretize_derham(
+        self,
+        Nel: tuple | list,
+        p: tuple | list,
+        spl_kind: tuple | list,
+        ddm: DomainDecomposition = None,
+    ):
+        """Call routines copied and simplified from psydac.
+
         Parameters
         ----------
         Nel : list[int]
@@ -931,30 +936,35 @@ class Derham:
 
         ddm : DomainDecomposition
             Psaydac domain decomposition object.
-        '''
-        ldim    = 3
-        bases   = ['B'] + ldim * ['M']
-        derham_spaces = ['H1', 'Hcurl', 'Hdiv', 'L2']
-        
-        spaces  = [self._discretize_space(V, 
-                                          basis, 
-                                          Nel=Nel,
-                                          degree=p,
-                                          spl_kind=spl_kind,
-                                          ddm=ddm,)
-                for V, basis in zip(derham_spaces, bases)]
+        """
+        ldim = 3
+        bases = ["B"] + ldim * ["M"]
+        derham_spaces = ["H1", "Hcurl", "Hdiv", "L2"]
+
+        spaces = [
+            self._discretize_space(
+                V,
+                basis,
+                Nel=Nel,
+                degree=p,
+                spl_kind=spl_kind,
+                ddm=ddm,
+            )
+            for V, basis in zip(derham_spaces, bases)
+        ]
 
         return DiscreteDerham(*spaces)
 
-    def _discretize_space(self, 
-                          V: str, 
-                     basis: str,
-                     *,
-                     Nel: tuple | list = None,
-                     degree: tuple | list= None, 
-                     spl_kind: tuple | list = None,
-                     ddm: DomainDecomposition = None,
-                     ):
+    def _discretize_space(
+        self,
+        V: str,
+        basis: str,
+        *,
+        Nel: tuple | list = None,
+        degree: tuple | list = None,
+        spl_kind: tuple | list = None,
+        ddm: DomainDecomposition = None,
+    ):
         """
         This function creates discrete Derham spaces over the 3D unit cube (copied partly from psydac).
 
@@ -962,10 +972,10 @@ class Derham:
         ----------
         V : str
             H1, Hcurl, Hdiv or L2 (at the moment).
-            
+
         basis: str
             Either 'B' (B-splines) or 'M' (D-splines).
-            
+
         Nel : list[int]
             Number of elements in each direction.
 
@@ -976,7 +986,7 @@ class Derham:
             Kind of spline in each direction (True=periodic, False=clamped).
 
         ddm : DomainDecomposition
-            Psaydac domain decomposition object.   
+            Psaydac domain decomposition object.
 
         For more details see:
 
@@ -998,46 +1008,54 @@ class Derham:
             The discrete FEM space.
         """
 
-        ncells     = Nel
-        periodic   = spl_kind
-        degree_i   = degree
+        ncells = Nel
+        periodic = spl_kind
+        degree_i = degree
         multiplicity_i = (1, 1, 1)
-        
-        # unit cube
-        min_coords = (0., 0., 0.)
-        max_coords = (1., 1., 1.)
 
-        assert len(ncells) == len(periodic) == len(degree_i)  == len(multiplicity_i) == len(min_coords) == len(max_coords)
+        # unit cube
+        min_coords = (0.0, 0.0, 0.0)
+        max_coords = (1.0, 1.0, 1.0)
+
+        assert (
+            len(ncells) == len(periodic) == len(degree_i) == len(multiplicity_i) == len(min_coords) == len(max_coords)
+        )
 
         # Create uniform grid
-        grids = [np.linspace(xmin, xmax, num=ne + 1)
-                    for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+        grids = [np.linspace(xmin, xmax, num=ne + 1) for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
         # Create 1D finite element spaces and precompute quadrature data
-        spaces = [SplineSpace( p, multiplicity=m, grid=grid , periodic=P) for p,m,grid,P in zip(degree_i, multiplicity_i,grids, periodic)]
+        spaces = [
+            SplineSpace(p, multiplicity=m, grid=grid, periodic=P)
+            for p, m, grid, P in zip(degree_i, multiplicity_i, grids, periodic)
+        ]
 
-        carts    = create_cart([ddm], [spaces])
+        carts = create_cart([ddm], [spaces])
 
-        g_spaces = TensorFemSpace(ddm, *spaces, cart=carts[0]) 
+        g_spaces = TensorFemSpace(ddm, *spaces, cart=carts[0])
 
         Vh = g_spaces
-        
-        if V == 'H1':
+
+        if V == "H1":
             Wh = Vh
-        elif V == 'Hcurl':
-            spaces = [Vh.reduce_degree(axes=[0], multiplicity=Vh.multiplicity[0:1], basis=basis),
-                        Vh.reduce_degree(axes=[1], multiplicity=Vh.multiplicity[1:2], basis=basis),
-                        Vh.reduce_degree(axes=[2], multiplicity=Vh.multiplicity[2:] , basis=basis)]
+        elif V == "Hcurl":
+            spaces = [
+                Vh.reduce_degree(axes=[0], multiplicity=Vh.multiplicity[0:1], basis=basis),
+                Vh.reduce_degree(axes=[1], multiplicity=Vh.multiplicity[1:2], basis=basis),
+                Vh.reduce_degree(axes=[2], multiplicity=Vh.multiplicity[2:], basis=basis),
+            ]
             Wh = VectorFemSpace(*spaces)
-        elif V == 'Hdiv':
-            spaces = [Vh.reduce_degree(axes=[1,2], multiplicity=Vh.multiplicity[1:], basis=basis),
-                        Vh.reduce_degree(axes=[0,2], multiplicity=[Vh.multiplicity[0], Vh.multiplicity[2]], basis=basis),
-                        Vh.reduce_degree(axes=[0,1], multiplicity=Vh.multiplicity[:2], basis=basis)]
+        elif V == "Hdiv":
+            spaces = [
+                Vh.reduce_degree(axes=[1, 2], multiplicity=Vh.multiplicity[1:], basis=basis),
+                Vh.reduce_degree(axes=[0, 2], multiplicity=[Vh.multiplicity[0], Vh.multiplicity[2]], basis=basis),
+                Vh.reduce_degree(axes=[0, 1], multiplicity=Vh.multiplicity[:2], basis=basis),
+            ]
             Wh = VectorFemSpace(*spaces)
-        elif V == 'L2':
-            Wh = Vh.reduce_degree(axes=[0,1,2], multiplicity=Vh.multiplicity, basis=basis)
+        elif V == "L2":
+            Wh = Vh.reduce_degree(axes=[0, 1, 2], multiplicity=Vh.multiplicity, basis=basis)
         else:
-            raise ValueError(f'V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.')
+            raise ValueError(f"V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.")
 
         Wh.symbolic_space = V
         for key in Wh._refined_space:
@@ -1685,6 +1703,7 @@ class Derham:
                     elif "EigFun" in _type:
                         print("Warning: Eigfun is not regularly tested ...")
                         from struphy.initial import eigenfunctions
+
                         # select class
                         funs = getattr(eigenfunctions, _type)(
                             self.derham,
@@ -2400,31 +2419,30 @@ class Derham:
 
 
 class DiscreteDerham:
-    """ A discrete de Rham sequence in 3D.
+    """A discrete de Rham sequence in 3D.
 
     Parameters
     ----------
     *spaces : list of FemSpace
         The discrete spaces of the de Rham sequence.
     """
-    
-    def __init__(self, *spaces):
 
+    def __init__(self, *spaces):
         assert len(spaces) == 4
         assert all(isinstance(space, FemSpace) for space in spaces)
 
-        self._spaces  = spaces
-        self._dim     = 3
+        self._spaces = spaces
+        self._dim = 3
 
-        D0 =   Gradient_3D(spaces[0], spaces[1])
-        D1 =       Curl_3D(spaces[1], spaces[2])
+        D0 = Gradient_3D(spaces[0], spaces[1])
+        D1 = Curl_3D(spaces[1], spaces[2])
         D2 = Divergence_3D(spaces[2], spaces[3])
 
         spaces[0].diff = spaces[0].grad = D0
         spaces[1].diff = spaces[1].curl = D1
-        spaces[2].diff = spaces[2].div  = D2
+        spaces[2].diff = spaces[2].div = D2
 
-    #--------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
     @property
     def dim(self):
         """Dimension of the physical and logical domains, which are assumed to be the same."""
@@ -2469,22 +2487,22 @@ class DiscreteDerham:
     def derivatives(self):
         """Differential operators of the De Rham sequence as `DiffOperator` objects.
 
-        Those are objects with `domain` and `codomain` properties that are `FemSpace`, 
-        they act on `FemField` (they take a `FemField` of their `domain` as input and return 
+        Those are objects with `domain` and `codomain` properties that are `FemSpace`,
+        they act on `FemField` (they take a `FemField` of their `domain` as input and return
         a `FemField` of their `codomain`.
         """
         return tuple(V.diff for V in self.spaces[:-1])
 
-    #--------------------------------------------------------------------------
-    def projectors(self, *, kind='global', nquads=None):
-        """Projectors mapping callable functions of the physical coordinates to a 
+    # --------------------------------------------------------------------------
+    def projectors(self, *, kind="global", nquads=None):
+        """Projectors mapping callable functions of the physical coordinates to a
         corresponding `FemField` object in the De Rham sequence.
 
         Parameters
         ----------
         kind : str
             Type of the projection : at the moment, only global is accepted and
-            returns geometric commuting projectors based on interpolation/histopolation 
+            returns geometric commuting projectors based on interpolation/histopolation
             for the De Rham sequence (GlobalProjector objects).
 
         nquads : list(int) | tuple(int)
@@ -2494,29 +2512,29 @@ class DiscreteDerham:
         Returns
         -------
         P0, ..., Pn : callables
-            Projectors that can be called on any callable function that maps 
+            Projectors that can be called on any callable function that maps
             from the physical space to R (scalar case) or R^d (vector case) and
             returns a FemField belonging to the i-th space of the De Rham sequence
         """
 
-        if not (kind == 'global'):
-            raise NotImplementedError('only global projectors are available')
+        if not (kind == "global"):
+            raise NotImplementedError("only global projectors are available")
 
         if nquads is None:
             nquads = [p + 1 for p in self.V0.degree]
         elif isinstance(nquads, int):
             nquads = [nquads] * self.dim
         else:
-            assert hasattr(nquads, '__iter__')
+            assert hasattr(nquads, "__iter__")
             nquads = list(nquads)
 
         assert all(isinstance(nq, int) for nq in nquads)
         assert all(nq >= 1 for nq in nquads)
 
-        P0 = Projector_H1   (self.V0)
+        P0 = Projector_H1(self.V0)
         P1 = Projector_Hcurl(self.V1, nquads)
-        P2 = Projector_Hdiv (self.V2, nquads)
-        P3 = Projector_L2   (self.V3, nquads)
+        P2 = Projector_Hdiv(self.V2, nquads)
+        P3 = Projector_L2(self.V3, nquads)
 
         return P0, P1, P2, P3
 

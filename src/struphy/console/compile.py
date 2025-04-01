@@ -40,8 +40,8 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
     import importlib.metadata
     import os
-    import sysconfig
     import re
+    import sysconfig
 
     import pyccel
 
@@ -263,11 +263,10 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                 install_psydac = True
 
             if install_psydac:
-                
                 for filename in os.listdir(libpath):
                     if re.match("psydac-", filename):
                         psydac_file = filename
-                
+
                 cmd = ["pip", "uninstall", "-y", "psydac"]
                 subp_run(cmd)
                 print("\nInstalling Psydac ...")
