@@ -788,6 +788,12 @@ def struphy():
         )
 
         parser_test.add_argument(
+            "--likwid",
+            help="perform verification runs with LIKWID markers",
+            action="store_true",
+        )
+        
+        parser_test.add_argument(
             "--show-plots",
             help="show plots of tests",
             action="store_true",

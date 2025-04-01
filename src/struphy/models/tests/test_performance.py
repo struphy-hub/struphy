@@ -3,10 +3,10 @@ from mpi4py import MPI
 import pytest
 
 from struphy.models import toy
-from struphy.models.tests.util import call_model
+from struphy.models.tests.util import call_test
 
 
-@pytest.mark.performance
+#@pytest.mark.performance
 def profile_performance():
     from struphy.profiling.profiling import (
         ProfilingConfig,
@@ -35,7 +35,7 @@ def profile_performance():
                     )
                     continue
             config.simulation_label = f"{key}_"
-            call_model(key, val, map_and_equil, Tend=Tend, comm=comm)
+            call_test(key, val, map_and_equil, Tend=Tend, comm=comm)
 
     pylikwid_markerclose()
 

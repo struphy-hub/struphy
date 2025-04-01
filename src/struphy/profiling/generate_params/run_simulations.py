@@ -12,6 +12,7 @@ import yaml
 import struphy
 import struphy.utils.utils as utils
 from struphy.console.utils import generate_batch_script, save_batch_script
+from struphy.console.parsers import add_likwid_parser
 
 state = utils.read_state()
 i_path = state["i_path"]
@@ -42,6 +43,34 @@ def main():
     )
 
     parser.add_argument(
+        "--mpi",
+        type=int,
+        default=1,
+        help="Number of MPI processes",
+    )
+
+    parser.add_argument(
+        "--nodes",
+        type=int,
+        default=1,
+        help="Number of nodes",
+    )
+
+    parser.add_argument(
+        "--nclones",
+        type=int,
+        default=1,
+        help="Number of nodes",
+    )
+
+    parser.add_argument(
+        "--tasks-per-node",
+        type=int,
+        default=72,
+        help="Number of MPI processes",
+    )
+
+    parser.add_argument(
         "--venv",
         type=str,
         default="/ptmp/maxlin/struphy/virtual_envs/env_struphy_CI",
@@ -53,6 +82,8 @@ def main():
         default="",
         help='Slurm jobname prefix ("struphy_$CI_PIPELINE_ID", for example)',
     )
+
+    add_likwid_parser(parser)
 
     args = parser.parse_args()
     action = args.action
@@ -74,24 +105,26 @@ def main():
         with open(file, "r") as f:
             params = yaml.safe_load(f)
 
+        if not "model" in params:
+            print(f"model missing in {param_filename}")
+            continue
+        model = params["model"]
         # Get setup params
-        nmpi = int(params["setup"]["mpi"])
-        model = params["setup"]["model"]
-        projectname = params["setup"]["projectname"]
+        projectname = f"{model}_nodes-{args.nodes}_mpi-{args.mpi}_nclones-{args.nclones}_{param_filename.replace('.yml','')}"
 
         # Check if directory exists
         output_dir = f"{o_path}/{projectname}"
         if os.path.isdir(output_dir):
-            print(f"{YELLOW}Skipping:\t{NC}{projectname}")
+            print(f"{YELLOW}Skipping:\t{NC}{output_dir}")
         else:
-            nodes = (nmpi + 71) // 72  # Calculate the number of nodes required
-            job_name = f"{jobname_prefix}_{projectname}"
+            #nodes = (nmpi + 71) // 72  # Calculate the number of nodes required
+            job_name = f"{jobname_prefix}_{model}"
             submit_file = f"submit_{projectname}.sh"
 
             script_params = {
                 "job_name": job_name,
-                "ntasks_per_node": 72,
-                "nodes": nodes,
+                "ntasks_per_node": args.tasks_per_node,
+                "nodes": args.nodes,
                 "module_setup": "module load gcc/12 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2",
                 "likwid": True,
                 "venv_path": venv_path,
@@ -105,7 +138,7 @@ def main():
                 "run",
                 model,
                 "--mpi",
-                str(nmpi),
+                str(args.mpi),
                 "--batch",
                 submit_file,
                 "--inp",
@@ -131,14 +164,17 @@ def main():
             elif action == "check":
                 projectname_width = 50
                 print(
-                    f"{GREEN}Running:\t{projectname.ljust(projectname_width)}\t({param_filename}) using {submit_file}{NC}",
+                    f"{GREEN}Would run:\t{projectname.ljust(projectname_width)}\t({param_filename}) using {submit_file}{NC}",
                 )
+                print(f"Command: {' '.join(command)}")
             else:
                 print(f"{RED}Invalid action: {action}{NC}")
                 print("Usage: script.py [run|check]")
                 sys.exit(1)
             num_new_simulations += 1
     print(f"Total new simulations: {num_new_simulations}")
+    cmd = ["squeue", "-u", "$USER"]
+    subprocess.run(cmd)
 
 
 if __name__ == "__main__":

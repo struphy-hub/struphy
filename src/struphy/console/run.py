@@ -164,7 +164,7 @@ def struphy_run(
     # command parts
     cmd_python = ["python3"]
     cmd_main = [
-        "main.py",
+        f"{libpath}/main.py",
         model,
         "-i",
         input_abs,
@@ -205,7 +205,6 @@ def struphy_run(
                 + cmd_main
             )
         elif likwid:
-            cmd_main[0] = f"{libpath}/{cmd_main[0]}"
             command = likwid_command + cmd_python + cprofile * cmd_cprofile + cmd_main + ["--likwid"]
         else:
             print("\nLaunching main() in normal mode ...")
@@ -296,7 +295,7 @@ def struphy_run(
                 f.write(line)
             f.write("# Run command added by Struphy\n")
 
-            command = cmd_python + cprofile * cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"]
+            command = cmd_python + cprofile * cmd_cprofile + cmd_main
             if restart:
                 command += ["-r"]
 
@@ -307,7 +306,7 @@ def struphy_run(
                 print(f"Running with likwid with {likwid_repetitions = }")
                 f.write(f"# Launching likwid {likwid_repetitions} times with likwid-mpirun\n")
                 for i in range(likwid_repetitions):
-                    f.write(f"\n\n# Run number {i:03}\n")
+                    f.write(f"\n\n# Run number {i+1:03}\n")
                     f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))
             else:
                 print("Running with srun")

@@ -22,6 +22,7 @@ def struphy_test(
     vrbose: bool = False,
     verification: bool = False,
     show_plots: bool = False,
+    likwid: bool = False,
     batch: bool = False,
 ):
     """
@@ -53,7 +54,10 @@ def struphy_test(
     show_plots : bool
         Show plots of tests.
     """
-
+    if likwid:
+        cmd_mpirun = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker", '-mpi', 'openmpi']
+    else:
+        cmd_mpirun = ["mpirun", "-n", str(mpi)]
     if "unit" in group:
         # first run only tests that require single process
         cmd = [
@@ -70,11 +74,8 @@ def struphy_test(
         subp_run(cmd)
 
         # now run parallel unit tests
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
+        cmd = cmd_mpirun
+        cmd += ["pytest",
             "-k",
             "not _models and not _tutorial and not pproc",
             "--with-mpi",
@@ -88,11 +89,8 @@ def struphy_test(
         subp_run(cmd)
 
     elif "models" in group:
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
+        cmd = cmd_mpirun
+        cmd += ["pytest",
             "-k",
             "_models",
             "-s",
@@ -106,6 +104,7 @@ def struphy_test(
             cmd += ["--verification"]
         if show_plots:
             cmd += ["--show-plots"]
+
         subp_run(cmd)
 
         # test post processing of models
@@ -119,11 +118,8 @@ def struphy_test(
             subp_run(cmd)
 
     elif group in {"fluid", "kinetic", "hybrid", "toy"}:
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
+        cmd = cmd_mpirun
+        cmd += ["pytest",
             "-k",
             group + "_models",
             "-s",
@@ -162,7 +158,8 @@ export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
             raise ImportError("Error: 'pylikwid' is not installed.\nPlease install it via pip:\npip install pylikwid\n")
 
         if batch:
-            batch_abs = os.path.join(state["b_path"], batch)
+            i_path, o_path, b_path = utils.get_paths()
+            batch_abs = os.path.join(b_path, batch)
 
             # TODO: After refactoring struphy_run, we can build the output directory with one line
             # Run all models
@@ -171,8 +168,7 @@ export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
 
         else:
             # Run all the models
-            likwid_cmd = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker", '-mpi', 'openmpi']  # ['']
-            command = likwid_cmd + ["python3", f"{LIBPATH}/models/tests/test_performance.py"]
+            command = cmd_mpirun + ["python3", f"{LIBPATH}/models/tests/test_performance.py"]
             subprocess.run(command, check=True)
 
     else:

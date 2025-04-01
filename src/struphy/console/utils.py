@@ -109,11 +109,11 @@ def generate_batch_script(**kwargs):
             "export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib",
             "Update LD_LIBRARY_PATH for LIKWID",
         )
-        likwid_section = add_line(
-            likwid_section,
-            "export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH",
-            "Update LD_LIBRARY_PATH for LIKWID",
-        )
+        # likwid_section = add_line(
+        #     likwid_section,
+        #     "export LD_LIBRARY_PATH=/mpcdf/soft/SLE_15/packages/skylake/likwid/gcc_12-12.1.0/5.3.0/lib:$LD_LIBRARY_PATH",
+        #     "Update LD_LIBRARY_PATH for LIKWID",
+        # )
         likwid_section = add_line(
             likwid_section,
             'likwid-topology > "$misc/likwid-topology.txt"',

@@ -23,6 +23,7 @@ def load_yaml_files(file_paths):
 
 
 standard_params_dir = os.path.join(libpath, "io/inp/standard_parameters")
+longer_examples_params_dir = os.path.join(libpath, "io/inp/longer_examples")
 
 yaml_files = [
     f"{standard_params_dir}/params_Vlasov.yml",
