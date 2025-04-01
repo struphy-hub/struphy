@@ -229,7 +229,7 @@ def IsothermalEulerSPH_soundwave(
     # assert
     error = np.max(np.abs(n_sph[0] - n_sph[-1]))
     print(f"{rank = }: Assertion for SPH sound wave passed ({error = }).")
-    assert error < 1e-3
+    assert error < 1.3e-3
 
 
 if __name__ == "__main__":

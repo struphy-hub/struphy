@@ -3017,7 +3017,7 @@ def push_random_diffusion_stage(
     #$ omp end parallel
 
 
-@stack_array("grad_u", "grad_u_cart", "tmp1", "tmp2", "tmp3", "ginv")
+@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
 def push_v_sph_pressure(
     dt: float,
     stage: int,
@@ -3072,9 +3072,8 @@ def push_v_sph_pressure(
     grad_u = zeros(3, dtype=float)
     grad_u_cart = zeros(3, dtype=float)
     tmp1 = zeros((3, 3), dtype=float)
-    tmp2 = zeros((3, 3), dtype=float)
-    tmp3 = zeros((3, 3), dtype=float)
-    ginv = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvT = zeros((3, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -3084,7 +3083,7 @@ def push_v_sph_pressure(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, ginv)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     #$ omp for
     for ip in range(n_markers):
         if not valid_mks[ip]:
@@ -3118,7 +3117,7 @@ def push_v_sph_pressure(
             h2,
             h3,
         )
-        grad_u[0] *= kappa * weight / n_at_eta
+        grad_u[0] *= kappa / n_at_eta
 
         sum2 = sph_eval_kernels.boxed_based_kernel(
             eta1,
@@ -3139,7 +3138,7 @@ def push_v_sph_pressure(
             h2,
             h3,
         )
-        sum2 *= kappa * weight
+        sum2 *= kappa
         grad_u[0] += sum2
 
         if kernel_type >= 340:
@@ -3163,7 +3162,7 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            grad_u[1] *= kappa * weight / n_at_eta
+            grad_u[1] *= kappa / n_at_eta
 
             sum4 = sph_eval_kernels.boxed_based_kernel(
                 eta1,
@@ -3184,7 +3183,7 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            sum4 *= kappa * weight
+            sum4 *= kappa
             grad_u[1] += sum4
 
         if kernel_type >= 670:
@@ -3208,7 +3207,7 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            grad_u[2] *= kappa * weight / n_at_eta
+            grad_u[2] *= kappa / n_at_eta
 
             sum6 = sph_eval_kernels.boxed_based_kernel(
                 eta1,
@@ -3229,22 +3228,21 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            sum6 *= kappa * weight
+            sum6 *= kappa
             grad_u[2] += sum6
 
         # push to Cartesian coordinates
-        evaluation_kernels.g_inv(
+        evaluation_kernels.df_inv(
             eta1,
             eta2,
             eta3,
             args_domain,
             tmp1,
-            tmp2,
-            tmp3,
             False,
-            ginv,
+            dfinv,
         )
-        linalg_kernels.matrix_vector(ginv, grad_u, grad_u_cart)
+        linalg_kernels.transpose(dfinv, dfinvT)
+        linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt * grad_u_cart
