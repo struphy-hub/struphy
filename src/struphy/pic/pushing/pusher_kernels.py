@@ -1,5 +1,9 @@
+# First, compile all the kernels
+# struphy compile --omp-pic --language fortran --compiler=/home/maxlinadmin/git_repos/struphy/compiler_clang_maxlinpc.json
+# To recompile this one, run
+# pyccel --libdir /usr/lib/x86_64-linux-gnu --language=fortran --compiler=/home/maxlinadmin/git_repos/struphy/compiler_clang_maxlinpc.json --conda-warnings=off --openmp /home/maxlinadmin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels.py
 "Pusher kernels for full orbit (6D) particles."
-
+import numpy as np
 from numpy import cos, empty, floor, log, shape, sin, sqrt, zeros
 from pyccel.decorators import stack_array
 
@@ -1855,6 +1859,35 @@ def push_pc_GXu(
         markers[ip, 3:6] -= dt * e_cart / 2.0
 
 
+def matmul_gpu(A: 'float[:,:]', B: 'float[:,:]', C: 'float[:,:]'):
+    N: int = A.shape[0]
+    s: float = 0.0
+    #$ omp target teams distribute parallel for collapse(2)
+    for i in range(N):
+        for j in range(N):
+            s = 0.0
+            for k in range(N):
+                s += A[i, k] * B[k, j] 
+            C[i, j] = s
+
+
+def matmul_gpu2():
+    N: int = 64 # Adjust N as needed
+    # A = np.random.random((N, N)).astype(np.float64)
+    # B = np.random.random((N, N)).astype(np.float64)
+    # C = np.empty((N, N), dtype=np.float64)
+
+    # N: int = A.shape[0]
+    s: float = 0.0
+    #$ omp target teams distribute parallel for collapse(2)
+    for i in range(N):
+        for j in range(N):
+            s = 0.0
+#             for k in range(N):
+#                 s += A[i, k] * B[k, j] 
+#             C[i, j] = s
+
+# TODO: SPH 
 @stack_array("dfm", "dfinv", "v", "k")
 def push_eta_stage(
     dt: float,
@@ -1874,6 +1907,9 @@ def push_eta_stage(
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
     """
 
+    # Time CPU matrix multiplication.
+    # matmul_gpu2()
+    
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
@@ -1898,8 +1934,7 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    #$ omp parallel private(ip, v, dfm, dfinv, k)
-    #$ omp for
+    #$ omp target teams distribute parallel for map(tofrom: markers) private(dfm, dfinv, v, k)
     for ip in range(n_markers):
         # check if marker is a hole or a boundary particle
         if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
@@ -1920,10 +1955,10 @@ def push_eta_stage(
         )
 
         # evaluate inverse Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels.matrix_inv(dfm, dfinv) # Only 3x3 matrix, no OpenMP headers needed
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k)
+        linalg_kernels.matrix_vector(dfinv, v, k) # Performs the matrix-vector product of a 3x3 matrix with a vector.
 
         # accumulation for last stage
         markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
@@ -1934,8 +1969,7 @@ def push_eta_stage(
             + dt * a[stage] * k
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
-
-    #$ omp end parallel
+    # #$ omp end target teams distribute parallel for
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")

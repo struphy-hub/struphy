@@ -1,3 +1,5 @@
+from struphy.compute_gpu_pyccel import time_matmul_compute
+
 def main(
     model_name: str,
     parameters: dict | str,
@@ -47,12 +49,17 @@ def main(
         Number of domain clones (default=1)
     """
 
+    
+
     import copy
     import os
     import time
 
+    
     import numpy as np
     from mpi4py import MPI
+    time_matmul_compute()
+    # exit()
     from pyevtk.hl import gridToVTK
 
     from struphy.feec.psydac_derham import Derham
@@ -66,6 +73,8 @@ def main(
 
     if sort_step:
         from struphy.pic.base import Particles
+
+    time_matmul_compute()
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -422,6 +431,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    
 
     # Enable profiling if likwid == True
     set_likwid(args.likwid)
