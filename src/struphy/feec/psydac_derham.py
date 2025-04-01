@@ -788,7 +788,26 @@ class Derham:
                     spl_kind: tuple | list,
                     comm: Intracomm = None,
                     mpi_dims_mask: tuple | list = None,):
-        '''Discretize the Derahm complex. Allows for the use of tiny-psydac.'''
+        '''Discretize the Derahm complex. Allows for the use of tiny-psydac.
+        
+        Parameters
+        ----------
+        Nel : list[int]
+            Number of elements in each direction.
+
+        p : list[int]
+            Spline degree in each direction.
+
+        spl_kind : list[bool]
+            Kind of spline in each direction (True=periodic, False=clamped).
+
+        comm : mpi4py.MPI.Intracomm
+            MPI communicator (within a clone if domain cloning is used, otherwise MPI.COMM_WORLD)
+
+        mpi_dims_mask: list of bool
+            True if the dimension is to be used in the domain decomposition (=default for each dimension).
+            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+        '''
         
         psydac_ver = importlib.metadata.version("psydac")
 
@@ -897,6 +916,22 @@ class Derham:
                            p: tuple | list,
                            spl_kind: tuple | list,
                            ddm: DomainDecomposition = None,):
+        '''Call routines copied and simplified from psydac.
+        
+        Parameters
+        ----------
+        Nel : list[int]
+            Number of elements in each direction.
+
+        p : list[int]
+            Spline degree in each direction.
+
+        spl_kind : list[bool]
+            Kind of spline in each direction (True=periodic, False=clamped).
+
+        ddm : DomainDecomposition
+            Psaydac domain decomposition object.
+        '''
         ldim    = 3
         bases   = ['B'] + ldim * ['M']
         derham_spaces = ['H1', 'Hcurl', 'Hdiv', 'L2']
@@ -921,12 +956,27 @@ class Derham:
                      ddm: DomainDecomposition = None,
                      ):
         """
-        This function creates discrete Derham spaces.
+        This function creates discrete Derham spaces over the 3D unit cube (copied partly from psydac).
 
         Parameters
         ----------
         V : str
             H1, Hcurl, Hdiv or L2 (at the moment).
+            
+        basis: str
+            Either 'B' (B-splines) or 'M' (D-splines).
+            
+        Nel : list[int]
+            Number of elements in each direction.
+
+        degree : list[int]
+            Spline degree in each direction.
+
+        spl_kind : list[bool]
+            Kind of spline in each direction (True=periodic, False=clamped).
+
+        ddm : DomainDecomposition
+            Psaydac domain decomposition object.   
 
         For more details see:
 
@@ -952,6 +1002,8 @@ class Derham:
         periodic   = spl_kind
         degree_i   = degree
         multiplicity_i = (1, 1, 1)
+        
+        # unit cube
         min_coords = (0., 0., 0.)
         max_coords = (1., 1., 1.)
 
@@ -2348,7 +2400,7 @@ class Derham:
 
 
 class DiscreteDerham:
-    """ A discrete de Rham sequence built over a single-patch geometry.
+    """ A discrete de Rham sequence in 3D.
 
     Parameters
     ----------
