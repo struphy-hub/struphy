@@ -133,14 +133,12 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
                     py_file = stem + ".py"
                     matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
-                    # print(f'{matches = }')
                     matching = None
                     for match in matches:
                         py_ker = match.split("/")[-1]
                         if py_ker == py_file:
                             matching = match
                     matching_so = matching.replace(".py", so_suffix)
-                    # print(f'{matching_so = }')
                     if os.path.isfile(matching_so):
                         if is_c and state["last_used_language"] == "c":
                             count_c += 1
@@ -281,7 +279,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         cmd = [
             "psydac-accelerate",
             "--language=" + language,
-            # "--compiler=" + compiler, # Compiler flag not implemented yet
+            "--compiler=" + compiler,
         ]
         subp_run(cmd)
 
