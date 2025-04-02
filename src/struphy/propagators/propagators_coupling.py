@@ -1,9 +1,10 @@
 "Particle and FEEC variables are updated."
 
 import numpy as np
-
 from psydac.linalg.block import BlockVector
+from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
+
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict
@@ -11,7 +12,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
@@ -447,6 +448,219 @@ class EfieldWeights(Propagator):
             )
             print("Maxdiff weights for StepEfieldWeights:", max_diff)
             print()
+
+
+class DeltaFVelocitiesEfield(Propagator):
+    r"""TODO"""
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        e: BlockVector,
+        particles: Particles6D,
+        *,
+        gamma: np.ndarray,
+        alpha: float = 1.0,
+        epsilon: float = 1.0,
+        vth: float = 1.0,
+        n0: float = 1.0,
+        solver=options(default=True)["solver"],
+    ):
+        super().__init__(e, particles)
+
+        self._alpha = alpha
+        self._epsilon = epsilon
+        self._gamma = gamma
+        self._vth = vth
+        self._n0 = n0
+
+        self._info = solver["info"]
+        self._tol = solver["tol"]
+
+        # Initialize Accumulator for gamma matrix
+        self._accum_gamma = Accumulator(
+            particles,
+            "Hcurl",
+            accum_kernels.deltaf_vlasov_ampere_accum_gamma,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=True,
+            symmetry="symm",
+        )
+
+        self._accum_c = AccumulatorVector(
+            particles,
+            "Hcurl",
+            accum_kernels.deltaf_vlasov_ampere_accum_c,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
+        # Initialize M/D=M1-AB and M1+AB as M1
+        self.MplusAB = self.mass_ops.M1.copy()
+        self.MminusAB = self.mass_ops.M1.copy()
+
+        # marker storage
+        self._old_vels = np.zeros((particles.markers.shape[0], 3), dtype=float)
+        self._vel_diffs = np.zeros((particles.markers.shape[0], 3), dtype=float)
+
+        # Create buffers to store temporarily e and its sum with old e
+        self._e_tmp = e.space.zeros()
+        self._e_rhs = e.space.zeros()
+        self._e_sum = e.space.zeros()
+        self._c_vec = e.space.zeros()
+        self._e_prev = e.space.zeros()
+        self._e_next = e.space.zeros()
+
+        # Preconditioner
+        if solver["type"][1] == None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, solver["type"][1])
+            pc = pc_class(self.mass_ops.M1)
+
+        self.solver = inverse(
+            A=self.MminusAB,
+            solver=solver["type"][0],
+            pc=pc,
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
+        )
+
+        # Instantiate predictor for velocities
+        args_kernel_predictor = (
+            self.derham.args_derham,
+            self.feec_vars[0].blocks[0]._data,
+            self.feec_vars[0].blocks[1]._data,
+            self.feec_vars[0].blocks[2]._data,
+            self._epsilon,
+        )
+
+        self._predict_velocities = Pusher(
+            particles,
+            pusher_kernels.push_velocity_predictor_df_va,
+            args_kernel_predictor,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+        # Instantiate predictor for velocities
+        args_kernel_pusher = (
+            self.derham.args_derham,
+            self.feec_vars[0].blocks[0]._data,
+            self.feec_vars[0].blocks[1]._data,
+            self.feec_vars[0].blocks[2]._data,
+            self._e_next.blocks[0]._data,
+            self._e_next.blocks[1]._data,
+            self._e_next.blocks[2]._data,
+            self._epsilon,
+        )
+
+        self._push_velocities = Pusher(
+            particles,
+            pusher_kernels.push_velocities_df_va,
+            args_kernel_pusher,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+    def __call__(self, dt):
+        # Accumulate gamma
+        self._accum_gamma(self._gamma)
+
+        # Compute M/D=M1-AB and M1+AB
+        self.MplusAB = self._accum_gamma.operators[0].copy()
+        self.MplusAB *= -(dt**2) * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
+        self.MplusAB += self.mass_ops.M1.copy()
+        self.MminusAB = self._accum_gamma.operators[0].copy()
+        self.MminusAB *= dt**2 * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
+        self.MminusAB += self.mass_ops.M1.copy()
+
+        # use setter to update lhs matrix
+        self.solver.linop = self.MminusAB
+
+        # Use predictor for velocities
+        self._predict_velocities(dt)
+
+        # Compute rhs for iteration: self._e_sum = (M1 + AB) e^n + 2 A V^n
+        self.MplusAB.dot(self.feec_vars[0], out=self._e_sum)
+        self._e_tmp *= 0.0
+        self._e_tmp += self._accum_gamma.vectors[0]
+        self._e_tmp *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+        self._e_sum -= self._e_tmp
+
+        converged = False
+
+        k = 0
+        while not converged:
+            k += 1
+            # Add c to rhs
+            self._accum_c(self._vth, self._n0)
+            self._c_vec *= 0.0
+            self._c_vec += self._accum_c.vectors[0]
+            self._c_vec *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+
+            # Construct rhs of equation for E-field
+            self._e_rhs *= 0.0
+            self._e_rhs += self._e_sum
+            self._e_rhs += self._c_vec
+
+            # Save previous electric field value
+            self._e_prev *= 0.0
+            self._e_prev += self._e_next
+
+            # Compute next iteration for E-field
+            self.solver.dot(self._e_rhs, out=self._e_next)
+
+            # store velocities before the push
+            self._old_vels[:] = self.particles[0].markers[:, 9:12]
+
+            # Update velocities
+            self._push_velocities(dt)
+
+            # Compute difference
+            self._vel_diffs[:] *= 0.0
+            self._vel_diffs[:] += self.particles[0].markers[:, 9:12]
+            self._vel_diffs[:] -= self._old_vels[:]
+
+            max_diff_v = np.max(
+                np.abs(
+                    np.sqrt(
+                        self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
+                        + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
+                        + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                    )
+                )
+            )
+
+            max_diff_e = np.max(np.abs(self._e_prev.toarray() - self._e_next.toarray()))
+
+            converged = (max_diff_v < self._tol) and (max_diff_e < self._tol)
+
+        # write new coeffs into self.variables
+        self.feec_vars_update(self._e_next)
+
+        # Update velocities
+        self.particles[0].markers[self.particles[0].valid_mks, 3:6] = self.particles[0].markers_wo_holes[:, 9:12]
 
 
 class PressureCoupling6D(Propagator):
@@ -1495,6 +1709,7 @@ class CurrentCoupling5DGradB(Propagator):
         boundary_cut: dict = options(default=True)["boundary_cut"],
     ):
         from psydac.linalg.solvers import inverse
+
         from struphy.pic.pushing.pusher import ButcherTableau
 
         super().__init__(particles, u)

@@ -1,6 +1,6 @@
 "Pusher kernels for full orbit (6D) particles."
 
-from numpy import cos, empty, floor, log, shape, sin, sqrt, zeros
+from numpy import cos, empty, floor, shape, sin, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -2818,6 +2818,131 @@ def push_weights_with_efield_lin_va(
             / (2 * markers[ip, 7] * vth**2)
         )
         markers[ip, 6] += update
+
+    #$ omp end parallel
+
+
+@stack_array("e_vec")
+def push_velocity_predictor_df_va(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    e1_1: "float[:,:,:]",
+    e1_2: "float[:,:,:]",
+    e1_3: "float[:,:,:]",
+    epsilon: "float",
+):
+    r"""TODO"""
+
+    e_vec = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, span1, span2, span3, e_vec)
+    #$ omp for
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # E-field (1-form)
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_vec,
+        )
+
+        markers[ip, 9] = markers[ip, 3] + dt / epsilon * e_vec[0]
+        markers[ip, 10] = markers[ip, 4] + dt / epsilon * e_vec[1]
+        markers[ip, 11] = markers[ip, 5] + dt / epsilon * e_vec[2]
+
+    #$ omp end parallel
+
+
+@stack_array("e_old, e_next")
+def push_velocities_df_va(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    e1_old_1: "float[:,:,:]",
+    e1_old_2: "float[:,:,:]",
+    e1_old_3: "float[:,:,:]",
+    e1_next_1: "float[:,:,:]",
+    e1_next_2: "float[:,:,:]",
+    e1_next_3: "float[:,:,:]",
+    epsilon: "float",
+):
+    r"""TODO"""
+
+    # Allocate memory
+    e_old = empty(3, dtype=float)
+    e_next = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, span1, span2, span3, e_old, e_next)
+    #$ omp for
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # old E-field (1-form) e^n
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            e1_old_1,
+            e1_old_2,
+            e1_old_3,
+            e_old,
+        )
+
+        # next E-field (1-form) e^{n+1}
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            e1_next_1,
+            e1_next_2,
+            e1_next_3,
+            e_next,
+        )
+
+        markers[ip, 9] = markers[ip, 3] + dt / epsilon * (e_old[0] + e_next[0]) / 2.0
+        markers[ip, 10] = markers[ip, 4] + dt / epsilon * (e_old[1] + e_next[1]) / 2.0
+        markers[ip, 11] = markers[ip, 5] + dt / epsilon * (e_old[2] + e_next[2]) / 2.0
 
     #$ omp end parallel
 

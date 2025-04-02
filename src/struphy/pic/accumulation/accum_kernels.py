@@ -8,7 +8,9 @@ Function naming conventions:
 These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
 """
 
-from numpy import empty, floor, log, shape, sqrt, zeros
+from math import erf, pi
+
+from numpy import cosh, empty, exp, floor, shape, sinh, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
@@ -486,6 +488,183 @@ def linear_vlasov_ampere(
             filling_v[0],
             filling_v[1],
             filling_v[2],
+        )
+
+    #$ omp end parallel
+
+
+def deltaf_vlasov_ampere_accum_gamma(
+    markers: "float[:,:]",
+    n_markers_tot: "int",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    mat11: "float[:,:,:,:,:,:]",
+    mat12: "float[:,:,:,:,:,:]",
+    mat13: "float[:,:,:,:,:,:]",
+    mat22: "float[:,:,:,:,:,:]",
+    mat23: "float[:,:,:,:,:,:]",
+    mat33: "float[:,:,:,:,:,:]",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    gamma: "float[:]",
+):
+    r"""TODO"""
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, fill_vec1, fill_vec2, fill_vec3, gamma)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # marker positions
+        fill_vec1 = markers[ip, 3]
+        fill_vec1 *= gamma[ip]
+        fill_vec2 = markers[ip, 4]
+        fill_vec2 *= gamma[ip]
+        fill_vec3 = markers[ip, 5]
+        fill_vec3 *= gamma[ip]
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            mat11,
+            mat12,
+            mat13,
+            mat22,
+            mat23,
+            mat33,
+            gamma[ip],
+            gamma[ip],
+            gamma[ip],
+            gamma[ip],
+            gamma[ip],
+            gamma[ip],
+            vec1,
+            vec2,
+            vec3,
+            fill_vec1,
+            fill_vec2,
+            fill_vec3,
+        )
+
+    #$ omp end parallel
+
+
+@stack_array("v_old", "v_next", "v_diff")
+def deltaf_vlasov_ampere_accum_c(
+    markers: "float[:,:]",
+    n_markers_tot: "int",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    vth: "float",
+    n0: "float",
+):
+    r"""TODO"""
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+    v_next = empty(3, dtype=float)
+    v_diff = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel private (ip, eta1, eta2, eta3, v1, v2, v3, gamma, v_old, v_next, v_diff)
+    #$ omp for reduction ( + : vec1, vec2, vec3)
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get old velocities v^n
+        v_old[0] = markers[ip, 3]
+        v_old[1] = markers[ip, 4]
+        v_old[2] = markers[ip, 5]
+
+        # get current v^{n+1}
+        v_next[0] = markers[ip, 9]
+        v_next[1] = markers[ip, 10]
+        v_next[2] = markers[ip, 11]
+
+        # compute difference
+        v_diff[0] = v_next[0] - v_old[0]
+        v_diff[1] = v_next[1] - v_old[1]
+        v_diff[2] = v_next[2] - v_old[2]
+
+        # Assign variables
+        a = linalg_kernels.scalar_dot(v_diff, v_diff) / (2 * vth**2)
+        c = linalg_kernels.scalar_dot(v_old, v_old) / (2 * vth**2)
+        b = linalg_kernels.scalar_dot(v_old, v_next) / (vth**2) - 2 * c
+        factor = n0 / sqrt((2 * pi * vth**2) ** 3)
+        ab = a + b
+        abc = ab + c
+
+        fill_vec1 = (
+            (cosh(abc) - sinh(abc))
+            / (4 * a ** (3 / 2))
+            * (
+                2 * sqrt(a) * factor * v_diff[0] * (exp(ab) - 1)
+                + sqrt(pi)
+                * exp(ab + b**2 / (4 * a))
+                * (b * factor * v_diff[0] - 2 * a * factor * v_old[0])
+                * (erf(b / (2 * sqrt(a))) - erf((2 * a + b) / (2 * sqrt(a))))
+            )
+        )
+        fill_vec2 = (
+            (cosh(abc) - sinh(abc))
+            / (4 * a ** (3 / 2))
+            * (
+                2 * sqrt(a) * factor * v_diff[1] * (exp(ab) - 1)
+                + sqrt(pi)
+                * exp(ab + b**2 / (4 * a))
+                * (b * factor * v_diff[1] - 2 * a * factor * v_old[1])
+                * (erf(b / (2 * sqrt(a))) - erf((2 * a + b) / (2 * sqrt(a))))
+            )
+        )
+        fill_vec3 = (
+            (cosh(abc) - sinh(abc))
+            / (4 * a ** (3 / 2))
+            * (
+                2 * sqrt(a) * factor * v_diff[2] * (exp(ab) - 1)
+                + sqrt(pi)
+                * exp(ab + b**2 / (4 * a))
+                * (b * factor * v_diff[2] - 2 * a * factor * v_old[2])
+                * (erf(b / (2 * sqrt(a))) - erf((2 * a + b) / (2 * sqrt(a))))
+            )
+        )
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.vec_fill_b_v1(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec1,
+            vec2,
+            vec3,
+            fill_vec1,
+            fill_vec2,
+            fill_vec3,
         )
 
     #$ omp end parallel

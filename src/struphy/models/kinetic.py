@@ -876,7 +876,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             * np.dot(
                 self.pointer["species1"].weights ** 2,  # w_p^2
                 self.pointer["species1"].sampling_density
-                / self._f0_values[self.pointer["species1"].valid_mks],  # s_{0,p} / f_{0,p}
+                # s_{0,p} / f_{0,p}
+                / self._f0_values[self.pointer["species1"].valid_mks],
             )
         )
 
@@ -1041,6 +1042,304 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         en_B = self.pointer["b_field"].dot(self._en_b_tmp) / 2.0
 
         self.update_scalar("en_tot", self._tmp[0] + self.en_E + en_B)
+
+
+class DeltaFVlasovAmpereOneSpecies(StruphyModel):
+    r"""TODO"""
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["em_fields"]["e_field"] = "Hcurl"
+        dct["kinetic"]["species1"] = "DeltaFParticles6D"
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "species1"
+
+    @staticmethod
+    def velocity_scale():
+        return "light"
+
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_markers.PushEta: ["species1"],
+            propagators_markers.PushVinEfield: ["species1"],
+            propagators_coupling.DeltaFVelocitiesEfield: ["e_field", "species1"],
+            propagators_markers.PushVxB: ["species1"],
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["em_fields"],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=["kinetic", "species1"],
+            key="override_eq_params",
+            option=[False, {"epsilon": -1.0, "alpha": 1.0}],
+            dct=dct,
+        )
+        return dct
+
+    def __init__(self, params, comm, clone_config=None, baseclass=False):
+        """Initializes the model either as the full model or as a baseclass to inherit from.
+        In case of being a baseclass, the propagators will not be initialized in the __init__ which allows other propagators to be added.
+
+        Parameters
+        ----------
+        baseclass : Boolean [optional]
+            If this model should be used as a baseclass. Default value is False.
+        """
+
+        # initialize base class
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        from mpi4py.MPI import IN_PLACE, SUM
+
+        from struphy.kinetic_background import maxwellians
+
+        # if model is used as a baseclass
+        self._baseclass = baseclass
+
+        # kinetic parameters
+        self._species_params = params["kinetic"]["species1"]
+
+        # Assert Maxwellian background (if list, the first entry is taken)
+        bckgr_params = self._species_params["background"]
+        li_bp = list(bckgr_params)
+        assert li_bp[0] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
+        if len(li_bp) > 1:
+            # overwrite f0 with single Maxwellian
+            self._f0 = getattr(maxwellians, li_bp[0][:-2])(
+                maxw_params=bckgr_params[li_bp[0]],
+            )
+        else:
+            # keep allocated background
+            self._f0 = self.pointer["species1"].f0
+
+        # Assert uniformity of the Maxwellian background
+        assert self._f0.maxw_params["u1"] == 0.0, "The background Maxwellian cannot have shifts in velocity space!"
+        assert self._f0.maxw_params["u2"] == 0.0, "The background Maxwellian cannot have shifts in velocity space!"
+        assert self._f0.maxw_params["u3"] == 0.0, "The background Maxwellian cannot have shifts in velocity space!"
+        assert self._f0.maxw_params["vth1"] == self._f0.maxw_params["vth2"] == self._f0.maxw_params["vth3"], (
+            "The background Maxwellian must be isotropic in velocity space!"
+        )
+        self.vth = self._f0.maxw_params["vth1"]
+
+        # Get coupling strength
+        if self._species_params["options"]["override_eq_params"]:
+            self.epsilon = self._species_params["options"]["override_eq_params"]["epsilon"]
+            self.alpha = self._species_params["options"]["override_eq_params"]["alpha"]
+            if self.rank_world == 0:
+                print(
+                    f"\n!!! Override equation parameters: {self.epsilon = }, {self.alpha = }.\n",
+                )
+        else:
+            self.epsilon = self.equation_params["species1"]["epsilon"]
+            self.alpha = self.equation_params["species1"]["alpha"]
+
+        # allocate memory for evaluating f0 and n0 in energy computation
+        self._f0_values = np.zeros(
+            self.pointer["species1"].markers.shape[0],
+            dtype=float,
+        )
+        self._n0_values = np.zeros(
+            self.pointer["species1"].markers.shape[0],
+            dtype=float,
+        )
+
+        # allocate memory for gamma
+        self._gamma = np.zeros(
+            self.pointer["species1"].markers.shape[0],
+            dtype=float,
+        )
+
+        # ====================================================================================
+        # Create pointers to background electric potential and field
+        self._has_background_e = False
+        if "external_E0" in self.params["em_fields"]["options"].keys():
+            e0 = self.params["em_fields"]["options"]["external_E0"]
+            if e0 != 0.0:
+                self._has_background_e = True
+                self._e_background = self.derham.Vh["1"].zeros()
+                for block in self._e_background._blocks:
+                    block._data[:, :, :] += e0
+
+        # Get parameters of the background magnetic field
+        if self.projected_equil:
+            self._b_background = self.projected_equil.b2
+        else:
+            self._b_background = None
+        # ====================================================================================
+
+        # propagator parameters
+        self._poisson_params = params["em_fields"]["options"]["ImplicitDiffusion"]["solver"]
+        algo_eta = params["kinetic"]["species1"]["options"]["PushEta"]["algo"]
+        params_coupling = params["em_fields"]["options"]["EfieldWeights"]["solver"]
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._kwargs[propagators_markers.PushEta] = {
+            "algo": algo_eta,
+        }
+
+        # Only add PushVinEfield if e-field is non-zero, otherwise it is more expensive
+        if self._has_background_e:
+            self._kwargs[propagators_markers.PushVinEfield] = {
+                "e_field": self._e_background,
+                "kappa": 1.0 / self.epsilon,
+            }
+        else:
+            self._kwargs[propagators_markers.PushVinEfield] = None
+
+        self._kwargs[propagators_coupling.DeltaFVelocitiesEfield] = {
+            "gamma": self._gamma[self.pointer["species1"].valid_mks],
+            "alpha": self.alpha,
+            "epsilon": self.epsilon,
+            "vth": self.vth,
+            "n0": self._f0.maxw_params["n"],
+            "solver": params_coupling,
+        }
+
+        # Only add PushVxB if magnetic field is not zero
+        self._kwargs[propagators_markers.PushVxB] = None
+        if self._b_background:
+            self._kwargs[propagators_markers.PushVxB] = {
+                "kappa": 1.0 / self.epsilon,
+                "b2": self._b_background,
+            }
+
+        # Initialize propagators used in splitting substeps
+        if not self._baseclass:
+            self.init_propagators()
+
+        # Scalar variables to be saved during the simulation
+        self.add_scalar("en_E")
+        self.add_scalar("en_w")
+        self.add_scalar("en_tot")
+
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+
+        # temporaries
+        self._en_e_tmp = self.mass_ops.M1.codomain.zeros()
+        self._tmp = np.empty(1, dtype=float)
+        self.en_E = 0.0
+
+    def initialize_from_params(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+
+        # Initialize fields and particles
+        super().initialize_from_params()
+
+        # Accumulate charge density
+        charge_accum = AccumulatorVector(
+            self.pointer["species1"],
+            "H1",
+            accum_kernels.charge_density_0form,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
+        charge_accum(self.pointer["species1"].vdim)
+
+        # Instantiate Poisson solver
+        _phi = self.derham.Vh["0"].zeros()
+        poisson_solver = propagators_fields.ImplicitDiffusion(
+            _phi,
+            sigma_1=0.0,
+            sigma_2=0.0,
+            sigma_3=1.0,
+            rho=self.alpha**2 / self.epsilon * charge_accum.vectors[0],
+            solver=self._poisson_params,
+        )
+
+        # evaluate f0
+        self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
+        self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
+            self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
+        )
+
+        # Solve with dt=1. and compute electric field
+        if self.rank_world == 0:
+            print("\nSolving initial Poisson problem...")
+        poisson_solver(1.0)
+        self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
+        if self.rank_world == 0:
+            print("Done.")
+
+    def update_scalar_quantities(self):
+        # 0.5 * e^T * M_1 * e
+        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._en_e_tmp)
+        self.en_E = self.pointer["e_field"].dot(self._en_e_tmp) / 2.0
+        self.update_scalar("en_E", self.en_E)
+
+        # evaluate f0
+        self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
+
+        # evaluate n0
+        self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
+            *self.pointer["species1"].phasespace_coords[:, 3:6].T
+        )
+
+        # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
+        self._tmp[0] = (
+            self.alpha**2
+            * self.vth**2
+            / self.pointer["species1"].Np
+            * (
+                # gamma_p * ln(n_{0,p})
+                np.dot(
+                    self._gamma[self.pointer["species1"].valid_mks],
+                    np.log(self._n0_values[self.pointer["species1"].valid_mks]),
+                )
+                +
+                # gamma_p |v_p|^2 / (2 vth^2)
+                np.dot(
+                    self.pointer["species1"].markers_wo_holes[:, 3] ** 2
+                    + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
+                    + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
+                    self._gamma[self.pointer["species1"].valid_mks],
+                )
+                / (2 * self.vth**2)
+                +
+                # f_{0,p} / s_{0,p}
+                np.divide(
+                    self._f0_values[self.pointer["species1"].valid_mks],
+                    self.pointer["species1"].sampling_density,
+                ).sum()
+            )
+        )
+
+        self.derham.comm.Allreduce(
+            self._mpi_in_place,
+            self._tmp,
+            op=self._mpi_sum,
+        )
+
+        self.update_scalar("en_w", self._tmp[0])
+
+        # en_tot = en_w + en_e
+        if not self._baseclass:
+            self.update_scalar("en_tot", self._tmp[0] + self.en_E)
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
