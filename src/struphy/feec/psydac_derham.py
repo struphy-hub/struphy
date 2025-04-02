@@ -1063,7 +1063,7 @@ class Derham:
 
         new_g_spaces = Wh
 
-        Vh = MultipatchFemSpace(new_g_spaces)
+        Vh = VectorFemSpace(new_g_spaces)
         Vh.symbolic_space = V
 
         return Vh
