@@ -1,9 +1,9 @@
 "Particle and FEEC variables are updated."
 
 import numpy as np
-
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
+
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict
@@ -1495,6 +1495,7 @@ class CurrentCoupling5DGradB(Propagator):
         boundary_cut: dict = options(default=True)["boundary_cut"],
     ):
         from psydac.linalg.solvers import inverse
+
         from struphy.pic.pushing.pusher import ButcherTableau
 
         super().__init__(particles, u)
