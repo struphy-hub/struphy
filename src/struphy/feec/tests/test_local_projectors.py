@@ -90,7 +90,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
 
     # loop over spaces
     for sp_id, sp_key in derham.space_to_form.items():
-        P_Loc = derham._Ploc[sp_key]
+        P_Loc = derham.P[sp_key]
 
         out = derham.Vh[sp_key].zeros()
 
@@ -214,7 +214,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
-            P_Loc = derham._Ploc[sp_key]
+            P_Loc = derham.P[sp_key]
             out = derham.Vh[sp_key].zeros()
 
             field = derham.create_field("fh", sp_id)
@@ -301,7 +301,7 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
 
     # For B-splines
     sp_key = "0"
-    P_Loc = derham._Ploc[sp_key]
+    P_Loc = derham.P[sp_key]
     spaces = derham.Vh_fem[sp_key].spaces
     space = spaces[0]
     N = space.nbasis
@@ -366,7 +366,7 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
 
     sp_key = "3"
     sp_id = "L2"
-    P_Loc = derham._Ploc[sp_key]
+    P_Loc = derham.P[sp_key]
     spaces = derham.Vh_fem[sp_key].spaces
     input = derham.Vh[sp_key].zeros()
     npts = derham.Vh[sp_key].npts
@@ -471,7 +471,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                 varr.append(j)
 
     # We get the local projector
-    P_Loc = derham._Ploc[out_sp_key]
+    P_Loc = derham.P[out_sp_key]
     out = derham.Vh[out_sp_key].zeros()
     VFEM = derham.Vh_fem[out_sp_key]
 
@@ -1102,7 +1102,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     basis1, basis2, basis3 = define_basis(in_sp_key)
 
     # We get the local projector
-    P_Loc = derham._Ploc[out_sp_key]
+    P_Loc = derham.P[out_sp_key]
     # We get the global projector
     P = derham._P[out_sp_key]
 

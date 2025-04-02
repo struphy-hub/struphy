@@ -861,7 +861,7 @@ class BasisProjectionOperators:
 
         if self.derham._with_local_projectors == True:
             out = BasisProjectionOperatorLocal(
-                self.derham._Ploc[W_id],
+                self.derham.P[W_id],
                 self.derham.Vh_fem[V_id],
                 fun,
                 self.derham.extraction_ops[V_id],
