@@ -1217,7 +1217,7 @@ class StepStaticEfield(Propagator):
 
         # parameters
         params_default = {
-            "e_field": BlockVector(self.derham.Vh_fem["1"].vector_space),
+            "e_field": BlockVector(self.derham.Vh_fem["1"].coeff_space),
             "kappa": 1e2,
         }
 

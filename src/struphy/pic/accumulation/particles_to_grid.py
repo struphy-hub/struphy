@@ -548,29 +548,29 @@ class AccumulatorVector:
 
         if space_id in ("H1", "L2"):
             self._vectors += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_temp += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_out += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
             self._vectors += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
             self._vectors_temp += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
             self._vectors_out += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
 

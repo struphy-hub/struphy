@@ -88,9 +88,9 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
         V_name = "H1vec"
 
     if V_name in {"H1", "L2"}:
-        arr_psy = StencilVector(V.vector_space)
+        arr_psy = StencilVector(V.coeff_space)
 
-        dims = V.vector_space.npts
+        dims = V.coeff_space.npts
 
         arr += [np.random.rand(*dims)]
 
@@ -105,10 +105,10 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
             arr = arr[-1].flatten()
 
     else:
-        arr_psy = BlockVector(V.vector_space)
+        arr_psy = BlockVector(V.coeff_space)
 
         for d, block in enumerate(arr_psy.blocks):
-            dims = V.spaces[d].vector_space.npts
+            dims = V.spaces[d].coeff_space.npts
 
             arr += [np.random.rand(*dims)]
 
@@ -466,7 +466,7 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
             quad_grid[nquad].spans for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)
         ]
         # global start spline index on process
-        starts_out = [int(start) for start in wspace.vector_space.starts]
+        starts_out = [int(start) for start in wspace.coeff_space.starts]
 
         # Iniitialize hybrid linear operators
         # global quadrature points (flattened) and weights in format (local element, local weight)
@@ -480,7 +480,7 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
             quad_grid[nquad].basis for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)
         ]
 
-        pads_out = wspace.vector_space.pads
+        pads_out = wspace.coeff_space.pads
 
         kernels.hybrid_curlA(
             *starts_out,
