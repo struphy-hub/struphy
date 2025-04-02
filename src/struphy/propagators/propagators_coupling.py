@@ -742,11 +742,11 @@ class PressureCoupling6D(Propagator):
             Parameters
             ----------
                 v : StencilVector or BlockVector
-                    Input FE coefficients from V.vector_space.
+                    Input FE coefficients from V.coeff_space.
 
             Returns
             -------
-                A StencilVector or BlockVector from W.vector_space."""
+                A StencilVector or BlockVector from W.coeff_space."""
 
             assert v.space == self.domain
 

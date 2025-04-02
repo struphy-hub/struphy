@@ -25,7 +25,7 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
         np.array(derham.p),
         derham.Vh_fem['0'].knots[0], derham.Vh_fem['0'].knots[1], derham.Vh_fem['0'].knots[2],
         np.array(
-            derham.V0.vector_space.starts,
+            derham.V0.coeff_space.starts,
         ),
         *domain.args_map,
         fe_coeffs.blocks[0]._data, fe_coeffs.blocks[1]._data, fe_coeffs.blocks[2]._data,
@@ -50,9 +50,9 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
     res = np.empty(1, dtype=float)
     utils.thermal_energy(
         res, density_0_form._operators[0].matrix._data,
-        derham.Vh_fem['0'].vector_space.pads[0],
-        derham.Vh_fem['0'].vector_space.pads[1],
-        derham.Vh_fem['0'].vector_space.pads[2],
+        derham.Vh_fem['0'].coeff_space.pads[0],
+        derham.Vh_fem['0'].coeff_space.pads[1],
+        derham.Vh_fem['0'].coeff_space.pads[2],
         nel1, nel2, nel3,
         nqs1, nqs2, nqs3,
         derham.get_quad_grids(derham.Vh_fem['0'])[0].weights,

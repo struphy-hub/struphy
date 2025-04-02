@@ -39,21 +39,21 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     # create random vectors
     v = []
 
-    v += [StencilVector(derham.V0.vector_space)]
+    v += [StencilVector(derham.V0.coeff_space)]
     v[-1]._data = np.random.rand(*v[-1]._data.shape)
 
-    v += [BlockVector(derham.V1.vector_space)]
+    v += [BlockVector(derham.V1.coeff_space)]
     for v1i in v[-1]:
         v1i._data = np.random.rand(*v1i._data.shape)
 
-    v += [BlockVector(derham.V2.vector_space)]
+    v += [BlockVector(derham.V2.coeff_space)]
     for v1i in v[-1]:
         v1i._data = np.random.rand(*v1i._data.shape)
 
-    v += [StencilVector(derham.V3.vector_space)]
+    v += [StencilVector(derham.V3.coeff_space)]
     v[-1]._data = np.random.rand(*v[-1]._data.shape)
     
-    v += [BlockVector(derham.V0vec.vector_space)]
+    v += [BlockVector(derham.V0vec.coeff_space)]
     for v1i in v[-1]:
         v1i._data = np.random.rand(*v1i._data.shape)
 

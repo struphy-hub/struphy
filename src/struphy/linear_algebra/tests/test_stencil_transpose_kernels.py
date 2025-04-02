@@ -53,9 +53,9 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     domain = spaces_1d[domain_ind]
     codomain = spaces_1d[codomain_ind]
 
-    mat = StencilMatrix(domain.vector_space, codomain.vector_space)
-    mat_pre = StencilMatrix(domain.vector_space, codomain.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-    matT_ker = StencilMatrix(codomain.vector_space, domain.vector_space)
+    mat = StencilMatrix(domain.coeff_space, codomain.coeff_space)
+    mat_pre = StencilMatrix(domain.coeff_space, codomain.coeff_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+    matT_ker = StencilMatrix(codomain.coeff_space, domain.coeff_space)
 
     s_out = int(mat.codomain.starts[0])
     e_out = int(mat.codomain.ends[0])
@@ -64,7 +64,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     e_in = int(mat.domain.ends[0])
     p_in = int(mat.domain.pads[0])
 
-    npts = codomain.vector_space.npts[0]
+    npts = codomain.coeff_space.npts[0]
 
     # matrix
     for i in range(s_out, e_out + 1):
@@ -173,9 +173,9 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     domain = spaces_3d[domain_ind]
     codomain = spaces_3d[codomain_ind]
 
-    mat = StencilMatrix(domain.vector_space, codomain.vector_space)
-    mat_pre = StencilMatrix(domain.vector_space, codomain.vector_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
-    matT_ker = StencilMatrix(codomain.vector_space, domain.vector_space)
+    mat = StencilMatrix(domain.coeff_space, codomain.coeff_space)
+    mat_pre = StencilMatrix(domain.coeff_space, codomain.coeff_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
+    matT_ker = StencilMatrix(codomain.coeff_space, domain.coeff_space)
 
     s_out = np.array(mat.codomain.starts)
     e_out = np.array(mat.codomain.ends)
@@ -186,7 +186,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     # random matrix
     np.random.seed(123)
-    tmp1 = np.random.rand(*codomain.vector_space.npts, *[2*q + 1 for q in p])
+    tmp1 = np.random.rand(*codomain.coeff_space.npts, *[2*q + 1 for q in p])
     mat[s_out[0]: e_out[0] + 1,
         s_out[1]: e_out[1] + 1,
         s_out[2]: e_out[2] + 1, ] = tmp1[s_out[0]: e_out[0] + 1,

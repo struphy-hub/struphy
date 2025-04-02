@@ -218,7 +218,7 @@ class Derham:
                 self._P[sp_form] = _projectors[i]
 
             # Vector space
-            self._Vh[sp_form] = self.Vh_fem[sp_form].vector_space
+            self._Vh[sp_form] = self.Vh_fem[sp_form].coeff_space
 
             # grid attributes
             self._nbasis[sp_form] = []
@@ -264,8 +264,8 @@ class Derham:
                     for d, (space, s, e, quad_grid, nquad) in enumerate(
                         zip(
                             comp_space.spaces,
-                            comp_space.vector_space.starts,
-                            comp_space.vector_space.ends,
+                            comp_space.coeff_space.starts,
+                            comp_space.coeff_space.ends,
                             self.get_quad_grids(comp_space),
                             self.nquads,
                         ),
@@ -316,8 +316,8 @@ class Derham:
                 for d, (space, s, e, quad_grid, nquad) in enumerate(
                     zip(
                         fem_space.spaces,
-                        fem_space.vector_space.starts,
-                        fem_space.vector_space.ends,
+                        fem_space.coeff_space.starts,
+                        fem_space.coeff_space.ends,
                         self.get_quad_grids(fem_space),
                         self.nquads,
                     ),
@@ -1173,20 +1173,20 @@ class Derham:
 
             self._vector = derham.Vh_pol[self._space_key].zeros()
 
-            self._vector_stencil = self._space.vector_space.zeros()
+            self._vector_stencil = self._space.coeff_space.zeros()
 
             # transposed basis extraction operator for PolarVector --> Stencil-/BlockVector
             self._ET = derham.extraction_ops[self._space_key].transpose()
 
             # global indices of each process, and paddings
             if self._space_id in {"H1", "L2"}:
-                self._gl_s = self._space.vector_space.starts
-                self._gl_e = self._space.vector_space.ends
-                self._pads = self._space.vector_space.pads
+                self._gl_s = self._space.coeff_space.starts
+                self._gl_e = self._space.coeff_space.ends
+                self._pads = self._space.coeff_space.pads
             else:
-                self._gl_s = [comp.starts for comp in self._space.vector_space.spaces]
-                self._gl_e = [comp.ends for comp in self._space.vector_space.spaces]
-                self._pads = [comp.pads for comp in self._space.vector_space.spaces]
+                self._gl_s = [comp.starts for comp in self._space.coeff_space.spaces]
+                self._gl_e = [comp.ends for comp in self._space.coeff_space.spaces]
+                self._pads = [comp.pads for comp in self._space.coeff_space.spaces]
 
             # dimensions in each direction
             # self._nbasis = derham.nbasis[self._space_key]
