@@ -26,7 +26,7 @@ dependencies = [
     'h5py',
     'matplotlib',
     'pyyaml',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@new-devel-from-upstream',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'vtk',
     'tqdm',
     'argcomplete',

@@ -141,7 +141,7 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                    if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
                         if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
@@ -513,7 +513,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                    if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
                         if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(

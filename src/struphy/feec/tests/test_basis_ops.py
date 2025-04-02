@@ -826,11 +826,12 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == "__main__":
-    test_some_basis_ops(
-        Nel=[8, 8, 8],
-        p=[2, 2, 2],
-        spl_kind=[False, True, True],
-        mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+    # test_some_basis_ops(
+    #     Nel=[8, 8, 8],
+    #     p=[2, 2, 2],
+    #     spl_kind=[False, True, True],
+    #     mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+    # )
+    test_basis_ops_polar(
+        [6, 9, 7], [2, 2, 3], [False, True, True], None, ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}], False
     )
-    # test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
-    #                    None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
