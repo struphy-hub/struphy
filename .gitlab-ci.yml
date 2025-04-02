@@ -260,6 +260,7 @@ c_cronjob_install:
 lint_full_repo_report:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
+  needs: []
   rules:
     # Only run full lint report with pylint and flake8 on the scheduled CI pipeline
     - if: $TEST_SCHEDULED == "true"
@@ -288,6 +289,7 @@ lint_full_repo_report:
 lint_branch:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
+  needs: []
   rules:
     - if: $TEST_SCHEDULED == "true"
       when: never
@@ -317,6 +319,7 @@ lint_branch:
 lint_branch_report:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
   stage: lint
+  needs: []
   rules:
     - if: $TEST_SCHEDULED == "true"
       when: never
