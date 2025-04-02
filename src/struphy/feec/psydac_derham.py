@@ -12,7 +12,7 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.partitioning import create_cart
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import ProductFemSpace, VectorFemSpace
+from psydac.fem.vector import MultipatchFemSpace, VectorFemSpace
 from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -1063,7 +1063,7 @@ class Derham:
 
         new_g_spaces = Wh
 
-        Vh = ProductFemSpace(new_g_spaces)
+        Vh = MultipatchFemSpace(new_g_spaces)
         Vh.symbolic_space = V
 
         return Vh

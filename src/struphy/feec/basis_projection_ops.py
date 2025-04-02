@@ -2115,7 +2115,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
 class CoordinateProjector(LinearOperator):
     r"""
-    Class of projectors on one component of a ProductFemSpace.
+    Class of projectors on one component of a MultipatchFemSpace.
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
@@ -2206,7 +2206,7 @@ class CoordinateProjector(LinearOperator):
 
 class CoordinateInclusion(LinearOperator):
     r"""
-    Class of inclusion operator from one component of a ProductFemSpace.
+    Class of inclusion operator from one component of a MultipatchFemSpace.
     Represent the canonical inclusion on the :math:`\mu`-th component :
 
     .. math::
