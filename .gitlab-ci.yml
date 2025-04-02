@@ -384,7 +384,6 @@ Ubuntu_latest:
     - apt install -y libomp-dev libomp5 
     - apt install -y git
     - apt install -y pandoc
-    - apt install -y sqlite3
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
@@ -728,7 +727,6 @@ Fedora:
     - dnf install -y environment-modules 
     - dnf install -y python3-mpi4py-openmpi 
     - dnf install -y pandoc
-    - dnf install -y sqlite-devel
     - wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
     - tar xzf Python-3.10.14.tgz 
     - cd Python-3.10.14 
@@ -799,19 +797,16 @@ OpenSuse:
     - date
     - ls -a
     - zypper refresh
-    - zypper install -y python311 python311-devel
-    - zypper install -y python311-pip python3-virtualenv
+    - zypper install -y python3 python3-devel
+    - zypper install -y python3-pip python3-virtualenv python3-pkgconfig
     - zypper install -y gcc-fortran gcc 
-    - zypper install -y lapack-devel openmpi-devel 
-    - zypper install -y blas-devel openmpi 
+    - zypper install -y blas-devel lapack-devel  
+    - zypper install -y openmpi openmpi-devel openmpi4-devel
     - zypper install -y libgomp1 
     - zypper install -y git 
     - zypper install -y pandoc 
-    - zypper install -y sqlite3 
     - zypper install -y vim 
     - zypper install -y make
-    - python3 -m venv /opensuse_latest/venv
-    - export PATH="/opensuse_latest/venv/bin:$PATH"
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
     - export OMPI_MCA_pml=ob1
@@ -883,7 +878,6 @@ AlmaLinux:
     - yum install -y libgomp 
     - yum install -y git 
     - yum install -y environment-modules 
-    - yum install -y sqlite-devel
     - wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
     - tar xzf Python-3.10.14.tgz 
     - cd Python-3.10.14 
