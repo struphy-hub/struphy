@@ -1067,7 +1067,7 @@ class Particles(metaclass=ABCMeta):
             self._markers.add_real_comp("init_v2")
             self._markers.add_real_comp("init_v3")
 
-            markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
+            # markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
             # inverse transform sampling in velocity space
             u_mean = np.array(
@@ -1077,68 +1077,71 @@ class Particles(metaclass=ABCMeta):
                 self.loading_params["moments"][self.vdim :],
             )
 
-            # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
-            if self.vdim == 3:
-                markers_array["v1"][:] = (
-                    sp.erfinv(
-                        2 * rng.random(size=markers_array["v1"].size) - 1,
+            for pti in self._markers.iterator(self._markers, 0):
+                markers_array = pti.soa().to_numpy()[0]
+                
+                # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
+                if self.vdim == 3:
+                    markers_array["v1"][:] = (
+                        sp.erfinv(
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[0]
+                        + u_mean[0]
                     )
-                    * np.sqrt(2)
-                    * v_th[0]
-                    + u_mean[0]
-                )
-                markers_array["v2"][:] = (
-                    sp.erfinv(
-                        2 * rng.random(size=markers_array["v1"].size) - 1,
+                    markers_array["v2"][:] = (
+                        sp.erfinv(
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[1]
+                        + u_mean[1]
                     )
-                    * np.sqrt(2)
-                    * v_th[1]
-                    + u_mean[1]
-                )
-                markers_array["v3"][:] = (
-                    sp.erfinv(
-                        2 * rng.random(size=markers_array["v1"].size) - 1,
+                    markers_array["v3"][:] = (
+                        sp.erfinv(
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[2]
+                        + u_mean[2]
                     )
-                    * np.sqrt(2)
-                    * v_th[2]
-                    + u_mean[2]
-                )
-            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) TODO (Mati): implement correctly!
-            elif self.vdim == 2:
-                self._markers[:n_mks_load_loc, 3] = (
-                    sp.erfinv(
-                        2 * rng.random()[:, 0] - 1,
+                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) TODO (Mati): implement correctly!
+                elif self.vdim == 2:
+                    self._markers[:n_mks_load_loc, 3] = (
+                        sp.erfinv(
+                            2 * rng.random()[:, 0] - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[0]
+                        + u_mean[0]
                     )
-                    * np.sqrt(2)
-                    * v_th[0]
-                    + u_mean[0]
-                )
 
-                self._markers[:n_mks_load_loc, 4] = (
-                    np.sqrt(
-                        -1 * np.log(1 - rng.random()[:, 1]),
+                    self._markers[:n_mks_load_loc, 4] = (
+                        np.sqrt(
+                            -1 * np.log(1 - rng.random()[:, 1]),
+                        )
+                        * np.sqrt(2)
+                        * v_th[1]
+                        + u_mean[1]
                     )
-                    * np.sqrt(2)
-                    * v_th[1]
-                    + u_mean[1]
-                )
-            elif self.vdim == 0:
-                pass
-            else:
-                raise NotImplementedError(
-                    "Inverse transform sampling of given vdim is not implemented!",
-                )
+                elif self.vdim == 0:
+                    pass
+                else:
+                    raise NotImplementedError(
+                        "Inverse transform sampling of given vdim is not implemented!",
+                    )
 
-            assert self._markers.num_real_comps == 20
+                assert self._markers.num_real_comps == 20
 
-            # inversion method for drawing uniformly on the disc
-            self._spatial = self.loading_params["spatial"]
-            if self._spatial == "disc":
-                markers_array["x"][:] = np.sqrt(
-                    markers_array["x"][:],
-                )
-            else:
-                assert self._spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
+                # inversion method for drawing uniformly on the disc
+                self._spatial = self.loading_params["spatial"]
+                if self._spatial == "disc":
+                    markers_array["x"][:] = np.sqrt(
+                        markers_array["x"][:],
+                    )
+                else:
+                    assert self._spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
 
             self._markers.redistribute()
 
@@ -1831,82 +1834,85 @@ class Particles(metaclass=ABCMeta):
             for a Newton step or for a strandard (explicit or Picard) step.
         """
 
-        markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
+        # markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
         axes = ["x", "y", "z"]
-        for i, bc in enumerate(self.bc):
-            axis = axes[i]
-            # determine particles outside of the logical unit cube
-            is_outside_right = markers_array[axis] > 1.0
-            is_outside_left = markers_array[axis] < 0.0
+        for pti in self._markers.iterator(self._markers, 0):
+            markers_array = pti.soa().to_numpy()[0]
+            for i, bc in enumerate(self.bc):
+                axis = axes[i]
+                # determine particles outside of the logical unit cube
+                is_outside_right = markers_array[axis] > 1.0
+                is_outside_left = markers_array[axis] < 0.0
 
-            is_outside = np.logical_or(
-                is_outside_right,
-                is_outside_left,
-            )
-
-            # indices or particles that are outside of the logical unit cube
-            outside_inds = np.nonzero(is_outside)[0]
-
-            if len(outside_inds) == 0:
-                continue
-
-            # apply boundary conditions
-            if bc == "remove":
-                continue
-                # TODO (Mati) implement this!
-                # if self.bc_refill is not None:
-                # self.particle_refilling()
-
-                # self._markers[self._is_outside, :-1] = -1.0
-                # self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
-
-            elif bc == "periodic":
-                # self._markers.redistribute()
-                continue
-                # TODO (Mati) check this out and see how it interacts with out of the box periodic bc
-
-                # self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
-
-                # # set shift for alpha-weighted mid-point computation
-                # outside_right_inds = np.nonzero(self._is_outside_right)[0]
-                # outside_left_inds = np.nonzero(self._is_outside_left)[0]
-                # if newton:
-                #     self.markers[
-                #         outside_right_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] += 1.0
-                #     self.markers[
-                #         outside_left_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] += -1.0
-                # else:
-                #     self.markers[
-                #         :,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] = 0.0
-                #     self.markers[
-                #         outside_right_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] = 1.0
-                #     self.markers[
-                #         outside_left_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] = -1.0
-
-            elif bc == "reflect":
-                markers_array[axis][is_outside_left] = 1e-4
-                markers_array[axis][is_outside_right] = 1 - 1e-4
-                
-                amrex_reflect(
-                    self,
-                    outside_inds,
-                    i,
+                is_outside = np.logical_or(
+                    is_outside_right,
+                    is_outside_left,
                 )
-                
-                
-            else:
-                raise NotImplementedError("Given bc_type is not implemented!")
+
+                # indices or particles that are outside of the logical unit cube
+                outside_inds = np.nonzero(is_outside)[0]
+
+                if len(outside_inds) == 0:
+                    continue
+
+                # apply boundary conditions
+                if bc == "remove":
+                    continue
+                    # TODO (Mati) implement this!
+                    # if self.bc_refill is not None:
+                    # self.particle_refilling()
+
+                    # self._markers[self._is_outside, :-1] = -1.0
+                    # self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
+
+                elif bc == "periodic":
+                    # self._markers.redistribute()
+                    continue
+                    # TODO (Mati) check this out and see how it interacts with out of the box periodic bc
+
+                    # self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
+
+                    # # set shift for alpha-weighted mid-point computation
+                    # outside_right_inds = np.nonzero(self._is_outside_right)[0]
+                    # outside_left_inds = np.nonzero(self._is_outside_left)[0]
+                    # if newton:
+                    #     self.markers[
+                    #         outside_right_inds,
+                    #         self.first_pusher_idx + 3 + self.vdim + axis,
+                    #     ] += 1.0
+                    #     self.markers[
+                    #         outside_left_inds,
+                    #         self.first_pusher_idx + 3 + self.vdim + axis,
+                    #     ] += -1.0
+                    # else:
+                    #     self.markers[
+                    #         :,
+                    #         self.first_pusher_idx + 3 + self.vdim + axis,
+                    #     ] = 0.0
+                    #     self.markers[
+                    #         outside_right_inds,
+                    #         self.first_pusher_idx + 3 + self.vdim + axis,
+                    #     ] = 1.0
+                    #     self.markers[
+                    #         outside_left_inds,
+                    #         self.first_pusher_idx + 3 + self.vdim + axis,
+                    #     ] = -1.0
+
+                elif bc == "reflect":
+                    markers_array[axis][is_outside_left] = 1e-4
+                    markers_array[axis][is_outside_right] = 1 - 1e-4
+                    
+                    amrex_reflect(
+                        markers_array,
+                        outside_inds,
+                        i,
+                        self.domain,
+                    )
+                    
+                    
+                else:
+                    raise NotImplementedError("Given bc_type is not implemented!")
         
         self._markers.redistribute()
 

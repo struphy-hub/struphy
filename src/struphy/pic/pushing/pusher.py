@@ -187,20 +187,22 @@ class Pusher:
             markers[:, residual_idx:-1] = 0.0
 
         else:
-            markers_array = self.particles.markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
+            # markers_array = self.particles.markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
-            # save initial phase space coordinates
-            markers_array["init_x"][:] = markers_array["x"][:]
-            markers_array["init_y"][:] = markers_array["y"][:]
-            markers_array["init_z"][:] = markers_array["z"][:]
-            markers_array["init_v1"][:] = markers_array["v1"][:]
-            markers_array["init_v2"][:] = markers_array["v2"][:]
-            markers_array["init_v3"][:] = markers_array["v3"][:]
+            for pti in self.particles.markers.iterator(self.particles.markers, 0):
+                markers_array = pti.soa().to_numpy()[0]
+                # save initial phase space coordinates
+                markers_array["init_x"][:] = markers_array["x"][:]
+                markers_array["init_y"][:] = markers_array["y"][:]
+                markers_array["init_z"][:] = markers_array["z"][:]
+                markers_array["init_v1"][:] = markers_array["v1"][:]
+                markers_array["init_v2"][:] = markers_array["v2"][:]
+                markers_array["init_v3"][:] = markers_array["v3"][:]
 
-            # clear buffer columns
-            markers_array["real_comp0"][:] = 0
-            markers_array["real_comp1"][:] = 0
-            markers_array["real_comp2"][:] = 0
+                # clear buffer columns
+                markers_array["real_comp0"][:] = 0
+                markers_array["real_comp1"][:] = 0
+                markers_array["real_comp2"][:] = 0
 
         if self.verbose:
             rank = self.particles.mpi_rank

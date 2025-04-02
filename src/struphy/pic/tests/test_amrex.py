@@ -1,6 +1,4 @@
 import math
-import cProfile, pstats, io
-from pstats import SortKey
 
 import numpy as np
 import pytest
@@ -409,7 +407,7 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
 
     struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
 
-    struphy_pos, amrex_pos, alpha = push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt)
+    struphy_pos, amrex_pos, alpha = push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt, plot, verbose)
 
     if plot:
         colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
@@ -443,7 +441,7 @@ def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
 
     struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
 
-    struphy_pos, amrex_pos, alpha = push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt)
+    struphy_pos, amrex_pos, alpha = push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt, plot, verbose)
 
     if plot:
         colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
@@ -526,7 +524,7 @@ def plot_box_over_time(pos, Np, colors, alpha, l1, l2, r1, r2, title, path):
     plt.savefig(path)
 
 
-def push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt):
+def push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt, plot, verbose):
     # pass simulation parameters to Propagator class
     PushEta.domain = domain
 
@@ -534,25 +532,30 @@ def push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt):
     struphy_prop_eta = PushEta(struphy_particles)
     amrex_prop_eta = PushEta(amrex_particles)
 
-    # time stepping
-    Nt = int(Tend / dt)
+    if plot:
+        # time stepping
+        Nt = int(Tend / dt)
 
-    struphy_pos = np.zeros((Nt, Np, 3), dtype=float)
-    amrex_pos = np.zeros((Nt, Np, 3), dtype=float)
-    alpha = np.ones(Nt, dtype=float)
+        struphy_pos = np.zeros((Nt, Np, 3), dtype=float)
+        amrex_pos = np.zeros((Nt, Np, 3), dtype=float)
+        alpha = np.ones(Nt, dtype=float)
 
-    amrex_positions = amrex_particles.positions
-    struphy_positions = struphy_particles.positions
+        amrex_positions = amrex_particles.positions
+        struphy_positions = struphy_particles.positions
 
-    # positions on the physical domain Omega
-    struphy_pushed_pos = domain(struphy_positions).T
-    amrex_pushed_pos = domain(amrex_positions).T
+        # positions on the physical domain Omega
+        struphy_pushed_pos = domain(struphy_positions).T
+        amrex_pushed_pos = domain(amrex_positions).T
 
-    struphy_pos[0] = struphy_pushed_pos
-    amrex_pos[0] = amrex_pushed_pos
-
-    time = 0.0
+        struphy_pos[0] = struphy_pushed_pos
+        amrex_pos[0] = amrex_pushed_pos
+    else: 
+        struphy_pos = None
+        amrex_pos = None
+        alpha = None
+        
     n = 0
+    time = 0.0
     while time < (Tend - dt):
         time += dt
         n += 1
@@ -561,14 +564,15 @@ def push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt):
         struphy_prop_eta(dt)
         amrex_prop_eta(dt)
 
-        # positions on the physical domain Omega
-        struphy_pos[n] = domain(struphy_particles.positions).T
-        amrex_pos[n] = domain(amrex_particles.positions).T
+        if plot:
+            # positions on the physical domain Omega
+            struphy_pos[n] = domain(struphy_particles.positions).T
+            amrex_pos[n] = domain(amrex_particles.positions).T
 
-        # scaling for plotting
-        alpha[n] = (Tend - time) / Tend
-        
-        print("Time: ", time)
+            # scaling for plotting
+            alpha[n] = (Tend - time) / Tend
+        if verbose:
+            print("Time: ", time)
 
     return struphy_pos, amrex_pos, alpha
 
@@ -622,3 +626,6 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 if __name__ == "__main__":
     test_amrex_boundary_conditions_box(plot=True, verbose=True)
     test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)
+    test_amrex_box(plot=True, verbose=True)
+    test_amrex_cylinder(plot=True, verbose=True)
+    test_amrex_draw_uniform_cylinder(plot=True, verbose=True)

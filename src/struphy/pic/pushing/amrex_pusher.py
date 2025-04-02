@@ -1,6 +1,7 @@
 "Pusher kernels for full orbit (6D) particles and AMReX data structures."
 
-from numpy import append, array, matmul, newaxis, shape
+from numpy import array, matmul, newaxis, shape
+from struphy.geometry.base import Domain
 
 
 def push_eta_stage(
@@ -28,42 +29,45 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    markers_array = particles.markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
+    # markers_array = particles.markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
-    e1 = markers_array["x"][:]
-    e2 = markers_array["y"][:]
-    e3 = markers_array["z"][:]
-    v1 = markers_array["v1"][:]
-    v2 = markers_array["v2"][:]
-    v3 = markers_array["v3"][:]
+    for pti in particles.markers.iterator(particles.markers, 0):
+        markers_array = pti.soa().to_numpy()[0]
+        e1 = markers_array["x"][:]
+        e2 = markers_array["y"][:]
+        e3 = markers_array["z"][:]
+        v1 = markers_array["v1"][:]
+        v2 = markers_array["v2"][:]
+        v3 = markers_array["v3"][:]
 
-    # evaluate inverse Jacobian matrices for each point
-    etas = array([e1, e2, e3]).T.copy()  # needed for c kernels
-    jacobian_inv = particles.domain.jacobian_inv(etas, change_out_order=True)  # Npx3x3
+        # evaluate inverse Jacobian matrices for each point
+        etas = array([e1, e2, e3]).T.copy()  # needed for c kernels
+        jacobian_inv = particles.domain.jacobian_inv(etas, change_out_order=True)  # Npx3x3
 
-    # pull-back of velocity
-    v = array([v1, v2, v3]).T
-    v = v[..., newaxis]  # Npx3x1
-    # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-    k = matmul(jacobian_inv, v).squeeze()
+        # pull-back of velocity
+        v = array([v1, v2, v3]).T
+        v = v[..., newaxis]  # Npx3x1
+        # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
+        k = matmul(jacobian_inv, v).squeeze()
 
-    # accumulation for last stage
-    temp = dt * b[stage] * k
-    markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0]
-    markers_array["real_comp1"][:] = markers_array["real_comp1"][:] + temp[:, 1]
-    markers_array["real_comp2"][:] = markers_array["real_comp2"][:] + temp[:, 2]
+        # accumulation for last stage
+        temp = dt * b[stage] * k
+        markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0]
+        markers_array["real_comp1"][:] = markers_array["real_comp1"][:] + temp[:, 1]
+        markers_array["real_comp2"][:] = markers_array["real_comp2"][:] + temp[:, 2]
 
-    # update positions for intermediate stages or last stage
-    temp = dt * a[stage] * k
-    markers_array["x"][:] = markers_array["init_x"][:] + temp[:, 0] + last * markers_array["real_comp0"][:]
-    markers_array["y"][:] = markers_array["init_y"][:] + temp[:, 1] + last * markers_array["real_comp1"][:]
-    markers_array["z"][:] = markers_array["init_z"][:] + temp[:, 2] + last * markers_array["real_comp2"][:]
+        # update positions for intermediate stages or last stage
+        temp = dt * a[stage] * k
+        markers_array["x"][:] = markers_array["init_x"][:] + temp[:, 0] + last * markers_array["real_comp0"][:]
+        markers_array["y"][:] = markers_array["init_y"][:] + temp[:, 1] + last * markers_array["real_comp1"][:]
+        markers_array["z"][:] = markers_array["init_z"][:] + temp[:, 2] + last * markers_array["real_comp2"][:]
 
 
 def amrex_reflect(
-    particles: "Particles",
+    markers_array: "dict",
     outside_inds: "int[:]",
     axis: "int",
+    domain: "Domain"
 ):
     r"""
     Reflect the particles which are pushed outside of the logical cube.
@@ -86,8 +90,6 @@ def amrex_reflect(
             0, 1 or 2
     """
 
-    markers_array = particles.markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
-
     e1 = markers_array["x"][outside_inds]
     e2 = markers_array["y"][outside_inds]
     e3 = markers_array["z"][outside_inds]
@@ -97,8 +99,8 @@ def amrex_reflect(
 
     # evaluate inverse Jacobian matrices for each point
     etas = array([e1, e2, e3]).T.copy()  # needed for c kernels
-    jacobian = particles.domain.jacobian(etas, change_out_order=True, calculate_outside=True)  # Npx3x3
-    jacobian_inv = particles.domain.jacobian_inv(etas, change_out_order=True, calculate_outside=True)  # Npx3x3
+    jacobian = domain.jacobian(etas, change_out_order=True, calculate_outside=True)  # Npx3x3
+    jacobian_inv = domain.jacobian_inv(etas, change_out_order=True, calculate_outside=True)  # Npx3x3
 
     # pull-back of velocity
     v = array([v1, v2, v3]).T
