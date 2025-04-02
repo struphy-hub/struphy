@@ -861,7 +861,7 @@ class BasisProjectionOperators:
 
         if self.derham._with_local_projectors == True:
             out = BasisProjectionOperatorLocal(
-                self.derham._Ploc[W_id],
+                self.derham.P[W_id],
                 self.derham.Vh_fem[V_id],
                 fun,
                 self.derham.extraction_ops[V_id],
@@ -956,12 +956,12 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         if P_extraction_op is not None:
             self._P_extraction_op = P_extraction_op
         else:
-            self._P_extraction_op = IdentityOperator(P.vector_space)
+            self._P_extraction_op = IdentityOperator(P.coeff_space)
 
         if V_extraction_op is not None:
             self._V_extraction_op = V_extraction_op
         else:
-            self._V_extraction_op = IdentityOperator(V.vector_space)
+            self._V_extraction_op = IdentityOperator(V.coeff_space)
 
         # set boundary operators
         if P_boundary_op is not None:
@@ -980,7 +980,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         self._weights = weights
         self._transposed = transposed
-        self._dtype = V.vector_space.dtype
+        self._dtype = V.coeff_space.dtype
 
         # set domain and codomain symbolic names
         self._P_name = self._P.space_id
@@ -1003,20 +1003,20 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         self._is_scalar = True
         if not isinstance(V, TensorFemSpace):
             self._is_scalar = False
-            self._mpi_comm = V.vector_space.spaces[0].cart.comm
+            self._mpi_comm = V.coeff_space.spaces[0].cart.comm
         else:
-            self._mpi_comm = V.vector_space.cart.comm
+            self._mpi_comm = V.coeff_space.cart.comm
 
         if not isinstance(P.fem_space, TensorFemSpace):
             self._is_scalar = False
 
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(V, TensorFemSpace):
-            self._Vspaces = [V.vector_space]
+            self._Vspaces = [V.coeff_space]
             self._V1ds = [V.spaces]
             self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
         else:
-            self._Vspaces = V.vector_space
+            self._Vspaces = V.coeff_space
             self._V1ds = [comp.spaces for comp in V.spaces]
             self._VNbasis = np.array(
                 [
@@ -1032,11 +1032,11 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(P.fem_space, TensorFemSpace):
-            self._Wspaces = [P.fem_space.vector_space]
+            self._Wspaces = [P.fem_space.coeff_space]
             self._W1ds = [P.fem_space.spaces]
             self._periodic = P._periodic
         else:
-            self._Wspaces = P.fem_space.vector_space
+            self._Wspaces = P.fem_space.coeff_space
             self._W1ds = [comp.spaces for comp in P.fem_space.spaces]
             self._periodic = P._periodic[0]
 
@@ -1050,11 +1050,11 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         # ============= create and assemble the Basis Projection Operator matrix =======
         if self._is_scalar:
-            self._mat = StencilMatrix(V.vector_space, P.fem_space.vector_space)
+            self._mat = StencilMatrix(V.coeff_space, P.fem_space.coeff_space)
         else:
             self._mat = BlockLinearOperator(
-                V.vector_space,
-                P.fem_space.vector_space,
+                V.coeff_space,
+                P.fem_space.coeff_space,
             )
 
         self._mat = self._assemble_mat()
@@ -1081,11 +1081,11 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         # set domain and codomain
         if transposed:
-            self._domain = self._P.vector_space
-            self._codomain = self._V._vector_space
+            self._domain = self._P.coeff_space
+            self._codomain = self._V.coeff_space
         else:
-            self._domain = self._V.vector_space
-            self._codomain = self._P._vector_space
+            self._domain = self._V.coeff_space
+            self._codomain = self._P.coeff_space
 
     @property
     def domain(self):
@@ -1631,7 +1631,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         if V_extraction_op is not None:
             self._V_extraction_op = V_extraction_op
         else:
-            self._V_extraction_op = IdentityOperator(V.vector_space)
+            self._V_extraction_op = IdentityOperator(V.coeff_space)
 
         # set boundary operators
         if P_boundary_op is not None:
@@ -1649,7 +1649,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._weights = weights
         self._transposed = transposed
         self._polar_shift = polar_shift
-        self._dtype = V.vector_space.dtype
+        self._dtype = V.coeff_space.dtype
         self._use_cache = use_cache
 
         # Create cache
@@ -1682,20 +1682,20 @@ class BasisProjectionOperator(LinOpWithTransp):
         self._is_scalar = True
         if not isinstance(V, TensorFemSpace):
             self._is_scalar = False
-            self._mpi_comm = V.vector_space.spaces[0].cart.comm
+            self._mpi_comm = V.coeff_space.spaces[0].cart.comm
         else:
-            self._mpi_comm = V.vector_space.cart.comm
+            self._mpi_comm = V.coeff_space.cart.comm
 
         if not isinstance(P.space, TensorFemSpace):
             self._is_scalar = False
 
         # ============= create and assemble tensor-product dof matrix =======
         if self._is_scalar:
-            self._dof_mat = StencilMatrix(V.vector_space, P.space.vector_space)
+            self._dof_mat = StencilMatrix(V.coeff_space, P.space.coeff_space)
         else:
             self._dof_mat = BlockLinearOperator(
-                V.vector_space,
-                P.space.vector_space,
+                V.coeff_space,
+                P.space.coeff_space,
             )
 
         self._dof_mat = self._assemble_mat()
@@ -1882,18 +1882,18 @@ class BasisProjectionOperator(LinOpWithTransp):
 
         # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(V, TensorFemSpace):
-            _Vspaces = [V.vector_space]
+            _Vspaces = [V.coeff_space]
             _V1ds = [V.spaces]
         else:
-            _Vspaces = V.vector_space
+            _Vspaces = V.coeff_space
             _V1ds = [comp.spaces for comp in V.spaces]
 
         # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
         if isinstance(P.space, TensorFemSpace):
-            _Wspaces = [P.space.vector_space]
+            _Wspaces = [P.space.coeff_space]
             _W1ds = [P.space.spaces]
         else:
-            _Wspaces = P.space.vector_space
+            _Wspaces = P.space.coeff_space
             _W1ds = [comp.spaces for comp in P.space.spaces]
 
         # retrieve number of quadrature points of each component (=1 for interpolation)
@@ -2115,7 +2115,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
 class CoordinateProjector(LinearOperator):
     r"""
-    Class of projectors on one component of a ProductFemSpace.
+    Class of projectors on one component of a MultipatchFemSpace.
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
@@ -2206,7 +2206,7 @@ class CoordinateProjector(LinearOperator):
 
 class CoordinateInclusion(LinearOperator):
     r"""
-    Class of inclusion operator from one component of a ProductFemSpace.
+    Class of inclusion operator from one component of a MultipatchFemSpace.
     Represent the canonical inclusion on the :math:`\mu`-th component :
 
     .. math::

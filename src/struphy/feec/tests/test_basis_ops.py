@@ -127,13 +127,13 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     x3 = np.reshape(np.arange(V3.nbasis), [space.nbasis for space in V3.spaces])
 
-    x0_st = StencilVector(V0.vector_space)
-    x1_st = BlockVector(V1.vector_space, [StencilVector(comp) for comp in V1.vector_space])
-    x2_st = BlockVector(V2.vector_space, [StencilVector(comp) for comp in V2.vector_space])
-    x3_st = StencilVector(V3.vector_space)
+    x0_st = StencilVector(V0.coeff_space)
+    x1_st = BlockVector(V1.coeff_space, [StencilVector(comp) for comp in V1.coeff_space])
+    x2_st = BlockVector(V2.coeff_space, [StencilVector(comp) for comp in V2.coeff_space])
+    x3_st = StencilVector(V3.coeff_space)
 
     # for testing X1T:
-    x0vec_st = BlockVector(V0vec.vector_space, [StencilVector(comp) for comp in V0vec.vector_space])
+    x0vec_st = BlockVector(V0vec.coeff_space, [StencilVector(comp) for comp in V0vec.coeff_space])
 
     MPI_COMM.Barrier()
 
