@@ -149,7 +149,7 @@ create_venv:
   parallel:
     matrix:
       - LANGUAGE: ["c", "fortran"]
-      - OMP: ["", "--omp-pic"]
+        OMP: ["", "--omp-pic"]
   before_script:
     - date
     - ls -a
