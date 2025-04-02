@@ -78,9 +78,7 @@ stages:
   - pages
   - release 
 
-# python virtual environments into cache
-default_venv:
-  stage: startup 
+.before_script_create_venv:
   before_script:
     - date
     - ls -a
@@ -94,6 +92,13 @@ default_venv:
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
     - module list
+    - pip install -U virtualenv
+
+# python virtual environments into cache
+default_venv:
+  stage: startup 
+  extends:
+    - .before_script_create_venv
   script:
     - pip install -U virtualenv
     - python3 -m venv env_$CI_PIPELINE_ID
@@ -143,6 +148,96 @@ default_build:
 #####################
 ### INSTALL STAGE ###
 #####################
+
+create_venv_c:
+  stage: install
+  extends:
+    - .before_script_create_venv
+  script:
+    - python3 -m venv env_${CI_PIPELINE_ID}_C
+    - source env_${CI_PIPELINE_ID}_C/bin/activate
+    - python3 -m pip install --upgrade pip
+    - pip install $(echo dist/struphy*.whl)[test]
+    - pip show struphy
+    - pip list
+    - struphy
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --language c --time-execution -y # compiles struphy, psydac with language c 
+    - struphy --refresh-models
+  artifacts:
+    name: 'python-env-installed-C'
+    paths:
+      - env_${CI_PIPELINE_ID}_C
+    expire_in: 1 day
+
+# Doesn't work yet
+#create_venv_c_openmp:
+#  stage: install
+#  extends:
+#    - .before_script_create_venv
+#  script:
+#    - python3 -m venv env_${CI_PIPELINE_ID}_C
+#    - source env_${CI_PIPELINE_ID}_C/bin/activate
+#    - python3 -m pip install --upgrade pip
+#    - pip install $(echo dist/struphy*.whl)[test]
+#    - pip show struphy
+#    - pip list
+#    - struphy
+#    - pyccel --version
+#    - struphy compile --status
+#    - struphy compile --language c --omp-pic --time-execution -y # compiles struphy, psydac with language c 
+#    - struphy --refresh-models
+#  artifacts:
+#    name: 'python-env-installed-C'
+#    paths:
+#      - env_${CI_PIPELINE_ID}_C
+#    expire_in: 1 day
+
+create_venv_fortran:
+  stage: install
+  extends:
+    - .before_script_create_venv
+  script:
+    - python3 -m venv env_${CI_PIPELINE_ID}_fortran
+    - source env_${CI_PIPELINE_ID}_fortran/bin/activate
+    - python3 -m pip install --upgrade pip
+    - pip install $(echo dist/struphy*.whl)[test]
+    - pip show struphy
+    - pip list
+    - struphy
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --language fortran --time-execution -y # compiles struphy, psydac with language c 
+    - struphy --refresh-models
+  artifacts:
+    name: 'python-env-installed-fortran'
+    paths:
+      - env_${CI_PIPELINE_ID}_fortran
+    expire_in: 1 day
+
+
+create_venv_fortran_openmp:
+  stage: install
+  extends:
+    - .before_script_create_venv
+  script:
+    - python3 -m venv env_${CI_PIPELINE_ID}_fortran_openmp
+    - source env_${CI_PIPELINE_ID}_fortran_openmp/bin/activate
+    - python3 -m pip install --upgrade pip
+    - pip install $(echo dist/struphy*.whl)[test]
+    - pip show struphy
+    - pip list
+    - struphy
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --language fortran --omp-pic --time-execution -y # compiles struphy, psydac with language c 
+    - struphy --refresh-models
+  artifacts:
+    name: 'python-env-installed-fortran-openmp'
+    paths:
+      - env_${CI_PIPELINE_ID}_fortran_openmp
+    expire_in: 1 day
 
 # language c 
 default_install:
