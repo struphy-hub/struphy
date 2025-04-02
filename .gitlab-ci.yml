@@ -149,13 +149,16 @@ default_build:
 ### INSTALL STAGE ###
 #####################
 
-create_venv_c:
+create_venv:
   stage: install
   extends:
     - .before_script_create_venv
+  parallel:
+    matrix:
+      - LANGUAGE: ["c", "fortran"]
   script:
-    - python3 -m venv env_${CI_PIPELINE_ID}_C
-    - source env_${CI_PIPELINE_ID}_C/bin/activate
+    - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}
+    - source env_${CI_PIPELINE_ID}_${LANGUAGE}/bin/activate
     - python3 -m pip install --upgrade pip
     - pip install $(echo dist/struphy*.whl)[test]
     - pip show struphy
@@ -163,12 +166,34 @@ create_venv_c:
     - struphy
     - pyccel --version
     - struphy compile --status
-    - struphy compile --language c --time-execution -y # compiles struphy, psydac with language c 
+    - struphy compile --language ${LANGUAGE} --time-execution -y # compiles struphy, psydac with language c 
     - struphy --refresh-models
   artifacts:
-    name: 'python-env-installed-C'
+    name: 'python-env-installed-${LANGUAGE}'
     paths:
-      - env_${CI_PIPELINE_ID}_C
+      - env_${CI_PIPELINE_ID}_${LANGUAGE}
+    expire_in: 1 day
+
+create_venv_fortran:
+  stage: install
+  extends:
+    - .before_script_create_venv
+  script:
+    - python3 -m venv env_${CI_PIPELINE_ID}_fortran
+    - source env_${CI_PIPELINE_ID}_fortran/bin/activate
+    - python3 -m pip install --upgrade pip
+    - pip install $(echo dist/struphy*.whl)[test]
+    - pip show struphy
+    - pip list
+    - struphy
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --language fortran --time-execution -y # compiles struphy, psydac with language c 
+    - struphy --refresh-models
+  artifacts:
+    name: 'python-env-installed-fortran'
+    paths:
+      - env_${CI_PIPELINE_ID}_fortran
     expire_in: 1 day
 
 # Doesn't work yet
@@ -193,29 +218,6 @@ create_venv_c:
 #    paths:
 #      - env_${CI_PIPELINE_ID}_C
 #    expire_in: 1 day
-
-create_venv_fortran:
-  stage: install
-  extends:
-    - .before_script_create_venv
-  script:
-    - python3 -m venv env_${CI_PIPELINE_ID}_fortran
-    - source env_${CI_PIPELINE_ID}_fortran/bin/activate
-    - python3 -m pip install --upgrade pip
-    - pip install $(echo dist/struphy*.whl)[test]
-    - pip show struphy
-    - pip list
-    - struphy
-    - pyccel --version
-    - struphy compile --status
-    - struphy compile --language fortran --time-execution -y # compiles struphy, psydac with language c 
-    - struphy --refresh-models
-  artifacts:
-    name: 'python-env-installed-fortran'
-    paths:
-      - env_${CI_PIPELINE_ID}_fortran
-    expire_in: 1 day
-
 
 create_venv_fortran_openmp:
   stage: install
