@@ -235,27 +235,6 @@ openmp_install:
   #     - env_openmp_$CI_PIPELINE_ID/
   #   expire_in: 1 day
 
-# Cron-job C:
-c_cronjob_install:
-  stage: install
-  rules:
-    - if: $TEST_SCHEDULED == "true"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  needs: ["default_install"]
-  script:
-    - pip install -U struphy[test]
-    - pip show struphy
-    - pip list
-    - struphy
-    - pyccel --version
-    - struphy compile --status
-    - struphy compile --time-execution -y # compiles struphy, psydac with language c 
-  artifacts:
-    name: 'python-env-installed'
-    paths:
-      - env_$CI_PIPELINE_ID/
-    expire_in: 1 day
-
 ##################
 ### LINT STAGE ###
 ##################
