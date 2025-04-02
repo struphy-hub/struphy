@@ -987,6 +987,8 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
         if hasattr(V.symbolic_space, "name"):
             self._V_name = V.symbolic_space.name
+        elif isinstance(V.symbolic_space, str):
+            self._V_name = V.symbolic_space
         else:
             self._V_name = "H1vec"
 
@@ -1196,10 +1198,10 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
             BoD = [["B", "D", "D"], ["D", "B", "D"], ["D", "D", "B"]]
         elif self._V_name == "L2":
             BoD = ["D", "D", "D"]
-        elif self._V_name == "H1H1H1":
+        elif self._V_name in ("H1H1H1", "H1vec"):
             BoD = [["B", "B", "B"], ["B", "B", "B"], ["B", "B", "B"]]
         else:
-            raise Exception("The FE space name for the input space must be H1, Hcurl, Hdiv, L2 or H1H1H1.")
+            raise Exception("The FE space name for the input space must be H1, Hcurl, Hdiv, L2 or H1H1H1 or H1vec.")
 
         if isinstance(self._mat, StencilMatrix):
             # We get the B and D spline indices this MPI rank must compute
@@ -1271,7 +1273,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                 eval_block_1 = [eval_indices_D[0], eval_indices_B[1], eval_indices_D[2]]
                 eval_block_2 = [eval_indices_D[0], eval_indices_D[1], eval_indices_B[2]]
 
-            elif self._V_name == "H1H1H1":
+            elif self._V_name in ("H1H1H1", "H1vec"):
                 eval_block_0 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
                 eval_block_1 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
                 eval_block_2 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
@@ -1446,7 +1448,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                 eval_block_1 = [eval_indices_D[0], eval_indices_B[1], eval_indices_D[2]]
                 eval_block_2 = [eval_indices_D[0], eval_indices_D[1], eval_indices_B[2]]
 
-            elif self._V_name == "H1H1H1":
+            elif self._V_name in ("H1H1H1", "H1vec"):
                 eval_block_0 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
                 eval_block_1 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
                 eval_block_2 = [eval_indices_B[0], eval_indices_B[1], eval_indices_B[2]]
@@ -1657,11 +1659,15 @@ class BasisProjectionOperator(LinOpWithTransp):
         # set domain and codomain symbolic names
         if hasattr(P.space.symbolic_space, "name"):
             P_name = P.space.symbolic_space.name
+        elif isinstance(P.space.symbolic_space, str):
+            P_name = P.space.symbolic_space
         else:
             P_name = "H1vec"
 
         if hasattr(V.symbolic_space, "name"):
             V_name = V.symbolic_space.name
+        elif isinstance(V.symbolic_space, str):
+            V_name = V.symbolic_space
         else:
             V_name = "H1vec"
 
