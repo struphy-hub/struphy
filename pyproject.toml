@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     'numpy',
     'pyccel>=1.11.1',
-    'mpi4py<4',
+    'mpi4py',
     'scipy',
     'h5py',
     'matplotlib',
