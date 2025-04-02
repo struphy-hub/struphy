@@ -41,8 +41,7 @@ from struphy.utils.clone_config import CloneConfig
 
 
 class Particles(metaclass=ABCMeta):
-    r"""
-    Base class for particle species.
+    r""" Base class for particle species.
 
     The marker information is stored in a 2D numpy array,
     see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
@@ -3407,8 +3406,7 @@ class Particles(metaclass=ABCMeta):
 
 
 class Tesselation:
-    """
-    Make a tesselation of the simulation domain into tiles of equal size.
+    """ Make a tesselation of the simulation domain into tiles of equal size.
 
     Parameters
     ----------
