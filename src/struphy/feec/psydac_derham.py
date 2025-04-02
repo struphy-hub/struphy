@@ -1025,16 +1025,14 @@ class Derham:
         grids = [np.linspace(xmin, xmax, num=ne + 1) for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
         # Create 1D finite element spaces and precompute quadrature data
-        spaces = [
+        spaces_1d = [
             SplineSpace(p, multiplicity=m, grid=grid, periodic=P)
             for p, m, grid, P in zip(degree_i, multiplicity_i, grids, periodic)
         ]
 
-        carts = create_cart([ddm], [spaces])
+        carts = create_cart([ddm], [spaces_1d])
 
-        g_spaces = TensorFemSpace(ddm, *spaces, cart=carts[0])
-
-        Vh = g_spaces
+        Vh = TensorFemSpace(ddm, *spaces_1d, cart=carts[0])
 
         if V == "H1":
             Wh = Vh
@@ -1061,12 +1059,7 @@ class Derham:
         for key in Wh._refined_space:
             Wh.get_refined_space(key).symbolic_space = V
 
-        new_g_spaces = Wh
-
-        Vh = VectorFemSpace(new_g_spaces)
-        Vh.symbolic_space = V
-
-        return Vh
+        return Wh
 
     def _get_domain_array(self):
         """
