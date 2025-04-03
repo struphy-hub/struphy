@@ -374,7 +374,8 @@ macos_nmpp:
     - system_profiler SPHardwareDataType
     - system_profiler -listDataTypes
     # Install macos dependencies https://struphy.pages.mpcdf.de/struphy/sections/install.html#sample-environments
-    - /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    - sudo chown -R -y gitlab /opt/homebrew/Cellar
+    #- /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     - python3 --version && which python3
     - gcc --version && which gcc
     - brew list | grep openblas && brew --prefix openblas
