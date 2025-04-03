@@ -178,11 +178,10 @@ stages:
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
   stage: startup
-  before_script:
-    - date
-    - ls -a
-    - module list
   script:
     - echo "All environment variables:"
     - env
