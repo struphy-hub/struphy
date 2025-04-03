@@ -373,7 +373,6 @@ macos_nmpp:
     - printenv
     - system_profiler SPHardwareDataType
     - system_profiler -listDataTypes
-    - system_profiler
     # Install macos dependencies https://struphy.pages.mpcdf.de/struphy/sections/install.html#sample-environments
     - brew update
     - brew install python3
