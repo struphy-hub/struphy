@@ -116,33 +116,11 @@ ci_vars:
 ### INSTALL STAGE ###
 #####################
 
-# language c 
-default_install:
-  stage: install
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $MAKE_PAGES == "true"
-      when: never
-    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  script:
-    - pip install $(echo dist/struphy*.whl)[test]
-    - pip show struphy
-    - pip list
-    - struphy
-    - pyccel --version
-    - struphy compile --status
-    - struphy compile --time-execution -y # compiles struphy, psydac with language c 
-    - struphy --refresh-models
-  artifacts:
-    name: 'python-env-installed'
-    paths:
-      - env_$CI_PIPELINE_ID/
-    expire_in: 1 day
-
 compile_timing:
   stage: install
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_default
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -151,7 +129,10 @@ compile_timing:
     - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - pip install $(echo dist/struphy*.whl)[test]
+    - python3 -m venv _env_tmp
+    - source _env_tmp/bin/activate
+    - pip install -U pip
+    - pip install .[test]
     - pip show struphy
     - pip list
     - struphy
@@ -177,52 +158,6 @@ compile_timing:
     - cat check_pyccel.sh
     - chmod +x check_pyccel.sh
     - ./check_pyccel.sh
-
-# Compile with OpenMP
-openmp_install:
-  stage: install
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $MAKE_PAGES == "true"
-      when: never
-    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  script:
-    - pip install $(echo dist/struphy*.whl)[test]
-    - pip show struphy
-    - pip list
-    - struphy
-    - pyccel --version
-    - struphy compile --status
-    - struphy compile --omp-pic --language=fortran -y # compiles struphy, psydac with language fortran and using OpenMP
-    - struphy --refresh-models
-  # artifacts:
-  #   name: 'python-env-installed-openmp'
-  #   paths:
-  #     - env_openmp_$CI_PIPELINE_ID/
-  #   expire_in: 1 day
-
-# Cron-job C:
-c_cronjob_install:
-  stage: install
-  rules:
-    - if: $TEST_SCHEDULED == "true"
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  needs: ["default_install"]
-  script:
-    - pip install -U struphy[test]
-    - pip show struphy
-    - pip list
-    - struphy
-    - pyccel --version
-    - struphy compile --status
-    - struphy compile --time-execution -y # compiles struphy, psydac with language c 
-  artifacts:
-    name: 'python-env-installed'
-    paths:
-      - env_$CI_PIPELINE_ID/
-    expire_in: 1 day
 
 ##################
 ### LINT STAGE ###
