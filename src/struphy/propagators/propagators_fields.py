@@ -6543,7 +6543,7 @@ class VariationalPBEvolve(Propagator):
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err = } \n {tol**2 = }",
             )
 
         self._tmp_un_diff = un1 - un

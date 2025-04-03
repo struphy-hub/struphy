@@ -3167,3 +3167,123 @@ def set_defaults(params_in, params_default):
         params.setdefault(key, val)
 
     return params
+
+class CurrentSheet(CartesianMHDequilibrium):
+    r"""
+    Current sheet equilibrium
+
+    TODO.
+
+    Parameters
+    ----------
+    delta : characteristic size of the current sheet
+    amp : amplitude of the current sheet 
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+
+        
+    """
+
+    def __init__(self, **params):
+
+        params_default = {'delta': 0.1,
+                          'amp' : 1.}
+
+        self._params = set_defaults(params, params_default)
+
+    @property
+    def params(self):
+        """ Parameters dictionary.
+        """
+        return self._params
+
+    # ===============================================================
+    #           profiles for a straight tokamak equilibrium
+    # ===============================================================
+
+    def plot_profiles(self, n_pts=501):
+        """ Plots radial profiles.
+        """
+
+        import matplotlib.pyplot as plt
+
+        r = np.linspace(0., self.params['a'], n_pts)
+
+        fig, ax = plt.subplots(1, 3)
+
+        fig.set_figheight(3)
+        fig.set_figwidth(12)
+
+        ax[0].plot(r, self.q_r(r))
+        ax[0].set_xlabel('r')
+        ax[0].set_ylabel('q')
+
+        ax[0].plot(r, np.ones(r.size), 'k--')
+
+        ax[1].plot(r, self.p_r(r))
+        ax[1].set_xlabel('r')
+        ax[1].set_ylabel('p')
+
+        ax[2].plot(r, self.n_r(r))
+        ax[2].set_xlabel('r')
+        ax[2].set_ylabel('n')
+
+        plt.subplots_adjust(wspace=0.4)
+
+        plt.show()
+
+    # ===============================================================
+    #                  profiles on physical domain
+    # ===============================================================
+
+    # equilibrium magnetic field
+    def b_xyz(self, x, y, z):
+        """ Magnetic field.
+        """
+
+        bz = 0*x
+        by = np.tanh(z/self._params['delta'])
+        bx = np.sqrt(1-by**2)
+
+        bxs = self._params['amp']*bx
+        bys = self._params['amp']*by
+
+        return bxs, bys, bz
+
+    # equilibrium current, set to 0
+    def j_xyz(self, x, y, z):
+        """ Current density.
+        """
+
+        jx = 0*x
+        jy = 0*x
+        jz = 0*x
+
+        return jx, jy, jz
+
+    # equilibrium pressure
+    def p_xyz(self, x, y, z):
+        """ Pressure.
+        """
+
+        return 0*x + 5/2
+
+    # equilibrium number density
+    def n_xyz(self, x, y, z):
+        """ Number density.
+        """
+
+        return 1.+0.*x
+
+    # gradient of equilibrium magnetic field (not set)
+    def gradB_xyz(self, x, y, z):
+        """ Gradient of magnetic field.
+        """
+
+        gradBx = 0*x
+        gradBy = 0*x
+        gradBz = 0*x
+
+        return gradBx, gradBy, gradBz
