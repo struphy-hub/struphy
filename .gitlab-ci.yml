@@ -149,7 +149,7 @@ create_venv:
   parallel:
     matrix:
       - LANGUAGE: ["c", "fortran"]
-        OMP: ["", "--omp-pic"]
+      #  OMP: ["", "--omp-pic"]
   before_script:
     - date
     - ls -a
@@ -450,8 +450,12 @@ quickstart_tests:
     #- ls $(python3 -c "import struphy as _; print(_.__path__[0])")/_pymon --all
 
 # default tests
-c_unit_tests:
+unit_tests:
   stage: test
+  parallel:
+    matrix:
+      - LANGUAGE: ["c", "fortran"]
+      #  OMP: ["", "--omp-pic"]
   rules:
     - if: $TEST_SCHEDULED == "true"
       when: never
@@ -462,6 +466,21 @@ c_unit_tests:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  before_script:
+    - date
+    - ls -a
+    - uname -s # get system info
+    - uname -v
+    - uname -m
+    - uname -o
+    - echo "Hello ${GITLAB_USER_NAME} !"
+    - echo "This is job ${CI_JOB_ID}"
+    - module list
+    - module avail
+    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
+    - module list
+    - pip install -U virtualenv
+    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
   script:
     - pwd
     - ls -1a
