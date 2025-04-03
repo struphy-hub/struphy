@@ -7745,9 +7745,9 @@ class Stokes(Propagator):
             max_iter=solver["maxiter"]
         )
         
-        self.feec_vars[0] = self.feec_vars[0].toarray()
-        self.feec_vars[1] = self.feec_vars[1].toarray()
-        self.feec_vars[2] = self.feec_vars[2].toarray()
+        # self.feec_vars[0] = self.feec_vars[0].toarray()
+        # self.feec_vars[1] = self.feec_vars[1].toarray()
+        # self.feec_vars[2] = self.feec_vars[2].toarray()
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = self._block_codomainM.zeros()
@@ -7763,188 +7763,146 @@ class Stokes(Propagator):
         # uenp = self.feec_vars[1].toarray()
         # phinp = self.feec_vars[2].toarray()
         
-        # # Define block matrix [[A BT], [B 0]]
-        # _A11 = (
-        #     1.0*self.mass_ops.M2 / dt
-        #     - self.mass_ops.M2B
-        #     + self._nu
-        #     * (
-        #         self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-        #         + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
-        #     )
-        # )
-        # _A12 = None
-        # _A21 = _A12
-        # _A22 =   self._nu_e * (
-        #     self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-        #     + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
-        # ) + self.mass_ops.M2B + self._eps*IdentityOperator(_A11.domain)
-        # _B1 = -self.mass_ops.M3 @ self.derham.div
-        # _B2 = self.mass_ops.M3 @ self.derham.div
+        # Define block matrix [[A BT], [B 0]]
+        _A11 = (
+            1.0*self.mass_ops.M2 / dt
+            - self.mass_ops.M2B
+            + self._nu
+            * (
+                self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+                + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
+            )
+        )
+        _A12 = None
+        _A21 = _A12
+        _A22 =   self._nu_e * (
+            self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+            + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
+        ) + self.mass_ops.M2B + self._eps*IdentityOperator(_A11.domain)
+        _B1 = -self.mass_ops.M3 @ self.derham.div
+        _B2 = self.mass_ops.M3 @ self.derham.div
 
-        # if _A12 is not None:
-        #     assert _A11.codomain == _A12.codomain
-        # if _A21 is not None:
-        #     assert _A22.codomain == _A21.codomain
-        # assert _B1.codomain == _B2.codomain
-        # if _A12 is not None:
-        #     assert _A11.domain == _A12.domain == _B1.domain
-        # if _A21 is not None:
-        #     assert _A21.domain == _A22.domain == _B2.domain
-        # assert _A22.domain == _B2.domain
-        # assert _A11.domain == _B1.domain
+        if _A12 is not None:
+            assert _A11.codomain == _A12.codomain
+        if _A21 is not None:
+            assert _A22.codomain == _A21.codomain
+        assert _B1.codomain == _B2.codomain
+        if _A12 is not None:
+            assert _A11.domain == _A12.domain == _B1.domain
+        if _A21 is not None:
+            assert _A21.domain == _A22.domain == _B2.domain
+        assert _A22.domain == _B2.domain
+        assert _A11.domain == _B1.domain
 
-        # _blocksA = [[_A11, _A12], [_A21, _A22]]
-        # _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
-        # _blocksB = [[_B1, _B2]]
-        # _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-        # # Split diffusive term
-        # # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(un) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
-        # #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
-        # _blocksF = [self._F1 + 1.0* 1 / dt * self.mass_ops.M2.dot(un), self._F2]     
-        # _F = BlockVector(self._block_domainA, blocks=_blocksF)
+        _blocksA = [[_A11, _A12], [_A21, _A22]]
+        _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+        _blocksB = [[_B1, _B2]]
+        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
+        # Split diffusive term
+        # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(un) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
+        #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
+        _blocksF = [self._F1 + 1.0* 1 / dt * self.mass_ops.M2.dot(un), self._F2]     
+        _F = BlockVector(self._block_domainA, blocks=_blocksF)
         
-        # _blocksM = [[_A, _B.T], [_B, None]]
-        # _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
-        # _RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
+        _blocksM = [[_A, _B.T], [_B, None]]
+        _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
+        _RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
         
-        # self._blockU = BlockVector(_A.domain, blocks = [un, uen])
-        # self._solblocks = [self._blockU, phin]
-        # self._solverM._options["x0"] = BlockVector(self._block_domainM, blocks=self._solblocks)
+        self._blockU = BlockVector(_A.domain, blocks = [un, uen])
+        self._solblocks = [self._blockU, phin]
+        self._solverM._options["x0"] = BlockVector(self._block_domainM, blocks=self._solblocks)
         
         
-        # # # use setter to update lhs matrix
-        # # self._solverM.linop = _M
+        # # use setter to update lhs matrix
+        # self._solverM.linop = _M
 
-        # # _sol = self._solverM.solve(_RHS, out = self._e_tmp1 )
-        # # info = self._solverM._info
+        # _sol = self._solverM.solve(_RHS, out = self._e_tmp1 )
+        # info = self._solverM._info
 
-        # # un = _sol[0][0]
-        # # uen = _sol[0][1]
-        # # phin = _sol[1]
+        # un = _sol[0][0]
+        # uen = _sol[0][1]
+        # phin = _sol[1]
         
-        # max_u = max(np.max(block._data) for block in un)
-        # print(f'{max_u = }')
-        # max_ue = max(np.max(block._data) for block in uen)
-        # print(f'{max_ue = }')
-        # print(f'{np.max(phin._data) = }')
-        # min_u = min(np.min(block._data) for block in un)
-        # print(f'{min_u = }')
-        # min_ue = min(np.min(block._data) for block in uen)
-        # print(f'{min_ue = }')
-        # print(f'{np.min(phin._data) = }')
-        # max_feec0 = max(np.max(block._data) for block in self.feec_vars[0])
-        # print(f'{max_feec0 = }')
-        # max_feec1 = max(np.max(block._data) for block in self.feec_vars[1])
-        # print(f'{max_feec1 = }')
-        # print(f'{np.max(self.feec_vars[2]._data) = }')
-        # min_feec0 = min(np.min(block._data) for block in self.feec_vars[0])
-        # print(f'{min_feec0 = }')
-        # min_feec1 = min(np.min(block._data) for block in self.feec_vars[1])
-        # print(f'{min_feec1 = }')
-        # print(f'{np.min(self.feec_vars[2]._data) = }')
+        max_u = max(np.max(block._data) for block in un)
+        print(f'{max_u = }')
+        max_ue = max(np.max(block._data) for block in uen)
+        print(f'{max_ue = }')
+        print(f'{np.max(phin._data) = }')
+        min_u = min(np.min(block._data) for block in un)
+        print(f'{min_u = }')
+        min_ue = min(np.min(block._data) for block in uen)
+        print(f'{min_ue = }')
+        print(f'{np.min(phin._data) = }')
+        max_feec0 = max(np.max(block._data) for block in self.feec_vars[0])
+        print(f'{max_feec0 = }')
+        max_feec1 = max(np.max(block._data) for block in self.feec_vars[1])
+        print(f'{max_feec1 = }')
+        print(f'{np.max(self.feec_vars[2]._data) = }')
+        min_feec0 = min(np.min(block._data) for block in self.feec_vars[0])
+        print(f'{min_feec0 = }')
+        min_feec1 = min(np.min(block._data) for block in self.feec_vars[1])
+        print(f'{min_feec1 = }')
+        print(f'{np.min(self.feec_vars[2]._data) = }')
         
-        # ## Solver imported:
-        # self._solver_GMRES.A = _A
-        # self._solver_GMRES.F = _F
-        # usol, phin, info = self._solver_GMRES(un, uen, phin) #unp, uenp, phinp
-        # un = usol[0]
-        # uen = usol[1]
+        ## Solver imported:
+        self._solver_GMRES.A = _A
+        self._solver_GMRES.F = _F
+        usol, phin, info = self._solver_GMRES(un, uen, phin) #unp, uenp, phinp
+        un = usol[0]
+        uen = usol[1]
         
-        # max_u = max(np.max(block._data) for block in un)
-        # print(f'{max_u = }')
-        # max_ue = max(np.max(block._data) for block in uen)
-        # print(f'{max_ue = }')
-        # print(f'{np.max(phin._data) = }')
-        # min_u = min(np.min(block._data) for block in un)
-        # print(f'{min_u = }')
-        # min_ue = min(np.min(block._data) for block in uen)
-        # print(f'{min_ue = }')
-        # print(f'{np.min(phin._data) = }')
-        # max_feec0 = max(np.max(block._data) for block in self.feec_vars[0])
-        # print(f'{max_feec0 = }')
-        # max_feec1 = max(np.max(block._data) for block in self.feec_vars[1])
-        # print(f'{max_feec1 = }')
-        # print(f'{np.max(self.feec_vars[2]._data) = }')
-        # min_feec0 = min(np.min(block._data) for block in self.feec_vars[0])
-        # print(f'{min_feec0 = }')
-        # min_feec1 = min(np.min(block._data) for block in self.feec_vars[1])
-        # print(f'{min_feec1 = }')
-        # print(f'{np.min(self.feec_vars[2]._data) = }')
-        
-        # # write new coeffs into self.feec_vars
-        # max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
-        
-        # max_u = max(np.max(block._data) for block in un)
-        # print(f'{max_u = }')
-        # max_ue = max(np.max(block._data) for block in uen)
-        # print(f'{max_ue = }')
-        # print(f'{np.max(phin._data) = }')
-        # min_u = min(np.min(block._data) for block in un)
-        # print(f'{min_u = }')
-        # min_ue = min(np.min(block._data) for block in uen)
-        # print(f'{min_ue = }')
-        # print(f'{np.min(phin._data) = }')
-        # max_feec0 = max(np.max(block._data) for block in self.feec_vars[0])
-        # print(f'{max_feec0 = }')
-        # max_feec1 = max(np.max(block._data) for block in self.feec_vars[1])
-        # print(f'{max_feec1 = }')
-        # print(f'{np.max(self.feec_vars[2]._data) = }')
-        # min_feec0 = min(np.min(block._data) for block in self.feec_vars[0])
-        # print(f'{min_feec0 = }')
-        # min_feec1 = min(np.min(block._data) for block in self.feec_vars[1])
-        # print(f'{min_feec1 = }')
-        # print(f'{np.min(self.feec_vars[2]._data) = }')
-        
-        ### Numpy
-        A11np = self._M2np/dt + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - 1.0 * self._M2Bnp
-        if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-            A22np = self._eps * np.identity(A11np.shape[0])+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
-            _A22np = self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*np.identity(A22np.shape[0])  #+M2np #
-        elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
-            A22np = self._eps * sc.sparse.identity(A11np.shape[0],format='csr')+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
-            _A22np = self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*sc.sparse.identity(A22np.shape[0], format='csr')  #+M2np #
-            _A22np = _A22np.tocsr()
-
-        
-        _Anp = [A11np, A22np]
-        _A11np =  self._M2np/dt + self._nu*(self._Dnp.T @ self._M3np @ self._Dnp) #+ Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp  
-        _Anppre = [_A11np, _A22np]
-        _Fnp =[self._F1np + 1.0 / dt * self._M2np.dot(un), self._F2np]
-        
-        self._solver_InexactUzawaNumpy.A = _Anp
-        self._solver_InexactUzawaNumpy.Apre = _Anppre
-        self._solver_InexactUzawaNumpy.F = _Fnp
-        un, uen, phin, info, residual_norms = self._solver_InexactUzawaNumpy() #unp, uenp, phinp
-        
-        print(f'{max(un) = }')
-        print(f'{max(uen) = }')
-        print(f'{max(phin) = }')
-        print(f'{min(un) = }')
-        print(f'{min(uen) = }')
-        print(f'{min(phin) = }')
-        print(f'{max(self.feec_vars[0]) = }')
-        print(f'{max(self.feec_vars[1]) = }')
-        print(f'{max(self.feec_vars[2]) = }')
-        print(f'{min(self.feec_vars[0]) = }')
-        print(f'{min(self.feec_vars[1]) = }')
-        print(f'{min(self.feec_vars[2]) = }')
-
         # write new coeffs into self.feec_vars
         max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
         
-        print(f'{max(un) = }')
-        print(f'{max(uen) = }')
-        print(f'{max(phin) = }')
-        print(f'{min(un) = }')
-        print(f'{min(uen) = }')
-        print(f'{min(phin) = }')
-        print(f'{max(self.feec_vars[0]) = }')
-        print(f'{max(self.feec_vars[1]) = }')
-        print(f'{max(self.feec_vars[2]) = }')
-        print(f'{min(self.feec_vars[0]) = }')
-        print(f'{min(self.feec_vars[1]) = }')
-        print(f'{min(self.feec_vars[2]) = }')
+        # ### Numpy
+        # A11np = self._M2np/dt + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - 1.0 * self._M2Bnp
+        # if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
+        #     A22np = self._eps * np.identity(A11np.shape[0])+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
+        #     _A22np = self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*np.identity(A22np.shape[0])  #+M2np #
+        # elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
+        #     A22np = self._eps * sc.sparse.identity(A11np.shape[0],format='csr')+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
+        #     _A22np = self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*sc.sparse.identity(A22np.shape[0], format='csr')  #+M2np #
+        #     _A22np = _A22np.tocsr()
+
+        
+        # _Anp = [A11np, A22np]
+        # _A11np =  self._M2np/dt + self._nu*(self._Dnp.T @ self._M3np @ self._Dnp) #+ Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp  
+        # _Anppre = [_A11np, _A22np]
+        # _Fnp =[self._F1np + 1.0 / dt * self._M2np.dot(un), self._F2np]
+        
+        # self._solver_InexactUzawaNumpy.A = _Anp
+        # self._solver_InexactUzawaNumpy.Apre = _Anppre
+        # self._solver_InexactUzawaNumpy.F = _Fnp
+        # un, uen, phin, info, residual_norms = self._solver_InexactUzawaNumpy() #unp, uenp, phinp
+        
+        # print(f'{max(un) = }')
+        # print(f'{max(uen) = }')
+        # print(f'{max(phin) = }')
+        # print(f'{min(un) = }')
+        # print(f'{min(uen) = }')
+        # print(f'{min(phin) = }')
+        # print(f'{max(self.feec_vars[0]) = }')
+        # print(f'{max(self.feec_vars[1]) = }')
+        # print(f'{max(self.feec_vars[2]) = }')
+        # print(f'{min(self.feec_vars[0]) = }')
+        # print(f'{min(self.feec_vars[1]) = }')
+        # print(f'{min(self.feec_vars[2]) = }')
+
+        # # write new coeffs into self.feec_vars
+        # max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
+        
+        # print(f'{max(un) = }')
+        # print(f'{max(uen) = }')
+        # print(f'{max(phin) = }')
+        # print(f'{min(un) = }')
+        # print(f'{min(uen) = }')
+        # print(f'{min(phin) = }')
+        # print(f'{max(self.feec_vars[0]) = }')
+        # print(f'{max(self.feec_vars[1]) = }')
+        # print(f'{max(self.feec_vars[2]) = }')
+        # print(f'{min(self.feec_vars[0]) = }')
+        # print(f'{min(self.feec_vars[1]) = }')
+        # print(f'{min(self.feec_vars[2]) = }')
 
 
         if self._info and self._rank == 0:
