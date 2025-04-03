@@ -354,6 +354,7 @@ lint_branch_report:
 # Macos
 macos_nmpp:
   stage: test
+  tags: [macos]
   rules:
     - if: $TEST_SCHEDULED == "true"
       when: never
