@@ -41,13 +41,14 @@ variables:
     options: ["true", "false"]
     description: "''true'' to run the scheduled pipeline"
   STRUPHY_SOURCE_DOCKER:
-    value: "dist/struphy*.whl"
-    options: ["dist/struphy*.whl", "-U struphy"]
+    value: "."
+    options: [".", "-U struphy"]
     description: "Source to install struphy from in the docker jobs."
 
-default:
+.image_gitlab_mpcdf_gcc_openmp:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_14-openmpi_5_0:2025
 
+.before_script_default:
   before_script:
     - date
     - ls -a
@@ -58,56 +59,77 @@ default:
     - module list
     - make -v
     - python3 --version
-    - echo env_$CI_PIPELINE_ID
-    - ls env_$CI_PIPELINE_ID/bin/
-    - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
 
-  # tags:
-  #   - distributedcache
+.rules_push:
+  rules:
+  - if: $TEST_SCHEDULED == "true"
+    when: never
+  - if: $MAKE_PAGES == "true"
+    when: never
+  - if: $CI_PIPELINE_SOURCE == "schedule"
+    when: never
+  - if: $CI_COMMIT_TAG
+    when: never
+  - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
 
-  artifacts:
-    expire_in: 1 day
+.rules_scheduled:
+  rules:
+    - if: $TEST_SCHEDULED == "true"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+.rules_release:
+  rules:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
 
 stages:
   - startup
-  - build
   - install
   - test
   - lint
   - pages
   - release 
 
+#####################
+### STARTUP STAGE ###
+#####################
+
 # python virtual environments into cache
-default_venv:
-  stage: startup 
-  before_script:
-    - date
-    - ls -a
-    - uname -s # get system info
-    - uname -v
-    - uname -m
-    - uname -o
-    - echo "Hello ${GITLAB_USER_NAME} !"
-    - echo "This is job ${CI_JOB_ID}"
-    - module list
-    - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
-    - module list
-    - pip install -U virtualenv
-  script:
-    - python3 -m venv env_$CI_PIPELINE_ID
-    - ls
-    - pwd
-    - source env_$CI_PIPELINE_ID/bin/activate
-    - python3 -m pip install --upgrade pip
-    - pip install -U pytest coverage twine
-    - pip list
-  artifacts:
-    name: 'python-env'
-    paths:
-      - env_$CI_PIPELINE_ID/
-    expire_in: 1 day
+# default_venv:
+#   stage: startup 
+#   before_script:
+#     - date
+#     - ls -a
+#     - uname -s # get system info
+#     - uname -v
+#     - uname -m
+#     - uname -o
+#     - echo "Hello ${GITLAB_USER_NAME} !"
+#     - echo "This is job ${CI_JOB_ID}"
+#     - module list
+#     - module avail
+#     - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
+#     - module list
+#     - pip install -U virtualenv
+#   script:
+#     - python3 -m venv env_$CI_PIPELINE_ID
+#     - ls
+#     - pwd
+#     - source env_$CI_PIPELINE_ID/bin/activate
+#     - python3 -m pip install --upgrade pip
+#     - pip install -U pytest coverage twine
+#     - pip list
+#   artifacts:
+#     name: 'python-env'
+#     paths:
+#       - env_$CI_PIPELINE_ID/
+#     expire_in: 1 day
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
@@ -120,50 +142,19 @@ ci_vars:
     - echo "All environment variables:"
     - env
 
-# build on mpcdf server
-default_build:
-  stage: build
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "push"
-    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
-    - if: $MAKE_PAGES == "true"
-  needs: ['default_venv']
-  script:  
-    - pip install -U build
-    - pip list
-    - python3 -m build # build struphy (.whl) 
-  artifacts:
-    name: 'dist'
-    paths:
-      - dist/
-    expire_in: 1 day
-
 #####################
 ### INSTALL STAGE ###
 #####################
 
 create_venv:
   stage: install
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_default
   parallel:
     matrix:
       - LANGUAGE: ["c", "fortran"]
       #  OMP: ["", "--omp-pic"]
-  before_script:
-    - date
-    - ls -a
-    - uname -s # get system info
-    - uname -v
-    - uname -m
-    - uname -o
-    - echo "Hello ${GITLAB_USER_NAME} !"
-    - echo "This is job ${CI_JOB_ID}"
-    - module list
-    - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
-    - module list
-    - pip install -U virtualenv
   script:
     - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
@@ -182,8 +173,39 @@ create_venv:
       - env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     expire_in: 1 day
 
+# Compile with OpenMP
+openmp_install:
+  stage: install
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_default
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $MAKE_PAGES == "true"
+      when: never
+    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - pip install $(echo dist/struphy*.whl)[test]
+    - pip show struphy
+    - pip list
+    - struphy
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --omp-pic --language=fortran -y # compiles struphy, psydac with language fortran and using OpenMP
+    - struphy --refresh-models
+  # artifacts:
+  #   name: 'python-env-installed-openmp'
+  #   paths:
+  #     - env_openmp_$CI_PIPELINE_ID/
+  #   expire_in: 1 day
+
 compile_timing:
   stage: install
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_default
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -192,7 +214,10 @@ compile_timing:
     - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - pip install $(echo dist/struphy*.whl)[test]
+    - python3 -m venv _env_tmp
+    - source _env_tmp/bin/activate
+    - pip install -U pip
+    - pip install .[test]
     - pip show struphy
     - pip list
     - struphy
@@ -219,30 +244,6 @@ compile_timing:
     - chmod +x check_pyccel.sh
     - ./check_pyccel.sh
 
-# Compile with OpenMP
-openmp_install:
-  stage: install
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $MAKE_PAGES == "true"
-      when: never
-    - if: $TEST_SCHEDULED == "true" || $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  script:
-    - pip install $(echo dist/struphy*.whl)[test]
-    - pip show struphy
-    - pip list
-    - struphy
-    - pyccel --version
-    - struphy compile --status
-    - struphy compile --omp-pic --language=fortran -y # compiles struphy, psydac with language fortran and using OpenMP
-    - struphy --refresh-models
-  # artifacts:
-  #   name: 'python-env-installed-openmp'
-  #   paths:
-  #     - env_openmp_$CI_PIPELINE_ID/
-  #   expire_in: 1 day
 
 ##################
 ### LINT STAGE ###
