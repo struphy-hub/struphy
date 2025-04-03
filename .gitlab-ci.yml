@@ -351,6 +351,78 @@ lint_branch_report:
 ### TEST STAGE ###
 ##################
 
+# Macos
+macos_nmpp:
+  stage: test
+  tags: [macos]
+  rules:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $MAKE_PAGES == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+  needs: []
+  before_script:
+    - date
+    - ls -a
+    - pwd
+    - printenv
+    - system_profiler SPHardwareDataType
+    # Install macos dependencies https://struphy.pages.mpcdf.de/struphy/sections/install.html#sample-environments
+    # - sudo chown -R -y gitlab /opt/homebrew/Cellar
+    #- /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # - python3 --version && which python3
+    # - gcc --version && which gcc
+    # - brew list | grep openblas && brew --prefix openblas
+    # - brew list | grep lapack && brew --prefix lapack
+    # - mpicc --version && which mpicc
+    # - brew list | grep libomp && brew --prefix libomp
+    # - git --version && which git
+    # - pandoc --version && which pandoc
+    # - brew update
+    # - brew install python3
+    # - brew install gcc
+    # - brew install openblas
+    # - brew install lapack
+    # - brew install open-mpi
+    # - brew install libomp
+    # - brew install git
+    # - brew install pandoc
+  script:
+    - python3 -m pip list
+    - python3 -m venv env
+    - source env/bin/activate
+    - python3 --version
+    - pip install ".[test]"
+    - struphy compile --status
+    - make -v
+    - struphy compile --time-execution
+    - struphy -h
+    - struphy compile --status
+    - struphy -p
+    - struphy --set-i .
+    - struphy --set-o . 
+    - struphy run -h
+    - struphy params VlasovMaxwellOneSpecies -y
+    - ls -1a
+    - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    - ls my_first_sim/
+    - struphy pproc -d my_first_sim
+    - ls my_first_sim/post_processing/fields_data/
+    - ls my_first_sim/post_processing/kinetic_data/
+    - struphy params VlasovMaxwellOneSpecies --options
+    - struphy test models --fast
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
+    - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim --mpi 4 --nclones 2
+
 # ubuntu latest 
 Ubuntu_latest:
   stage: test
