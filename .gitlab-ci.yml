@@ -333,8 +333,7 @@ model_tests_psydac_whl:
 
 macos_nmpp:
   stage: test
-  tags: [macos]
-  needs: []
+  tags: [macos, nmpp, private]
   extends:
     - .rules_push
     - .parallel_matrix_push
@@ -355,7 +354,7 @@ macos_nmpp:
     - struphy compile --status
     - struphy compile --time-execution
 
-pages_tests:
+test_pages:
   stage: test
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
