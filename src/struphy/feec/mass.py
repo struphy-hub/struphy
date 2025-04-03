@@ -1985,16 +1985,16 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # set basis extraction operators
         if V_extraction_op is not None:
-            assert V_extraction_op.domain == V.vector_space
+            assert V_extraction_op.domain == V.coeff_space
             self._V_extraction_op = V_extraction_op
         else:
-            self._V_extraction_op = IdentityOperator(V.vector_space)
+            self._V_extraction_op = IdentityOperator(V.coeff_space)
 
         if W_extraction_op is not None:
-            assert W_extraction_op.domain == W.vector_space
+            assert W_extraction_op.domain == W.coeff_space
             self._W_extraction_op = W_extraction_op
         else:
-            self._W_extraction_op = IdentityOperator(W.vector_space)
+            self._W_extraction_op = IdentityOperator(W.coeff_space)
 
         # set boundary operators
         if V_boundary_op is not None:
@@ -2015,11 +2015,13 @@ class WeightedMassOperator(LinOpWithTransp):
         self._transposed = transposed
         self._matrix_free = matrix_free
 
-        self._dtype = V.vector_space.dtype
+        self._dtype = V.coeff_space.dtype
 
         # set domain and codomain symbolic names
         if hasattr(V.symbolic_space, "name"):
             V_name = V.symbolic_space.name
+        elif isinstance(V.symbolic_space, str):
+            V_name = V.symbolic_space
         else:
             if V.ldim == 3 or V.ldim == 2:
                 V_name = "H1vec"
@@ -2031,6 +2033,8 @@ class WeightedMassOperator(LinOpWithTransp):
 
         if hasattr(W.symbolic_space, "name"):
             W_name = W.symbolic_space.name
+        elif isinstance(W.symbolic_space, str):
+            W_name = W.symbolic_space
         else:
             if W.ldim == 3 or W.ldim == 2:
                 W_name = "H1vec"
@@ -2057,9 +2061,9 @@ class WeightedMassOperator(LinOpWithTransp):
         self._is_scalar = True
         if not isinstance(V, TensorFemSpace):
             self._is_scalar = False
-            self._mpi_comm = V.vector_space.spaces[0].cart.comm
+            self._mpi_comm = V.coeff_space.spaces[0].cart.comm
         else:
-            self._mpi_comm = V.vector_space.cart.comm
+            self._mpi_comm = V.coeff_space.cart.comm
 
         if not isinstance(W, TensorFemSpace):
             self._is_scalar = False
@@ -2121,8 +2125,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     blocks = [
                         [
                             StencilMatrix(
-                                Vs.vector_space,
-                                Ws.vector_space,
+                                Vs.coeff_space,
+                                Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
                             )
@@ -2134,8 +2138,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     blocks = [
                         [
                             StencilMatrix(
-                                Vs.vector_space,
-                                Ws.vector_space,
+                                Vs.coeff_space,
+                                Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
                             )
@@ -2149,8 +2153,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     blocks = [
                         [
                             StencilMatrix(
-                                Vs.vector_space,
-                                Ws.vector_space,
+                                Vs.coeff_space,
+                                Ws.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
                             )
@@ -2166,8 +2170,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     )
 
             self._mat = BlockLinearOperator(
-                V.vector_space,
-                W.vector_space,
+                V.coeff_space,
+                W.coeff_space,
                 blocks=blocks,
             )
 
@@ -2204,8 +2208,8 @@ class WeightedMassOperator(LinOpWithTransp):
                         else:
                             blocks[-1] += [
                                 StencilMatrix(
-                                    vspace.vector_space,
-                                    wspace.vector_space,
+                                    vspace.coeff_space,
+                                    wspace.coeff_space,
                                     backend=PSYDAC_BACKEND_GPYCCEL,
                                     precompiled=True,
                                 ),
@@ -2249,8 +2253,8 @@ class WeightedMassOperator(LinOpWithTransp):
                                 else:
                                     blocks[-1] += [
                                         StencilMatrix(
-                                            vspace.vector_space,
-                                            wspace.vector_space,
+                                            vspace.coeff_space,
+                                            wspace.coeff_space,
                                             backend=PSYDAC_BACKEND_GPYCCEL,
                                             precompiled=True,
                                         ),
@@ -2271,8 +2275,8 @@ class WeightedMassOperator(LinOpWithTransp):
                         )
                     else:
                         self._mat = StencilMatrix(
-                            vspace.vector_space,
-                            wspace.vector_space,
+                            vspace.coeff_space,
+                            wspace.coeff_space,
                             backend=PSYDAC_BACKEND_GPYCCEL,
                             precompiled=True,
                         )
@@ -2280,8 +2284,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     self._mat = blocks[0][0]
             else:
                 self._mat = BlockLinearOperator(
-                    V.vector_space,
-                    W.vector_space,
+                    V.coeff_space,
+                    W.coeff_space,
                     blocks=blocks,
                 )
 
@@ -2563,14 +2567,14 @@ class WeightedMassOperator(LinOpWithTransp):
                                 block._data[:] = 0.0
 
             # identify rank for printing
-            if self._domain_symbolic_name in {"H1", "L2"}:
-                if self._V.vector_space.cart.comm is not None:
-                    rank = self._V.vector_space.cart.comm.Get_rank()
+            if self._domain_symbolic_name in {"H1", "L2", None}:
+                if self._V.coeff_space.cart.comm is not None:
+                    rank = self._V.coeff_space.cart.comm.Get_rank()
                 else:
                     rank = 0
             else:
-                if self._V.vector_space[0].cart.comm is not None:
-                    rank = self._V.vector_space[0].cart.comm.Get_rank()
+                if self._V.coeff_space[0].cart.comm is not None:
+                    rank = self._V.coeff_space[0].cart.comm.Get_rank()
                 else:
                     rank = 0
 
@@ -2617,10 +2621,10 @@ class WeightedMassOperator(LinOpWithTransp):
                 ]
 
                 # global start spline index on process
-                codomain_starts = [int(start) for start in codomain_space.vector_space.starts]
+                codomain_starts = [int(start) for start in codomain_space.coeff_space.starts]
 
                 # pads (ghost regions)
-                codomain_pads = codomain_space.vector_space.pads
+                codomain_pads = codomain_space.coeff_space.pads
                 # global quadrature points (flattened) and weights in format (local element, local weight)
                 pts = [
                     quad_grid[nquad].points.flatten()
@@ -2706,8 +2710,8 @@ class WeightedMassOperator(LinOpWithTransp):
                             # Maybe in a previous iteration we had more zeros
                             # Can only happen in the Block case
                             self._mat[a, b] = StencilMatrix(
-                                domain_space.vector_space,
-                                codomain_space.vector_space,
+                                domain_space.coeff_space,
+                                codomain_space.coeff_space,
                                 backend=PSYDAC_BACKEND_GPYCCEL,
                                 precompiled=True,
                             )
@@ -2841,7 +2845,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         assert isinstance(W, (TensorFemSpace, VectorFemSpace))
         assert isinstance(coeffs, (StencilVector, BlockVector))
-        assert W.vector_space == coeffs.space
+        assert W.coeff_space == coeffs.space
 
         # collect TensorFemSpaces for each component in tuple
         if isinstance(W, TensorFemSpace):
@@ -2895,10 +2899,10 @@ class WeightedMassOperator(LinOpWithTransp):
             ]
 
             # global start spline index on process
-            starts = [int(start) for start in wspace.vector_space.starts]
+            starts = [int(start) for start in wspace.coeff_space.starts]
 
             # pads (ghost regions)
-            pads = wspace.vector_space.pads
+            pads = wspace.coeff_space.pads
 
             # global quadrature points (flattened) and weights in format (local element, local weight)
             pts = [
@@ -2971,14 +2975,14 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
     def __init__(self, derham, V, W, weights=None, nquads=None):
         self._V = V
         self._W = W
-        self._domain = V.vector_space
-        self._codomain = W.vector_space
+        self._domain = V.coeff_space
+        self._codomain = W.coeff_space
         self._weights = weights
 
         self._derham = derham
         self._nquads = nquads
 
-        self._dtype = V.vector_space.dtype
+        self._dtype = V.coeff_space.dtype
         self._dot_kernel = getattr(
             mass_kernels,
             "kernel_" + str(self._V.ldim) + "d_matrixfree",
@@ -2989,7 +2993,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             "kernel_" + str(self._V.ldim) + "d_diag",
         )
 
-        shape = tuple(e - s + 1 for s, e in zip(V.vector_space.starts, V.vector_space.ends))
+        shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
         self._diag_tmp = np.zeros((shape))
 
         # knot span indices of elements of local domain
@@ -2999,9 +3003,9 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         ]
 
         # global start spline index on process
-        self._codomain_starts = [int(start) for start in self._W.vector_space.starts]
+        self._codomain_starts = [int(start) for start in self._W.coeff_space.starts]
         # pads (ghost regions)
-        self._codomain_pads = self._W.vector_space.pads
+        self._codomain_pads = self._W.coeff_space.pads
 
         # evaluated basis functions at quadrature points of codomain space
         self._codomain_basis = [
@@ -3016,10 +3020,10 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         ]
 
         # global start spline index on process
-        self._domain_starts = [int(start) for start in self._V.vector_space.starts]
+        self._domain_starts = [int(start) for start in self._V.coeff_space.starts]
 
         # pads (ghost regions)
-        self._domain_pads = self._V.vector_space.pads
+        self._domain_pads = self._V.coeff_space.pads
 
         # evaluated basis functions at quadrature points of domain space
         self._domain_basis = [
