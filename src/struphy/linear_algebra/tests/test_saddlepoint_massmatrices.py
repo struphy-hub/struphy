@@ -40,11 +40,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, local_projectors=True)
-
-    # mapping
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
-
     fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
 
     # Mhd equilibirum (slab)
@@ -82,15 +79,15 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     M2R = mass_mats.M2B
     M2 = mass_mats.M2
     Hodge = hodge_mats.S21
-    C = derham.curl
-    D = derham.div
-    G = derham.grad
+    C = derham.curl #_bcfree
+    D = derham.div  #_bcfree
+    G = derham.grad #_bcfree
     M3 = mass_mats.M3
     B0 = 1.0
     nue = 0.01*100
     nu = 1.0
     dt = 0.001
-    eps = 1e-5
+    eps = 1e-6
     eps2 = eps#1e-5#1. #Preconditioner Ae
     method_to_solve = 'DirectNPInverse' #  'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
     preconditioner = True
@@ -134,23 +131,23 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     
     # Change to numpy
     if method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-        M2np = M2.toarray_struphy()
-        M3np = M3.toarray_struphy()
+        M2np = M2._mat.toarray()
+        M3np = M3._mat.toarray()
         Dnp = D.toarray_struphy()
         Cnp = C.toarray_struphy()
         #S21np = S21.toarray
         Hodgenp = Hodge.toarray_struphy()
-        M2Bnp = M2R.toarray_struphy()
+        M2Bnp = M2R._mat.toarray()
         x1np = x1.toarray()
         x2np = x2.toarray()
     elif method_to_solve in ('SparseSolver', 'ScipySparse'):
-        M2np = M2.toarray_struphy(is_sparse=True)
-        M3np = M3.toarray_struphy(is_sparse=True)
+        M2np = M2._mat.tosparse()
+        M3np = M3._mat.tosparse()
         Dnp = D.toarray_struphy(is_sparse=True)
         Cnp = C.toarray_struphy(is_sparse=True)
         #S21np = S21.toarray
         Hodgenp = Hodge.toarray_struphy(is_sparse=True)    #tosparse
-        M2Bnp = M2R.toarray_struphy(is_sparse=True)
+        M2Bnp = M2R._mat.tosparse()
         x1np = x1.toarray()
         x2np = x2.toarray()
     
@@ -727,16 +724,16 @@ if __name__ == "__main__":
     #                        [[False,  False], [False, False], [False, False]],
     #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
    
-    test_saddlepointsolver('SaddlePointSolverGMRES',
+    # test_saddlepointsolver('SaddlePointSolverGMRES',
+    #                        [15, 15, 1],
+    #                        [3, 3, 1],
+    #                        [True, False, True],
+    #                        [[False,  False], [False, False], [False, False]],
+    #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
+    test_saddlepointsolver('SaddlePointSolverInexactUzawaNumpy',
                            [15, 15, 1],
                            [3, 3, 1],
                            [True, False, True],
                            [[False,  False], [False, False], [False, False]],
                            ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
-    # test_saddlepointsolver('SaddlePointSolverInexactUzawaNumpy',
-    #                        [12, 12, 1],
-    #                        [2, 2, 1],
-    #                        [True, True, True],
-    #                        [[False,  False], [False, False], [False, False]],
-    #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
     
