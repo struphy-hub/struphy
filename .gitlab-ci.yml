@@ -334,6 +334,7 @@ model_tests_psydac_whl:
 macos_nmpp:
   stage: test
   tags: [macos]
+  needs: []
   extends:
     - .rules_push
     - .parallel_matrix_push
