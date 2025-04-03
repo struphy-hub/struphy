@@ -365,7 +365,8 @@ macos_nmpp:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  needs: ['default_build']
+  # needs: ['default_build']
+  needs: []
   before_script:
     - date
     - ls -a
@@ -398,7 +399,7 @@ macos_nmpp:
     - python3 -m venv env
     - source env/bin/activate
     - python3 --version
-    - pip install "$(echo dist/struphy*.whl)[test]"
+    - pip install ".[test]"
     - struphy compile --status
     - make -v
     - struphy compile --time-execution
