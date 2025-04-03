@@ -41,13 +41,15 @@ variables:
     options: ["true", "false"]
     description: "''true'' to run the scheduled pipeline"
   STRUPHY_SOURCE_DOCKER:
-    value: "dist/struphy*.whl"
-    options: ["dist/struphy*.whl", "-U struphy"]
+    value: "."
+    options: [".", "-U struphy"]
     description: "Source to install struphy from in the docker jobs."
 
-default:
+# Templates
+.image_gitlab_mpcdf_gcc_openmp:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_14-openmpi_5_0:2025
 
+.before_script_default:
   before_script:
     - date
     - ls -a
@@ -58,20 +60,10 @@ default:
     - module list
     - make -v
     - python3 --version
-    - echo env_$CI_PIPELINE_ID
-    - ls env_$CI_PIPELINE_ID/bin/
-    - source env_$CI_PIPELINE_ID/bin/activate
     - pip list
-
-  # tags:
-  #   - distributedcache
-
-  artifacts:
-    expire_in: 1 day
 
 stages:
   - startup
-  - build
   - install
   - test
   - lint
@@ -121,8 +113,8 @@ ci_vars:
     - env
 
 # build on mpcdf server
-default_build:
-  stage: build
+install_from_build:
+  stage: install
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -133,12 +125,8 @@ default_build:
   script:  
     - pip install -U build
     - pip list
-    - python3 -m build # build struphy (.whl) 
-  artifacts:
-    name: 'dist'
-    paths:
-      - dist/
-    expire_in: 1 day
+    - python3 -m build # build struphy (.whl)
+    - pip install $(echo dist/struphy*.whl)[test]
 
 #####################
 ### INSTALL STAGE ###
@@ -365,8 +353,7 @@ macos_nmpp:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
-  # needs: ['default_build']
-  needs: []
+  needs: ['default_build']
   before_script:
     - date
     - ls -a
@@ -377,29 +364,29 @@ macos_nmpp:
     # Install macos dependencies https://struphy.pages.mpcdf.de/struphy/sections/install.html#sample-environments
     - sudo chown -R -y gitlab /opt/homebrew/Cellar
     #- /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    # - python3 --version && which python3
-    # - gcc --version && which gcc
-    # - brew list | grep openblas && brew --prefix openblas
-    # - brew list | grep lapack && brew --prefix lapack
-    # - mpicc --version && which mpicc
-    # - brew list | grep libomp && brew --prefix libomp
-    # - git --version && which git
-    # - pandoc --version && which pandoc
-    # - brew update
-    # - brew install python3
-    # - brew install gcc
-    # - brew install openblas
-    # - brew install lapack
-    # - brew install open-mpi
-    # - brew install libomp
-    # - brew install git
-    # - brew install pandoc
+    - python3 --version && which python3
+    - gcc --version && which gcc
+    - brew list | grep openblas && brew --prefix openblas
+    - brew list | grep lapack && brew --prefix lapack
+    - mpicc --version && which mpicc
+    - brew list | grep libomp && brew --prefix libomp
+    - git --version && which git
+    - pandoc --version && which pandoc
+    - brew update
+    - brew install python3
+    - brew install gcc
+    - brew install openblas
+    - brew install lapack
+    - brew install open-mpi
+    - brew install libomp
+    - brew install git
+    - brew install pandoc
   script:
     - python3 -m pip list
     - python3 -m venv env
     - source env/bin/activate
     - python3 --version
-    - pip install ".[test]"
+    - pip install "$(echo dist/struphy*.whl)[test]"
     - struphy compile --status
     - make -v
     - struphy compile --time-execution
