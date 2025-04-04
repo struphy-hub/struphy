@@ -442,7 +442,6 @@ Ubuntu_latest:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
     - !reference [.scripts, compile]
-    - !reference [.scripts, set_struphy_paths]
     - !reference [.scripts, quickstart_tests]
     - !reference [.scripts, model_tests]
 
