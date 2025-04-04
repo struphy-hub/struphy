@@ -92,6 +92,16 @@ stages:
       when: never
     - if: $CI_COMMIT_REF_NAME == "master"
 
+.rules_make_pages:
+  rules:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
+    - if: $MAKE_PAGES == "true"
 .parallel_matrix_push:
   parallel:
     matrix:
@@ -743,20 +753,11 @@ lint_branch_report:
 ###################
 ### PAGES STAGE ###
 ###################
-
 pages:
   stage: pages
   extends:
     - .image_struphy_ubuntu_latest
-  rules:
-    - if: $TEST_SCHEDULED == "true"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
-    - if: $MAKE_PAGES == "true"
+    - .rules_make_pages
   before_script:
     - !reference [.scripts, checkout_directory]
     - !reference [.scripts, create_venv]
@@ -791,18 +792,10 @@ deploy:
 
 vars:
   stage: release
-  rules:
-    - if: $TEST_SCHEDULED == "true"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
+  extends:
+    - .rules_release
   before_script:
-    - date
-    - ls -a
-    - uname -s # get system info
+    - !reference [.scripts, checkout_directory]
   script:
     - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
   artifacts:
@@ -814,19 +807,11 @@ vars:
 release_job:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
-  rules:
-    - if: $TEST_SCHEDULED == "true"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
+  extends:
+    - .rules_release
   needs: ['vars']
   before_script:
-    - date
-    - ls -a
-    - uname -s # get system info
+    - !reference [.scripts, checkout_directory]
   script:
     - cat /etc/*-release
     - echo $VERSION
