@@ -378,8 +378,8 @@ test_pages:
     - .parallel_matrix_push
     - .before_script_load_modules
   script:
-    - !reference [.scripts, checkout_struphy]
     - !reference [.scripts, source_env_matrix]
+    - !reference [.scripts, checkout_struphy]
     - module load pandoc
     - module list
     - pip install .[doc]
