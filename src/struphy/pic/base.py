@@ -2,7 +2,6 @@ import copy
 import os
 from abc import ABCMeta, abstractmethod
 
-import amrex.space3d as amr
 import h5py
 import numpy as np
 import scipy.special as sp
@@ -41,7 +40,7 @@ from struphy.pic.sph_eval_kernels import (
 try:
     import amrex.space3d as amr
 except ImportError:
-    amr = None 
+    amr = None
 
 
 class Particles(metaclass=ABCMeta):
@@ -1047,11 +1046,10 @@ class Particles(metaclass=ABCMeta):
                 print(("seed:").ljust(25), _seed)
 
             rng = np.random.default_rng(_seed)
-            
+
             if _seed is None:
                 _seed = rng.integers(1, 1000)  # random seed
 
-                
             myt = amr.ParticleInitType_pureSoA_8_0()  # the data is 0 by default
 
             # initialize particles in the whole domain, in each process (non serialized)
@@ -1082,7 +1080,7 @@ class Particles(metaclass=ABCMeta):
 
             for pti in self._markers.iterator(self._markers, 0):
                 markers_array = pti.soa().to_numpy()[0]
-                
+
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
                     markers_array["v1"][:] = (
@@ -1109,7 +1107,7 @@ class Particles(metaclass=ABCMeta):
                         * v_th[2]
                         + u_mean[2]
                     )
-                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) 
+                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
                 elif self.vdim == 2:
                     markers_array["v1"][:] = (
                         sp.erfinv(
@@ -1144,7 +1142,9 @@ class Particles(metaclass=ABCMeta):
                         markers_array["x"][:],
                     )
                 else:
-                    assert self._spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
+                    assert self._spatial == "uniform", (
+                        f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.'
+                    )
 
             self._markers.redistribute()
 
@@ -1870,18 +1870,17 @@ class Particles(metaclass=ABCMeta):
                 elif bc == "reflect":
                     markers_array[axis][is_outside_left] = 1e-4
                     markers_array[axis][is_outside_right] = 1 - 1e-4
-                    
+
                     amrex_reflect(
                         markers_array,
                         outside_inds,
                         i,
                         self.domain,
                     )
-                    
-                    
+
                 else:
                     raise NotImplementedError("Given bc_type is not implemented!")
-        
+
         self._markers.redistribute()
 
     def auto_sampling_params(self):

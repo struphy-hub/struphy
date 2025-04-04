@@ -280,7 +280,9 @@ class Domain(metaclass=ABCMeta):
         )
 
     # ========================
-    def jacobian(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, calculate_outside=False):
+    def jacobian(
+        self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, flat_eval=False
+    ):
         r"""
         Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -299,6 +301,9 @@ class Domain(metaclass=ABCMeta):
         remove_outside : bool
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
 
+        flat_eval : bool, optional
+            If True, the list/tuple (eta1, eta2, ...) will not be processed as a tensor product.
+
         Returns
         -------
         out : ndarray | float
@@ -312,7 +317,7 @@ class Domain(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
             transposed=transposed,
             remove_outside=remove_outside,
-            calculate_outside=calculate_outside,
+            flat_eval=flat_eval,
         )
 
     # ========================
@@ -343,7 +348,9 @@ class Domain(metaclass=ABCMeta):
         return self._evaluate_metric_coefficient(*etas, which=2, squeeze_out=squeeze_out, remove_outside=remove_outside)
 
     # ========================
-    def jacobian_inv(self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, calculate_outside=False):
+    def jacobian_inv(
+        self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, flat_eval=False
+    ):
         r"""
         Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
         Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
@@ -367,6 +374,9 @@ class Domain(metaclass=ABCMeta):
         remove_outside : bool, optional
             If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
 
+        flat_eval : bool, optional
+            If True, the list/tuple (eta1, eta2, ...) will not be processed as a tensor product.
+
         Returns
         -------
         out : ndarray | float
@@ -380,7 +390,7 @@ class Domain(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
             transposed=transposed,
             remove_outside=remove_outside,
-            calculate_outside=calculate_outside
+            flat_eval=flat_eval,
         )
 
     # ========================
@@ -662,7 +672,7 @@ class Domain(metaclass=ABCMeta):
         change_out_order = kwargs.get("change_out_order", False)
         squeeze_out = kwargs.get("squeeze_out", True)
         remove_outside = kwargs.get("remove_outside", False)
-        calculate_outside = kwargs.get("calculate_outside", False)
+        flat_eval = kwargs.get("flat_eval", False)
 
         # markers evaluation
         if len(etas) == 1:
@@ -677,7 +687,45 @@ class Domain(metaclass=ABCMeta):
                 self.args_domain,
                 out,
                 remove_outside,
-                calculate_outside,
+            )
+
+            # move the (3, 3)-part to front
+            out = np.transpose(out, axes=(1, 2, 0))
+
+            # remove holes
+            out = out[:, :, :n_inside]
+
+            if transposed:
+                out = np.transpose(out, axes=(1, 0, 2))
+
+            # change size of "out" depending on which metric coeff has been evaluated
+            if which == 0 or which == -1:
+                out = out[:, 0, :]
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 0))
+            elif which == 2:
+                out = out[0, 0, :]
+            else:
+                if change_out_order:
+                    out = np.transpose(out, axes=(2, 0, 1))
+
+        # markers evaluation without matrices and tensor-product
+        elif len(etas) == 3 and flat_eval:
+            E1 = etas[0]
+            E2 = etas[1]
+            E3 = etas[2]
+
+            # to keep C-ordering the (3, 3)-part is in the last indices
+            out = np.empty((len(E1), 3, 3), dtype=float)
+
+            n_inside = evaluation_kernels.kernel_evaluate_pic_flat(
+                E1,
+                E2,
+                E3,
+                which,
+                self.args_domain,
+                out,
+                remove_outside,
             )
 
             # move the (3, 3)-part to front
