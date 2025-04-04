@@ -38,6 +38,11 @@ from struphy.pic.sph_eval_kernels import (
     periodic_distance,
 )
 
+try:
+    import amrex.space3d as amr
+except ImportError:
+    amr = None 
+
 
 class Particles(metaclass=ABCMeta):
     """
@@ -1067,8 +1072,6 @@ class Particles(metaclass=ABCMeta):
             self._markers.add_real_comp("init_v2")
             self._markers.add_real_comp("init_v3")
 
-            # markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
-
             # inverse transform sampling in velocity space
             u_mean = np.array(
                 self.loading_params["moments"][: self.vdim],
@@ -1106,20 +1109,20 @@ class Particles(metaclass=ABCMeta):
                         * v_th[2]
                         + u_mean[2]
                     )
-                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) TODO (Mati): implement correctly!
+                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form) 
                 elif self.vdim == 2:
-                    self._markers[:n_mks_load_loc, 3] = (
+                    markers_array["v1"][:] = (
                         sp.erfinv(
-                            2 * rng.random()[:, 0] - 1,
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
                         )
                         * np.sqrt(2)
                         * v_th[0]
                         + u_mean[0]
                     )
 
-                    self._markers[:n_mks_load_loc, 4] = (
+                    markers_array["v2"][:] = (
                         np.sqrt(
-                            -1 * np.log(1 - rng.random()[:, 1]),
+                            -1 * np.log(1 - rng.random(size=markers_array["v1"].size)),
                         )
                         * np.sqrt(2)
                         * v_th[1]
@@ -1858,46 +1861,11 @@ class Particles(metaclass=ABCMeta):
 
                 # apply boundary conditions
                 if bc == "remove":
-                    continue
-                    # TODO (Mati) implement this!
-                    # if self.bc_refill is not None:
-                    # self.particle_refilling()
-
-                    # self._markers[self._is_outside, :-1] = -1.0
-                    # self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
+                    raise NotImplementedError("Given bc_type is not implemented!")
 
                 elif bc == "periodic":
-                    # self._markers.redistribute()
                     continue
-                    # TODO (Mati) check this out and see how it interacts with out of the box periodic bc
-
-                    # self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
-
-                    # # set shift for alpha-weighted mid-point computation
-                    # outside_right_inds = np.nonzero(self._is_outside_right)[0]
-                    # outside_left_inds = np.nonzero(self._is_outside_left)[0]
-                    # if newton:
-                    #     self.markers[
-                    #         outside_right_inds,
-                    #         self.first_pusher_idx + 3 + self.vdim + axis,
-                    #     ] += 1.0
-                    #     self.markers[
-                    #         outside_left_inds,
-                    #         self.first_pusher_idx + 3 + self.vdim + axis,
-                    #     ] += -1.0
-                    # else:
-                    #     self.markers[
-                    #         :,
-                    #         self.first_pusher_idx + 3 + self.vdim + axis,
-                    #     ] = 0.0
-                    #     self.markers[
-                    #         outside_right_inds,
-                    #         self.first_pusher_idx + 3 + self.vdim + axis,
-                    #     ] = 1.0
-                    #     self.markers[
-                    #         outside_left_inds,
-                    #         self.first_pusher_idx + 3 + self.vdim + axis,
-                    #     ] = -1.0
+                    # default behavior in amrex
 
                 elif bc == "reflect":
                     markers_array[axis][is_outside_left] = 1e-4
