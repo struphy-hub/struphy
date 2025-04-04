@@ -3,7 +3,7 @@
 
 # Struphy test strategy:
 # 
-# The startup stage with "ci_vars" and "default_venv" is always executed.
+# The startup stage with "ci_vars" is always executed.
 #
 # At each "push": 
 # 1) build .whl
