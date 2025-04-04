@@ -1,8 +1,7 @@
 "Pusher kernels for full orbit (6D) particles and AMReX data structures."
 
-from numpy import array, matmul, newaxis, shape
+from numpy import array, matmul, newaxis, shape, stack
 from struphy.geometry.base import Domain
-
 
 def push_eta_stage(
     dt: float,
@@ -29,9 +28,9 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    # markers_array = particles.markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
 
     for pti in particles.markers.iterator(particles.markers, 0):
+
         markers_array = pti.soa().to_numpy()[0]
         e1 = markers_array["x"][:]
         e2 = markers_array["y"][:]
@@ -41,26 +40,25 @@ def push_eta_stage(
         v3 = markers_array["v3"][:]
 
         # evaluate inverse Jacobian matrices for each point
-        etas = array([e1, e2, e3]).T.copy()  # needed for c kernels
-        jacobian_inv = particles.domain.jacobian_inv(etas, change_out_order=True)  # Npx3x3
+        etas = stack((e1,e2,e3),axis=-1) # .copy()  # needed for c kernels
+        jacobian_inv = particles.domain.jacobian_inv(etas, change_out_order=True)  # Npx3x3 # TODO (Mati): add flat_eval evalutation option to use arrays and not tensor product
 
         # pull-back of velocity
         v = array([v1, v2, v3]).T
         v = v[..., newaxis]  # Npx3x1
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        k = matmul(jacobian_inv, v).squeeze()
-
+        k = matmul(jacobian_inv, v)
         # accumulation for last stage
         temp = dt * b[stage] * k
-        markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0]
-        markers_array["real_comp1"][:] = markers_array["real_comp1"][:] + temp[:, 1]
-        markers_array["real_comp2"][:] = markers_array["real_comp2"][:] + temp[:, 2]
+        markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0].squeeze()
+        markers_array["real_comp1"][:] = markers_array["real_comp1"][:] + temp[:, 1].squeeze()
+        markers_array["real_comp2"][:] = markers_array["real_comp2"][:] + temp[:, 2].squeeze()
 
         # update positions for intermediate stages or last stage
         temp = dt * a[stage] * k
-        markers_array["x"][:] = markers_array["init_x"][:] + temp[:, 0] + last * markers_array["real_comp0"][:]
-        markers_array["y"][:] = markers_array["init_y"][:] + temp[:, 1] + last * markers_array["real_comp1"][:]
-        markers_array["z"][:] = markers_array["init_z"][:] + temp[:, 2] + last * markers_array["real_comp2"][:]
+        markers_array["x"][:] = markers_array["init_x"][:] + temp[:, 0].squeeze() + last * markers_array["real_comp0"][:]
+        markers_array["y"][:] = markers_array["init_y"][:] + temp[:, 1].squeeze() + last * markers_array["real_comp1"][:]
+        markers_array["z"][:] = markers_array["init_z"][:] + temp[:, 2].squeeze() + last * markers_array["real_comp2"][:]
 
 
 def amrex_reflect(
@@ -98,7 +96,7 @@ def amrex_reflect(
     v3 = markers_array["v3"][outside_inds]
 
     # evaluate inverse Jacobian matrices for each point
-    etas = array([e1, e2, e3]).T.copy()  # needed for c kernels
+    etas = stack((e1,e2,e3),axis=-1)  # needed for c kernels
     jacobian = domain.jacobian(etas, change_out_order=True, calculate_outside=True)  # Npx3x3
     jacobian_inv = domain.jacobian_inv(etas, change_out_order=True, calculate_outside=True)  # Npx3x3
 
