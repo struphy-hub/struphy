@@ -693,12 +693,9 @@ lint_full_repo_report:
     - .image_struphy_ubuntu_latest
   script:
     - !reference [.scripts, checkout_directory]
-    - python3 -m venv env_struphy_lint
-    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
-    - pip install --upgrade pip
-    - pip list
+    - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-    - struphy
+    - !reference [.scripts, checkout_struphy]
     - struphy lint all --output-format report
     - mkdir -p lint_reports
     - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
