@@ -360,7 +360,6 @@ macos_nmpp:
     - .rules_push
     - .parallel_matrix_push
   before_script:
-    - !reference [.scripts, quickstart_tests]
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
@@ -368,6 +367,7 @@ macos_nmpp:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
     - !reference [.scripts, compile]
+    - !reference [.scripts, quickstart_tests]
     - !reference [.scripts, model_tests]
 
 test_pages:
