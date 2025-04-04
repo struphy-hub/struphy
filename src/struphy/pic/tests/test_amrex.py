@@ -9,8 +9,14 @@ from struphy.pic.amrex import Amrex
 from struphy.pic.particles import Particles6D
 from struphy.propagators.propagators_markers import PushEta
 
+try:
+    import amrex.space3d as amr
+except ImportError:
+    amr = None 
+
 Np = 4
 
+@pytest.mark.skipif(amr == None)
 def test_amrex_box(plot=False, verbose=False):
     l1 = -5
     r1 = 5.0
@@ -164,6 +170,7 @@ def test_amrex_box(plot=False, verbose=False):
     amrex.finalize()
 
 
+@pytest.mark.skipif(amr == None)
 def test_amrex_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -280,6 +287,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
     amrex.finalize()
 
 
+@pytest.mark.skipif(amr == None)
 def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -387,6 +395,7 @@ def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
     amrex.finalize()
 
 
+@pytest.mark.skipif(amr == None)
 def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     l1 = -5
     r1 = 5.0
@@ -423,6 +432,7 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     amrex.finalize()
 
 
+@pytest.mark.skipif(amr == None)
 def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -624,8 +634,15 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 
 if __name__ == "__main__":
+    test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)
     test_amrex_boundary_conditions_box(plot=True, verbose=True)
     test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)
-    test_amrex_box(plot=True, verbose=True)
     test_amrex_cylinder(plot=True, verbose=True)
     test_amrex_draw_uniform_cylinder(plot=True, verbose=True)
+
+
+# add flat_eval option for jacobians (evaluate metric coef)
+# fix reflect bug
+# (merge)
+# work on GPU with cupy
+# transform push_v_with_efield
