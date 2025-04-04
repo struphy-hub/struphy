@@ -130,8 +130,8 @@ stages:
     - uname -a
     - ls dist/ || true
   create_venv:
-    - python3 -m venv env
-    - source env/bin/activate
+    - python3 -m venv env_${CI_PIPELINE_ID}
+    - source env_${CI_PIPELINE_ID}/bin/activate
     - python3 --version
     - pip install -U pip
     - python3 -m pip list
