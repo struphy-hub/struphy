@@ -182,6 +182,16 @@ ci_vars:
     - echo "All environment variables:"
     - env
 
+checkout_repo:
+  stage: startup
+  script:
+    - git ls-files
+    - curl https://raw.githubusercontent.com/AlDanial/cloc/master/cloc > cloc
+    - chmod +x cloc
+    - ./cloc --version
+    - ./cloc $(git ls-files)
+
+
 #####################
 ### INSTALL STAGE ###
 #####################
