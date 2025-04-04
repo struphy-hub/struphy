@@ -123,18 +123,28 @@ stages:
     - pip list
 
 .scripts:
+  checkout_directory:
+    - date
+    - pwd
+    - ls -1a
+    - uname -a
+    - ls dist/ || true
   create_venv:
     - python3 -m venv env
     - source env/bin/activate
     - python3 --version
     - pip install -U pip
     - python3 -m pip list
+  source_env_matrix:
+    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - python3 -m pip list
+    - python3 --version
   create_venv_matrix:
     - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
-    - python3 --version
     - pip install -U pip
     - python3 -m pip list
+    - python3 --version
   install:
     - pip install $(echo $STRUPHY_SOURCE)[test]
     - pip show struphy
@@ -153,6 +163,10 @@ stages:
   build:
     - pip install -U build
     - python3 -m build
+  checkout_struphy:
+    - struphy -p
+    - struphy -h
+    - struphy run -h
   model_tests:
     - struphy compile --status
     - struphy test models --fast
@@ -160,6 +174,24 @@ stages:
     - struphy test models --fast --verification --mpi 4
     - struphy test models --fast --verification --mpi 4 --nclones 2
     - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
+  quickstart_tests:
+    - struphy --set-i .
+    - struphy --set-o .
+    - struphy -p
+    - struphy -h
+    - struphy run -h
+    - struphy params VlasovMaxwellOneSpecies -y
+    - ls -1a
+    - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    - ls my_first_sim/
+    - struphy pproc -d my_first_sim
+    - ls my_first_sim/post_processing/fields_data/
+    - ls my_first_sim/post_processing/kinetic_data/
+    - struphy params VlasovMaxwellOneSpecies --options
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
 
 .artifact_install:
   artifacts:
@@ -280,7 +312,7 @@ unit_tests:
     - .parallel_matrix_push
     - .before_script_load_modules
   script:
-    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - !reference [.scripts, source_env_matrix]
     - struphy compile --status
     - struphy --refresh-models
     - struphy test unit  
@@ -293,7 +325,7 @@ model_tests:
     - .parallel_matrix_push
     - .before_script_load_modules
   script:
-    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - !reference [.scripts, source_env_matrix]
 
 quickstart_tests:
   stage: test
@@ -303,25 +335,8 @@ quickstart_tests:
     - .parallel_matrix_push
     - .before_script_load_modules
   script:
-    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
-    - struphy -h
-    - struphy compile 
-    - struphy -p
-    - struphy --set-i .
-    - struphy --set-o . 
-    - struphy run -h
-    - struphy params VlasovMaxwellOneSpecies -y
-    - ls -1a
-    - mv params_VlasovMaxwellOneSpecies.yml test.yml
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
-    - ls my_first_sim/
-    - struphy pproc -d my_first_sim
-    - ls my_first_sim/post_processing/fields_data/
-    - ls my_first_sim/post_processing/kinetic_data/
-    - struphy params VlasovMaxwellOneSpecies --options
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    - !reference [.scripts, source_env_matrix]
+    - !reference [.scripts, quickstart_tests]
 
 model_tests_psydac_whl:
   stage: test
@@ -331,7 +346,7 @@ model_tests_psydac_whl:
     - .parallel_matrix_push
     - .before_script_load_modules
   script:
-    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - !reference [.scripts, source_env_matrix]
     - pip uninstall -y psydac
     - pip install src/struphy/psydac*.whl
     - struphy compile --language ${LANGUAGE} ${OMP} -y
@@ -345,9 +360,7 @@ macos_nmpp:
     - .rules_push
     - .parallel_matrix_push
   before_script:
-    - date
-    - ls -a
-    - pwd
+    - !reference [.scripts, quickstart_tests]
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
@@ -365,9 +378,8 @@ test_pages:
     - .parallel_matrix_push
     - .before_script_load_modules
   script:
-    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
-    - module list
-    - module avail
+    - !reference [.scripts, checkout_struphy]
+    - !reference [.scripts, source_env_matrix]
     - module load pandoc
     - module list
     - pip install .[doc]
@@ -384,7 +396,7 @@ unit_tests_scheduled:
     - .parallel_matrix_scheduled
     - .before_script_load_modules
   script:
-    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - !reference [.scripts, source_env_matrix]
     - struphy compile --status
     - struphy --refresh-models
     - struphy test unit  
@@ -397,7 +409,7 @@ model_tests_scheduled:
     - .parallel_matrix_scheduled
     - .before_script_load_modules
   script:
-    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - !reference [.scripts, source_env_matrix]
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
 Ubuntu_latest:
@@ -408,8 +420,7 @@ Ubuntu_latest:
   image: ubuntu:latest
   needs: []
   before_script:
-    - date
-    - ls -a
+    - !reference [.scripts, checkout_directory]
     - apt update -y && apt clean 
     - export DEBIAN_FRONTEND=noninteractive
     - apt install -y software-properties-common
@@ -431,20 +442,8 @@ Ubuntu_latest:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
     - !reference [.scripts, compile]
-    - struphy -p
-    - struphy --set-i .
-    - struphy --set-o . 
-    - struphy run -h
-    - struphy params VlasovMaxwellOneSpecies -y
-    - ls -1a
-    - mv params_VlasovMaxwellOneSpecies.yml test.yml
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
-    - ls my_first_sim/
-    - struphy pproc -d my_first_sim
-    - ls my_first_sim/post_processing/fields_data/
-    - ls my_first_sim/post_processing/kinetic_data/
-    - struphy params VlasovMaxwellOneSpecies --options
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim --mpi 4 --nclones 2
+    - !reference [.scripts, set_struphy_paths]
+    - !reference [.scripts, quickstart_tests]
     - !reference [.scripts, model_tests]
 
 Ubuntu_22_04:
@@ -454,8 +453,7 @@ Ubuntu_22_04:
     - .parallel_matrix_scheduled
   image: ubuntu:22.04
   before_script:
-    - date
-    - ls -a
+    - !reference [.scripts, checkout_directory]
     - apt update -y && apt clean 
     - apt install -y python3-pip 
     - apt install -y python3-venv
@@ -482,11 +480,8 @@ struphy_ubuntu_python_3_11:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   before_script:
-    - date
-    - uname -a
-    - ls -a
+    - !reference [.scripts, checkout_directory]
     - ls dist/
-    - ls /
     - python3 -V
     - python3.11 -V
     - python3.11 -m venv env
@@ -505,11 +500,7 @@ struphy_ubuntu_latest:
     - .rules_scheduled
     - .parallel_matrix_scheduled
   before_script:
-    - date
-    - uname -a
-    - ls -a
-    - ls dist/
-    - ls /
+    - !reference [.scripts, checkout_directory]
     - python3 -V
     - python3 -m venv env
     - source env/bin/activate
@@ -526,8 +517,7 @@ Fedora:
     - .parallel_matrix_scheduled
   image: fedora:latest
   before_script:
-    - date
-    - ls -a
+    - !reference [.scripts, checkout_directory]
     - dnf install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - dnf update -y  
     - dnf install -y gcc
@@ -569,11 +559,7 @@ struphy_fedora_latest:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_fedora_latest
   before_script:
-    - date
-    - uname -a
-    - ls -a
-    - ls dist/
-    - ls /
+    - !reference [.scripts, checkout_directory]
     - python3 -V
     - python3 -m venv env
     - source env/bin/activate
@@ -592,8 +578,7 @@ OpenSuse:
     - .parallel_matrix_scheduled
   image: opensuse/tumbleweed:latest
   before_script:
-    - date
-    - ls -a
+    - !reference [.scripts, checkout_directory]
     - zypper refresh
     - zypper install -y python3 python3-devel
     - zypper install -y python3-pip python3-virtualenv python3-pkgconfig
@@ -627,11 +612,7 @@ struphy_opensuse_latest:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_latest
   before_script:
-    - date
-    - uname -a
-    - ls -a
-    - ls dist/
-    - ls /
+    - !reference [.scripts, checkout_directory]
     - set -x
     - python3 -V
     - python3 -m pip list
@@ -649,8 +630,7 @@ AlmaLinux:
     - .parallel_matrix_scheduled
   image: almalinux:latest
   before_script:
-    - date
-    - ls -a
+    - !reference [.scripts, checkout_directory]
     - yum install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - yum update -y 
     - yum clean all 
@@ -658,7 +638,7 @@ AlmaLinux:
     - yum install -y gfortran  
     - yum install -y openmpi openmpi-devel  
     - yum install -y libgomp 
-    - yum install -y git 
+    - yum install -y git
     - yum install -y environment-modules 
     - wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
     - tar xzf Python-3.10.14.tgz 
@@ -690,11 +670,7 @@ struphy_almalinux_latest:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_latest
   before_script:
-    - date
-    - uname -a
-    - ls -a
-    - ls dist/
-    - ls /
+    - !reference [.scripts, checkout_directory]
     - python3 -m ensurepip --upgrade
     - python3 -m pip install --upgrade pip
     - python3 -m pip list
@@ -717,13 +693,11 @@ lint_full_repo_report:
     - .rules_scheduled
     - .image_struphy_ubuntu_latest
   script:
-    - date
+    - !reference [.scripts, checkout_directory]
     - python3 -m venv env_struphy_lint
     - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
     - pip install --upgrade pip
     - pip list
-    - ls
-    - pwd
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - struphy
     - struphy lint all --output-format report
@@ -742,15 +716,10 @@ lint_branch:
     - .rules_push
     - .image_struphy_ubuntu_latest
   script:
-    - date
-    - python3 -m venv env_struphy_lint
-    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
-    - pip install --upgrade pip
-    - pip list
-    - ls
-    - pwd
+    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-    - struphy
+    - !reference [.scripts, checkout_struphy]
     # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint branch --output-format plain --verbose
   allow_failure: true
@@ -762,15 +731,10 @@ lint_branch_report:
     - .rules_push
     - .image_struphy_ubuntu_latest
   script:
-    - date
-    - python3 -m venv env_struphy_lint
-    - source env_struphy_lint/bin/activate # Temporary env for installing struphy in editable mode
-    - pip install --upgrade pip
-    - pip list
-    - ls
-    - pwd
+    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-    - struphy
+    - !reference [.scripts, checkout_struphy]
     - struphy lint branch --output-format report
     - mkdir -p lint_reports
     - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
@@ -798,24 +762,15 @@ pages:
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $MAKE_PAGES == "true"
   before_script:
-    - date
-    - uname -a
-    - ls -a
-    - ls dist/
-    - ls /
+    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, create_venv]
     - apt show pandoc
     - apt show graphviz
-    - python3 -V
-    - python3 -V
-    - python3 -m venv env
-    - source env/bin/activate
-    - pip install --upgrade pip
     - echo $CI_COMMIT_MESSAGE
     - pip install .[doc]
   script:
-    - struphy -h
-    - struphy compile --status
-    - struphy compile -y
+    - !reference [.scripts, checkout_struphy]
+    - !reference [.scripts, compile]
     - cd doc ; make html
     - mv _build/html/ ../public/
   artifacts:
