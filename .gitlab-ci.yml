@@ -140,6 +140,8 @@ stages:
     - uname -a
     - ls dist/ || true
   create_venv:
+    - python3 -m ensurepip --upgrade
+    - python3 -m pip install --upgrade pip
     - python3 -m venv env_${CI_PIPELINE_ID}
     - source env_${CI_PIPELINE_ID}/bin/activate
     - python3 --version
@@ -150,6 +152,8 @@ stages:
     - python3 -m pip list
     - python3 --version
   create_venv_matrix:
+    - python3 -m ensurepip --upgrade
+    - python3 -m pip install --upgrade pip
     - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
     - pip install -U pip
@@ -184,6 +188,10 @@ stages:
     - struphy test models --fast --verification --mpi 4
     - struphy test models --fast --verification --mpi 4 --nclones 2
     - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
+  unit_tests:
+    - struphy compile --status
+    - struphy --refresh-models
+    - struphy test unit
   quickstart_tests:
     - struphy --set-i .
     - struphy --set-o .
@@ -323,9 +331,7 @@ unit_tests:
     - .before_script_load_modules
   script:
     - !reference [.scripts, source_env_matrix]
-    - struphy compile --status
-    - struphy --refresh-models
-    - struphy test unit  
+    - !reference [.scripts, unit_tests]
 
 model_tests:
   stage: test
@@ -336,6 +342,7 @@ model_tests:
     - .before_script_load_modules
   script:
     - !reference [.scripts, source_env_matrix]
+    - !reference [.scripts, model_tests]
 
 quickstart_tests:
   stage: test
@@ -361,6 +368,7 @@ model_tests_psydac_whl:
     - pip install src/struphy/psydac*.whl
     - struphy compile --language ${LANGUAGE} ${OMP} -y
     - struphy --refresh-models
+    - !reference [.scripts, model_tests]
 
 macos_nmpp:
   stage: test
@@ -407,9 +415,7 @@ unit_tests_scheduled:
     - .before_script_load_modules
   script:
     - !reference [.scripts, source_env_matrix]
-    - struphy compile --status
-    - struphy --refresh-models
-    - struphy test unit  
+    - !reference [.scripts, unit_tests]
 
 model_tests_scheduled:
   stage: test
@@ -420,6 +426,7 @@ model_tests_scheduled:
     - .before_script_load_modules
   script:
     - !reference [.scripts, source_env_matrix]
+    - !reference [.scripts, model_tests]
 
 # docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
 Ubuntu_latest:
@@ -474,9 +481,7 @@ Ubuntu_22_04:
     - apt install -y pandoc
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-    - python3 -m venv env
-    - source env/bin/activate
-    - pip install --upgrade pip
+    - !reference [.scripts, create_venv]
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
@@ -510,10 +515,7 @@ struphy_ubuntu_latest:
     - .parallel_matrix_scheduled
   before_script:
     - !reference [.scripts, checkout_directory]
-    - python3 -V
-    - python3 -m venv env
-    - source env/bin/activate
-    - pip install --upgrade pip
+    - !reference [.scripts, create_venv]
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
@@ -569,9 +571,7 @@ struphy_fedora_latest:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_fedora_latest
   before_script:
     - !reference [.scripts, checkout_directory]
-    - python3 -V
-    - python3 -m venv env
-    - source env/bin/activate
+    - !reference [.scripts, create_venv]
     - . /etc/profile.d/modules.sh
     - module load mpi/openmpi-$(arch)
     - module list
@@ -605,10 +605,7 @@ OpenSuse:
     - export OMPI_MCA_btl=tcp,self
     - export PATH="/usr/lib64/mpi/gcc/openmpi4/bin/:$PATH"
     - export LD_LIBRARY_PATH="/usr/lib64/mpi/gcc/openmpi4/lib64:$LD_LIBRARY_PATH"
-    - python3 -V
-    - python3 -m pip list
-    - python3 -m venv env
-    - source env/bin/activate
+    - !reference [.scripts, create_venv]
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
@@ -623,10 +620,7 @@ struphy_opensuse_latest:
   before_script:
     - !reference [.scripts, checkout_directory]
     - set -x
-    - python3 -V
-    - python3 -m pip list
-    - python3 -m venv env
-    - source env/bin/activate
+    - !reference [.scripts, create_venv]
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
@@ -680,12 +674,7 @@ struphy_almalinux_latest:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_latest
   before_script:
     - !reference [.scripts, checkout_directory]
-    - python3 -m ensurepip --upgrade
-    - python3 -m pip install --upgrade pip
-    - python3 -m pip list
-    - python3 -V
-    - python3 -m venv env
-    - source env/bin/activate
+    - !reference [.scripts, create_venv]
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
