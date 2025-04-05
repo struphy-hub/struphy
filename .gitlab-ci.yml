@@ -493,7 +493,6 @@ struphy_ubuntu_python_3_11:
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   before_script:
     - !reference [.scripts, checkout_directory]
-    - ls dist/
     - python3 -V
     - python3.11 -V
     - python3.11 -m venv env
