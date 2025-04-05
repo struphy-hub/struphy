@@ -2,10 +2,10 @@
 
 A Python package for plasma physics PDEs.
 
-Join the mailing list and stay informed on updates: https://listserv.gwdg.de/mailman/listinfo/struphy.
+Join the [Struphy mailing list](https://listserv.gwdg.de/mailman/listinfo/struphy) and stay informed on updates.
 
 ## Documentation
-See https://struphy.pages.mpcdf.de/struphy/index.html for details regarding installation, tutorials, use and development.
+See the [Struphy papages](https://struphy.pages.mpcdf.de/struphy/index.html) for details regarding installation, tutorials, use and development.
 
 ## Quick install
 
