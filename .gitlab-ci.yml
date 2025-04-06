@@ -475,7 +475,6 @@ struphy_ubuntu_python_3_11:
     - date
     - uname -a
     - ls -a
-    - ls dist/
     - ls /
     - python3 -V
     - python3.11 -V
@@ -498,7 +497,6 @@ struphy_ubuntu_latest:
     - date
     - uname -a
     - ls -a
-    - ls dist/
     - ls /
     - python3 -V
     - python3 -m venv env
@@ -562,7 +560,6 @@ struphy_fedora_latest:
     - date
     - uname -a
     - ls -a
-    - ls dist/
     - ls /
     - python3 -V
     - python3 -m venv env
@@ -620,7 +617,6 @@ struphy_opensuse_latest:
     - date
     - uname -a
     - ls -a
-    - ls dist/
     - ls /
     - set -x
     - python3 -V
@@ -683,7 +679,6 @@ struphy_almalinux_latest:
     - date
     - uname -a
     - ls -a
-    - ls dist/
     - ls /
     - python3 -m ensurepip --upgrade
     - python3 -m pip install --upgrade pip
@@ -791,7 +786,6 @@ pages:
     - date
     - uname -a
     - ls -a
-    - ls dist/
     - ls /
     - apt show pandoc
     - apt show graphviz
