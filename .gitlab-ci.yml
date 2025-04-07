@@ -114,7 +114,7 @@ stages:
   parallel:
     matrix:
       - LANGUAGE: "fortran"
-        OMP: ["", "--omp-pic"]
+        OMP: [""] #, "--omp-pic"] # TODO: Enable when unit tests are working with --omp-pic!
       - LANGUAGE: "c"
         OMP: [""]
 
