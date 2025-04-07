@@ -621,7 +621,7 @@ def deltaf_vlasov_ampere_accum_c(
 
         fill_vec1 = (
             (cosh(abc) - sinh(abc))
-            / (4 * a ** (3 / 2))
+            / (4 * a ** (3 / 2) * markers[ip, 7])
             * (
                 2 * sqrt(a) * factor * v_diff[0] * (exp(ab) - 1)
                 + sqrt(pi)
@@ -632,7 +632,7 @@ def deltaf_vlasov_ampere_accum_c(
         )
         fill_vec2 = (
             (cosh(abc) - sinh(abc))
-            / (4 * a ** (3 / 2))
+            / (4 * a ** (3 / 2) * markers[ip, 7])
             * (
                 2 * sqrt(a) * factor * v_diff[1] * (exp(ab) - 1)
                 + sqrt(pi)
@@ -643,7 +643,7 @@ def deltaf_vlasov_ampere_accum_c(
         )
         fill_vec3 = (
             (cosh(abc) - sinh(abc))
-            / (4 * a ** (3 / 2))
+            / (4 * a ** (3 / 2) * markers[ip, 7])
             * (
                 2 * sqrt(a) * factor * v_diff[2] * (exp(ab) - 1)
                 + sqrt(pi)

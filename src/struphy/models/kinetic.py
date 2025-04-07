@@ -1306,8 +1306,8 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             * self.vth**2
             / self.pointer["species1"].Np
             * (
-                # gamma_p * ln(n_{0,p})
-                np.dot(
+                # - gamma_p * ln(n_{0,p})
+                (-1) * np.dot(
                     self._gamma[self.pointer["species1"].valid_mks],
                     np.log(self._n0_values[self.pointer["species1"].valid_mks]),
                 )

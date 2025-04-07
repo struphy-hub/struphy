@@ -493,7 +493,9 @@ class DeltaFVelocitiesEfield(Propagator):
         self._n0 = n0
 
         self._info = solver["info"]
-        self._tol = solver["tol"]
+        self._tol = 1e-10
+        self._maxiter = solver["maxiter"]
+        # self._tol = solver["tol"]
 
         # Initialize Accumulator for gamma matrix
         self._accum_gamma = Accumulator(
@@ -588,10 +590,10 @@ class DeltaFVelocitiesEfield(Propagator):
         self._accum_gamma(self._gamma)
 
         # Compute M/D=M1-AB and M1+AB
-        self.MplusAB = self._accum_gamma.operators[0].copy()
+        self._accum_gamma.operators[0].copy(out=self.MplusAB)
         self.MplusAB *= -(dt**2) * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
-        self.MplusAB += self.mass_ops.M1.copy()
-        self.MminusAB = self._accum_gamma.operators[0].copy()
+        self.MplusAB += self.mass_ops.M1
+        self._accum_gamma.operators[0].copy(out=self.MminusAB)
         self.MminusAB *= dt**2 * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
         self.MminusAB += self.mass_ops.M1.copy()
 
@@ -607,29 +609,37 @@ class DeltaFVelocitiesEfield(Propagator):
         self._e_tmp += self._accum_gamma.vectors[0]
         self._e_tmp *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
         self._e_sum -= self._e_tmp
+        self._e_sum.update_ghost_regions()
 
         converged = False
+
+        rank = self.derham.comm.Get_rank()
 
         k = 0
         while not converged:
             k += 1
             # Add c to rhs
             self._accum_c(self._vth, self._n0)
+            self._accum_c.vectors[0].update_ghost_regions()
             self._c_vec *= 0.0
             self._c_vec += self._accum_c.vectors[0]
             self._c_vec *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+            self._c_vec.update_ghost_regions()
 
             # Construct rhs of equation for E-field
             self._e_rhs *= 0.0
             self._e_rhs += self._e_sum
             self._e_rhs += self._c_vec
+            self._e_rhs.update_ghost_regions()
 
             # Save previous electric field value
             self._e_prev *= 0.0
             self._e_prev += self._e_next
+            self._e_prev.update_ghost_regions()
 
             # Compute next iteration for E-field
             self.solver.dot(self._e_rhs, out=self._e_next)
+            self._e_next.update_ghost_regions()
 
             # store velocities before the push
             self._old_vels[:] = self.particles[0].markers[:, 9:12]
@@ -656,11 +666,24 @@ class DeltaFVelocitiesEfield(Propagator):
 
             converged = (max_diff_v < self._tol) and (max_diff_e < self._tol)
 
+            print(f"{rank=}: {converged=} with {max_diff_v=} and {max_diff_e=}")
+
+            if k >= self._maxiter:
+                break
+
+        self.derham.comm.Barrier()
+
+        print()
+        print("Loop done")
+        print()
         # write new coeffs into self.variables
         self.feec_vars_update(self._e_next)
 
         # Update velocities
         self.particles[0].markers[self.particles[0].valid_mks, 3:6] = self.particles[0].markers_wo_holes[:, 9:12]
+        print()
+        print("variable update done")
+        print()
 
 
 class PressureCoupling6D(Propagator):
