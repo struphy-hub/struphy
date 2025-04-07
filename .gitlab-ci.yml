@@ -287,8 +287,8 @@ compile_openmp:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
-    # - python src/struphy/utils/check_variables.py
     - !reference [.scripts, model_tests]
+    - python src/struphy/utils/check_variables.py
 
 
 
