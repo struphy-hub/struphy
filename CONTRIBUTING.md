@@ -1,6 +1,7 @@
 # Contact
 
-* [RocketChat developer's channel](https://chat.gwdg.de/channel/struphy-developers)
+* [Mailing list](https://listserv.gwdg.de/mailman/listinfo/struphy)
+* [MatrixChat developer's channel](https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de)
 * [Issue tracker](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues) (MPCDF account needed, contacts below)
 * [LinkedIn](https://www.linkedin.com/company/struphy/)
 * [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de)

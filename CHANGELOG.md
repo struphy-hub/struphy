@@ -1,56 +1,34 @@
-## Version 2.4.1
+## Version 2.4.2
 
 ### Headlines
 
-* Implemetation of the SPH method - see Tutorial 02 and the new model `IsothermalEulerSPH`. This required refactoring `Particles.__init__` and other parts of the base class !632
-
-* Sound wave verification test for `IsothermalEulerSPH` !636
-
-* New class `Tesselation`. The new marker loading mode "tesselation" allows to draw markers on a regular grid given by the center-of-mass points of a tesselation; unit tests were added. New entries for initializing weights to parameters.yml and in Particle base class: 
-```
-    weights : 
-        reject_weights : False # reject particles with a weight < threshold
-        threshold : 0.0
-        from_tesselation : False # compute weights from cell averages over a tesellation
-```
-!636
+* enable Python 3.13 and `mpi4py >= 4.0` !652
+* use new, smaller version of `psydac` from branch `max-model/psydac-for-struphy/devel-tiny` which does not depend on `sympde` !652
+* added regular testing on macOS (with arm M4 chips) !655
 
 
-### User news
+### Other user news
 
-* New variational MHD model using the pressure variable instead of the entropy.
-The model equivalent at the continuous level and have only small changes at the discrete level, requiring only the addition of a `VariationalPressureEvolve` and minor changes to the dissipative propagators !613
-
-* Updated docker images !619
-
-* More general fluid backgrounds: `FluidEquilibrium`, `FluidEquilibriumWithB` and `MHDequilibrium` !627
-
-* Use optional dependencies for test, dev and doc. The command `pip install .` will just make a base installation for running code; unit testing can be enabled with `pip install .[test]`; usual development (testing + linting + formatting) is enabled by `pip install .[dev]`; building the doc is enabled by `pip install .[doc]`. These can be also combined - for example: you get the full version (as until now) via `pip install .[dev, doc]`. See also the updated install doc !609
-
-* Restructure how parameters are passed to `background:` and `perturbation:`. The `type` keyword is removed from the parameter file; `comps` is replaced by `given_in_basis`: Moreover, allow passing `bckgr_params` and `pert_params` to `initialize_weights()` !626
-
-* Improved console diagnostics !639
-
-* New Particles sub-class `DeltaFParticles6D`. The Particle type is now set automatically at the init of the Particles class. In the parameter file we replaced `markers["type"]` keyword by `markers["control_variate"]` boolean !636
+* enable initialization of noise for kinetic backgrounds !644
+* new option `--no-vtk` for `struphy pproc` !648
+* `README.md` has been updated to contain a quick install and quick test, as well as a link to the new mailing list !649
 
 
 ### Developer news
 
-* Added pre-commit hooks !573
-
-* Cleanup residual code from old versions of Vlasov Ampere / Maxwell !630
-
-* Added the flag `--time-execution` to struphy compile. This enables the timings of each step of the pyccelization of the kernels in struphy.
-
-* New option `--verification` in `struphy test`.
-This option allows to call parameter files that are specified in io/inp/verification/. Added weak Landau damping verification tests for `VlasovAmpereOneSpecies` and `LinearVlasovAmpereOneSpecies`. `struphy test <model_name>` can now be called with `--mpi N` and any other option from test !633
-
-* Refactored domain cloning !634
-
-* Re-factoring of `geometry.evaluation_kernels`: `det_df`, `df_inv`, `g` and `ginv` can now be directly used in particle kernels
+* replaced `anaconda` with `waterboa` when loading modules in the mpcdf images of the CI !641
+* added domain cloning to the model verification tests !640
+* pyccelize kernels with OpenMP in Fortran !623
+* added the job compile_timings to the CI pipeline which summarizes the compile time for C and fortran !642
+* added unit test for console commands !570
+* re-factoring of model testing: New function `wrapper_for_testing` in tests/util.py unifies the testing of all four model classes and will simplify refactoring in the future !649 
+* new functions  `init_derham`, `_discretize_derham`, `_discretize_space` and class `DiscreteDerham`. These allow for the use of `devel-tiny` psydac branch. The full (old) psydac-for-struphy is used if `dev0` is absent from the psydac version number !652
+* renamed `vector_space` to `coeff_space` and `ProductFemSpace` to `MultipatchFemSpace` everywhre; this corresponds to PR https://github.com/pyccel/psydac/pull/468 !653
+* re-factoring of `.gitlab-ci.yml`, in particular making more use of templates and `!reference` !655
 
 
 ### Bug fixes
 
-* Landau damping: pass correct equation parameters to propagator `VlasovAmpere` !628
+* a bug in the SPH pressure evaluation kernel has been corrected - the formulas contained an unnecessary multiplication by the weights and the wrong metric coefficient !649
+
 

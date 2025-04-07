@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.4.1"
+version = "2.4.2"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     'numpy',
     'pyccel>=1.11.1',
-    'mpi4py<4',
+    'mpi4py',
     'scipy',
     'h5py',
     'matplotlib',
@@ -99,7 +99,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-2.4.1-py3-none-any.whl',]
+           'psydac-2.4.2.dev0-py3-none-any.whl',]
 
 [tool.autopep8]
 # Add specific settings for autopep8
