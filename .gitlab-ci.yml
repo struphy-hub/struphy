@@ -336,7 +336,7 @@ test_build:
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, build]
-    - pip install $(echo dist/struphy*.whl)[test]
+    - pip install $(echo dist/struphy*.whl)[test] --no-cache-dir
 
 unit_tests:
   stage: test
