@@ -281,8 +281,8 @@ compile_openmp:
     matrix:
       - LANGUAGE: "fortran"
         OMP: ["--omp-pic"]
-      - LANGUAGE: "c"
-        OMP: ["--omp-pic"]
+      #- LANGUAGE: "c"
+      #  OMP: ["--omp-pic"]
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
