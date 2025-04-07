@@ -72,31 +72,35 @@ def get_python_variables(lines):
     #print("All variable names:", collector.names)
     return collector.names
 
-def check_omp_region(omp_region, exit_on_fail = False):
+def find_undeclared_variables(omp_region, exit_on_fail = False):
     omp_variables = get_omp_variables(omp_region)
     python_variables = get_python_variables(omp_region)
+    undeclared_variables = []
     for variable in python_variables:
         declared = False
         for key, omp_var_list in omp_variables.items():
             if variable in omp_var_list:
                 declared = True
-                print(f"{variable} is {key}!")
+                # print(f"{variable} is {key}!")
         if not declared:
-            print(f"{variable} is undeclared" + "!" * 50)
-            if exit_on_fail:
-                exit()
+            #print(f"{variable} is undeclared!")
+            undeclared_variables.append(variable)
+    return undeclared_variables
 
 def check_file(filename, exit_on_fail = False):
-    print(f"# Checking file: {filename}")
+    print('-' * 80)
+    print(f"# File: {filename}")
     with open(filename, 'r') as file:
         lines = file.readlines()
     omp_region_dicts = get_omp_regions(lines)
 
     for omp_region_dict in omp_region_dicts:
         function = omp_region_dict['function']
-        print(f"## {function}")
         omp_region = omp_region_dict['omp_region']
-        check_omp_region(omp_region, exit_on_fail)
+        undeclared_variables = find_undeclared_variables(omp_region, exit_on_fail)
+        if len(undeclared_variables) > 0:
+            print(f"## Function: {function}")
+            print(f'Undeclared variables: {undeclared_variables}\n')
 
 state = read_state()
 for kernel in state['kernels']:
