@@ -102,6 +102,7 @@ def check_file(filename, exit_on_fail = False):
             print(f"## Function: {function}")
             print(f'Undeclared variables: {undeclared_variables}\n')
 
-state = read_state()
-for kernel in state['kernels']:
-    check_file(kernel, exit_on_fail = False)
+if __name__ == '__main__':
+    state = read_state()
+    for kernel in state['kernels']:
+        check_file(kernel, exit_on_fail = False)
