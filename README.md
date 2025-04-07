@@ -5,7 +5,7 @@ A Python package for plasma physics PDEs.
 Join the [Struphy mailing list](https://listserv.gwdg.de/mailman/listinfo/struphy) and stay informed on updates.
 
 ## Documentation
-See the [Struphy papages](https://struphy.pages.mpcdf.de/struphy/index.html) for details regarding installation, tutorials, use and development.
+See the [Struphy pages](https://struphy.pages.mpcdf.de/struphy/index.html) for details regarding installation, tutorials, use and development.
 
 ## Quick install
 
@@ -29,7 +29,7 @@ Quick help:
 
 In case of problems visit [Trouble shooting](https://struphy.pages.mpcdf.de/struphy/sections/install.html#trouble-shooting).
 
-## Run tests from the CLI
+## Run tests from the command-line
 
 Run available verification tests for [Struphy models](https://struphy.pages.mpcdf.de/struphy/sections/models.html):
 
