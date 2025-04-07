@@ -1,5 +1,6 @@
 import ast
 import re
+import sys
 
 from struphy.utils.utils import read_state
 
@@ -75,7 +76,7 @@ def get_python_variables(lines):
     return collector.names
 
 
-def find_undeclared_variables(omp_region, exit_on_fail=False):
+def find_undeclared_variables(omp_region, verbose=False):
     omp_variables = get_omp_variables(omp_region)
     python_variables = get_python_variables(omp_region)
     undeclared_variables = []
@@ -84,30 +85,42 @@ def find_undeclared_variables(omp_region, exit_on_fail=False):
         for key, omp_var_list in omp_variables.items():
             if variable in omp_var_list:
                 declared = True
-                # print(f"{variable} is {key}!")
+                if verbose:
+                    print(f"{variable} is {key}!")
         if not declared:
-            # print(f"{variable} is undeclared!")
+            if verbose:
+                print(f"{variable} is undeclared!")
             undeclared_variables.append(variable)
     return undeclared_variables
 
 
-def check_file(filename, exit_on_fail=False):
+def check_file(filename, verbose=False):
     print("-" * 80)
     print(f"# File: {filename}")
     with open(filename, "r") as file:
         lines = file.readlines()
     omp_region_dicts = get_omp_regions(lines)
 
+    file_ok = True
+
     for omp_region_dict in omp_region_dicts:
         function = omp_region_dict["function"]
         omp_region = omp_region_dict["omp_region"]
-        undeclared_variables = find_undeclared_variables(omp_region, exit_on_fail)
+        undeclared_variables = find_undeclared_variables(omp_region, verbose)
         if len(undeclared_variables) > 0:
             print(f"## Function: {function}")
             print(f"Undeclared variables: {undeclared_variables}\n")
+            file_ok = False
+    return file_ok
 
 
 if __name__ == "__main__":
     state = read_state()
+
+    all_files_ok = True
     for kernel in state["kernels"]:
-        check_file(kernel, exit_on_fail=False)
+        file_ok = check_file(kernel, verbose=False)
+        if not file_ok:
+            all_files_ok = False
+
+    sys.exit(all_files_ok)
