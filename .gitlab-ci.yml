@@ -794,6 +794,7 @@ deploy:
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, build]
+    - pip install -U twine
     - twine upload dist/*
 
 vars:
