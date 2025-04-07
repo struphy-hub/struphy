@@ -633,7 +633,7 @@ def rhs0(
     n2i, n2j = shape(bsp2)
     n3i, n3j = shape(bsp3)
 
-    #$ omp parallel private(i1, i2, i3, i, bsp)
+    #$ omp parallel default(shared) private(i1, i2, i3, i, bsp)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
@@ -686,7 +686,7 @@ def rhs11(
 
     nq1 = shape(wts1)[1]
 
-    #$ omp parallel private(i1, i2, i3, value1, j1, q1, i)
+    #$ omp parallel default(shared) private(i1, i2, i3, value1, j1, q1, i)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
@@ -751,7 +751,7 @@ def rhs12(
 
     nq2 = shape(wts2)[1]
 
-    #$ omp parallel private(i1, i2, i3, value1, j2, q2, i)
+    #$ omp parallel default(shared) private(i1, i2, i3, value1, j2, q2, i)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
@@ -816,7 +816,7 @@ def rhs13(
 
     nq3 = shape(wts3)[1]
 
-    #$ omp parallel private(i1, i2, i3, value1, j3, q3, i)
+    #$ omp parallel default(shared) private(i1, i2, i3, value1, j3, q3, i)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
@@ -885,7 +885,7 @@ def rhs21(
     nq2 = shape(wts2)[1]
     nq3 = shape(wts3)[1]
 
-    #$ omp parallel private(i1, i2, i3, value1, j2, q2, j3, q3, w_vol, basis, i)
+    #$ omp parallel default(shared) private(i1, i2, i3, value1, j2, q2, j3, q3, w_vol, basis, i)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
@@ -968,7 +968,7 @@ def rhs22(
     nq1 = shape(wts1)[1]
     nq3 = shape(wts3)[1]
 
-    #$ omp parallel private(i1, i2, i3, value1, j1, q1, j3, q3, w_vol, basis, i)
+    #$ omp parallel default(shared) private(i1, i2, i3, value1, j1, q1, j3, q3, w_vol, basis, i)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
@@ -1051,7 +1051,7 @@ def rhs23(
     nq1 = shape(wts1)[1]
     nq2 = shape(wts2)[1]
 
-    #$ omp parallel private(i1, i2, i3, value1, j1, q1, j2, q2, w_vol, basis, i)
+    #$ omp parallel default(shared) private(i1, i2, i3, value1, j1, q1, j2, q2, w_vol, basis, i)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
@@ -1138,7 +1138,7 @@ def rhs3(
     nq2 = shape(wts2)[1]
     nq3 = shape(wts3)[1]
 
-    #$ omp parallel private(i1, i2, i3, value1, j1, q1, j2, q2, j3, q3, w_vol, basis, i)
+    #$ omp parallel default(shared) private(i1, i2, i3, value1, j1, q1, j2, q2, j3, q3, w_vol, basis, i)
     #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):

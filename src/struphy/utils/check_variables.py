@@ -30,6 +30,7 @@ def get_omp_regions(lines):
 
 def get_omp_variables(lines):
     # Pattern to capture variable names inside each clause
+    # TODO: Explain this regex!
     pattern = r"(private|firstprivate|shared)\s*\(([^)]+)\)"
     variables = {"private": [], "firstprivate": [], "shared": []}
 
@@ -101,7 +102,7 @@ def check_file(filename, verbose=False):
         lines = file.readlines()
     omp_region_dicts = get_omp_regions(lines)
 
-    file_ok = True
+    num_undeclared_variables = 0
 
     for omp_region_dict in omp_region_dicts:
         function = omp_region_dict["function"]
@@ -110,18 +111,18 @@ def check_file(filename, verbose=False):
         if len(undeclared_variables) > 0:
             print(f"## Function: {function}")
             print(f"Undeclared variables: {undeclared_variables}\n")
-            file_ok = False
-    return file_ok
+            num_undeclared_variables += len(undeclared_variables)
+    return num_undeclared_variables
 
 
 if __name__ == "__main__":
     state = read_state()
 
-    all_files_ok = True
+    num_undeclared_variables = 0
     for kernel in state["kernels"]:
-        file_ok = check_file(kernel, verbose=False)
-        if not file_ok:
-            all_files_ok = False
-    print(f"{all_files_ok = }")
-    sys.exit(0 if all_files_ok else 1)
+        num = check_file(kernel, verbose=False)
+        num_undeclared_variables += num
+    print(f"{num_undeclared_variables = }")
+    
+    sys.exit(0 if num_undeclared_variables == 0 else 1)
 

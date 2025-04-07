@@ -209,7 +209,7 @@ def eval_magnetic_background_energy(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, abs_B)
+    #$ omp parallel default(shared) private(ip, eta1, eta2, eta3, mu, span1, span2, span3, abs_B)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -264,7 +264,7 @@ def eval_magnetic_energy(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, b, b_para, abs_B, norm_b1, dfm, det_df)
+    #$ omp parallel default(shared) private(ip, eta1, eta2, eta3, mu, span1, span2, span3, b, b_para, abs_B, norm_b1, dfm, det_df)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -658,7 +658,7 @@ def canonical_kinetic_particles(
 
     # get number of markers
     n_markers = shape(markers)[0]
-    #$ omp parallel private (ip, v, w, dfm, dfinv, dfinv_t, span1, span2, span3, a_form, dfta_form)
+    #$ omp parallel default(shared) private (ip, v, w, dfm, dfinv, dfinv_t, span1, span2, span3, a_form, dfta_form)
     #$ omp for reduction( + : res)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -769,7 +769,7 @@ def thermal_energy(
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
 
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, dfm, det_df)
+    #$ omp parallel default(shared) private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, dfm, det_df)
     #$ omp for reduction( + : res)
     for iel1 in range(nel1):
         for iel2 in range(nel2):

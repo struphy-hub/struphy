@@ -93,7 +93,7 @@ def l2_projection_V0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
 #     nel2 = spans2.size
 #     nel3 = spans3.size
 
-#     #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value, il1, il2, il3, i1, i2, i3)
+#     #$ omp parallel default(shared) private (iel1, iel2, iel3, q1, q2, q3, value, il1, il2, il3, i1, i2, i3)
 #     for iel1 in range(nel1):
 #         for iel2 in range(nel2):
 #             for iel3 in range(nel3):
@@ -135,7 +135,7 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
     G = empty((3, 3), dtype=float)
     value_new = empty(3, dtype=float)
 
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
+    #$ omp parallel default(shared) private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
     for iel1 in range(nel1):
         for iel2 in range(nel2):
             for iel3 in range(nel3):

@@ -119,7 +119,7 @@ def prepre(df_det, G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, N
 def right_hand2(N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, nel1, nel2, nel3, nq1, nq2, nq3, p1, p2, p3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, right_1, right_2, right_3, temp_vector_1, temp_vector_2, temp_vector_3):
     
 
-    #$ omp parallel 
+    #$ omp parallel default(shared) 
     #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -189,7 +189,7 @@ def right_hand2(N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z
 def right_hand1(N_index_x, N_index_y, N_index_z, D_index_x, D_index_y, D_index_z, nel1, nel2, nel3, nq1, nq2, nq3, p1, p2, p3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, right_1, right_2, right_3, temp_vector_1, temp_vector_2, temp_vector_3):
     
 
-    #$ omp parallel 
+    #$ omp parallel default(shared) 
     #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
