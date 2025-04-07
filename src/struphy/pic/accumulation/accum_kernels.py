@@ -135,9 +135,6 @@ def hybrid_fA_density(
     n_markers = shape(markers)[0]
 
     #$ omp parallel default(shared) private (dfm, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, span1, span2, span3)
-    
-    
-    #$ omp parallel default(shared) default(private) firstprivate(point_left, point_right) shared(mat)
     #$ omp for reduction ( + : mat)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
