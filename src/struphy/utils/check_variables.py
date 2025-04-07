@@ -122,5 +122,6 @@ if __name__ == "__main__":
         file_ok = check_file(kernel, verbose=False)
         if not file_ok:
             all_files_ok = False
+    print(f"{all_files_ok = }")
+    sys.exit(0 if all_files_ok else 1)
 
-    sys.exit(all_files_ok)
