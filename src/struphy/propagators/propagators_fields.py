@@ -1788,7 +1788,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         solver: dict = options(default=True)["solver"],
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
-        accumulated_magnetization: BlockVector,
         boundary_cut: dict = options(default=True)["boundary_cut"],
         full_f: bool = options(default=True)["full_f"],
     ):
@@ -1804,8 +1803,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._E1T = self.derham.extraction_ops["1"].transpose()
         self._unit_b1 = self._E1T.dot(self._unit_b1)
-
-        self._accumulated_magnetization = accumulated_magnetization
 
         self._boundary_cut_e1 = boundary_cut["e1"]
 
@@ -1913,14 +1910,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             self._full_f,
         )
 
-        self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
-
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)
         b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
         byn += b2acc
-
-        b2acc.copy(out=self._accumulated_magnetization)
 
         un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 

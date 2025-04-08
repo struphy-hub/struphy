@@ -1068,8 +1068,8 @@ def cc_lin_mhd_5d_gradB(
             continue
 
         # marker weight and velocity
-        weight = markers[ip, 5]
-        dweight = markers[ip, 7]
+        dweight = markers[ip, 5]
+        weight = markers[ip, 7]
         v = markers[ip, 3]
         mu = markers[ip, 9]
 

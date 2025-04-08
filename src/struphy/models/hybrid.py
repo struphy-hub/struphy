@@ -859,7 +859,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "solver": params_alfven["solver"],
                 "filter": params_alfven["filter"],
                 "coupling_params": self._coupling_params,
-                "accumulated_magnetization": self.pointer["accumulated_magnetization"],
                 "boundary_cut": params_alfven["boundary_cut"],
                 "full_f": params_alfven["full_f"],
             }
