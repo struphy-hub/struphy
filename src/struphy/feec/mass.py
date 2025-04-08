@@ -2308,7 +2308,15 @@ class WeightedMassOperator(LinOpWithTransp):
 
     @property
     def toarray(self):
-        raise NotImplementedError()
+        if all(op is None or isinstance(op, IdentityOperator) for op in (
+                self._W_boundary_op,
+                self._W_extraction_op,
+                self._V_extraction_op,
+                self._V_boundary_op
+            )):
+            return self._mat.toarray()
+        else:
+            raise NotImplementedError()
 
     @property
     def M(self):

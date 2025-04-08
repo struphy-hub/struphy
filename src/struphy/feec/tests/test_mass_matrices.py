@@ -173,6 +173,14 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     x2_str0 = space.B2.dot(x2_str)
     x3_str0 = space.B3.dot(x3_str)
     xv_str0 = space.Bv.dot(xv_str)
+    
+    # Test toarray
+    r2str_toarray = mass_mats.M2._mat.toarray().dot(x2_psy)
+    #r2str_toarray_fre = mass_mats_free.M2._mat.toarray().dot(x2_str)
+    r2psy_toarray = mass_mats.M2.dot(x2_psy)
+    r2psy_toarray_fre = mass_mats_free.M2.dot(x2_psy)
+    compare_arrays(r2psy_toarray, r2str_toarray, mpi_rank, atol=1e-1)
+    #compare_arrays(r2psy_toarray_fre, r2str_toarray_fre, mpi_rank, atol=1e-14)
 
     # perfrom matrix-vector products (with boundary conditions)
     r0_str = space.B0.T.dot(space.M0_0(x0_str0))
