@@ -43,10 +43,12 @@ class Maxwell(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
+        dct["algo"] = ["implicit", "rk4", "forward_euler", "heun2", "rk2", "heun3"]
         dct["solver"] = {
             "type": [
                 ("pcg", "MassMatrixPreconditioner"),
                 ("cg", None),
+                None,
             ],
             "tol": 1.0e-8,
             "maxiter": 3000,
@@ -55,7 +57,7 @@ class Maxwell(Propagator):
             "recycle": True,
         }
         if default:
-            dct = descend_options_dict(dct, [])
+            dct = descend_options_dict(dct, [], verbose=False)
 
         return dct
 
@@ -64,72 +66,93 @@ class Maxwell(Propagator):
         e: BlockVector,
         b: BlockVector,
         *,
+        algo: dict = options(default=True)["algo"],
         solver: dict = options(default=True)["solver"],
     ):
         super().__init__(e, b)
 
-        self._info = solver["info"]
+        self._algo = algo
 
-        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = self.mass_ops.M1
+        # obtain needed matrices
+        M1 = self.mass_ops.M1
+        M2 = self.mass_ops.M2
+        curl = self.derham.curl
 
-        # no dt
-        self._B = -1 / 2 * self.derham.curl.T @ self.mass_ops.M2
-        self._C = 1 / 2 * self.derham.curl
+        if self._algo == "implicit":
+            self._info = solver["info"]
+            # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+            _A = M1
 
-        # Preconditioner
-        if solver["type"][1] is None:
-            pc = None
+            # no dt
+            self._B = -1 / 2 * curl.T @ M2
+            self._C = 1 / 2 * curl
+
+            # Preconditioner
+            if solver["type"][1] is None:
+                pc = None
+            else:
+                pc_class = getattr(preconditioner, solver["type"][1])
+                pc = pc_class(self.mass_ops.M1)
+
+            # Instantiate Schur solver (constant in this case)
+            _BC = self._B @ self._C
+
+            self._schur_solver = SchurSolver(
+                _A,
+                _BC,
+                solver["type"][0],
+                pc=pc,
+                tol=solver["tol"],
+                maxiter=solver["maxiter"],
+                verbose=solver["verbose"],
+            )
+            
+            # pre-allocate arrays 
+            self._byn = self._B.codomain.zeros()
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(self.mass_ops.M1)
-
-        # Instantiate Schur solver (constant in this case)
-        _BC = self._B @ self._C
-
-        self._schur_solver = SchurSolver(
-            _A,
-            _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-        )
+            print('explicit mode ...')
+            self._info = False
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()
         self._e_tmp2 = e.space.zeros()
         self._b_tmp1 = b.space.zeros()
 
-        self._byn = self._B.codomain.zeros()
 
     def __call__(self, dt):
         # current variables
         en = self.feec_vars[0]
         bn = self.feec_vars[1]
 
-        # solve for new e coeffs
-        self._B.dot(bn, out=self._byn)
+        if self._algo == "implicit":
+            # solve for new e coeffs
+            self._B.dot(bn, out=self._byn)
 
-        en1, info = self._schur_solver(en, self._byn, dt, out=self._e_tmp1)
+            en1, info = self._schur_solver(en, self._byn, dt, out=self._e_tmp1)
 
-        # new b coeffs
-        _e = en.copy(out=self._e_tmp2)
-        _e += en1
-        bn1 = self._C.dot(_e, out=self._b_tmp1)
-        bn1 *= -dt
-        bn1 += bn
+            # new b coeffs
+            _e = en.copy(out=self._e_tmp2)
+            _e += en1
+            bn1 = self._C.dot(_e, out=self._b_tmp1)
+            bn1 *= -dt
+            bn1 += bn
+        else:
+            print('Here comes the solve ...')
+            en1 = en
+            bn1 = bn
 
         # write new coeffs into self.feec_vars
         max_de, max_db = self.feec_vars_update(en1, bn1)
 
         if self._info and self.rank == 0:
-            print("Status     for Maxwell:", info["success"])
-            print("Iterations for Maxwell:", info["niter"])
-            print("Maxdiff e1 for Maxwell:", max_de)
-            print("Maxdiff b2 for Maxwell:", max_db)
-            print()
+            if self._algo == "implicit":
+                print("Status     for Maxwell:", info["success"])
+                print("Iterations for Maxwell:", info["niter"])
+                print("Maxdiff e1 for Maxwell:", max_de)
+                print("Maxdiff b2 for Maxwell:", max_db)
+                print()
+            else:
+                print(f'no info available for {self._algo = }')
 
 
 class OhmCold(Propagator):
