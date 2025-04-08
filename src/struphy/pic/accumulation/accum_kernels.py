@@ -44,7 +44,7 @@ def charge_density_0form(
         B_p^\mu = \frac{w_p}{N} \,.
     """
 
-    #$ omp parallel default(shared) private (ip, eta1, eta2, eta3, filling)
+    #$ omp parallel default(none) private (ip, eta1, eta2, eta3, filling) shared(vec,n_markers_tot,markers,vdim,args_derham)
     #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -134,7 +134,7 @@ def hybrid_fA_density(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel default(shared) private (dfm, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, span1, span2, span3)
+    #$ omp parallel default(none) private (dfm, det_df, cell_left, point_left, point_right, cell_number, temp1, temp4, compact, grids_shapex, grids_shapey, grids_shapez, n_markers, ip, eta1, eta2, eta3, weight, ie1, ie2, ie3, span1, span2, span3) shared(quad_pts_x,quad_pts_y,i,args_domain,n_markers_tot,args_derham,Nel,quad,quad_pts_z,markers,p_size, p_shape, mat)
     #$ omp for reduction ( + : mat)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -272,7 +272,7 @@ def hybrid_fA_Arelated(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel default(shared) private (ip, eta1, eta2, eta3, v, dfm, df_inv, df_inv_times_v, weight, filling_m, filling_v)
+    #$ omp parallel default(none) private (ip, eta1, eta2, eta3, v, dfm, df_inv, df_inv_times_v, weight, filling_m, filling_v) shared(vec3,mat23,args_derham,n_markers,mat33,args_domain,markers,vec1,vec2,mat11,mat22,n_markers_tot,mat13,mat12)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, vec1, vec2, vec3)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -423,7 +423,7 @@ def linear_vlasov_ampere(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel default(shared) private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, filling_m, filling_v)
+    #$ omp parallel default(none) private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, filling_m, filling_v) shared(vec3,mat23,args_derham,n_markers,mat33,f0_values,args_domain,markers,vec1,vec2,mat11,mat22,n_markers_tot,mat13,mat12)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -513,7 +513,7 @@ def vlasov_maxwell_poisson(
         The above parameter list contains only the model specific input arguments.
     """
 
-    #$ omp parallel default(shared) private (ip, eta1, eta2, eta3, filling)
+    #$ omp parallel default(none) private (ip, eta1, eta2, eta3, filling) shared(args_derham,markers,vec,n_markers_tot)
     #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -585,7 +585,7 @@ def vlasov_maxwell(
     filling_m = zeros((3, 3), dtype=float)
     filling_v = zeros(3, dtype=float)
 
-    #$ omp parallel default(shared) private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v)
+    #$ omp parallel default(none) private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_times_v, filling_m, filling_v) shared(vec3,mat23,args_derham,mat33,args_domain,markers,vec1,vec2,mat11,df_inv_t,mat22,n_markers_tot,mat13,g_inv,mat12)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -703,7 +703,7 @@ def cc_lin_mhd_6d_1(
     # get local number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel default(shared) firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, b2_1, b2_2, b2_3, b, dfm, det_df, weight, df_inv, df_inv_t, g_inv, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
+    #$ omp parallel default(none) firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, b2_1, b2_2, b2_3, b, dfm, det_df, weight, df_inv, df_inv_t, g_inv, tmp1, tmp2, filling_m12, filling_m13, filling_m23) shared(basis_u,mat12,mat23,args_derham,n_markers_loc,args_domain,markers,scale_mat,boundary_cut,mat13)
     #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -912,7 +912,7 @@ def cc_lin_mhd_6d_2(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel default(shared) firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, b2_1, b2_2, b2_3, b, dfm, det_df, weight, v, df_inv, df_inv_t, g_inv, tmp1, tmp2, tmp_t, tmp_m, tmp_v, filling_m, filling_v, scale_vec)
+    #$ omp parallel default(none) firstprivate(b_prod) private(ip, eta1, eta2, eta3, span1, span2, span3, b2_1, b2_2, b2_3, b, dfm, det_df, weight, v, df_inv, df_inv_t, g_inv, tmp1, tmp2, tmp_t, tmp_m, tmp_v, filling_m, filling_v, scale_vec) shared(vec3,basis_u,mat12,mat23,args_derham,mat33,n_markers_loc,args_domain,markers,vec1,vec2,scale_mat,boundary_cut,mat11,mat22,mat13)
     #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)

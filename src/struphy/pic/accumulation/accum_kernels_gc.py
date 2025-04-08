@@ -345,7 +345,7 @@ def cc_lin_mhd_5d_J1(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel default(shared) firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, b1, b2, b3, b, b_star, b_prod_neg, norm_b1, curl_norm_b, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v, scale_vec)
+    #$ omp parallel default(shared) firstprivate(b_prod, scale_vec) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, b1, b2, b3, b, b_star, b_prod_neg, norm_b1, curl_norm_b, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -575,7 +575,7 @@ def cc_lin_mhd_5d_M(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel default(shared) private(ip, boundary_cut, eta1, eta2, eta3, mu, weight, norm_b1, dfm, det_df, span1, span2, span3, norm_b11, norm_b12, norm_b13, filling_v, scale_vec)
+    #$ omp parallel default(shared) firstprivate(scale_vec) private(ip, boundary_cut, eta1, eta2, eta3, mu, weight, norm_b1, dfm, det_df, span1, span2, span3, norm_b11, norm_b12, norm_b13, filling_v)
     #$ omp for reduction ( + : vec1, vec2, vec3)
 
     for ip in range(n_markers_loc):
@@ -731,7 +731,7 @@ def cc_lin_mhd_5d_J2(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel default(shared) firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, b1, b2, b3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, tmp_v, filling_v, scale_vec)
+    #$ omp parallel default(shared) firstprivate(b_prod, scale_vec) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, b1, b2, b3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, tmp_v, filling_v)
     #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
