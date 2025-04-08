@@ -3053,6 +3053,7 @@ class VariationalDensityEvolve(Propagator):
         self._tmp_un12 = u.space.zeros()
         self._tmp_rhon1 = rho.space.zeros()
         self._tmp_un_diff = u.space.zeros()
+        self._tmp_rhon12 = rho.space.zeros()
         self._tmp_rhon_diff = rho.space.zeros()
         self._tmp_un_weak_diff = u.space.zeros()
         self._tmp_mn_diff = u.space.zeros()
@@ -3172,6 +3173,13 @@ class VariationalDensityEvolve(Propagator):
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
+
+            rhon12 = rhon.copy(out = self._tmp_rhon12)
+            rhon12 += rhon1
+            rhon12 *= 0.5
+
+            self.rhof1.vector = rhon12
+            self._update_Pirho()
 
             # Update the linear form
             self.uf1.vector = un1
@@ -7245,7 +7253,7 @@ class VariationalViscosity(Propagator):
     ):
         super().__init__(s, u)
 
-        assert model in ["full", "full_p"]
+        assert model in ["full", "full_p", "linear_p"]
 
         self._model = model
         self._gamma = gamma
@@ -7383,6 +7391,10 @@ class VariationalViscosity(Propagator):
         un1 = self.evol_op.dot(un, out=self._tmp_un1)
         if self._info:
             print("information on the linear solver : ", self.inv_lop._info)
+
+        if self._model == "linear_p":
+            self.feec_vars_update(sn, un1)
+            return
 
         # Energy balance term
         # 1) Pointwize energy change
@@ -7925,7 +7937,7 @@ class VariationalResistivity(Propagator):
     ):
         super().__init__(s, b)
 
-        assert model in ["full", "full_p"]
+        assert model in ["full", "full_p", "linear_p"]
 
         self._model = model
         self._gamma = gamma
@@ -8059,16 +8071,20 @@ class VariationalResistivity(Propagator):
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
-        cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
+        if self._model in ["full", "full_p"]:
+            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
+
+        elif self._model in ["linear_p"]:
+            cb12 = self.Tcurl.dot(self.projected_equil.b2, out=self._tmp_cb12)
 
         self.cbf12.vector = cb12
         self.cbf1.vector = cb1
 
         cb12_v = self.cbf12.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_curl,
-            out=self._cb12_values,
-        )
+                self.integration_grid_spans,
+                self.integration_grid_curl,
+                out=self._cb12_values,
+            )
         cb1_v = self.cbf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
             self.integration_grid_curl,
@@ -8108,7 +8124,7 @@ class VariationalResistivity(Propagator):
 
             e_n *= self._energy_metric
 
-        elif self._model == "full_p":
+        elif self._model  in ["full_p", "linear_p"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -8142,7 +8158,7 @@ class VariationalResistivity(Propagator):
                 )
                 e_n1 *= self._energy_metric
 
-            elif self._model == "full_p":
+            elif self._model  in ["full_p", "linear_p"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -8328,7 +8344,7 @@ class VariationalResistivity(Propagator):
             )
             self._energy_metric = deepcopy(metric)
 
-        elif self._model == "full_p":
+        elif self._model in ["full_p", "linear_p"]:
             metric = 1.0 / self.domain.jacobian_det(
                 *integration_grid,
             )

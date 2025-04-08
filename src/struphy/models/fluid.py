@@ -1931,7 +1931,7 @@ class LinearVariationalMHD_no_split(StruphyModel):
         }
 
         self._kwargs[propagators_fields.VariationalViscosity] = {
-            "model": "full_p",
+            "model": "linear_p",
             "rho": self.pointer["mhd_rho3"],
             "gamma": self._gamma,
             "mu": self._mu,
@@ -1943,7 +1943,7 @@ class LinearVariationalMHD_no_split(StruphyModel):
         }
 
         self._kwargs[propagators_fields.VariationalResistivity] = {
-            "model": "full_p",
+            "model": "linear_p",
             "rho": self.pointer["mhd_rho3"],
             "gamma": self._gamma,
             "eta": self._eta,
