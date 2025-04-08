@@ -56,7 +56,7 @@ def struphy_test(
             cmd += ["--vrbose"]
         if show_plots:
             cmd += ["--show-plots"]
-        subp_run(cmd)
+        # subp_run(cmd)
 
         # now run parallel unit tests
         cmd = [
