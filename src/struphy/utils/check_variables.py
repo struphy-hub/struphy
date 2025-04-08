@@ -1,5 +1,6 @@
 import ast
 import re
+import os
 import sys
 
 from struphy.utils.utils import read_state
@@ -110,19 +111,27 @@ def check_file(filename, verbose=False):
         undeclared_variables = find_undeclared_variables(omp_region, verbose)
         if len(undeclared_variables) > 0:
             print(f"## Function: {function}")
-            print(f"Undeclared variables: {undeclared_variables}\n")
+            #print(f"Undeclared variables: {undeclared_variables}\n")
+            print(f"shared({','.join(undeclared_variables)})\n")
             num_undeclared_variables += len(undeclared_variables)
     return num_undeclared_variables
 
 
 if __name__ == "__main__":
-    state = read_state()
-
-    num_undeclared_variables = 0
-    for kernel in state["kernels"]:
-        num = check_file(kernel, verbose=False)
-        num_undeclared_variables += num
-    print(f"{num_undeclared_variables = }")
-    
-    sys.exit(0 if num_undeclared_variables == 0 else 1)
-
+    # If a path is provided as argument, check only that one
+    if len(sys.argv) > 1:
+        path = sys.argv[1]
+        if not os.path.isfile(path):
+            print(f"Error: '{path}' is not a valid file path.")
+            sys.exit(2)
+        num = check_file(path, verbose=False)
+        print(f"Undeclared variables in {path}: {num}")
+        sys.exit(0 if num == 0 else 1)
+    else:
+        # No argument provided: check all kernels
+        num_undeclared_variables = 0
+        for kernel in state["kernels"]:
+            num = check_file(kernel, verbose=False)
+            num_undeclared_variables += num
+        print(f"{num_undeclared_variables = }")
+        sys.exit(0 if num_undeclared_variables == 0 else 1)
