@@ -37,7 +37,6 @@ from struphy.linear_algebra.saddle_point import (
         SaddlePointSolver,
         SaddlePointSolverGMRES,
         SaddlePointSolverNoCG,
-        SaddlePointSolverInexactUzawa,
         SaddlePointSolverGMRESwithPC,
         SaddlePointSolverInexactUzawaNumpy,
     )
@@ -7525,9 +7524,12 @@ class Stokes(Propagator):
         R0: float = 2.0,
         B0: float = 10.0,
         Bp: float = 12.5,
-        alpha: 0.1,
-        beta: 1.0,
-        eps: 0.0,
+        alpha: float = 0.1,
+        beta: float = 1.0,
+        eps: float = 0.000001,
+        Nel: list,
+        p: list,
+        spl_kind: list,
     ):
         super().__init__(u, ue, phi)
 
@@ -7546,6 +7548,9 @@ class Stokes(Propagator):
         self._alpha = alpha
         self._beta = beta
         self._eps = eps
+        self._Nel = Nel
+        self._p = p
+        self._spl_kind = spl_kind
 
         # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
         _A11 = (
@@ -7662,21 +7667,21 @@ class Stokes(Propagator):
         self._preconditioner = True
         spectralanalysis = False
         if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-            self._M2np = self.mass_ops.M2.toarray_struphy()
-            self._M3np = self.mass_ops.M3.toarray_struphy()
+            self._M2np = self.mass_ops.M2._mat.toarray()
+            self._M3np = self.mass_ops.M3._mat.toarray()
             self._Dnp = self.derham.div.toarray_struphy()
             self._Cnp = self.derham.curl.toarray_struphy()
             #self._S21np = self._S21.toarray
             self._Hodgenp = self.basis_ops.S21.toarray_struphy()
-            self._M2Bnp = self.mass_ops.M2B.toarray_struphy()
+            self._M2Bnp = self.mass_ops.M2B._mat.toarray()
         elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
-            self._M2np = self.mass_ops.M2.toarray_struphy(is_sparse=True)
-            self._M3np = self.mass_ops.M3.toarray_struphy(is_sparse=True)
+            self._M2np = self.mass_ops.M2._mat.tosparse()
+            self._M3np = self.mass_ops.M3._mat.tosparse()
             self._Dnp = self.derham.div.toarray_struphy(is_sparse=True)
             self._Cnp = self.derham.curl.toarray_struphy(is_sparse=True)
             #self._S21np = self._S21.toarray
             self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
-            self._M2Bnp = self.mass_ops.M2B.toarray_struphy(is_sparse=True)
+            self._M2Bnp = self.mass_ops.M2B._mat.tosparse()
             
         A11np = self._M2np + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - 1.0 * self._M2Bnp
         if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
@@ -7745,9 +7750,6 @@ class Stokes(Propagator):
             max_iter=solver["maxiter"]
         )
         
-        # self.feec_vars[0] = self.feec_vars[0].toarray()
-        # self.feec_vars[1] = self.feec_vars[1].toarray()
-        # self.feec_vars[2] = self.feec_vars[2].toarray()
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = self._block_codomainM.zeros()
@@ -7756,12 +7758,9 @@ class Stokes(Propagator):
 
     def __call__(self, dt):
         # current variables
-        un = self.feec_vars[0]
-        uen = self.feec_vars[1]
-        phin = self.feec_vars[2]
-        # unp = self.feec_vars[0].toarray()
-        # uenp = self.feec_vars[1].toarray()
-        # phinp = self.feec_vars[2].toarray()
+        unfeec = self.feec_vars[0]
+        uenfeec = self.feec_vars[1]
+        phinfeec = self.feec_vars[2]
         
         # Define block matrix [[A BT], [B 0]]
         _A11 = (
@@ -7794,116 +7793,114 @@ class Stokes(Propagator):
         assert _A22.domain == _B2.domain
         assert _A11.domain == _B1.domain
 
-        _blocksA = [[_A11, _A12], [_A21, _A22]]
-        _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
-        _blocksB = [[_B1, _B2]]
-        _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-        # Split diffusive term
-        # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(un) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
-        #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
-        _blocksF = [self._F1 + 1.0* 1 / dt * self.mass_ops.M2.dot(un), self._F2]     
-        _F = BlockVector(self._block_domainA, blocks=_blocksF)
-        
-        _blocksM = [[_A, _B.T], [_B, None]]
-        _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
-        _RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
-        
-        self._blockU = BlockVector(_A.domain, blocks = [un, uen])
-        self._solblocks = [self._blockU, phin]
-        self._solverM._options["x0"] = BlockVector(self._block_domainM, blocks=self._solblocks)
+        # _blocksA = [[_A11, _A12], [_A21, _A22]]
+        # _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+        # _blocksB = [[_B1, _B2]]
+        # _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
+        # # Split diffusive term
+        # # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(unfeec) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
+        # #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
+        # _blocksF = [self._F1 + 1.0* 1 / dt * self.mass_ops.M2.dot(unfeec), self._F2]     
+        # _F = BlockVector(self._block_domainA, blocks=_blocksF)
         
         
-        # # use setter to update lhs matrix
-        # self._solverM.linop = _M
-
-        # _sol = self._solverM.solve(_RHS, out = self._e_tmp1 )
-        # info = self._solverM._info
-
-        # un = _sol[0][0]
-        # uen = _sol[0][1]
-        # phin = _sol[1]
+        # # ### Solve here
+        # # _blocksM = [[_A, _B.T], [_B, None]]
+        # # _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
+        # # _RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
         
-        max_u = max(np.max(block._data) for block in un)
-        print(f'{max_u = }')
-        max_ue = max(np.max(block._data) for block in uen)
-        print(f'{max_ue = }')
-        print(f'{np.max(phin._data) = }')
-        min_u = min(np.min(block._data) for block in un)
-        print(f'{min_u = }')
-        min_ue = min(np.min(block._data) for block in uen)
-        print(f'{min_ue = }')
-        print(f'{np.min(phin._data) = }')
-        max_feec0 = max(np.max(block._data) for block in self.feec_vars[0])
-        print(f'{max_feec0 = }')
-        max_feec1 = max(np.max(block._data) for block in self.feec_vars[1])
-        print(f'{max_feec1 = }')
-        print(f'{np.max(self.feec_vars[2]._data) = }')
-        min_feec0 = min(np.min(block._data) for block in self.feec_vars[0])
-        print(f'{min_feec0 = }')
-        min_feec1 = min(np.min(block._data) for block in self.feec_vars[1])
-        print(f'{min_feec1 = }')
-        print(f'{np.min(self.feec_vars[2]._data) = }')
+        # # self._blockU = BlockVector(_A.domain, blocks = [unfeec, uenfeec])
+        # # self._solblocks = [self._blockU, phinfeec]
+        # # self._solverM._options["x0"] = BlockVector(self._block_domainM, blocks=self._solblocks)
+         
+        # # # use setter to update lhs matrix
+        # # self._solverM.linop = _M
+        # # _sol = self._solverM.solve(_RHS, out = self._e_tmp1 )
+        # # info = self._solverM._info
+        # # un = _sol[0][0]
+        # # uen = _sol[0][1]
+        # # phin = _sol[1]
         
-        ## Solver imported:
-        self._solver_GMRES.A = _A
-        self._solver_GMRES.F = _F
-        usol, phin, info = self._solver_GMRES(un, uen, phin) #unp, uenp, phinp
-        un = usol[0]
-        uen = usol[1]
+        # ### Imported solver
+        # _sol1, _sol2, info,  = self._solver_GMRES(unfeec, uenfeec, phinfeec)
+        # un = _sol1[0]
+        # uen = _sol1[1]
+        # phin = _sol2
         
-        # write new coeffs into self.feec_vars
-        max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
         
-        # ### Numpy
-        # A11np = self._M2np/dt + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - 1.0 * self._M2Bnp
-        # if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-        #     A22np = self._eps * np.identity(A11np.shape[0])+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
-        #     _A22np = self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*np.identity(A22np.shape[0])  #+M2np #
-        # elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
-        #     A22np = self._eps * sc.sparse.identity(A11np.shape[0],format='csr')+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
-        #     _A22np = self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*sc.sparse.identity(A22np.shape[0], format='csr')  #+M2np #
-        #     _A22np = _A22np.tocsr()
-
-        
-        # _Anp = [A11np, A22np]
-        # _A11np =  self._M2np/dt + self._nu*(self._Dnp.T @ self._M3np @ self._Dnp) #+ Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp  
-        # _Anppre = [_A11np, _A22np]
-        # _Fnp =[self._F1np + 1.0 / dt * self._M2np.dot(un), self._F2np]
-        
-        # self._solver_InexactUzawaNumpy.A = _Anp
-        # self._solver_InexactUzawaNumpy.Apre = _Anppre
-        # self._solver_InexactUzawaNumpy.F = _Fnp
-        # un, uen, phin, info, residual_norms = self._solver_InexactUzawaNumpy() #unp, uenp, phinp
-        
-        # print(f'{max(un) = }')
-        # print(f'{max(uen) = }')
-        # print(f'{max(phin) = }')
-        # print(f'{min(un) = }')
-        # print(f'{min(uen) = }')
-        # print(f'{min(phin) = }')
-        # print(f'{max(self.feec_vars[0]) = }')
-        # print(f'{max(self.feec_vars[1]) = }')
-        # print(f'{max(self.feec_vars[2]) = }')
-        # print(f'{min(self.feec_vars[0]) = }')
-        # print(f'{min(self.feec_vars[1]) = }')
-        # print(f'{min(self.feec_vars[2]) = }')
-
         # # write new coeffs into self.feec_vars
         # max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
         
-        # print(f'{max(un) = }')
-        # print(f'{max(uen) = }')
-        # print(f'{max(phin) = }')
-        # print(f'{min(un) = }')
-        # print(f'{min(uen) = }')
-        # print(f'{min(phin) = }')
-        # print(f'{max(self.feec_vars[0]) = }')
-        # print(f'{max(self.feec_vars[1]) = }')
-        # print(f'{max(self.feec_vars[2]) = }')
-        # print(f'{min(self.feec_vars[0]) = }')
-        # print(f'{min(self.feec_vars[1]) = }')
-        # print(f'{min(self.feec_vars[2]) = }')
+        
+        ### Numpy
+        A11np = self._M2np/dt + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - 1.0 * self._M2Bnp
+        if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
+            A22np = self._eps * np.identity(A11np.shape[0])+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
+            _A22np = np.identity(A22np.shape[0])#*self._eps + self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp)   #+M2np #
+        elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
+            A22np = self._eps * sc.sparse.identity(A11np.shape[0],format='csr')+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ 1.0 * self._M2Bnp
+            _A22np = self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*sc.sparse.identity(A22np.shape[0], format='csr')  #+M2np #
+            _A22np = _A22np.tocsr()
 
+        
+        _Anp = [A11np, A22np]
+        _A11np =  self._M2np/dt + self._nu*(self._Dnp.T @ self._M3np @ self._Dnp) #+ Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp  
+        _Anppre = [_A11np, _A22np]
+        _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
+        _Fnp =[_F1np , self._F2np]
+        
+        self._solver_InexactUzawaNumpy.A = _Anp
+        self._solver_InexactUzawaNumpy.Apre = _Anppre
+        self._solver_InexactUzawaNumpy.F = _Fnp
+        un, uen, phin, info, residual_norms = self._solver_InexactUzawaNumpy(unfeec, uenfeec, phinfeec)
+        
+        dimlist = [
+            [shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self._p)]
+            for i in range(3)
+        ]
+        dimphi = [shp - 2*pi for shp, pi in zip(phinfeec[:].shape, self._p)]
+        u_temp = BlockVector(self.derham.Vh['2']) 
+        ue_temp = BlockVector(self.derham.Vh['2']) 
+        phi_temp = StencilVector(self.derham.Vh['3'])
+        test = 0
+        for i, bl in enumerate(u_temp.blocks):
+            s = bl.starts
+            e = bl.ends
+            totaldim = dimlist[i][0]*dimlist[i][1]*dimlist[i][2]
+            test += totaldim
+            bl[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1] = un[i*totaldim:(i+1)*totaldim].reshape(*dimlist[i])
+        
+        for i, bl in enumerate(ue_temp.blocks):
+            s = bl.starts
+            e = bl.ends
+            totaldim = dimlist[i][0]*dimlist[i][1]*dimlist[i][2]
+            bl[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1] = uen[i*totaldim:(i+1)*totaldim].reshape(*dimlist[i])
+        
+        print(f'{test =}')
+        s = phi_temp.starts
+        e = phi_temp.ends
+        phi_temp[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1] = phin.reshape(*dimphi)
+        
+        # ###Test if solution
+        # Diffu = self.feec_vars[0].toarray()-un
+        # print(f'{max(Diffu) = }')
+        # Diffue = self.feec_vars[1].toarray()-uen
+        # print(f'{max(Diffue) = }')
+        # Diffphi = self.feec_vars[2].toarray()-phin
+        # print(f'{max(Diffphi) = }')
+        
+        # Diffu = self.feec_vars[0]-u_temp
+        # print(f'{max(Diffu.toarray()) = }')
+        # Diffue = self.feec_vars[1]-ue_temp
+        # print(f'{max(Diffue.toarray()) = }')
+        # Diffphi = self.feec_vars[2]-phi_temp
+        # print(f'{max(Diffphi.toarray()) = }')
+        
+        
+        # write new coeffs into self.feec_vars
+        max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
+        
+        
 
         if self._info and self._rank == 0:
             print("Status     for Stokes:", info["success"])
