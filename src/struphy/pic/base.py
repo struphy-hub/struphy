@@ -249,6 +249,9 @@ class Particles(metaclass=ABCMeta):
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
         self._bc = bc
+        self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
+        self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
+        self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
         self._bc_refill = bc_refill
 
         # particle type
@@ -1841,123 +1844,114 @@ class Particles(metaclass=ABCMeta):
         """
 
         # apply boundary conditions
-        if "remove" in self.bc:
-            axes = [axis for axis, bc in enumerate(self.bc) if bc == "remove"]
+        for axis in self._remove_axes:
+            # determine particles outside of the logical unit cube
+            self._is_outside_right[:] = self.markers[:, axis] > 1.0
+            self._is_outside_left[:] = self.markers[:, axis] < 0.0
 
-            for axis in axes:
-                # determine particles outside of the logical unit cube
-                self._is_outside_right[:] = self.markers[:, axis] > 1.0
-                self._is_outside_left[:] = self.markers[:, axis] < 0.0
+            self._is_outside_right[self.holes] = False
+            self._is_outside_right[self.ghost_particles] = False
+            self._is_outside_left[self.holes] = False
+            self._is_outside_left[self.ghost_particles] = False
 
-                self._is_outside_right[self.holes] = False
-                self._is_outside_right[self.ghost_particles] = False
-                self._is_outside_left[self.holes] = False
-                self._is_outside_left[self.ghost_particles] = False
+            self._is_outside[:] = np.logical_or(
+                self._is_outside_right,
+                self._is_outside_left,
+            )
 
-                self._is_outside[:] = np.logical_or(
-                    self._is_outside_right,
-                    self._is_outside_left,
-                )
+            # indices or particles that are outside of the logical unit cube
+            outside_inds = np.nonzero(self._is_outside)[0]
 
-                # indices or particles that are outside of the logical unit cube
-                outside_inds = np.nonzero(self._is_outside)[0]
+            if len(outside_inds) == 0:
+                continue
 
-                if len(outside_inds) == 0:
-                    continue
+            if self.bc_refill is not None:
+                self.particle_refilling()
 
-                if self.bc_refill is not None:
-                    self.particle_refilling()
+            self._markers[self._is_outside, :-1] = -1.0
+            self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
-                self._markers[self._is_outside, :-1] = -1.0
-                self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
+        for axis in self._periodic_axes:
+            # determine particles outside of the logical unit cube
+            self._is_outside_right[:] = self.markers[:, axis] > 1.0
+            self._is_outside_left[:] = self.markers[:, axis] < 0.0
 
-        if "periodic" in self.bc:
-            axes = [axis for axis, bc in enumerate(self.bc) if bc == "periodic"]
+            self._is_outside_right[self.holes] = False
+            self._is_outside_right[self.ghost_particles] = False
+            self._is_outside_left[self.holes] = False
+            self._is_outside_left[self.ghost_particles] = False
 
-            for axis in axes:
-                # determine particles outside of the logical unit cube
-                self._is_outside_right[:] = self.markers[:, axis] > 1.0
-                self._is_outside_left[:] = self.markers[:, axis] < 0.0
+            self._is_outside[:] = np.logical_or(
+                self._is_outside_right,
+                self._is_outside_left,
+            )
 
-                self._is_outside_right[self.holes] = False
-                self._is_outside_right[self.ghost_particles] = False
-                self._is_outside_left[self.holes] = False
-                self._is_outside_left[self.ghost_particles] = False
+            # indices or particles that are outside of the logical unit cube
+            outside_inds = np.nonzero(self._is_outside)[0]
 
-                self._is_outside[:] = np.logical_or(
-                    self._is_outside_right,
-                    self._is_outside_left,
-                )
+            if len(outside_inds) == 0:
+                continue
 
-                # indices or particles that are outside of the logical unit cube
-                outside_inds = np.nonzero(self._is_outside)[0]
+            self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
 
-                if len(outside_inds) == 0:
-                    continue
+            # set shift for alpha-weighted mid-point computation
+            outside_right_inds = np.nonzero(self._is_outside_right)[0]
+            outside_left_inds = np.nonzero(self._is_outside_left)[0]
+            if newton:
+                self.markers[
+                    outside_right_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] += 1.0
+                self.markers[
+                    outside_left_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] += -1.0
+            else:
+                self.markers[
+                    :,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = 0.0
+                self.markers[
+                    outside_right_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = 1.0
+                self.markers[
+                    outside_left_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = -1.0
 
-                self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
+        for axis in self._reflect_axes:
+            # determine particles outside of the logical unit cube
+            self._is_outside_right[:] = self.markers[:, axis] > 1.0
+            self._is_outside_left[:] = self.markers[:, axis] < 0.0
 
-                # set shift for alpha-weighted mid-point computation
-                outside_right_inds = np.nonzero(self._is_outside_right)[0]
-                outside_left_inds = np.nonzero(self._is_outside_left)[0]
-                if newton:
-                    self.markers[
-                        outside_right_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] += 1.0
-                    self.markers[
-                        outside_left_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] += -1.0
-                else:
-                    self.markers[
-                        :,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] = 0.0
-                    self.markers[
-                        outside_right_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] = 1.0
-                    self.markers[
-                        outside_left_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] = -1.0
+            self._is_outside_right[self.holes] = False
+            self._is_outside_right[self.ghost_particles] = False
+            self._is_outside_left[self.holes] = False
+            self._is_outside_left[self.ghost_particles] = False
 
-        if "reflect" in self.bc:
-            axes = [axis for axis, bc in enumerate(self.bc) if bc == "reflect"]
+            self._is_outside[:] = np.logical_or(
+                self._is_outside_right,
+                self._is_outside_left,
+            )
 
-            for axis in axes:
-                # determine particles outside of the logical unit cube
-                self._is_outside_right[:] = self.markers[:, axis] > 1.0
-                self._is_outside_left[:] = self.markers[:, axis] < 0.0
+            # indices or particles that are outside of the logical unit cube
+            outside_inds = np.nonzero(self._is_outside)[0]
 
-                self._is_outside_right[self.holes] = False
-                self._is_outside_right[self.ghost_particles] = False
-                self._is_outside_left[self.holes] = False
-                self._is_outside_left[self.ghost_particles] = False
+            if len(outside_inds) == 0:
+                continue
 
-                self._is_outside[:] = np.logical_or(
-                    self._is_outside_right,
-                    self._is_outside_left,
-                )
+            self.markers[self._is_outside_left, axis] = 1e-4
+            self.markers[self._is_outside_right, axis] = 1 - 1e-4
 
-                # indices or particles that are outside of the logical unit cube
-                outside_inds = np.nonzero(self._is_outside)[0]
+            reflect(
+                self.markers,
+                self.domain.args_domain,
+                outside_inds,
+                axis,
+            )
 
-                if len(outside_inds) == 0:
-                    continue
-
-                self.markers[self._is_outside_left, axis] = 1e-4
-                self.markers[self._is_outside_right, axis] = 1 - 1e-4
-
-                reflect(
-                    self.markers,
-                    self.domain.args_domain,
-                    outside_inds,
-                    axis,
-                )
-
-                self.markers[self._is_outside, self.first_pusher_idx] = -1.0
+            self.markers[self._is_outside, self.first_pusher_idx] = -1.0
 
     def particle_refilling(self):
         r"""
