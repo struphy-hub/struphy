@@ -19,8 +19,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.linear_algebra.saddle_point import (
         SaddlePointSolver,
         SaddlePointSolverGMRES,
-        SaddlePointSolverGMRESsolution,
-        SaddlePointSolverInexactUzawa,
         SaddlePointSolverNoCG,
         SaddlePointSolverTest,
         SaddlePointSolverGMRESwithPC,
@@ -43,6 +41,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
     fem_spaces = [derham.Vh_fem["0"], derham.Vh_fem["1"], derham.Vh_fem["2"], derham.Vh_fem["3"], derham.Vh_fem["v"]]
+    derhamnumpy = Derham(Nel, p, spl_kind, domain = domain)
 
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 2.0, "n0": 1.0}
@@ -74,41 +73,39 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             ]
  
     S21 = BasisProjectionOperatorLocal(derham._Ploc["1"], derham.Vh_fem["2"], fun, transposed=False)
-    
-    # Change order of input in callable
+    Hodge = hodge_mats.S21
     M2R = mass_mats.M2B
     M2 = mass_mats.M2
-    Hodge = hodge_mats.S21
-    C = derham.curl #_bcfree
-    D = derham.div  #_bcfree
+    C = derham.curl
+    D = derham.div
     G = derham.grad #_bcfree
     M3 = mass_mats.M3
     B0 = 1.0
     nue = 0.01*100
     nu = 1.0
     dt = 0.001
-    eps = 1e-6
+    eps = 1e-9
     eps2 = eps#1e-5#1. #Preconditioner Ae
-    method_to_solve = 'DirectNPInverse' #  'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
+    method_to_solve = 'ScipySparse' #  'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
     preconditioner = True
-    spectralanalysis = False
+    spectralanalysis = True
     manufactured_solution = False
     
     # Create the solver
     rho = 0.0005  # Example descent parameter
-    tol = 1e-7
+    tol = 1e-11
     max_iter = 5000
     pc = None  # M2pre # Preconditioner
     # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
     solver_name = "gmres"
     verbose = False
 
-    A11 = M2 / dt + nu * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge) - 1.0 * M2R
+    A11 = M2 / dt + nu * (D.T @ M3 @ D + 1.0 * S21.T @ C.T @ M2 @ C @ S21) - 1.0 * M2R
     A12 = None
     A21 = A12
     A22 = (
         eps * IdentityOperator(A11.domain)
-        + nue * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge)
+        + nue * (D.T @ M3 @ D + 1.0 * S21.T @ C.T @ M2 @ C @ S21)
         + 1.0 * M2R
     )
     B1 = -M3 @ D
@@ -119,13 +116,13 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     x2 = derham.curl.dot(x2_rdm)
     F1 = (
         A11.dot(x1) + B1T.dot(y1_rdm)
-    )  # -0.*nu*(D.T @ M3 @ D.dot(x1)+ 0.*Hodge.T @ C.T @ M2 @ C @ Hodge.dot(x1) ) +0.5*M2R.dot(x1) #implicit/ explicit for diffusion terms
+    )  # -0.*nu*(D.T @ M3 @ D.dot(x1)+ 0.*S21.T @ C.T @ M2 @ C @ S21.dot(x1) ) +0.5*M2R.dot(x1) #implicit/ explicit for diffusion terms
     F2 = A22.dot(x2) + B2T.dot(
         y1_rdm
-    )  # -0.*nue*(D.T @ M3 @ D.dot(x2)+ 0.*Hodge.T @ C.T @ M2 @ C @ Hodge.dot(x2)) -0.5*M2R.dot(x2)
+    )  # -0.*nue*(D.T @ M3 @ D.dot(x2)+ 0.*S21.T @ C.T @ M2 @ C @ S21.dot(x2)) -0.5*M2R.dot(x2)
     
     #Preconditioner
-    _A11 =  M2/dt + nu*(D.T @ M3 @ D) #+ Hodge.T @ C.T @ M2 @ C @ Hodge
+    _A11 =  M2/dt + nu*(D.T @ M3 @ D) #+ S21.T @ C.T @ M2 @ C @ S21
     _A22 = nue*(D.T @ M3 @ D) +M2 # +eps2*IdentityOperator(A22.domain)  # 
 
     
@@ -133,31 +130,35 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     if method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
         M2np = M2._mat.toarray()
         M3np = M3._mat.toarray()
+        Dnp = derhamnumpy.div.toarray()
+        Cnp = derhamnumpy.curl.toarray()
         Dnp = D.toarray_struphy()
         Cnp = C.toarray_struphy()
-        #S21np = S21.toarray
-        Hodgenp = Hodge.toarray_struphy()
+        S21np = S21.toarray
+        Hodgenp = Hodge.toarray
         M2Bnp = M2R._mat.toarray()
         x1np = x1.toarray()
         x2np = x2.toarray()
     elif method_to_solve in ('SparseSolver', 'ScipySparse'):
         M2np = M2._mat.tosparse()
         M3np = M3._mat.tosparse()
+        Dnp = derhamnumpy.div.tosparse()
+        Cnp = derhamnumpy.curl.tosparse()
         Dnp = D.toarray_struphy(is_sparse=True)
         Cnp = C.toarray_struphy(is_sparse=True)
-        #S21np = S21.toarray
-        Hodgenp = Hodge.toarray_struphy(is_sparse=True)    #tosparse
+        S21np = S21.tosparse
+        Hodgenp = Hodge.tosparse
         M2Bnp = M2R._mat.tosparse()
         x1np = x1.toarray()
         x2np = x2.toarray()
     
     
-    A11np = M2np / dt + nu * (Dnp.T @ M3np @ Dnp + 1.0 * Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp) - 1.0 * M2Bnp
+    A11np = M2np / dt + nu * (Dnp.T @ M3np @ Dnp + 1.0 * S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) - 1.0 * M2Bnp
     if method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-        A22np = eps * np.identity(A11np.shape[0])+ nue * (Dnp.T @ M3np @ Dnp + 1.0 * Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp)+ 1.0 * M2Bnp
+        A22np = eps * np.identity(A11np.shape[0])+ nue * (Dnp.T @ M3np @ Dnp + 1.0 * S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)+ 1.0 * M2Bnp
         _A22np = np.identity(A22np.shape[0])  #nue*(Dnp.T @ M3np @ Dnp) +eps2*np.identity(A22np.shape[0])  #+M2np #
     elif method_to_solve in ('SparseSolver', 'ScipySparse'):
-        A22np = eps * sc.sparse.identity(A11np.shape[0],format='csr')+ nue * (Dnp.T @ M3np @ Dnp + 1.0 * Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp)+ 1.0 * M2Bnp
+        A22np = eps * sc.sparse.identity(A11np.shape[0],format='csr')+ nue * (Dnp.T @ M3np @ Dnp + 1.0 * S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)+ 1.0 * M2Bnp
         _A22np = sc.sparse.identity(A22np.shape[0], format='csr')  #nue*(Dnp.T @ M3np @ Dnp) +eps2*sc.sparse.identity(A22np.shape[0], format='csr')  #+M2np #
         _A22np = _A22np.tocsr()
     B1np = -M3np @ Dnp
@@ -169,7 +170,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     Anp = [A11np, A22np]
     Bnp = [B1np, B2np]
     Fnp = [F1np, F2np]
-    _A11np =  M2np/dt + nu*(Dnp.T @ M3np @ Dnp) #+ Hodgenp.T @ Cnp.T @ M2np @ Cnp @ Hodgenp  
+    _A11np =  M2np/dt + nu*(Dnp.T @ M3np @ Dnp) #+ S21np.T @ Cnp.T @ M2np @ Cnp @ S21np  
     Anppre = [_A11np, _A22np]
     
     
@@ -299,8 +300,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     
     
         #TestA = F[0]-A11.dot(x1) - B1T.dot(y1_rdm)
-        TestAmf = Fmf[0]-(M2 / dt + nu * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge) - 1.0 * M2R).dot(x1mf)-(B[0,0].T).dot(ymf)
-        TestAemf = Fmf[1]-(nue * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge) + 1.0 * M2R).dot(x2mf)-(B[0,1].T).dot(ymf)
+        TestAmf = Fmf[0]-(M2 / dt + nu * (D.T @ M3 @ D + 1.0 * S21.T @ C.T @ M2 @ C @ S21) - 1.0 * M2R).dot(x1mf)-(B[0,0].T).dot(ymf)
+        TestAemf = Fmf[1]-(nue * (D.T @ M3 @ D + 1.0 * S21.T @ C.T @ M2 @ C @ S21) + 1.0 * M2R).dot(x2mf)-(B[0,1].T).dot(ymf)
         #TestAemf = Fmf[1]-A22.dot(x2mf) - B2T.dot(ymf)
         RestAmf = np.linalg.norm(TestAmf.toarray())
         RestAemf = np.linalg.norm(TestAemf.toarray())
@@ -319,10 +320,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         print(f'{RestDivmfnp =}')
         print(f'{RestDivmf =}')
         
-    else:#if method_for_solving != 'SaddlePointSolverGMRES':
+    else:
         #TestA = F[0]-A11.dot(x1) - B1T.dot(y1_rdm)
-        TestA = F[0]-(M2 / dt + nu * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge) - 1.0 * M2R).dot(x1)-(B[0,0].T).dot(y1_rdm)
-        TestAe = F[1]-(nue * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge) + 1.0 * M2R).dot(x2)-(B[0,1].T).dot(y1_rdm)
+        TestA = F[0]-(M2 / dt + nu * (D.T @ M3 @ D + 1.0 * S21.T @ C.T @ M2 @ C @ S21) - 1.0 * M2R).dot(x1)-(B[0,0].T).dot(y1_rdm)
+        TestAe = F[1]-(nue * (D.T @ M3 @ D + 1.0 * S21.T @ C.T @ M2 @ C @ S21) + 1.0 * M2R).dot(x2)-(B[0,1].T).dot(y1_rdm)
         #TestAemf = Fmf[1]-A22.dot(x2mf) - B2T.dot(ymf)
         RestA = np.linalg.norm(TestA.toarray())
         RestAe = np.linalg.norm(TestAe.toarray())
@@ -341,33 +342,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         print(f'{RestDivnp =}')
         print(f'{RestDiv =}')
         
-    # #TestA = F[0]-A11.dot(x1) - B1T.dot(y1_rdm)
-    # TestA = F[0]-(M2 / dt + nu * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge) - 1.0 * M2R).dot(x1)-(B[0,0].T).dot(y1_rdm)
-    # TestAe = F[1]-(nue * (D.T @ M3 @ D + 1.0 * Hodge.T @ C.T @ M2 @ C @ Hodge) + 1.0 * M2R).dot(x2)-(B[0,1].T).dot(y1_rdm)
-    # print(f'{type(TestA) =}')
-    # RestA = np.linalg.norm(TestA.toarray())
-    # RestAe = np.linalg.norm(TestAe.toarray())
-    # TestAnp = F1np-A11np.dot(x1np) - B1np.T.dot(ynp)
-    # TestAenp = F2np-A22np.dot(x2np) - B2np.T.dot(ynp)
-    # RestAnp = np.linalg.norm(TestAnp)
-    # RestAenp = np.linalg.norm(TestAnp)
-    # print(f'{RestA =}')
-    # print(f'{RestAe =}')
-    # print(f'{RestAnp =}')
-    # print(f'{RestAenp =}')
-    
-    # data = x1[0].toarray()  # Convert StencilVector to NumPy array
-    # print(data.shape)  # Check the shape of the data
-    # data_reshaped = data.reshape(10, 12)
-    
-    
-    
-    # _plot_velocity(data_reshaped)
-    
-    print('Plot finish.')
     
     # Manufactured solution
-    #uanalyt0 = lambda x, y, z: -np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+    # uanalyt0 = lambda x, y, z: -np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
     # uanalyt1 = -np.cos(2*np.pi*x_grid)*np.cos(2*np.pi*y_grid)
     # uanalyt2 = 0.0*x_grid
     # u_eanalyt0 = -np.sin(4*np.pi*x_grid)*np.sin(4*np.pi*y_grid)
@@ -386,66 +363,30 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     # F2analyticy = -2.0*np.pi*np.cos(2*np.pi*y_grid)+np.sin(4*np.pi*x_grid)*np.sin(4*np.pi*y_grid)*b0-nu_e*32.0*np.pi**2*np.cos(4*np.pi*x_grid)*np.cos(4*np.pi*y_grid)
     # F2analytic = [F2analyticx, F2analyticy, 0*x_grid] 
     
-    # TestA11composed = M2np/dt + Dnp.T@M3np@Dnp + S21np.T@Cnp.T@M2np@Cnp@S21np
-    # print(f' TestA11composed succesfull.')
-    # TestA11composedHodge = M2np/dt + Dnp.T@M3np@Dnp + (Hodge.toarray).T@Cnp.T@M2np@Cnp@Hodge.toarray
-    # print(f' TestA11composedHodge succesfull.')
-    # TestA11 = M2 / dt + nu * D.T @ M3 @ D +Hodge.T @ C.T @ M2 @ C @ Hodge
-    # print(f' TestA11 succesfull.')
-    # TestA11np = (M2 / dt + nu * D.T @ M3 @ D+Hodge.T @ C.T @ M2 @ C @ Hodge).toarray_struphy()
-    # print(f' TestA11np succesfull.')
-    # TestA11npdot = TestA11np.dot(x1.toarray())
-    # print(f' TestA11npdot succesfull.')
-    # TestA11composeddot = TestA11composed.dot(x1.toarray())
-    # print(f' TestA11composeddot succesfull.')
-    # TestA11composedHodgedot = TestA11composedHodge.dot(x1.toarray())
-    # print(f' TestA11composedHodgedot succesfull.')
-    # TestA11dot = TestA11.dot(x1)
-    # print(f' TestA11dot succesfull.')
-    # compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
-    # print(f'Compare1 succesfull.')
-    # compare_arrays(TestA11dot, TestA11composedHodgedot, mpi_rank, atol=1e-5)
-    # print(f'Compare2 succesfull.')
-    # compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
-    # print(f'Comparison succesfull.')
+    
+    
+    ### Compare numpy to psydac
+    c1 = C.dot(x1_rdm)
+    c2 = Cnp.dot(x1_rdm.toarray())
+    compare_arrays(c1, c2, mpi_rank, atol=1e-5)
+    xblock, xdiv_rdm = create_equal_random_arrays(fem_spaces[2], seed=1568, flattened=False)
+    d1 = D.dot(xdiv_rdm)
+    d2 = Dnp.dot(xdiv_rdm.toarray())
+    compare_arrays(d1, d2, mpi_rank, atol=1e-5)
+    TestA11composed = M2np/dt + Dnp.T@M3np@Dnp + S21np.T@Cnp.T@M2np@Cnp@S21np
+    TestA11 = M2 / dt + nu * D.T @ M3 @ D +S21.T @ C.T @ M2 @ C @ S21
+    TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray_struphy()
+    TestA11npdot = TestA11np.dot(x1.toarray())
+    TestA11composeddot = TestA11composed.dot(x1.toarray())
+    TestA11dot = TestA11.dot(x1)
+    compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
+    compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
+    print(f'Comparison numpy to psydac succesfull.')
 
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
 
     start_time = time.time()
 
-    # if manufactured_solution == True:
-    #     if method_for_solving == "SaddlePointSolverInexactUzawa":
-    #         solver = SaddlePointSolverInexactUzawa(
-    #             A,  B, F, _A11, _A22, M2pre, rho=rho, derham = derham, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc, recycle=True,
-    #         )
-    #         x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9*x1np, 0.9*x2np, 1.1*ynp) #0.9*x1, 0.9*x2, 1.1*y1_rdm
-    #         x_uzawa={}
-    #         x_uzawa[0]=x_u
-    #         x_uzawa[1]=x_ue
-    #         if show_plots == True:
-    #             _plot_residual_norms(residual_norms)
-    #     elif method_for_solving == "SaddlePointSolverInexactUzawaNumpy":
-    #         solver = SaddlePointSolverInexactUzawaNumpy(
-    #             Anp,  Bnp, Fnp, Anppre, method_to_solve, preconditioner, spectralanalysis,  tol=tol, max_iter=max_iter
-    #         )
-    #         x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9*x1, 0.9*x2, 1.1*y1_rdm) #0.9*x1, 0.9*x2, 1.1*y1_rdm
-    #         x_uzawa={}
-    #         x_uzawa[0]=x_u
-    #         x_uzawa[1]=x_ue
-    #         if show_plots == True:
-    #             _plot_residual_norms(residual_norms)
-    #     elif method_for_solving == "SaddlePointSolverGMRES":
-    #         solver = SaddlePointSolverGMRES(
-    #             A, B, F, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
-    #         )
-    #         x_uzawa, y_uzawa, info = solver(x1, x2, y1_rdm)
-    #     elif method_for_solving == "SaddlePointSolverGMRESwithPC":
-    #         solver = SaddlePointSolverGMRESwithPC(
-    #             A, B, _A11, _A22, F, M2pre, rho=rho, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc, derham = derham
-    #         )
-    #         x_uzawa, y_uzawa, info = solver(dt,0.9*x1, 0.9*x2, 1.1*y1_rdm)
-    # else:   
-    # SaddlePointSolver, SaddlePointSolverTest, SaddlePointSolverNoCG
     if method_for_solving == "SaddlePointSolverTest":
         solver = SaddlePointSolverTest(
             A, B, F, _A11, _A22, rho=rho, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
@@ -468,16 +409,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         x_uzawa, y_uzawa, info, residual_norms = solver()
         if show_plots == True:
             _plot_residual_norms(residual_norms)
-    elif method_for_solving == "SaddlePointSolverInexactUzawa":
-        solver = SaddlePointSolverInexactUzawa(
-            A,  B, F, _A11, _A22, M2pre, rho=rho, derham = derham, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc, recycle=True,
-        )
-        x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9*x1np, 0.9*x2np, 1.1*ynp) #0.9*x1, 0.9*x2, 1.1*y1_rdm
-        x_uzawa={}
-        x_uzawa[0]=x_u
-        x_uzawa[1]=x_ue
-        if show_plots == True:
-            _plot_residual_norms(residual_norms)
     elif method_for_solving == "SaddlePointSolverInexactUzawaNumpy":
         if manufactured_solution == True:
             solver = SaddlePointSolverInexactUzawaNumpy(
@@ -494,28 +425,12 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         x_uzawa[1]=x_ue
         if show_plots == True:
             _plot_residual_norms(residual_norms)
-    elif method_for_solving == "SaddlePointSolverGMRESsolution":
-        solver = SaddlePointSolverGMRESsolution(
-            A,
-            B,
-            F,
-            rho=rho,
-            solver_name=solver_name,
-            massmatrix=M2,
-            tol=tol,
-            x=x,
-            y=y1_rdm,
-            max_iter=max_iter,
-            verbose=verbose,
-            pc=pc,
-        )
-        x_uzawa, y_uzawa, info = solver()
     elif method_for_solving == "SaddlePointSolverGMRES":
         if manufactured_solution == True:
             solver = SaddlePointSolverGMRES(
                 A, B, Fmf, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
             )
-            x_uzawa, y_uzawa, info = solver(x1mf, x2mf, ymf)
+            x_uzawa, y_uzawa, info = solver(0.9*x1mf, 0.9*x2mf, 1.1*ymf)
         else:
             solver = SaddlePointSolverGMRES(
                 A, B, F, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
@@ -729,11 +644,10 @@ if __name__ == "__main__":
     #                        [3, 3, 1],
     #                        [True, False, True],
     #                        [[False,  False], [False, False], [False, False]],
-    #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
+    #                        ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}], True)
     test_saddlepointsolver('SaddlePointSolverInexactUzawaNumpy',
                            [15, 15, 1],
                            [3, 3, 1],
                            [True, False, True],
                            [[False,  False], [False, False], [False, False]],
                            ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
-    
