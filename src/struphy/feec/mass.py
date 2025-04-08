@@ -2310,10 +2310,10 @@ class WeightedMassOperator(LinOpWithTransp):
             )):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert bc == False
+                    assert bc == False, print('.tosparse() only works without boundary conditions at the moment')
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert bc == False
+                    assert bc == False, print('.tosparse() only works without boundary conditions at the moment')
                     
             return self._mat.tosparse()
         else:
@@ -2327,10 +2327,10 @@ class WeightedMassOperator(LinOpWithTransp):
             )):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert bc == False
+                    assert bc == False, print('.toarray() only works without boundary conditions at the moment')
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert bc == False
+                    assert bc == False, print('.toarray() only works without boundary conditions at the moment')
                     
             return self._mat.toarray()
         else:
