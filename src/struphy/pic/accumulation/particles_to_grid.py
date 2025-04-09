@@ -616,7 +616,7 @@ class AccumulatorVector:
             *self._args_data,
             *optional_args,
         )
-
+        print(f"{self._args_data[0].shape = }")
         if self.particles.clone_config is None:
             num_clones = 1
         else:
@@ -632,18 +632,24 @@ class AccumulatorVector:
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
+            print('should not be here 1')
             self._get_L2dofs(
                 args_control["control_vec"],
                 dofs=self._vectors[0],
                 clear=False,
             )
             vec_finished = True
-
+        
         # finish vector: accumulate ghost regions and update ghost regions
         if not vec_finished:
             for vec in self._vectors:
+                MPI.COMM_WORLD.Barrier()
+                print(f"before exchange: {np.sum(vec.toarray()) = }")
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
+                MPI.COMM_WORLD.Barrier()
+                print(f"after exchange: {np.sum(vec.toarray()) = }")
+            #exit()
 
     @property
     def particles(self):
