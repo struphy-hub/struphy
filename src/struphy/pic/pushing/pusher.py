@@ -64,7 +64,7 @@ class Pusher:
         stored at markers[:, buffer_idx + i].
 
     init_kernels : dict
-        Keys: initialization kernels for spline evaluations at time n (initial state).
+        Keys: initialization kernels for spline/ SPH evaluations at time n (initial state).
         Values: optional arguments.
 
     eval_kernels : dict
@@ -101,8 +101,8 @@ class Pusher:
         args_domain: DomainArguments,
         *,
         alpha_in_kernel: float | int | tuple | list,
-        init_kernels: dict = {},
-        eval_kernels: dict = {},
+        init_kernels: list = [],
+        eval_kernels: list = [],
         n_stages: int = 1,
         maxiter: int = 1,
         tol: float = 1.0e-8,
@@ -132,7 +132,7 @@ class Pusher:
             # check marker array column number
             assert isinstance(comps, np.ndarray)
             assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
+                f"{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!"
             )
 
         # prepare and check eval_kernels
@@ -144,7 +144,7 @@ class Pusher:
             # check marker array column number
             assert isinstance(comps, np.ndarray)
             assert column_nr + comps.size < particles.n_cols, (
-                f"{column_nr + comps.size} not smaller than {particles.n_cols =}; not enough columns in marker array !!"
+                f"{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!"
             )
 
         self._init_kernels = init_kernels
@@ -157,8 +157,13 @@ class Pusher:
             self._residuals = np.zeros(self.particles.markers.number_of_particles_at_level(0, True, True))
         else:
             self._residuals = np.zeros(self.particles.markers.shape[0])
-        self._converged_loc = self._residuals == 1.0
-        self._not_converged_loc = self._residuals == 0.0
+            self._converged_loc = self._residuals == 1.0
+            self._not_converged_loc = self._residuals == 0.0
+
+            if self.particles.sorting_boxes is not None:
+                self._box_comm = self.particles.sorting_boxes.communicate
+            else:
+                self._box_comm = False
 
     def __call__(self, dt: float):
         """
@@ -169,10 +174,17 @@ class Pusher:
         # some idx and slice
         markers = self.particles.markers
         vdim = self.particles.vdim
+
         if not self.particles.amrex:
             first_pusher_idx = self.particles.first_pusher_idx
             first_shift_idx = self.particles.args_markers.first_shift_idx
             residual_idx = self.particles.args_markers.residual_idx
+
+            if self.verbose:
+                print(f"{first_pusher_idx = }")
+                print(f"{first_shift_idx = }")
+                print(f"{residual_idx = }")
+                print(f"{self.particles.n_cols = }")
 
             init_slice = slice(first_pusher_idx, first_pusher_idx + 3 + vdim)
             shift_slice = slice(first_shift_idx, first_shift_idx + 3)
@@ -208,9 +220,9 @@ class Pusher:
             rank = self.particles.mpi_rank
             print(f"rank {rank}: starting {self.kernel} ...")
             if self.particles.mpi_comm is not None:
-                self.particles.derham.comm.Barrier()
+                self.particles.mpi_comm.Barrier()
 
-        # if init_kernels is not empty, do spline evaluations at initial positions 0:3
+        # if init_kernels is not empty, do evaluations at initial positions 0:3
         for ker_args in self.init_kernels:
             ker = ker_args[0]
             column_nr = ker_args[1]
@@ -226,6 +238,10 @@ class Pusher:
                 *add_args,
             )
 
+            # update boxes
+            if self._box_comm:
+                self.particles.put_particles_in_boxes()
+
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
@@ -236,12 +252,12 @@ class Pusher:
             if self.verbose and self.maxiter > 1:
                 max_res = 1.0
                 print(
-                    f"rank {rank}: {k=}, tol: {self._tol}, {n_not_converged[0]=}, {max_res=}",
+                    f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                 )
                 if self.particles.mpi_comm is not None:
-                    self.particles.derham.comm.Barrier()
+                    self.particles.mpi_comm.Barrier()
 
-            n_not_converged[0] = self.particles.n_mks
+            n_not_converged[0] = self.particles.Np
             while True:
                 k += 1
 
@@ -258,6 +274,7 @@ class Pusher:
                         self.particles.mpi_sort_markers(
                             apply_bc=False,
                             alpha=alpha[:3],
+                            remove_ghost=False,
                         )
 
                     # evaluate
@@ -269,6 +286,10 @@ class Pusher:
                         self._args_domain,
                         *add_args,
                     )
+
+                    # update boxes
+                    if self._box_comm:
+                        self.particles.put_particles_in_boxes()
 
                 if self.particles.amrex:
                     # push markers
@@ -285,6 +306,7 @@ class Pusher:
                         self.particles.mpi_sort_markers(
                             apply_bc=False,
                             alpha=self._alpha_in_kernel,
+                            remove_ghost=False,
                         )
 
                     # push markers
@@ -298,6 +320,10 @@ class Pusher:
 
                     self.particles.apply_kinetic_bc(newton=self._newton)
                     self.particles.update_holes()
+
+                    # update boxes
+                    if self._box_comm:
+                        self.particles.put_particles_in_boxes()
 
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
@@ -313,13 +339,13 @@ class Pusher:
 
                     if self.verbose:
                         print(
-                            f"rank {rank}: {k=}, tol: {self._tol}, {n_not_converged[0]=}, {max_res=}",
+                            f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                         )
                         if self.particles.mpi_comm is not None:
-                            self.particles.derham.comm.Barrier()
+                            self.particles.mpi_comm.Barrier()
 
                     if self.particles.mpi_comm is not None:
-                        self.particles.derham.comm.Allreduce(
+                        self.particles.mpi_comm.Allreduce(
                             self._mpi_in_place,
                             n_not_converged,
                             op=self._mpi_sum,
@@ -335,34 +361,33 @@ class Pusher:
                         print(
                             f"rank {rank}: {k=}, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0]=}, {max_res=}",
                         )
-                        
-                    if self.particles.amrex:
-                        self.particles.apply_amrex_kinetic_bc()
-                        self.particles.markers.redistribute()
-                    else:
-                        # sort markers according to domain decomposition
-                        if self.mpi_sort == "each":
+
+                    if self.mpi_sort == "each":
+                        if self.particles.amrex:
+                            self.particles.apply_amrex_kinetic_bc()
+                            self.particles.markers.redistribute()
+                        else:
+                            # sort markers according to domain decomposition
                             if self.particles.mpi_comm is not None:
                                 self.particles.mpi_sort_markers()
                             else:
                                 self.particles.apply_kinetic_bc()
-                    
-                    
+
                     break
 
                 # check for convergence
                 if n_not_converged[0] == 0:
-                    if self.particles.amrex:
-                        self.particles.apply_amrex_kinetic_bc()
-                        self.particles.markers.redistribute()
-                    else:
-                        # sort markers according to domain decomposition
-                        if self.mpi_sort == "each":
+                    if self.mpi_sort == "each":
+                        if self.particles.amrex:
+                            self.particles.apply_amrex_kinetic_bc()
+                            self.particles.markers.redistribute()
+                        else:
+                            # sort markers according to domain decomposition
                             if self.particles.mpi_comm is not None:
                                 self.particles.mpi_sort_markers()
                             else:
                                 self.particles.apply_kinetic_bc()
-                   
+
                     break
 
             # print stage info
@@ -371,18 +396,18 @@ class Pusher:
                     f"rank {rank}: stage {stage + 1} of {self.n_stages} done.",
                 )
                 if self.particles.mpi_comm is not None:
-                    self.particles.derham.comm.Barrier()
+                    self.particles.mpi_comm.Barrier()
 
-            # sort markers according to domain decomposition
+        # sort markers according to domain decomposition
+        if self.mpi_sort == "last":
             if self.particles.amrex:
                 self.particles.apply_amrex_kinetic_bc()
                 self.particles.markers.redistribute()
             else:
-                if self.mpi_sort == "last":
-                    if self.particles.mpi_comm is not None:
-                        self.particles.mpi_sort_markers(do_test=True)
-                    else:
-                        self.particles.apply_kinetic_bc()
+                if self.particles.mpi_comm is not None:
+                    self.particles.mpi_sort_markers(do_test=True)
+                else:
+                    self.particles.apply_kinetic_bc()
 
     @property
     def particles(self):

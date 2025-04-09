@@ -2,19 +2,21 @@ import os
 import pickle
 import sys
 from unittest import mock
-from unittest.mock import patch #, MagicMock, mock_open
+from unittest.mock import patch  # , MagicMock, mock_open
 
 import pytest
-# from mpi4py import MPI
 
+# from mpi4py import MPI
 import struphy
 import struphy as struphy_lib
 from struphy.console.compile import struphy_compile
 from struphy.console.main import struphy
 from struphy.console.params import struphy_params
 from struphy.console.pproc import struphy_pproc
+
 # from struphy.console.profile import struphy_profile
 from struphy.console.run import struphy_run
+
 # from struphy.console.test import struphy_test
 # from struphy.console.units import struphy_units
 from struphy.utils.utils import read_state
@@ -44,6 +46,7 @@ def split_command(command):
     for element in command:
         spl.extend(element.split())
     return spl
+
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize(
@@ -131,6 +134,7 @@ def test_main(args):
                     func.assert_called_once()
             else:
                 func.assert_not_called()
+
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("model", ["Maxwell", "Vlasov"])
@@ -221,6 +225,7 @@ def run_struphy(args):
     with mock.patch.object(sys, "argv", ["struphy"] + args):
         struphy()
 
+
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize(
     "args_expected",
@@ -250,6 +255,7 @@ def test_main_options(args_expected, capsys):
     for expected in args_expected[1]:
         assert expected in captured.out
 
+
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("language", ["c", "fortran"])
 @pytest.mark.parametrize("compiler", ["gnu", "intel"])
@@ -259,6 +265,7 @@ def test_main_options(args_expected, capsys):
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.parametrize("verbose", [True, False])
 @pytest.mark.parametrize("dependencies", [True, False])
+@pytest.mark.parametrize("time_execution", [True, False])
 @pytest.mark.parametrize("yes", [True])
 def test_struphy_compile(
     language,
@@ -269,6 +276,7 @@ def test_struphy_compile(
     status,
     verbose,
     dependencies,
+    time_execution,
     yes,
 ):
     # Save the original os.remove
@@ -303,6 +311,7 @@ def test_struphy_compile(
             status=status,
             verbose=verbose,
             dependencies=dependencies,
+            time_execution=time_execution,
             yes=yes,
         )
         print(f"{language = }")
@@ -313,6 +322,7 @@ def test_struphy_compile(
         print(f"{status} = ")
         print(f"{verbose = }")
         print(f"{dependencies = }")
+        print(f"{time_execution = }")
         print(f"{yes = }")
         print(f"{mock_save_state.call_count = }")
         print(f"{mock_subprocess_run.call_count = }")
@@ -341,15 +351,16 @@ def test_struphy_compile(
             mock_subprocess_run.assert_called()
             mock_save_state.assert_called()
 
+
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("model", ["Maxwell"])
 @pytest.mark.parametrize("file", ["params_Maxwell.yml", "params_Maxwel2.yml"])
 @pytest.mark.parametrize("yes", [True])
 @pytest.mark.parametrize("options", [True, False])
 def test_struphy_params(tmp_path, model, file, yes, options):
-
     file_path = os.path.join(tmp_path, file)
     struphy_params(model, str(file_path), yes=yes, options=options)
+
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("dirr", ["simulation_output", "custom_output"])

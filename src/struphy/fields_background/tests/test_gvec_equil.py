@@ -13,7 +13,7 @@ def test_gvec_equil():
     from gvec_to_python.geometry.domain import GVEC_domain
     from gvec_to_python.reader.gvec_reader import create_GVEC_json
 
-    from struphy.fields_background.mhd_equil.equils import GVECequilibrium
+    from struphy.fields_background.equils import GVECequilibrium
 
     # struphy discrete equilibirum
     mhd_equil = GVECequilibrium(rmin=0.0)

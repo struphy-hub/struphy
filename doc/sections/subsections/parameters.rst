@@ -24,7 +24,7 @@ up to 8 different keys in the ``.yml`` file:
 
 * :ref:`units` (under the key ``units``)
 * :ref:`geometry` (under the key ``geometry``)
-* :ref:`mhd_equilibrium` (under the key ``mhd_equilibrium``)
+* :ref:`fluid_background` (under the key ``fluid_background``)
 
 3. Species parameters:
 
@@ -36,7 +36,7 @@ The ``.yml`` parameter file has a generic structure for all Struphy models.
 The keys ``grid``, ``time``, ``units`` and ``geometry`` are present 
 in every model; moreover, at least one of the three
 species types ``em_fields``, ``fluid`` and ``kinetic`` must be present 
-in each model, relating to the model variable(s). An ``mhd_equilibrium``
+in each model, relating to the model variable(s). An ``fluid_background``
 is not mandatory.
 
 The structure of the dictionaries under each of the 8 top-level keys
@@ -48,9 +48,9 @@ Some hints for editing a parameter file:
 * Strings can either be set as e.g. ``'Cuboid'`` or ``Cuboid``, i.e. with or without quotes - both works.
 * The parameter ``null`` will be transformed to Python's ``None`` type.
 * Available geometries can be found in :ref:`avail_mappings`
-* Available MHD equilibria can be found in :ref:`mhd_equil`
+* Available fluid equilibria can be found in :ref:`equils`
 * Available kinetic backgrounds can be found in :ref:`kinetic_backgrounds`
-* Available fluid backgrounds can be found in :ref:`fluid_backgrounds`
+* Available fluid backgrounds can be found in :ref:`equils_avail`
 * Available perturbations can be found in :ref:`avail_inits`
 
 .. _grid:
@@ -243,17 +243,16 @@ Parameters:
      - See docstrings in :ref:`avail_mappings`.
 
 
-.. _mhd_equilibrium:
+.. _fluid_background:
 
-MHD equilibrium
-^^^^^^^^^^^^^^^
+Fluid background
+^^^^^^^^^^^^^^^^
 
 Example:
 
 ::
 
-    mhd_equilibrium :
-        type : HomogenSlab 
+    fluid_background :
         HomogenSlab : {}
 
 Parameters:
@@ -266,14 +265,10 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - The MHD equilibrium (its class name ``<equil_class>``).
-     - str
-     - See :ref:`mhd_equil_avail`.
    * - ``<equil_class>``
-     - Parameters for the chosen equilibrium. If empty, the defaults are taken.
+     - Class name and parameters for the equilibrium. If empty, the defaults are taken.
      - dict
-     - See docstrings in :ref:`mhd_equil_avail`.
+     - See :ref:`equils_avail`.
 
 
 .. _em_fields:
@@ -289,20 +284,22 @@ Example:
 
     em_fields :
         background: 
-            type : LogicalConst
-            LogicalConst :
-                comps :
-                    phi : 1.3 
-                    A : [.3, .15, null] 
+            phi : 
+              LogicalConst :
+                  values : 1.3 
+            A : 
+              LogicalConst :
+                  values : [.3, .15, null] 
         perturbation :
-            type : TorusModesCos
-            TorusModesCos :
-                comps :
-                    phi : '0' 
-                    A : [null, 'v', null] 
-                ms : 
-                    phi : [1] 
-                    A : [null, [1, 3], null] 
+            phi:
+              TorusModesCos :
+                  given_in_basis : '0' 
+                    A : 
+                  ms : [1] 
+            A:
+              TorusModesCos :
+                  given_in_basis : [null, 'v', null]
+                  ms : [null, [1, 3], null]  
 
 Parameters:
 
@@ -314,14 +311,10 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - A static background (its class name ``<bckgr_class>``).
-     - str
-     - See :ref:`fluid_backgrounds`.
-   * - ``<bckgr_class>``
-     - Parameters for the static background. If empty, the defaults are taken.
+   * - ``<variable_names>``
+     - Name of variable to be initialized.
      - dict
-     - See docstrings in :ref:`fluid_backgrounds`.
+     - Contains class name and parameters for the static background, see :ref:`equils_avail`. If empty, the defaults are taken.
 
 .. list-table:: ``perturbation``
    :widths: 15 35 10 40
@@ -331,14 +324,10 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - An initial perturbation (its class name ``<perturb_class>``).
-     - str
-     - See :ref:`avail_inits`.
-   * - ``<perturb_class>``
-     - Parameters for the initial perturbation. If empty, the defaults are taken.
+   * - ``<variable_names>``
+     - Name of variable to be initialized.
      - dict
-     - See docstrings in :ref:`avail_inits`.
+     - Contains class name and parameters for the perturbation, see :ref:`avail_inits`. If empty, the defaults are taken.
 
 
 
@@ -363,19 +352,18 @@ Example (one fluid species):
             phys_params:
                 A : 1 
                 Z : 1 
-            background: 
-                type : LogicalConst
-                LogicalConst :
-                    comps :
-                        velocity : [null, 1.5, null] 
-                        density : 2.3 
+            background : 
+                velocity :
+                    LogicalConst :
+                        values : [null, 1.5, null] 
+                density : 
+                    LogicalConst :
+                        values : 2.3 
             perturbation :
-                type : TorusModesCos
-                TorusModesCos :
-                    comps :
-                        density : '0' 
-                    ms : 
-                        density : [1, 3] 
+                density : 
+                    TorusModesCos :
+                        given_in_basis : '0' 
+                        ms : [1, 3] 
 
 Parameters:
 
@@ -404,14 +392,10 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - A static fluid background (its class name ``<bckgr_class>``).
-     - str
-     - See :ref:`fluid_backgrounds`.
-   * - ``<bckgr_class>``
-     - Parameters for the static fluid background. If empty, the defaults are taken.
+   * - ``<variable_names>``
+     - Name of variable to be initialized.
      - dict
-     - See docstrings in :ref:`fluid_backgrounds`.
+     - Contains class name and parameters for the static background, see :ref:`equils_avail`. If empty, the defaults are taken.
 
 .. list-table:: ``perturbation``
    :widths: 15 35 10 40
@@ -421,14 +405,10 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - An initial perturbation (its class name ``<perturb_class>``).
-     - str
-     - See :ref:`avail_inits`.
-   * - ``<perturb_class>``
-     - Parameters for the initial perturbation. If empty, the defaults are taken.
+   * - ``<variable_names>``
+     - Name of variable to be initialized.
      - dict
-     - See docstrings in :ref:`avail_inits`.
+     - Contains class name and parameters for the perturbation, see :ref:`avail_inits`. If empty, the defaults are taken.
 
 .. _kinetic:
 
@@ -479,17 +459,14 @@ Example (one kinetic species):
                     n_bins : [[32], [32, 32]]
                     ranges : [[[-3., 3.]], [[0., 1.], [-5., 5.]]]
             background : 
-                type : Maxwellian3D
                 Maxwellian3D :
                     n  : 0.05
                     u2 : 2.5
             perturbation :
-                type : TorusModesCos
-                TorusModesCos :
-                    comps :
-                        n : '0' 
-                    ms : # poloidal mode numbers
-                        n : [1, 3] 
+                n :
+                    TorusModesCos :
+                        given_in_basis :  '0' 
+                        ms : [1, 3] 
 
 Parameters:
 
@@ -518,20 +495,18 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - Type of marker discretization.
-     - str
-     - * ``full_f``: solve PDE for full-:math:`f`
-       * ``control_variate``: solve PDE for full-:math:`f`, compute integrals with :ref:`control_var`
-       * ``delta_f``: solve PDE for :math:`\delta f = f - f_0` (update weights)
-   * - ``ppc``
-     - Number of markers per 3d grid cell.
-     - int
-     - If ``null``, ``Np`` is used.
    * - ``Np``
      - Total number of markers.
      - int
-     - Takes effect only if ``ppc`` is ``null``.
+     - 
+   * - ``ppc``
+     - Number of markers per grid cell.
+     - int
+     - Takes effect only if ``Np`` is absent.
+   * - ``ppb``
+     - Number of markers per sorting box.
+     - int
+     - Takes effect only if both ``Np`` and ``ppc`` are absent.
    * - ``eps``
      - Size of MPI-buffer in markers array as fraction of markers per process (0.1 <= eps <= 1.0).
      - float
@@ -567,6 +542,10 @@ Parameters:
        * optional: ``dir_external`` (str): path to .hdf5 file
        * optional: ``dir_particles`` (str): simulation folder relative to current output path 
        * optional: ``dir_particles_abs`` (str): simulation folder, absolute path
+   * - ``control_variate``
+     - Whether to use a :ref:`control_var` for noise reduction (only if ``type`` is ``full_f`` or ``sph``).
+     - bool
+     -
 
 
 .. list-table:: ``save_data``
@@ -597,14 +576,10 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - A MANDATORY static kinetic background (its class name ``<bckgr_class>``).
-     - str
-     - See :ref:`kinetic_backgrounds`.
    * - ``<bckgr_class>``
-     - Parameters for the static kinetic background. If empty, the defaults are taken.
+     - Class name and parameters for the static kinetic background. If empty, the defaults are taken.
      - dict
-     - See docstrings in :ref:`kinetic_backgrounds`.
+     - See :ref:`kinetic_backgrounds`.
 
 .. list-table:: ``perturbation``
    :widths: 15 35 10 40
@@ -614,11 +589,7 @@ Parameters:
      - Description
      - Format
      - Choices
-   * - ``type``
-     - An initial perturbation (its class name ``<perturb_class>``).
-     - str
-     - See :ref:`avail_inits`.
-   * - ``<perturb_class>``
-     - Parameters for the initial perturbation. If empty, the defaults are taken.
+   * - ``<moment_names>``
+     - Name of moment to be initialized.
      - dict
-     - See docstrings in :ref:`avail_inits`.
+     - Contains class name and parameters for the perturbation, see :ref:`avail_inits`. If empty, the defaults are taken.

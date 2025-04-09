@@ -10,65 +10,149 @@ from struphy.pic.particles import ParticlesSPH
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
-@pytest.mark.parametrize(
-    "spl_kind", [[False, False, True], [False, True, False], [True, False, True], [True, True, False]]
-)
-@pytest.mark.parametrize(
-    "mapping",
-    [
-        ["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}],
-    ],
-)
-@pytest.mark.parametrize("Np", [400000])
-def test_evaluation(Nel, p, spl_kind, mapping, Np, verbose=False):
-    mpi_comm = MPI.COMM_WORLD
+@pytest.mark.parametrize("Np", [40000, 46200])
+@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+def test_evaluation_mc(Np, bc_x, show_plot=False):
+    comm = MPI.COMM_WORLD
 
     # DOMAIN object
-    dom_type = mapping[0]
-    dom_params = mapping[1]
+    dom_type = "Cuboid"
+    dom_params = {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
-    params_sorting = {"nx": 3, "ny": 3, "nz": 3, "eps": 0.25}
-    params_loading = {"seed": 1607, "moments": "degenerate", "spatial": "uniform"}
+    boxes_per_dim = (16, 1, 1)
+    loading_params = {"seed": 1607}
 
-    bckgr_params = {
-        "type": "ConstantVelocity",
-        "ConstantVelocity": {"density_profile": "affine", "ux": 1.0, "uy": 0.0, "uz": 0.0, "n": 1.0, "n1": 0.1},
-        "pforms": ["vol", None],
-    }
+    cst_vel = {"density_profile": "constant", "n": 1.0}
+    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
+    modes = {"ModesSin": mode_params}
+    pert_params = {"n": modes}
+
+    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
 
     particles = ParticlesSPH(
-        "test_particles",
+        comm_world=comm,
         Np=Np,
-        bc=["periodic", "periodic", "periodic"],
-        loading="pseudo_random",
-        eps=10.0,  # Lots a buffering needed since only 3*3*3 box
-        comm=mpi_comm,
-        loading_params=params_loading,
+        boxes_per_dim=boxes_per_dim,
+        bc=[bc_x, "periodic", "periodic"],
+        eps=1.0,
+        loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr_params,
-        sorting_params=params_sorting,
+        pert_params=pert_params,
     )
 
     particles.draw_markers(sort=False)
     particles.mpi_sort_markers()
     particles.initialize_weights()
-    eta1 = np.array([0.5])
-    eta2 = np.array([0.5])
-    eta3 = np.array([0.5])
-    test_eval = particles.eval_density(eta1, eta2, eta3, h=1 / (3 * mpi_comm.Get_size()))
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+    eta1 = np.linspace(0, 1.0, 100)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
+    eta2 = np.array([0.0])
+    eta3 = np.array([0.0])
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+    test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+    all_eval = np.zeros_like(test_eval)
 
-    assert abs(test_eval[0] - 1.15) < 3.0e-2
+    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+
+    if show_plot and comm.Get_rank() == 0:
+        from matplotlib import pyplot as plt
+
+        plt.figure(figsize=(12, 8))
+        plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
+        plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+
+        plt.show()
+
+    # print(f'{fun_exact(ee1, ee2, ee3) = }')
+    # print(f'{comm.Get_rank() = }, {all_eval = }')
+    # print(f'{np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3))) = }')
+    assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.065)
+
+
+@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (10, 1, 1)])
+@pytest.mark.parametrize("ppb", [4, 9])
+@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
+    comm = MPI.COMM_WORLD
+
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    loading = "tesselation"
+    loading_params = {"n_quad": 1}
+
+    cst_vel = {"density_profile": "constant", "n": 1.0}
+    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
+    modes = {"ModesSin": mode_params}
+    pert_params = {"n": modes}
+
+    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        ppb=ppb,
+        boxes_per_dim=boxes_per_dim,
+        bc=[bc_x, "periodic", "periodic"],
+        eps=1.0,
+        loading=loading,
+        loading_params=loading_params,
+        domain=domain,
+        bckgr_params=bckgr_params,
+        pert_params=pert_params,
+        verbose=True,
+    )
+
+    particles.draw_markers(sort=False)
+    particles.mpi_sort_markers()
+    particles.initialize_weights(from_tesselation=True)
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+    eta1 = np.linspace(0, 1.0, 10)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
+    eta2 = np.array([0.0])
+    eta3 = np.array([0.0])
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+    test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+    all_eval = np.zeros_like(test_eval)
+
+    # rank = comm.Get_rank()
+    # print(f'{rank = }, {test_eval.squeeze() = }')
+
+    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+
+    if show_plot and comm.Get_rank() == 0:
+        from matplotlib import pyplot as plt
+
+        plt.figure(figsize=(12, 8))
+        plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
+        plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+        plt.legend()
+
+        plt.show()
+
+    # print(f'{fun_exact(ee1, ee2, ee3) = }')
+    # print(f'{comm.Get_rank() = }, {all_eval = }')
+    # print(f'{np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3))) = }')
+    assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.017)
 
 
 if __name__ == "__main__":
-    test_evaluation(
-        [8, 9, 10],
-        [2, 3, 4],
-        [False, False, True],
-        ["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}],
-        400000,
-    )
+    test_evaluation_mc(40000, "periodic", show_plot=True)
+    # test_evaluation_tesselation(
+    #     (8, 1, 1),
+    #     4,
+    #     "periodic",
+    #     show_plot=True
+    # )

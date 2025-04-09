@@ -11,6 +11,7 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -53,19 +54,19 @@ def push_v_with_efield(
     """
 
     # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinvt = empty((3, 3), dtype=float)
+    dfm = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvt = zeros((3, 3), dtype=float)
 
     # allocate for field evaluations (1-form and Cartesian components)
-    e_form = empty(3, dtype=float)
-    e_cart = empty(3, dtype=float)
+    e_form = zeros(3, dtype=float)
+    e_cart = zeros(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, e_form, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -86,8 +87,7 @@ def push_v_with_efield(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels.matrix_inv(dfm, dfinv)
         linalg_kernels.transpose(dfinv, dfinvt)
 
         # spline evaluation
@@ -164,7 +164,7 @@ def push_vxb_analytic(
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
+        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         e1 = markers[ip, 0]
@@ -284,7 +284,7 @@ def push_vxb_implicit(
     n_markers = args_markers.n_markers
     first_init_idx = args_markers.first_init_idx
 
-    #$ omp parallel firstprivate(b_prod) private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
@@ -423,7 +423,7 @@ def push_pxb_analytic(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp parallel private (ip, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -792,7 +792,7 @@ def push_hybrid_xp_ap(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
+    #$ omp parallel private (ip, v, dfm, dfinv, dfinv_t, span1, span2, span3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1101,7 +1101,7 @@ def push_bxu_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1222,7 +1222,7 @@ def push_bxu_Hcurl(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1343,7 +1343,7 @@ def push_bxu_H1vec(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1495,7 +1495,7 @@ def push_bxu_Hdiv_pauli(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, der1, der2, der3, bd1, bd2, bd3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, der1, der2, der3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1898,7 +1898,7 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    #$ omp parallel private(ip, e, v, dfm, dfinv, k)
+    #$ omp parallel private(ip, v, dfm, dfinv, k)
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole or a boundary particle
@@ -1910,7 +1910,7 @@ def push_eta_stage(
         e3 = markers[ip, 2]
         v[:] = markers[ip, 3:6]
 
-################### extract kernel#################
+        ################### extract kernel#################
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
             e1,
@@ -2762,11 +2762,12 @@ def push_weights_with_efield_lin_va(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
     for ip in range(n_markers):
-        if markers[ip, 0] == -1:
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
         # position
@@ -2822,359 +2823,6 @@ def push_weights_with_efield_lin_va(
     #$ omp end parallel
 
 
-@stack_array("dfm", "df_inv", "v", "df_inv_v", "e_vec")
-def push_weights_with_efield_lin_vm(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    e1_1: "float[:,:,:]",
-    e1_2: "float[:,:,:]",
-    e1_3: "float[:,:,:]",
-    f0_values: "float[:]",
-    f0_params: "float[:]",
-    n_markers_tot: "int",
-    kappa: "float",
-):
-    r"""
-    updates the single weights in the e_W substep of the Vlasov Maxwell system with delta-f;
-    c.f. struphy.propagators.propagators.StepEfieldWeights
-
-    Parameters
-    ----------
-    e1_1, e1_2, e1_3: array[float]
-        3d array of FE coeffs of E-field as 1-form.
-
-    f0_values ; array[float]
-        Value of f0 for each particle.
-
-    f0_params : array[float]
-        Parameters needed to specify the moments, in ascending order.
-
-    n_markers_tot : int
-        total number of particles
-
-    kappa : float
-        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
-    """
-
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    v = empty(3, dtype=float)
-    df_inv_v = empty(3, dtype=float)
-
-    e_vec = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-
-    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
-    #$ omp for
-    for ip in range(n_markers):
-        if markers[ip, 0] == -1:
-            continue
-
-        # position
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # get velocity
-        v[0] = markers[ip, 3] / f0_params[4] ** 2
-        v[1] = markers[ip, 4] / f0_params[5] ** 2
-        v[2] = markers[ip, 5] / f0_params[6] ** 2
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        f0 = f0_values[ip]
-
-        # Compute Jacobian matrix
-        evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            dfm,
-        )
-
-        # invert Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, df_inv)
-
-        # compute DF^{-1} v
-        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
-
-        # E-field (1-form)
-        eval_1form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            e1_1,
-            e1_2,
-            e1_3,
-            e_vec,
-        )
-
-        # w_{n+1} = w_n + dt * kappa / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
-        update = (
-            (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2])
-            * sqrt(f0)
-            * dt
-            * kappa
-            / (2 * markers[ip, 7])
-        )
-        markers[ip, 6] += update
-
-    #$ omp end parallel
-
-
-@stack_array("dfm", "df_inv", "v", "df_inv_v", "e_vec")
-def push_weights_with_efield_delta_f_vm(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    e1_1: "float[:,:,:]",
-    e1_2: "float[:,:,:]",
-    e1_3: "float[:,:,:]",
-    f0_values: "float[:]",
-    vth: "float",
-    kappa: "float",
-    substep: "int",
-):
-    r"""
-    updates the single weights in one of the e_W substep of the Vlasov Maxwell system;
-    c.f. struphy.propagators.propagators.StepEfieldWeights
-
-    Parameters
-    ----------
-    e1_1, e1_2, e1_3 : array[float]
-        3d array of FE coeffs of E-field as 1-form.
-
-    f0_values : array[float]
-        Value of f0 for each particle.
-
-    f0_params : array[float]
-        Parameters needed to specify the moments, in ascending order.
-
-    n_markers_tot : int
-        total number of particles
-
-    kappa : float
-        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
-
-    substep : int
-        0 for explicit substep, 1 for symplectic substep
-    """
-
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    v = empty(3, dtype=float)
-    df_inv_v = empty(3, dtype=float)
-
-    e_vec = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-
-    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
-    #$ omp for
-    for ip in range(n_markers):
-        if markers[ip, 0] == -1:
-            continue
-
-        # position
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        f0 = f0_values[ip]
-
-        # Compute Jacobian matrix
-        evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            dfm,
-        )
-
-        # compute shifted and stretched velocity
-        v[0] = markers[ip, 3]
-        v[1] = markers[ip, 4]
-        v[2] = markers[ip, 5]
-
-        # invert Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, df_inv)
-        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
-
-        # E-field (1-form)
-        eval_1form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            e1_1,
-            e1_2,
-            e1_3,
-            e_vec,
-        )
-
-        update = kappa * (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2])
-        if substep == 0:
-            # w_p += dt * kappa / s_0 * (DL^{-1} v_p) * e_vec
-            # with e_vec = e(0) - dt / 2 * M_1^{-1} accum_vec
-            update *= dt * (f0 / log(f0) - f0) / markers[ip, 7]
-        elif substep == 1:
-            # w_p -= dt * kappa * w_p / (vth^2 * ln(f_0)) * (DL^{-1} v_p) * e_vec
-            # with e_vec = (e^{n+1} + e^n) / 2
-            update *= (-1) * dt * markers[ip, 6] / (vth**2 * log(f0))
-
-        markers[ip, 6] += update
-
-    #$ omp end parallel
-
-
-@stack_array("particle", "dfm", "df_inv", "taus")
-def push_x_v_static_efield(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    loc1: "float[:]",
-    loc2: "float[:]",
-    loc3: "float[:]",
-    weight1: "float[:]",
-    weight2: "float[:]",
-    weight3: "float[:]",
-    e1_1: "float[:,:,:]",
-    e1_2: "float[:,:,:]",
-    e1_3: "float[:,:,:]",
-    kappa: "float",
-    eps: "float[:]",
-    maxiter: int,
-):
-    r"""
-    particle pusher for ODE
-
-    .. math::
-        \frac{\text{d} \mathbf{\eta}}{\text{d} t} & = DL^{-1} \mathbf{v} \,
-
-        \frac{\text{d} \mathbf{v}}{\text{d} t} & = \kappa \, DL^{-T} \mathbf{E}_0(\mathbf{\eta})
-
-    Parameters
-    ----------
-    loc1, loc2, loc3 : array
-        contain the positions of the Legendre-Gauss quadrature points of necessary order to integrate basis splines exactly in each direction
-
-    weight1, weight2, weight3 : array
-        contain the values of the weights for the Legendre-Gauss quadrature in each direction
-
-    e1_1, e1_2, e1_3 : array[float]
-        3d array of FE coeffs of the background E-field as 1-form.
-
-    kappa : float
-        = 2 * pi * Omega_c / omega ; Parameter determining the coupling strength between particles and fields
-
-    eps : array
-        determines the accuracy for the position (0th element) and velocity (1st element) with which the implicit scheme is executed
-
-    maxiter : integer
-        sets the maximum number of iterations for the iterative scheme
-    """
-
-    particle = zeros(9, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-
-    # number of quadrature points in direction 1
-    n_quad1 = int(
-        floor((args_derham.pn[0] - 1) * args_derham.pn[1] * args_derham.pn[2] / 2 + 1),
-    )
-    # number of quadrature points in direction 2
-    n_quad2 = int(
-        floor(args_derham.pn[0] * (args_derham.pn[1] - 1) * args_derham.pn[2] / 2 + 1),
-    )
-    # number of quadrature points in direction 3
-    n_quad3 = int(
-        floor(args_derham.pn[0] * args_derham.pn[1] * (args_derham.pn[2] - 1) / 2 + 1),
-    )
-
-    # Create array for storing the tau values
-    taus = empty(20, dtype=float)
-
-    #$ omp parallel private(ip, run, bn1, bn2, bn3, bd1, bd2, bd3, dfm, df_inv, taus, temp, k, particle, dt2)
-    #$ omp for
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        particle[:] = markers[ip, :]
-
-        run = 1
-        k = 0
-
-        while run != 0:
-            k += 1
-            if k == 5:
-                print(
-                    "Splitting the time steps into 4 has not been enough, aborting the iteration.",
-                )
-                print()
-                break
-
-            run = 0
-
-            dt2 = dt / k
-
-            for _ in range(k):
-                temp = pusher_utilities_kernels.aux_fun_x_v_stat_e(
-                    particle,
-                    args_derham,
-                    args_domain,
-                    n_quad1,
-                    n_quad2,
-                    n_quad3,
-                    dfm,
-                    df_inv,
-                    taus,
-                    dt2,
-                    loc1,
-                    loc2,
-                    loc3,
-                    weight1,
-                    weight2,
-                    weight3,
-                    e1_1,
-                    e1_2,
-                    e1_3,
-                    kappa,
-                    eps,
-                    maxiter,
-                )
-                run = run + temp
-
-        # write the results in the particles array
-        markers[ip, :] = particle[:]
-
-    #$ omp end parallel
-
-
 @stack_array("ginv", "k", "tmp", "pi_du_value")
 def push_deterministic_diffusion_stage(
     dt: float,
@@ -3200,7 +2848,10 @@ def push_deterministic_diffusion_stage(
     for each marker :math:`p` in markers array, where :math:`\frac{\nabla \hat u^0}{\hat u^0}` is constant in time. :math:`D>0` is a positive, constant diffusion coefficient.
     """
 
-    # allocate metric coeffs
+    # allocate arrays
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
+    tmp3 = zeros((3, 3), dtype=float)
     ginv = zeros((3, 3), dtype=float)
 
     # intermediate k-vector
@@ -3223,7 +2874,7 @@ def push_deterministic_diffusion_stage(
 
     pi_du_value = empty(3, dtype=float)
 
-    #$ omp parallel private(ip, etas, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
+    #$ omp parallel private(ip, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -3264,6 +2915,10 @@ def push_deterministic_diffusion_stage(
             e2,
             e3,
             args_domain,
+            tmp1,
+            tmp2,
+            tmp3,
+            False,
             ginv,
         )
 
@@ -3325,5 +2980,238 @@ def push_random_diffusion_stage(
             continue
 
         markers[ip, 0:3] += sqrt(2 * dt * diffusion_coeff) * noise[ip, :]
+
+    #$ omp end parallel
+
+
+@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
+def push_v_sph_pressure(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    boxes: "int[:,:]",
+    neighbours: "int[:, :]",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+):
+    r"""Updates particle velocities as
+
+    .. math::
+
+        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = \kappa_p \sum_{q} w_p\,w_q \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_q)} \right) G^{-1}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_q) \,,
+
+    where :math:`G^{-1}` denotes the inverse metric tensor, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta_p) = \frac 1N \sum_q w_q \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_q)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+
+    Parameters
+    ----------
+    boxes : 2d array
+        Box array of the sorting boxes structure.
+
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+    """
+    # allocate arrays
+    grad_u = zeros(3, dtype=float)
+    grad_u_cart = zeros(3, dtype=float)
+    tmp1 = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvT = zeros((3, 3), dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
+    first_free_idx = args_markers.first_free_idx
+    valid_mks = args_markers.valid_mks
+
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    #$ omp for
+    for ip in range(n_markers):
+        if not valid_mks[ip]:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        weight = markers[ip, weight_idx]
+        kappa = 1.0  # markers[ip, first_diagnostics_idx]
+        n_at_eta = markers[ip, first_free_idx]
+        loc_box = int(markers[ip, -2])
+
+        # first component
+        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            weight_idx,
+            kernel_type + 1,
+            h1,
+            h2,
+            h3,
+        )
+        grad_u[0] *= kappa / n_at_eta
+
+        sum2 = sph_eval_kernels.boxed_based_kernel(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            first_free_idx + 1,
+            kernel_type + 1,
+            h1,
+            h2,
+            h3,
+        )
+        sum2 *= kappa
+        grad_u[0] += sum2
+
+        if kernel_type >= 340:
+            # second component
+            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                weight_idx,
+                kernel_type + 2,
+                h1,
+                h2,
+                h3,
+            )
+            grad_u[1] *= kappa / n_at_eta
+
+            sum4 = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                first_free_idx + 1,
+                kernel_type + 2,
+                h1,
+                h2,
+                h3,
+            )
+            sum4 *= kappa
+            grad_u[1] += sum4
+
+        if kernel_type >= 670:
+            # third component
+            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                weight_idx,
+                kernel_type + 3,
+                h1,
+                h2,
+                h3,
+            )
+            grad_u[2] *= kappa / n_at_eta
+
+            sum6 = sph_eval_kernels.boxed_based_kernel(
+                eta1,
+                eta2,
+                eta3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                first_free_idx + 1,
+                kernel_type + 3,
+                h1,
+                h2,
+                h3,
+            )
+            sum6 *= kappa
+            grad_u[2] += sum6
+
+        # push to Cartesian coordinates
+        evaluation_kernels.df_inv(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            tmp1,
+            False,
+            dfinv,
+        )
+        linalg_kernels.transpose(dfinv, dfinvT)
+        linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
+
+        # update velocities
+        markers[ip, 3:6] -= dt * grad_u_cart
 
     #$ omp end parallel

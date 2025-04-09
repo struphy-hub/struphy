@@ -57,7 +57,7 @@ Used parameters and batch files are available at `struphy-simulations <https://g
 
 The results from the scaling test of the model, **LinearMHD** :py:class:`struphy.models.fluid.LinearMHD`, with **MPCDF_cobra**.
 The LinearMHD equations are solved at different domains: :py:class:`Cuboid <struphy.geometry.domains.Cuboid>`, :py:class:`Colella <struphy.geometry.domains.Colella>`, :py:class:`HollowTorus <struphy.geometry.domains.HollowTorus>` and :py:class:`Tokamak <struphy.geometry.domains.Tokamak>`.
-At each domains, corresponding MHD equilibriums are used, :py:class:`HomogenSlab <struphy.fields_background.mhd_equil.equils.HomogenSlab>`, :py:class:`AdhocTorus <struphy.fields_background.mhd_equil.equils.AdhocTorus>` and :py:class:`EQDSKequilibrium <struphy.fields_background.mhd_equil.equils.EQDSKequilibrium>`.
+At each domains, corresponding MHD equilibriums are used, :py:class:`HomogenSlab <struphy.fields_background.equils.HomogenSlab>`, :py:class:`AdhocTorus <struphy.fields_background.equils.AdhocTorus>` and :py:class:`EQDSKequilibrium <struphy.fields_background.equils.EQDSKequilibrium>`.
 For all cases, two different initialization, :ref:`Noise <avail_inits>` and :py:class:`ModesSin <struphy.initial.perturbations.ModesSin>`, are tested.
 Each of exactly same problems is solved with different numbers of processes **(4, 8, 16, 32)**. 
 

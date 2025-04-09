@@ -5,9 +5,8 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.mass import WeightedMassOperators
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import MHDequilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
@@ -34,6 +33,17 @@ class PushEta(Propagator):
     Available algorithms:
 
     * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+
+    Parameters
+    ----------
+    particles : Particles6D | ParticlesSPH
+        Particles object.
+
+    algo : str
+        Algorithm for solving the ODE (see options below).
+
+    density_field: StencilVector
+        Storage for density evaluation at each __call__.
     """
 
     @staticmethod
@@ -86,15 +96,21 @@ class PushEta(Propagator):
             self._density_field = density_field
 
     def __call__(self, dt):
-        # push markers
         self._pusher(dt)
 
         # update_weights
-        if not self.amrex and self.particles[0].control_variate: # short circuit don't swap
+        if not self.amrex and self.particles[0].control_variate:  # short circuit don't swap
             self.particles[0].update_weights()
 
         if self._eval_density:
-            eval_density = lambda eta1, eta2, eta3: self._particles[0].eval_density(eta1, eta2, eta3, h=0.15)
+            eval_density = lambda eta1, eta2, eta3: self.particles[0].eval_density(
+                eta1,
+                eta2,
+                eta3,
+                h1=0.1,
+                h2=0.1,
+                h3=0.1,
+            )
             self.derham.P["3"](eval_density, out=self._density_field)
 
 
@@ -103,9 +119,10 @@ class PushVxB(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa\,\mathbf v_p(t) \times \mathbf B\,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
 
-    where :math:`\kappa \in \mathbb R` is a constant saling factor, and for fixed rotation vector :math:`\mathbf B`, given as a 2-form:
+    where :math:`\kappa \in \mathbb R` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
+    vector :math:`\mathbf B_{\text{add}}`, both given as a 2-form:
 
     .. math::
 
@@ -128,21 +145,21 @@ class PushVxB(Propagator):
         *,
         algo: str = options(default=True)["algo"],
         kappa: float = 1.0,
-        b_eq: BlockVector | PolarVector,
-        b_tilde: BlockVector | PolarVector = None,
+        b2: BlockVector | PolarVector,
+        b2_add: BlockVector | PolarVector = None,
     ):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
-        assert b_eq.space == self.derham.Vh["2"]
-        if b_tilde is not None:
-            assert b_tilde.space == self.derham.Vh["2"]
+        assert b2.space == self.derham.Vh["2"]
+        if b2_add is not None:
+            assert b2_add.space == self.derham.Vh["2"]
 
         # base class constructor call
         super().__init__(particles)
 
         # parameters that need to be exposed
         self._kappa = kappa
-        self._b_eq = b_eq
-        self._b_tilde = b_tilde
+        self._b2 = b2
+        self._b2_add = b2_add
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
 
@@ -175,9 +192,9 @@ class PushVxB(Propagator):
 
     def __call__(self, dt):
         # sum up total magnetic field
-        tmp = self._b_eq.copy(out=self._tmp)
-        if self._b_tilde is not None:
-            tmp += self._b_tilde
+        tmp = self._b2.copy(out=self._tmp)
+        if self._b2_add is not None:
+            tmp += self._b2_add
 
         # extract coefficients to tensor product space
         b_full = self._E2T.dot(tmp, out=self._b_full)
@@ -228,9 +245,9 @@ class PushVinEfield(Propagator):
         # instantiate Pusher
         args_kernel = (
             self.derham.args_derham,
-            self._e_field.blocks[0]._data,
-            self._e_field.blocks[1]._data,
-            self._e_field.blocks[2]._data,
+            self._e_field[0]._data,
+            self._e_field[1]._data,
+            self._e_field[2]._data,
             self.kappa,
         )
 
@@ -425,10 +442,10 @@ class PushGuidingCenterBxEstar(Propagator):
         super().__init__(particles)
 
         # magnetic equilibrium field
-        unit_b1 = self.projected_mhd_equil.unit_b1
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        unit_b1 = self.projected_equil.unit_b1
+        self._gradB1 = self.projected_equil.gradB1
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde
@@ -833,11 +850,11 @@ class PushGuidingCenterParallel(Propagator):
         self._epsilon = epsilon
 
         # magnetic equilibrium field
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        b2 = self.projected_mhd_equil.b2
-        curl_unit_b2 = self.projected_mhd_equil.curl_unit_b2
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        self._gradB1 = self.projected_equil.gradB1
+        b2 = self.projected_equil.b2
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde
@@ -1205,7 +1222,7 @@ class StepStaticEfield(Propagator):
 
         # parameters
         params_default = {
-            "e_field": BlockVector(self.derham.Vh_fem["1"].vector_space),
+            "e_field": BlockVector(self.derham.Vh_fem["1"].coeff_space),
             "kappa": 1e2,
         }
 
@@ -1448,3 +1465,125 @@ class PushRandomDiffusion(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
+
+
+class PushVinSPHpressure(Propagator):
+    r"""For each marker :math:`p`, solves
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa_p \sum_{i=1}^N w_i \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+
+    where :math:`DF^{-\top}` denotes the inverse transpose Jacobian, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta) = \frac 1N \sum_{j=1}^N w_j \, W_h(\boldsymbol \eta - \boldsymbol \eta_j)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    Time stepping:
+
+    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+
+    Parameters
+    ----------
+    particles : ParticlesSPH
+        SPH particles object.
+
+    kernel_type : str
+        The smoothing kernel, choose from :meth:`~struphy.pic.base.Particles.ker_dct`
+
+    kernel_width : tuple
+        Width of smoothing kernel in each direction.
+
+    algo : str
+        Algorithm for solving the ODE (see options below).
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["kernel_type"] = list(Particles.ker_dct())
+        dct["algo"] = [
+            "forward_euler",
+        ]  # "heun2", "rk2", "heun3", "rk4"]
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(
+        self,
+        particles: ParticlesSPH,
+        *,
+        kernel_type: str = "gaussian_2d",
+        kernel_width: tuple = None,
+        algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+    ):
+        # base class constructor call
+        super().__init__(particles)
+
+        # init kernel for evaluating density etc. before each time step.
+        init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
+
+        first_free_idx = particles.args_markers.first_free_idx
+        comps = (0, 1)
+
+        boxes = particles.sorting_boxes.boxes
+        neighbours = particles.sorting_boxes.neighbours
+        holes = particles.holes
+        periodic = [bci == "periodic" for bci in particles.bc]
+        kernel_nr = particles.ker_dct()[kernel_type]
+
+        if kernel_width is None:
+            kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
+        else:
+            assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
+
+        # collect arguments for init kernel
+        args_init = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+        )
+
+        self.add_init_kernel(
+            init_kernel,
+            first_free_idx,
+            comps,
+            args_init,
+        )
+
+        # kernel for velocity update
+        # if kernel_nr <= 330:
+        #     assert particles.sorting_boxes.ny == 1, (
+        #         f"For 1d SPH simulations {kernel_nr = } <= 330, {particles.sorting_boxes.ny = } != 1 is not allowed."
+        #     )
+        #     assert particles.sorting_boxes.nz == 1, (
+        #         f"For 1d SPH simulations {kernel_nr = } <= 330, {particles.sorting_boxes.nz = } != 1 is not allowed."
+        #     )
+        # elif kernel_nr <= 660:
+        #     assert particles.sorting_boxes.nz == 1, (
+        #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
+        #     )
+
+        kernel = pusher_kernels.push_v_sph_pressure
+
+        # same arguments as init kernel
+        args_kernel = args_init
+
+        # the Pusher class wraps around all kernels
+        self._pusher = Pusher(
+            particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=0.0,
+            init_kernels=self.init_kernels,
+        )
+
+    def __call__(self, dt):
+        self.particles[0].put_particles_in_boxes()
+        self._pusher(dt)

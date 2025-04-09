@@ -46,6 +46,8 @@ extensions = [
     "sphinx_design",
 ]
 
+nbsphinx_execute = "auto"
+
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
 napoleon_use_admonition_for_references = True

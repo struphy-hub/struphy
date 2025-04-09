@@ -19,35 +19,25 @@ RUN echo "Refreshing repositories and installing basic tools..." \
 
 RUN echo "Installing Python and development tools..." \
     && zypper refresh \
-    && zypper install -y python3 python3-devel python3-pip python3-venv python3-pkgconfig \
+    && zypper install -y python3 python3-devel python3-pip python3-virtualenv python3-pkgconfig \
     && python3 --version || echo "Python installation failed!" \
     && zypper clean --all
 
 RUN echo "Installing GCC and MPI libraries..." \
     && zypper install -y gcc-fortran gcc \
-    && zypper install -y lapack-devel openmpi-devel \
-    && zypper install -y blas-devel openmpi \
+    && zypper install -y blas-devel lapack-devel \
+    && zypper install -y openmpi openmpi-devel openmpi4-devel \
     && zypper install -y libgomp1 \
     && zypper clean --all
 
 RUN echo "Installing additional tools..." \
-    && zypper install -y git pandoc sqlite3 vim make \
+    && zypper install -y git pandoc vim make \
     && zypper clean --all
-
-RUN echo "Setting up Python virtual environment..." \
-    && python3 -m venv /opensuse_latest/venv \
-    && opensuse_latest/venv/bin/pip install --upgrade pip
-
-RUN echo "Reinstalling python3-devel..." \
-    && zypper install -y python3-devel
 
 # Create a new working directory
 WORKDIR /struphy_install/
 
-COPY dist/struphy*.whl .
-
 # Allow mpirun to run as root (for OpenMPI)
-ENV PATH="/opensuse_latest/venv/bin:$PATH"
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 ENV OMPI_MCA_pml=ob1
