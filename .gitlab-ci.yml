@@ -290,7 +290,7 @@ compile_pyccel_devel:
     - pip uninstall pyccel -y
     - git clone --recurse-submodules https://github.com/pyccel/pyccel.git
     - cd pyccel
-    - pip install --editable ".[test]"
+    - pip install .
     - cd ../
     - pip show struphy
     - pip list
