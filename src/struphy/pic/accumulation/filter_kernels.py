@@ -67,7 +67,7 @@ def apply_three_point_filter_3d(
     # consider left and right boundary
     if form == 1:
         isDspline[dir] = 1
-    else:
+    elif form == 2:
         isDspline[:] = 1
         isDspline[dir] = 0
 
@@ -194,7 +194,7 @@ def apply_three_point_filter_3d_clamped(
     # consider left and right boundary
     if form == 1:
         isDspline[dir] = 1
-    else:
+    elif form == 2:
         isDspline[:] = 1
         isDspline[dir] = 0
 
@@ -333,7 +333,7 @@ def apply_three_point_filter_2d(
     # consider left and right boundary
     if form == 1:
         isDspline[dir] = 1
-    else:
+    elif form == 2:
         isDspline[:] = 1
         isDspline[dir] = 0
 

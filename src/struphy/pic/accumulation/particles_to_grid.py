@@ -214,6 +214,12 @@ class Accumulator:
 
         # apply filter
         if self.filter_params["use_filter"] is not None:
+
+            if self.form == 'v':
+                form = 0
+            else:
+                form = int(self.form)
+
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
@@ -227,7 +233,7 @@ class Accumulator:
                             filters.apply_three_point_filter_3d(
                                 vec[i]._data,
                                 i,
-                                int(self.form),
+                                form,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
@@ -246,7 +252,7 @@ class Accumulator:
                             filters.apply_three_point_filter_2d(
                                 vec[i]._data,
                                 i,
-                                int(self.form),
+                                form,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
@@ -263,7 +269,7 @@ class Accumulator:
                             filters.apply_three_point_filter_3d(
                                 vec[i]._data,
                                 i,
-                                int(self.form),
+                                form,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
@@ -282,7 +288,7 @@ class Accumulator:
                             filters.apply_three_point_filter_3d_clamped(
                                 vec[i]._data,
                                 i,
-                                int(self.form),
+                                form,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
