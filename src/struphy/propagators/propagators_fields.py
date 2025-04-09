@@ -1810,7 +1810,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._ACC = Accumulator(
             particles,
-            u_space,
+            'Hdiv',
             accum_kernels_gc.cc_lin_mhd_5d_M,
             self.mass_ops,
             self.domain.args_domain,

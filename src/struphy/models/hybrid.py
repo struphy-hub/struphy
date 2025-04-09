@@ -686,8 +686,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         dct = super().options()
         cls.add_option(
             species=["fluid", "mhd"],
-            key="u_space",
-            option="Hdiv",
+            key="spaces",
+            option={"velocity": "Hdiv"},
             dct=dct,
         )
         return dct
@@ -701,7 +701,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        u_space = params["fluid"]["mhd"]["options"]["u_space"]
+        u_space = params["fluid"]["mhd"]["options"]["spaces"]["velocity"]
         params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfvenCurrentCoupling5D"]
         params_sonic = params["fluid"]["mhd"]["options"]["MagnetosonicCurrentCoupling5D"]
         params_density = params["fluid"]["mhd"]["options"]["CurrentCoupling5DDensity"]
@@ -907,12 +907,16 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._en_fB = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
-        self._tmp_u = self.derham.Vh["2"].zeros()
+        self._tmp_u = self.derham.Vh[self.derham.space_to_form[u_space]].zeros()
         self._tmp_b = self.derham.Vh["2"].zeros()
+
+        # mass operators for update_scalar_quantities
+        id_M = "M" + self.derham.space_to_form[u_space] + "n"
+        self._mass_ops_Mn = getattr(self._mass_ops, id_M)
 
     def update_scalar_quantities(self):
 
-        self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u)
+        self._mass_ops_Mn.dot(self.pointer["mhd_velocity"], out=self._tmp_u)
         en_U = self.pointer["mhd_velocity"].dot(self._tmp_u) / 2.
 
         en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)

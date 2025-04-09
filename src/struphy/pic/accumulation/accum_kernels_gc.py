@@ -413,40 +413,75 @@ def cc_lin_mhd_5d_curlb_reduced(
 
         b_prod_neg[:] = -1.0 * b_prod
 
-        assert basis_u == 2
+        if basis_u == 0:
 
-        linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
-        linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
-        linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-        filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-        filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+            filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para * scale_vec
 
-        # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_v2_symm(
-            args_derham,
-            span1,
-            span2,
-            span3,
-            mat11,
-            mat12,
-            mat13,
-            mat22,
-            mat23,
-            mat33,
-            filling_m[0, 0],
-            filling_m[0, 1],
-            filling_m[0, 2],
-            filling_m[1, 1],
-            filling_m[1, 2],
-            filling_m[2, 2],
-            vec1,
-            vec2,
-            vec3,
-            filling_v[0],
-            filling_v[1],
-            filling_v[2],
-        )
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.m_v_fill_v0vec_symm(
+                args_derham,
+                span1,
+                span2,
+                span3,
+                mat11,
+                mat12,
+                mat13,
+                mat22,
+                mat23,
+                mat33,
+                filling_m[0, 0],
+                filling_m[0, 1],
+                filling_m[0, 2],
+                filling_m[1, 1],
+                filling_m[1, 2],
+                filling_m[2, 2],
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
+            )
+
+        elif basis_u == 2:
+
+            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
+
+            filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+            filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.m_v_fill_v2_symm(
+                args_derham,
+                span1,
+                span2,
+                span3,
+                mat11,
+                mat12,
+                mat13,
+                mat22,
+                mat23,
+                mat33,
+                filling_m[0, 0],
+                filling_m[0, 1],
+                filling_m[0, 2],
+                filling_m[1, 1],
+                filling_m[1, 2],
+                filling_m[2, 2],
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
+            )
 
     mat11 /= n_markers_tot
     mat12 /= n_markers_tot
@@ -731,22 +766,39 @@ def cc_lin_mhd_5d_gradB_reduced(
         norm_b_prod[2, 0] = -norm_b1[1]
         norm_b_prod[2, 1] = +norm_b1[0]
 
-        assert basis_u == 2
+        if basis_u == 0:
 
-        linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-        filling_v[:] = dweight * tmp_v * mu / abs_b_star_para /det_df * scale_vec
+            filling_v[:] = dweight * tmp_v * mu / abs_b_star_para * scale_vec
 
-        linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, grad_PBtilde, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBtilde, tmp_v)
 
-        filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
-        # call the appropriate matvec filler
-        particle_to_mat_kernels.vec_fill_v2(
-            args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
-        )
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.vec_fill_v0vec(
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            )
+
+        elif basis_u == 2:
+
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] = dweight * tmp_v * mu / abs_b_star_para /det_df * scale_vec
+
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBtilde, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.vec_fill_v2(
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            )
 
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
@@ -907,54 +959,103 @@ def cc_lin_mhd_5d_curlb(
 
         beq_prod_neg[:] = -1.0 * beq_prod
 
-        assert basis_u == 2
+        if basis_u == 0:
 
-        # beq contribution
-        linalg_kernels.matrix_matrix(beq_prod, tmp, tmp1)
-        linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
-        linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
+            # beq contribution
+            linalg_kernels.matrix_matrix(beq_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
 
-        if full_f:
-            filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-            filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            if full_f:
+                filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+                filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para * scale_vec
 
-        else:
-            filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-            filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            else:
+                filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+                filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para * scale_vec
 
-        # b contribution
-        linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
-        linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
-        linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
+            # b contribution
+            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-        filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-        filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para * scale_vec
 
-        # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_v2_symm(
-            args_derham,
-            span1,
-            span2,
-            span3,
-            mat11,
-            mat12,
-            mat13,
-            mat22,
-            mat23,
-            mat33,
-            filling_m[0, 0],
-            filling_m[0, 1],
-            filling_m[0, 2],
-            filling_m[1, 1],
-            filling_m[1, 2],
-            filling_m[2, 2],
-            vec1,
-            vec2,
-            vec3,
-            filling_v[0],
-            filling_v[1],
-            filling_v[2],
-        )
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.m_v_fill_v0vec_symm(
+                args_derham,
+                span1,
+                span2,
+                span3,
+                mat11,
+                mat12,
+                mat13,
+                mat22,
+                mat23,
+                mat33,
+                filling_m[0, 0],
+                filling_m[0, 1],
+                filling_m[0, 2],
+                filling_m[1, 1],
+                filling_m[1, 2],
+                filling_m[2, 2],
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
+            )
+        
+        elif basis_u == 2:
+
+            # beq contribution
+            linalg_kernels.matrix_matrix(beq_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
+
+            if full_f:
+                filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+                filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+
+            else:
+                filling_m[:, :] = dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+                filling_v[:] = dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+
+            # b contribution
+            linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
+            linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
+            linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
+
+            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.m_v_fill_v2_symm(
+                args_derham,
+                span1,
+                span2,
+                span3,
+                mat11,
+                mat12,
+                mat13,
+                mat22,
+                mat23,
+                mat33,
+                filling_m[0, 0],
+                filling_m[0, 1],
+                filling_m[0, 2],
+                filling_m[1, 1],
+                filling_m[1, 2],
+                filling_m[2, 2],
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
+            )
 
     mat11 /= n_markers_tot
     mat12 /= n_markers_tot
@@ -1132,33 +1233,61 @@ def cc_lin_mhd_5d_gradB(
         norm_b_prod[2, 0] = -norm_b1[1]
         norm_b_prod[2, 1] = +norm_b1[0]
 
-        assert basis_u == 2
+        if basis_u == 0:
 
-        # beq contribution
-        linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+            # beq contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-        filling_v[:] = dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] = dweight * tmp_v * mu / abs_b_star_para * scale_vec
 
-        # b contribution
-        linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+            # b contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-        filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
-        linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-        filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
-        linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-        filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
-        # call the appropriate matvec filler
-        particle_to_mat_kernels.vec_fill_v2(
-            args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
-        )
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.vec_fill_v0vec(
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            )
+
+        elif basis_u == 2:
+
+            # beq contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] = dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+
+            # b contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.vec_fill_v2(
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            )
 
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot

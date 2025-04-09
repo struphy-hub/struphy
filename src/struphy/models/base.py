@@ -1679,7 +1679,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 self._fluid[var_name][sub_var_name] = {}
 
                 # space
-                self._fluid[var_name][sub_var_name]["space"] = sub_space
+                if sub_var_name in self.params["fluid"][var_name]["options"].get("spaces"):
+                    self._fluid[var_name][sub_var_name]["space"] = self.params["fluid"][var_name]["options"][
+                        "spaces"
+                        ].get(sub_var_name)
+                else:
+                    self._fluid[var_name][sub_var_name]["space"] = sub_space
 
                 # initial conditions
                 if "background" in self.params["fluid"][var_name]:
