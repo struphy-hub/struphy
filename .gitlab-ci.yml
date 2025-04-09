@@ -285,7 +285,12 @@ compile_pyccel_devel:
     - !reference [.scripts, create_venv]
     - echo "pyccel @ git+https://github.com/pyccel/pyccel.git@devel" > constraints.txt
     - cat constraints.txt
-    - pip install $(echo $STRUPHY_SOURCE)[test] -c constraints.txt
+    - pip install $(echo $STRUPHY_SOURCE)[test]# -c constraints.txt
+    - pip uninstall pyccel -y
+    - git clone --recurse-submodules https://github.com/pyccel/pyccel.git
+    - cd pyccel
+    - pip install --editable ".[test]"
+    - cd ../
     - pip show struphy
     - pip list
     - struphy -h
