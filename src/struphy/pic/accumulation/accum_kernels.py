@@ -8,9 +8,9 @@ Function naming conventions:
 These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
 """
 
-from numpy import empty, floor, log, shape, sqrt, zeros
+from numpy import empty, floor, log, shape, sqrt, zeros, sum
 from pyccel.decorators import stack_array
-
+from pyccel.stdlib.internal.openmp import omp_get_thread_num, omp_get_max_threads
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
@@ -44,19 +44,31 @@ def charge_density_0form(
         B_p^\mu = \frac{w_p}{N} \,.
     """
 
-    local_vec = zeros(vec.shape)
-
-    #$ omp parallel firstprivate(n_markers_tot,vdim,args_derham,local_vec) private (ip, eta1, eta2, eta3, filling) shared(vec, markers)
+    n_threads = omp_get_max_threads()
+    sx = shape(vec)[0]
+    sy = shape(vec)[1]
+    sz = shape(vec)[2]
+    print("shape(vec)  = ", shape(vec))
+    local_vecs = zeros((n_threads, sx, sy, sz), dtype=float)
+    local_vec = zeros((sx, sy, sz), dtype=float)
+    local_vec_tid = zeros((sx, sy, sz), dtype=float)
+    thread_particles = zeros((n_threads), dtype=int)
+    #$ omp parallel default(none) firstprivate(n_markers_tot, vdim, args_derham, markers, local_vec_tid) private (ip, eta1, eta2, eta3, filling, thread_id, local_vec) shared(local_vecs, thread_particles)
+    thread_id = omp_get_thread_num()
+    local_vec_tid *= 0.0
+    print("hello from thread number:", thread_id)
+    #$ omp for schedule(static)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
-
+        thread_particles[thread_id] += 1
+        local_vec *= 0.0
         # marker positions
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
-
+        print(ip, eta1, eta2, eta3)
         # filling = w_p/N
         filling = markers[ip, 3 + vdim] / n_markers_tot
 
@@ -68,13 +80,18 @@ def charge_density_0form(
             local_vec,
             filling,
         )
-    #$ omp critical
-    # Merge the thread-local results into the global accumulator
-    vec += local_vec
-    #$ omp end critical
-    
+        #local_vecs[thread_id, :, :, :] += local_vec
+        local_vec_tid += local_vec
+    local_vecs[thread_id, :, :, :] = local_vec_tid
+    print("n_markers_tot = ", n_markers_tot)
+    print("sum(local_vecs[thread_id, :, :, :]) = ", sum(local_vecs[thread_id, :, :, :]), " for thread_id = ", thread_id)
+    print("sum(local_vec_tid) = ", sum(local_vec_tid), " for thread_id = ", thread_id)
     #$ omp end parallel
 
+    for t in range(n_threads):
+        #print("sum(local_vecs[t, :, :, :]) = ", sum(local_vecs[t, :, :, :]))
+        vec[:,:,:] += local_vecs[t, :, :, :]
+    print("thread_particles = ", thread_particles, ", total: ", sum(thread_particles))
 
 @stack_array(
     "cell_left",
