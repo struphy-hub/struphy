@@ -148,11 +148,9 @@ class Maxwell(Propagator):
             if self._algo == "implicit":
                 print("Status     for Maxwell:", info["success"])
                 print("Iterations for Maxwell:", info["niter"])
-                print("Maxdiff e1 for Maxwell:", max_de)
-                print("Maxdiff b2 for Maxwell:", max_db)
-                print()
-            else:
-                print(f'no info available for {self._algo = }')
+            print("Maxdiff e1 for Maxwell:", max_de)
+            print("Maxdiff b2 for Maxwell:", max_db)
+            print()
 
 
 class OhmCold(Propagator):
