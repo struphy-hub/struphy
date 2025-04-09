@@ -1832,6 +1832,26 @@ class Particles(metaclass=ABCMeta):
 
         plt.show()
 
+    def _find_outside_particles(self, axis):
+        # determine particles outside of the logical unit cube
+            self._is_outside_right[:] = self.markers[:, axis] > 1.0
+            self._is_outside_left[:] = self.markers[:, axis] < 0.0
+
+            self._is_outside_right[self.holes] = False
+            self._is_outside_right[self.ghost_particles] = False
+            self._is_outside_left[self.holes] = False
+            self._is_outside_left[self.ghost_particles] = False
+
+            self._is_outside[:] = np.logical_or(
+                self._is_outside_right,
+                self._is_outside_left,
+            )
+
+            # indices or particles that are outside of the logical unit cube
+            outside_inds = np.nonzero(self._is_outside)[0]
+
+            return outside_inds
+
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -1845,22 +1865,7 @@ class Particles(metaclass=ABCMeta):
 
         # apply boundary conditions
         for axis in self._remove_axes:
-            # determine particles outside of the logical unit cube
-            self._is_outside_right[:] = self.markers[:, axis] > 1.0
-            self._is_outside_left[:] = self.markers[:, axis] < 0.0
-
-            self._is_outside_right[self.holes] = False
-            self._is_outside_right[self.ghost_particles] = False
-            self._is_outside_left[self.holes] = False
-            self._is_outside_left[self.ghost_particles] = False
-
-            self._is_outside[:] = np.logical_or(
-                self._is_outside_right,
-                self._is_outside_left,
-            )
-
-            # indices or particles that are outside of the logical unit cube
-            outside_inds = np.nonzero(self._is_outside)[0]
+            outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
@@ -1872,22 +1877,7 @@ class Particles(metaclass=ABCMeta):
             self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
         for axis in self._periodic_axes:
-            # determine particles outside of the logical unit cube
-            self._is_outside_right[:] = self.markers[:, axis] > 1.0
-            self._is_outside_left[:] = self.markers[:, axis] < 0.0
-
-            self._is_outside_right[self.holes] = False
-            self._is_outside_right[self.ghost_particles] = False
-            self._is_outside_left[self.holes] = False
-            self._is_outside_left[self.ghost_particles] = False
-
-            self._is_outside[:] = np.logical_or(
-                self._is_outside_right,
-                self._is_outside_left,
-            )
-
-            # indices or particles that are outside of the logical unit cube
-            outside_inds = np.nonzero(self._is_outside)[0]
+            outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
@@ -1920,23 +1910,10 @@ class Particles(metaclass=ABCMeta):
                     self.first_pusher_idx + 3 + self.vdim + axis,
                 ] = -1.0
 
+        # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
+        outside_inds_per_axis = {}
         for axis in self._reflect_axes:
-            # determine particles outside of the logical unit cube
-            self._is_outside_right[:] = self.markers[:, axis] > 1.0
-            self._is_outside_left[:] = self.markers[:, axis] < 0.0
-
-            self._is_outside_right[self.holes] = False
-            self._is_outside_right[self.ghost_particles] = False
-            self._is_outside_left[self.holes] = False
-            self._is_outside_left[self.ghost_particles] = False
-
-            self._is_outside[:] = np.logical_or(
-                self._is_outside_right,
-                self._is_outside_left,
-            )
-
-            # indices or particles that are outside of the logical unit cube
-            outside_inds = np.nonzero(self._is_outside)[0]
+            outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
@@ -1944,14 +1921,17 @@ class Particles(metaclass=ABCMeta):
             self.markers[self._is_outside_left, axis] = 1e-4
             self.markers[self._is_outside_right, axis] = 1 - 1e-4
 
+            self.markers[self._is_outside, self.first_pusher_idx] = -1.0
+
+            outside_inds_per_axis[axis] = outside_inds
+
+        for axis in self._reflect_axes:
             reflect(
                 self.markers,
                 self.domain.args_domain,
-                outside_inds,
+                outside_inds_per_axis[axis],
                 axis,
             )
-
-            self.markers[self._is_outside, self.first_pusher_idx] = -1.0
 
     def particle_refilling(self):
         r"""
