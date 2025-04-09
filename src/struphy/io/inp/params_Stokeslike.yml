@@ -1,6 +1,6 @@
 grid:
-    Nel: [5, 5, 1]
-    p: [2, 2, 1]
+    Nel: [30, 30, 1]
+    p: [3, 3, 1]
     spl_kind: [true, true, true]
     dirichlet_bc: null
     dims_mask: [true, true, false]
@@ -8,8 +8,9 @@ grid:
     nq_pr: [2, 2, 1]
     polar_ck: -1
     Nclones: 1
+    local_projectors: true
 
-time: {dt: 0.01, Tend: 0.03, split_algo: LieTrotter}
+time: {dt: 0.001, Tend: 0.003, split_algo: LieTrotter}
 
 units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
 
@@ -62,4 +63,4 @@ fluid:
                 Bp: 12.5
                 alpha: 0.1
                 beta: 1.
-                eps: 0.000001 #0001
+                eps: 0.0001 #0001
