@@ -17,19 +17,15 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.fields_background.equils import FluxAlignedTokamak, HomogenSlab
     from struphy.geometry import domains
     from struphy.linear_algebra.saddle_point import (
-        SaddlePointSolver,
         SaddlePointSolverGMRES,
-        SaddlePointSolverNoCG,
-        SaddlePointSolverTest,
         SaddlePointSolverGMRESwithPC,
-        SaddlePointSolverInexactUzawaNumpy,
+        SaddlePointSolverUzawaNumpy,
     )
 
     from struphy.initial import perturbations
-    from struphy.feec.projectors import L2Projector, CommutingProjector
+    from struphy.feec.projectors import L2Projector
     from struphy.feec.psydac_derham import TransformedPformComponent
     
-    import matplotlib.pyplot as plt
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -55,7 +51,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     # create random input array
     x1_rdm_block, x1_rdm = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=False)
     x2_rdm_block, x2_rdm = create_equal_random_arrays(fem_spaces[1], seed=68, flattened=False)
-    y1_rdm_block, y1_rdm = create_equal_random_arrays(fem_spaces[3], seed=1568, flattened=False)
+    y1_rdm_block, y1_rdm = create_equal_random_arrays(fem_spaces[3], seed=1268, flattened=False)
 
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
@@ -84,19 +80,19 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     nue = 0.01*100
     nu = 1.0
     dt = 0.001
-    eps = 1e-9
+    eps = 1e-6
     eps2 = eps#1e-5#1. #Preconditioner Ae
-    method_to_solve = 'ScipySparse' #  'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
-    preconditioner = True
-    spectralanalysis = True
+    method_to_solve = 'ScipySparse' #  'ScipySparse', 'DirectNPInverse', 'InexactNPInverse', , 'SparseSolver'
+    preconditioner = False
+    spectralanalysis = False
     manufactured_solution = False
     
     # Create the solver
     rho = 0.0005  # Example descent parameter
-    tol = 1e-11
-    max_iter = 5000
+    tol = 1e-7
+    max_iter = 2000
     pc = None  # M2pre # Preconditioner
-    # Conjugate gradient solver 'cg', 'pcg', 'bicg', 'bicgstab', 'minres', 'lsmr', 'gmres'
+    # Conjugate gradient solver  'bicg', 'bicgstab',  'lsmr', 'gmres', 'cg', 'pcg', 'minres'
     solver_name = "gmres"
     verbose = False
 
@@ -327,8 +323,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         #TestAemf = Fmf[1]-A22.dot(x2mf) - B2T.dot(ymf)
         RestA = np.linalg.norm(TestA.toarray())
         RestAe = np.linalg.norm(TestAe.toarray())
-        TestAnp = F1np-A11np.dot(x1np) - B1np.T.dot(ynp)
-        TestAenp = F2np-A22np.dot(x2np) - B2np.T.dot(ynp)
+        TestAnp = F1np-(M2np/dt+nu*(Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) - M2Bnp).dot(x1np)-B1np.T.dot(ynp)
+        TestAenp = F2np-(nue*(Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) + M2Bnp).dot(x2np)-B2np.T.dot(ynp)
         RestAnp = np.linalg.norm(TestAnp)
         RestAenp = np.linalg.norm(TestAenp)
         TestDivnp = -B1np.dot(x1np)+B2np.dot(x2np)
@@ -387,36 +383,14 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     start_time = time.time()
 
-    if method_for_solving == "SaddlePointSolverTest":
-        solver = SaddlePointSolverTest(
-            A, B, F, _A11, _A22, rho=rho, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
-        )
-        x_u, x_ue, y_uzawa, info = solver()
-        x_uzawa={}
-        x_uzawa[0]=x_u
-        x_uzawa[1]=x_ue
-    elif method_for_solving == "SaddlePointSolver":
-        solver = SaddlePointSolver(
-            A, B, F, rho=rho, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc, recycle=True
-        )
-        x_uzawa, y_uzawa, info, residual_norms = solver()
-        if show_plots == True:
-            _plot_residual_norms(residual_norms)
-    elif method_for_solving == "SaddlePointSolverNoCG":
-        solver = SaddlePointSolverNoCG(
-            A, B, F, rho=rho, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc, recycle=True
-        )
-        x_uzawa, y_uzawa, info, residual_norms = solver()
-        if show_plots == True:
-            _plot_residual_norms(residual_norms)
-    elif method_for_solving == "SaddlePointSolverInexactUzawaNumpy":
+    if method_for_solving == "SaddlePointSolverUzawaNumpy":
         if manufactured_solution == True:
-            solver = SaddlePointSolverInexactUzawaNumpy(
+            solver = SaddlePointSolverUzawaNumpy(
                 Anp,  Bnp, Fmfnp, Anppre, method_to_solve, preconditioner, spectralanalysis,  tol=tol, max_iter=max_iter
             )
             x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9*x1mf, 0.9*x2mf, 1.1*ymf)
         else:
-            solver = SaddlePointSolverInexactUzawaNumpy(
+            solver = SaddlePointSolverUzawaNumpy(
                 Anp,  Bnp, Fnp, Anppre, method_to_solve, preconditioner, spectralanalysis,  tol=tol, max_iter=max_iter
             )
             x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9*x1, 0.9*x2, 1.1*y1_rdm) #0.9*x1, 0.9*x2, 1.1*y1_rdm
@@ -608,31 +582,7 @@ def _plot_velocity(data_reshaped):
 
 
 if __name__ == "__main__":
-    # test_saddlepointsolver('SaddlePointSolverGMRES',
-    #                        [15, 15, 1],
-    #                        [2, 2, 1],
-    #                        [True, False, True],
-    #                        [[False, False], [False, False], [False, False]],
-    #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
-    # test_saddlepointsolver('SaddlePointSolverGMRES',
-    #                        [3, 4, 5],
-    #                        [2, 2, 3],
-    #                        [True, False, True],
-    #                        [[False,  False], [False, False], [False, False]],
-    #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
-    # test_saddlepointsolver('SaddlePointSolverGMRES',
-    #                        [5, 6, 7],
-    #                        [2, 2, 3],
-    #                        [True, False, True],
-    #                        [[False,  False], [False, False], [False, False]],
-    #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
-    # test_saddlepointsolver('SaddlePointSolverTest',
-    #                        [5, 6, 1],
-    #                        [2, 2, 1],
-    #                        [True, False, True],
-    #                        [[False,  False], [False, False], [False, False]],
-    #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], False)
-    # test_saddlepointsolver('SaddlePointSolverInexactUzawaNumpy',
+    # test_saddlepointsolver('SaddlePointSolverUzawaNumpy',
     #                        [10, 10, 1],
     #                        [3, 3, 1],
     #                        [True, False, True],
@@ -644,10 +594,11 @@ if __name__ == "__main__":
     #                        [3, 3, 1],
     #                        [True, False, True],
     #                        [[False,  False], [False, False], [False, False]],
-    #                        ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}], True)
-    test_saddlepointsolver('SaddlePointSolverInexactUzawaNumpy',
+    #                        ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
+    test_saddlepointsolver('SaddlePointSolverUzawaNumpy',
                            [15, 15, 1],
                            [3, 3, 1],
                            [True, False, True],
                            [[False,  False], [False, False], [False, False]],
                            ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}], True)
+    
