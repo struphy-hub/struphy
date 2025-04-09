@@ -44,8 +44,9 @@ def charge_density_0form(
         B_p^\mu = \frac{w_p}{N} \,.
     """
 
-    #$ omp parallel default(none) private (ip, eta1, eta2, eta3, filling) shared(vec,n_markers_tot,markers,vdim,args_derham)
-    #$ omp for reduction ( + :vec)
+    local_vec = zeros(vec.shape)
+
+    #$ omp parallel firstprivate(n_markers_tot,vdim,args_derham,local_vec) private (ip, eta1, eta2, eta3, filling) shared(vec, markers)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -64,10 +65,14 @@ def charge_density_0form(
             eta1,
             eta2,
             eta3,
-            vec,
+            local_vec,
             filling,
         )
-
+    #$ omp critical
+    # Merge the thread-local results into the global accumulator
+    vec += local_vec
+    #$ omp end critical
+    
     #$ omp end parallel
 
 
