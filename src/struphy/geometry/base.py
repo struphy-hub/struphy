@@ -281,7 +281,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def jacobian(
-        self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, flat_eval=False
+        self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, flat_eval=False,
     ):
         r"""
         Evaluates the Jacobian matrix :math:`DF : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
@@ -349,7 +349,7 @@ class Domain(metaclass=ABCMeta):
 
     # ========================
     def jacobian_inv(
-        self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, flat_eval=False
+        self, *etas, transposed=False, change_out_order=False, squeeze_out=False, remove_outside=True, flat_eval=False,
     ):
         r"""
         Evaluates the inverse Jacobian matrix :math:`DF^{-1} : (0, 1)^3 \to \mathbb R^{3 \times 3}`.
