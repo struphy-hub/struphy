@@ -139,8 +139,9 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     _sum_within_clone[0] = np.sum(acc.vectors[0].toarray())
     clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
 
+    print(f"{np.sum(acc.vectors[0].toarray()) = }")
     print(f"rank {mpi_rank}: {_sum_within_clone = }, {_sqrtg = }")
-
+    exit()
     # Check within clone
     assert np.isclose(_sum_within_clone, _sqrtg)
 
@@ -150,6 +151,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
     clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
 
+    print()
     print(f"rank {mpi_rank}: {_sum_between_clones = }, {_sqrtg = }")
 
     # Check within clone
