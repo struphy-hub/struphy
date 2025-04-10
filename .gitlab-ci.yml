@@ -226,6 +226,8 @@ macos_nmpp_0:
     - .rules_push
     - .parallel_matrix_push
   before_script:
+    - pwd
+    - ls
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
@@ -244,6 +246,8 @@ macos_nmpp_1:
     - .rules_push
     - .parallel_matrix_push
   before_script:
+    - pwd
+    - ls
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
@@ -262,6 +266,8 @@ macos_nmpp_2:
     - .rules_push
     - .parallel_matrix_push
   before_script:
+    - pwd
+    - ls
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
