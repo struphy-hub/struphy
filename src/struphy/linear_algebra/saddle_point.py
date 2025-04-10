@@ -377,12 +377,12 @@ class SaddlePointSolverUzawaNumpy():
                 # print(f'{min(self._Unp) = }')
                 # print(f'{min(self._Uenp) = }')
                 # print(f'{min(self._Pnp) = }')
-                TestRest1 = self._F1np-self._Anp.dot(self._Unp)-self._B1np.T.dot(self._Pnp)
-                print(f'{max(TestRest1) =}')
-                TestRest2 = self._F2np-self._Aenp.dot(self._Uenp)-self._B2np.T.dot(self._Pnp)
-                print(f'{max(TestRest2) =}')
-                TestRest3 = self._B1np.dot(self._Unp)+self._B2np.dot(self._Uenp)
-                print(f'{max(TestRest3) =}')
+                # TestRest1 = self._F1np-self._Anp.dot(self._Unp)-self._B1np.T.dot(self._Pnp)
+                # print(f'{max(TestRest1) =}')
+                # TestRest2 = self._F2np-self._Aenp.dot(self._Uenp)-self._B2np.T.dot(self._Pnp)
+                # print(f'{max(TestRest2) =}')
+                # TestRest3 = self._B1np.dot(self._Unp)+self._B2np.dot(self._Uenp)
+                # print(f'{max(TestRest3) =}')
                 return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms
                 
             
@@ -572,18 +572,26 @@ class SaddlePointSolverGMRES:
         
         # use setter to update lhs matrix
         self._solverM.linop = self._M
-
+        TestRest1 = self._F[0]-self._A[0,0].dot(self._U1)-self._B[0,0].T.dot(self._P1)
+        print(f'{max(TestRest1.toarray()) =}')
+        TestRest2 = self._F[1]-self._A[1,1].dot(self._U2)-self._B[0,1].T.dot(self._P1)
+        print(f'{max(TestRest2.toarray()) =}')
+        TestRest3 = self._B[0,0].dot(self._U1)+self._B[0,1].dot(self._U2)
+        print(f'{max(TestRest3.toarray()) =}')
+        
+        TestM = self._RHS - self._M.dot(x0)
+        print(f'{max(TestM.toarray()) =}')
+        
         # Initialize P to zero or given initial guess
         self._sol = self._solverM.dot(self._RHS)
         self._U = self._sol[0]
         self._P = self._sol[1]
-        print(f'{self._solverM._info["niter"] =}')
-        TestRest1 = self._F[0]-self._A[0,0].dot(self._U[0])-self._B[0,0].T.dot(self._P)
-        print(f'{max(TestRest1.toarray()) =}')
-        TestRest2 = self._F[1]-self._A[1,1].dot(self._U[1])-self._B[0,1].T.dot(self._P)
-        print(f'{max(TestRest2.toarray()) =}')
-        TestRest3 = self._B[0,0].dot(self._U[0])+self._B[0,1].dot(self._U[1])
-        print(f'{max(TestRest3.toarray()) =}')
+        # TestRest1 = self._F[0]-self._A[0,0].dot(self._U[0])-self._B[0,0].T.dot(self._P)
+        # print(f'{max(TestRest1.toarray()) =}')
+        # TestRest2 = self._F[1]-self._A[1,1].dot(self._U[1])-self._B[0,1].T.dot(self._P)
+        # print(f'{max(TestRest2.toarray()) =}')
+        # TestRest3 = self._B[0,0].dot(self._U[0])+self._B[0,1].dot(self._U[1])
+        # print(f'{max(TestRest3.toarray()) =}')
         return self._U, self._P, self._solverM._info
 
 

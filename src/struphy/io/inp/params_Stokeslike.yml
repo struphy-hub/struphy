@@ -1,5 +1,5 @@
 grid:
-    Nel: [30, 30, 1]
+    Nel: [15, 15, 1]
     p: [3, 3, 1]
     spl_kind: [true, true, true]
     dirichlet_bc: null
