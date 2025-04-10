@@ -97,7 +97,7 @@ def quicksort(a: 'float[:]', lo: 'int', hi: 'int'):
     i = lo
     j = hi
     while i < hi:
-        pivot = a[floor((lo + hi) / 2)]
+        pivot = a[int(floor((lo + hi) / 2))]
         while i <= j:
             while a[i] < pivot:
                 i += 1
