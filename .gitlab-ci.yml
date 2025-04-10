@@ -45,7 +45,7 @@ variables:
     options: [".", "-U struphy"]
     description: "Source to install struphy from."
   AFTER_SCRIPT_IGNORE_ERRORS: 'false'
-  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_ID/struphy-test
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_PROJECT_ID/struphy-test
 
 stages:
   - startup
