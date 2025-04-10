@@ -44,7 +44,10 @@ variables:
     value: "."
     options: [".", "-U struphy"]
     description: "Source to install struphy from."
-  AFTER_SCRIPT_IGNORE_ERRORS: 'false'
+  CLEANUP_MACOS_NMPP:
+    value: "false"
+    options: ["true", "false"]
+    description: "Cleanup the struphy directory on the MacOS server."
 
 stages:
   - startup
@@ -102,6 +105,11 @@ stages:
       when: never
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $MAKE_PAGES == "true"
+
+.rules_cleanup_macos:
+  rules:
+    - if: $CLEANUP_MACOS_NMPP == "true"
+
 .parallel_matrix_push:
   parallel:
     matrix:
@@ -245,6 +253,7 @@ checkout_repo:
 
 install_push:
   stage: install
+  needs: []
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
     - .rules_push
@@ -258,6 +267,7 @@ install_push:
 
 install_scheduled:
   stage: install
+  needs: []
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
     - .rules_scheduled
@@ -273,6 +283,7 @@ install_scheduled:
 # Temporary, since the scheduled CI fails the tests with --omp-pic
 compile_openmp:
   stage: install
+  needs: []
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
     - .rules_push
@@ -290,6 +301,7 @@ compile_openmp:
 
 compile_timing:
   stage: install
+  needs: []
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
     - .before_script_load_modules
@@ -390,6 +402,11 @@ macos_nmpp:
   stage: test
   tags: [macos, nmpp, private]
   needs: []
+  variables:
+    # Job ID changes for each job, so reusing the directory becomes impossible,
+    # therefore, the fetch strategy also becomes unusable
+    GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID/$CI_CONCURRENT_PROJECT_ID
+    _JOB_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID
   extends:
     - .rules_push
     - .parallel_matrix_push
@@ -403,6 +420,31 @@ macos_nmpp:
     - !reference [.scripts, compile]
     - !reference [.scripts, quickstart_tests]
     - !reference [.scripts, model_tests]
+  after_script:
+    - pwd
+    - ls -a
+    - echo $_JOB_PATH
+    - ls -a $_JOB_PATH 
+    - rm -rf $_JOB_PATH
+
+cleanup_macos:
+  stage: test
+  tags: [macos, nmpp, private]
+  needs: []
+  extends:
+    - .rules_cleanup_macos
+  before_script:
+    - make -v
+    - printenv
+    - system_profiler SPHardwareDataType
+  script:
+    - _STRUPHY_PATH=$CI_BUILDS_DIR/$CI_PROJECT_NAME
+    - pwd
+    - ls -a
+    - echo $_STRUPHY_PATH
+    - ls -a $_STRUPHY_PATH
+    - rm -rf $_STRUPHY_PATH/*
+    - ls -a $_STRUPHY_PATH
 
 test_pages:
   stage: test
