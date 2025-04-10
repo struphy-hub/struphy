@@ -1,4 +1,4 @@
-from numpy import empty, floor, sqrt, zeros
+from numpy import empty, floor, sqrt, zeros, floor
 from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -97,7 +97,7 @@ def quicksort(a: 'float[:]', lo: 'int', hi: 'int'):
     i = lo
     j = hi
     while i < hi:
-        pivot = a[(lo + hi) // 2]
+        pivot = a[floor((lo + hi) / 2)]
         while i <= j:
             while a[i] < pivot:
                 i += 1
