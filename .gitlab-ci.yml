@@ -47,6 +47,7 @@ variables:
   # Job ID changes for each job, so reusing the directory becomes impossible,
   # therefore, the fetch strategy also becomes unusable
   GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID/$CI_CONCURRENT_PROJECT_ID
+  _JOB_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID
 
 stages:
   - startup
@@ -239,8 +240,7 @@ macos_nmpp_0:
     - ls -a
     - echo $GIT_CLONE_PATH
     - ls -a $GIT_CLONE_PATH
-    - rm -rf $GIT_CLONE_PATH
-    - rm -rf ${GIT_CLONE_PATH}.tmp
+    - rm -rf $_JOB_PATH
 
 macos_nmpp_1:
   stage: test
@@ -262,8 +262,7 @@ macos_nmpp_1:
     - ls -a
     - echo $GIT_CLONE_PATH
     - ls -a $GIT_CLONE_PATH 
-    - rm -rf $GIT_CLONE_PATH
-    - rm -rf ${GIT_CLONE_PATH}.tmp
+    - rm -rf $_JOB_PATH
 
 macos_nmpp_2:
   stage: test
@@ -285,6 +284,5 @@ macos_nmpp_2:
     - ls -a
     - echo $GIT_CLONE_PATH
     - ls -a $GIT_CLONE_PATH
-    - rm -rf $GIT_CLONE_PATH
-    - rm -rf ${GIT_CLONE_PATH}.tmp
+    - rm -rf $_JOB_PATH
 
