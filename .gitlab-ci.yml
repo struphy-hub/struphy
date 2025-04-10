@@ -239,7 +239,8 @@ macos_nmpp_0:
     - ls -a
     - echo $GIT_CLONE_PATH
     - ls -a $GIT_CLONE_PATH
-    #- rm -rf $GIT_CLONE_PATH
+    - rm -rf $GIT_CLONE_PATH
+    - rm -rf ${GIT_CLONE_PATH}.tmp
 
 macos_nmpp_1:
   stage: test
@@ -261,7 +262,8 @@ macos_nmpp_1:
     - ls -a
     - echo $GIT_CLONE_PATH
     - ls -a $GIT_CLONE_PATH 
-    #- rm -rf $GIT_CLONE_PATH
+    - rm -rf $GIT_CLONE_PATH
+    - rm -rf ${GIT_CLONE_PATH}.tmp
 
 macos_nmpp_2:
   stage: test
@@ -283,5 +285,6 @@ macos_nmpp_2:
     - ls -a
     - echo $GIT_CLONE_PATH
     - ls -a $GIT_CLONE_PATH
-    #- rm -rf $GIT_CLONE_PATH
+    - rm -rf $GIT_CLONE_PATH
+    - rm -rf ${GIT_CLONE_PATH}.tmp
 
