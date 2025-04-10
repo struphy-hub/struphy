@@ -46,7 +46,7 @@ variables:
     description: "Source to install struphy from."
   # Job ID changes for each job, so reusing the directory becomes impossible,
   # therefore, the fetch strategy also becomes unusable
-  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_CONCURRENT_PROJECT_ID/$CI_JOB_ID/struphy-test
+  GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID/$CI_CONCURRENT_PROJECT_ID
 
 stages:
   - startup
@@ -238,7 +238,7 @@ macos_nmpp_0:
     - pwd
     - ls -a
     - echo $GIT_CLONE_PATH
-    - ls $GIT_CLONE_PATH -a
+    - ls -a $GIT_CLONE_PATH
     #- rm -rf $GIT_CLONE_PATH
 
 macos_nmpp_1:
@@ -260,7 +260,7 @@ macos_nmpp_1:
     - pwd
     - ls -a
     - echo $GIT_CLONE_PATH
-    - ls $GIT_CLONE_PATH -a
+    - ls -a $GIT_CLONE_PATH 
     #- rm -rf $GIT_CLONE_PATH
 
 macos_nmpp_2:
@@ -282,6 +282,6 @@ macos_nmpp_2:
     - pwd
     - ls -a
     - echo $GIT_CLONE_PATH
-    - ls $GIT_CLONE_PATH -a
+    - ls -a $GIT_CLONE_PATH
     #- rm -rf $GIT_CLONE_PATH
 
