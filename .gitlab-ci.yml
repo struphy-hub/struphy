@@ -386,6 +386,23 @@ model_tests_psydac_whl:
     - struphy --refresh-models
     - !reference [.scripts, model_tests]
 
+maxlin_nmpp:
+  stage: test
+  tags: [maxlin, nmpp, private]
+  needs: []
+  extends:
+    - .rules_push
+    - .parallel_matrix_push
+  before_script:
+    - make -v
+    - printenv
+  script:
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile]
+    - !reference [.scripts, quickstart_tests]
+    # - !reference [.scripts, model_tests]
+
 macos_nmpp:
   stage: test
   tags: [macos, nmpp, private]
