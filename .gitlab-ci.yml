@@ -102,11 +102,12 @@ stages:
       when: never
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $MAKE_PAGES == "true"
+
 .parallel_matrix_push:
   parallel:
     matrix:
-      # - LANGUAGE: "fortran"
-      #   OMP: ["", "--omp-pic"]
+      - LANGUAGE: "fortran"
+        OMP: [""] #, "--omp-pic"]
       - LANGUAGE: "c"
         OMP: [""]
 
