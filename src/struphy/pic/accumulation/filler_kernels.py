@@ -98,7 +98,7 @@ def fill_vec(pi1: int, pi2: int, pi3: int, bi1: 'float[:]', bi2: 'float[:]', bi3
     filling : float
         Number which will be multiplied by the basis functions and written into mat.
     """
-
+    
     for il1 in range(pi1 + 1):
         i1 = span1 + il1 - starts[0]
         b1 = bi1[il1] * filling

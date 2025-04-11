@@ -5928,19 +5928,21 @@ def vec_fill_b_v0(args_derham: 'DerhamArguments',
                   vec: 'float[:,:,:]', fill: float):
     """TODO
     """
-
+    
     from numpy import empty
-
+    #$ omp critical
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
     pn1 = args_derham.pn[0]
     pn2 = args_derham.pn[1]
     pn3 = args_derham.pn[2]
-
+    #$ omp end critical
+    
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
+    
+    
     filler_kernels.fill_vec(pn1, pn2, pn3, args_derham.bn1, args_derham.bn2, args_derham.bn3, span1,
                             span2, span3, args_derham.starts, vec, fill)
-
+    
 
 def vec_fill_b_v1(args_derham: 'DerhamArguments',
                   eta1: float, eta2: float, eta3: float,

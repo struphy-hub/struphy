@@ -53,45 +53,32 @@ def charge_density_0form(
     local_vec = zeros((sx, sy, sz), dtype=float)
     local_vec_tid = zeros((sx, sy, sz), dtype=float)
     thread_particles = zeros((n_threads), dtype=int)
-    #$ omp parallel default(none) firstprivate(n_markers_tot, vdim, args_derham, markers, local_vec_tid) private (ip, eta1, eta2, eta3, filling, thread_id, local_vec) shared(local_vecs, thread_particles)
-    thread_id = omp_get_thread_num()
-    local_vec_tid *= 0.0
-    print("hello from thread number:", thread_id)
+
+    # To test the SPH kernel:
+    # OMP_NUM_THREADS=1 mpirun -n 1 python src/struphy/pic/tests/test_accum_vec_H1.py
+    # OMP_NUM_THREADS=4 mpirun -n 1 python src/struphy/pic/tests/test_accum_vec_H1.py 
+    
+    #$ omp parallel default(none) firstprivate(n_markers_tot, vdim, args_derham, markers) private (ip, eta1, eta2, eta3, filling) reduction(+: vec)
     #$ omp for schedule(static)
     for ip in range(shape(markers)[0]):
-        # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
-        thread_particles[thread_id] += 1
-        local_vec *= 0.0
         # marker positions
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
-        print(ip, eta1, eta2, eta3)
-        # filling = w_p/N
+        
         filling = markers[ip, 3 + vdim] / n_markers_tot
-
+        
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,
             eta1,
             eta2,
             eta3,
-            local_vec,
+            vec,
             filling,
         )
-        #local_vecs[thread_id, :, :, :] += local_vec
-        local_vec_tid += local_vec
-    local_vecs[thread_id, :, :, :] = local_vec_tid
-    print("n_markers_tot = ", n_markers_tot)
-    print("sum(local_vecs[thread_id, :, :, :]) = ", sum(local_vecs[thread_id, :, :, :]), " for thread_id = ", thread_id)
-    print("sum(local_vec_tid) = ", sum(local_vec_tid), " for thread_id = ", thread_id)
     #$ omp end parallel
-
-    for t in range(n_threads):
-        #print("sum(local_vecs[t, :, :, :]) = ", sum(local_vecs[t, :, :, :]))
-        vec[:,:,:] += local_vecs[t, :, :, :]
-    print("thread_particles = ", thread_particles, ", total: ", sum(thread_particles))
 
 @stack_array(
     "cell_left",
