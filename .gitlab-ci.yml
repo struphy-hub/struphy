@@ -279,28 +279,29 @@ install_scheduled:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
 
-# compile_pyccel_devel:
-#   stage: install
-#   extends:
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .rules_push
-#     - .before_script_load_modules
-#   parallel:
-#     matrix:
-#       - LANGUAGE: "fortran"
-#         OMP: ["","--omp-pic"]
-#       #- LANGUAGE: "c"
-#       #  OMP: ["--omp-pic"]
-#   script:
-#     - !reference [.scripts, create_venv]
-#     - echo "pyccel @ git+https://github.com/pyccel/pyccel.git@devel" > constraints.txt
-#     - cat constraints.txt
-#     - pip install $(echo $STRUPHY_SOURCE)[test] -c constraints.txt
-#     - pip show struphy
-#     - pip list
-#     - struphy -h
-#     - pip show pyccel
-#     - !reference [.scripts, compile_matrix]
+compile_pyccel_devel:
+  stage: install
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .rules_push
+    - .before_script_load_modules
+  parallel:
+    matrix:
+      - LANGUAGE: "fortran"
+        OMP: [""] #, -"-omp-pic"]
+      - LANGUAGE: "c"
+        OMP: [""] #, -"-omp-pic"]
+  script:
+    - !reference [.scripts, create_venv]
+    - pip install $(echo $STRUPHY_SOURCE)[test]
+    - pip show pyccel
+    - pip uninstall pyccel -y
+    - git clone --recurse-submodules https://github.com/pyccel/pyccel.git pyccel
+    - cd pyccel/
+    - python -m pip install ".[test]" --no-cache-dir
+    - cd ../
+    - pip show pyccel
+    - !reference [.scripts, compile_matrix]
 
 # Temporary, since the scheduled CI fails the tests with --omp-pic
 compile_openmp:
