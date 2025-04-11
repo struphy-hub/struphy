@@ -146,7 +146,8 @@ def kernel_l2error(
     c1: "float[:,:,:]",
     c2: "float[:,:,:]",
     mat_map: "float[:,:,:,:,:,:]",
-):
+): 
+    
     #$ omp parallel private(ie1, ie2, ie3, q1, q2, q3, wvol, bi, bj, il1, il2, il3, jl1, jl2, jl3)
     #$ omp for
 
@@ -178,7 +179,7 @@ def kernel_l2error(
                                 for jl2 in range(p[1] + 1 - nj[1]):
                                     for jl3 in range(p[2] + 1 - nj[2]):
                                         bj += (
-                                            c2[ind_basej1[ie1, il1], ind_basej2[ie2, il2], ind_basej3[ie3, il3]]
+                                            c2[ind_basej1[ie1, jl1], ind_basej2[ie2, jl2], ind_basej3[ie3, jl3]]
                                             * bj1[ie1, jl1, 0, q1]
                                             * bj2[ie2, jl2, 0, q2]
                                             * bj3[ie3, jl3, 0, q3]
