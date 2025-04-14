@@ -600,14 +600,6 @@ class Particles(metaclass=ABCMeta):
         return self._domain_array
 
     @property
-    def n_mks(self):
-        """Total number of markers."""
-        if self.amrex:
-            return self._markers.number_of_particles_at_level(0)
-        else:
-            return self._n_mks
-
-    @property
     def n_mks_loc(self):
         """Number of markers on process (without holes)."""
         if self.amrex:
@@ -1578,7 +1570,8 @@ class Particles(metaclass=ABCMeta):
         else:
             if self.mpi_rank == 0 and verbose:
                 print("\nLoading fresh markers:")
-                print(("seed:").ljust(25), _seed)
+                for key, val in self.loading_params.items():
+                    print((key + " :").ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
             if self.loading == "pseudo_random":
@@ -1743,10 +1736,6 @@ class Particles(metaclass=ABCMeta):
 
             # check if all particle positions are inside the unit cube [0, 1]^3
             n_mks_load_loc = self._n_mks_load[self._mpi_rank]
-
-            assert np.all(~self._holes[:n_mks_load_loc]) and np.all(
-                self._holes[n_mks_load_loc:],
-            )
 
             assert np.all(~self.holes[:n_mks_load_loc])
             assert np.all(self.holes[n_mks_load_loc:])
