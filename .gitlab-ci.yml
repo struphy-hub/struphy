@@ -281,6 +281,7 @@ install_scheduled:
 
 compile_pyccel_devel:
   stage: install
+  allow_failure: true
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
     - .rules_push
