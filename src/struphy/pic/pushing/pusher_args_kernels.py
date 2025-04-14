@@ -84,30 +84,41 @@ class DerhamArguments:
 
     def __init__(
         self,
-        pn: "const int[:]",
-        tn1: "const float[:]",
-        tn2: "const float[:]",
-        tn3: "const float[:]",
-        starts: "const int[:]",
-        bn1: "const float[:]",
-        bn2: "const float[:]",
-        bn3: "const float[:]",
-        bd1: "const float[:]",
-        bd2: "const float[:]",
-        bd3: "const float[:]",
+        pn: "int[:]",
+        tn1: "float[:]",
+        tn2: "float[:]",
+        tn3: "float[:]",
+        starts: "int[:]",
+        bn1: "float[:]",
+        bn2: "float[:]",
+        bn3: "float[:]",
+        bd1: "float[:]",
+        bd2: "float[:]",
+        bd3: "float[:]",
     ):
-        self.pn = copy(pn)
-        self.tn1 = copy(tn1)
-        self.tn2 = copy(tn2)
-        self.tn3 = copy(tn3)
-        self.starts = copy(starts)
-        self.bn1 = copy(bn1)
-        self.bn2 = copy(bn2)
-        self.bn3 = copy(bn3)
-        self.bd1 = copy(bd1)
-        self.bd2 = copy(bd2)
-        self.bd3 = copy(bd3)
-
+        # self.pn = copy(pn)
+        # self.tn1 = copy(tn1)
+        # self.tn2 = copy(tn2)
+        # self.tn3 = copy(tn3)
+        # self.starts = copy(starts)
+        # self.bn1 = copy(bn1)
+        # self.bn2 = copy(bn2)
+        # self.bn3 = copy(bn3)
+        # self.bd1 = copy(bd1)
+        # self.bd2 = copy(bd2)
+        # self.bd3 = copy(bd3)
+        
+        self.pn = pn
+        self.tn1 = tn1
+        self.tn2 = tn2
+        self.tn3 = tn3
+        self.starts = starts
+        self.bn1 = bn1
+        self.bn2 = bn2
+        self.bn3 = bn3
+        self.bd1 = bd1
+        self.bd2 = bd2
+        self.bd3 = bd3
 
 class DomainArguments:
     """Holds the mandatory arguments pertaining to :class:`~struphy.geometry.base.Domain` passed to particle pusher kernels.

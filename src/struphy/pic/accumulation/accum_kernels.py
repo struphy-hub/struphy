@@ -54,19 +54,19 @@ def charge_density_0form(
     # local_vec_tid = zeros((sx, sy, sz), dtype=float)
     # thread_particles = zeros((n_threads), dtype=int)
 
-    tn1 = args_derham.tn1
-    tn2 = args_derham.tn2
-    tn3 = args_derham.tn3
+    # tn1 = args_derham.tn1
+    # tn2 = args_derham.tn2
+    # tn3 = args_derham.tn3
 
-    pn1 = args_derham.pn[0]
-    pn2 = args_derham.pn[1]
-    pn3 = args_derham.pn[2]
+    # pn1 = args_derham.pn[0]
+    # pn2 = args_derham.pn[1]
+    # pn3 = args_derham.pn[2]
 
-    bn1 = args_derham.bn1
-    bn2 = args_derham.bn2
-    bn3 = args_derham.bn3,
+    # bn1 = args_derham.bn1
+    # bn2 = args_derham.bn2
+    # bn3 = args_derham.bn3,
 
-    starts = args_derham.starts
+    # starts = args_derham.starts
     # To test the SPH kernel:
     # OMP_NUM_THREADS=1 mpirun -n 1 python src/struphy/pic/tests/test_accum_vec_H1.py
     # OMP_NUM_THREADS=4 mpirun -n 1 python src/struphy/pic/tests/test_accum_vec_H1.py 
@@ -83,7 +83,7 @@ def charge_density_0form(
         
         filling = markers[ip, 3 + vdim] / n_markers_tot
         
-        particle_to_mat_kernels.vec_fill_b_v0(
+        particle_to_mat_kernels.vec_fill_b_v02(
             args_derham,
             eta1,
             eta2,

@@ -1461,15 +1461,38 @@ def eval_spline_mpi_markers(
 # bsplines_kernels.b_d_splines_slim(
 #     tn3, pn2, eta3, int(span3), bn3, bd3
 # )
-from pyccel.decorators import pure
 
-@pure
+
 def get_spans(eta1: float, eta2: float, eta3: float, args_derham: "DerhamArguments"):
-    
     """Compute the knot span index,
     the N-spline values (in bn) and the D-spline values (in bd)
     at (eta1, eta2, eta3)."""
 
+    # find spans
+    span1 = bsplines_kernels.find_span(args_derham.tn1, args_derham.pn[0], eta1)
+    span2 = bsplines_kernels.find_span(args_derham.tn2, args_derham.pn[1], eta2)
+    span3 = bsplines_kernels.find_span(args_derham.tn3, args_derham.pn[2], eta3)
+
+    # get spline values at eta
+    bsplines_kernels.b_d_splines_slim(
+        args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1
+    )
+    bsplines_kernels.b_d_splines_slim(
+        args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2
+    )
+    bsplines_kernels.b_d_splines_slim(
+        args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3
+    )
+
+    return span1, span2, span3
+
+
+def get_spans2(eta1: "float", eta2: "float", eta3: "float", args_derham: "DerhamArguments"):
+    
+    """Compute the knot span index,
+    the N-spline values (in bn) and the D-spline values (in bd)
+    at (eta1, eta2, eta3)."""
+    
     tn1 = args_derham.tn1
     tn2 = args_derham.tn2
     tn3 = args_derham.tn3
@@ -1495,6 +1518,15 @@ def get_spans(eta1: float, eta2: float, eta3: float, args_derham: "DerhamArgumen
     _bn1, _bd1 = bsplines_kernels.b_d_splines_slim2(args_derham.tn1, args_derham.pn[0], eta1, int(span1))
     _bn2, _bd2 = bsplines_kernels.b_d_splines_slim2(args_derham.tn2, args_derham.pn[1], eta2, int(span2))
     _bn3, _bd3 = bsplines_kernels.b_d_splines_slim2(args_derham.tn3, args_derham.pn[2], eta3, int(span3))
+    # bsplines_kernels.b_d_splines_slim(
+    #     args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1
+    # )
+    # bsplines_kernels.b_d_splines_slim(
+    #     args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2
+    # )
+    # bsplines_kernels.b_d_splines_slim(
+    #     args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3
+    # )
 
     # args_derham.bn1[:] = _bn1
     # args_derham.bn2[:] = _bn2
@@ -1504,8 +1536,7 @@ def get_spans(eta1: float, eta2: float, eta3: float, args_derham: "DerhamArgumen
     # args_derham.bd2[:] = _bd2
     # args_derham.bd3[:] = _bd3
 
-    return span1, span2, span3, args_derham
-
+    return span1, span2, span3
 
 def eval_0form_spline_mpi(
     span1: int, span2: int, span3: int, args_derham: "DerhamArguments", form_coeffs: "float[:,:,:]"
