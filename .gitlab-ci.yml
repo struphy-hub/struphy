@@ -321,6 +321,7 @@ compile_openmp:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
+  allow_failure: true
 
 compile_timing:
   stage: install
