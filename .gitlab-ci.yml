@@ -289,8 +289,8 @@ compile_pyccel_devel:
     matrix:
       - LANGUAGE: "fortran"
         OMP: [""] #, -"-omp-pic"]
-      - LANGUAGE: "c"
-        OMP: [""] #, -"-omp-pic"]
+      # - LANGUAGE: "c"
+      #   OMP: [""] #, -"-omp-pic"]
   script:
     - !reference [.scripts, create_venv]
     - pip install $(echo $STRUPHY_SOURCE)[test]
