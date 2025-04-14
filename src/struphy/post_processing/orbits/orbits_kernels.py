@@ -40,9 +40,9 @@ def calculate_guiding_center_from_6d(markers: 'float[:,:]',
         if (markers[ip, 0] == 0. and markers[ip, 1] == 0. and markers[ip, 2] == 0.):
             continue
 
-        x = markers[ip, 0:3]
-        v = markers[ip, 3:6]
-        B = B_cart[ip, 0:3]
+        x[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+        B[:] = B_cart[ip, 0:3]
 
         # calculate magnitude of the magnetic field unit magnetic field
         absB = sqrt(B[0]**2 + B[1]**2 + B[2]**2)

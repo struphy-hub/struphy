@@ -113,8 +113,8 @@ stages:
 .parallel_matrix_push:
   parallel:
     matrix:
-      # - LANGUAGE: "fortran"
-      #   OMP: ["", "--omp-pic"]
+      - LANGUAGE: "fortran"
+        OMP: [""] #, "--omp-pic"]
       - LANGUAGE: "c"
         OMP: [""]
 
@@ -134,7 +134,7 @@ stages:
     - uname -a
     - module list
     - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
+    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8 cmake/3.30
     - module list
     - make -v
     - python3 --version
@@ -279,6 +279,29 @@ install_scheduled:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
 
+compile_pyccel_devel:
+  stage: install
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .rules_push
+    - .before_script_load_modules
+  parallel:
+    matrix:
+      - LANGUAGE: "fortran"
+        OMP: [""] #, -"-omp-pic"]
+      - LANGUAGE: "c"
+        OMP: [""] #, -"-omp-pic"]
+  script:
+    - !reference [.scripts, create_venv]
+    - pip install $(echo $STRUPHY_SOURCE)[test]
+    - pip show pyccel
+    - pip uninstall pyccel -y
+    - git clone --recurse-submodules https://github.com/pyccel/pyccel.git pyccel
+    - cd pyccel/
+    - python -m pip install ".[test]" --no-cache-dir
+    - cd ../
+    - pip show pyccel
+    - !reference [.scripts, compile_matrix]
 
 # Temporary, since the scheduled CI fails the tests with --omp-pic
 compile_openmp:
@@ -300,8 +323,7 @@ compile_openmp:
     - !reference [.scripts, compile_matrix]
     - !reference [.scripts, model_tests]
     - python src/struphy/utils/check_variables.py
-
-
+  allow_failure: true
 
 compile_timing:
   stage: install

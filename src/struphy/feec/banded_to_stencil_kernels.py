@@ -1,6 +1,6 @@
 from pyccel.decorators import pure
 
-from numpy import shape, mod
+from numpy import shape, mod, floor
 
 
 @pure
@@ -9,7 +9,7 @@ def band_to_stencil_1d(arr: 'float[:, :]', out: 'float[:, :]'):
     into the array out, of shape (n, 2*p + 1), which corresponds to the StencilMatrix format.
     '''
     s = shape(arr)
-    p = shape(out)[1]//2
+    p = int(floor(shape(out)[1] / 2))
 
     for i in range(s[0]):
         for j in range(2*p + 1):
@@ -22,8 +22,8 @@ def band_to_stencil_2d(arr: 'float[:, :, :, :]', out: 'float[:, :, :, :]'):
     '''Converts a 4d banded matrix to StencilMatrix format (see band_to_stencil_1d).
     '''
     s = shape(arr)
-    p1 = shape(out)[2]//2
-    p2 = shape(out)[3]//2
+    p1 = int(floor(shape(out)[2] / 2))
+    p2 = int(floor(shape(out)[3] / 2))
 
     for i1 in range(s[0]):
         for j1 in range(2*p1 + 1):
@@ -40,9 +40,9 @@ def band_to_stencil_3d(arr: 'float[:, :, :, :, :, :]', out: 'float[:, :, :, :, :
     '''Converts a 6d banded matrix to StencilMatrix format (see band_to_stencil_1d).
     '''
     s = shape(arr)
-    p1 = shape(out)[3]//2
-    p2 = shape(out)[4]//2
-    p3 = shape(out)[5]//2
+    p1 = int(floor(shape(out)[3] / 2))
+    p2 = int(floor(shape(out)[4] / 2))
+    p3 = int(floor(shape(out)[5] / 2))
 
     for i1 in range(s[0]):
         for j1 in range(2*p1 + 1):

@@ -3,9 +3,8 @@
 """
 Basic functions for point-wise B-spline evaluation
 """
-from numpy import empty, zeros
 from pyccel.decorators import inline, pure, stack_array
-
+from numpy import empty, zeros, floor
 
 @pure
 def scaling(t_d: 'float[:]', p_d: 'int', span_d: 'int', values: 'float[:]'):
@@ -64,7 +63,7 @@ def find_span(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
         returnVal = high - 1
     else:
         # Perform binary search
-        span = (low + high)//2
+        span = int(floor((low + high) / 2))
 
         while eta < t[span] or eta >= t[span + 1]:
 
@@ -72,7 +71,7 @@ def find_span(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
                 high = span
             else:
                 low = span
-            span = (low + high)//2
+            span = int(floor((low + high) / 2))
 
         returnVal = span
 
