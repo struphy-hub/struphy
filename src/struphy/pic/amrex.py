@@ -1,7 +1,8 @@
 try:
     import amrex.space3d as amr
 except ImportError:
-    amr = None 
+    amr = None
+
 
 class Amrex:
     def __init__(self):
@@ -18,10 +19,9 @@ class Amrex:
                     "amrex.throw_exception=0",
                     "amrex.signal_handling=1",
                 ]
-        )
+            )
         else:
             ModuleNotFoundError("pyAMReX must be installed")
 
     def finalize(self):
-
         amr.finalize()

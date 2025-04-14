@@ -12,10 +12,11 @@ from struphy.propagators.propagators_markers import PushEta
 try:
     import amrex.space3d as amr
 except ImportError:
-    amr = None 
+    amr = None
 
 Np = 4
 seed = 123456
+
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_box(plot=False, verbose=False):
@@ -32,7 +33,7 @@ def test_amrex_box(plot=False, verbose=False):
 
     # mandatory parameters
     name = "test"
-    
+
     bc = ["periodic", "periodic", "periodic"]
     loading = "pseudo_random"
 
@@ -183,7 +184,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
 
     # instantiate Particle object
     name = "test"
-    
+
     bc = ["periodic", "periodic", "periodic"]
     loading = "pseudo_random"
     loading_params = {"seed": None}
@@ -409,7 +410,7 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     # simulation parameters
     Tend = 20.0
     dt = 0.5
-    
+
     # initialize amrex
     amrex = Amrex()
 
@@ -560,11 +561,11 @@ def push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt, plot, ver
 
         struphy_pos[0] = struphy_pushed_pos
         amrex_pos[0] = amrex_pushed_pos
-    else: 
+    else:
         struphy_pos = None
         amrex_pos = None
         alpha = None
-        
+
     n = 0
     time = 0.0
     while time < (Tend - dt):

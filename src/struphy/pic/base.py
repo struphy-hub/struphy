@@ -275,15 +275,14 @@ class Particles(metaclass=ABCMeta):
     def _init_amrex(
         self,
         comm_world: Intracomm = None,
-        ):
-        
+    ):
         self._mpi_comm = comm_world
-        
+
         axes = ["x", "y", "z"]
         self._periodic_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
         self._reflect_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
         self._remove_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "remove"]
-        
+
         self.create_amrex_array()
 
     def _init_struphy(
@@ -300,7 +299,7 @@ class Particles(metaclass=ABCMeta):
         self._periodic_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "remove"]
-        
+
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
@@ -1080,7 +1079,7 @@ class Particles(metaclass=ABCMeta):
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)
-        
+
         # arguments for kernels
         self._args_markers = MarkerArguments(
             self.markers,
@@ -2174,9 +2173,9 @@ class Particles(metaclass=ABCMeta):
 
         # indices or particles that are outside of the logical unit cube
         outside_inds = np.nonzero(is_outside)[0]
-        
+
         return is_outside_left, is_outside_right, outside_inds
-    
+
     def apply_amrex_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2190,20 +2189,22 @@ class Particles(metaclass=ABCMeta):
 
         for pti in self._markers.iterator(self._markers, 0):
             markers_array = pti.soa().to_numpy()[0]
-            
+
             # remove feature not yet implemented
             for axis in self._remove_axes:
                 raise NotImplementedError("Given bc_type is not implemented!")
-            
+
             for axis in self._periodic_axes:
-                is_outside_left, is_outside_right, outside_inds = self._find_amrex_outside_particles(markers_array, axis)
-                
+                is_outside_left, is_outside_right, outside_inds = self._find_amrex_outside_particles(
+                    markers_array, axis
+                )
+
                 markers_array[axis][outside_inds] = markers_array[axis][outside_inds] % 1.0
-                
+
                 # set shift for alpha-weighted mid-point computation
                 outside_right_inds = np.nonzero(is_outside_right)[0]
                 outside_left_inds = np.nonzero(is_outside_left)[0]
-                
+
                 # TODO (Mati) fix this
                 # if newton:
                 #     self.markers[
@@ -2227,15 +2228,16 @@ class Particles(metaclass=ABCMeta):
                 #         outside_left_inds,
                 #         self.first_pusher_idx + 3 + self.vdim + axis,
                 #     ] = -1.0
-            
-            
+
             # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
             outside_inds_per_axis = {}
             for axis in self._reflect_axes:
-                is_outside_left, is_outside_right, outside_inds = self._find_amrex_outside_particles(markers_array, axis)
+                is_outside_left, is_outside_right, outside_inds = self._find_amrex_outside_particles(
+                    markers_array, axis
+                )
 
                 outside_inds_per_axis[axis] = outside_inds
-                
+
                 if len(outside_inds) == 0:
                     continue
 
@@ -2248,12 +2250,12 @@ class Particles(metaclass=ABCMeta):
 
                 axis_number = {"x": 0, "y": 1, "z": 2}
                 amrex_reflect(
-                        markers_array,
-                        outside_inds_per_axis[axis],
-                        axis_number[axis],
-                        self.domain,
-                    )
-            
+                    markers_array,
+                    outside_inds_per_axis[axis],
+                    axis_number[axis],
+                    self.domain,
+                )
+
         self._markers.redistribute()
 
     def particle_refilling(self):
