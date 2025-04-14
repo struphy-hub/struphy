@@ -5923,25 +5923,40 @@ def vec_fill_v0vec(args_derham: 'DerhamArguments',
                             vec3, fill3)
 
 
-def vec_fill_b_v0(args_derham: 'DerhamArguments',
-                  eta1: float, eta2: float, eta3: float,
-                  vec: 'float[:,:,:]', fill: float):
+def vec_fill_b_v0(tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                    pn0: 'int', pn1: 'int', pn2: 'int',
+                    bn1: 'int', bn2: 'int', bn3: 'int',
+                    bd1: 'int', bd2: 'int', bd3: 'int',
+                    starts: 'int[:]',
+                    eta1: float, eta2: float, eta3: float,
+                    vec: 'float[:,:,:]', fill: float):
     """TODO
     """
-    
-    from numpy import empty
     #$ omp critical
+    from numpy import empty
     # degrees of the basis functions : B-splines (pn) and D-splines (pd)
-    pn1 = args_derham.pn[0]
-    pn2 = args_derham.pn[1]
-    pn3 = args_derham.pn[2]
+    # pn1 = args_derham.pn[0]
+    # pn2 = args_derham.pn[1]
+    # pn3 = args_derham.pn[2]
     #$ omp end critical
+
+    # tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+    # pn0: 'int', pn1: 'int', pn2: 'int',
+    # bn1: 'int', bn2: 'int', bn3: 'int',
+    # bd1: 'int', bd2: 'int', bd3: 'int',
+
+    span1, span2, span3 = get_spans(eta1, eta2, eta3, 
+                                    tn1,tn2,tn3,
+                                    pn0,pn1,pn2,
+                                    bn1,bn2,bn3,
+                                    bd1,bd2,bd3)
+    # args_derham)
     
-    span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
     
-    
-    filler_kernels.fill_vec(pn1, pn2, pn3, args_derham.bn1, args_derham.bn2, args_derham.bn3, span1,
-                            span2, span3, args_derham.starts, vec, fill)
+    # filler_kernels.fill_vec(pn1, pn2, pn3, args_derham.bn1, args_derham.bn2, args_derham.bn3, span1,
+    #                         span2, span3, args_derham.starts, vec, fill)
+    filler_kernels.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1,
+                            span2, span3, starts, vec, fill)
     
 
 def vec_fill_b_v1(args_derham: 'DerhamArguments',

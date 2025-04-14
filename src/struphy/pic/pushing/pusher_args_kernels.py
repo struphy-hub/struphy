@@ -83,17 +83,17 @@ class DerhamArguments:
 
     def __init__(
         self,
-        pn: "int[:]",
-        tn1: "float[:]",
-        tn2: "float[:]",
-        tn3: "float[:]",
-        starts: "int[:]",
-        bn1: "float[:]",
-        bn2: "float[:]",
-        bn3: "float[:]",
-        bd1: "float[:]",
-        bd2: "float[:]",
-        bd3: "float[:]",
+        pn: "const int[:]",
+        tn1: "const float[:]",
+        tn2: "const float[:]",
+        tn3: "const float[:]",
+        starts: "const int[:]",
+        bn1: "const float[:]",
+        bn2: "const float[:]",
+        bn3: "const float[:]",
+        bd1: "const float[:]",
+        bd2: "const float[:]",
+        bd3: "const float[:]",
     ):
         self.pn = pn
         self.tn1 = tn1
