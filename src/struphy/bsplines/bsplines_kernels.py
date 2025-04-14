@@ -472,6 +472,8 @@ def b_d_splines_slim(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', bn: '
 #     # make sure the arrays we are writing to are empty
 #     bn = zeros(pn + 1, dtype=float)
 #     bd = zeros(pn, dtype=float)
+#     # bn[:] = 0.
+#     # bd[:] = 0.
 
 #     # Initialize variables left and right used for computing the value
 #     left = zeros(pn, dtype=float)

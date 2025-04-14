@@ -10,7 +10,7 @@ These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.A
 
 from numpy import empty, floor, log, shape, sqrt, zeros, sum
 from pyccel.decorators import stack_array
-from pyccel.stdlib.internal.openmp import omp_get_thread_num, omp_get_max_threads
+# from pyccel.stdlib.internal.openmp import omp_get_thread_num, omp_get_max_threads
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
@@ -44,7 +44,7 @@ def charge_density_0form(
         B_p^\mu = \frac{w_p}{N} \,.
     """
 
-    n_threads = omp_get_max_threads()
+    # n_threads = omp_get_max_threads()
     sx = shape(vec)[0]
     sy = shape(vec)[1]
     sz = shape(vec)[2]
@@ -83,7 +83,7 @@ def charge_density_0form(
         
         filling = markers[ip, 3 + vdim] / n_markers_tot
         
-        particle_to_mat_kernels.vec_fill_b_v02(
+        particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,
             eta1,
             eta2,
