@@ -303,6 +303,7 @@ compile_pyccel_devel:
     - cd ../
     - pip show pyccel
     - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
 # Temporary, since the scheduled CI fails the tests with --omp-pic
 compile_openmp:
