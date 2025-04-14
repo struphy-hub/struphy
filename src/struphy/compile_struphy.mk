@@ -45,7 +45,5 @@ all: $(OUTPUTS)
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUTS)
-    
-	find $(struphy_path)/ -type d -name '__pyccel__' -prune -exec rm -rf {} \;
-	find $(struphy_path)/ -type d -name '__pycache__' -prune -exec rm -rf {} \;
+	find $(struphy_path)/ -type d \( -name '__pyccel__' -o -name '__pycache__' \) -exec rm -rf {} +
 	find $(struphy_path)/ -type f \( -name '*.lock' -o -name '*.so' -o -name '*.o' -o -name '*.mod' \) -delete
