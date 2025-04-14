@@ -183,7 +183,8 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
-        self._Np = int(Np)
+        if Np is not None:
+            self._Np = int(Np)
 
         # boundary conditions
         if bc is None:
