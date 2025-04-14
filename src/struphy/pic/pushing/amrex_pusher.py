@@ -84,7 +84,7 @@ def amrex_reflect(markers_array: "dict", outside_inds: "int[:]", axis: "int", do
         outside_inds : array[int]
             inds indicate the particles which are pushed outside of the local cube
 
-        axis : str
+        axis : int
             0, 1 or 2
     """
 

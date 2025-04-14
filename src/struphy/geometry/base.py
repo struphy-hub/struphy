@@ -803,6 +803,7 @@ class Domain(metaclass=ABCMeta):
                 self.args_domain,
                 out,
                 remove_outside,
+                avoid_round_off,
             )
 
             # move the (3, 3)-part to front

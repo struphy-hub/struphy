@@ -198,9 +198,6 @@ class Particles(metaclass=ABCMeta):
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
         self._bc = bc
-        self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
-        self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
-        self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
         self._bc_refill = bc_refill
 
         # particle type
@@ -271,9 +268,23 @@ class Particles(metaclass=ABCMeta):
             self._auto_sampling_params()
 
         if self.amrex:
-            self.create_amrex_array()
+            self._init_amrex(comm_world)
         else:
             self._init_struphy(comm_world, clone_config, ppc, domain_decomp, ppb, boxes_per_dim, eps, verbose)
+
+    def _init_amrex(
+        self,
+        comm_world: Intracomm = None,
+        ):
+        
+        self._mpi_comm = comm_world
+        
+        axes = ["x", "y", "z"]
+        self._periodic_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
+        self._reflect_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
+        self._remove_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "remove"]
+        
+        self.create_amrex_array()
 
     def _init_struphy(
         self,
@@ -286,6 +297,10 @@ class Particles(metaclass=ABCMeta):
         eps: float = 0.25,
         verbose: bool = False,
     ):
+        self._periodic_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
+        self._reflect_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
+        self._remove_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "remove"]
+        
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
@@ -600,14 +615,6 @@ class Particles(metaclass=ABCMeta):
         return self._domain_array
 
     @property
-    def n_mks_loc(self):
-        """Number of markers on process (without holes)."""
-        if self.amrex:
-            return self._markers.number_of_particles_at_level(0, True, True)
-        else:
-            return self._n_mks_loc
-
-    @property
     def nprocs(self):
         """Number of MPI processes in each dimension."""
         return self._nprocs
@@ -717,7 +724,10 @@ class Particles(metaclass=ABCMeta):
     @property
     def n_mks_loc(self):
         """Number of markers on process (without holes and ghosts)."""
-        return np.count_nonzero(self.valid_mks)
+        if self.amrex:
+            return self._markers.number_of_particles_at_level(0, True, True)
+        else:
+            return np.count_nonzero(self.valid_mks)
 
     @property
     def positions(self):
@@ -729,6 +739,8 @@ class Particles(metaclass=ABCMeta):
 
     @positions.setter
     def positions(self, new):
+        if self.amrex:
+            raise AttributeError("Impossible to set positions in AMReX array")
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3)
         self._markers[self.valid_mks, self.index["pos"]] = new
@@ -743,6 +755,8 @@ class Particles(metaclass=ABCMeta):
 
     @velocities.setter
     def velocities(self, new):
+        if self.amrex:
+            raise AttributeError("Impossible to set velocites in AMReX array")
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc = } and {self.vdim = } but {new.shape = }"
         self._markers[self.valid_mks, self.index["vel"]] = new
@@ -1066,6 +1080,25 @@ class Particles(metaclass=ABCMeta):
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)
+        
+        # arguments for kernels
+        self._args_markers = MarkerArguments(
+            self.markers,
+            self.valid_mks,
+            self.Np,
+            self.vdim,
+            self.index["weights"],
+            self.first_diagnostics_idx,
+            self.first_pusher_idx,
+            self.first_shift_idx,
+            self.residual_idx,
+            self.first_free_idx,
+        )
+
+        # Have at least 3 spare places in markers array
+        assert self.args_markers.first_free_idx + 2 < self.n_cols - 1, (
+            f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
+        )
 
     def create_amrex_array(self):
         # empty particle container, pure SoA
@@ -1108,26 +1141,6 @@ class Particles(metaclass=ABCMeta):
         assert pc.OK()  # OK checks that all particles are in the right places (for some value of right)
 
         self._markers = pc
-
-    def draw_markers(self, sort: "bool" = True, verbose=True):
-        # arguments for kernels
-        self._args_markers = MarkerArguments(
-            self.markers,
-            self.valid_mks,
-            self.Np,
-            self.vdim,
-            self.index["weights"],
-            self.first_diagnostics_idx,
-            self.first_pusher_idx,
-            self.first_shift_idx,
-            self.residual_idx,
-            self.first_free_idx,
-        )
-
-        # Have at least 3 spare places in markers array
-        assert self.args_markers.first_free_idx + 2 < self.n_cols - 1, (
-            f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
-        )
 
     def _initialize_sorting_boxes(self):
         self._initialized_sorting = False
@@ -2149,6 +2162,21 @@ class Particles(metaclass=ABCMeta):
                 axis,
             )
 
+    def _find_amrex_outside_particles(self, markers_array, axis):
+        # determine particles outside of the logical unit cube
+        is_outside_right = markers_array[axis] > 1.0
+        is_outside_left = markers_array[axis] < 0.0
+
+        is_outside = np.logical_or(
+            is_outside_right,
+            is_outside_left,
+        )
+
+        # indices or particles that are outside of the logical unit cube
+        outside_inds = np.nonzero(is_outside)[0]
+        
+        return is_outside_left, is_outside_right, outside_inds
+    
     def apply_amrex_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2160,105 +2188,73 @@ class Particles(metaclass=ABCMeta):
             for a Newton step or for a strandard (explicit or Picard) step.
         """
 
-        # markers_array = self._markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
-
-        axes = ["x", "y", "z"]
         for pti in self._markers.iterator(self._markers, 0):
             markers_array = pti.soa().to_numpy()[0]
-            for i, bc in enumerate(self.bc):
-                axis = axes[i]
-                # determine particles outside of the logical unit cube
-                is_outside_right = markers_array[axis] > 1.0
-                is_outside_left = markers_array[axis] < 0.0
+            
+            # remove feature not yet implemented
+            for axis in self._remove_axes:
+                raise NotImplementedError("Given bc_type is not implemented!")
+            
+            for axis in self._periodic_axes:
+                is_outside_left, is_outside_right, outside_inds = self._find_amrex_outside_particles(markers_array, axis)
+                
+                markers_array[axis][outside_inds] = markers_array[axis][outside_inds] % 1.0
+                
+                # set shift for alpha-weighted mid-point computation
+                outside_right_inds = np.nonzero(is_outside_right)[0]
+                outside_left_inds = np.nonzero(is_outside_left)[0]
+                
+                # TODO (Mati) fix this
+                # if newton:
+                #     self.markers[
+                #         outside_right_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] += 1.0
+                #     self.markers[
+                #         outside_left_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] += -1.0
+                # else:
+                #     self.markers[
+                #         :,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] = 0.0
+                #     self.markers[
+                #         outside_right_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] = 1.0
+                #     self.markers[
+                #         outside_left_inds,
+                #         self.first_pusher_idx + 3 + self.vdim + axis,
+                #     ] = -1.0
+            
+            
+            # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
+            outside_inds_per_axis = {}
+            for axis in self._reflect_axes:
+                is_outside_left, is_outside_right, outside_inds = self._find_amrex_outside_particles(markers_array, axis)
 
-                is_outside = np.logical_or(
-                    is_outside_right,
-                    is_outside_left,
-                )
-
-                # indices or particles that are outside of the logical unit cube
-                outside_inds = np.nonzero(is_outside)[0]
-
+                outside_inds_per_axis[axis] = outside_inds
+                
                 if len(outside_inds) == 0:
                     continue
 
-                # apply boundary conditions
-                if bc == "remove":
-                    raise NotImplementedError("Given bc_type is not implemented!")
+                markers_array[axis][is_outside_left] = 1e-4
+                markers_array[axis][is_outside_right] = 1 - 1e-4
 
-                elif bc == "periodic":
+            for axis in self._reflect_axes:
+                if len(outside_inds_per_axis[axis]) == 0:
                     continue
-                    # default behavior in amrex
 
-                elif bc == "reflect":
-                    markers_array[axis][is_outside_left] = 1e-4
-                    markers_array[axis][is_outside_right] = 1 - 1e-4
-
-                    amrex_reflect(
+                axis_number = {"x": 0, "y": 1, "z": 2}
+                amrex_reflect(
                         markers_array,
-                        outside_inds,
-                        i,
+                        outside_inds_per_axis[axis],
+                        axis_number[axis],
                         self.domain,
                     )
-
-                else:
-                    raise NotImplementedError("Given bc_type is not implemented!")
-
+            
         self._markers.redistribute()
-
-    def auto_sampling_params(self):
-        """Automatically determine sampling parameters from the background given"""
-        bckgr_type = self.bckgr_params["type"]
-        if not isinstance(bckgr_type, list):
-            bckgr_type = [bckgr_type]
-
-        ns = []
-        us = []
-        vths = []
-
-        for fi in bckgr_type:
-            if fi[-2] == "_":
-                fi_type = fi[:-2]
-            else:
-                fi_type = fi
-
-            us.append([])
-            vths.append([])
-
-            bckgr = getattr(maxwellians, fi_type)
-            default_maxw_params = bckgr.default_maxw_params()
-
-            for key in default_maxw_params.keys():
-                if key[0] == "n":
-                    if key in self.bckgr_params[fi].keys():
-                        ns += [self.bckgr_params[fi][key]]
-                    else:
-                        ns += [1.0]
-
-                elif key[0] == "u":
-                    if key in self.bckgr_params[fi].keys():
-                        us[-1] += [self.bckgr_params[fi][key]]
-                    else:
-                        us[-1] += [0.0]
-
-                elif key[0] == "v":
-                    if key in self.bckgr_params[fi].keys():
-                        vths[-1] += [self.bckgr_params[fi][key]]
-                    else:
-                        vths[-1] += [1.0]
-
-        assert len(ns) == len(us) == len(vths)
-
-        ns = np.array(ns)
-        us = np.array(us)
-        vths = np.array(vths)
-
-        new_moments = []
-
-        new_moments += [*np.mean(us, axis=0)]
-        new_moments += [*(np.max(vths, axis=0) + np.max(np.abs(us), axis=0) - np.mean(us, axis=0))]
-
-        self.loading_params["moments"] = new_moments
 
     def particle_refilling(self):
         r"""

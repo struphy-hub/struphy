@@ -15,8 +15,9 @@ except ImportError:
     amr = None 
 
 Np = 4
+seed = 123456
 
-@pytest.mark.skipif(amr == None)
+@pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_box(plot=False, verbose=False):
     l1 = -5
     r1 = 5.0
@@ -170,7 +171,7 @@ def test_amrex_box(plot=False, verbose=False):
     amrex.finalize()
 
 
-@pytest.mark.skipif(amr == None)
+@pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -287,7 +288,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
     amrex.finalize()
 
 
-@pytest.mark.skipif(amr == None)
+@pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -395,7 +396,7 @@ def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
     amrex.finalize()
 
 
-@pytest.mark.skipif(amr == None)
+@pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     l1 = -5
     r1 = 5.0
@@ -432,7 +433,7 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     amrex.finalize()
 
 
-@pytest.mark.skipif(amr == None)
+@pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
     a1 = 0.0
     a2 = 5.0
@@ -471,7 +472,7 @@ def initialize_and_draw_struphy_amrex(domain, Np, bc, amrex):
     loading = "pseudo_random"
 
     # optional
-    loading_params = {"seed": None}
+    loading_params = {"seed": seed}
 
     # instantiate Particle object, pass the amrex object
     amrex_particles = Particles6D(
