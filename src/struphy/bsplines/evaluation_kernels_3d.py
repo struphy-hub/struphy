@@ -1439,48 +1439,72 @@ def eval_spline_mpi_markers(
 ###########################################
 ### Distributed Derham field evaluation ###
 ###########################################
+# def get_spans(eta1: float, eta2: float, eta3: float,
+#             tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+#             pn0: 'int', pn1: 'int', pn2: 'int',
+#             bn1: 'int', bn2: 'int', bn3: 'int',
+#             bd1: 'int', bd2: 'int', bd3: 'int',
+#             # args_derham: "DerhamArguments"
+#               ):
+# span1 = bsplines_kernels.find_span(args_derham.tn1, args_derham.pn[0], eta1)
+# span2 = bsplines_kernels.find_span(args_derham.tn2, args_derham.pn[1], eta2)
+# span3 = bsplines_kernels.find_span(args_derham.tn3, args_derham.pn[2], eta3)
+# span1 = bsplines_kernels.find_span(tn1, pn0, eta1)
+# span2 = bsplines_kernels.find_span(tn2, pn1, eta2)
+# span3 = bsplines_kernels.find_span(tn3, pn2, eta3)
+# bsplines_kernels.b_d_splines_slim(
+#     tn1, pn0, eta1, int(span1), bn1, bd1
+# )
+# bsplines_kernels.b_d_splines_slim(
+#     tn2, pn1, eta2, int(span2), bn2, bd2
+# )
+# bsplines_kernels.b_d_splines_slim(
+#     tn3, pn2, eta3, int(span3), bn3, bd3
+# )
+from pyccel.decorators import pure
 
-
-def get_spans(eta1: float, eta2: float, eta3: float,
-            tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-            pn0: 'int', pn1: 'int', pn2: 'int',
-            bn1: 'int', bn2: 'int', bn3: 'int',
-            bd1: 'int', bd2: 'int', bd3: 'int',
-            # args_derham: "DerhamArguments"
-              ):
+@pure
+def get_spans(eta1: float, eta2: float, eta3: float, args_derham: "DerhamArguments"):
+    
     """Compute the knot span index,
     the N-spline values (in bn) and the D-spline values (in bd)
     at (eta1, eta2, eta3)."""
 
+    tn1 = args_derham.tn1
+    tn2 = args_derham.tn2
+    tn3 = args_derham.tn3
+
+    pn1 = args_derham.pn[0]
+    pn2 = args_derham.pn[1]
+    pn3 = args_derham.pn[2]
+
+    bn1 = args_derham.bn1
+    bn2 = args_derham.bn2
+    bn3 = args_derham.bn3
+
+    bd1 = args_derham.bd1
+    bd2 = args_derham.bd2
+    bd3 = args_derham.bd3
+
     # find spans
-    # span1 = bsplines_kernels.find_span(args_derham.tn1, args_derham.pn[0], eta1)
-    # span2 = bsplines_kernels.find_span(args_derham.tn2, args_derham.pn[1], eta2)
-    # span3 = bsplines_kernels.find_span(args_derham.tn3, args_derham.pn[2], eta3)
-    span1 = bsplines_kernels.find_span(tn1, pn0, eta1)
-    span2 = bsplines_kernels.find_span(tn2, pn1, eta2)
-    span3 = bsplines_kernels.find_span(tn3, pn2, eta3)
+    span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+    span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+    span3 = bsplines_kernels.find_span(tn3, pn3, eta3)    
 
     # get spline values at eta
-    # bsplines_kernels.b_d_splines_slim(
-    #     args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1
-    # )
-    # bsplines_kernels.b_d_splines_slim(
-    #     args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2
-    # )
-    # bsplines_kernels.b_d_splines_slim(
-    #     args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3
-    # )
-    bsplines_kernels.b_d_splines_slim(
-        tn1, pn0, eta1, int(span1), bn1, bd1
-    )
-    bsplines_kernels.b_d_splines_slim(
-        tn2, pn1, eta2, int(span2), bn2, bd2
-    )
-    bsplines_kernels.b_d_splines_slim(
-        tn3, pn2, eta3, int(span3), bn3, bd3
-    )
+    _bn1, _bd1 = bsplines_kernels.b_d_splines_slim2(args_derham.tn1, args_derham.pn[0], eta1, int(span1))
+    _bn2, _bd2 = bsplines_kernels.b_d_splines_slim2(args_derham.tn2, args_derham.pn[1], eta2, int(span2))
+    _bn3, _bd3 = bsplines_kernels.b_d_splines_slim2(args_derham.tn3, args_derham.pn[2], eta3, int(span3))
 
-    return span1, span2, span3
+    # args_derham.bn1[:] = _bn1
+    # args_derham.bn2[:] = _bn2
+    # args_derham.bn3[:] = _bn3
+
+    # args_derham.bd1[:] = _bd1
+    # args_derham.bd2[:] = _bd2
+    # args_derham.bd3[:] = _bd3
+
+    return span1, span2, span3, args_derham
 
 
 def eval_0form_spline_mpi(

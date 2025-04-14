@@ -4,7 +4,7 @@
 Basic functions for point-wise B-spline evaluation
 """
 from numpy import empty, zeros
-from pyccel.decorators import pure, stack_array
+from pyccel.decorators import inline, pure, stack_array
 
 
 @pure
@@ -441,6 +441,65 @@ def b_d_splines_slim(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', bn: '
 
         bn[j + 1] = saved
 
+@pure
+def b_d_splines_slim2(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int'):
+    """
+    One function to compute the values of non-vanishing B-splines and D-splines.
+
+    Parameters
+    ---------- 
+        tn : array
+            Knot sequence of B-splines.
+
+        pn : int
+            Polynomial degree of B-splines.
+
+        span : integer
+            Knot span index i -> [i-p,i] basis functions are non-vanishing.
+
+        eta : float
+            Evaluation point.
+
+        bn : array[float]
+            Output: pn + 1 non-vanishing B-splines at eta
+
+        bd : array[float]
+            Output: pn non-vanishing D-splines at eta
+    """
+
+    # compute D-spline degree
+    pd = pn - 1
+
+    # make sure the arrays we are writing to are empty
+    bn = zeros(pn + 1, dtype=float)
+    bd = zeros(pn, dtype=float)
+
+    # Initialize variables left and right used for computing the value
+    left = zeros(pn, dtype=float)
+    right = zeros(pn, dtype=float)
+
+    bn[0] = 1.
+
+    for j in range(pn):
+        left[j] = eta - tn[span - j]
+        right[j] = tn[span + 1 + j] - eta
+        saved = 0.
+
+        if j == pn-1:
+            # compute D-splines values by scaling B-splines of degree pn-1
+            for il in range(pd + 1):
+                bd[pd - il] = pn/(
+                    tn[span - il + pn] -
+                    tn[span - il]
+                ) * bn[pd - il]
+
+        for r in range(j + 1):
+            temp = bn[r]/(right[r] + left[j - r])
+            bn[r] = saved + right[r] * temp
+            saved = left[j - r] * temp
+
+        bn[j + 1] = saved
+    return bn, bd
 
 @pure
 @stack_array('left', 'right', 'diff')

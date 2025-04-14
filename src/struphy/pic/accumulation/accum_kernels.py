@@ -71,7 +71,7 @@ def charge_density_0form(
     # OMP_NUM_THREADS=1 mpirun -n 1 python src/struphy/pic/tests/test_accum_vec_H1.py
     # OMP_NUM_THREADS=4 mpirun -n 1 python src/struphy/pic/tests/test_accum_vec_H1.py 
     
-    #$ omp parallel default(none) firstprivate(n_markers_tot, vdim, args_derham, markers) private (ip, eta1, eta2, eta3, filling) reduction(+: vec)
+    #$ omp parallel default(none) firstprivate(n_markers_tot, vdim, markers, args_derham) private (ip, eta1, eta2, eta3, filling) reduction(+: vec)
     #$ omp for schedule(static)
     for ip in range(shape(markers)[0]):
         if markers[ip, 0] == -1.0:
@@ -82,15 +82,26 @@ def charge_density_0form(
         eta3 = markers[ip, 2]
         
         filling = markers[ip, 3 + vdim] / n_markers_tot
+        
         particle_to_mat_kernels.vec_fill_b_v0(
-            tn1,tn2,tn3,
-            pn1,pn2,pn3,
-            bn1,bn2,bn3,
-            starts,
-            eta1,eta2,eta3,
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
             vec,
             filling,
         )
+        
+        # without args_derham
+        # particle_to_mat_kernels.vec_fill_b_v0(
+        #     tn1,tn2,tn3,
+        #     pn1,pn2,pn3,
+        #     bn1,bn2,bn3,
+        #     starts,
+        #     eta1,eta2,eta3,
+        #     vec,
+        #     filling,
+        # )
     #$ omp end parallel
 
 @stack_array(
