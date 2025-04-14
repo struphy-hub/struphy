@@ -634,15 +634,16 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 
 if __name__ == "__main__":
-    test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)
+    test_amrex_box(plot=True, verbose=True)
+    test_amrex_draw_uniform_cylinder(plot=True, verbose=True)
+    test_amrex_cylinder(plot=True, verbose=True)
     test_amrex_boundary_conditions_box(plot=True, verbose=True)
     test_amrex_boundary_conditions_cylinder(plot=True, verbose=True)
-    test_amrex_cylinder(plot=True, verbose=True)
-    test_amrex_draw_uniform_cylinder(plot=True, verbose=True)
 
 
-# add flat_eval option for jacobians (evaluate metric coef)
-# fix reflect bug
-# (merge)
+# add flat_eval option for jacobians (evaluate metric coef) DONE
+# fix reflect bug DONE
+# (merge) DONE
+# profiling with more cores
 # work on GPU with cupy
 # transform push_v_with_efield
