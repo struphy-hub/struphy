@@ -177,13 +177,6 @@ class Particles(metaclass=ABCMeta):
         else:
             self.amrex = False
 
-        # other parameters
-        self._name = name
-        self._domain = domain
-        self._equil = equil
-        self._projected_equil = projected_equil
-        self._equation_params = equation_params
-        
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
@@ -191,6 +184,13 @@ class Particles(metaclass=ABCMeta):
         else:
             self._mpi_comm = self.clone_config.sub_comm
             num_clones = self.clone_config.num_clones
+            
+        # other parameters
+        self._name = name
+        self._domain = domain
+        self._equil = equil
+        self._projected_equil = projected_equil
+        self._equation_params = equation_params
             
         # total number of cells (equal to mpi_size if no grid)
         n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
