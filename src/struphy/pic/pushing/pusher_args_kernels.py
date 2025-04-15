@@ -65,6 +65,20 @@ class MarkerArguments:
         self.mu_idx = 9  # particle magnetic moment
         self.toroidalmom_idx = 10  # particle toroidal momentum
 
+    def copy(self):
+        return MarkerArguments(
+            markers=self.markers,
+            valid_mks=self.valid_mks,
+            Np=self.Np,
+            vdim=self.vdim,
+            weight_idx=self.weight_idx,
+            first_diagnostics_idx=self.first_diagnostics_idx,
+            first_pusher_idx=self.first_pusher_idx,
+            first_shift_idx=self.first_shift_idx,
+            residual_idx=self.residual_idx,
+            first_free_idx=self.first_free_idx,
+        )
+
 
 class DerhamArguments:
     """Holds the mandatory arguments pertaining to :class:`~struphy.feec.psydac_derham.Derham` passed to particle pusher kernels.
@@ -106,6 +120,21 @@ class DerhamArguments:
         self.bd1 = bd1
         self.bd2 = bd2
         self.bd3 = bd3
+
+    def copy(self):
+        return DerhamArguments(
+            pn=self.pn,
+            tn1=self.tn1,
+            tn2=self.tn2,
+            tn3=self.tn3,
+            starts=self.starts,
+            bn1=self.bn1,
+            bn2=self.bn2,
+            bn3=self.bn3,
+            bd1=self.bd1,
+            bd2=self.bd2,
+            bd3=self.bd3,
+        )
 
 
 class DomainArguments:
@@ -159,3 +188,19 @@ class DomainArguments:
         self.cx = cx
         self.cy = cy
         self.cz = cz
+
+    def copy(self):
+        return DomainArguments(
+            kind_map=self.kind_map,
+            params=self.params,
+            p=self.p,
+            t1=self.t1,
+            t2=self.t2,
+            t3=self.t3,
+            ind1=self.ind1,
+            ind2=self.ind2,
+            ind3=self.ind3,
+            cx=self.cx,
+            cy=self.cy,
+            cz=self.cz,
+        )
