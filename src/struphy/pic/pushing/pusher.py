@@ -177,8 +177,8 @@ class Pusher:
 
         if not self.particles.amrex:
             first_pusher_idx = self.particles.first_pusher_idx
-            first_shift_idx = self.particles.args_markers.first_shift_idx
-            residual_idx = self.particles.args_markers.residual_idx
+            first_shift_idx = self.particles.first_shift_idx
+            residual_idx = self.particles.residual_idx
 
             if self.verbose:
                 print(f"{first_pusher_idx = }")
@@ -186,8 +186,8 @@ class Pusher:
                 print(f"{residual_idx = }")
                 print(f"{self.particles.n_cols = }")
 
-            init_slice = slice(first_pusher_idx, first_pusher_idx + 3 + vdim)
-            shift_slice = slice(first_shift_idx, first_shift_idx + 3)
+            init_slice = slice(first_pusher_idx, first_shift_idx)
+            shift_slice = slice(first_shift_idx, residual_idx)
 
             # save initial phase space coordinates
             markers[:, init_slice] = markers[:, : 3 + vdim]
@@ -196,7 +196,7 @@ class Pusher:
             markers[:, shift_slice] = 0.0
 
             # clear buffer columns starting from residual index, dont clear ID (last column)
-            markers[:, residual_idx:-1] = 0.0
+            markers[:, residual_idx:-2] = 0.0
 
         else:
             # markers_array = self.particles.markers.get_particles(0)[(0, 0)].get_struct_of_arrays().to_numpy().real
