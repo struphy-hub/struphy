@@ -192,6 +192,14 @@ class Particles(metaclass=ABCMeta):
         self._projected_equil = projected_equil
         self._equation_params = equation_params
         
+        # check for mpi communicator
+        if self.mpi_comm is None:
+            self._mpi_size = 1
+            self._mpi_rank = 0
+        else:
+            self._mpi_size = self.mpi_comm.Get_size()
+            self._mpi_rank = self.mpi_comm.Get_rank()
+        
         # domain decomposition (MPI) and cell information
         self._boxes_per_dim = boxes_per_dim
         if domain_decomp is None:
@@ -342,14 +350,6 @@ class Particles(metaclass=ABCMeta):
         self._periodic_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "remove"]
-
-        # check for mpi communicator
-        if self.mpi_comm is None:
-            self._mpi_size = 1
-            self._mpi_rank = 0
-        else:
-            self._mpi_size = self.mpi_comm.Get_size()
-            self._mpi_rank = self.mpi_comm.Get_rank()
 
         # create marker array
         self._eps = eps
