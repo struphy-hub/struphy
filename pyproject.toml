@@ -20,7 +20,8 @@ classifiers = [
     ]
 dependencies = [
     'numpy',
-    'pyccel>=1.11.1',
+    #'pyccel>=1.11.1',
+    'pyccel @ git+https://github.com/pyccel/pyccel.git@devel',
     'mpi4py',
     'scipy',
     'h5py',
