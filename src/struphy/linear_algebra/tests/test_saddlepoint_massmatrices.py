@@ -390,9 +390,17 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             )
             x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9*x1mf, 0.9*x2mf, 1.1*ymf)
         else:
+            ###wrong initialization to check if changed
             solver = SaddlePointSolverUzawaNumpy(
-                Anp,  Bnp, Fnp, Anppre, method_to_solve, preconditioner, spectralanalysis,  tol=tol, max_iter=max_iter
+                Anppre,  Bnp, [Anppre[0].dot(x1np), Anppre[0].dot(x1np)], Anppre, method_to_solve, preconditioner, spectralanalysis,  tol=tol, max_iter=max_iter
             )
+            # solver = SaddlePointSolverUzawaNumpy(
+            #     Anp,  Bnp, [Anppre[0].dot(x1np), Anppre[0].dot(x1np)], Anppre, method_to_solve, preconditioner, spectralanalysis,  tol=tol, max_iter=max_iter
+            # )
+            solver.A = Anp
+            solver.B = Bnp
+            solver.F = Fnp
+            solver.Apre = Anppre
             x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9*x1, 0.9*x2, 1.1*y1_rdm) #0.9*x1, 0.9*x2, 1.1*y1_rdm
         x_uzawa={}
         x_uzawa[0]=x_u
