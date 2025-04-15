@@ -1,3 +1,4 @@
+from numpy import copy
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle kernels.
@@ -45,9 +46,16 @@ class MarkerArguments:
         first_shift_idx: int,
         residual_idx: int,
         first_free_idx: int,
-    ):
+    ):  
+        # With copy
+        # self.markers = copy(markers)
+        # self.valid_mks = copy(valid_mks)
+
+        # Without copy
         self.markers = markers
         self.valid_mks = valid_mks
+
+        # Continue
         self.Np = Np
         self.vdim = vdim
         self.weight_idx = weight_idx
@@ -55,7 +63,7 @@ class MarkerArguments:
 
         # useful indices
         self.first_diagnostics_idx = first_diagnostics_idx
-        self.first_init_idx = first_pusher_idx
+        self.first_init_idx = first_pusher_idx # Why change name here?
         self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
         self.residual_idx = residual_idx  # residual in iterative solvers
         self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
@@ -65,19 +73,19 @@ class MarkerArguments:
         self.mu_idx = 9  # particle magnetic moment
         self.toroidalmom_idx = 10  # particle toroidal momentum
 
-    def copy(self):
-        return MarkerArguments(
-            markers=self.markers,
-            valid_mks=self.valid_mks,
-            Np=self.Np,
-            vdim=self.vdim,
-            weight_idx=self.weight_idx,
-            first_diagnostics_idx=self.first_diagnostics_idx,
-            first_pusher_idx=self.first_pusher_idx,
-            first_shift_idx=self.first_shift_idx,
-            residual_idx=self.residual_idx,
-            first_free_idx=self.first_free_idx,
-        )
+# def copy(self):
+#     return MarkerArguments(
+#         markers=self.markers,
+#         valid_mks=self.valid_mks,
+#         Np=self.Np,
+#         vdim=self.vdim,
+#         weight_idx=self.weight_idx,
+#         first_diagnostics_idx=self.first_diagnostics_idx,
+#         first_pusher_idx=self.first_init_idx,
+#         first_shift_idx=self.first_shift_idx,
+#         residual_idx=self.residual_idx,
+#         first_free_idx=self.first_free_idx,
+#     )
 
 
 class DerhamArguments:
@@ -109,32 +117,46 @@ class DerhamArguments:
         bd2: "float[:]",
         bd3: "float[:]",
     ):
-        self.pn = pn
-        self.tn1 = tn1
-        self.tn2 = tn2
-        self.tn3 = tn3
-        self.starts = starts
-        self.bn1 = bn1
-        self.bn2 = bn2
-        self.bn3 = bn3
-        self.bd1 = bd1
-        self.bd2 = bd2
-        self.bd3 = bd3
+        # With copy
+        # self.pn     = copy(pn)
+        # self.tn1    = copy(tn1)
+        # self.tn2    = copy(tn2)
+        # self.tn3    = copy(tn3)
+        # self.starts = copy(starts)
+        # self.bn1    = copy(bn1)
+        # self.bn2    = copy(bn2)
+        # self.bn3    = copy(bn3)
+        # self.bd1    = copy(bd1)
+        # self.bd2    = copy(bd2)
+        # self.bd3    = copy(bd3)
 
-    def copy(self):
-        return DerhamArguments(
-            pn=self.pn,
-            tn1=self.tn1,
-            tn2=self.tn2,
-            tn3=self.tn3,
-            starts=self.starts,
-            bn1=self.bn1,
-            bn2=self.bn2,
-            bn3=self.bn3,
-            bd1=self.bd1,
-            bd2=self.bd2,
-            bd3=self.bd3,
-        )
+        # Without copy
+        self.pn     = pn
+        self.tn1    = tn1
+        self.tn2    = tn2
+        self.tn3    = tn3
+        self.starts = starts
+        self.bn1    = bn1
+        self.bn2    = bn2
+        self.bn3    = bn3
+        self.bd1    = bd1
+        self.bd2    = bd2
+        self.bd3    = bd3
+
+# def copy(self):
+#     return DerhamArguments(
+#         pn=self.pn,
+#         tn1=self.tn1,
+#         tn2=self.tn2,
+#         tn3=self.tn3,
+#         starts=self.starts,
+#         bn1=self.bn1,
+#         bn2=self.bn2,
+#         bn3=self.bn3,
+#         bd1=self.bd1,
+#         bd2=self.bd2,
+#         bd3=self.bd3,
+#     )
 
 
 class DomainArguments:
@@ -176,9 +198,24 @@ class DomainArguments:
         cy: "float[:,:,:]",
         cz: "float[:,:,:]",
     ):
+        # With copy
+        # self.kind_map = kind_map
+        # self.params = copy(params)
+        # self.p =  copy(p)
+        # self.t1 = copy(t1)
+        # self.t2 = copy(t2)
+        # self.t3 = copy(t3)
+        # self.ind1 = copy(ind1)
+        # self.ind2 = copy(ind2)
+        # self.ind3 = copy(ind3)
+        # self.cx = copy(cx)
+        # self.cy = copy(cy)
+        # self.cz = copy(cz)
+
+        # Without copy
         self.kind_map = kind_map
         self.params = params
-        self.p = p
+        self.p =  p
         self.t1 = t1
         self.t2 = t2
         self.t3 = t3
@@ -189,18 +226,18 @@ class DomainArguments:
         self.cy = cy
         self.cz = cz
 
-    def copy(self):
-        return DomainArguments(
-            kind_map=self.kind_map,
-            params=self.params,
-            p=self.p,
-            t1=self.t1,
-            t2=self.t2,
-            t3=self.t3,
-            ind1=self.ind1,
-            ind2=self.ind2,
-            ind3=self.ind3,
-            cx=self.cx,
-            cy=self.cy,
-            cz=self.cz,
-        )
+# def copy(self):
+#     return DomainArguments(
+#         kind_map=self.kind_map,
+#         params=self.params,
+#         p=self.p,
+#         t1=self.t1,
+#         t2=self.t2,
+#         t3=self.t3,
+#         ind1=self.ind1,
+#         ind2=self.ind2,
+#         ind3=self.ind3,
+#         cx=self.cx,
+#         cy=self.cy,
+#         cz=self.cz,
+#     )
