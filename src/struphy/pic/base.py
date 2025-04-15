@@ -183,8 +183,50 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
+        
+        self._clone_config = clone_config
+        if self.clone_config is None:
+            self._mpi_comm = comm_world
+            num_clones = 1
+        else:
+            self._mpi_comm = self.clone_config.sub_comm
+            num_clones = self.clone_config.num_clones
+            
+        # total number of cells (equal to mpi_size if no grid)
+        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
+        if verbose:
+            print(f"{self.mpi_rank = }, {n_cells = }")
+
+        # total number of boxes
+        if self.boxes_per_dim is None:
+            n_boxes = self.mpi_size * num_clones
+        else:
+            assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
+                f"There must be at least one box {self.boxes_per_dim = } on each process {self.nprocs = } in each direction."
+            )
+            assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
+                f"Number of boxes {self.boxes_per_dim = } must be divisible by number of processes {self.nprocs = } in each direction."
+            )
+            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * num_clones
+
+        if verbose:
+            print(f"{self.mpi_rank = }, {n_boxes = }")
+        
+        # total number of markers (Np) and particles per cell (ppc)
         if Np is not None:
             self._Np = int(Np)
+            self._ppc = self.Np / n_cells
+            self._ppb = self.Np / n_boxes
+        elif ppc is not None:
+            self._ppc = ppc
+            self._Np = int(self.ppc * n_cells)
+            self._ppb = self.Np / n_boxes
+        elif ppb is not None:
+            self._ppb = ppb
+            self._Np = int(self.ppb * n_boxes)
+            self._ppc = self.Np / n_cells
+
+        assert self.Np >= self.mpi_size
 
         # boundary conditions
         if bc is None:
@@ -269,16 +311,13 @@ class Particles(metaclass=ABCMeta):
             self._auto_sampling_params()
 
         if self.amrex:
-            self._init_amrex(comm_world)
+            self._init_amrex()
         else:
-            self._init_struphy(comm_world, clone_config, ppc, domain_decomp, ppb, boxes_per_dim, eps, verbose)
+            self._init_struphy(domain_decomp, boxes_per_dim, eps)
 
     def _init_amrex(
         self,
-        comm_world: Intracomm = None,
     ):
-        self._mpi_comm = comm_world
-
         axes = ["x", "y", "z"]
         self._periodic_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
         self._reflect_axes = [axes[axis] for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
@@ -288,26 +327,13 @@ class Particles(metaclass=ABCMeta):
 
     def _init_struphy(
         self,
-        comm_world: Intracomm = None,
-        clone_config: CloneConfig = None,
-        ppc: int = None,
         domain_decomp: tuple = None,
-        ppb: int = 10,
         boxes_per_dim: tuple | list = None,
         eps: float = 0.25,
-        verbose: bool = False,
     ):
         self._periodic_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "remove"]
-
-        self._clone_config = clone_config
-        if self.clone_config is None:
-            self._mpi_comm = comm_world
-            num_clones = 1
-        else:
-            self._mpi_comm = self.clone_config.sub_comm
-            num_clones = self.clone_config.num_clones
 
         # check for mpi communicator
         if self.mpi_comm is None:
@@ -324,41 +350,6 @@ class Particles(metaclass=ABCMeta):
         else:
             self._domain_array = domain_decomp[0]
             self._nprocs = domain_decomp[1]
-
-        # total number of cells (equal to mpi_size if no grid)
-        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
-        if verbose:
-            print(f"{self.mpi_rank = }, {n_cells = }")
-
-        # total number of boxes
-        if self.boxes_per_dim is None:
-            n_boxes = self.mpi_size * num_clones
-        else:
-            assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
-                f"There must be at least one box {self.boxes_per_dim = } on each process {self.nprocs = } in each direction."
-            )
-            assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
-                f"Number of boxes {self.boxes_per_dim = } must be divisible by number of processes {self.nprocs = } in each direction."
-            )
-            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * num_clones
-
-        if verbose:
-            print(f"{self.mpi_rank = }, {n_boxes = }")
-
-        # total number of markers (Np) and particles per cell (ppc)
-        if self.Np is not None:
-            self._ppc = self.Np / n_cells
-            self._ppb = self.Np / n_boxes
-        elif ppc is not None:
-            self._ppc = ppc
-            self._Np = int(self.ppc * n_cells)
-            self._ppb = self.Np / n_boxes
-        elif ppb is not None:
-            self._ppb = ppb
-            self._Np = int(self.ppb * n_boxes)
-            self._ppc = self.Np / n_cells
-
-        assert self.Np >= self.mpi_size
 
         # create marker array
         self._eps = eps
