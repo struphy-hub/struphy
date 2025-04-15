@@ -191,6 +191,14 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
+        
+        # domain decomposition (MPI) and cell information
+        self._boxes_per_dim = boxes_per_dim
+        if domain_decomp is None:
+            self._domain_array, self._nprocs = self._get_domain_decomp()
+        else:
+            self._domain_array = domain_decomp[0]
+            self._nprocs = domain_decomp[1]
             
         # total number of cells (equal to mpi_size if no grid)
         n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
@@ -342,14 +350,6 @@ class Particles(metaclass=ABCMeta):
         else:
             self._mpi_size = self.mpi_comm.Get_size()
             self._mpi_rank = self.mpi_comm.Get_rank()
-
-        # domain decomposition (MPI) and cell information
-        self._boxes_per_dim = boxes_per_dim
-        if domain_decomp is None:
-            self._domain_array, self._nprocs = self._get_domain_decomp()
-        else:
-            self._domain_array = domain_decomp[0]
-            self._nprocs = domain_decomp[1]
 
         # create marker array
         self._eps = eps
