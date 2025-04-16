@@ -124,14 +124,23 @@ class Maxwell(Propagator):
             )
             weak_curl = M1_inv @ curl.T @ M2
 
-            def f1(t, y1, y2):
-                return weak_curl.dot(y2)
+            # allocate output of vector field
+            out1 = e.space.zeros()
+            out2 = b.space.zeros()
+
+            def f1(t, y1, y2, out=out1):
+                weak_curl.dot(y2, out=out)
+                out.update_ghost_regions()
+                return out
             
-            def f2(t, y1, y2):
-                return - curl.dot(y1)
+            def f2(t, y1, y2, out=out2):
+                curl.dot(y1, out=out)
+                out *= -1.0
+                out.update_ghost_regions()
+                return out
             
             vector_field = {e: f1, b: f2}
-            self._solver = ODEsolverFEEC(vector_field, algo='rk4')
+            self._solver = ODEsolverFEEC(vector_field, algo=algo)
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()
