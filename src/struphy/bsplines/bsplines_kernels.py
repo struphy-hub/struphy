@@ -64,7 +64,9 @@ def find_span(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
         returnVal = high - 1
     else:
         # Perform binary search
-        span = int(floor((low + high) / 2))
+        # print("low + high = ", low + high)
+        # span = int(floor((low + high) / 2))
+        span = (low + high)//2
 
         while eta < t[span] or eta >= t[span + 1]:
 
@@ -72,7 +74,9 @@ def find_span(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
                 high = span
             else:
                 low = span
-            span = int(floor((low + high) / 2))
+            # print("low + high = ", low + high)
+            # span = int(floor((low + high) / 2))
+            span = (low + high)//2
 
         returnVal = span
 
