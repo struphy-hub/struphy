@@ -167,6 +167,7 @@ stages:
   install_on_push:
     - !reference [.scripts, source_env_matrix_push]
     - git status
+    - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
     - pip install -e $(echo $STRUPHY_SOURCE)[test]
