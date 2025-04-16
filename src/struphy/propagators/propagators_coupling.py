@@ -1496,7 +1496,7 @@ class CurrentCoupling5DGradB(Propagator):
     ):
         from psydac.linalg.solvers import inverse
 
-        from struphy.pic.pushing.pusher import ButcherTableau
+        from struphy.ode.utils import ButcherTableau
 
         super().__init__(particles, u)
 

@@ -12,7 +12,8 @@ from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
-from struphy.pic.pushing.pusher import ButcherTableau, Pusher
+from struphy.pic.pushing.pusher import Pusher
+from struphy.ode.utils import ButcherTableau
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
@@ -32,7 +33,7 @@ class PushEta(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
 
     Parameters
     ----------
@@ -398,7 +399,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
@@ -807,7 +808,7 @@ class PushGuidingCenterParallel(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton` 
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`  
@@ -1302,7 +1303,7 @@ class PushDeterministicDiffusion(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
 
     @staticmethod
@@ -1494,7 +1495,7 @@ class PushVinSPHpressure(Propagator):
     where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
     Time stepping:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
 
     Parameters
     ----------
