@@ -1660,6 +1660,8 @@ class CurrentCoupling5DGradB(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
 
         # instantiate Pusher
         if u_space == "Hdiv":

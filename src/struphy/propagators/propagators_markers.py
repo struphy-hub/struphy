@@ -69,6 +69,10 @@ class PushEta(Propagator):
 
         # define algorithm
         butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+        butcher._a = np.diag(butcher.a, k=-1)
+        
         args_kernel = (
             butcher.a,
             butcher.b,
@@ -704,6 +708,9 @@ class PushGuidingCenterBxEstar(Propagator):
 
         else:
             butcher = ButcherTableau(algo["method"])
+            # temp fix due to refactoring of ButcherTableau:
+            import numpy as np
+            butcher._a = np.diag(butcher.a, k=-1)
 
             kernel = pusher_kernels_gc.push_gc_bxEstar_explicit_multistage
 
@@ -1118,6 +1125,9 @@ class PushGuidingCenterParallel(Propagator):
 
         else:
             butcher = ButcherTableau(algo["method"])
+            # temp fix due to refactoring of ButcherTableau:
+            import numpy as np
+            butcher._a = np.diag(butcher.a, k=-1)
 
             kernel = pusher_kernels_gc.push_gc_Bstar_explicit_multistage
 
@@ -1323,6 +1333,9 @@ class PushDeterministicDiffusion(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
 
         self._u_on_grid = AccumulatorVector(
             particles,
@@ -1420,6 +1433,9 @@ class PushRandomDiffusion(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau("forward_euler")
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
 
         # instantiate Pusher
         args_kernel = (
