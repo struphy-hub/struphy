@@ -25,6 +25,7 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.ode.solvers import ODEsolverFEEC
 
 
 class Maxwell(Propagator):
@@ -48,7 +49,6 @@ class Maxwell(Propagator):
             "type": [
                 ("pcg", "MassMatrixPreconditioner"),
                 ("cg", None),
-                None,
             ],
             "tol": 1.0e-8,
             "maxiter": 3000,
@@ -78,6 +78,13 @@ class Maxwell(Propagator):
         M2 = self.mass_ops.M2
         curl = self.derham.curl
 
+        # Preconditioner for M1 + ...
+        if solver["type"][1] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, solver["type"][1])
+            pc = pc_class(self.mass_ops.M1)
+
         if self._algo == "implicit":
             self._info = solver["info"]
             # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -86,13 +93,6 @@ class Maxwell(Propagator):
             # no dt
             self._B = -1 / 2 * curl.T @ M2
             self._C = 1 / 2 * curl
-
-            # Preconditioner
-            if solver["type"][1] is None:
-                pc = None
-            else:
-                pc_class = getattr(preconditioner, solver["type"][1])
-                pc = pc_class(self.mass_ops.M1)
 
             # Instantiate Schur solver (constant in this case)
             _BC = self._B @ self._C
@@ -112,6 +112,26 @@ class Maxwell(Propagator):
         else:
             print('explicit mode ...')
             self._info = False
+            
+            # define vector field
+            M1_inv = inverse(
+                M1,
+                solver["type"][0],
+                pc=pc,
+                tol=solver["tol"],
+                maxiter=solver["maxiter"],
+                verbose=solver["verbose"],
+            )
+            weak_curl = M1_inv @ curl.T @ M2
+
+            def f1(t, y1, y2):
+                return weak_curl.dot(y2)
+            
+            def f2(t, y1, y2):
+                return - curl.dot(y1)
+            
+            vector_field = {e: f1, b: f2}
+            self._solver = ODEsolverFEEC(vector_field, algo='rk4')
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()
