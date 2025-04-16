@@ -7842,9 +7842,6 @@ class Stokes(Propagator):
             print(f'{max(TestRest2.toarray()) =}')
             TestRest3 = self._solver_GMRES.B[0,0].dot(self.feec_vars[0])+self._solver_GMRES.B[0,1].dot(self.feec_vars[1])
             print(f'{max(TestRest3.toarray()) =}')
-            print(f'{max(self.feec_vars[0].toarray()) =}')
-            print(f'{max(self.feec_vars[1].toarray()) =}')
-            print(f'{max(self.feec_vars[2].toarray()) =}')
             
             # # use setter to update lhs matrix
             # self._solverM.linop = _M
@@ -7904,9 +7901,6 @@ class Stokes(Propagator):
             print(f'{max(TestRest2.toarray()) =}')
             TestRest3 = self._solver_GMRES.B[0,0].dot(self.feec_vars[0])+self._solver_GMRES.B[0,1].dot(self.feec_vars[1])
             print(f'{max(TestRest3.toarray()) =}')
-            print(f'{max(self.feec_vars[0].toarray()) =}')
-            print(f'{max(self.feec_vars[1].toarray()) =}')
-            print(f'{max(self.feec_vars[2].toarray()) =}')
         
         elif self._variant == 'Uzawa':
             ### Numpy
@@ -8001,9 +7995,6 @@ class Stokes(Propagator):
             
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
-            print(f'{max(self.feec_vars[0].toarray()) =}')
-            print(f'{max(self.feec_vars[1].toarray()) =}')
-            print(f'{max(self.feec_vars[2].toarray()) =}')
 
         if self._info and self._rank == 0:
             print("Status     for Stokes:", info["success"])
