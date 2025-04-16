@@ -101,9 +101,9 @@ stages:
   parallel:
     matrix:
       - LANGUAGE: "fortran"
-        OMP: ["", "--omp-pic"]
-      # - LANGUAGE: "c"
-      #   OMP: [""]
+        OMP: [""] #, "--omp-pic"]
+      - LANGUAGE: "c"
+        OMP: [""]
 
 .parallel_matrix_scheduled:
   parallel:
