@@ -7740,7 +7740,6 @@ class Stokes(Propagator):
                 _A22_0,
                 _F,
                 precdt = M2pre,
-                rho = 0.005,
                 solver_name = solver["type"][0],
                 tol=solver["tol"],
                 max_iter=solver["maxiter"],
