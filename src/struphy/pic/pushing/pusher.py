@@ -446,31 +446,36 @@ class ButcherTableau:
             "heun2",
             "rk2",
             "heun3",
+            "3/8 rule",
         ]
         return meth_avail
 
     def __init__(self, algo: str = "rk4"):
         # choose algorithm
         if algo == "forward_euler":
-            a = []
-            b = [1.0]
-            c = [0.0]
+            a = ()
+            b = (1.0,)
+            c = (0.0,)
         elif algo == "heun2":
-            a = [1.0]
-            b = [1 / 2, 1 / 2]
-            c = [0.0, 1.0]
+            a = ((1.0,))
+            b = (1/2, 1/2)
+            c = (0.0, 1.0)
         elif algo == "rk2":
-            a = [1 / 2]
-            b = [0.0, 1.0]
-            c = [0.0, 1 / 2]
+            a = ((1/2,))
+            b = (0.0, 1.0)
+            c = (0.0, 1/2)
         elif algo == "heun3":
-            a = [1 / 3, 2 / 3]
-            b = [1 / 4, 0.0, 3 / 4]
-            c = [0.0, 1 / 3, 2 / 3]
+            a = ((1/3,), (0.0, 2/3))
+            b = (1/4, 0.0, 3/4)
+            c = (0.0, 1/3, 2/3)
         elif algo == "rk4":
-            a = [1 / 2, 1 / 2, 1.0]
-            b = [1 / 6, 1 / 3, 1 / 3, 1 / 6]
-            c = [0.0, 1 / 2, 1 / 2, 1.0]
+            a = ((1/2,), (0.0, 1/2), (0.0, 0.0, 1.0))
+            b = (1/6, 1/3, 1/3, 1/6)
+            c = (0.0, 1/2, 1/2, 1.0)
+        elif algo == "3/8 rule":
+            a = ((1/3,), (-1/3, 1.0), (1.0, -1.0, 1.0))
+            b = (1/8, 3/8, 3/8, 1/8)
+            c = (0.0, 1/3, 2/3, 1.0)
         else:
             raise NotImplementedError("Chosen algorithm is not implemented.")
 
@@ -479,14 +484,15 @@ class ButcherTableau:
         assert self._b.size == self._c.size
 
         self._n_stages = self._b.size
+        assert len(a) == self.n_stages - 1
 
-        self._a = np.array(a)
+        self._a = np.tri(self.n_stages, k=-1)
+        for l, st in enumerate(a):
+            print(st)
+            assert len(st) == l + 1
+            self._a[l + 1, :l + 1] = st
 
-        # size is the number of elements in the lower triangular part of A
-        assert self._a.size == self._n_stages - 1
-
-        # add zero for last stage
-        self._a = np.array(list(self._a) + [0.0])
+        print(f'{self.a = }')
 
     __available_methods__ = available_methods()
 
