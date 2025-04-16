@@ -137,6 +137,13 @@ stages:
     - ls -1a
     - uname -a
     - ls dist/ || true
+  .install_pyccel_devel:
+    - pip uninstall pyccel -y
+    - git clone --recurse-submodules https://github.com/pyccel/pyccel.git
+    - cd pyccel
+    - pip install --editable ".[test]"
+    - pip show pyccel
+    - cd ../
   create_venv:
     - python3 -m venv env_${CI_PIPELINE_ID}
     - source env_${CI_PIPELINE_ID}/bin/activate
@@ -160,7 +167,9 @@ stages:
     - python3 -m pip install --upgrade pip
     - echo env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
+    - !reference [.scripts, install_pyccel_devel]
     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - pip show pyccel
     - pip install -U pip
     - python3 -m pip list
     - python3 --version
@@ -170,10 +179,14 @@ stages:
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
+    - !reference [.scripts, install_pyccel_devel]
     - pip install -e $(echo $STRUPHY_SOURCE)[test]
+    - pip show pyccel
     - !reference [.scripts, compile_matrix]
   install:
+    - !reference [.scripts, source_env_matrix_push]
     - pip install $(echo $STRUPHY_SOURCE)[test]
+    - pip show pyccel
     - pip show struphy
     - pip list
     - struphy -h
