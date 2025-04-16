@@ -268,11 +268,6 @@ compile_pyccel_devel:
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
-    - pip uninstall pyccel -y
-    - git clone --recurse-submodules https://github.com/pyccel/pyccel.git
-    - cd pyccel
-    - pip install --editable ".[test]"
-    - cd ../
     - !reference [.scripts, compile_matrix]
 
 # install_tests:
