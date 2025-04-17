@@ -46,33 +46,39 @@ def test_exp_growth(spaces, algo, show_plots=False):
             def f(t, y1, out=out):
                 out *= 0.0
                 out += omega*y1
+                out.update_ghost_regions()
                 return out
         elif len(spaces) == 2:
             if i == 0:
                 def f(t, y1, y2, out=out):
                     out *= 0.0
                     out += omega*y1
+                    out.update_ghost_regions()
                     return out
             elif i == 1:
                 def f(t, y1, y2, out=out):
                     out *= 0.0
                     out += omega*y2
+                    out.update_ghost_regions()
                     return out
         elif len(spaces) == 3:
             if i == 0:
                 def f(t, y1, y2, y3, out=out):
                     out *= 0.0
                     out += omega*y1
+                    out.update_ghost_regions()
                     return out
             elif i == 1:
                 def f(t, y1, y2, y3, out=out):
                     out *= 0.0
                     out += omega*y2
+                    out.update_ghost_regions()
                     return out
             elif i == 2:
                 def f(t, y1, y2, y3, out=out):
                     out *= 0.0
                     out += omega*y3
+                    out.update_ghost_regions()
                     return out
                 
         vector_field[var] = f
