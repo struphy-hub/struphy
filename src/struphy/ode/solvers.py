@@ -81,7 +81,7 @@ class ODEsolverFEEC():
         for v, vn, vec in zip(self.y, self.yn, self.vector_field):
             vn.copy(out=v)
             for i in range(self.butcher.n_stages):
-                v += h * b[i] * self.k[vec][i]            
+                v += h * b[i] * self.k[vec][i]         
                 
     @property
     def vector_field(self):
