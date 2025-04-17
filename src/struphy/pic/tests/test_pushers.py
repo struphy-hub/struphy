@@ -841,6 +841,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     butcher = ButcherTableau("rk4")
     # temp fix due to refactoring of ButcherTableau:
     butcher._a = np.diag(butcher.a, k=-1)
+    butcher._a = np.array(list(butcher._a) + [0.0])
 
     pusher_psy = Pusher_psy(
         particles,
