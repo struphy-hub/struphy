@@ -34,7 +34,6 @@ class ODEsolverFEEC():
         # check arguments and allocate k for each stage
         self._k = {}
         for vec, f in vector_field.items():
-            print(f'{vec = }')
             assert isinstance(vec, (StencilVector, BlockVector))
             assert callable(f)
             sig = signature(f)
@@ -49,12 +48,10 @@ class ODEsolverFEEC():
          
         # collect unknows in list
         self._y = list(self.vector_field.keys())
-        print(f'{self.y = }')
                 
         # allocate space for initial condition and intermediate values
         self._yn = [v.copy() for v in self.y]
         self._ystar = [v.copy() for v in self.y]
-        print(f'{self.yn = }')
         
     def __call__(self, tn, h):
         a = self.butcher.a

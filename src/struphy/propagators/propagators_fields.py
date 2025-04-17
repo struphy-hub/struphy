@@ -110,7 +110,6 @@ class Maxwell(Propagator):
             # pre-allocate arrays 
             self._byn = self._B.codomain.zeros()
         else:
-            print('explicit mode ...')
             self._info = False
             
             # define vector field
@@ -140,7 +139,7 @@ class Maxwell(Propagator):
                 return out
             
             vector_field = {e: f1, b: f2}
-            self._solver = ODEsolverFEEC(vector_field, algo=algo)
+            self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()
@@ -165,21 +164,19 @@ class Maxwell(Propagator):
             bn1 = self._C.dot(_e, out=self._b_tmp1)
             bn1 *= -dt
             bn1 += bn
+            
+            # write new coeffs into self.feec_vars
+            max_de, max_db = self.feec_vars_update(en1, bn1)
         else:
-            print('Here comes the solve ...')
-            en1 = en
-            bn1 = bn
-
-        # write new coeffs into self.feec_vars
-        max_de, max_db = self.feec_vars_update(en1, bn1)
+            self._ode_solver(0.0, dt) 
 
         if self._info and self.rank == 0:
             if self._algo == "implicit":
                 print("Status     for Maxwell:", info["success"])
                 print("Iterations for Maxwell:", info["niter"])
-            print("Maxdiff e1 for Maxwell:", max_de)
-            print("Maxdiff b2 for Maxwell:", max_db)
-            print()
+                print("Maxdiff e1 for Maxwell:", max_de)
+                print("Maxdiff b2 for Maxwell:", max_db)
+                print()
 
 
 class OhmCold(Propagator):
