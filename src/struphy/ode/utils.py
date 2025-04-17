@@ -72,7 +72,6 @@ class ButcherTableau:
 
         self._a = np.tri(self.n_stages, k=-1)
         for l, st in enumerate(a):
-            print(f'{l = }, {st = }')
             assert len(st) == l + 1
             self._a[l + 1, :l + 1] = st
             

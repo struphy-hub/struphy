@@ -19,6 +19,8 @@ class ODEsolverFEEC():
         The vector field of the ODE as a dictionary. 
         Keys are the variables to be updated (i.e. Stencil- or BlockVectors), 
         values are callables representing the respective component of the vector field.
+        That means dy_i/dt = f_i(y_1, ..., y_n) for i = 1,...,n, where n is the number of
+        variables.
     
     algo : str
         See :class:`~struphy.ode.utils.ButcherTableau` for available algorithms.

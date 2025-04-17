@@ -1,10 +1,11 @@
 import pytest
 from struphy.ode.utils import ButcherTableau
 
+
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize("space", [('0'), ('1'), ('2'), ('3'), ('v'),])
+@pytest.mark.parametrize("spaces", [('0',), ('1',), ('3',), ('2', 'v'), ('1', '0', '2'),])
 @pytest.mark.parametrize("algo", ButcherTableau.available_methods())
-def test_one_variable(space, algo, show_plots=False):
+def test_exp_growth(spaces, algo, show_plots=False):
     '''Solve dy/dt = omega*y for different feec variables y and with all available solvers
     from the ButcherTableau.'''
 
@@ -30,21 +31,52 @@ def test_one_variable(space, algo, show_plots=False):
     omega = 2.3
     y_exact = lambda t: c0*np.exp(omega*t)
     
-    var = derham.Vh[space].zeros()
-    if isinstance(var, StencilVector):
-        var[:] = c0
-    elif isinstance(var, BlockVector):
-        for b in var.blocks:
-            b[:] = c0
-    var.update_ghost_regions()
+    vector_field = {}
+    for i, space in enumerate(spaces):
+        var = derham.Vh[space].zeros()
+        if isinstance(var, StencilVector):
+            var[:] = c0
+        elif isinstance(var, BlockVector):
+            for b in var.blocks:
+                b[:] = c0
+        var.update_ghost_regions()
+            
+        out = var.space.zeros()
+        if len(spaces) == 1:
+            def f(t, y1, out=out):
+                out *= 0.0
+                out += omega*y1
+                return out
+        elif len(spaces) == 2:
+            if i == 0:
+                def f(t, y1, y2, out=out):
+                    out *= 0.0
+                    out += omega*y1
+                    return out
+            elif i == 1:
+                def f(t, y1, y2, out=out):
+                    out *= 0.0
+                    out += omega*y2
+                    return out
+        elif len(spaces) == 3:
+            if i == 0:
+                def f(t, y1, y2, y3, out=out):
+                    out *= 0.0
+                    out += omega*y1
+                    return out
+            elif i == 1:
+                def f(t, y1, y2, y3, out=out):
+                    out *= 0.0
+                    out += omega*y2
+                    return out
+            elif i == 2:
+                def f(t, y1, y2, y3, out=out):
+                    out *= 0.0
+                    out += omega*y3
+                    return out
+                
+        vector_field[var] = f
         
-    out = var.space.zeros()
-    def f(t, y1, out=out):
-        out *= 0.0
-        out += omega*y1
-        return out
-    
-    vector_field = {var: f}
     print(f'{vector_field = }')
     print(f'{algo = }')
     
@@ -90,7 +122,7 @@ def test_one_variable(space, algo, show_plots=False):
             plt.subplot(n_hs//2, 2, i + 1)   
             plt.plot(time, yvec, label='exact')
             for j, var in enumerate(vector_field):
-                plt.plot(time, ymax[var], '--', label=f'{space[j]}-space')
+                plt.plot(time, ymax[var], '--', label=f'{spaces[j]}-space')
             plt.xlabel('time')
             plt.ylabel('y')
             plt.legend()
@@ -106,7 +138,7 @@ def test_one_variable(space, algo, show_plots=False):
             err_vec += [dct[var]]
             
         m, _ = np.polyfit(np.log(h_vec), np.log(err_vec), deg=1)
-        print(f"{space[j]}-space, fitted convergence rate = {m} for {algo = } with {solver.butcher.conv_rate = }")
+        print(f"{spaces[j]}-space, fitted convergence rate = {m} for {algo = } with {solver.butcher.conv_rate = }")
         assert np.abs(m - solver.butcher.conv_rate) < 0.1
         print(f'Convergence check passed on {rank = }.')
             
@@ -115,7 +147,7 @@ def test_one_variable(space, algo, show_plots=False):
             plt.loglog(h_vec, [h**2 for h in h_vec], '--', label=f'h^2')
             plt.loglog(h_vec, [h**3 for h in h_vec], '--', label=f'h^3')
             plt.loglog(h_vec, [h**4 for h in h_vec], '--', label=f'h^4')
-            plt.loglog(h_vec, err_vec, 'o-k', label=f'{space[j]}-space, {algo}')
+            plt.loglog(h_vec, err_vec, 'o-k', label=f'{spaces[j]}-space, {algo}')
     if rank == 0:
         plt.xlabel('log(h)')
         plt.ylabel('log(error)')
@@ -124,52 +156,7 @@ def test_one_variable(space, algo, show_plots=False):
     if show_plots and rank == 0:    
         plt.show()
   
+
 if __name__ == '__main__':
-    test_one_variable('0', 'rk2', show_plots=True)
-        
-        
-# @pytest.mark.mpi(min_size=1)
-# @pytest.mark.parametrize("spaces", [('0'), ('1'), ('0', '2'), ('1', '3'), ('v', '1', '3'),])
-# def test_two_variables(spaces):
-#     '''Solve dy/dt = y for different feec variables y and with all available solvers
-#     from the ButcherTableau.'''
-
-#     from mpi4py import MPI
-#     import numpy as np
-
-#     from struphy.feec.psydac_derham import Derham
-#     from struphy.feec.utilities import compare_arrays
-#     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-
-#     from psydac.linalg.stencil import StencilVector
-#     from psydac.linalg.block import BlockVector
-
-#     comm = MPI.COMM_WORLD
-#     rank = comm.Get_rank()
-    
-#     Nel = [1, 8, 9]
-#     p = [1, 2, 3]
-#     spl_kind = [True]*3
-#     derham = Derham(Nel, p, spl_kind, comm=comm)
-    
-#     vars = []
-#     fs = []
-#     for space in spaces:
-#         var = derham.Vh[space].zeros()
-#         var += 1.0
-#         vars += [var]
-        
-#         out = var.space.zeros()
-#         if len(spaces) == 1:
-#             def f(t, y1, out=out):
-#                 out *= 0.0
-#                 out += y1
-#                 return out
-#         elif len(spaces) == 2:
-#             def f(t, y1, y2, out=out):
-#                 out *= 0.0
-#                 out += y1
-#                 return out
-        
-#         fs += [f]
-
+    #test_one_variable('0', 'rk2', show_plots=True)
+    test_exp_growth(('0', '1', '2'), 'rk2', show_plots=True)
