@@ -818,9 +818,9 @@ class forcingterm:
         force_Z = self._nu * (self._alpha * (self._R0 - 4 * R) / (
             self._a * self._R0 * R
         ) - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * R**3))
-        
+
         return force_Z
-    
+
 
 class AnalyticSolutionRestelliVelocity_x:
     r"""Analytic solution :math:`u=u_e` of the system:
@@ -843,13 +843,13 @@ class AnalyticSolutionRestelliVelocity_x:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
     """
-        
+
     def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
         """
             Parameters
@@ -882,14 +882,15 @@ class AnalyticSolutionRestelliVelocity_x:
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
-        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
+        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta * \
+            self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
         uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
-        
-        ux = np.cos(phi)*uR - R*np.sin(phi)*uphi #signs changed??
-        
+
+        ux = np.cos(phi)*uR - R*np.sin(phi)*uphi  # signs changed??
+
         return ux
-        
-    
+
+
 class AnalyticSolutionRestelliVelocity_y:
     r"""Analytic solution :math:`u=u_e` of the system:
 
@@ -911,13 +912,13 @@ class AnalyticSolutionRestelliVelocity_y:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
     """
-        
+
     def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
         """
             Parameters
@@ -950,13 +951,15 @@ class AnalyticSolutionRestelliVelocity_y:
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
-        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
+        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta * \
+            self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
         uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
-        
+
         uy = -np.sin(phi)*uR - R*np.cos(phi)*uphi
-        
+
         return uy
-    
+
+
 class AnalyticSolutionRestelliVelocity_z:
     r"""Analytic solution :math:`u=u_e` of the system:
 
@@ -978,13 +981,13 @@ class AnalyticSolutionRestelliVelocity_z:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
     """
-        
+
     def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
         """
             Parameters
@@ -1017,12 +1020,14 @@ class AnalyticSolutionRestelliVelocity_z:
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
-        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
+        uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta * \
+            self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
         uphi = self._beta*self._Bp*self._R0/(self._B0*self._a*R)*self._B0*self._a/self._Bp
-        
+
         uz = uZ
-        
+
         return uz
+
 
 class AnalyticSolutionRestelliPotential:
     r"""Analytic solution :math:`\phi` of the system:
@@ -1045,13 +1050,13 @@ class AnalyticSolutionRestelliPotential:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \phi = \frac{1}{2} a B_0 \alpha \left( \frac{(R-R_0)^2+z^2}{a^2} - \frac{2}{3} \right)
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
     """
-        
+
     def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
         """
             Parameters
@@ -1084,7 +1089,8 @@ class AnalyticSolutionRestelliPotential:
         pp = 0.5*self._a*self._B0*self._alpha*(((R-self._R0)**2 + z**2)/self._a**2-2.0/3.0)
 
         return pp
-    
+
+
 class ManufacturedSolutionVelocity_x:
     r"""Analytic solution :math:`u` of the system:
 
@@ -1104,11 +1110,11 @@ class ManufacturedSolutionVelocity_x:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
     """
-        
+
     def __init__(self, b0=1.0):
         """
             Parameters
@@ -1125,9 +1131,10 @@ class ManufacturedSolutionVelocity_x:
         #ux = -np.sin(y)
         #ux = -y**2
         ux = -np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-        
+
         return ux
-    
+
+
 class ManufacturedSolutionVelocity_y:
     r"""Analytic solution :math:`u` of the system:
 
@@ -1147,11 +1154,11 @@ class ManufacturedSolutionVelocity_y:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
     """
-        
+
     def __init__(self, b0=1.0):
         """
             Parameters
@@ -1168,9 +1175,10 @@ class ManufacturedSolutionVelocity_y:
         #uy = np.cos(x)
         #uy = x**2
         uy = -np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
-        
+
         return uy
-    
+
+
 class ManufacturedSolutionVelocityElectrons_x:
     r"""Analytic solution :math:`u` of the system:
 
@@ -1190,11 +1198,11 @@ class ManufacturedSolutionVelocityElectrons_x:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
     """
-        
+
     def __init__(self, b0=1.0):
         """
             Parameters
@@ -1211,9 +1219,10 @@ class ManufacturedSolutionVelocityElectrons_x:
         #ux = -0.5*np.sin(y)
         #ux = -y**3
         ux = -np.sin(4*np.pi*x)*np.sin(4*np.pi*y)
-        
+
         return ux
-    
+
+
 class ManufacturedSolutionVelocityElectrons_y:
     r"""Analytic solution :math:`u` of the system:
 
@@ -1233,11 +1242,11 @@ class ManufacturedSolutionVelocityElectrons_y:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
     """
-        
+
     def __init__(self, b0=1.0):
         """
             Parameters
@@ -1254,9 +1263,10 @@ class ManufacturedSolutionVelocityElectrons_y:
         #uy = 0.5*np.cos(x)
         #uy = x**3
         uy = -np.cos(4*np.pi*x)*np.cos(4*np.pi*y)
-        
+
         return uy
-    
+
+
 class ManufacturedSolutionPotential:
     r"""Analytic solution :math:`\phi` of the system:
 
@@ -1276,11 +1286,11 @@ class ManufacturedSolutionPotential:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \phi =  x+y \,.
     """
-        
+
     def __init__(self, b0=1.0):
         """
             Parameters
@@ -1297,9 +1307,10 @@ class ManufacturedSolutionPotential:
         #phi = x+y
         #phi = x**2+y**2
         phi = np.cos(2*np.pi*x)+np.sin(2*np.pi*y)
-        
+
         return phi
-    
+
+
 class ManufacturedSolutionForceterm_x:
     r"""Analytic solution :math:`\phi` of the system:
 
@@ -1319,11 +1330,11 @@ class ManufacturedSolutionForceterm_x:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \phi =  x+y \,.
     """
-        
+
     def __init__(self, b0=1.0, nu=1.0):
         """
             Parameters
@@ -1342,10 +1353,12 @@ class ManufacturedSolutionForceterm_x:
         """Velocity of ions and electrons."""
         #fx = 1.0 - self._nu*np.sin(y)-self._b* np.cos(x)
         #fx = 2.0*x - self._b*x**2+2.0*self._nu
-        fx = -2.0*np.pi*np.sin(2*np.pi*x)+np.cos(2*np.pi*x)*np.cos(2*np.pi*y)*self._b-self._nu*8.0*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
-        
+        fx = -2.0*np.pi*np.sin(2*np.pi*x)+np.cos(2*np.pi*x)*np.cos(2*np.pi*y)*self._b - \
+            self._nu*8.0*np.pi**2*np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
+
         return fx
-    
+
+
 class ManufacturedSolutionForceterm_y:
     r"""Analytic solution :math:`\phi` of the system:
 
@@ -1365,11 +1378,11 @@ class ManufacturedSolutionForceterm_y:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \phi =  x+y \,.
     """
-        
+
     def __init__(self, b0=1.0, nu=1.0):
         """
             Parameters
@@ -1388,10 +1401,12 @@ class ManufacturedSolutionForceterm_y:
         """Velocity of ions and electrons."""
         #fy = 1.0 + self._nu*np.cos(x)-self._b* np.sin(y)
         #fy = 2*y - self._b*y**2 -2.0*self._nu
-        fy = 2.0*np.pi*np.cos(2*np.pi*y)-np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*self._b-self._nu*8.0*np.pi**2*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
-        
+        fy = 2.0*np.pi*np.cos(2*np.pi*y)-np.sin(2*np.pi*x)*np.sin(2*np.pi*y)*self._b - \
+            self._nu*8.0*np.pi**2*np.cos(2*np.pi*x)*np.cos(2*np.pi*y)
+
         return fy
-    
+
+
 class ManufacturedSolutionForcetermElectrons_x:
     r"""Analytic solution :math:`\phi` of the system:
 
@@ -1411,11 +1426,11 @@ class ManufacturedSolutionForcetermElectrons_x:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \phi =  x+y \,.
     """
-        
+
     def __init__(self, b0=1.0, nu_e=0.01):
         """
             Parameters
@@ -1434,11 +1449,12 @@ class ManufacturedSolutionForcetermElectrons_x:
         """Velocity of ions and electrons."""
         #fx = -1.0  - self._nu_e*0.5*np.sin(y)+ 0.5*self._b* np.cos(x)
         #fx = -2*x+self._b*x**3+6.0*y*self._nu_e
-        fx = 2.0*np.pi*np.sin(2*np.pi*x)-np.cos(4*np.pi*x)*np.cos(4*np.pi*y)*self._b-self._nu_e*32.0*np.pi**2*np.sin(4*np.pi*x)*np.sin(4*np.pi*y)
+        fx = 2.0*np.pi*np.sin(2*np.pi*x)-np.cos(4*np.pi*x)*np.cos(4*np.pi*y)*self._b - \
+            self._nu_e*32.0*np.pi**2*np.sin(4*np.pi*x)*np.sin(4*np.pi*y)
 
-        return fx    
-    
-    
+        return fx
+
+
 class ManufacturedSolutionForcetermElectrons_y:
     r"""Analytic solution :math:`\phi` of the system:
 
@@ -1458,11 +1474,11 @@ class ManufacturedSolutionForcetermElectrons_y:
 
     Can only be defined in carthesian coordinates. 
     The solution is given by:
-    
+
     .. math::
         \phi =  x+y \,.
     """
-        
+
     def __init__(self, b0=1.0, nu_e=0.01):
         """
             Parameters
@@ -1479,8 +1495,9 @@ class ManufacturedSolutionForcetermElectrons_y:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        #fy = -1.0 + self._nu_e*0.5*np.cos(x)+ 0.5*self._b* np.sin(y) 
+        #fy = -1.0 + self._nu_e*0.5*np.cos(x)+ 0.5*self._b* np.sin(y)
         #fy = -2*y + self._b * y**3 - 6.0*x*self._nu_e
-        fy = -2.0*np.pi*np.cos(2*np.pi*y)+np.sin(4*np.pi*x)*np.sin(4*np.pi*y)*self._b-self._nu_e*32.0*np.pi**2*np.cos(4*np.pi*x)*np.cos(4*np.pi*y)
+        fy = -2.0*np.pi*np.cos(2*np.pi*y)+np.sin(4*np.pi*x)*np.sin(4*np.pi*y)*self._b - \
+            self._nu_e*32.0*np.pi**2*np.cos(4*np.pi*x)*np.cos(4*np.pi*y)
 
         return fy

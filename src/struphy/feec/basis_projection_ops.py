@@ -520,7 +520,7 @@ class BasisProjectionOperators:
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: 
+                        lambda e1, e2, e3, m=m, n=n:
                         self.G(e1, e2, e3)[:, :, :, m, n]
                         / self.sqrt_g(e1, e2, e3),
                     ]
@@ -564,7 +564,6 @@ class BasisProjectionOperators:
                 name="S21p",
             )
         return self._S21p
-
 
     @property
     def Uv(self):

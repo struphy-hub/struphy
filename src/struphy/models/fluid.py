@@ -1533,13 +1533,19 @@ class Stokeslike(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
     def __init__(self, params, comm, clone_config=None):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from struphy.polar.basic import PolarVector
+        # Check MPI size to ensure only one MPI process
+        size = comm.Get_size()
+        if size != 1:
+            if comm.Get_rank() == 0:
+                print(f"Error: Stokes only runs with one MPI process.")
+            return  # Early return to stop execution for multiple MPI processes
 
         # extract necessary parameters
         stokes_solver = params["fluid"]["mhd"]["options"]["Stokes"]["solver"]
@@ -1608,14 +1614,15 @@ class Stokeslike(StruphyModel):
 
     def update_scalar_quantities(self):
         # # perturbed fields
-        self._mass_ops.M2.dot(self.pointer["mhd_u"], out=self._tmp_u1)
+        x = 1
+        # self._mass_ops.M2.dot(self.pointer["mhd_u"], out=self._tmp_u1)
         # self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-        en_U = self.pointer["mhd_u"].dot(self._tmp_u1) / 2
+        # en_U = self.pointer["mhd_u"].dot(self._tmp_u1) / 2
         # en_B = self.pointer['b_field'] .dot(self._tmp_b1)/2
         # en_p = self.pointer['mhd_pressure'] .dot(self._ones)/(5/3 - 1)
 
-        self.update_scalar("en_U", en_U)
+        # self.update_scalar("en_U", en_U)
         # self.update_scalar('en_B', en_B)
         # self.update_scalar('en_p', en_p)
         # self.update_scalar('en_tot', en_U + en_B + en_p)

@@ -3171,7 +3171,7 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
         \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
 
     for the given constants. 
-    
+
     The pressure profile and the number density profile are not specified
 
     Units are those defined in the parameter file (:code:`struphy units -h`).
@@ -3186,7 +3186,7 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
         On-axis (r=0) toroidal magnetic field (default: 10.).
     Bp : float
         Poloidal magnetic field (default: 12.5).
-    
+
     Note
     ----
     In the parameter .yml, use the following in the section `mhd_equilibrium`::
@@ -3211,7 +3211,7 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
         }
 
         self._params = set_defaults(params, params_default)
-        
+
         self._psi0 = 0.0
         self._psi1 = self.params["a"] * self.params["R0"] * self.params["Bp"] * 0.5
 
@@ -3233,7 +3233,6 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
     def psi_axis_RZ(self):
         """Location of magnetic axis in R-Z-coordinates."""
         return [self.params["R0"], 0.0]
-
 
     # ===============================================================
     #           abstract methods
