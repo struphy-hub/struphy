@@ -813,6 +813,7 @@ class forcingterm:
 
     def __call__(self, x, y, z):
         R = np.sqrt(x**2+y**2)
+        R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
         force_Z = self._nu * (self._alpha * (self._R0 - 4 * R) / (
             self._a * self._R0 * R
@@ -878,6 +879,7 @@ class AnalyticSolutionRestelliVelocity_x:
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2+y**2)
+        R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
         uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
@@ -945,6 +947,7 @@ class AnalyticSolutionRestelliVelocity_y:
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2+y**2)
+        R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
         uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
@@ -1011,6 +1014,7 @@ class AnalyticSolutionRestelliVelocity_z:
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2+y**2)
+        R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
         uR = self._alpha*R/(self._a*self._R0)*(-z) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*z
         uZ = self._alpha*R/(self._a*self._R0)*(R-self._R0) + self._beta*self._Bp*self._R0/(self._B0*self._a*R)*(-(R-self._R0))
