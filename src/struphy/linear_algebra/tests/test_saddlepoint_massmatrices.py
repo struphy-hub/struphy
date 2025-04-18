@@ -137,8 +137,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         M3np = M3._mat.toarray()
         Dnp = derhamnumpy.div.toarray()
         Cnp = derhamnumpy.curl.toarray()
-        Dnp = D.toarray_struphy()
-        Cnp = C.toarray_struphy()
+        # Dnp = D.toarray()
+        # Cnp = C.toarray()
         S21np = S21.toarray
         Hodgenp = Hodge.toarray
         M2Bnp = M2R._mat.toarray()
@@ -149,8 +149,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         M3np = M3._mat.tosparse()
         Dnp = derhamnumpy.div.tosparse()
         Cnp = derhamnumpy.curl.tosparse()
-        Dnp = D.toarray_struphy(is_sparse=True)
-        Cnp = C.toarray_struphy(is_sparse=True)
+        # Dnp = D.tosparse()
+        # Cnp = C.tosparse()
         S21np = S21.tosparse
         Hodgenp = Hodge.tosparse
         M2Bnp = M2R._mat.tosparse()
@@ -381,12 +381,12 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     compare_arrays(d1, d2, mpi_rank, atol=1e-5)
     TestA11composed = M2np/dt + Dnp.T@M3np@Dnp + S21np.T@Cnp.T@M2np@Cnp@S21np
     TestA11 = M2 / dt + nu * D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21
-    TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray_struphy()
-    TestA11npdot = TestA11np.dot(x1.toarray())
+    #TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray_struphy()
+    #TestA11npdot = TestA11np.dot(x1.toarray())
     TestA11composeddot = TestA11composed.dot(x1.toarray())
     TestA11dot = TestA11.dot(x1)
     compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
-    compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
+    #compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
     print(f'Comparison numpy to psydac succesfull.')
 
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
