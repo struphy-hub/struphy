@@ -173,7 +173,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     x2_str0 = space.B2.dot(x2_str)
     x3_str0 = space.B3.dot(x3_str)
     xv_str0 = space.Bv.dot(xv_str)
-     
+
     # Test toarray and tosparse
     all_false = all(not bc for bl in dirichlet_bc for bc in bl)
     if all_false:
