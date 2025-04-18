@@ -463,8 +463,8 @@ class SaddlePointSolverUzawaNumpy:
 
             if max_abs > 1e-6:
                 print(f"{name} inverse is NOT valid anymore.")
-                print(f"  ➤ Max absolute difference: {max_abs:.2e}")
-                print(f"  ➤ Number of differing entries: {diff.nnz}")
+                print(f"Max absolute difference: {max_abs:.2e}")
+                print(f"Number of differing entries: {diff.nnz}")
                 return False
             print(f"{name} inverse is still valid.")
             return True

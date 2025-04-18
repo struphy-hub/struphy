@@ -1,3 +1,14 @@
+import pytest
+
+
+@pytest.mark.parametrize("method_for_solving,Nel,p,spl_kind,dirichlet_bc,mapping", [
+    ('SaddlePointSolverUzawaNumpy',
+     [15, 15, 1],
+     [3, 3, 1],
+     [True, False, True],
+     [[False, False], [False, False], [False, False]],
+     ['Cuboid', {'l1': 0., 'r1': 2., 'l2': 0., 'r2': 3., 'l3': 0., 'r3': 6.}])
+])
 def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""
 
