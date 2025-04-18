@@ -3286,13 +3286,13 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""
-        pp = 1.0*x
+        pp = 0.0*x + 1.0
 
         return pp
 
     def n_xyz(self, x, y, z):
         """Number density n = n(x, y, z)."""
-        nn = 1.0*x
+        nn = 0.0*x + 1.0
 
         return nn
 
