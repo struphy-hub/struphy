@@ -240,7 +240,7 @@ def setup_derham(
     nq_el = params_grid["nq_el"]
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid["polar_ck"]
-    # Local commuting projectors 
+    # local commuting projectors 
     local_projectors = params_grid["local_projectors"]
 
     derham = Derham(
