@@ -1,6 +1,5 @@
 import pytest
 
-@pytest.mark.mpi(min_size=1, max_size=1)
 @pytest.mark.parametrize(
     "method_for_solving,Nel,p,spl_kind,dirichlet_bc,mapping",
     [
@@ -42,6 +41,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.feec.projectors import L2Projector
     from struphy.feec.psydac_derham import TransformedPformComponent
 
+    if MPI.COMM_WORLD.size > 1:
+        pytest.skip("SaddlePointSolverUzawaNumpy only works in serial mode")
+    
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
 
