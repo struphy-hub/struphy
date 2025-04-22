@@ -435,104 +435,188 @@ def eval_guiding_center_from_6d(
         markers[ip, first_diagnostics_idx + 2] = z - Larmor_r[2]
 
 
-@stack_array("grad_PB", "tmp")
-def accum_gradI_const(
+@stack_array("dfm", "df_t", "g", "g_inv", "gradB, ""grad_PB_b", "tmp", "tmp0", "eta_diff")
+def accum_en_fB_mid(
     markers: "float[:,:]",
-    n_markers_tot: "int",
     args_derham: "DerhamArguments",
-    grad_PB1: "float[:,:,:]",
-    grad_PB2: "float[:,:,:]",
-    grad_PB3: "float[:,:,:]",
+    args_domain: "DomainArguments",
+    gradB1: "float[:,:,:]",
+    gradB2: "float[:,:,:]",
+    gradB3: "float[:,:,:]",
+    grad_PB_b1: "float[:,:,:]",
+    grad_PB_b2: "float[:,:,:]",
+    grad_PB_b3: "float[:,:,:]",
     scale: "float",
 ):
     r"""TODO"""
-    # allocate for magnetic field evaluation
-    grad_PB = empty(3, dtype=float)
-    tmp = empty(3, dtype=float)
 
-    # allocate for filling
-    res = zeros(1, dtype=float)
+    # allocate metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_t = empty((3, 3), dtype=float)
+    g = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate for magnetic field evaluation
+    gradB = empty(3, dtype=float)
+    grad_PB_b = empty(3, dtype=float)
+    tmp = empty(3, dtype=float)
+    tmp0 = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
 
     # get number of markers
     n_markers_loc = shape(markers)[0]
+
+    res = 0.
 
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
 
-        # marker positions
-        eta1 = markers[ip, 0]  # mid
-        eta2 = markers[ip, 1]  # mid
-        eta3 = markers[ip, 2]  # mid
+        # marker positions, mid point
+        eta1 = (markers[ip, 14] + markers[ip, 11]) / 2.
+        eta2 = (markers[ip, 15] + markers[ip, 12]) / 2.
+        eta3 = (markers[ip, 16] + markers[ip, 13]) / 2.
+
+        eta_diff = markers[ip, 0:3] - markers[ip, 11:14]
 
         # marker weight and velocity
-        weight = markers[ip, 5]
+        weight = markers[ip, 7]
         mu = markers[ip, 9]
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        # grad_PB; 1form
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        linalg_kernels.transpose(dfm, df_t)
+        linalg_kernels.matrix_matrix(df_t, dfm, g)
+        linalg_kernels.matrix_inv(g, g_inv)
+
+        # gradB; 1form
         eval_1form_spline_mpi(
             span1,
             span2,
             span3,
             args_derham,
-            grad_PB1,
-            grad_PB2,
-            grad_PB3,
-            grad_PB,
+            gradB1,
+            gradB2,
+            gradB3,
+            gradB,
         )
 
-        tmp[:] = markers[ip, 15:18]
-        res += linalg_kernels.scalar_dot(tmp, grad_PB) * weight * mu * scale
-
-    return res / n_markers_tot
-
-
-def accum_en_fB(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
-    args_derham: "DerhamArguments",
-    PB: "float[:,:,:]",
-):
-    r"""TODO"""
-
-    # allocate for filling
-    res = zeros(1, dtype=float)
-
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # marker weight and velocity
-        mu = markers[ip, 9]
-        weight = markers[ip, 5]
-
-        # b-field evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        B0 = eval_0form_spline_mpi(
+        # grad_PB_b; 1form
+        eval_1form_spline_mpi(
             span1,
             span2,
             span3,
             args_derham,
-            PB,
+            grad_PB_b1,
+            grad_PB_b2,
+            grad_PB_b3,
+            grad_PB_b,
         )
 
-        res += abs(B0) * mu * weight
+        tmp = gradB + grad_PB_b
 
-    return res / n_markers_tot
+        res += linalg_kernels.scalar_dot(eta_diff, tmp) * weight * mu * scale
+
+    return res
+
+
+@stack_array("dfm", "norm_b1", "b")
+def accum_en_fB(
+    markers: "float[:,:]",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    abs_B0: "float[:,:,:]",
+    norm_b11: "float[:,:,:]",
+    norm_b12: "float[:,:,:]",
+    norm_b13: "float[:,:,:]",
+    b1: "float[:,:,:]",
+    b2: "float[:,:,:]",
+    b3: "float[:,:,:]",
+):
+    r"""TODO"""
+
+    norm_b1 = empty(3, dtype=float)
+    b = empty(3, dtype=float)
+
+    dfm = empty((3, 3), dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        weight = markers[ip, 7]
+        mu = markers[ip, 9]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        det_df = linalg_kernels.det(dfm)
+
+        # abs_B0; 0form
+        abs_B = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            abs_B0,
+        )
+
+        # b; 2form
+        eval_2form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            b1,
+            b2,
+            b3,
+            b,
+        )
+
+        # norm_b1; 1form
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            norm_b11,
+            norm_b12,
+            norm_b13,
+            norm_b1,
+        )
+
+        b_para = linalg_kernels.scalar_dot(norm_b1, b)
+        b_para /= det_df
+
+        return mu * abs(abs_B + b_para) * weight
 
 
 @stack_array("e", "e_diff")

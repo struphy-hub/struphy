@@ -664,9 +664,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_markers.PushGuidingCenterBxEstar: ["energetic_ions"],
-            propagators_markers.PushGuidingCenterParallel: ["energetic_ions"],
+            #propagators_markers.PushGuidingCenterBxEstar: ["energetic_ions"],
+            #propagators_markers.PushGuidingCenterParallel: ["energetic_ions"],
             propagators_coupling.CurrentCoupling5DGradB: ["energetic_ions", "mhd_velocity"],
+            propagators_coupling.CurrentCoupling5DGradB_dg: ["energetic_ions", "mhd_velocity"],
             propagators_coupling.CurrentCoupling5DCurlb: ["energetic_ions", "mhd_velocity"],
             propagators_fields.CurrentCoupling5DDensity: ["mhd_velocity"],
             propagators_fields.ShearAlfvenCurrentCoupling5D: ["mhd_velocity", "b_field"],
@@ -710,7 +711,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         params_parallel = params["kinetic"]["energetic_ions"]["options"]["PushGuidingCenterParallel"]
         params_cc_gradB = params["kinetic"]["energetic_ions"]["options"]["CurrentCoupling5DGradB"]
         params_cc_curlb = params["kinetic"]["energetic_ions"]["options"]["CurrentCoupling5DCurlb"]
-        params_cc_gradB = params["kinetic"]["energetic_ions"]["options"]["CurrentCoupling5DGradB"]
+        params_cc_gradB_dg = params["kinetic"]["energetic_ions"]["options"]["CurrentCoupling5DGradB_dg"]
 
         # compute coupling parameters
         Ab = params["fluid"]["mhd"]["phys_params"]["A"]
@@ -777,17 +778,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._ones[:] = 1.0
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
-            "b_tilde": self.pointer["b_field"],
-            "algo": params_bxE["algo"],
-            "epsilon": epsilon,
-        }
+        #self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
+        #    "b_tilde": self.pointer["b_field"],
+        #    "algo": params_bxE["algo"],
+        #    "epsilon": epsilon,
+        #}
 
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
-            "b_tilde": self.pointer["b_field"],
-            "algo": params_parallel["algo"],
-            "epsilon": epsilon,
-        }
+        #self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
+        #    "b_tilde": self.pointer["b_field"],
+        #    "algo": params_parallel["algo"],
+        #    "epsilon": epsilon,
+        #}
 
         if params_cc_gradB["turn_off"]:
             self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None
@@ -808,6 +809,25 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
                 "reduced_coupling": params_cc_gradB["reduced_coupling"],
+            }
+
+        if params_cc_gradB_dg["turn_off"]:
+            self._kwargs[propagators_coupling.CurrentCoupling5DGradB_dg] = None
+        else:
+            self._kwargs[propagators_coupling.CurrentCoupling5DGradB_dg] = {
+                "b": self.pointer["b_field"],
+                "b_eq": self._b_eq,
+                "unit_b1": self._unit_b1,
+                "unit_b2": self._unit_b2,
+                "absB0": self._absB0,
+                "gradB1": self._gradB1,
+                "curl_unit_b2": self._curl_unit_b2,
+                "u_space": u_space,
+                "solver": params_cc_gradB_dg["solver"],
+                "dg_solver": params_cc_gradB_dg["dg_solver"],
+                "filter": params_cc_gradB_dg["filter"],
+                "coupling_params": self._coupling_params,
+                "epsilon": epsilon,
             }
 
         if params_cc_curlb["turn_off"]:

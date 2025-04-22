@@ -18,6 +18,7 @@ from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorV
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
+import struphy.pic.utilities_kernels as utilities_kernels
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
@@ -2563,6 +2564,357 @@ class CurrentCoupling5DGradB(Propagator):
                     ~self.particles[0].holes,
                     11:-1,
                 ] = 0.0
+
+        # write new coeffs into Propagator.variables
+        (max_du,) = self.feec_vars_update(_u_new)
+
+        # update_weights
+        if self.particles[0].control_variate:
+            self.particles[0].update_weights()
+
+        if self._info and self._rank == 0:
+            print("Maxdiff up for CurrentCoupling5DGradB:", max_du)
+            print()
+
+
+class CurrentCoupling5DGradB_dg(Propagator):
+    r"""
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        dct["dg_solver"] = {
+            "tol": 1.0e-5,
+            "maxiter": 100,
+        }
+        dct["filter"] = {
+            "use_filter": None,
+            "modes": (1),
+            "repeat": 1,
+            "alpha": 0.5,
+        }
+        dct["turn_off"] = False
+
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        particles: Particles5D,
+        u: BlockVector,
+        *,
+        b: BlockVector,
+        b_eq: BlockVector,
+        unit_b1: BlockVector,
+        unit_b2: BlockVector,
+        absB0: StencilVector,
+        gradB1: BlockVector,
+        curl_unit_b2: BlockVector,
+        u_space: str,
+        solver: dict = options(default=True)["solver"],
+        dg_solver: dict = options(default=True)["dg_solver"],
+        filter: dict = options(default=True)["filter"],
+        coupling_params: dict,
+        epsilon: float = 1.0,
+    ):
+        from psydac.linalg.solvers import inverse
+
+        super().__init__(particles, u)
+
+        assert u_space in {"Hcurl", "Hdiv", "H1vec"}
+
+        if u_space == "H1vec":
+            self._space_key_int = 0
+        else:
+            self._space_key_int = int(
+                self.derham.space_to_form[u_space],
+            )
+
+        self._epsilon = epsilon
+        self._b = b
+        self._b_eq = b_eq
+        self._unit_b1 = unit_b1
+        self._unit_b2 = unit_b2
+        self._absB0 = absB0
+        self._gradB1 = gradB1
+        self._curl_norm_b = curl_unit_b2
+
+        self._dg_solver = dg_solver
+        self._info = solver["info"]
+        self._rank = self.derham.comm.Get_rank()
+
+        self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
+
+        u_id = self.derham.space_to_form[u_space]
+
+        self._PB = getattr(self.basis_ops, "PB")
+
+        self._A = getattr(self.mass_ops, "M" + u_id + "n")
+
+        # preconditioner
+        if solver["type"][1] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, solver["type"][1])
+            pc = pc_class(self._A)
+
+        self._solver = inverse(
+            self._A,
+            solver["type"][0],
+            pc=pc,
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
+            recycle=solver["recycle"],
+        )
+
+        # temporary vectors to avoid memory allocation
+        self._b_full = self._b_eq.space.zeros()
+        self._PB_b = self._PB.codomain.zeros()
+        self._grad_PB_b= self._gradB1.space.zeros()
+        self._u_old = u.space.zeros()
+        self._u_new = u.space.zeros()
+        self._u_diff = u.space.zeros()
+        self._u_mid = u.space.zeros()
+        self._M2n_dot_u = u.space.zeros()
+        self._ku = u.space.zeros()
+        self._u_tmp1 = u.space.zeros()
+        self._u_tmp2 = u.space.zeros()
+
+        # Call the accumulation and Pusher class
+        accum_kernel_init = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg_init
+        accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_dg
+
+        self._args_accum_kernel = (
+            self._epsilon,
+            self._b_full[0]._data,
+            self._b_full[1]._data,
+            self._b_full[2]._data,
+            self._b_eq[0]._data,
+            self._b_eq[1]._data,
+            self._b_eq[2]._data,
+            self._unit_b1[0]._data,
+            self._unit_b1[1]._data,
+            self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data,
+            self._curl_norm_b[1]._data,
+            self._curl_norm_b[2]._data,
+            self._gradB1[0]._data,
+            self._gradB1[1]._data,
+            self._gradB1[2]._data,
+            self._grad_PB_b[0]._data,
+            self._grad_PB_b[1]._data,
+            self._grad_PB_b[2]._data,
+            self._space_key_int,
+            self._coupling_vec,
+        )
+
+        self._ACC_init = Accumulator(
+            particles,
+            u_space,
+            accum_kernel_init,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=True,
+            symmetry="symm",
+            filter_params=filter,
+        )
+
+        self._ACC = Accumulator(
+            particles,
+            u_space,
+            accum_kernel,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=True,
+            symmetry="symm",
+            filter_params=filter,
+        )
+
+        self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
+        self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_dg_Hdiv
+        
+    def __call__(self, dt):
+        un = self.feec_vars[0]
+
+        # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
+        b_full = self._b_eq.copy(out=self._b_full)
+
+        if self._b is not None:
+            self._b_full += self._b
+
+        PB_b = self._PB.dot(self._b, out=self._PB_b)
+        grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
+
+        # save old u
+        _u_old = un.copy(out=self._u_old)
+        _u_new = un.copy(out=self._u_new)
+
+        # save old marker positions
+        self.particles[0].markers[~self.particles[0].holes, 11:14] = self.particles[0].markers[~self.particles[0].holes, 0:3]
+
+        # calculate en_fB_old
+        self.particles[0].save_magnetic_energy(self._b)
+        en_fB_old = self.particles[0].markers[~self.particles[0].holes, 7].dot(
+            self.particles[0].markers[~self.particles[0].holes, 8]
+        ) * self._coupling_vec
+        en_fB_old /= self.particles[0].n_mks
+
+        # initial guess
+        self._ACC_init(*self._args_accum_kernel)
+
+        _ku = self._solver.dot(self._ACC_init.vectors[0], out=self._ku)
+        _u_new += _ku * dt
+
+        self._pusher_kernel_init(
+            dt,
+            self.particles[0].args_markers,
+            self.domain.args_domain,
+            self.derham.args_derham,
+            self._epsilon,
+            b_full[0]._data,
+            b_full[1]._data,
+            b_full[2]._data,
+            self._unit_b1[0]._data,
+            self._unit_b1[1]._data,
+            self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data,
+            self._curl_norm_b[1]._data,
+            self._curl_norm_b[2]._data,
+            _u_old[0]._data,
+            _u_old[1]._data,
+            _u_old[2]._data,
+        )
+
+        # sorting markers
+        self.particles[0].mpi_sort_markers()
+
+        # calculate en_fB_new
+        self.particles[0].save_magnetic_energy(self._b)
+        en_fB_new = self.particles[0].markers[~self.particles[0].holes, 7].dot(
+            self.particles[0].markers[~self.particles[0].holes, 8]
+        ) * self._coupling_vec
+        en_fB_new /= self.particles[0].n_mks
+
+        # sorting markers, mid-point
+        self.particles[0].mpi_sort_markers(alpha=0.5)
+
+        # iterations
+        for stage in range(self._dg_solver['maxiter']):
+
+            print("stage: ", stage)
+            
+            # calculate constant for discrete gradient
+            # save u^{n+1,k}
+            _u_old = _u_new.copy(out=self._u_old)
+
+            # savel H^{n+1,k}
+            self.particles[0].markers[~self.particles[0].holes, 14:17] = self.particles[0].markers[~self.particles[0].holes, 0:3] 
+            
+            # denominator ||z^{n+1,k} - z^n||²
+            sum_u_diff = np.sum((_u_old.toarray() - un.toarray())**2)
+            sum_H_diff = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
+            denominator = sum_u_diff + sum_H_diff
+            #print("denominator: ", denominator)
+
+            # const: [en_fB_new - en_fB_old - (H^{n+1,k} - H^n)gradI]/denominator
+            # sorting markers, mid-point
+            self.particles[0].mpi_sort_markers(alpha=0.5)
+
+            en_fB_mid = utilities_kernels.accum_en_fB_mid(self.particles[0].markers,
+                                                          self.derham.args_derham,
+                                                          self.domain.args_domain,
+                                                          self._gradB1[0]._data,
+                                                          self._gradB1[1]._data,
+                                                          self._gradB1[2]._data,
+                                                          self._grad_PB_b[0]._data,
+                                                          self._grad_PB_b[1]._data,
+                                                          self._grad_PB_b[2]._data,
+                                                          self._coupling_vec)
+            en_fB_mid /= self.particles[0].n_mks
+
+            const = (en_fB_new - en_fB_old - en_fB_mid)/denominator
+            #print("en_fB_new", en_fB_new)
+            #print("en_fB_old", en_fB_old)
+            #print("en_fB_mid", en_fB_mid)
+            #print("const: ", const)
+
+            # update u^{n+1,k}
+            self._ACC(*self._args_accum_kernel, const)
+            _ku = self._solver.dot(self._ACC.vectors[0], out=self._ku)
+
+            _u_new = un.copy(out=self._u_new)
+            _u_new += _ku * dt
+
+            # calculate M^{-1} u_diff
+            self._u_tmp1 = self._solver.dot(self._u_diff, out=self._u_tmp1)
+
+            # update H^{n+1, k}
+            self._pusher_kernel(
+                dt,
+                self.particles[0].args_markers,
+                self.domain.args_domain,
+                self.derham.args_derham,
+                self._epsilon,
+                b_full[0]._data,
+                b_full[1]._data,
+                b_full[2]._data,
+                self._unit_b1[0]._data,
+                self._unit_b1[1]._data,
+                self._unit_b1[2]._data,
+                self._curl_norm_b[0]._data,
+                self._curl_norm_b[1]._data,
+                self._curl_norm_b[2]._data,
+                self._u_mid[0]._data,
+                self._u_mid[1]._data,
+                self._u_mid[2]._data,
+                self._u_tmp1[0]._data,
+                self._u_tmp1[1]._data,
+                self._u_tmp1[2]._data,
+                const,
+            )
+
+            # update en_fB_new
+            # sorting markers
+            self.particles[0].mpi_sort_markers()
+
+            # calculate en_fB_new
+            self.particles[0].save_magnetic_energy(self._b)
+            en_fB_new = self.particles[0].markers[~self.particles[0].holes, 7].dot(
+                self.particles[0].markers[~self.particles[0].holes, 8]
+            ) * self._coupling_vec
+            en_fB_new /= self.particles[0].n_mks
+
+            # calculate ||z^{n+1,k} - z^n||
+            sum_u_diff = np.sum(np.abs(_u_new.toarray() - _u_old.toarray()))
+            sum_H_diff = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 14:17]))
+            diff = sum_u_diff + sum_H_diff
+
+            if diff < self._dg_solver['tol']:
+                print("converged", diff)
+                break
+            else:
+                print("not converged", diff)
+
+        # clear the buffer
+        self.particles[0].markers[
+            ~self.particles[0].holes,
+            11:-1,
+        ] = 0.0
 
         # write new coeffs into Propagator.variables
         (max_du,) = self.feec_vars_update(_u_new)
