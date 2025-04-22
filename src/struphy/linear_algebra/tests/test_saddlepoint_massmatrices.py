@@ -1,10 +1,11 @@
 import pytest
 
+
 @pytest.mark.parametrize(
     "method_for_solving,Nel,p,spl_kind,dirichlet_bc,mapping",
     [
         (
-            'SaddlePointSolverUzawaNumpy',
+            "SaddlePointSolverUzawaNumpy",
             [15, 15, 1],
             [3, 3, 1],
             [True, False, True],
@@ -43,7 +44,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     if MPI.COMM_WORLD.size > 1:
         pytest.skip("SaddlePointSolverUzawaNumpy only works in serial mode")
-    
+
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
 
