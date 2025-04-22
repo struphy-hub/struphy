@@ -1,11 +1,11 @@
 import pytest
 
-
+@pytest.mark.mpi(min_size=1, max_size=1)
 @pytest.mark.parametrize(
     "method_for_solving,Nel,p,spl_kind,dirichlet_bc,mapping",
     [
         (
-            "SaddlePointSolverUzawaNumpy",
+            'SaddlePointSolverUzawaNumpy',
             [15, 15, 1],
             [3, 3, 1],
             [True, False, True],
