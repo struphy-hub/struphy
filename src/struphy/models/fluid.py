@@ -2075,6 +2075,7 @@ class DeltafVariationalMHD(StruphyModel):
     def propagators_dct():
         return {
             propagators_fields.VariationalDensityEvolve: ["mhd_rho3", "mhd_uv"],
+            propagators_fields.VariationalMomentumAdvection: ["mhd_uv"],
             propagators_fields.VariationalPBEvolve: ["mhd_p3", "b2", "mhd_uv"],
             propagators_fields.VariationalViscosity: ["mhd_p3", "mhd_uv"],
             propagators_fields.VariationalResistivity: ["mhd_p3", "b2"],
@@ -2100,6 +2101,8 @@ class DeltafVariationalMHD(StruphyModel):
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
         # Initialize propagators/integrators used in splitting substeps
+        lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
+        nonlin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
         lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
         nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
         lin_solver_magfield = params["em_fields"]["options"]["VariationalPBEvolve"]["lin_solver"]
@@ -2129,6 +2132,12 @@ class DeltafVariationalMHD(StruphyModel):
             "nonlin_solver": nonlin_solver_density,
         }
 
+        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_momentum,
+            "nonlin_solver": nonlin_solver_momentum,
+        }
+
         self._kwargs[propagators_fields.VariationalPBEvolve] = {
             "model": model,
             "mass_ops": self.WMM,
@@ -2150,7 +2159,7 @@ class DeltafVariationalMHD(StruphyModel):
         }
 
         self._kwargs[propagators_fields.VariationalResistivity] = {
-            "model": "full_p",
+            "model": "delta_p",
             "rho": self.pointer["mhd_rho3"],
             "gamma": self._gamma,
             "eta": self._eta,
