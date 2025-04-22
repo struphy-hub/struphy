@@ -7562,12 +7562,14 @@ class Stokes(Propagator):
         self._p = p
         self._spl_kind = spl_kind
 
-        self._variant = 'Uzawa'  # 'GMRES' , 'Uzawa'
-        self._method_to_solve = 'DirectNPInverse'  # 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
+        self._variant = "Uzawa"  # 'GMRES' , 'Uzawa'
+        self._method_to_solve = (
+            "DirectNPInverse"  # 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
+        )
         self._preconditioner = False
         spectralanalysis = False
 
-        if self._variant == 'GMRES':
+        if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
             _A11 = (
                 self.mass_ops.M2
@@ -7575,7 +7577,11 @@ class Stokes(Propagator):
                 + self._nu
                 * (
                     self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-                    + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
+                    + self.basis_ops.S21.T
+                    @ self.derham.curl.T
+                    @ self.mass_ops.M2
+                    @ self.derham.curl
+                    @ self.basis_ops.S21
                 )
             )
             _A12 = None
@@ -7621,21 +7627,23 @@ class Stokes(Propagator):
         forcetermelectrons_class = [_funelectronsx, _funelectronsy, _forceterm_logical]
 
         # pullback callable
-        funx = TransformedPformComponent(forceterm_class, fun_basis="physical",
-                                         out_form="2", comp=0, domain=self.domain)
-        funy = TransformedPformComponent(forceterm_class, fun_basis="physical",
-                                         out_form="2", comp=1, domain=self.domain)
+        funx = TransformedPformComponent(
+            forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+        )
+        funy = TransformedPformComponent(
+            forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+        )
         fun_electronsx = TransformedPformComponent(
             forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
         )
         fun_electronsy = TransformedPformComponent(
             forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
         )
-        l2_proj = L2Projector(space_id='Hdiv', mass_ops=self.mass_ops)
+        l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
         self._F1 = l2_proj([funx, funy, _forceterm_logical])
         self._F2 = l2_proj([fun_electronsx, fun_electronsy, _forceterm_logical])
 
-        if self._variant == 'GMRES':
+        if self._variant == "GMRES":
             if _A12 is not None:
                 assert _A11.codomain == _A12.codomain
             if _A21 is not None:
@@ -7666,27 +7674,30 @@ class Stokes(Propagator):
             M2pre = MassMatrixPreconditioner(self.mass_ops.M2)
 
             # Preconditioner
-            _A11_0 = self._nu*self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.mass_ops.M2/0.01
-            _A22_0 = self._nu_e*self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + \
-                self.mass_ops.M2 + self._eps * IdentityOperator(_A11.domain)
+            _A11_0 = self._nu * self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.mass_ops.M2 / 0.01
+            _A22_0 = (
+                self._nu_e * self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+                + self.mass_ops.M2
+                + self._eps * IdentityOperator(_A11.domain)
+            )
 
-        elif self._variant == 'Uzawa':
+        elif self._variant == "Uzawa":
             # Numpy
             fun = []
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
                     fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n:
-                        self.basis_ops.G(e1, e2, e3)[:, :, :, m, n]
+                        lambda e1, e2, e3, m=m, n=n: self.basis_ops.G(e1, e2, e3)[:, :, :, m, n]
                         / self.basis_ops.sqrt_g(e1, e2, e3),
                     ]
             self._S21 = None
             if self.derham._with_local_projectors == True:
                 self._S21 = BasisProjectionOperatorLocal(
-                    self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False)
+                    self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
+                )
             self.derhamnumpy = Derham(self._Nel, self._p, self._spl_kind, domain=self.domain)
-            if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 self._M2np = self.mass_ops.M2._mat.toarray()
                 self._M3np = self.mass_ops.M3._mat.toarray()
                 self._Dnp = self.derhamnumpy.div.toarray()
@@ -7696,7 +7707,7 @@ class Stokes(Propagator):
                 else:
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy()  # self.basis_ops.S21.toarray
                 self._M2Bnp = self.mass_ops.M2B._mat.toarray()
-            elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
                 self._M2np = self.mass_ops.M2._mat.tosparse()
                 self._M3np = self.mass_ops.M3._mat.tosparse()
                 self._Dnp = self.derhamnumpy.div.tosparse()
@@ -7707,18 +7718,40 @@ class Stokes(Propagator):
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
                 self._M2Bnp = self.mass_ops.M2B._mat.tosparse()
 
-            A11np = self._M2np + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + 1.0 * self._Hodgenp.T @
-                                             self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - 1.0 * self._M2Bnp
-            if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-                self.A22np = self._eps * np.identity(A11np.shape[0]) + self._nu_e * (
-                    self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) + self._M2Bnp
-                self._A22prenp = np.identity(self.A22np.shape[0])*self._eps + \
-                    self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp)  # +M2np #
-            elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
-                self.A22np = self._eps * sc.sparse.eye(A11np.shape[0], format='csr') + self._nu_e * (
-                    self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) + self._M2Bnp
+            A11np = (
+                self._M2np
+                + self._nu
+                * (
+                    self._Dnp.T @ self._M3np @ self._Dnp
+                    + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                )
+                - 1.0 * self._M2Bnp
+            )
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                self.A22np = (
+                    self._eps * np.identity(A11np.shape[0])
+                    + self._nu_e
+                    * (
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    )
+                    + self._M2Bnp
+                )
+                self._A22prenp = np.identity(self.A22np.shape[0]) * self._eps + self._nu_e * (
+                    self._Dnp.T @ self._M3np @ self._Dnp
+                )  # +M2np #
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                self.A22np = (
+                    self._eps * sc.sparse.eye(A11np.shape[0], format="csr")
+                    + self._nu_e
+                    * (
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    )
+                    + self._M2Bnp
+                )
                 # self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*sc.sparse.eye(A11np.shape[0], format='csr')
-                self._A22prenp = sc.sparse.eye(self.A22np.shape[0], format='csr')
+                self._A22prenp = sc.sparse.eye(self.A22np.shape[0], format="csr")
 
             B1np = -self._M3np @ self._Dnp
             B2np = self._M3np @ self._Dnp
@@ -7727,10 +7760,10 @@ class Stokes(Propagator):
             _Anp = [A11np, self.A22np]
             _Bnp = [B1np, B2np]
             _Fnp = [self._F1np, self._F2np]
-            _A11prenp = self._M2np + self._nu*(self._Dnp.T @ self._M3np @ self._Dnp)  # np.identity(A11np.shape[0])#
+            _A11prenp = self._M2np + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)  # np.identity(A11np.shape[0])#
             _Anppre = [_A11prenp, self._A22prenp]
 
-        if self._variant == 'GMRES':
+        if self._variant == "GMRES":
             self._solverM = inverse(
                 self._M,
                 solver["type"][0],
@@ -7750,7 +7783,7 @@ class Stokes(Propagator):
                 tol=solver["tol"],
                 max_iter=solver["maxiter"],
                 verbose=solver["verbose"],
-                pc=None
+                pc=None,
             )
 
             self._solver_GMRES = SaddlePointSolverGMRES(
@@ -7761,7 +7794,7 @@ class Stokes(Propagator):
                 tol=solver["tol"],
                 max_iter=solver["maxiter"],
                 verbose=solver["verbose"],
-                pc=None
+                pc=None,
             )
 
             # allocate place-holder vectors to avoid temporary array allocations in __call__
@@ -7769,7 +7802,7 @@ class Stokes(Propagator):
             # self._e_tmp2 = ue.space.zeros()
             # self._b_tmp1 = phi.space.zeros()
 
-        elif self._variant == 'Uzawa':
+        elif self._variant == "Uzawa":
             self._solver_UzawaNumpy = SaddlePointSolverUzawaNumpy(
                 _Anp,
                 _Bnp,
@@ -7779,7 +7812,7 @@ class Stokes(Propagator):
                 self._preconditioner,
                 spectralanalysis,
                 tol=solver["tol"],
-                max_iter=solver["maxiter"]
+                max_iter=solver["maxiter"],
             )
 
     def __call__(self, dt):
@@ -7788,7 +7821,7 @@ class Stokes(Propagator):
         uenfeec = self.feec_vars[1]
         phinfeec = self.feec_vars[2]
 
-        if self._variant == 'GMRES':
+        if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]]
             _A11 = (
                 self.mass_ops.M2 / dt
@@ -7796,15 +7829,28 @@ class Stokes(Propagator):
                 + self._nu
                 * (
                     self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-                    + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
+                    + self.basis_ops.S21.T
+                    @ self.derham.curl.T
+                    @ self.mass_ops.M2
+                    @ self.derham.curl
+                    @ self.basis_ops.S21
                 )
             )
             _A12 = None
             _A21 = _A12
-            _A22 = self._nu_e * (
-                self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-                + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
-            ) + self.mass_ops.M2B + self._eps*IdentityOperator(_A11.domain)
+            _A22 = (
+                self._nu_e
+                * (
+                    self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
+                    + self.basis_ops.S21.T
+                    @ self.derham.curl.T
+                    @ self.mass_ops.M2
+                    @ self.derham.curl
+                    @ self.basis_ops.S21
+                )
+                + self.mass_ops.M2B
+                + self._eps * IdentityOperator(_A11.domain)
+            )
             _B1 = -self.mass_ops.M3 @ self.derham.div
             _B2 = self.mass_ops.M3 @ self.derham.div
 
@@ -7827,7 +7873,7 @@ class Stokes(Propagator):
             # Split diffusive term
             # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(unfeec) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
             #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
-            _blocksF = [self._F1 + self.mass_ops.M2.dot(unfeec)/dt, self._F2]     #
+            _blocksF = [self._F1 + self.mass_ops.M2.dot(unfeec) / dt, self._F2]  #
             _F = BlockVector(self._block_domainA, blocks=_blocksF)
 
             # Solve here
@@ -7840,14 +7886,15 @@ class Stokes(Propagator):
             x0 = BlockVector(self._block_domainM, blocks=self._solblocks)
             self._solverM._options["x0"] = x0
 
-            print(f'Is incoming a solution in Propagator?')
-            TestRest1 = _F[0]-_A[0, 0].dot(self.feec_vars[0])-self._solver_GMRES.B[0, 0].T.dot(self.feec_vars[2])
-            print(f'{max(TestRest1.toarray()) =}')
-            TestRest2 = _F[1]-_A[1, 1].dot(self.feec_vars[1])-self._solver_GMRES.B[0, 1].T.dot(self.feec_vars[2])
-            print(f'{max(TestRest2.toarray()) =}')
-            TestRest3 = self._solver_GMRES.B[0, 0].dot(
-                self.feec_vars[0])+self._solver_GMRES.B[0, 1].dot(self.feec_vars[1])
-            print(f'{max(TestRest3.toarray()) =}')
+            print(f"Is incoming a solution in Propagator?")
+            TestRest1 = _F[0] - _A[0, 0].dot(self.feec_vars[0]) - self._solver_GMRES.B[0, 0].T.dot(self.feec_vars[2])
+            print(f"{max(TestRest1.toarray()) =}")
+            TestRest2 = _F[1] - _A[1, 1].dot(self.feec_vars[1]) - self._solver_GMRES.B[0, 1].T.dot(self.feec_vars[2])
+            print(f"{max(TestRest2.toarray()) =}")
+            TestRest3 = self._solver_GMRES.B[0, 0].dot(self.feec_vars[0]) + self._solver_GMRES.B[0, 1].dot(
+                self.feec_vars[1]
+            )
+            print(f"{max(TestRest3.toarray()) =}")
 
             # # use setter to update lhs matrix
             # self._solverM.linop = _M
@@ -7881,54 +7928,68 @@ class Stokes(Propagator):
             # Imported solver
             self._solver_GMRES.A = _A
             self._solver_GMRES.F = _F
-            _sol1, _sol2, info, = self._solver_GMRES(unfeec, uenfeec, phinfeec)
+            (
+                _sol1,
+                _sol2,
+                info,
+            ) = self._solver_GMRES(unfeec, uenfeec, phinfeec)
             un = _sol1[0]
             uen = _sol1[1]
             phin = _sol2
 
-            print(f'Is outgoing a solution in propagator?')
-            TestRest1 = _F[0]-_A[0, 0].dot(un)-self._solver_GMRES.B[0, 0].T.dot(phin)
-            print(f'{max(TestRest1.toarray()) =}')
-            TestRest2 = _F[1]-_A[1, 1].dot(uen)-self._solver_GMRES.B[0, 1].T.dot(phin)
-            print(f'{max(TestRest2.toarray()) =}')
-            TestRest3 = self._solver_GMRES.B[0, 0].dot(un)+self._solver_GMRES.B[0, 1].dot(uen)
-            print(f'{max(TestRest3.toarray()) =}')
+            print(f"Is outgoing a solution in propagator?")
+            TestRest1 = _F[0] - _A[0, 0].dot(un) - self._solver_GMRES.B[0, 0].T.dot(phin)
+            print(f"{max(TestRest1.toarray()) =}")
+            TestRest2 = _F[1] - _A[1, 1].dot(uen) - self._solver_GMRES.B[0, 1].T.dot(phin)
+            print(f"{max(TestRest2.toarray()) =}")
+            TestRest3 = self._solver_GMRES.B[0, 0].dot(un) + self._solver_GMRES.B[0, 1].dot(uen)
+            print(f"{max(TestRest3.toarray()) =}")
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
 
-            print(f'Is outgoing a solution in feec_vars?')
-            TestRest1 = _F[0]-_A[0, 0].dot(self.feec_vars[0])-self._solver_GMRES.B[0, 0].T.dot(self.feec_vars[2])
-            print(f'{max(TestRest1.toarray()) =}')
-            TestRest2 = _F[1]-_A[1, 1].dot(self.feec_vars[1])-self._solver_GMRES.B[0, 1].T.dot(self.feec_vars[2])
-            print(f'{max(TestRest2.toarray()) =}')
-            TestRest3 = self._solver_GMRES.B[0, 0].dot(
-                self.feec_vars[0])+self._solver_GMRES.B[0, 1].dot(self.feec_vars[1])
-            print(f'{max(TestRest3.toarray()) =}')
+            print(f"Is outgoing a solution in feec_vars?")
+            TestRest1 = _F[0] - _A[0, 0].dot(self.feec_vars[0]) - self._solver_GMRES.B[0, 0].T.dot(self.feec_vars[2])
+            print(f"{max(TestRest1.toarray()) =}")
+            TestRest2 = _F[1] - _A[1, 1].dot(self.feec_vars[1]) - self._solver_GMRES.B[0, 1].T.dot(self.feec_vars[2])
+            print(f"{max(TestRest2.toarray()) =}")
+            TestRest3 = self._solver_GMRES.B[0, 0].dot(self.feec_vars[0]) + self._solver_GMRES.B[0, 1].dot(
+                self.feec_vars[1]
+            )
+            print(f"{max(TestRest3.toarray()) =}")
 
-        elif self._variant == 'Uzawa':
+        elif self._variant == "Uzawa":
             # Numpy
-            A11np = self._M2np/dt + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @
-                                                self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - self._M2Bnp
+            A11np = (
+                self._M2np / dt
+                + self._nu
+                * (
+                    self._Dnp.T @ self._M3np @ self._Dnp
+                    + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                )
+                - self._M2Bnp
+            )
             # A11np = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp) - self._M2Bnp
-            if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-                #A22np = self._eps * np.identity(A11np.shape[0])+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ self._M2Bnp
-                #_A22prenp = np.identity(A22np.shape[0])*self._eps + self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp)   #+M2np #
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                # A22np = self._eps * np.identity(A11np.shape[0])+ self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ self._M2Bnp
+                # _A22prenp = np.identity(A22np.shape[0])*self._eps + self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp)   #+M2np #
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
-            elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
-                #A22np = self._eps * sc.sparse.eye(A11np.shape[0], format='csr') + self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ self._M2Bnp
-                #_A22prenp = sc.sparse.eye(A11np.shape[0], format='csr')#self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*sc.sparse.eye(A11np.shape[0], format='csr')
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                # A22np = self._eps * sc.sparse.eye(A11np.shape[0], format='csr') + self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)+ self._M2Bnp
+                # _A22prenp = sc.sparse.eye(A11np.shape[0], format='csr')#self._nu_e*(self._Dnp.T @ self._M3np @ self._Dnp) +self._eps*sc.sparse.eye(A11np.shape[0], format='csr')
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
 
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
-            _A11prenp = self._M2np/dt + self._nu*(self._Dnp.T @ self._M3np @ self._Dnp)  # np.identity(A11np.shape[0])#
+            _A11prenp = self._M2np / dt + self._nu * (
+                self._Dnp.T @ self._M3np @ self._Dnp
+            )  # np.identity(A11np.shape[0])#
             _Anppre = [_A11prenp, _A22prenp]
             _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
-            #_F1np = self._F1np
-            _Fnp = [_F1np , self._F2np]
+            # _F1np = self._F1np
+            _Fnp = [_F1np, self._F2np]
 
             # Bh = self._M3np @ self._Dnp
             # TestRest1 = _Fnp[0]-_Anp[0].dot(unfeec.toarray())+Bh.T.dot(phinfeec.toarray())
@@ -7947,14 +8008,17 @@ class Stokes(Propagator):
             # print(f'{RestAnp =}')
             # print(f'{RestAenp =}')
 
-            print(f'Is incoming a solution in Propagator?')
-            TestRest1 = _Fnp[0]-_Anp[0].dot(unfeec.toarray())-self._solver_UzawaNumpy.B[0].T.dot(phinfeec.toarray())
-            print(f'{max(TestRest1) =}')
-            TestRest2 = _Fnp[1]-_Anp[1].dot(uenfeec.toarray())-self._solver_UzawaNumpy.B[1].T.dot(phinfeec.toarray())
-            print(f'{max(TestRest2) =}')
-            TestRest3 = self._solver_UzawaNumpy.B[0].dot(
-                unfeec.toarray())+self._solver_UzawaNumpy.B[1].dot(uenfeec.toarray())
-            print(f'{max(TestRest3) =}')
+            print(f"Is incoming a solution in Propagator?")
+            TestRest1 = _Fnp[0] - _Anp[0].dot(unfeec.toarray()) - self._solver_UzawaNumpy.B[0].T.dot(phinfeec.toarray())
+            print(f"{max(TestRest1) =}")
+            TestRest2 = (
+                _Fnp[1] - _Anp[1].dot(uenfeec.toarray()) - self._solver_UzawaNumpy.B[1].T.dot(phinfeec.toarray())
+            )
+            print(f"{max(TestRest2) =}")
+            TestRest3 = self._solver_UzawaNumpy.B[0].dot(unfeec.toarray()) + self._solver_UzawaNumpy.B[1].dot(
+                uenfeec.toarray()
+            )
+            print(f"{max(TestRest3) =}")
 
             if self.rank == 0:
                 self._solver_UzawaNumpy.A = _Anp
@@ -7962,43 +8026,45 @@ class Stokes(Propagator):
                 self._solver_UzawaNumpy.F = _Fnp
                 un, uen, phin, info, residual_norms = self._solver_UzawaNumpy(unfeec, uenfeec, phinfeec)
 
-                dimlist = [
-                    [shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self._p)]
-                    for i in range(3)
-                ]
-                dimphi = [shp - 2*pi for shp, pi in zip(phinfeec[:].shape, self._p)]
-                u_temp = BlockVector(self.derham.Vh['2'])
-                ue_temp = BlockVector(self.derham.Vh['2'])
-                phi_temp = StencilVector(self.derham.Vh['3'])
+                dimlist = [[shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self._p)] for i in range(3)]
+                dimphi = [shp - 2 * pi for shp, pi in zip(phinfeec[:].shape, self._p)]
+                u_temp = BlockVector(self.derham.Vh["2"])
+                ue_temp = BlockVector(self.derham.Vh["2"])
+                phi_temp = StencilVector(self.derham.Vh["3"])
                 test = 0
                 for i, bl in enumerate(u_temp.blocks):
                     s = bl.starts
                     e = bl.ends
-                    totaldim = dimlist[i][0]*dimlist[i][1]*dimlist[i][2]
+                    totaldim = dimlist[i][0] * dimlist[i][1] * dimlist[i][2]
                     test += totaldim
-                    bl[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] +
-                        1] = un[i*totaldim:(i+1)*totaldim].reshape(*dimlist[i])
+                    bl[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = un[
+                        i * totaldim : (i + 1) * totaldim
+                    ].reshape(*dimlist[i])
 
                 for i, bl in enumerate(ue_temp.blocks):
                     s = bl.starts
                     e = bl.ends
-                    totaldim = dimlist[i][0]*dimlist[i][1]*dimlist[i][2]
-                    bl[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] +
-                        1] = uen[i*totaldim:(i+1)*totaldim].reshape(*dimlist[i])
+                    totaldim = dimlist[i][0] * dimlist[i][1] * dimlist[i][2]
+                    bl[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = uen[
+                        i * totaldim : (i + 1) * totaldim
+                    ].reshape(*dimlist[i])
 
                 s = phi_temp.starts
                 e = phi_temp.ends
-                phi_temp[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1] = phin.reshape(*dimphi)
+                phi_temp[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = phin.reshape(*dimphi)
             else:
-                print(f'Stokes is only running on one MPI.')
-            print(f'Is outgoing a solution in Propagator?')
-            TestRest1 = _Fnp[0]-_Anp[0].dot(u_temp.toarray())-self._solver_UzawaNumpy.B[0].T.dot(phi_temp.toarray())
-            print(f'{max(TestRest1) =}')
-            TestRest2 = _Fnp[1]-_Anp[1].dot(ue_temp.toarray())-self._solver_UzawaNumpy.B[1].T.dot(phi_temp.toarray())
-            print(f'{max(TestRest2) =}')
-            TestRest3 = self._solver_UzawaNumpy.B[0].dot(
-                u_temp.toarray())+self._solver_UzawaNumpy.B[1].dot(ue_temp.toarray())
-            print(f'{max(TestRest3) =}')
+                print(f"Stokes is only running on one MPI.")
+            print(f"Is outgoing a solution in Propagator?")
+            TestRest1 = _Fnp[0] - _Anp[0].dot(u_temp.toarray()) - self._solver_UzawaNumpy.B[0].T.dot(phi_temp.toarray())
+            print(f"{max(TestRest1) =}")
+            TestRest2 = (
+                _Fnp[1] - _Anp[1].dot(ue_temp.toarray()) - self._solver_UzawaNumpy.B[1].T.dot(phi_temp.toarray())
+            )
+            print(f"{max(TestRest2) =}")
+            TestRest3 = self._solver_UzawaNumpy.B[0].dot(u_temp.toarray()) + self._solver_UzawaNumpy.B[1].dot(
+                ue_temp.toarray()
+            )
+            print(f"{max(TestRest3) =}")
 
             _plot_residual_norms(residual_norms)
 

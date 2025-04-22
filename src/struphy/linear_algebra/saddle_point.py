@@ -91,9 +91,10 @@ class SaddlePointSolverUzawaNumpy:
         for i in F:
             assert isinstance(i, np.ndarray) or isinstance(i, sc.sparse.csr_matrix)
         for i in Apre:
-            assert isinstance(i, np.ndarray) or isinstance(
-                i, sc.sparse.csr_matrix) or isinstance(i, sc.sparse.csr_array)
-        assert method_to_solve in ('SparseSolver', 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse')
+            assert (
+                isinstance(i, np.ndarray) or isinstance(i, sc.sparse.csr_matrix) or isinstance(i, sc.sparse.csr_array)
+            )
+        assert method_to_solve in ("SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse")
         assert isinstance(preconditioner, bool)
         assert isinstance(spectralanalysis, bool)
         assert A[0].shape[0] == B[0].shape[1]
@@ -114,7 +115,7 @@ class SaddlePointSolverUzawaNumpy:
         # if self._method_to_solve == 'SparseSolver':
         #     spectralanalysis = False
 
-        if self._method_to_solve in ('InexactNPInverse', 'SparseSolver'):
+        if self._method_to_solve in ("InexactNPInverse", "SparseSolver"):
             self._preconditioner = False
 
         self._Anp = self._A[0]
@@ -128,84 +129,84 @@ class SaddlePointSolverUzawaNumpy:
         # Instanciate inverses
         self._setup_inverses()
 
-        print(f'Arrays initialized')
+        print(f"Arrays initialized")
 
         # Spectral analysis
         if spectralanalysis == True:
             # A11 before
-            if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])  # self._PA11diag)#@
-            elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
                 eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
             maxbeforeA11 = max(eigvalsA11_before)
             maxbeforeA11_abs = np.max(np.abs(eigvalsA11_before))
             minbeforeA11_abs = np.min(np.abs(eigvalsA11_before))
             minbeforeA11 = min(eigvalsA11_before)
-            specA11_bef = maxbeforeA11/minbeforeA11
-            specA11_bef_abs = maxbeforeA11_abs/minbeforeA11_abs
+            specA11_bef = maxbeforeA11 / minbeforeA11
+            specA11_bef_abs = maxbeforeA11_abs / minbeforeA11_abs
             # print(f'{maxbeforeA11 = }')
             # print(f'{maxbeforeA11_abs = }')
             # print(f'{minbeforeA11_abs = }')
             # print(f'{minbeforeA11 = }')
             # print(f'{specA11_bef = }')
-            print(f'{specA11_bef_abs = }')
+            print(f"{specA11_bef_abs = }")
 
             # A22 before
-            if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])  # self._PA22diag)#@
-            elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
                 eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1].toarray())
             maxbeforeA22 = max(eigvalsA22_before)
             maxbeforeA22_abs = np.max(np.abs(eigvalsA22_before))
             minbeforeA22_abs = np.min(np.abs(eigvalsA22_before))
             minbeforeA22 = min(eigvalsA22_before)
-            specA22_bef = maxbeforeA22/minbeforeA22
-            specA22_bef_abs = maxbeforeA22_abs/minbeforeA22_abs
+            specA22_bef = maxbeforeA22 / minbeforeA22
+            specA22_bef_abs = maxbeforeA22_abs / minbeforeA22_abs
             # print(f'{maxbeforeA22 = }')
             # print(f'{maxbeforeA22_abs = }')
             # print(f'{minbeforeA22_abs = }')
             # print(f'{minbeforeA22 = }')
             # print(f'{specA22_bef = }')
-            print(f'{specA22_bef_abs = }')
+            print(f"{specA22_bef_abs = }")
 
             if self._preconditioner == True:
                 # A11 after preconditioning with its inverse
-                if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-                    eigvalsA11_after_prec, eigvecs_after = np.linalg.eig(self._A11npinv@self._A[0])  # Implement this
-                elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
-                    eigvalsA11_after_prec, eigvecs_after = np.linalg.eig((self._A11npinv@self._A[0]).toarray())
+                if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                    eigvalsA11_after_prec, eigvecs_after = np.linalg.eig(self._A11npinv @ self._A[0])  # Implement this
+                elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                    eigvalsA11_after_prec, eigvecs_after = np.linalg.eig((self._A11npinv @ self._A[0]).toarray())
                 maxafterA11_prec = max(eigvalsA11_after_prec)
                 minafterA11_prec = min(eigvalsA11_after_prec)
                 maxafterA11_abs_prec = np.max(np.abs(eigvalsA11_after_prec))
                 minafterA11_abs_prec = np.min(np.abs(eigvalsA11_after_prec))
-                specA11_aft_prec = maxafterA11_prec/minafterA11_prec
-                specA11_aft_abs_prec = maxafterA11_abs_prec/minafterA11_abs_prec
+                specA11_aft_prec = maxafterA11_prec / minafterA11_prec
+                specA11_aft_abs_prec = maxafterA11_abs_prec / minafterA11_abs_prec
                 # print(f'{maxafterA11_prec = }')
                 # print(f'{maxafterA11_abs_prec = }')
                 # print(f'{minafterA11_abs_prec = }')
                 # print(f'{minafterA11_prec = }')
                 # print(f'{specA11_aft_prec = }')
-                print(f'{specA11_aft_abs_prec = }')
+                print(f"{specA11_aft_abs_prec = }")
 
                 # A22 after preconditioning with its inverse
-                if self._method_to_solve in ('DirectNPInverse', 'InexactNPInverse'):
-                    eigvalsA22_after_prec, eigvecs_after = np.linalg.eig(self._A22npinv@self._A[1])  # Implement this
-                elif self._method_to_solve in ('SparseSolver', 'ScipySparse'):
-                    eigvalsA22_after_prec, eigvecs_after = np.linalg.eig((self._A22npinv@self._A[1]).toarray())
+                if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                    eigvalsA22_after_prec, eigvecs_after = np.linalg.eig(self._A22npinv @ self._A[1])  # Implement this
+                elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                    eigvalsA22_after_prec, eigvecs_after = np.linalg.eig((self._A22npinv @ self._A[1]).toarray())
                 maxafterA22_prec = max(eigvalsA22_after_prec)
                 minafterA22_prec = min(eigvalsA22_after_prec)
                 maxafterA22_abs_prec = np.max(np.abs(eigvalsA22_after_prec))
                 minafterA22_abs_prec = np.min(np.abs(eigvalsA22_after_prec))
-                specA22_aft_prec = maxafterA22_prec/minafterA22_prec
-                specA22_aft_abs_prec = maxafterA22_abs_prec/minafterA22_abs_prec
+                specA22_aft_prec = maxafterA22_prec / minafterA22_prec
+                specA22_aft_abs_prec = maxafterA22_abs_prec / minafterA22_abs_prec
                 # print(f'{maxafterA22_prec = }')
                 # print(f'{maxafterA22_abs_prec = }')
                 # print(f'{minafterA22_abs_prec = }')
                 # print(f'{minafterA22_prec = }')
                 # print(f'{specA22_aft_prec = }')
-                print(f'{specA22_aft_abs_prec = }')
+                print(f"{specA22_aft_abs_prec = }")
 
-        print(f'Inverses initialized as linear operators')
+        print(f"Inverses initialized as linear operators")
 
         # Solution vectors numpy
         self._Pnp = np.zeros(self._B1np.shape[0])
@@ -214,11 +215,11 @@ class SaddlePointSolverUzawaNumpy:
         # Allocate memory for matrices used in solving the system
         self._rhs0np = self._F[0].copy()
         self._rhs1np = self._F[1].copy()
-        self._Rnp = np.zeros(self._B[0].shape[1]+self._B[1].shape[1])
+        self._Rnp = np.zeros(self._B[0].shape[1] + self._B[1].shape[1])
 
         # List to store residual norms
         self._residual_norms = []
-        self._stepsize = 0.
+        self._stepsize = 0.0
 
     @property
     def A(self):
@@ -344,10 +345,10 @@ class SaddlePointSolverUzawaNumpy:
             if self._preconditioner == False:
                 self._Unp += self._Anpinv.dot(self._rhs0np)
             elif self._preconditioner == True:
-                self._Unp += self._Anpinv.dot(self._A11npinv@self._rhs0np)
+                self._Unp += self._Anpinv.dot(self._A11npinv @ self._rhs0np)
 
             R1 = self._B1np.dot(self._Unp)
-            #print(f'{np.linalg.norm(R1) = }')
+            # print(f'{np.linalg.norm(R1) = }')
 
             self._rhs1np *= 0
             self._rhs1np -= self._B2np.transpose().dot(self._Pnp)
@@ -356,21 +357,21 @@ class SaddlePointSolverUzawaNumpy:
             if self._preconditioner == False:
                 self._Uenp += self._Aenpinv.dot(self._rhs1np)
             elif self._preconditioner == True:
-                self._Uenp += self._Aenpinv.dot(self._A22npinv@self._rhs1np)
+                self._Uenp += self._Aenpinv.dot(self._A22npinv @ self._rhs1np)
 
             R2 = self._B2np.dot(self._Uenp)
-            #print(f'{np.linalg.norm(R2) = }')
+            # print(f'{np.linalg.norm(R2) = }')
 
             # Step 2: Compute residual R = BU (divergence of U)
-            R = R1+R2  # self._B1np.dot(self._Unp) + self._B2np.dot(self._Uenp)
+            R = R1 + R2  # self._B1np.dot(self._Unp) + self._B2np.dot(self._Uenp)
             residual_norm = np.linalg.norm(R)
             residual_normR1 = np.linalg.norm(R)
-            #print(f"{residual_norm =}")
+            # print(f"{residual_norm =}")
             self._residual_norms.append(residual_normR1)  # Store residual norm
             # Check for convergence based on residual norm
             if residual_norm < self._tol:
                 info["success"] = True
-                info["niter"] = iteration+1
+                info["niter"] = iteration + 1
                 # print(f'Is outgoing a solution in solver?')
                 # TestRest1 = self._F[0]-self._A[0].dot(self._Unp)-self._B[0].T.dot(self._Pnp)
                 # print(f'{max(TestRest1) =}')
@@ -380,19 +381,18 @@ class SaddlePointSolverUzawaNumpy:
                 # print(f'{max(TestRest3) =}')
                 return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms
 
-            alpha = (R.dot(R))/(R.dot(self._Precnp.dot(R)))
-            #alpha = (R.dot(R))/(R.dot(self._Precsparsenp.dot(R)))
-            self._stepsize = 0.5*self._stepsize + 0.5 * alpha
-            #self._P += alpha * R
+            alpha = (R.dot(R)) / (R.dot(self._Precnp.dot(R)))
+            # alpha = (R.dot(R))/(R.dot(self._Precsparsenp.dot(R)))
+            self._stepsize = 0.5 * self._stepsize + 0.5 * alpha
+            # self._P += alpha * R
             self._Pnp += alpha.real * R.real
 
         # Return with info if maximum iterations reached
         info["success"] = False
-        info["niter"] = iteration+1
+        info["niter"] = iteration + 1
         return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms
 
     def _setup_inverses(self):
-
         A0 = self._A[0]
         A1 = self._A[1]
 
@@ -415,13 +415,15 @@ class SaddlePointSolverUzawaNumpy:
             if hasattr(self, "_Anpinv") and self._is_inverse_still_valid(self._Anpinv, A0, "A[0]", pre=self._A11npinv):
                 pass
             else:
-                self._Anpinv = self._compute_inverse(self._A11npinv@A0, which="A[0]")
+                self._Anpinv = self._compute_inverse(self._A11npinv @ A0, which="A[0]")
 
             # === Inverse for A[1]
-            if hasattr(self, "_Aenpinv") and self._is_inverse_still_valid(self._Aenpinv, A1, "A[1]", pre=self._A22npinv):
+            if hasattr(self, "_Aenpinv") and self._is_inverse_still_valid(
+                self._Aenpinv, A1, "A[1]", pre=self._A22npinv
+            ):
                 pass
             else:
-                self._Aenpinv = self._compute_inverse(self._A22npinv@A1, which="A[1]")
+                self._Aenpinv = self._compute_inverse(self._A22npinv @ A1, which="A[1]")
 
         else:  # No preconditioning:
             # === Inverse for A[0]
@@ -440,7 +442,7 @@ class SaddlePointSolverUzawaNumpy:
         self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
 
     def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
-        #try:
+        # try:
         if pre is not None:
             test_mat = pre @ mat
         else:
@@ -525,7 +527,7 @@ class SaddlePointSolverGMRES:
     solver_name : str
         See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
-    **solver_params : 
+    **solver_params :
         Must correspond to the chosen solver.
     """
 
@@ -573,7 +575,7 @@ class SaddlePointSolverGMRES:
         # Solution vectors
         self._P = B.codomain.zeros()
         self._U = A.codomain.zeros()
-        self._Utmp = F.copy()*0
+        self._Utmp = F.copy() * 0
 
         # List to store residual norms
         self._residual_norms = []
@@ -715,7 +717,7 @@ class SaddlePointSolverGMRESwithPC:
     solver_name : str
         See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
-    **solver_params : 
+    **solver_params :
         Must correspond to the chosen solver.
     """
 
@@ -749,7 +751,7 @@ class SaddlePointSolverGMRESwithPC:
         self._max_iter = max_iter
         self._BT = B.transpose()
         self._derham = derham
-        self._pc = precdt,
+        self._pc = (precdt,)
 
         if solver_params["pc"] is None:
             solver_params.pop("pc")
@@ -764,8 +766,8 @@ class SaddlePointSolverGMRESwithPC:
         self._block_codomainM = self._block_domainM
 
         # A11 and A22 conjugate gradient inverse
-        self._solverA = inverse(self._A11, solver='pcg', pc=precdt, tol=tol, maxiter=max_iter, **solver_params)
-        self._solverAe = inverse(self._A22, solver='pcg', pc=precdt, tol=tol, maxiter=max_iter, **solver_params)
+        self._solverA = inverse(self._A11, solver="pcg", pc=precdt, tol=tol, maxiter=max_iter, **solver_params)
+        self._solverAe = inverse(self._A22, solver="pcg", pc=precdt, tol=tol, maxiter=max_iter, **solver_params)
 
         # Inverse of system
         self._blocks = [[self._A, None], [None, None]]
@@ -885,7 +887,7 @@ class SaddlePointSolverGMRESwithPC:
         _blocksPrecadded = [[_Ainv, None], [None, self._Pre]]
         self._Prec = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksPrecadded)
 
-        self._M = self._Prec@self._M
+        self._M = self._Prec @ self._M
         self._RHS = self._Prec.dot(self._RHS)
 
         # use setter to update lhs matrix
@@ -895,7 +897,7 @@ class SaddlePointSolverGMRESwithPC:
         self._sol = self._solverM.dot(self._RHS)
         self._Utot = self._sol[0]
         self._P = self._sol[1]
-        print(f'{self._solverM._info=}')
-        print(f'{self._solverA._info=}')
-        print(f'{self._solverAe._info=}')
+        print(f"{self._solverM._info=}")
+        print(f"{self._solverA._info=}")
+        print(f"{self._solverAe._info=}")
         return self._Utot, self._P, self._solverM._info

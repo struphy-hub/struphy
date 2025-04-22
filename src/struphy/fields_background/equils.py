@@ -3170,7 +3170,7 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
 
         \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
 
-    for the given constants. 
+    for the given constants.
 
     The pressure profile and the number density profile are not specified
 
@@ -3201,7 +3201,6 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
     """
 
     def __init__(self, **params):
-
         # parameters
         params_default = {
             "a": 1.0,
@@ -3285,13 +3284,13 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""
-        pp = 0.0*x + 1.0
+        pp = 0.0 * x + 1.0
 
         return pp
 
     def n_xyz(self, x, y, z):
         """Number density n = n(x, y, z)."""
-        nn = 0.0*x + 1.0
+        nn = 0.0 * x + 1.0
 
         return nn
 
