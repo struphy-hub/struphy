@@ -113,8 +113,8 @@ stages:
 .parallel_matrix_push:
   parallel:
     matrix:
-      # - LANGUAGE: "fortran"
-      #   OMP: ["", "--omp-pic"]
+      - LANGUAGE: "fortran"
+        OMP: [""] #, "--omp-pic"]
       - LANGUAGE: "c"
         OMP: [""]
 
