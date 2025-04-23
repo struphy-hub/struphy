@@ -511,6 +511,7 @@ Ubuntu_latest:
     - apt install -y libomp-dev libomp5 
     - apt install -y git
     - apt install -y pandoc
+    - apt install -y cmake
     - export OMPI_ALLOW_RUN_AS_ROOT=1
     - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
   script:
