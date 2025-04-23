@@ -6,6 +6,8 @@ Basic functions for point-wise B-spline evaluation
 from numpy import empty, zeros
 from pyccel.decorators import pure, stack_array
 
+def _tmp_floor_division_bsplines_kernels(x: int):
+    return x // 2
 
 @pure
 def scaling(t_d: 'float[:]', p_d: 'int', span_d: 'int', values: 'float[:]'):

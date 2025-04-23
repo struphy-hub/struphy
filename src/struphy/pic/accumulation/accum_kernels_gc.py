@@ -29,6 +29,8 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+def _tmp_floor_division_accum_kernels_gc(x: int):
+    return x // 2
 
 def gc_density_0form(
     markers: "float[:,:]",

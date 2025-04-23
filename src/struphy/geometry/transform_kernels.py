@@ -53,6 +53,8 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not r
 
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+def _tmp_floor_division_transform_kernels(x: int):
+    return x // 2
 
 @stack_array('dfmat1', 'dfmat2')
 def pull(a: 'float[:]', 
