@@ -36,7 +36,7 @@ all: $(OUTPUTS)
 	@for dep in $^ ; do \
 		echo $$dep ; \
     done
-	pyccel $(FLAGS)$(FLAGS_openmp_pic)$(FLAGS_openmp_mhd) $<
+	pyccel $(FLAGS) $(FLAGS_openmp_pic) $(FLAGS_openmp_mhd) $<
 	@echo ""
 
 #--------------------------------------
