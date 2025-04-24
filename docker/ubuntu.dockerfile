@@ -4,8 +4,8 @@
 # Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
 #
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest -f docker/ubuntu.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest
 
 FROM ubuntu:latest
 
@@ -21,16 +21,12 @@ RUN apt update -y && apt clean \
     && apt install -y python3-pip \
     && apt install -y python3-venv \
     && apt install -y gfortran gcc \
-    && apt install -y liblapack-dev libopenmpi-dev \
-    && apt install -y libblas-dev openmpi-bin \
+    && apt install -y liblapack-dev libblas-dev \
+    && apt install -y libopenmpi-dev openmpi-bin \
     && apt install -y libomp-dev libomp5 \
     && apt install -y git \
     && apt install -y pandoc graphviz \
-    && apt install -y sqlite3 \
     && bash -c "source ~/.bashrc" 
-
-# create new working dir
-WORKDIR /struphy_install/
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
