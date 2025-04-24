@@ -248,6 +248,7 @@ def eval_magnetic_energy(
     b1: "float[:,:,:]",
     b2: "float[:,:,:]",
     b3: "float[:,:,:]",
+    deltaf: "bool",
 ):
     r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
@@ -269,6 +270,11 @@ def eval_magnetic_energy(
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
+
+        if deltaf:
+            weight = markers[ip, 5]
+        else:
+            weight = markers[ip, 7]
 
         mu = markers[ip, first_diagnostics_idx + 1]
 
@@ -322,7 +328,7 @@ def eval_magnetic_energy(
         b_para = linalg_kernels.scalar_dot(norm_b1, b)
         b_para /= det_df
 
-        markers[ip, first_diagnostics_idx] = mu * abs(abs_B + b_para)
+        markers[ip, first_diagnostics_idx] = mu * weight * (abs_B + b_para)
 
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
@@ -447,6 +453,7 @@ def accum_en_fB_mid(
     grad_PB_b2: "float[:,:,:]",
     grad_PB_b3: "float[:,:,:]",
     scale: "float",
+    reduced_coupling: "bool",
 ):
     r"""TODO"""
 
@@ -474,14 +481,17 @@ def accum_en_fB_mid(
             continue
 
         # marker positions, mid point
-        eta1 = (markers[ip, 14] + markers[ip, 11]) / 2.
-        eta2 = (markers[ip, 15] + markers[ip, 12]) / 2.
-        eta3 = (markers[ip, 16] + markers[ip, 13]) / 2.
+        eta1 = (markers[ip, 0] + markers[ip, 11]) / 2.
+        eta2 = (markers[ip, 1] + markers[ip, 12]) / 2.
+        eta3 = (markers[ip, 2] + markers[ip, 13]) / 2.
 
         eta_diff = markers[ip, 0:3] - markers[ip, 11:14]
 
         # marker weight and velocity
-        weight = markers[ip, 7]
+        if reduced_coupling:
+            weight = markers[ip, 5]
+        else:
+            weight = markers[ip, 7]
         mu = markers[ip, 9]
 
         # b-field evaluation

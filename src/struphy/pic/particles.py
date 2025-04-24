@@ -550,7 +550,7 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
-    def save_magnetic_energy(self, b2):
+    def save_magnetic_energy(self, b2, df=False):
         r"""
         Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
 
@@ -577,6 +577,7 @@ class Particles5D(Particles):
             b2t[0]._data,
             b2t[1]._data,
             b2t[2]._data,
+            df,
         )
 
     def save_magnetic_background_energy(self):

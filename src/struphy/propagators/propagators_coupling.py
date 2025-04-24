@@ -21,6 +21,7 @@ from struphy.pic.pushing.pusher import Pusher
 import struphy.pic.utilities_kernels as utilities_kernels
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from mpi4py import MPI
 
 
 class VlasovAmpere(Propagator):
@@ -1755,8 +1756,6 @@ class CurrentCoupling5DCurlb(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["reduced_coupling"] = False
-        dct["full_f"] = False
         dct["turn_off"] = False
 
         if default:
@@ -1781,8 +1780,7 @@ class CurrentCoupling5DCurlb(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        reduced_coupling: dict = options(default=True)["reduced_coupling"],
-        full_f: dict = options(default=True)["full_f"],
+        reduced_coupling: bool,
     ):
         super().__init__(particles, u)
 
@@ -1842,49 +1840,28 @@ class CurrentCoupling5DCurlb(Propagator):
         self._u_avg2 = self._EuT.codomain.zeros()
 
         # Call the accumulation and Pusher class
-        if self._reduced_coupling:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_curlb_reduced
+        accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_curlb
 
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-            )
-        
-        else:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_curlb
-
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._b_eq[0]._data,
-                self._b_eq[1]._data,
-                self._b_eq[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-                full_f,
-            )
+        self._args_accum_kernel = (
+            self._epsilon,
+            self._b[0]._data,
+            self._b[1]._data,
+            self._b[2]._data,
+            self._b_eq[0]._data,
+            self._b_eq[1]._data,
+            self._b_eq[2]._data,
+            self._unit_b1[0]._data,
+            self._unit_b1[1]._data,
+            self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data,
+            self._curl_norm_b[1]._data,
+            self._curl_norm_b[2]._data,
+            self._space_key_int,
+            self._coupling_mat,
+            self._coupling_vec,
+            self._boundary_cut_e1,
+            reduced_coupling,
+        )
 
         self._ACC = Accumulator(
             particles,
@@ -2138,7 +2115,6 @@ class CurrentCoupling5DGradB(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["reduced_coupling"] = True
         dct["turn_off"] = False
 
         if default:
@@ -2165,7 +2141,7 @@ class CurrentCoupling5DGradB(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        reduced_coupling: bool = options(default=True)["reduced_coupling"],
+        reduced_coupling: bool,
     ):
         from psydac.linalg.solvers import inverse
 
@@ -2247,60 +2223,34 @@ class CurrentCoupling5DGradB(Propagator):
         self._tmp3 = self._E1T.codomain.zeros()
 
         # Call the accumulation and Pusher class
-        if reduced_coupling:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB_reduced
+        accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB
 
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._gradB1[0]._data,
-                self._gradB1[1]._data,
-                self._gradB1[2]._data,
-                self._tmp3[0]._data,
-                self._tmp3[1]._data,
-                self._tmp3[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-            )
-
-        else:
-            accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_gradB
-
-            self._args_accum_kernel = (
-                self._epsilon,
-                self._b_full2[0]._data,
-                self._b_full2[1]._data,
-                self._b_full2[2]._data,
-                self._b_eq[0]._data,
-                self._b_eq[1]._data,
-                self._b_eq[2]._data,
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._curl_norm_b[0]._data,
-                self._curl_norm_b[1]._data,
-                self._curl_norm_b[2]._data,
-                self._gradB1[0]._data,
-                self._gradB1[1]._data,
-                self._gradB1[2]._data,
-                self._tmp3[0]._data,
-                self._tmp3[1]._data,
-                self._tmp3[2]._data,
-                self._space_key_int,
-                self._coupling_mat,
-                self._coupling_vec,
-                self._boundary_cut_e1,
-            )
+        self._args_accum_kernel = (
+            self._epsilon,
+            self._b[0]._data,
+            self._b[1]._data,
+            self._b[2]._data,
+            self._b_eq[0]._data,
+            self._b_eq[1]._data,
+            self._b_eq[2]._data,
+            self._unit_b1[0]._data,
+            self._unit_b1[1]._data,
+            self._unit_b1[2]._data,
+            self._curl_norm_b[0]._data,
+            self._curl_norm_b[1]._data,
+            self._curl_norm_b[2]._data,
+            self._gradB1[0]._data,
+            self._gradB1[1]._data,
+            self._gradB1[2]._data,
+            self._tmp3[0]._data,
+            self._tmp3[1]._data,
+            self._tmp3[2]._data,
+            self._space_key_int,
+            self._coupling_mat,
+            self._coupling_vec,
+            self._boundary_cut_e1,
+            reduced_coupling,
+        )
 
         self._ACC = Accumulator(
             particles,
@@ -2630,6 +2580,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         epsilon: float = 1.0,
+        reduced_coupling: bool,
     ):
         from psydac.linalg.solvers import inverse
 
@@ -2658,6 +2609,11 @@ class CurrentCoupling5DGradB_dg(Propagator):
         self._rank = self.derham.comm.Get_rank()
 
         self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
+
+        if reduced_coupling:
+            assert self.particles[0].control_variate
+        
+        self._reduced_coupling = reduced_coupling
 
         u_id = self.derham.space_to_form[u_space]
 
@@ -2701,9 +2657,9 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
         self._args_accum_kernel = (
             self._epsilon,
-            self._b_full[0]._data,
-            self._b_full[1]._data,
-            self._b_full[2]._data,
+            self._b[0]._data,
+            self._b[1]._data,
+            self._b[2]._data,
             self._b_eq[0]._data,
             self._b_eq[1]._data,
             self._b_eq[2]._data,
@@ -2751,6 +2707,12 @@ class CurrentCoupling5DGradB_dg(Propagator):
     def __call__(self, dt):
         un = self.feec_vars[0]
 
+        # clear the buffer
+        self.particles[0].markers[
+            ~self.particles[0].holes,
+            11:-1,
+        ] = 0.0
+
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b_eq.copy(out=self._b_full)
 
@@ -2768,17 +2730,25 @@ class CurrentCoupling5DGradB_dg(Propagator):
         self.particles[0].markers[~self.particles[0].holes, 11:14] = self.particles[0].markers[~self.particles[0].holes, 0:3]
 
         # calculate en_fB_old
-        self.particles[0].save_magnetic_energy(self._b)
-        en_fB_old = self.particles[0].markers[~self.particles[0].holes, 7].dot(
-            self.particles[0].markers[~self.particles[0].holes, 8]
-        ) * self._coupling_vec
+        self.particles[0].save_magnetic_energy(self._b, df=self._reduced_coupling)
+        en_fB_old = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
         en_fB_old /= self.particles[0].n_mks
 
+        buffer_array = np.array([en_fB_old])
+        self.derham.comm.Allreduce(
+            MPI.IN_PLACE,
+            buffer_array,
+            op=MPI.SUM,
+        )
+        en_fB_old = buffer_array[0]
+        
         # initial guess
         self._ACC_init(*self._args_accum_kernel)
 
         _ku = self._solver.dot(self._ACC_init.vectors[0], out=self._ku)
         _u_new += _ku * dt
+
+        _u_new.update_ghost_regions()
 
         self._pusher_kernel_init(
             dt,
@@ -2804,34 +2774,45 @@ class CurrentCoupling5DGradB_dg(Propagator):
         self.particles[0].mpi_sort_markers()
 
         # calculate en_fB_new
-        self.particles[0].save_magnetic_energy(self._b)
-        en_fB_new = self.particles[0].markers[~self.particles[0].holes, 7].dot(
-            self.particles[0].markers[~self.particles[0].holes, 8]
-        ) * self._coupling_vec
+        self.particles[0].save_magnetic_energy(self._b, df=self._reduced_coupling)
+        en_fB_new = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
         en_fB_new /= self.particles[0].n_mks
 
+        buffer_array = np.array([en_fB_new])
+        self.derham.comm.Allreduce(
+            MPI.IN_PLACE,
+            buffer_array,
+            op=MPI.SUM,
+        )
+        en_fB_new = buffer_array[0]
+        
         # sorting markers, mid-point
         self.particles[0].mpi_sort_markers(alpha=0.5)
 
         # iterations
         for stage in range(self._dg_solver['maxiter']):
 
-            print("stage: ", stage)
+            if self.derham.comm.Get_rank() == 0: print("stage: ", stage)
             
             # calculate constant for discrete gradient
             # save u^{n+1,k}
             _u_old = _u_new.copy(out=self._u_old)
 
             # savel H^{n+1,k}
-            self.particles[0].markers[~self.particles[0].holes, 14:17] = self.particles[0].markers[~self.particles[0].holes, 0:3] 
+            self.particles[0].markers[~self.particles[0].holes, 20:23] = self.particles[0].markers[~self.particles[0].holes, 0:3]
             
             # denominator ||z^{n+1,k} - z^n||²
-            sum_u_diff = np.sum((_u_old.toarray() - un.toarray())**2)
-            sum_H_diff = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
-            denominator = sum_u_diff + sum_H_diff
-            #print("denominator: ", denominator)
+            sum_u_diff_loc = np.sum((_u_old.toarray() - un.toarray())**2)
+            sum_H_diff_loc = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
 
-            # const: [en_fB_new - en_fB_old - (H^{n+1,k} - H^n)gradI]/denominator
+            buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+            )
+            denominator = buffer_array[0]
+
             # sorting markers, mid-point
             self.particles[0].mpi_sort_markers(alpha=0.5)
 
@@ -2844,21 +2825,28 @@ class CurrentCoupling5DGradB_dg(Propagator):
                                                           self._grad_PB_b[0]._data,
                                                           self._grad_PB_b[1]._data,
                                                           self._grad_PB_b[2]._data,
-                                                          self._coupling_vec)
+                                                          self._coupling_vec,
+                                                          self._reduced_coupling)
             en_fB_mid /= self.particles[0].n_mks
 
-            const = (en_fB_new - en_fB_old - en_fB_mid)/denominator
-            #print("en_fB_new", en_fB_new)
-            #print("en_fB_old", en_fB_old)
-            #print("en_fB_mid", en_fB_mid)
-            #print("const: ", const)
+            buffer_array = np.array([en_fB_mid])
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+            )
+            en_fB_mid = buffer_array[0]
 
+            const = (en_fB_new - en_fB_old - en_fB_mid)/denominator
+    
             # update u^{n+1,k}
             self._ACC(*self._args_accum_kernel, const)
             _ku = self._solver.dot(self._ACC.vectors[0], out=self._ku)
 
             _u_new = un.copy(out=self._u_new)
             _u_new += _ku * dt
+
+            _u_new.update_ghost_regions()
 
             # calculate M^{-1} u_diff
             self._u_tmp1 = self._solver.dot(self._u_diff, out=self._u_tmp1)
@@ -2893,22 +2881,35 @@ class CurrentCoupling5DGradB_dg(Propagator):
             self.particles[0].mpi_sort_markers()
 
             # calculate en_fB_new
-            self.particles[0].save_magnetic_energy(self._b)
-            en_fB_new = self.particles[0].markers[~self.particles[0].holes, 7].dot(
-                self.particles[0].markers[~self.particles[0].holes, 8]
-            ) * self._coupling_vec
+            self.particles[0].save_magnetic_energy(self._b, df=self._reduced_coupling)
+            en_fB_new = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
             en_fB_new /= self.particles[0].n_mks
 
-            # calculate ||z^{n+1,k} - z^n||
-            sum_u_diff = np.sum(np.abs(_u_new.toarray() - _u_old.toarray()))
-            sum_H_diff = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 14:17]))
-            diff = sum_u_diff + sum_H_diff
+            buffer_array = np.array([en_fB_new])
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+            )
+            en_fB_new = buffer_array[0]
 
+            # calculate ||z^{n+1,k} - z^n||
+            sum_u_diff_loc = np.sum(np.abs(_u_new.toarray() - _u_old.toarray()))
+            sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
+
+            buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+            )
+            diff = buffer_array[0]
+            
             if diff < self._dg_solver['tol']:
-                print("converged", diff)
+                if self.derham.comm.Get_rank() == 0: print("converged", diff)
                 break
             else:
-                print("not converged", diff)
+                if self.derham.comm.Get_rank() == 0: print("not converged", diff)
 
         # clear the buffer
         self.particles[0].markers[

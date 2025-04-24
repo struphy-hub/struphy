@@ -664,8 +664,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            #propagators_markers.PushGuidingCenterBxEstar: ["energetic_ions"],
-            #propagators_markers.PushGuidingCenterParallel: ["energetic_ions"],
+            propagators_markers.PushGuidingCenterBxEstar: ["energetic_ions"],
+            propagators_markers.PushGuidingCenterParallel: ["energetic_ions"],
             propagators_coupling.CurrentCoupling5DGradB: ["energetic_ions", "mhd_velocity"],
             propagators_coupling.CurrentCoupling5DGradB_dg: ["energetic_ions", "mhd_velocity"],
             propagators_coupling.CurrentCoupling5DCurlb: ["energetic_ions", "mhd_velocity"],
@@ -691,6 +691,12 @@ class LinearMHDDriftkineticCC(StruphyModel):
             option={"velocity": "Hdiv"},
             dct=dct,
         )
+        cls.add_option(
+            species=["kinetic", "energetic_ions"],
+            key="reduced_coupling",
+            option=[False],
+            dct=dct,
+        )
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -703,6 +709,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["spaces"]["velocity"]
+        self._reduced_coupling = params["kinetic"]["energetic_ions"]["options"]["reduced_coupling"]
         params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfvenCurrentCoupling5D"]
         params_sonic = params["fluid"]["mhd"]["options"]["MagnetosonicCurrentCoupling5D"]
         params_density = params["fluid"]["mhd"]["options"]["CurrentCoupling5DDensity"]
@@ -778,17 +785,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._ones[:] = 1.0
 
         # set keyword arguments for propagators
-        #self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
-        #    "b_tilde": self.pointer["b_field"],
-        #    "algo": params_bxE["algo"],
-        #    "epsilon": epsilon,
-        #}
+        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
+           "b_tilde": self.pointer["b_field"],
+           "algo": params_bxE["algo"],
+           "epsilon": epsilon,
+        }
 
-        #self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
-        #    "b_tilde": self.pointer["b_field"],
-        #    "algo": params_parallel["algo"],
-        #    "epsilon": epsilon,
-        #}
+        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
+           "b_tilde": self.pointer["b_field"],
+           "algo": params_parallel["algo"],
+           "epsilon": epsilon,
+        }
 
         if params_cc_gradB["turn_off"]:
             self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None
@@ -808,7 +815,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
-                "reduced_coupling": params_cc_gradB["reduced_coupling"],
+                "reduced_coupling": self._reduced_coupling,
             }
 
         if params_cc_gradB_dg["turn_off"]:
@@ -828,6 +835,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_cc_gradB_dg["filter"],
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
+                "reduced_coupling": self._reduced_coupling,
             }
 
         if params_cc_curlb["turn_off"]:
@@ -846,8 +854,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_curlb["boundary_cut"],
-                "reduced_coupling": params_cc_curlb["reduced_coupling"],
-                "full_f": params_cc_curlb["full_f"],
+                "reduced_coupling": self._reduced_coupling,
             }
 
         if params_density["turn_off"]:
@@ -880,7 +887,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_alfven["filter"],
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_alfven["boundary_cut"],
-                "full_f": params_alfven["full_f"],
             }
 
         if params_sonic["turn_off"]:
@@ -980,20 +986,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # calculate particle magnetic energy
         self.pointer["energetic_ions"].save_magnetic_energy(
-            self.pointer["b_field"],
+            self.pointer["b_field"], df= self._reduced_coupling,
         )
 
         # self.pointer["energetic_ions"].save_magnetic_background_energy()
 
-        self._en_fB[0] = (
-            self.pointer["energetic_ions"]
-            .markers[~self.pointer["energetic_ions"].holes, 7]
-            .dot(
-                self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 8],
-            )
-            * self._coupling_params["Ah"]
-            / self._coupling_params["Ab"]
-        )
+        self._en_fB[0] = np.sum(
+            self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 8]) * self._coupling_params["Ah"] / self._coupling_params["Ab"]
 
         self.update_scalar("en_fB", self._en_fB[0])
         self.update_scalar("en_tot")
