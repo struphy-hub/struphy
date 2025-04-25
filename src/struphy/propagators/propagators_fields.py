@@ -7569,13 +7569,14 @@ class HasegawaWakatani(Propagator):
 
     .. math::
 
-        &\int_\Omega\frac{\partial n}{\partial t} m \,\textrm d \mathbf x = C \int_\Omega(\phi - n) \, m \,\textrm d \mathbf x - \int_\Omega \phi [n, m] \,\textrm d \mathbf x - \kappa \int_\Omega  \partial_y \phi \,m \,\textrm d \mathbf x - \nu \int_\Omega \nabla n \cdot \nabla m \,\textrm d \mathbf x \qquad \forall m \in H^1\,, 
+        &\int_\Omega\frac{\partial n}{\partial t} m \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, m \,\textrm d \mathbf x - \int_\Omega \phi [n, m] \,\textrm d \mathbf x - \kappa \int_\Omega  \partial_y \phi \,m \,\textrm d \mathbf x - \nu \int_\Omega \nabla n \cdot \nabla m \,\textrm d \mathbf x \qquad \forall m \in H^1\,, 
         \\[2mm]
-        &\int_\Omega\frac{\partial \omega}{\partial t} \psi \,\textrm d \mathbf x = C \int_\Omega(\phi - n) \, \psi \,\textrm d \mathbf x - \int_\Omega \phi [\omega, \psi] \,\textrm d \mathbf x - \nu \int_\Omega \nabla \omega \cdot \nabla \psi \,\textrm d \mathbf x \qquad \forall \psi \in H^1\,, 
+        &\int_\Omega\frac{\partial \omega}{\partial t} \psi \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, \psi \,\textrm d \mathbf x - \int_\Omega \phi [\omega, \psi] \,\textrm d \mathbf x - \nu \int_\Omega \nabla \omega \cdot \nabla \psi \,\textrm d \mathbf x \qquad \forall \psi \in H^1\,, 
 
     where  :math:`\phi \in H^1` is a given stream function, 
-    :math:`C, \kappa` and :math:`\nu` are constants and
+    :math:`C = C(x, y)`, :math:`\kappa` and :math:`\nu` are constants and
     :math:`[a, b] = \partial_x a \partial_y b - \partial_y a \partial_x b`.
+    
     :ref:`time_discret`: explicit Runge-Kutta.
     """
 
