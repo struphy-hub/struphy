@@ -347,142 +347,143 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 x, y, z = mhd_equil.domain(*meshgrids)
 
                 # 0-form
-                absB0_h = mhd_equil.domain.push(field_0, *meshgrids)
-                absB0 = mhd_equil.domain.push(mhd_equil.absB0, *meshgrids)
+                if isinstance(mhd_equil, FluidEquilibriumWithB):
+                    absB0_h = mhd_equil.domain.push(field_0, *meshgrids)
+                    absB0 = mhd_equil.domain.push(mhd_equil.absB0, *meshgrids)
 
-                levels = np.linspace(np.min(absB0) - 1e-10, np.max(absB0), 20)
+                    levels = np.linspace(np.min(absB0) - 1e-10, np.max(absB0), 20)
 
-                plt.figure(f"0/3-forms top, {mhd_equil = }")
-                plt.subplot(2, 3, 1)
-                if "Slab" in key or "Pinch" in key:
-                    plt.contourf(
-                        x[:, 0, :],
-                        z[:, 0, :],
-                        absB0_h[:, 0, :],
-                        levels=levels,
-                    )
-                    plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        z[
-                            :,
-                            Nel[1] // 2 - 1,
-                            :,
-                        ],
-                        absB0_h[:, Nel[1] // 2, :],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("z")
-                else:
-                    plt.contourf(
-                        x[:, 0, :],
-                        y[:, 0, :],
-                        absB0_h[:, 0, :],
-                        levels=levels,
-                    )
-                    plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        y[
-                            :,
-                            Nel[1] // 2 - 1,
-                            :,
-                        ],
-                        absB0_h[:, Nel[1] // 2, :],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("y")
-                plt.axis("equal")
-                plt.colorbar()
-                plt.title("Equilibrium $|B_0|$, top view (e1-e3)")
-                plt.subplot(2, 3, 3 + 1)
-                if "Slab" in key or "Pinch" in key:
-                    plt.contourf(
-                        x[:, 0, :],
-                        z[:, 0, :],
-                        absB0[:, 0, :],
-                        levels=levels,
-                    )
-                    plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        z[
-                            :,
-                            Nel[1] // 2 - 1,
-                            :,
-                        ],
-                        absB0[:, Nel[1] // 2, :],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("z")
-                else:
-                    plt.contourf(
-                        x[:, 0, :],
-                        y[:, 0, :],
-                        absB0[:, 0, :],
-                        levels=levels,
-                    )
-                    plt.contourf(
-                        x[:, Nel[1] // 2, :],
-                        y[
-                            :,
-                            Nel[1] // 2 - 1,
-                            :,
-                        ],
-                        absB0[:, Nel[1] // 2, :],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("y")
-                plt.axis("equal")
-                plt.colorbar()
-                plt.title("reference, top view (e1-e3)")
+                    plt.figure(f"0/3-forms top, {mhd_equil = }")
+                    plt.subplot(2, 3, 1)
+                    if "Slab" in key or "Pinch" in key:
+                        plt.contourf(
+                            x[:, 0, :],
+                            z[:, 0, :],
+                            absB0_h[:, 0, :],
+                            levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1] // 2, :],
+                            z[
+                                :,
+                                Nel[1] // 2 - 1,
+                                :,
+                            ],
+                            absB0_h[:, Nel[1] // 2, :],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("z")
+                    else:
+                        plt.contourf(
+                            x[:, 0, :],
+                            y[:, 0, :],
+                            absB0_h[:, 0, :],
+                            levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1] // 2, :],
+                            y[
+                                :,
+                                Nel[1] // 2 - 1,
+                                :,
+                            ],
+                            absB0_h[:, Nel[1] // 2, :],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("y")
+                    plt.axis("equal")
+                    plt.colorbar()
+                    plt.title("Equilibrium $|B_0|$, top view (e1-e3)")
+                    plt.subplot(2, 3, 3 + 1)
+                    if "Slab" in key or "Pinch" in key:
+                        plt.contourf(
+                            x[:, 0, :],
+                            z[:, 0, :],
+                            absB0[:, 0, :],
+                            levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1] // 2, :],
+                            z[
+                                :,
+                                Nel[1] // 2 - 1,
+                                :,
+                            ],
+                            absB0[:, Nel[1] // 2, :],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("z")
+                    else:
+                        plt.contourf(
+                            x[:, 0, :],
+                            y[:, 0, :],
+                            absB0[:, 0, :],
+                            levels=levels,
+                        )
+                        plt.contourf(
+                            x[:, Nel[1] // 2, :],
+                            y[
+                                :,
+                                Nel[1] // 2 - 1,
+                                :,
+                            ],
+                            absB0[:, Nel[1] // 2, :],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("y")
+                    plt.axis("equal")
+                    plt.colorbar()
+                    plt.title("reference, top view (e1-e3)")
 
-                plt.figure(f"0/3-forms poloidal, {mhd_equil = }")
-                plt.subplot(2, 3, 1)
-                if "Slab" in key or "Pinch" in key:
-                    plt.contourf(
-                        x[:, :, 0],
-                        y[:, :, 0],
-                        absB0_h[:, :, 0],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("y")
-                else:
-                    plt.contourf(
-                        x[:, :, 0],
-                        z[:, :, 0],
-                        absB0_h[:, :, 0],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("z")
-                plt.axis("equal")
-                plt.colorbar()
-                plt.title("Equilibrium $|B_0|$, poloidal view (e1-e2)")
-                plt.subplot(2, 3, 3 + 1)
-                if "Slab" in key or "Pinch" in key:
-                    plt.contourf(
-                        x[:, :, 0],
-                        y[:, :, 0],
-                        absB0[:, :, 0],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("y")
-                else:
-                    plt.contourf(
-                        x[:, :, 0],
-                        z[:, :, 0],
-                        absB0[:, :, 0],
-                        levels=levels,
-                    )
-                    plt.xlabel("x")
-                    plt.ylabel("z")
-                plt.axis("equal")
-                plt.colorbar()
-                plt.title("reference, poloidal view (e1-e2)")
+                    plt.figure(f"0/3-forms poloidal, {mhd_equil = }")
+                    plt.subplot(2, 3, 1)
+                    if "Slab" in key or "Pinch" in key:
+                        plt.contourf(
+                            x[:, :, 0],
+                            y[:, :, 0],
+                            absB0_h[:, :, 0],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("y")
+                    else:
+                        plt.contourf(
+                            x[:, :, 0],
+                            z[:, :, 0],
+                            absB0_h[:, :, 0],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("z")
+                    plt.axis("equal")
+                    plt.colorbar()
+                    plt.title("Equilibrium $|B_0|$, poloidal view (e1-e2)")
+                    plt.subplot(2, 3, 3 + 1)
+                    if "Slab" in key or "Pinch" in key:
+                        plt.contourf(
+                            x[:, :, 0],
+                            y[:, :, 0],
+                            absB0[:, :, 0],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("y")
+                    else:
+                        plt.contourf(
+                            x[:, :, 0],
+                            z[:, :, 0],
+                            absB0[:, :, 0],
+                            levels=levels,
+                        )
+                        plt.xlabel("x")
+                        plt.ylabel("z")
+                    plt.axis("equal")
+                    plt.colorbar()
+                    plt.title("reference, poloidal view (e1-e2)")
 
                 # 3-form
                 p3_h = mhd_equil.domain.push(field_3, *meshgrids)
@@ -1365,7 +1366,7 @@ if __name__ == "__main__":
             True,
             True,
         ],
-        show_plot=False,
+        show_plot=True,
     )
     # test_sincos_init_const([1, 32, 32], [1, 3, 3], [True]*3, show_plot=True)
     # test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], "Hcurl", "e1")

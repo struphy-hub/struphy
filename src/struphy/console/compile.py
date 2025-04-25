@@ -1,7 +1,7 @@
 from struphy.console.run import subp_run
 
 
-def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, yes):
+def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
     Parameters
@@ -31,12 +31,16 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
     dependencies : bool
         Whether to print Struphy kernels (to be compiled) and their dependencies on screen.
 
+    time_execution: bool
+        Prints the time spent in each section of the pyccelization (default=False).
+
     yes : bool
         Whether to say yes to prompt when changing the language.
     """
 
     import importlib.metadata
     import os
+    import re
     import sysconfig
 
     import pyccel
@@ -191,6 +195,8 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         # pyccel flags
         flags = "--language=" + language
         flags += " --compiler=" + compiler
+        if time_execution:
+            flags += " --time_execution"
 
         # state
         if state["last_used_language"] not in (language, None):
@@ -237,7 +243,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         if source_install:
             if psydac_installed:
                 # only install (from .whl) if psydac not up-to-date
-                if psydac_ver != struphy_ver:
+                if psydac_ver < struphy_ver:
                     print(
                         f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n"
                     )
@@ -250,14 +256,17 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
             install_psydac = False
             if psydac_installed:
                 # only install (from .whl) if psydac not up-to-date
-                if psydac_ver != struphy_ver:
-                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is available.\n")
+                if ".".join(psydac_ver.split(".")[:3]) != ".".join(struphy_ver.split(".")[:3]):
+                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is required.\n")
                     install_psydac = True
             else:
                 install_psydac = True
 
             if install_psydac:
-                psydac_file = "psydac-" + struphy_ver + "-py3-none-any.whl"
+                for filename in os.listdir(libpath):
+                    if re.match("psydac-", filename):
+                        psydac_file = filename
+
                 cmd = ["pip", "uninstall", "-y", "psydac"]
                 subp_run(cmd)
                 print("\nInstalling Psydac ...")

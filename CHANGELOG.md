@@ -1,61 +1,34 @@
-## Version 2.4.0
+## Version 2.4.2
 
 ### Headlines
 
-* Remove `python<3.12` and `numpy<2` requirements !600
-
-* No more fixed dependencies; this enhances compatibility of `struphy` with other packages !618
-
-* Use of optional dependencies: 
-  * unit testing can be enabled with `pip install .[test]` (or `pip install struphy[test]` from PyPI)
-  * usual development (testing + linting + formatting) is enabled by `pip install .[dev]`
-  * building the doc is enabled by `pip install .[doc]`
-  * These can be also combined, e.g. you get the full version (as until now) via `pip install .[dev,doc]`. !609
-
-* Use of new psydac fork https://github.com/max-models/psydac-for-struphy !563
+* enable Python 3.13 and `mpi4py >= 4.0` !652
+* use new, smaller version of `psydac` from branch `max-model/psydac-for-struphy/devel-tiny` which does not depend on `sympde` !652
+* added regular testing on macOS (with arm M4 chips) !655
 
 
-### User news
+### Other user news
 
-* Reduce memory consumption at mpi sort markers and draw markers within the process domain !599
-
-* Possible first guess in the solve of Interpolation/Histpolation matrix (used in polar splines mainly) !598
-
-* Speedup and linearization on variational propagators !597
-
-* Removes assertion that `Np` should be in params file !588
-
-* New MHD tutorial notebook with slab dispersion relation !603
-
-* Added `-v (--verbose)` flag to struphy run command and to StruphyModel base class; by default the major outputs of the model initialization are now suppressed (see the model tests for instance). !605
-
-* New toy model `PressurlessSPH` : first try to sph models. New Particle class `HydroParticles`, New background `FluidEquilibrium`. Added the possibility to pass `moments: degenerate` to the loading of the particles. In this case the velocity will be initialized as a function of the position without any randomness. !579
-
-* Basis Projection Operators with **local projectors**, based on quasi inter-/histopolation !562
-
-* Added the linearized Vlasov-Maxwell model (same as linearized Vlasov-Ampère but with Maxwell step). Added background magnetic field to `VlasovAmpereOneSpecies` and `LinearVlasovAmpereOneSpecies`. Updated Documentation of all kinetic models with Maxwell/Ampere equation + Vlasov equation to have a consistent normalization !601
+* enable initialization of noise for kinetic backgrounds !644
+* new option `--no-vtk` for `struphy pproc` !648
+* `README.md` has been updated to contain a quick install and quick test, as well as a link to the new mailing list !649
 
 
 ### Developer news
 
-* Set ruff as the default option (which is used in the CI) for code formatting !592
-
-* Check OpenMP pragma formatting with `struphy lint` !604
-
-* Add a job that tests `make html` to the CI !606
-
-* Remove `pytest-monitor` package and its use in console. This gets rid of the annoying pymon error when locally running parallel unit test. Also added the function `subp_run` which launches a subprocess and prints the command on screen. !605
-
-* Add tests for console commands !570
-
-* Scheduled CI pipelines can be started from Gitlab by clicking Pipelines --> Run Pipeline !600
+* replaced `anaconda` with `waterboa` when loading modules in the mpcdf images of the CI !641
+* added domain cloning to the model verification tests !640
+* pyccelize kernels with OpenMP in Fortran !623
+* added the job compile_timings to the CI pipeline which summarizes the compile time for C and fortran !642
+* added unit test for console commands !570
+* re-factoring of model testing: New function `wrapper_for_testing` in tests/util.py unifies the testing of all four model classes and will simplify refactoring in the future !649 
+* new functions  `init_derham`, `_discretize_derham`, `_discretize_space` and class `DiscreteDerham`. These allow for the use of `devel-tiny` psydac branch. The full (old) psydac-for-struphy is used if `dev0` is absent from the psydac version number !652
+* renamed `vector_space` to `coeff_space` and `ProductFemSpace` to `MultipatchFemSpace` everywhre; this corresponds to PR https://github.com/pyccel/psydac/pull/468 !653
+* re-factoring of `.gitlab-ci.yml`, in particular making more use of templates and `!reference` !655
 
 
 ### Bug fixes
 
-* Fix DESC speedup - troubleshoot why it takes a LinearMHD simulation too long to ramp up when using a DESC equilibrium on many processes. !594
+* a bug in the SPH pressure evaluation kernel has been corrected - the formulas contained an unnecessary multiplication by the weights and the wrong metric coefficient !649
 
-* Resolve "Linting of OpenMP pragmas" !587
-
-* Fix libpython error: the error occured since the kernels in `psydac-for-struphy` was pyccelized without the --libdir LIBDIR flag. This meant that LD_LIBRARY_PATH had to be manually set. !610
 

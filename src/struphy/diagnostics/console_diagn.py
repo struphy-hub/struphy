@@ -3,6 +3,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import subprocess
 
 import h5py
 import numpy as np
@@ -10,7 +11,7 @@ import yaml
 
 import struphy
 import struphy.utils.utils as utils
-from struphy.diagnostics.diagn_tools import phase_space_overview, phase_space_video, plot_distr_fun, plot_scalars
+from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
 
 
 def main():
@@ -27,9 +28,9 @@ def main():
                             \n - plot_scalars       : plots the scalar quantities that were saved during the simulation\
                             \n - plot_distr         : plots the distribution function and delta-f (if available)\
                             \n                        set points for slicing with options below (default is middle of the space)\
-                            \n - phase_space_video  : make a video of the distribution function (minus the background) in a 2D slice of phase space\
-                            \n - phase_space_plots  : plots an overview of the distribution function (minus the background) in a 2D slice of phase space\
-                            \n                        for 6 different points in time.
+                            \n - 2d_video           : make a video of the distribution function (minus the background) in a 2D slice of phase space\
+                            \n - 2d_plots           : plots an overview of the distribution function (minus the background) in a 2D slice of phase space\
+                            \n                        for up to 8 different points in time.
                         """,
     )
     parser.add_argument(
@@ -47,6 +48,18 @@ def main():
         help="(for plot_scalars) which quantities to plot",
     )
     parser.add_argument(
+        "--full-f",
+        action="store_true",
+        help="whether to plot full-f instead of delta-f data",
+    )
+    parser.add_argument(
+        "-slices",
+        nargs="+",
+        action="append",
+        default=[],
+        help="(for 2d_plots & 2d_video) which slices to plot / make a video for",
+    )
+    parser.add_argument(
         "--log",
         action="store_true",
         help="(for plot_scalars) if logarithmic y-axis should be used",
@@ -54,7 +67,14 @@ def main():
     parser.add_argument(
         "--show",
         action="store_true",
-        help="(for plot_scalars) if the plot should be shown",
+        help="(for plot_scalars and 2d_plots) if the plot should be shown",
+    )
+    parser.add_argument(
+        "-times",
+        nargs=1,
+        type=int,
+        default=[6],
+        help="(for 2_plots) at how many points in time should be plotted (default=6)",
     )
     parser.add_argument(
         "--nosave",
@@ -76,14 +96,14 @@ def main():
         nargs=1,
         type=int,
         default=[1],
-        help="(for plot_scalars --fit) the degree of the fit curve",
+        help="(for plot_scalars --fit) the degree of the fit curve (default=1)",
     )
     parser.add_argument(
         "-extrema",
         nargs=1,
         type=int,
         default=[4],
-        help="(for plot_scalars --fit) how many extrema should be used for the fit",
+        help="(for plot_scalars --fit) how many extrema should be used for the fit (default=4)",
     )
     parser.add_argument(
         "-startextr",
@@ -154,13 +174,19 @@ def main():
     actions = args.actions
     foldername = args.f[0]
     time = args.t[0]
+    plot_full_f = args.full_f
     do_log = args.log
     show = args.show
+    n_times = args.times[0]
     nosave = args.nosave
     if len(args.scalars) != 0:
         scalars_plot = args.scalars[0]
     else:
         scalars_plot = args.scalars
+    if len(args.slices) != 0:
+        slices_plot = args.slices[0]
+    else:
+        slices_plot = args.slices
 
     # Arguments for fitting
     do_fit = args.fit
@@ -220,7 +246,13 @@ def main():
             savedir=path,
         )
 
-    if "plot_distr" or "phase_space_videos" or "phase_space_plots" in actions:
+    if ("plot_distr" in actions) or ("2d_video" in actions) or ("2d_plots" in actions):
+        # Do post-processing if it wasn't done before
+        if not os.path.exists(os.path.join(path, "post_processing")):
+            print("This folder hasn't been post-processed yet. Starting post-processing..")
+            subprocess.run(["struphy", "pproc", "-d", foldername])
+
+        # iterate over species
         for species in params["kinetic"].keys():
             # Get model class
             from struphy.models import fluid, hybrid, kinetic, toy
@@ -299,7 +331,7 @@ def main():
                 )
 
             # Create a video of the phase space
-            if "phase_space_video" in actions:
+            if ("2d_video" in actions) or ("2d_plots" in actions):
                 for slice_name in os.listdir(
                     os.path.join(
                         path,
@@ -309,40 +341,69 @@ def main():
                         "distribution_function",
                     ),
                 ):
-                    phase_space_video(
-                        t_grid=saved_time,
-                        grid_slices=grid_slices,
-                        slice_name=slice_name,
-                        marker_type=params["kinetic"][species]["markers"]["type"],
-                        species=species,
-                        path=path,
-                        model_name=model_name,
-                        background_params=params["kinetic"][species]["background"],
-                    )
+                    for action in actions:
+                        output = None
+                        if action == "2d_video":
+                            output = "video"
+                        elif action == "2d_plots":
+                            output = "overview"
+                        else:
+                            continue
 
-            # Create an overview plot of the phase space
-            if "phase_space_plots" in actions:
-                for slice_name in os.listdir(
-                    os.path.join(
-                        path,
-                        "post_processing",
-                        "kinetic_data",
-                        species,
-                        "distribution_function",
-                    ),
-                ):
-                    phase_space_overview(
-                        t_grid=saved_time,
-                        grid_slices=grid_slices,
-                        slice_name=slice_name,
-                        marker_type=params["kinetic"][species]["markers"]["type"],
-                        species=species,
-                        path=path,
-                        model_name=model_name,
-                        background_params=params["kinetic"][species]["background"],
-                    )
+                        slice_name_given, polar_params = do_plot_and_if_polar(
+                            slices_plot=slices_plot,
+                            slice_name=slice_name,
+                            geometry_params=params["geometry"],
+                        )
+
+                        if slice_name_given:
+                            plots_videos_2d(
+                                t_grid=saved_time,
+                                grid_slices=grid_slices,
+                                slice_name=slice_name,
+                                plot_full_f=plot_full_f,
+                                species=species,
+                                path=path,
+                                model_name=model_name,
+                                output=output,
+                                background_params=params["kinetic"][species]["background"],
+                                n_times=n_times,
+                                show_plot=show,
+                                save_plot=not nosave,
+                                polar_params=polar_params,
+                            )
 
     file.close()
+
+
+def do_plot_and_if_polar(slices_plot, slice_name, geometry_params):
+    """Helper function to determine if a given slice should be plotted, and if yes, wether in polar coords.
+
+    Parameters
+    ----------
+    """
+    slice_name_given = False
+    if slices_plot != []:
+        if slice_name in slices_plot:
+            slice_name_given = True
+    else:
+        slice_name_given = True
+
+    polar_params = {}
+
+    do_polar = False
+    geom_type = geometry_params["type"]
+    if geom_type == "HollowCylinder":
+        if slice_name == "e1_e2":
+            do_polar = True
+            polar_params["radial_coord"] = "e1"
+            polar_params["r_min"] = geometry_params[geom_type]["a1"]
+            polar_params["r_max"] = geometry_params[geom_type]["a2"]
+            polar_params["angular_coord"] = "e2"
+
+    polar_params["do_polar"] = do_polar
+
+    return slice_name_given, polar_params
 
 
 if __name__ == "__main__":

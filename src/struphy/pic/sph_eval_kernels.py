@@ -1,239 +1,518 @@
 from numpy import sqrt
 
 import struphy.pic.sorting_kernels as sorting_kernels
+import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
 
 
-def smoothing_kernel(r: "float", h: "float"):
-    """Evaluate the smoothing kernel S(r,h) = C(h)F(r/h)
-    With F(x) = 1-x if x<1, 0 else
-    and C(h)=3/(pi*h^3) is a normalization coefficient so the the kernel has unit integral."""
-    if r / h > 1.0:
-        return 0.0
-    else:
-        return (1.0 - r / h) / (1.0471975512 * h**3)  # normalization
-
-
-def periodic_distance(x: "float", y: "float"):
+def distance(x: "float", y: "float", periodic: "bool") -> float:
     """Return the one dimensional distance of x and y taking in account the periodicity on [0,1]."""
     d = x - y
-    if d > 0.5:
-        while d > 0.5:
-            d -= 1.0
-    elif d < -0.5:
-        while d < -0.5:
-            d += 1.0
+    if periodic:
+        if d > 0.5:
+            while d > 0.5:
+                d -= 1.0
+        elif d < -0.5:
+            while d < -0.5:
+                d += 1.0
     return d
 
 
-def naive_evaluation(
-    eta1: "float[:]",
-    eta2: "float[:]",
-    eta3: "float[:]",
+########################
+# single-point kernels #
+########################
+def naive_evaluation_kernel(
+    eta1: "float",
+    eta2: "float",
+    eta3: "float",
     markers: "float[:,:]",
+    Np: "int",
     holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
     index: "int",
-    h: "float",
-    out: "float[:]",
-):
-    """Naive evaluation of a function defined by its values at the particles.
-    This is done in an efficient way, looping over the particles.
-    Entries have to be given as 3 1d array (representing the coordinate in each direction)."""
-    n_eval = len(eta1)
-    n_particles = len(markers)
-    out[:] = 0.0
-    for i in range(n_eval):
-        for p in range(n_particles):
-            if not holes[p]:
-                r = sqrt(
-                    periodic_distance(eta1[i], markers[p, 0]) ** 2
-                    + periodic_distance(eta2[i], markers[p, 1]) ** 2
-                    + periodic_distance(eta3[i], markers[p, 2]) ** 2
-                )
-                out[i] += markers[p, index] * smoothing_kernel(r, h)
-
-
-def naive_evaluation_3d(
-    eta1: "float[:,:,:]",
-    eta2: "float[:,:,:]",
-    eta3: "float[:,:,:]",
-    markers: "float[:,:]",
-    holes: "bool[:]",
-    index: "int",
-    h: "float",
-    out: "float[:,:,:]",
-):
-    """Naive evaluation of a function defined by its values at the particles.
-    This is done in an efficient way, looping over the particles.
-    Entries have to be given as 3 3d array (meshgrid format)."""
-    n_eval_1 = eta1.shape[0]
-    n_eval_2 = eta1.shape[1]
-    n_eval_3 = eta1.shape[2]
-    n_particles = len(markers)
-    out[:] = 0.0
-    for i in range(n_eval_1):
-        for j in range(n_eval_2):
-            for k in range(n_eval_3):
-                for p in range(n_particles):
-                    if not holes[p]:
-                        r = sqrt(
-                            periodic_distance(eta1[i, j, k], markers[p, 0]) ** 2
-                            + periodic_distance(eta2[i, j, k], markers[p, 1]) ** 2
-                            + periodic_distance(eta3[i, j, k], markers[p, 2]) ** 2
-                        )
-                        out[i, j, k] += markers[p, index] * smoothing_kernel(r, h)
-
-
-def box_based_evaluation(
-    eta1: "float[:]",
-    eta2: "float[:]",
-    eta3: "float[:]",
-    markers: "float[:,:]",
-    nx: "int",
-    ny: "int",
-    nz: "int",
-    boxes: "int[:,:]",
-    neighbours: "int[:,:]",
-    domain_array: "float[:]",
-    holes: "bool[:]",
-    index: "int",
-    h: "float",
-    out: "float[:]",
-):
-    """Optimized evaluation of a function defined by its values at the particles.
-    This is done only evaluating the particles in the neighbouring cells of the evaluation point.
-    This assumes that the smoothing radius h is smaller then the size of the boxes.
-    Entries have to be given as 3 1d array (representing the coordinate in each direction).
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Naive single-point sph evaluation.
+    The sum is done over all particles in markers array.
 
     Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
+    ----------
+    eta1, eta2, eta3 : float
+        Evaluation point in logical space.
 
-        markers : 2d array
-            Marker array of the particles.
+    markers : array[float]
+        Markers array.
 
-        nx, ny, nz : int
-            Number of boxes in each direction.
+    Np : int
+        Total number of particles.
 
-        boxes : 2d array
-            Box array of the sorting boxes structure.
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
 
-        neighbours : 2d array
-            Array containing the 27 neighbouring boxes of each box.
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
 
-        domain_array : array
-            Contain the information of the domain on the currnt processor.
+    index : int
+        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
 
-        holes : array of bool
-            Contain the information of the holes on the current processor.
+    kernel_type : str
+        Name of the smoothing kernel.
 
-        index : int
-            At which index is the value we are computing stored in the particle marker array.
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+    """
+    n_particles = len(markers)
+    out = 0.0
+    for p in range(n_particles):
+        if not holes[p]:
+            r1 = distance(eta1, markers[p, 0], periodic1)
+            r2 = distance(eta2, markers[p, 1], periodic2)
+            r3 = distance(eta3, markers[p, 2], periodic3)
+            out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
+    return out / Np
 
-        h : float
-            Radius of the smoothing kernel to use.
 
-        out : array
-            Array to fill with the result.
+def boxed_based_kernel(
+    eta1: "float",
+    eta2: "float",
+    eta3: "float",
+    loc_box: "int",
+    boxes: "int[:,:]",
+    neighbours: "int[:,:]",
+    markers: "float[:,:]",
+    Np: "int",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    index: "int",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Box-based single-point sph evaluation.
+    The sum is done over the particles that are in the 26 + 1 neighboring boxes
+    of the ``loc_box`` the evaluation point is in.
+
+    Parameters
+    ----------
+    eta1, eta2, eta3 : float
+        Evaluation point in logical space.
+
+    loc_box : int
+        Box of the evaluation point.
+
+    boxes : 2d array
+        Box array of the sorting boxes structure.
+
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
+
+    markers : array[float]
+        Markers array.
+
+    Np : int
+        Total number of particles.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    index : int
+        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+    """
+    out = 0.0
+    for neigh in range(27):
+        box_to_search = neighbours[loc_box, neigh]
+        c = 0
+        # loop over all particles in a box
+        while boxes[box_to_search, c] != -1:
+            p = boxes[box_to_search, c]
+            c += 1
+            if not holes[p]:
+                r1 = distance(eta1, markers[p, 0], periodic1)
+                r2 = distance(eta2, markers[p, 1], periodic2)
+                r3 = distance(eta3, markers[p, 2], periodic3)
+                out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
+    return out / Np
+
+
+####################
+# naive evaluation #
+####################
+def naive_evaluation_flat(
+    eta1: "float[:]",
+    eta2: "float[:]",
+    eta3: "float[:]",
+    markers: "float[:,:]",
+    Np: "int",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    index: "int",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+    out: "float[:]",
+):
+    """Naive flat sph evaluation.
+    The sum is done over all particles in markers array.
+
+    Parameters
+    ----------
+    eta1, eta2, eta3 : array[float]
+        Evaluation points in logical space for flat evaluation at (eta1[i], eta2[i], eta3[i]).
+
+    markers : array[float]
+        Markers array.
+
+    Np : int
+        Total number of particles.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    index : int
+        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+
+    out : array[float]
+        Output array of same size as eta1, eta2, eta3.
     """
     n_eval = len(eta1)
     out[:] = 0.0
     for i in range(n_eval):
-        loc_box = sorting_kernels.find_box(eta1[i], eta2[i], eta3[i], nx, ny, nz, domain_array)
+        e1 = eta1[i]
+        e2 = eta2[i]
+        e3 = eta3[i]
+        out[i] = naive_evaluation_kernel(
+            e1,
+            e2,
+            e3,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            index,
+            kernel_type,
+            h1,
+            h2,
+            h3,
+        )
+    return out
+
+
+def naive_evaluation_meshgrid(
+    eta1: "float[:,:,:]",
+    eta2: "float[:,:,:]",
+    eta3: "float[:,:,:]",
+    markers: "float[:,:]",
+    Np: "int",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    index: "int",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+    out: "float[:,:,:]",
+):
+    """Naive meshgrid sph evaluation.
+    The sum is done over all particles in markers array.
+
+    Parameters
+    ----------
+    eta1, eta2, eta3 : array[float]
+        Evaluation points in logical space for meshgrid evaluation at (eta1[i,j,k], eta2[i,j,k], eta3[i,j,k]).
+
+    markers : array[float]
+        Markers array.
+
+    Np : int
+        Total number of particles.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    index : int
+        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+
+    out : array[float]
+        Output array of same size as eta1, eta2, eta3.
+    """
+    n_eval_1 = eta1.shape[0]
+    n_eval_2 = eta1.shape[1]
+    n_eval_3 = eta1.shape[2]
+    out[:] = 0.0
+    for i in range(n_eval_1):
+        for j in range(n_eval_2):
+            for k in range(n_eval_3):
+                e1 = eta1[i, j, k]
+                e2 = eta2[i, j, k]
+                e3 = eta3[i, j, k]
+                out[i, j, k] = naive_evaluation_kernel(
+                    e1, e2, e3, markers, Np, holes, periodic1, periodic2, periodic3, index, kernel_type, h1, h2, h3
+                )
+
+
+########################
+# box-based evaluation #
+########################
+def box_based_evaluation_flat(
+    eta1: "float[:]",
+    eta2: "float[:]",
+    eta3: "float[:]",
+    n1: "int",
+    n2: "int",
+    n3: "int",
+    domain_array: "float[:]",
+    boxes: "int[:,:]",
+    neighbours: "int[:,:]",
+    markers: "float[:,:]",
+    Np: "int",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    index: "int",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+    out: "float[:]",
+):
+    """Box-based flat sph evaluation.
+    The sum is done over the particles that are in the 26 + 1 neighboring boxes
+    of the ``loc_box`` the evaluation point is in.
+
+    Parameters
+    ----------
+    eta1, eta2, eta3 : array[float]
+        Evaluation points in logical space for flat evaluation at (eta1[i], eta2[i], eta3[i]).
+
+    n1, n2, n3 : int
+        Number of boxes in each dimension.
+
+    domain_array : array
+        Information of the domain on the current mpi process.
+
+    boxes : 2d array
+        Box array of the sorting boxes structure.
+
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
+
+    markers : array[float]
+        Markers array.
+
+    Np : int
+        Total number of particles.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    index : int
+        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+
+    out : array[float]
+        Output array of same size as eta1, eta2, eta3.
+    """
+    n_eval = len(eta1)
+    out[:] = 0.0
+    for i in range(n_eval):
+        e1 = eta1[i]
+        e2 = eta2[i]
+        e3 = eta3[i]
+        loc_box = sorting_kernels.find_box(
+            e1,
+            e2,
+            e3,
+            n1,
+            n2,
+            n3,
+            domain_array,
+        )
         if loc_box == -1:
             continue
         else:
-            for neigh in range(27):
-                box_to_search = neighbours[loc_box, neigh]
-                c = 0
-                while boxes[box_to_search, c] != -1:
-                    p = boxes[box_to_search, c]
-                    c += 1
-                    if not holes[p]:
-                        r = sqrt(
-                            periodic_distance(eta1[i], markers[p, 0]) ** 2
-                            + periodic_distance(eta2[i], markers[p, 1]) ** 2
-                            + periodic_distance(eta3[i], markers[p, 2]) ** 2
-                        )
-                        out[i] += markers[p, index] * smoothing_kernel(r, h)
+            out[i] = boxed_based_kernel(
+                e1,
+                e2,
+                e3,
+                loc_box,
+                boxes,
+                neighbours,
+                markers,
+                Np,
+                holes,
+                periodic1,
+                periodic2,
+                periodic3,
+                index,
+                kernel_type,
+                h1,
+                h2,
+                h3,
+            )
 
 
-def box_based_evaluation_3d(
+def box_based_evaluation_meshgrid(
     eta1: "float[:,:,:]",
     eta2: "float[:,:,:]",
     eta3: "float[:,:,:]",
-    markers: "float[:,:]",
-    nx: "int",
-    ny: "int",
-    nz: "int",
+    n1: "int",
+    n2: "int",
+    n3: "int",
+    domain_array: "float[:]",
     boxes: "int[:,:]",
     neighbours: "int[:,:]",
-    domain_array: "float[:]",
+    markers: "float[:,:]",
+    Np: "int",
     holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
     index: "int",
-    h: "float",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
     out: "float[:,:,:]",
 ):
-    """Optimized evaluation of a function defined by its values at the particles.
-    This is done only evaluating the particles in the neighbouring cells of the evaluation point.
-    This assumes that the smoothing radius h is smaller then the size of the boxes.
-    Entries have to be given as 3 3d array (meshgrid format).
+    """Box-based meshgrid sph evaluation.
+    The sum is done over the particles that are in the 26 + 1 neighboring boxes
+    of the ``loc_box`` the evaluation point is in.
 
     Parameters
-        ----------
-        eta1, eta2, eta3 : array_like
-            Logical evaluation points.
+    ----------
+    eta1, eta2, eta3 : array[float]
+        Evaluation points in logical space for meshgrid evaluation at (eta1[i,j,k], eta2[i,j,k], eta3[i,j,k]).
 
-        markers : 2d array
-            Marker array of the particles.
+    n1, n2, n3 : int
+        Number of boxes in each dimension.
 
-        nx, ny, nz : int
-            Number of boxes in each direction.
+    domain_array : array
+        Information of the domain on the current mpi process.
 
-        boxes : 2d array
-            Box array of the sorting boxes structure.
+    boxes : 2d array
+        Box array of the sorting boxes structure.
 
-        neighbours : 2d array
-            Array containing the 27 neighbouring boxes of each box.
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
 
-        domain_array : array
-            Contain the information of the domain on the currnt processor.
+    markers : array[float]
+        Markers array.
 
-        holes : array of bool
-            Contain the information of the holes on the current processor.
+    Np : int
+        Total number of particles.
 
-        index : int
-            At which index is the value we are computing stored in the particle marker array.
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
 
-        h : float
-            Radius of the smoothing kernel to use.
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
 
-        out : array
-            Array to fill with the result.
+    index : int
+        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+
+    out : array[float]
+        Output array of same size as eta1, eta2, eta3.
     """
     n_eval_1 = eta1.shape[0]
     n_eval_2 = eta1.shape[1]
     n_eval_3 = eta1.shape[2]
     out[:] = 0.0
     for i in range(n_eval_1):
+        e1 = eta1[i, 0, 0]
+        if e1 < domain_array[0] or e1 > domain_array[1]:
+            continue
         for j in range(n_eval_2):
+            e2 = eta2[0, j, 0]
+            if e2 < domain_array[3] or e2 > domain_array[4]:
+                continue
             for k in range(n_eval_3):
+                e3 = eta3[0, 0, k]
+                if e3 < domain_array[6] or e3 > domain_array[7]:
+                    continue
                 loc_box = sorting_kernels.find_box(
-                    eta1[i, j, k], eta2[i, j, k], eta3[i, j, k], nx, ny, nz, domain_array
+                    e1,
+                    e2,
+                    e3,
+                    n1,
+                    n2,
+                    n3,
+                    domain_array,
                 )
                 if loc_box == -1:
                     continue
                 else:
-                    for neigh in range(27):
-                        box_to_search = neighbours[loc_box, neigh]
-                        c = 0
-                        while boxes[box_to_search, c] != -1:
-                            p = boxes[box_to_search, c]
-                            c += 1
-                            if not holes[p]:
-                                r = sqrt(
-                                    periodic_distance(eta1[i, j, k], markers[p, 0]) ** 2
-                                    + periodic_distance(eta2[i, j, k], markers[p, 1]) ** 2
-                                    + periodic_distance(eta3[i, j, k], markers[p, 2]) ** 2
-                                )
-                                out[i, j, k] += markers[p, index] * smoothing_kernel(r, h)
+                    out[i, j, k] = boxed_based_kernel(
+                        e1,
+                        e2,
+                        e3,
+                        loc_box,
+                        boxes,
+                        neighbours,
+                        markers,
+                        Np,
+                        holes,
+                        periodic1,
+                        periodic2,
+                        periodic3,
+                        index,
+                        kernel_type,
+                        h1,
+                        h2,
+                        h3,
+                    )

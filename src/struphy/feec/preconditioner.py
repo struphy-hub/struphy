@@ -141,7 +141,7 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                    if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
                         if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
@@ -187,12 +187,12 @@ class MassMatrixPreconditioner(LinearOperator):
                     solvercells += [SparseSolver(M.tosparse())]
 
                 # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
-                periodic = femspaces[c].vector_space.periods[d]
+                periodic = femspaces[c].coeff_space.periods[d]
 
-                n = femspaces[c].vector_space.npts[d]
-                p = femspaces[c].vector_space.pads[d]
-                s = femspaces[c].vector_space.starts[d]
-                e = femspaces[c].vector_space.ends[d]
+                n = femspaces[c].coeff_space.npts[d]
+                p = femspaces[c].coeff_space.pads[d]
+                s = femspaces[c].coeff_space.starts[d]
+                e = femspaces[c].coeff_space.ends[d]
 
                 cart_decomp_1d = CartDecomposition(
                     domain_decompos_1d,
@@ -228,30 +228,30 @@ class MassMatrixPreconditioner(LinearOperator):
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         solvercells,
                     ),
                 ]
             else:
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         solvercells,
                     ),
                 ]
@@ -268,8 +268,8 @@ class MassMatrixPreconditioner(LinearOperator):
             ]
 
             self._matrix = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=blocks,
             )
 
@@ -280,8 +280,8 @@ class MassMatrixPreconditioner(LinearOperator):
             ]
 
             self._solver = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=sblocks,
             )
 
@@ -513,7 +513,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                    if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
                         if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
@@ -559,12 +559,12 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                     solvercells += [SparseSolver(M.tosparse())]
 
                 # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
-                periodic = femspaces[c].vector_space.periods[d]
+                periodic = femspaces[c].coeff_space.periods[d]
 
-                n = femspaces[c].vector_space.npts[d]
-                p = femspaces[c].vector_space.pads[d]
-                s = femspaces[c].vector_space.starts[d]
-                e = femspaces[c].vector_space.ends[d]
+                n = femspaces[c].coeff_space.npts[d]
+                p = femspaces[c].coeff_space.pads[d]
+                s = femspaces[c].coeff_space.starts[d]
+                e = femspaces[c].coeff_space.ends[d]
 
                 cart_decomp_1d = CartDecomposition(
                     domain_decompos_1d,
@@ -600,30 +600,30 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         solvercells,
                     ),
                 ]
             else:
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         solvercells,
                     ),
                 ]
@@ -640,8 +640,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             ]
 
             self._matrix = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=blocks,
             )
 
@@ -651,8 +651,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 [None, None, solverblocks[2]],
             ]
             self._solver = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=sblocks,
             )
 

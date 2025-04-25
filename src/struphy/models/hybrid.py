@@ -108,9 +108,9 @@ class LinearMHDVlasovCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -206,8 +206,8 @@ class LinearMHDVlasovCC(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": params_vxb["algo"],
             "kappa": 1.0 / epsilon,
-            "b_eq": self._b_eq,
-            "b_tilde": self.pointer["b_field"],
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_eq,
         }
 
         if params_sonic["turn_off"]:
@@ -277,7 +277,7 @@ class LinearMHDVlasovCC(StruphyModel):
         if self.derham.comm.Get_rank() == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].n_mks * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
                 "%",
             )
 
@@ -394,9 +394,9 @@ class LinearMHDVlasovPC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -457,10 +457,10 @@ class LinearMHDVlasovPC(StruphyModel):
         }
 
         self._kwargs[propagators_markers.PushVxB] = {
-            "b_tilde": self.pointer["b_field"],
-            "b_eq": self._b_eq,
             "algo": params_vxb["algo"],
             "kappa": epsilon,
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_eq,
         }
 
         if params_pressure["turn_off"]:
@@ -559,7 +559,7 @@ class LinearMHDVlasovPC(StruphyModel):
         if self.derham.comm.Get_rank() == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].n_mks * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
                 "%",
             )
 
@@ -692,9 +692,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -964,7 +964,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if self.derham.comm.Get_rank() == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].n_mks * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
                 "%",
             )
 
@@ -1079,9 +1079,9 @@ class ColdPlasmaVlasov(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1137,8 +1137,8 @@ class ColdPlasmaVlasov(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": algo_vxb,
             "kappa": 1.0 / self._epsilon_cold,
-            "b_eq": self._b_background,
-            "b_tilde": self.pointer["b_field"],
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_background,
         }
 
         self._kwargs[propagators_coupling.VlasovAmpere] = {
@@ -1225,7 +1225,7 @@ class ColdPlasmaVlasov(StruphyModel):
             * self._alpha**2
             * self._epsilon_hot
             / self._epsilon_cold
-            / (2 * self.pointer["hot_electrons"].n_mks)
+            / (2 * self.pointer["hot_electrons"].Np)
             * np.dot(
                 self.pointer["hot_electrons"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["hot_electrons"].markers_wo_holes[:, 4] ** 2

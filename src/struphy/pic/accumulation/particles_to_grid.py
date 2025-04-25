@@ -205,7 +205,7 @@ class Accumulator:
         # accumulate into matrix (and vector) with markers
         self.kernel(
             self.particles.markers,
-            self.particles.n_mks,
+            self.particles.Np,
             self.derham.args_derham,
             self.args_domain,
             *self._args_data,
@@ -260,15 +260,18 @@ class Accumulator:
 
             vec_finished = True
 
-        if self.derham.Nclones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
-                self.derham.inter_comm.Allreduce(
+                self.particles.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     data_array,
                     op=MPI.SUM,
                 )
-
-                data_array /= self.derham.Nclones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
@@ -545,29 +548,29 @@ class AccumulatorVector:
 
         if space_id in ("H1", "L2"):
             self._vectors += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_temp += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_out += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
             self._vectors += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
             self._vectors_temp += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
             self._vectors_out += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
 
@@ -607,22 +610,25 @@ class AccumulatorVector:
         # accumulate into matrix (and vector) with markers
         self.kernel(
             self.particles.markers,
-            self.particles.n_mks,
+            self.particles.Np,
             self.derham._args_derham,
             self.args_domain,
             *self._args_data,
             *optional_args,
         )
 
-        if self.derham.Nclones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
-                self.derham.inter_comm.Allreduce(
+                self.particles.clone_config.inter_comm.Allreduce(
                     MPI.IN_PLACE,
                     data_array,
                     op=MPI.SUM,
                 )
-
-                data_array /= self.derham.Nclones
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
