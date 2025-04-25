@@ -2742,6 +2742,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
         )
         en_fB_old = buffer_array[0]
         
+        #if self.derham.comm.Get_rank() == 0: print(en_fB_old)
         # initial guess
         self._ACC_init(*self._args_accum_kernel)
 
@@ -2785,7 +2786,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             op=MPI.SUM,
         )
         en_fB_new = buffer_array[0]
-        
+        #if self.derham.comm.Get_rank() == 0: print(en_fB_new)
         # sorting markers, mid-point
         self.particles[0].mpi_sort_markers(alpha=0.5)
 
@@ -2798,12 +2799,20 @@ class CurrentCoupling5DGradB_dg(Propagator):
             # save u^{n+1,k}
             _u_old = _u_new.copy(out=self._u_old)
 
+            self._u_diff = _u_old - un
+            self._u_diff.update_ghost_regions()
+
+            self._u_mid = (_u_old + un) / 2.
+            self._u_mid.update_ghost_regions()
+
             # savel H^{n+1,k}
             self.particles[0].markers[~self.particles[0].holes, 20:23] = self.particles[0].markers[~self.particles[0].holes, 0:3]
             
             # denominator ||z^{n+1,k} - z^n||²
-            sum_u_diff_loc = np.sum((_u_old.toarray() - un.toarray())**2)
-            sum_H_diff_loc = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
+            sum_u_diff_loc = np.sum((self._u_diff.toarray())**2)
+            #print(self.derham.comm.Get_rank(), sum_u_diff_loc)
+            #sum_H_diff_loc = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
+            sum_H_diff_loc = utilities_kernels.Hdiffsquare(self.particles[0].markers)/self.particles[0].n_mks
 
             buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
             self.derham.comm.Allreduce(
@@ -2812,7 +2821,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 op=MPI.SUM,
             )
             denominator = buffer_array[0]
-
+            #if self.derham.comm.Get_rank() == 0: print("denominator", denominator)
             # sorting markers, mid-point
             self.particles[0].mpi_sort_markers(alpha=0.5)
 
@@ -2836,7 +2845,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 op=MPI.SUM,
             )
             en_fB_mid = buffer_array[0]
-
+            #if self.derham.comm.Get_rank() == 0: print("en_fB_mid", en_fB_mid)
             const = (en_fB_new - en_fB_old - en_fB_mid)/denominator
     
             # update u^{n+1,k}
@@ -2850,6 +2859,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
             # calculate M^{-1} u_diff
             self._u_tmp1 = self._solver.dot(self._u_diff, out=self._u_tmp1)
+            self._u_tmp1.update_ghost_regions()
 
             # update H^{n+1, k}
             self._pusher_kernel(
@@ -2875,6 +2885,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 self._u_tmp1[2]._data,
                 const,
             )
+            sum_H_diff_loc = utilities_kernels.Hdiffabs(self.particles[0].markers)/self.particles[0].n_mks
+            #sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
 
             # update en_fB_new
             # sorting markers
@@ -2895,8 +2907,9 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
             # calculate ||z^{n+1,k} - z^n||
             sum_u_diff_loc = np.sum(np.abs(_u_new.toarray() - _u_old.toarray()))
-            sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
-
+            #print("u",sum_u_diff_loc)
+            #sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
+            #print("H",sum_H_diff_loc)
             buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
             self.derham.comm.Allreduce(
                 MPI.IN_PLACE,

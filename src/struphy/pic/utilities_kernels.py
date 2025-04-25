@@ -630,7 +630,7 @@ def accum_en_fB(
 
 
 @stack_array("e", "e_diff")
-def check_eta_diff(markers: "float[:,:]"):
+def Hdiffsquare(markers: "float[:,:]"):
     r"""TODO"""
     # marker position e
     e = empty(3, dtype=float)
@@ -639,13 +639,14 @@ def check_eta_diff(markers: "float[:,:]"):
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
+    res = 0.
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
 
         e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 9:12]
+        e_diff[:] = e[:] - markers[ip, 11:14]
 
         for axis in range(3):
             if e_diff[axis] > 0.5:
@@ -653,11 +654,13 @@ def check_eta_diff(markers: "float[:,:]"):
             elif e_diff[axis] < -0.5:
                 e_diff[axis] += 1.0
 
-        markers[ip, 15:18] = e_diff[:]
+        res += e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2
+
+    return res
 
 
 @stack_array("e", "e_diff")
-def check_eta_diff2(markers: "float[:,:]"):
+def Hdiffabs(markers: "float[:,:]"):
     r"""TODO"""
     # marker position e
     e = empty(3, dtype=float)
@@ -666,13 +669,14 @@ def check_eta_diff2(markers: "float[:,:]"):
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
+    res = 0.
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
 
         e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 12:15]
+        e_diff[:] = e[:] - markers[ip, 20:23]
 
         for axis in range(3):
             if e_diff[axis] > 0.5:
@@ -680,7 +684,9 @@ def check_eta_diff2(markers: "float[:,:]"):
             elif e_diff[axis] < -0.5:
                 e_diff[axis] += 1.0
 
-        markers[ip, 15:18] = e_diff[:]
+        res += abs(e_diff[0]) + abs(e_diff[1]) + abs(e_diff[2])
+
+    return res
 
 
 @stack_array("e", "e_diff", "e_mid")
