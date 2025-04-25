@@ -1764,7 +1764,7 @@ class ViscoresistiveMHD_with_p_no_split(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -1772,7 +1772,7 @@ class ViscoresistiveMHD_with_p_no_split(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
@@ -1781,8 +1781,8 @@ class ViscoresistiveMHD_with_p_no_split(StruphyModel):
         nonlin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
         lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
         nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
-        lin_solver_magfield = params["em_fields"]["options"]["VariationalPBEvolve"]["lin_solver"]
-        nonlin_solver_magfield = params["em_fields"]["options"]["VariationalPBEvolve"]["nonlin_solver"]
+        lin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalPBEvolve"]["lin_solver"]
+        nonlin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalPBEvolve"]["nonlin_solver"]
         lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
         nonlin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["nonlin_solver"]
         lin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["lin_solver"]
@@ -1983,7 +1983,7 @@ class LinearVariationalMHD_no_split(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -1991,15 +1991,15 @@ class LinearVariationalMHD_no_split(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
         nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
-        lin_solver_magfield = params["em_fields"]["options"]["VariationalPBEvolve"]["lin_solver"]
-        nonlin_solver_magfield = params["em_fields"]["options"]["VariationalPBEvolve"]["nonlin_solver"]
+        lin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalPBEvolve"]["lin_solver"]
+        nonlin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalPBEvolve"]["nonlin_solver"]
         lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
         nonlin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["nonlin_solver"]
         lin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["lin_solver"]
@@ -2191,7 +2191,7 @@ class DeltafVariationalMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         import numpy as np
 
         from struphy.feec.mass import WeightedMassOperator
@@ -2199,7 +2199,7 @@ class DeltafVariationalMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
 
@@ -2208,8 +2208,8 @@ class DeltafVariationalMHD(StruphyModel):
         nonlin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
         lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
         nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
-        lin_solver_magfield = params["em_fields"]["options"]["VariationalPBEvolve"]["lin_solver"]
-        nonlin_solver_magfield = params["em_fields"]["options"]["VariationalPBEvolve"]["nonlin_solver"]
+        lin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalPBEvolve"]["lin_solver"]
+        nonlin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalPBEvolve"]["nonlin_solver"]
         lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
         nonlin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["nonlin_solver"]
         lin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["lin_solver"]
