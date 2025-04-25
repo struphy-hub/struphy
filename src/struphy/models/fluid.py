@@ -1498,7 +1498,8 @@ class HasegawaWakatani(StruphyModel):
         \\[3mm]
         &\Delta \phi = \omega\,,
 
-    where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`,  :math:`C, \kappa` and :math:`\nu` are constants and :math:`N=1`.
+    where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`, :math:`C = C(x, y)` and 
+    :math:`\kappa` and :math:`\nu` are constants (at the moment only :math:`N=1` is available).
 
     :ref:`propagators` (called in sequence):
 

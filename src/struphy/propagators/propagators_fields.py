@@ -2672,34 +2672,24 @@ class ImplicitDiffusion(Propagator):
 
 class Poisson(ImplicitDiffusion):
     r"""
-    Weak, implicit discretization of the diffusion (or heat) equation (can be used as a Poisson solver too).
+    Weak discretization of the (stabilized) Poisson equation.
 
     Find :math:`\phi \in H^1` such that
 
     .. math::
 
-        \int_\Omega \psi\, n_0(\mathbf x)\frac{\partial \phi}{\partial t}\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top D_0(\mathbf x) \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
+        \epsilon \int_\Omega \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top \, \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
 
-    where :math:`n_0, \rho_i:\Omega \to \mathbb R` are real-valued functions and
-    :math:`D_0:\Omega \to \mathbb R^{3\times 3}`
-    is a positive diffusion matrix.
+    where :math:`\epsilon \in \mathbb R` is a stabilization parameter.
     Boundary terms from integration by parts are assumed to vanish.
     The equation is discretized as
 
     .. math::
 
-        \left( \frac{\sigma_1}{\Delta t} \mathbb M^0_{n_0} + \mathbb G^\top \mathbb M^1_{D_0} \mathbb G \right)\, \boldsymbol\phi^{n+1} = \frac{\sigma_2}{\Delta t} \mathbb M^0_{n_0} \boldsymbol\phi^{n} + \frac{\sigma_3}{\Delta t} \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
+        \left( \epsilon\,\mathbb S + \mathbb G^\top \mathbb M^1 \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
 
-    where :math:`M^0_{n_0}` and :math:`M^1_{D_0}` are :class:`WeightedMassOperators <struphy.feec.mass.WeightedMassOperators>`
-    and :math:`\sigma_1, \sigma_2, \sigma_3 \in \mathbb R` are artificial parameters that can be tuned to
-    change the model (see Notes).
-
-    Notes
-    -----
-
-    * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t`: **Poisson solver** with a given charge density :math:`\sum_i\rho_i`.
-    * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
-    * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**.
+    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix 
+    and :math:`\mathbb S` is a stabilization matrix.
 
     Parameters
     ----------
