@@ -7624,7 +7624,7 @@ class HasegawaWakatani(Propagator):
     :math:`C = C(x, y)`, :math:`\kappa` and :math:`\nu` are constants and
     :math:`[a, b] = \partial_x a \partial_y b - \partial_y a \partial_x b`.
     
-    :ref:`time_discret`: explicit Runge-Kutta.
+    :ref:`time_discret`: explicit Runge-Kutta, see :class:`~struphy.ode.solvers.ODEsolverFEEC`.
     """
 
     @staticmethod

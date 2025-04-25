@@ -11,7 +11,7 @@ class ODEsolverFEEC():
 
     .. image:: ../../pics/explicit_rk_methods.png
         :align: center
-        :scale: 70%
+        :scale: 45%
 
     Parameters
     ----------

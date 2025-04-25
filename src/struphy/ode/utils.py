@@ -27,6 +27,8 @@ class ButcherTableau:
             "3/8 rule",
         ]
         return meth_avail
+    
+    __available_methods__ = available_methods()
 
     def __init__(self, algo: str = "rk4"):
         # choose algorithm
