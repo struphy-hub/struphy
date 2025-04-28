@@ -100,8 +100,8 @@ stages:
 .parallel_matrix_install:
   parallel:
     matrix:
-      # - LANGUAGE: "fortran"
-      #   OMP: ["", "--omp-pic"]
+      - LANGUAGE: "fortran"
+        OMP: ["", "--omp-pic"]
       - LANGUAGE: "c"
         OMP: [""]
 
