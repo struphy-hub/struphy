@@ -10,7 +10,7 @@ struphy_path := $(shell $(PYTHON) -c "import struphy as _; print(_.__path__[0])"
 # Arguments to this script are: 
 STRUPHY_SOURCES := $(sources)
 # FLAGS := --libdir $(LIBDIR) $(flags)
-FLAGS := $(flags)
+FLAGS := $(flags) --debug
 FLAGS_openmp_pic := $(flags_openmp_pic)
 FLAGS_openmp_mhd := $(flags_openmp_mhd)
 
