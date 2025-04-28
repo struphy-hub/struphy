@@ -545,6 +545,10 @@ class SaddlePointSolverGMRES:
 
         if solver_params["pc"] is None:
             solver_params.pop("pc")
+            
+        if solver_name == 'lsmr':
+            solver_params["atol"] = 1e-8
+            solver_params["btol"] = 0
 
         # Allocate memory for matrices used in solving the Schur system
         self._rhs = self._F.copy()
@@ -889,3 +893,177 @@ class SaddlePointSolverGMRESwithPC:
         print(f"{self._solverA._info=}")
         print(f"{self._solverAe._info=}")
         return self._Utot, self._P, self._solverM._info
+
+
+class SaddlePointSolverGMRESold:
+    """Solves for math:`\left( \matrix{
+            x^{n+1} \cr y^{n+1}
+        } \\right)` in the block system
+
+    .. math::
+
+        \left( \matrix{
+            A &  B^{\top} \cr
+            B & 0
+        } \\right)
+        \left( \matrix{
+            x^{n+1} \cr y^{n+1}
+        } \\right)
+        =
+        \left( \matrix{
+            f \cr 0
+        } \\right)
+
+    using the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f`. The solution is given by
+
+    .. math::
+
+        y^{n+1} = \left[ B A^{-1} B^{\top}\\right]^{-1} B A^{-1} f \,,\\
+        x^{n+1} = A^{-1} \left[ f - B^{\top} y^{n+1} \\right] \,.
+        
+
+    Parameters
+    ----------
+    A : LinearOperator
+        Upper left block from [[A :math: `B^{\top}`B], [B 0]].
+
+    B : LinearOperator
+        Lower left block from [[A :math: `B^{\top}`], [B 0]].
+
+    f : Linear Vector
+        Right hand side vector of the upper block from [A :math: `B^{\top}`B].
+
+    rho : float
+        Descent parameter for the Uzawa iteration.
+
+    tol : float
+        Convergence tolerance for the potential residual.
+
+    max_iter : int
+        Maximum number of iterations allowed.
+
+    solver_name : str
+        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+
+    **solver_params : 
+        Must correspond to the chosen solver.
+    """
+
+    def __init__(
+        self,
+        A: BlockLinearOperator,
+        B: BlockLinearOperator,
+        F: BlockVector,
+        rho: float,
+        solver_name: str,
+        tol=1e-8,
+        max_iter=1000,
+        **solver_params,
+    ):
+        assert isinstance(A, BlockLinearOperator) or isinstance(A, LinearOperator)
+        assert isinstance(B, BlockLinearOperator) or isinstance(B, LinearOperator)
+        assert isinstance(F, BlockVector) or isinstance(F, Vector)
+        assert isinstance(rho, float)
+
+        assert A.domain == B.domain
+
+        # linear operators
+        self._A = A
+        self._B = B
+        self._F = F
+        self._rho = rho
+        self._tol = tol
+        self._max_iter = max_iter
+        self._BT = B.transpose()
+
+        if solver_params["pc"] is None:
+            solver_params.pop("pc")
+
+        # Allocate memory for matrices used in solving the Schur system
+        self._rhs = self._F.copy()
+        self._R = self._B.codomain.zeros()
+
+        # initialize solver with dummy matrix A
+        self._solver_name = solver_name
+
+        self._block_domainM = BlockVectorSpace(self._A.domain, self._B.transpose().domain)
+        self._block_codomainM = self._block_domainM
+        self._blocks = [[self._A, None], [None, None]]
+        self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
+
+        self._solverM = inverse(self._M, solver_name, tol=tol, maxiter=max_iter, **solver_params)
+
+        # Solution vectors
+        self._P = B.codomain.zeros()
+        self._U = A.codomain.zeros()
+
+        # List to store residual norms
+        self._residual_norms = []
+
+        # Initialize counters
+        self._iterations_solverA = 0  # Total iterations for _solverA
+        self._iterations_schur = 0  # Iterations for _solverschur
+
+    @property
+    def A(self):
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
+        return self._A
+
+    @property
+    def B(self):
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
+        return self._B
+
+    @property
+    def F(self):
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
+        return self._F
+
+    @A.setter
+    def A(self, a):
+        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
+        self._A = a
+
+    @B.setter
+    def B(self, b):
+        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
+        self._B = b
+
+    @F.setter
+    def F(self, f):
+        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
+        self._F = f
+
+    def __call__(self):
+        """
+        Solves the saddle-point problem using the Uzawa algorithm.
+
+        Parameters
+        ----------
+        P_init : Vector, optional
+            Initial guess for the potential. If None, initializes to zero.
+
+        Returns
+        -------
+        U : Vector
+            Solution vector for the velocity.
+
+        P : Vector
+            Solution vector for the potential.
+
+        info : dict
+            Convergence information.
+        """
+        self._M *= 0.0
+        self._blocks = [[self._A, self._B.transpose()], [self._B, None]]
+        self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
+        self._RHS = BlockVector(self._block_domainM, blocks=[self._F, self._B.codomain.zeros()])
+
+        # use setter to update lhs matrix
+        self._solverM.linop = self._M
+
+        # Initialize P to zero or given initial guess
+        self._sol = self._solverM.dot(self._RHS)
+        self._U = self._sol[0]
+        self._P = self._sol[1]
+        return self._U, self._P, self._solverM._info
