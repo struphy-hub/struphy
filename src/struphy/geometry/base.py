@@ -934,6 +934,7 @@ class Domain(metaclass=ABCMeta):
 
             # call evaluation kernel
             out = np.empty((markers.shape[0], 3), dtype=float)
+            A = A.copy(order='C')
 
             n_inside = transform_kernels.kernel_pullpush_pic(
                 A,
