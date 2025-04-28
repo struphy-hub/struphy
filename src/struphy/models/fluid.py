@@ -87,6 +87,7 @@ class LinearMHD(StruphyModel):
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["u_space"]
         alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
+        alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
         sonic_solver = params["fluid"]["mhd"]["options"]["Magnetosonic"]["solver"]
 
         # project background magnetic field (2-form) and pressure (3-form)
@@ -109,6 +110,7 @@ class LinearMHD(StruphyModel):
         self._kwargs[propagators_fields.ShearAlfven] = {
             "u_space": u_space,
             "solver": alfven_solver,
+            "algo": alfven_algo, 
         }
 
         self._kwargs[propagators_fields.Magnetosonic] = {
