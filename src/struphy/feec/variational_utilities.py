@@ -62,7 +62,7 @@ class BracketOperator(LinOpWithTransp):
         V1h = derham.Vh_fem["1"]
         self._domain = derham.Vh_pol["v"]
         self._codomain = derham.Vh_pol["v"]
-        self._dtype = Xh.vector_space.dtype
+        self._dtype = Xh.coeff_space.dtype
         self._u = u
 
         # tmp for evaluating u
