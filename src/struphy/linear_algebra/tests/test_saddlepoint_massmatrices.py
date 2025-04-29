@@ -69,7 +69,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     # create random input array
     x1_rdm_block, x1_rdm = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=False)
     x2_rdm_block, x2_rdm = create_equal_random_arrays(fem_spaces[1], seed=68, flattened=False)
-    y1_rdm_block, y1_rdm = create_equal_random_arrays(fem_spaces[3], seed=1268, flattened=False)
+    y1_rdm_block, y1_rdm = create_equal_random_arrays(fem_spaces[3], seed=1568, flattened=False)
 
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
@@ -92,14 +92,14 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     D = derham.div
     M3 = mass_mats.M3
     B0 = 1.0
-    nue = 0.01
+    nue = 0.01*100
     nu = 1.0
     dt = 0.001
     eps = 1e-5
     eps2 = eps  # 1e-5#1. #Preconditioner Ae
     method_to_solve = "DirectNPInverse"  # 'ScipySparse', 'DirectNPInverse', 'InexactNPInverse', , 'SparseSolver'
     preconditioner = True
-    spectralanalysis = True
+    spectralanalysis = False
     manufactured_solution = False
 
     # Create the solver
