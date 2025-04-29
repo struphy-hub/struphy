@@ -513,6 +513,7 @@ struphy_ubuntu_latest:
     - .rules_scheduled
     - .parallel_matrix_scheduled
   before_script:
+    - apt install cmake
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
   script:
