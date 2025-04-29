@@ -324,7 +324,7 @@ ubuntu_latest:
     - .image_ubuntu_struphy
     - .variables_push
   before_script:
-    - apt install cmake
+    - apt install -y cmake
   script:
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, install_on_push]
