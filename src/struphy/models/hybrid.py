@@ -664,8 +664,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_markers.PushGuidingCenterBxEstar: ["energetic_ions"],
-            propagators_markers.PushGuidingCenterParallel: ["energetic_ions"],
+            # propagators_markers.PushGuidingCenterBxEstar: ["energetic_ions"],
+            # propagators_markers.PushGuidingCenterParallel: ["energetic_ions"],
             propagators_coupling.CurrentCoupling5DGradB: ["energetic_ions", "mhd_velocity"],
             propagators_coupling.CurrentCoupling5DGradB_dg: ["energetic_ions", "mhd_velocity"],
             propagators_coupling.CurrentCoupling5DCurlb: ["energetic_ions", "mhd_velocity"],
@@ -785,17 +785,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
             self._ones[:] = 1.0
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
-           "b_tilde": self.pointer["b_field"],
-           "algo": params_bxE["algo"],
-           "epsilon": epsilon,
-        }
+        # self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
+        #    "b_tilde": self.pointer["b_field"],
+        #    "algo": params_bxE["algo"],
+        #    "epsilon": epsilon,
+        # }
 
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
-           "b_tilde": self.pointer["b_field"],
-           "algo": params_parallel["algo"],
-           "epsilon": epsilon,
-        }
+        # self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
+        #    "b_tilde": self.pointer["b_field"],
+        #    "algo": params_parallel["algo"],
+        #    "epsilon": epsilon,
+        # }
 
         if params_cc_gradB["turn_off"]:
             self._kwargs[propagators_coupling.CurrentCoupling5DGradB] = None

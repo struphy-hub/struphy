@@ -2729,6 +2729,10 @@ class CurrentCoupling5DGradB_dg(Propagator):
         # save old marker positions
         self.particles[0].markers[~self.particles[0].holes, 11:14] = self.particles[0].markers[~self.particles[0].holes, 0:3]
 
+        # save en_U_old
+        self._A.dot(un, out=self._M2n_dot_u)
+        en_U_old = un.dot(self._M2n_dot_u)/2.
+        
         # calculate en_fB_old
         self.particles[0].save_magnetic_energy(self._b, df=self._reduced_coupling)
         en_fB_old = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
@@ -2742,6 +2746,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
         )
         en_fB_old = buffer_array[0]
         
+        en_tot_old = en_U_old + en_fB_old
+
         #if self.derham.comm.Get_rank() == 0: print(en_fB_old)
         # initial guess
         self._ACC_init(*self._args_accum_kernel)
@@ -2810,10 +2816,12 @@ class CurrentCoupling5DGradB_dg(Propagator):
             
             # denominator ||z^{n+1,k} - z^n||²
             sum_u_diff_loc = np.sum((self._u_diff.toarray())**2)
-            #print(self.derham.comm.Get_rank(), sum_u_diff_loc)
+            print(self.derham.comm.Get_rank(), sum_u_diff_loc)
             #sum_H_diff_loc = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
-            sum_H_diff_loc = utilities_kernels.Hdiffsquare(self.particles[0].markers)/self.particles[0].n_mks
-
+            #sum_H_diff_loc = utilities_kernels.Hdiffsquare(self.particles[0].markers)
+            sum_H_diff_loc = np.sum(self.particles[0].markers[~self.particles[0].holes, 15])
+            print(self.derham.comm.Get_rank(), sum_H_diff_loc)
+            
             buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
             self.derham.comm.Allreduce(
                 MPI.IN_PLACE,
@@ -2845,17 +2853,27 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 op=MPI.SUM,
             )
             en_fB_mid = buffer_array[0]
-            #if self.derham.comm.Get_rank() == 0: print("en_fB_mid", en_fB_mid)
+            if self.derham.comm.Get_rank() == 0: print("en_fB_mid", en_fB_mid)
             const = (en_fB_new - en_fB_old - en_fB_mid)/denominator
     
             # update u^{n+1,k}
             self._ACC(*self._args_accum_kernel, const)
+            print(self.derham.comm.Get_rank(), "pass")
             _ku = self._solver.dot(self._ACC.vectors[0], out=self._ku)
 
+            #_u_new = _u_old.copy(out=self._u_new)
             _u_new = un.copy(out=self._u_new)
             _u_new += _ku * dt
+            
+            #relaxed
+            _u_new *= 0.5
+            _u_new += _u_old * 0.5
 
             _u_new.update_ghost_regions()
+
+            # save en_U_new
+            self._A.dot(_u_new, out=self._M2n_dot_u)
+            en_U_new = _u_new.dot(self._M2n_dot_u)/2.
 
             # calculate M^{-1} u_diff
             self._u_tmp1 = self._solver.dot(self._u_diff, out=self._u_tmp1)
@@ -2885,7 +2903,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 self._u_tmp1[2]._data,
                 const,
             )
-            sum_H_diff_loc = utilities_kernels.Hdiffabs(self.particles[0].markers)/self.particles[0].n_mks
+            #sum_H_diff_loc = utilities_kernels.Hdiffabs(self.particles[0].markers)
+            sum_H_diff_loc = np.sum(self.particles[0].markers[~self.particles[0].holes, 14])
             #sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
 
             # update en_fB_new
@@ -2905,24 +2924,48 @@ class CurrentCoupling5DGradB_dg(Propagator):
             )
             en_fB_new = buffer_array[0]
 
-            # calculate ||z^{n+1,k} - z^n||
-            sum_u_diff_loc = np.sum(np.abs(_u_new.toarray() - _u_old.toarray()))
-            #print("u",sum_u_diff_loc)
-            #sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
-            #print("H",sum_H_diff_loc)
-            buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
-            self.derham.comm.Allreduce(
-                MPI.IN_PLACE,
-                buffer_array,
-                op=MPI.SUM,
-            )
-            diff = buffer_array[0]
+            tol_kind = "step"
+
+            if tol_kind == "step":
+
+                # calculate ||z^{n+1,k} - z^n||
+                sum_u_diff_loc = np.sum(np.abs(_u_new.toarray() - _u_old.toarray()))
+                #print("udiff",sum_u_diff_loc)
+                #sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
+                #print("Hdiff",sum_H_diff_loc)
+                buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
+                self.derham.comm.Allreduce(
+                    MPI.IN_PLACE,
+                    buffer_array,
+                    op=MPI.SUM,
+                )
+                diff = buffer_array[0]
+                e_diff = (en_U_new + en_fB_new- en_tot_old)/en_tot_old
+                
+                if diff < self._dg_solver['tol'] or e_diff < self._dg_solver['tol'] :
+                    if self.derham.comm.Get_rank() == 0: 
+                        print("converged diff", diff)
+                        print("converged ediff", e_diff)
+                    break
+                else:
+                    if self.derham.comm.Get_rank() == 0: 
+                        print("not converged diff", diff)
+                        print("not converged ediff", e_diff)
+                        #print()
+                        #print("sum_u_diff_loc", sum_u_diff_loc)
+                        #print("sum_H_diff_loc", sum_H_diff_loc)
+                        #print("denominator", denominator)
+                        #print()
             
-            if diff < self._dg_solver['tol']:
-                if self.derham.comm.Get_rank() == 0: print("converged", diff)
-                break
-            else:
-                if self.derham.comm.Get_rank() == 0: print("not converged", diff)
+            if tol_kind == "energy":
+
+                diff = (en_U_new + en_fB_new- en_tot_old)/en_tot_old
+                
+                if abs(diff) < self._dg_solver['tol']:
+                    if self.derham.comm.Get_rank() == 0: print("converged", diff)
+                    break
+                else:
+                    if self.derham.comm.Get_rank() == 0: print("not converged", diff)
 
         # clear the buffer
         self.particles[0].markers[

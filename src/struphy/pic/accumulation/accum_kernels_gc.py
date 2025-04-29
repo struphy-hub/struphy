@@ -1148,6 +1148,12 @@ def cc_lin_mhd_5d_gradB_dg(
 
         eta_diff[:] = markers[ip, 0:3] - markers[ip, 11:14]
 
+        for axis in range(3):
+            if eta_diff[axis] > 0.5:
+                eta_diff[axis] -= 1.0
+            elif eta_diff[axis] < -0.5:
+                eta_diff[axis] += 1.0
+
         # marker weight and velocity
         dweight = markers[ip, 5]
         weight = markers[ip, 7]
