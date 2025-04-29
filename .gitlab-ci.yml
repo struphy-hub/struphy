@@ -323,6 +323,8 @@ ubuntu_latest:
     - .rules_push
     - .image_ubuntu_struphy
     - .variables_push
+  before_script:
+    - apt install cmake
   script:
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, install_on_push]
@@ -515,7 +517,6 @@ struphy_ubuntu_latest:
     - .rules_scheduled
     - .parallel_matrix_scheduled
   before_script:
-    - apt install cmake
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
   script:
