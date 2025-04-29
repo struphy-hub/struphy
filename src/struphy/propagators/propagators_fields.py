@@ -6293,6 +6293,10 @@ class VariationalPBEvolve(Propagator):
         mass_ops: WeightedMassOperator,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
+        div_u: StencilVector | None = None,
+        u2: BlockVector | None = None,
+        pt3: StencilVector | None = None,
+        bt2: BlockVector | None = None,
     ):
         super().__init__(p, b, u)
 
@@ -6305,6 +6309,11 @@ class VariationalPBEvolve(Propagator):
         self._implicit_transport = nonlin_solver["implicit_transport"]
         self._linearize = self._nonlin_solver["linearize"]
         self._gamma = gamma
+
+        self._divu = div_u
+        self._u2 = u2
+        self._pt3 = pt3
+        self._bt2 = bt2
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
@@ -6510,9 +6519,9 @@ class VariationalPBEvolve(Propagator):
             bn_diff -= bn
             bn_diff += b_advection
 
-            # pn_diff = pn1.copy(out= self._tmp_pn_diff)
-            # pn_diff -= pn
-            # pn_diff += p_advection
+            pn_diff = pn1.copy(out= self._tmp_pn_diff)
+            pn_diff -= pn
+            pn_diff += p_advection
 
             mn_diff = mn1.copy(out=self._tmp_mn_diff)
             mn_diff -= mn
@@ -6522,7 +6531,7 @@ class VariationalPBEvolve(Propagator):
             pn1 -= p_advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, bn_diff)
+            err = self._get_error_newton(mn_diff, bn_diff, pn_diff)
 
             if self._info:
                 print("iteration : ", it, " error : ", err)
@@ -6558,6 +6567,28 @@ class VariationalPBEvolve(Propagator):
         self._tmp_bn_diff = bn1 - bn
         self._tmp_pn_diff = pn1 - pn
         self.feec_vars_update(pn1, bn1, un1)
+
+        self.div.dot(un12, out=self._divu)
+        self.Uv.dot(un1, out=self._u2)
+
+        # Update the 2nd order variables 
+
+        if self._pt3 is not None:
+            p_advection = self._transop_p.dot(
+                un12,
+                out=self._tmp_p_advection,
+            )
+            p_advection *= dt
+            self._pt3 -= p_advection
+
+        if self._bt2 is not None:
+            b_advection = self.curlPib.dot(
+                un12,
+                out=self._tmp_b_advection,
+            )
+            b_advection *= dt
+            self._bt2 -= b_advection
+        
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -6847,7 +6878,7 @@ class VariationalPBEvolve(Propagator):
             self.curlPib0 = self.curl @ self.Pib0
             self.curlPibT0 = self.Pib0.T @ self.curl.T
 
-            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
@@ -6863,7 +6894,7 @@ class VariationalPBEvolve(Propagator):
             self._full_curlPib = self.curlPib0+self.curlPib
             self._full_curlPibT = self.curlPibT0+self.curlPibT
 
-            self._linear_form_dl_db0 = self.mass_ops.M2.dot(self.projected_equil.b2)
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
             self._mdt2_pc_curlPibT_M = 2 * (self._full_curlPibT @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self._full_curlPib
@@ -7120,7 +7151,7 @@ class VariationalPBEvolve(Propagator):
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
 
-    def _get_error_newton(self, mn_diff, bn_diff): #, pn_diff):
+    def _get_error_newton(self, mn_diff, bn_diff, pn_diff):
         weak_un_diff = self._inv_Mv.dot(
             self.derham.boundary_ops["v"].dot(mn_diff),
             out=self._tmp_un_weak_diff,
@@ -7129,18 +7160,18 @@ class VariationalPBEvolve(Propagator):
             bn_diff,
             out=self._tmp_bn_weak_diff,
         )
-        # weak_pn_diff = self.mass_ops.M3.dot(
-        #     pn_diff,
-        #     out=self._tmp_pn_weak_diff,
-        # )
+        weak_pn_diff = self.mass_ops.M3.dot(
+            pn_diff,
+            out=self._tmp_pn_weak_diff,
+        )
         err_b = weak_bn_diff.dot(bn_diff)
-        #err_p = weak_pn_diff.dot(pn_diff)
+        err_p = weak_pn_diff.dot(pn_diff)
         err_u = weak_un_diff.dot(mn_diff)
-        #print("err_b :"+str(err_b))
-        #print("err_p :"+str(err_p))
-        #print("err_u :"+str(err_u))
-        return max(err_b, err_u)
-        #return max(max(err_b, err_u),err_p)
+        # print("err_b :"+str(err_b))
+        # print("err_p :"+str(err_p))
+        # print("err_u :"+str(err_u))
+        # return max(err_b, err_u)
+        return max(max(err_b, err_u),err_p)
 
     def _get_error_picard(self, un_diff, bn_diff):
         weak_un_diff = self.mass_ops.Mv.dot(
@@ -7934,6 +7965,7 @@ class VariationalResistivity(Propagator):
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         linearize_current: dict = options(default=True)["linearize_current"],
+        pt3: StencilVector | None = None,
     ):
         super().__init__(s, b)
 
@@ -7947,6 +7979,8 @@ class VariationalResistivity(Propagator):
         self._nonlin_solver = nonlin_solver
         self._rho = rho
         self._linearize_current = linearize_current
+        self._pt3 = pt3
+
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
@@ -7973,7 +8007,7 @@ class VariationalResistivity(Propagator):
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_en1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
-        if self._linearize_current:
+        if True: #self._linearize_current:
             self._extracted_b2 = self.derham.boundary_ops["2"].dot(
                 self.derham.extraction_ops["2"].dot(self.projected_equil.b2),
             )
@@ -8000,46 +8034,53 @@ class VariationalResistivity(Propagator):
             print("Computing the dissipation in VariationalResistivity")
 
         # Update weighted mass matrix for artificial resistivity
-        cb = self.Tcurl.dot(bn, out=self._tmp_cb1)
-        self.cbf1.vector = cb
-        cb_v = self.cbf1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_curl,
-            out=self._cb1_values,
-        )
 
-        cb_sq_v = self._cb_sq_values_init
-        cb_sq_v *= 0.0
-        for i in range(3):
-            for j in range(3):
-                cb_sq_v += cb_v[i] * self._sq_term_metric_no_jac[i, j] * cb_v[j]
+        if self._eta_a>1e-15:
+            cb = self.Tcurl.dot(bn, out=self._tmp_cb1)
+            self.cbf1.vector = cb
+            cb_v = self.cbf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_curl,
+                out=self._cb1_values,
+            )
 
-        np.sqrt(cb_sq_v, out=cb_sq_v)
+            cb_sq_v = self._cb_sq_values_init
+            cb_sq_v *= 0.0
+            for i in range(3):
+                for j in range(3):
+                    cb_sq_v += cb_v[i] * self._sq_term_metric_no_jac[i, j] * cb_v[j]
 
-        cb_sq_v *= dt * self._eta_a
+            np.sqrt(cb_sq_v, out=cb_sq_v)
 
-        self.M1_cb.assemble(
-            [
+            cb_sq_v *= dt * self._eta_a
+
+            self.M1_cb.assemble(
                 [
-                    cb_sq_v * self._sq_term_metric[0, 0],
-                    cb_sq_v * self._sq_term_metric[0, 1],
-                    cb_sq_v * self._sq_term_metric[0, 2],
+                    [
+                        cb_sq_v * self._sq_term_metric[0, 0],
+                        cb_sq_v * self._sq_term_metric[0, 1],
+                        cb_sq_v * self._sq_term_metric[0, 2],
+                    ],
+                    [
+                        cb_sq_v * self._sq_term_metric[1, 0],
+                        cb_sq_v * self._sq_term_metric[1, 1],
+                        cb_sq_v * self._sq_term_metric[1, 2],
+                    ],
+                    [
+                        cb_sq_v * self._sq_term_metric[2, 0],
+                        cb_sq_v * self._sq_term_metric[2, 1],
+                        cb_sq_v * self._sq_term_metric[2, 2],
+                    ],
                 ],
-                [
-                    cb_sq_v * self._sq_term_metric[1, 0],
-                    cb_sq_v * self._sq_term_metric[1, 1],
-                    cb_sq_v * self._sq_term_metric[1, 2],
-                ],
-                [
-                    cb_sq_v * self._sq_term_metric[2, 0],
-                    cb_sq_v * self._sq_term_metric[2, 1],
-                    cb_sq_v * self._sq_term_metric[2, 2],
-                ],
-            ],
-            verbose=False,
-        )
+                verbose=False,
+            )
 
-        cb_sq_v += dt * self._eta
+            cb_sq_v += dt * self._eta
+
+        else:
+            cb_sq_v = self._cb_sq_values_init
+            cb_sq_v *= 0.0
+            cb_sq_v += dt * self._eta
 
         self._scaled_stiffness._scalar = dt * self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
@@ -8075,10 +8116,10 @@ class VariationalResistivity(Propagator):
             cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
         elif self._model in ["linear_p"]:
-            cb12 = self.Tcurl.dot(self.projected_equil.b2, out=self._tmp_cb12)
+            cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
 
         elif self._model in ["delta_p"]:
-            bn12 += self.projected_equil.b2
+            bn12 += self._extracted_b2
             cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
         self.cbf12.vector = cb12
@@ -8208,6 +8249,92 @@ class VariationalResistivity(Propagator):
 
         self.feec_vars_update(sn1, bn1)
 
+        if self._pt3 is not None:
+            bn12 = bn.copy(out=self._tmp_bn12)
+            bn12 += bn1
+            bn12 /= 2.0
+            cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
+            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
+
+            self.cbf12.vector = cb12
+            self.cbf1.vector = cb1
+
+            cb12_v = self.cbf12.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_curl,
+                out=self._cb12_values,
+            )
+            cb1_v = self.cbf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_curl,
+                out=self._cb1_values,
+            )
+
+            cb_sq_v = self._cb_sq_values
+            cb_sq_v *= 0.0
+            for i in range(3):
+                for j in range(3):
+                    cb_sq_v += cb12_v[i] * self._sq_term_metric[i, j] * cb1_v[j]
+            
+            cb_sq_v *= self._cb_sq_values_init
+            # 2) Initial energy and linear form
+            self.sf.vector = self._pt3
+
+            sf_values = self.sf.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf_values,
+            )
+
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n *= 1.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
+            cb_sq_v += e_n
+
+            self._get_L2dofs_V3(cb_sq_v, dofs=self._linear_form_tot_e)
+
+            tol = self._nonlin_solver["tol"]
+            err = tol + 1
+
+            for it in range(self._nonlin_solver["maxiter"]):
+                self.sf1.vector = self._pt3
+
+                sf1_values = self.sf1.eval_tp_fixed_loc(
+                    self.integration_grid_spans,
+                    self.integration_grid_bd,
+                    out=self._sf1_values,
+                )
+
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 *= 1.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+                self._get_L2dofs_V3(e_n1, dofs=self._linear_form_en1)
+
+                self.tot_rhs *= 0.0
+                self.tot_rhs -= self._linear_form_en1
+                self.tot_rhs += self._linear_form_tot_e
+
+                err = self._get_error_newton(self.tot_rhs)
+
+                if self._info:
+                    print("iteration : ", it, " error : ", err)
+
+                if (err < tol**2 and it > 0) or np.isnan(err):
+                    break
+
+                incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
+
+                if self._info:
+                    print("information on the linear solver : ", self.inv_jac._info)
+
+                self._pt3 += incr
+
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
 
@@ -8270,8 +8397,8 @@ class VariationalResistivity(Propagator):
 
         self._scaled_stiffness = 0.00001 * self.phy_stiffness
 
-        self.r_op = M2  # - self._scaled_stiffness
-        self.l_op = M2 + self._scaled_stiffness + self.phy_cb_stiffness
+        self.r_op = M2 #- self._scaled_stiffness
+        self.l_op = M2 + self._scaled_stiffness #+ self.phy_cb_stiffness
 
         if self._lin_solver["type"][1] is None:
             self.pc = None

@@ -2031,6 +2031,10 @@ class LinearVariationalMHD_no_split(StruphyModel):
             "lin_solver": lin_solver_magfield,
             "nonlin_solver": nonlin_solver_magfield,
             "gamma": self._gamma,
+            "div_u": self.pointer["div_u"],
+            "u2": self.pointer["u2"],
+            "bt2": self.pointer["bt2"],
+            "pt3":self.pointer["pt3"],
         }
 
         self._kwargs[propagators_fields.VariationalViscosity] = {
@@ -2054,6 +2058,7 @@ class LinearVariationalMHD_no_split(StruphyModel):
             "lin_solver": lin_solver_resistivity,
             "nonlin_solver": nonlin_solver_resistivity,
             "linearize_current": self._linearize_current,
+            "pt3":self.pointer["pt3"],
         }
 
         # Initialize propagators used in splitting substeps
@@ -2062,10 +2067,16 @@ class LinearVariationalMHD_no_split(StruphyModel):
         # Scalar variables to be saved during simulation
         self.add_scalar("en_U")
         self.add_scalar("en_thermo")
-        self.add_scalar("en_mag")
+        self.add_scalar("en_mag_1")
+        self.add_scalar("en_mag_2")
         self.add_scalar("en_tot")
-        self.add_scalar("dens_tot")
-        self.add_scalar("tot_div_B")
+
+        # self.add_scalar("dens_tot")
+        # self.add_scalar("tot_div_B")
+
+        self.add_scalar("en_tot_l1")
+        self.add_scalar("en_thermo_l1")
+        self.add_scalar("en_mag_l1")
 
         # temporary vectors for scalar quantities
         self._tmp_m1 = self.derham.Vh_pol["v"].zeros()
@@ -2096,27 +2107,42 @@ class LinearVariationalMHD_no_split(StruphyModel):
         self.update_scalar("en_U", en_U)
 
         wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-        en_mag = wb2.dot(self.pointer["b2"]) / 2
-        self.update_scalar("en_mag", en_mag)
+        en_mag1 = wb2.dot(self.pointer["b2"]) / 2
+        self.update_scalar("en_mag_1", en_mag1)
 
-        en_thermo = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        wb2 = self._mass_ops.M2.dot(self.pointer["bt2"], out=self._tmp_wb2)
+        en_mag2 = wb2.dot(self.projected_equil.b2)
+        self.update_scalar("en_mag_2", en_mag2)
+
+        en_thermo = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["pt3"])) / (self._gamma - 1.0)
         self.update_scalar("en_thermo", en_thermo)
 
-        en_tot = en_U + en_thermo + en_mag
+        en_tot = en_U + en_thermo + en_mag1 + en_mag2
         self.update_scalar("en_tot", en_tot)
 
-        dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
-        self.update_scalar("dens_tot", dens_tot)
+        # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        # self.update_scalar("dens_tot", dens_tot)
 
-        div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        w_div_B = self._mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
-        L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
-        self.update_scalar("tot_div_B", L2_div_B)
+        # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
+        # w_div_B = self._mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
+        # L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
+        # self.update_scalar("tot_div_B", L2_div_B)
+
+        en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        self.update_scalar("en_thermo_l1", en_thermo_l1)
+
+        wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
+        en_mag_l1 = wb2.dot(self.projected_equil.b2)
+        self.update_scalar("en_mag_l1", en_mag_l1)
+
+        en_tot_l1 = en_thermo_l1 + en_mag_l1
+        self.update_scalar("en_tot_l1", en_tot_l1)
 
     @staticmethod
     def diagnostics_dct():
         dct = {}
-
+        dct["bt2"] = "Hdiv"
+        dct["pt3"] = "L2"
         dct["div_u"] = "L2"
         dct["u2"] = "Hdiv"
         return dct
