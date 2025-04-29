@@ -342,6 +342,7 @@ macos_nmpp:
     - .rules_push
     - .variables_push
   before_script:
+    - brew install cmake
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
