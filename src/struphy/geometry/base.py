@@ -790,7 +790,6 @@ class Domain(metaclass=ABCMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-
             evaluation_kernels.kernel_evaluate(
                 E1,
                 E2,
@@ -1088,7 +1087,8 @@ class Domain(metaclass=ABCMeta):
             E2 = arg_y[:, None, None]
             E3 = arg_z[:, None, None]
 
-            return E1, E2, E3, is_sparse_meshgrid
+            # Make sure we don't have stride 0
+            return E1.copy(), E2.copy(), E3.copy(), is_sparse_meshgrid
 
         # non-flat evaluation (broadcast to 3d arrays)
         else:
@@ -1166,7 +1166,8 @@ class Domain(metaclass=ABCMeta):
             else:
                 raise ValueError("Argument dimensions not supported")
 
-            return E1, E2, E3, is_sparse_meshgrid
+            # Make sure we don't have stride 0
+            return E1.copy(), E2.copy(), E3.copy(), is_sparse_meshgrid
 
     # ================================
     @staticmethod
