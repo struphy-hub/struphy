@@ -1,3 +1,5 @@
+from numpy import copy
+
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle kernels.
@@ -95,17 +97,29 @@ class DerhamArguments:
         bd2: "float[:]",
         bd3: "float[:]",
     ):
-        self.pn = pn
-        self.tn1 = tn1
-        self.tn2 = tn2
-        self.tn3 = tn3
-        self.starts = starts
-        self.bn1 = bn1
-        self.bn2 = bn2
-        self.bn3 = bn3
-        self.bd1 = bd1
-        self.bd2 = bd2
-        self.bd3 = bd3
+        # self.pn = pn
+        # self.tn1 = tn1
+        # self.tn2 = tn2
+        # self.tn3 = tn3
+        # self.starts = starts
+        # self.bn1 = bn1
+        # self.bn2 = bn2
+        # self.bn3 = bn3
+        # self.bd1 = bd1
+        # self.bd2 = bd2
+        # self.bd3 = bd3
+
+        self.pn = copy(pn)
+        self.tn1 = copy(tn1)
+        self.tn2 = copy(tn2)
+        self.tn3 = copy(tn3)
+        self.starts = copy(starts)
+        self.bn1 = copy(bn1)
+        self.bn2 = copy(bn2)
+        self.bn3 = copy(bn3)
+        self.bd1 = copy(bd1)
+        self.bd2 = copy(bd2)
+        self.bd3 = copy(bd3)
 
 
 class DomainArguments:
