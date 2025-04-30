@@ -318,8 +318,10 @@ def kernel_pullpush(a: 'float[:,:,:,:]',
         Output values.
     """
 
-    tmp1 = zeros(3, dtype=float)
-    tmp2 = zeros(3, dtype=float)
+    tmp1 = zeros(shape(a)[-1], dtype=float)
+    tmp2 = zeros(shape(out)[-1], dtype=float)
+    # tmp1 = zeros(3, dtype=float)
+    # tmp2 = zeros(3, dtype=float)
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
