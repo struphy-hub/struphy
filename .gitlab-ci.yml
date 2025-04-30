@@ -279,6 +279,19 @@ unit_tests:
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, unit_tests]
 
+uncompiled_tests:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - struphy compile -d -y
+    - mpirun -n 2 pytest src/struphy/bsplines/tests/test_bsplines_kernels.py --with-mpi -xvs
+    - mpirun -n 2 pytest src/struphy/feec/tests/test_basis_ops.py --with-mpi
+
 model_tests:
   stage: test
   extends:
