@@ -288,9 +288,13 @@ uncompiled_tests:
     - .variables_push
   script:
     - !reference [.scripts, install_on_push]
+    - !reference [.scripts, unit_tests]
+    - echo "All unit tests passed!"
     - struphy compile -d -y
-    - mpirun -n 2 pytest src/struphy/bsplines/tests/test_bsplines_kernels.py --with-mpi -xvs
+    - echo "Run a few unit tests with uncompiled kernels"
+    - mpirun -n 2 pytest src/struphy/bsplines/tests/test_bsplines_kernels.py --with-mpi
     - mpirun -n 2 pytest src/struphy/feec/tests/test_basis_ops.py --with-mpi
+    - mpirun -n 2 pytest src/struphy/feec/tests/test_local_projectors.py --with-mpi
 
 model_tests:
   stage: test
