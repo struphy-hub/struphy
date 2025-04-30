@@ -48,7 +48,7 @@ stages:
 
 .variables_push:
   variables:
-    LANGUAGE: 'c'
+    LANGUAGE: 'fortran'
     OMP: ''
 
 # --- rules ---
