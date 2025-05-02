@@ -14,6 +14,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(
     basis1: "float[:,:,:]",
     sub1: "int[:]",
     dim1_in: int,
+    dim1_out: int,
     p1_out: int,
 ):
     """Kernel for assembling the matrix
@@ -88,11 +89,6 @@ def assemble_dofs_for_weighted_basisfuns_1d(
     # Set output to zero
     mat[:] = 0.0
 
-    # Dimensions of output space
-    _sum = 0.0
-    for i in range(sub1.shape[0]):
-        _sum += sub1[i]
-    dim1_out = span1.shape[0] - _sum
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
@@ -150,6 +146,8 @@ def assemble_dofs_for_weighted_basisfuns_2d(
     sub2: "int[:]",
     dim1_in: int,
     dim2_in: int,
+    dim1_out: int,
+    dim2_out: int,
     p1_out: int,
     p2_out: int,
 ):
@@ -251,17 +249,6 @@ def assemble_dofs_for_weighted_basisfuns_2d(
     # Set output to zero
     mat[:] = 0.0
 
-    # Dimensions of output space
-    _sum = 0.0
-    for i in range(sub1.shape[0]):
-        _sum += sub1[i]
-    dim1_out = span1.shape[0] - _sum
-
-    _sum = 0.0
-    for i in range(sub2.shape[0]):
-        _sum += sub2[i]
-    dim2_out = span2.shape[0] - _sum
-
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
@@ -351,6 +338,9 @@ def assemble_dofs_for_weighted_basisfuns_3d(
     dim1_in: int,
     dim2_in: int,
     dim3_in: int,
+    dim1_out: int,
+    dim2_out: int,
+    dim3_out: int,
     p1_out: int,
     p2_out: int,
     p3_out: int,
@@ -478,22 +468,6 @@ def assemble_dofs_for_weighted_basisfuns_3d(
 
     # Set output to zero
     mat[:] = 0.0
-
-    # Dimensions of output space
-    _sum = 0.0
-    for i in range(sub1.shape[0]):
-        _sum += sub1[i]
-    dim1_out = span1.shape[0] - _sum
-
-    _sum = 0.0
-    for i in range(sub2.shape[0]):
-        _sum += sub2[i]
-    dim2_out = span2.shape[0] - _sum
-
-    _sum = 0.0
-    for i in range(sub3.shape[0]):
-        _sum += sub3[i]
-    dim3_out = span3.shape[0] - _sum
 
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
