@@ -580,6 +580,29 @@ class Particles5D(Particles):
             df,
         )
 
+    def save_magnetic_energy2(self, PBb, df=False):
+        r"""
+        Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
+
+        Parameters
+        ----------
+
+        b2 : BlockVector
+            Finite element coefficients of the time-dependent magnetic field.
+        """
+
+        PBb.update_ghost_regions()
+
+        utilities_kernels.eval_magnetic_energy2(
+            self.markers,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            self.first_diagnostics_idx,
+            self.absB0_h._data,
+            PBb._data,
+            df,
+        )
+
     def save_magnetic_background_energy(self):
         r"""
         Evaluate :math:`mu_p |B_0(\boldsymbol \eta_p)|` for each marker.

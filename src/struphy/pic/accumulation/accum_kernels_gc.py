@@ -8,7 +8,7 @@ Function naming conventions:
 These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
 """
 
-from numpy import empty, shape, zeros
+from numpy import empty, shape, zeros, mod
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -1068,6 +1068,8 @@ def cc_lin_mhd_5d_gradB_dg_init(
     "norm_b1",
     "grad_PB",
     "grad_PBeq",
+    "eta_mid",
+    "eta_diff",
 )
 def cc_lin_mhd_5d_gradB_dg(
     markers: "float[:,:]",
@@ -1110,6 +1112,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
     # allocate for magnetic field evaluation
     eta_diff = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
     b = empty(3, dtype=float)
     beq = empty(3, dtype=float)
     bfull_star = empty(3, dtype=float)
@@ -1142,17 +1145,16 @@ def cc_lin_mhd_5d_gradB_dg(
             continue
 
         # marker positions, mid point
-        eta1 = (markers[ip, 0] + markers[ip, 11]) / 2.
-        eta2 = (markers[ip, 1] + markers[ip, 12]) / 2.
-        eta3 = (markers[ip, 2] + markers[ip, 13]) / 2.
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
+        eta_mid[:] = mod(eta_mid[:], 1.)
 
         eta_diff[:] = markers[ip, 0:3] - markers[ip, 11:14]
 
-        for axis in range(3):
-            if eta_diff[axis] > 0.5:
-                eta_diff[axis] -= 1.0
-            elif eta_diff[axis] < -0.5:
-                eta_diff[axis] += 1.0
+        # for axis in range(3):
+        #     if eta_diff[axis] > 0.5:
+        #         eta_diff[axis] -= 1.0
+        #     elif eta_diff[axis] < -0.5:
+        #         eta_diff[axis] += 1.0
 
         # marker weight and velocity
         dweight = markers[ip, 5]
@@ -1161,10 +1163,10 @@ def cc_lin_mhd_5d_gradB_dg(
         mu = markers[ip, 9]
 
         # b-field evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfm)
+        evaluation_kernels.df(eta_mid[0], eta_mid[1], eta_mid[2], args_domain, dfm)
 
         det_df = linalg_kernels.det(dfm)
 

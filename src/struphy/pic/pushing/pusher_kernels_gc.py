@@ -2474,7 +2474,7 @@ def push_gc_cc_J2_dg_init_Hdiv(
 
         markers[ip, 15] = eta_diff[0]**2 + eta_diff[1]**2 + eta_diff[2]**2
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'ud', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b_prod', 'markers_old', 'eta_diff')
+@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'ud', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b_prod', 'markers_old', 'eta_mid', 'eta_diff')
 def push_gc_cc_J2_dg_Hdiv(
     dt: float,
     args_markers: 'MarkerArguments',
@@ -2510,6 +2510,7 @@ def push_gc_cc_J2_dg_Hdiv(
     curl_norm_b = empty(3, dtype=float)
     markers_old = empty(3, dtype=float)
     eta_diff = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -2521,19 +2522,18 @@ def push_gc_cc_J2_dg_Hdiv(
     for ip in range(n_markers):
 
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.:
+        if markers[ip, 0] == -1.:
             continue
 
         # marker positions, mid point
-        eta1 = (markers[ip, 0] + markers[ip, 11]) / 2.
-        eta2 = (markers[ip, 1] + markers[ip, 12]) / 2.
-        eta3 = (markers[ip, 2] + markers[ip, 13]) / 2.
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
+        eta_mid[:] = mod(eta_mid[:], 1.)
 
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta1, eta2, eta3,
+            eta_mid[0], eta_mid[0], eta_mid[0],
             args_domain,
             dfm,
         )
@@ -2545,7 +2545,7 @@ def push_gc_cc_J2_dg_Hdiv(
         linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
 
         # b; 2form
         eval_2form_spline_mpi(
@@ -2630,12 +2630,12 @@ def push_gc_cc_J2_dg_Hdiv(
 
         #markers[ip, 0:3] -= dt*e
         markers_old[:] = markers[ip, 0:3]
-        #markers[ip, 0:3] = markers[ip, 11:14] - dt*e
+        markers[ip, 0:3] = markers[ip, 11:14] - dt*e
 
         #relaxed
         
-        markers[ip, 0:3] *= 0.5
-        markers[ip, 0:3] += (markers[ip, 11:14] - dt*e) * 0.5
+        #markers[ip, 0:3] *= 0.5
+        #markers[ip, 0:3] += (markers[ip, 11:14] - dt*e) * 0.5
 
         k1 = markers_old[0] - markers[ip, 11] + dt*e[0]
         k2 = markers_old[1] - markers[ip, 12] + dt*e[1]

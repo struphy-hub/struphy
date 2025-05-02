@@ -1,4 +1,4 @@
-from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros
+from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros, mod
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -235,7 +235,7 @@ def eval_magnetic_background_energy(
         markers[ip, first_diagnostics_idx] = mu * abs_B
 
 
-@stack_array("dfm", "norm_b1", "b")
+@stack_array("dfm", "norm_b1", "b", "eta")
 def eval_magnetic_energy(
     markers: "float[:,:]",
     args_derham: "DerhamArguments",
@@ -256,6 +256,7 @@ def eval_magnetic_energy(
     """
     norm_b1 = empty(3, dtype=float)
     b = empty(3, dtype=float)
+    eta = empty(3, dtype=float)
 
     dfm = empty((3, 3), dtype=float)
 
@@ -267,9 +268,7 @@ def eval_magnetic_energy(
         if markers[ip, 0] == -1.0:
             continue
 
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+        eta[:] = mod(markers[ip, 0:3], 1.)
 
         if deltaf:
             weight = markers[ip, 5]
@@ -279,13 +278,13 @@ def eval_magnetic_energy(
         mu = markers[ip, first_diagnostics_idx + 1]
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
+            eta[0],
+            eta[1],
+            eta[2],
             args_domain,
             dfm,
         )
@@ -330,6 +329,83 @@ def eval_magnetic_energy(
 
         markers[ip, first_diagnostics_idx] = mu * weight * (abs_B + b_para)
 
+        if abs_B + b_para < 0.:
+            print("negative energy", abs_B, b_para)
+
+
+@stack_array("dfm", "norm_b1", "b", "eta")
+def eval_magnetic_energy2(
+    markers: "float[:,:]",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    first_diagnostics_idx: int,
+    abs_B0: "float[:,:,:]",
+    PBb: "float[:,:,:]",
+    deltaf: "bool",
+):
+    r"""
+    Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
+    The result is stored at markers[:, first_diagnostics_idx].
+    """
+    norm_b1 = empty(3, dtype=float)
+    b = empty(3, dtype=float)
+    eta = empty(3, dtype=float)
+
+    dfm = empty((3, 3), dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        eta[:] = mod(markers[ip, 0:3], 1.)
+
+        if deltaf:
+            weight = markers[ip, 5]
+        else:
+            weight = markers[ip, 7]
+
+        mu = markers[ip, first_diagnostics_idx + 1]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta[0],
+            eta[1],
+            eta[2],
+            args_domain,
+            dfm,
+        )
+
+        det_df = linalg_kernels.det(dfm)
+
+        # abs_B0; 0form
+        abs_B = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            abs_B0,
+        )
+
+        # PBb; 0form
+        PB_b = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            PBb,
+        )
+
+        markers[ip, first_diagnostics_idx] = mu * weight * (abs_B + PB_b)
+
+        if abs_B + PB_b < 0.:
+            print("negative energy", abs_B, PB_b)
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
 def eval_guiding_center_from_6d(
@@ -441,7 +517,7 @@ def eval_guiding_center_from_6d(
         markers[ip, first_diagnostics_idx + 2] = z - Larmor_r[2]
 
 
-@stack_array("dfm", "df_t", "g", "g_inv", "gradB, ""grad_PB_b", "tmp", "tmp0", "eta_diff")
+@stack_array("dfm", "df_t", "g", "g_inv", "gradB, ""grad_PB_b", "tmp", "tmp0", "eta_mid", "eta_diff")
 def accum_en_fB_mid(
     markers: "float[:,:]",
     args_derham: "DerhamArguments",
@@ -468,6 +544,7 @@ def accum_en_fB_mid(
     grad_PB_b = empty(3, dtype=float)
     tmp = empty(3, dtype=float)
     tmp0 = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
     eta_diff = empty(3, dtype=float)
 
     # get number of markers
@@ -481,9 +558,8 @@ def accum_en_fB_mid(
             continue
 
         # marker positions, mid point
-        eta1 = (markers[ip, 0] + markers[ip, 11]) / 2.
-        eta2 = (markers[ip, 1] + markers[ip, 12]) / 2.
-        eta3 = (markers[ip, 2] + markers[ip, 13]) / 2.
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
+        eta_mid[:] = mod(eta_mid[:], 1.)
 
         eta_diff = markers[ip, 0:3] - markers[ip, 11:14]
 
@@ -495,13 +571,13 @@ def accum_en_fB_mid(
         mu = markers[ip, 9]
 
         # b-field evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
+            eta_mid[0],
+            eta_mid[1],
+            eta_mid[2],
             args_domain,
             dfm,
         )
