@@ -519,12 +519,6 @@ class Derham:
             self.Vh_fem["0"].knots[1],
             self.Vh_fem["0"].knots[2],
             np.array(self.Vh["0"].starts),
-            np.empty(self.p[0] + 1, dtype=float),
-            np.empty(self.p[1] + 1, dtype=float),
-            np.empty(self.p[2] + 1, dtype=float),
-            np.empty(self.p[0], dtype=float),
-            np.empty(self.p[1], dtype=float),
-            np.empty(self.p[2], dtype=float),
         )
 
     @property
