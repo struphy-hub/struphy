@@ -1,5 +1,3 @@
-from pyccel.decorators import allow_negative_index
-
 def assemble_dofs_for_weighted_basisfuns_1d(
     mat: "float[:,:]",
     starts_in: "int[:]",
@@ -313,7 +311,6 @@ def assemble_dofs_for_weighted_basisfuns_2d(
                             mat[po1 + i, po2 + j, col1, col2] += value
 
 
-@allow_negative_index('mat')
 def assemble_dofs_for_weighted_basisfuns_3d(
     mat: "float[:,:,:,:,:,:]",
     starts_in: "int[:]",
