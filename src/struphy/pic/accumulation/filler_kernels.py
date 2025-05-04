@@ -14,6 +14,8 @@ __all__ = [ 'fill_mat',
 from pyccel.decorators import pure
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
+def _tmp_floor_division_filler_kernels(x: int):
+    return x // 2
 
 @pure
 def fill_mat(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', bj1: 'float[:]', bj2: 'float[:]', bj3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', pads: 'int[:]', mat: 'float[:,:,:,:,:,:]', filling: float):

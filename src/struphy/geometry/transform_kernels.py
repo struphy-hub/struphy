@@ -53,6 +53,8 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not r
 
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+def _tmp_floor_division_transform_kernels(x: int):
+    return x // 2
 
 @stack_array('dfmat1', 'dfmat2')
 def pull(a: 'float[:]', 
@@ -316,8 +318,10 @@ def kernel_pullpush(a: 'float[:,:,:,:]',
         Output values.
     """
 
-    tmp1 = zeros(3, dtype=float)
-    tmp2 = zeros(3, dtype=float)
+    tmp1 = zeros(shape(a)[-1], dtype=float)
+    tmp2 = zeros(shape(out)[-1], dtype=float)
+    # tmp1 = zeros(3, dtype=float)
+    # tmp2 = zeros(3, dtype=float)
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
@@ -384,8 +388,10 @@ def kernel_pullpush_pic(a: 'float[:,:]',
         Whether to remove values that originate from markers outside of [0, 1]^d.
     """
 
-    tmp1 = zeros(3, dtype=float)
-    tmp2 = zeros(3, dtype=float)
+    tmp1 = zeros(shape(a)[1], dtype=float)
+    tmp2 = zeros(shape(out)[1], dtype=float)
+    # tmp1 = zeros((3,), dtype=float)
+    # tmp2 = zeros((3,), dtype=float)
 
     np = shape(markers)[0]
     
@@ -419,7 +425,6 @@ def kernel_pullpush_pic(a: 'float[:,:]',
         
         # treatment of "true" marker
         else:
-            
             tmp1[:] = a[counter_a, :]
             tmp2[:] = out[counter_o, :]
             

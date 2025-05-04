@@ -178,7 +178,7 @@ def kernel_l2error(
                                 for jl2 in range(p[1] + 1 - nj[1]):
                                     for jl3 in range(p[2] + 1 - nj[2]):
                                         bj += (
-                                            c2[ind_basej1[ie1, il1], ind_basej2[ie2, il2], ind_basej3[ie3, il3]]
+                                            c2[ind_basej1[ie1, jl1], ind_basej2[ie2, jl2], ind_basej3[ie3, jl3]]
                                             * bj1[ie1, jl1, 0, q1]
                                             * bj2[ie2, jl2, 0, q2]
                                             * bj3[ie3, jl3, 0, q3]

@@ -18,6 +18,8 @@ from numpy import empty, zeros
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
+def _tmp_floor_division_evaluation_kernels_1d(x: int):
+    return x // 2
 
 # =============================================================================
 @pure

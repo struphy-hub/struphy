@@ -4,8 +4,10 @@
 Basic functions for point-wise B-spline evaluation
 """
 from numpy import empty, zeros
-from pyccel.decorators import pure, stack_array
+from pyccel.decorators import pure, stack_array, allow_negative_index
 
+def _tmp_floor_division_bsplines_kernels(x: int):
+    return x // 2
 
 @pure
 def scaling(t_d: 'float[:]', p_d: 'int', span_d: 'int', values: 'float[:]'):
@@ -321,6 +323,7 @@ def b_splines_slim(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', values:
 
 @pure
 @stack_array('left', 'right', 'b_values')
+@allow_negative_index('b_values')
 def d_splines_slim(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', values: 'float[:]'):
     """
     Computes the values of pn non-vanishing D-splines at position eta.

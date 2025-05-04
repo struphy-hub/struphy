@@ -16,6 +16,9 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+def _tmp_floor_division_pic_utilities_kernels(x: int):
+    return x // 2
+
 
 def eval_magnetic_moment_5d(
     markers: "float[:,:]",
@@ -372,7 +375,7 @@ def eval_guiding_center_from_6d(
         x = markers[ip, first_diagnostics_idx]
         y = markers[ip, first_diagnostics_idx + 1]
         z = markers[ip, first_diagnostics_idx + 2]
-        v = markers[ip, 3:6]
+        v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(

@@ -186,9 +186,9 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         flag_omp_pic = ""
         flag_omp_feec = ""
         if omp_pic:
-            flag_omp_pic = "--openmp"
+            flag_omp_pic = " --openmp"
         if omp_feec:
-            flag_omp_feec = "--openmp"
+            flag_omp_feec = " --openmp"
 
         # pyccel flags
         flags = "--language=" + language
