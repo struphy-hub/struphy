@@ -8,6 +8,8 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not r
 
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+def _tmp_floor_division_utilities_kernels(x: int):
+    return x // 2
 
 @pure
 @stack_array('bn1', 'bn2', 'bn3')

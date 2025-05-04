@@ -48,7 +48,7 @@ stages:
 
 .variables_push:
   variables:
-    LANGUAGE: 'c'
+    LANGUAGE: 'fortran'
     OMP: ''
 
 # --- rules ---
@@ -102,8 +102,8 @@ stages:
     matrix:
       - LANGUAGE: "fortran"
         OMP: ["", "--omp-pic"]
-      # - LANGUAGE: "c"
-      #   OMP: [""]
+      - LANGUAGE: "c"
+        OMP: [""]
 
 .parallel_matrix_scheduled:
   parallel:
@@ -170,9 +170,11 @@ stages:
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
+    - pip uninstall pyccel -y
     - pip install -e $(echo $STRUPHY_SOURCE)[test]
     - !reference [.scripts, compile_matrix]
   install:
+    - pip uninstall pyccel -y
     - pip install $(echo $STRUPHY_SOURCE)[test]
     - pip show struphy
     - pip list
@@ -180,11 +182,13 @@ stages:
   compile:
     - pyccel --version
     - struphy compile --status
+    - struphy compile -d -y
     - struphy compile -y
   compile_matrix:
     - pyccel --version
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
+    - struphy compile -d -y
     - struphy compile --language ${LANGUAGE} ${OMP} -y
   build:
     - pip install -U build
