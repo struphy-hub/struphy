@@ -113,7 +113,6 @@ class ProfileManager:
         else:
             # Check if time profiling is enabled
             _config = ProfilingConfig()
-            print(f"{_config.time_trace = }!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             # Create and register a new ProfileRegion
             new_region = ProfileRegion(region_name, time_trace=_config.time_trace)
             cls._regions[region_name] = new_region
