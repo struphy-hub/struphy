@@ -1592,6 +1592,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
+        use_PB: str,
     ):
         super().__init__(u, b)
 
@@ -1608,16 +1609,38 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._boundary_cut_e1 = boundary_cut["e1"]
 
-        self._ACC = Accumulator(
-            particles,
-            'Hdiv',
-            accum_kernels_gc.cc_lin_mhd_5d_M,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=filter,
-        )
+        if use_PB:
+            self._ACC = AccumulatorVector(
+                particles,
+                'H1',
+                accum_kernels_gc.cc_lin_mhd_5d_M_scalar,
+                self.mass_ops,
+                self.domain.args_domain,
+            )
+
+            self._args_accum_kernel= (
+                self._scale_vec,
+            )
+
+        else:
+            self._ACC = Accumulator(
+                particles,
+                'Hdiv',
+                accum_kernels_gc.cc_lin_mhd_5d_M,
+                self.mass_ops,
+                self.domain.args_domain,
+                add_vector=True,
+                symmetry="symm",
+                filter_params=filter,
+            )
+
+            self._args_accum_kernel= (
+                self._unit_b1[0]._data,
+                self._unit_b1[1]._data,
+                self._unit_b1[2]._data,
+                self._scale_vec,
+                self._boundary_cut_e1,
+            )
 
         # if self._particles.control_variate:
 
@@ -1650,10 +1673,16 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
+        _PB = getattr(self.basis_ops, "PB")
 
         self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
         self._C = 1 / 2 * self.derham.curl @ _T
-        self._B2 = -1 / 2 * _T.T @ self.derham.curl.T
+
+        if use_PB:
+            self._B2 = -1 / 2 * _T.T @ self.derham.curl.T @ _PB.T
+        
+        else:
+            self._B2 = -1 / 2 * _T.T @ self.derham.curl.T
 
         # Preconditioner
         if solver["type"][1] is None:
@@ -1701,13 +1730,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
         #                          self._scale_vec, 0.)
 
-        self._ACC(
-            self._unit_b1[0]._data,
-            self._unit_b1[1]._data,
-            self._unit_b1[2]._data,
-            self._scale_vec,
-            self._boundary_cut_e1,
-        )
+        self._ACC(*self._args_accum_kernel)
 
         # solve for new u coeffs (no tmps created here)
         byn = self._B.dot(bn, out=self._byn)

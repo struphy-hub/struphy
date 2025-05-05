@@ -329,12 +329,9 @@ def eval_magnetic_energy(
 
         markers[ip, first_diagnostics_idx] = mu * weight * (abs_B + b_para)
 
-        if abs_B + b_para < 0.:
-            print("negative energy", abs_B, b_para)
 
-
-@stack_array("dfm", "norm_b1", "b", "eta")
-def eval_magnetic_energy2(
+@stack_array("dfm", "eta")
+def eval_magnetic_energy_PBb(
     markers: "float[:,:]",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
@@ -347,8 +344,6 @@ def eval_magnetic_energy2(
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
     The result is stored at markers[:, first_diagnostics_idx].
     """
-    norm_b1 = empty(3, dtype=float)
-    b = empty(3, dtype=float)
     eta = empty(3, dtype=float)
 
     dfm = empty((3, 3), dtype=float)
@@ -404,8 +399,6 @@ def eval_magnetic_energy2(
 
         markers[ip, first_diagnostics_idx] = mu * weight * (abs_B + PB_b)
 
-        if abs_B + PB_b < 0.:
-            print("negative energy", abs_B, PB_b)
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
 def eval_guiding_center_from_6d(

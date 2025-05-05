@@ -339,6 +339,7 @@ class Particles5D(Particles):
         self._unit_b1_h = self.projected_equil.unit_b1
         self._derham = self.projected_equil.derham
 
+        self._tmp0 = self.derham.Vh["0"].zeros()
         self._tmp2 = self.derham.Vh["2"].zeros()
 
     @property
@@ -550,50 +551,66 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
-    def save_magnetic_energy(self, b2, df=False):
+    def save_magnetic_energy(self, b, df=False, use_PB=False):
         r"""
         Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
 
         Parameters
         ----------
 
-        b2 : BlockVector
+        b : BlockVector or StencilVEctor
             Finite element coefficients of the time-dependent magnetic field.
         """
 
-        E2T = self.derham.extraction_ops["2"].transpose()
-        b2t = E2T.dot(b2, out=self._tmp2)
-        b2t.update_ghost_regions()
+        if use_PB:
+            E0T = self.derham.extraction_ops["0"].transpose()
+            PBbt = E0T.dot(b, out=self._tmp0)
+            PBbt.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy(
-            self.markers,
-            self.derham.args_derham,
-            self.domain.args_domain,
-            self.first_diagnostics_idx,
-            self.absB0_h._data,
-            self.unit_b1_h[0]._data,
-            self.unit_b1_h[1]._data,
-            self.unit_b1_h[2]._data,
-            b2t[0]._data,
-            b2t[1]._data,
-            b2t[2]._data,
-            df,
-        )
+            utilities_kernels.eval_magnetic_energy_PBb(
+                self.markers,
+                self.derham.args_derham,
+                self.domain.args_domain,
+                self.first_diagnostics_idx,
+                self.absB0_h._data,
+                PBbt._data,
+                df,
+            )
 
-    def save_magnetic_energy2(self, PBb, df=False):
+        else:
+            E2T = self.derham.extraction_ops["2"].transpose()
+            b2t = E2T.dot(b, out=self._tmp2)
+            b2t.update_ghost_regions()
+
+            utilities_kernels.eval_magnetic_energy(
+                self.markers,
+                self.derham.args_derham,
+                self.domain.args_domain,
+                self.first_diagnostics_idx,
+                self.absB0_h._data,
+                self.unit_b1_h[0]._data,
+                self.unit_b1_h[1]._data,
+                self.unit_b1_h[2]._data,
+                b2t[0]._data,
+                b2t[1]._data,
+                b2t[2]._data,
+                df,
+            )
+
+    def save_magnetic_energy_PBb(self, PBb, df=False):
         r"""
         Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
 
         Parameters
         ----------
 
-        b2 : BlockVector
-            Finite element coefficients of the time-dependent magnetic field.
+        PBb : BlockVector
+            Finite element coefficients of the parallel time-dependent magnetic field.
         """
 
         PBb.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy2(
+        utilities_kernels.eval_magnetic_energy_PBb(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,

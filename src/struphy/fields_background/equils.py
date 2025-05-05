@@ -188,6 +188,8 @@ class ShearedSlab(CartesianMHDequilibrium):
             n2   : 0.   # 2nd shape factor for ion number density profile
             na   : 1.   # number density at r=a
             beta : .1   # plasma beta = p*2/B^2
+            q_kind : int
+                Which safety factor profile, see docstring (0 or 1, default: 0).
     """
 
     def __init__(
@@ -201,6 +203,7 @@ class ShearedSlab(CartesianMHDequilibrium):
         n2: float = 0.0,
         na: float = 1.0,
         beta: float = 0.1,
+        q_kind: int = 0,
     ):
         self.set_params(
             a=a,
@@ -212,6 +215,7 @@ class ShearedSlab(CartesianMHDequilibrium):
             n2=n2,
             na=na,
             beta=beta,
+            q_kind=q_kind,
         )
 
     # ===============================================================
@@ -230,10 +234,17 @@ class ShearedSlab(CartesianMHDequilibrium):
                 qout = 0 * x
 
         else:
-            if der == 0:
-                qout = self.params["q0"] + (self.params["q1"] - self.params["q0"]) * (x / self.params["a"]) ** 2
+            if self.params["q_kind"] == 0:
+                if der == 0:
+                    qout = self.params["q0"] + (self.params["q1"] - self.params["q0"]) * (x / self.params["a"]) ** 2
+                else:
+                    qout = 2 * (self.params["q1"] - self.params["q0"]) * x / self.params["a"] ** 2
+
             else:
-                qout = 2 * (self.params["q1"] - self.params["q0"]) * x / self.params["a"] ** 2
+                if der == 0:
+                    qout = self.params["q0"] + self.params["q1"] * np.sin(2. * np.pi * x / self.params["a"])
+                else:
+                    qout = 2. * np.pi / self.params["a"] * self.params["q1"] * np.cos(2. * np.pi * x / self.params["a"])
 
         return qout
 

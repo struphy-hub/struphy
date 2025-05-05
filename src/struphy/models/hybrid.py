@@ -697,6 +697,12 @@ class LinearMHDDriftkineticCC(StruphyModel):
             option=[False],
             dct=dct,
         )
+        cls.add_option(
+            species=["kinetic", "energetic_ions"],
+            key="use_PB",
+            option=[False],
+            dct=dct,
+        )
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -710,6 +716,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["spaces"]["velocity"]
         self._reduced_coupling = params["kinetic"]["energetic_ions"]["options"]["reduced_coupling"]
+        self._use_PB = params["kinetic"]["energetic_ions"]["options"]["use_PB"]
         params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfvenCurrentCoupling5D"]
         params_sonic = params["fluid"]["mhd"]["options"]["MagnetosonicCurrentCoupling5D"]
         params_density = params["fluid"]["mhd"]["options"]["CurrentCoupling5DDensity"]
@@ -887,6 +894,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_alfven["filter"],
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_alfven["boundary_cut"],
+                "use_PB": self._use_PB,
             }
 
         if params_sonic["turn_off"]:
@@ -924,10 +932,16 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
+        # mass operators for update_scalar_quantities
+        id_M = "M" + self.derham.space_to_form[u_space] + "n"
+        self._mass_ops_Mn = getattr(self._mass_ops, id_M)
+        self._PB = getattr(self.basis_ops, "PB")
+
         # temporaries
         self._b_tempx = self._b_eq.space.zeros()
         self._b_tempy = self._b_eq.space.zeros()
         self._b_tempz = self._b_eq.space.zeros()
+        self._PBb = self._PB.codomain.zeros()
 
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
@@ -935,10 +949,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self._tmp_u = self.derham.Vh[self.derham.space_to_form[u_space]].zeros()
         self._tmp_b = self.derham.Vh["2"].zeros()
-
-        # mass operators for update_scalar_quantities
-        id_M = "M" + self.derham.space_to_form[u_space] + "n"
-        self._mass_ops_Mn = getattr(self._mass_ops, id_M)
 
     def update_scalar_quantities(self):
 
@@ -985,11 +995,17 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar("en_fv", self._en_fv[0])
 
         # calculate particle magnetic energy
-        self.pointer["energetic_ions"].save_magnetic_energy(
-            self.pointer["b_field"], df= self._reduced_coupling,
-        )
+        if self._use_PB:
+            self._PBb = self._PB.dot(self.pointer["b_field"])
+            
+            self.pointer["energetic_ions"].save_magnetic_energy(
+                self._PBb, df= self._reduced_coupling, use_PB=self._use_PB,
+            )
 
-        # self.pointer["energetic_ions"].save_magnetic_background_energy()
+        else:
+            self.pointer["energetic_ions"].save_magnetic_energy(
+                self.pointer["b_field"], df= self._reduced_coupling, use_PB=self._use_PB,
+            )
 
         self._en_fB[0] = np.sum(
             self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 8]) * self._coupling_params["Ah"] / self._coupling_params["Ab"]

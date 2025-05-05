@@ -1297,3 +1297,38 @@ def cc_lin_mhd_5d_gradB_dg(
     vec1 /= n_markers_tot
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
+
+
+def cc_lin_mhd_5d_M_scalar(
+    markers: "float[:,:]",
+    n_markers_tot: "int",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec: "float[:,:,:]",
+    scale_vec: "float",  # model specific argument
+):
+    r"""TODO"""
+
+    # get number of markers
+    n_markers_loc = shape(markers)[0]
+
+    for ip in range(n_markers_loc):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # marker weight and velocity
+        weight = markers[ip, 5]
+        mu = markers[ip, 9]
+
+        filling = weight * mu * scale_vec
+
+        particle_to_mat_kernels.vec_fill_b_v0(
+            args_derham, eta1, eta2, eta3, vec, filling)
+
+    vec /= n_markers_tot

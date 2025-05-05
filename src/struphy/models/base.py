@@ -161,6 +161,14 @@ class StruphyModel(metaclass=ABCMeta):
             eq_mhd=self.equil,
         )
 
+        # create basis operatros
+        self._basis_ops = BasisProjectionOperators(
+            self.derham,
+            self.domain,
+            verbose=self.verbose,
+            eq_mhd=self.equil,
+        )
+
         # allocate memory for variables
         self._pointer = {}
         self._allocate_variables()
@@ -178,12 +186,7 @@ class StruphyModel(metaclass=ABCMeta):
         Propagator.derham = self.derham
         Propagator.domain = self.domain
         Propagator.mass_ops = self.mass_ops
-        Propagator.basis_ops = BasisProjectionOperators(
-            self.derham,
-            self.domain,
-            verbose=self.verbose,
-            eq_mhd=self.equil,
-        )
+        Propagator.basis_ops = self.basis_ops
         Propagator.projected_equil = self.projected_equil
 
         # create dummy lists/dicts to be filled by the sub-class
@@ -332,6 +335,11 @@ class StruphyModel(metaclass=ABCMeta):
     def mass_ops(self):
         """WeighteMassOperators object, see :ref:`mass_ops`."""
         return self._mass_ops
+
+    @property
+    def basis_ops(self):
+        """Basis projection operators."""
+        return self._basis_ops
 
     @property
     def prop_fields(self):
