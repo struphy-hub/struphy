@@ -259,15 +259,13 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     # operator Q1 (V1 --> V2)
     if mpi_rank == 0:
         print("\nQ1 (V1 --> V2):")
-    print('yoooooooooooooooooooooooooo1')
+
     res_PSY = OPS_PSY.Q1.dot(x1_st)
-    print('aaaaaaaaaaaaaaaaaaaaaaaaaa')
     res_STR = OPS_STR.Q1_dot(np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    print('bbbbbbbbbbbbbbbbbbb')
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
-    print('cccccccccccccccccccccccccc')
+
     MPI_COMM.Barrier()
-    print('ddddddddddddddddddddddddddd')
+
     print(f"Rank {mpi_rank} | Asserting MHD operator Q1, first component.")
     assert_ops(mpi_rank, res_PSY[0], res_STR_0)
     print(f"Rank {mpi_rank} | Assertion passed.")
@@ -828,12 +826,12 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == "__main__":
-    test_some_basis_ops(
-        Nel=[8, 8, 8],
-        p=[2, 2, 2],
-        spl_kind=[False, True, True],
-        mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
-    )
-    # test_basis_ops_polar(
-    #     [6, 9, 7], [2, 2, 3], [False, True, True], None, ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}], False
+    # test_some_basis_ops(
+    #     Nel=[8, 8, 8],
+    #     p=[2, 2, 2],
+    #     spl_kind=[False, True, True],
+    #     mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
     # )
+    test_basis_ops_polar(
+        [6, 9, 7], [2, 2, 3], [False, True, True], None, ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}], False
+    )
