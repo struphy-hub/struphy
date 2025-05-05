@@ -25,6 +25,7 @@ def struphy():
     import struphy.utils.utils as utils
     from struphy.console.compile import struphy_compile
     from struphy.console.format import struphy_format, struphy_lint
+    from struphy.console.likwid import struphy_likwid_profile
     from struphy.console.params import struphy_params
     from struphy.console.pproc import struphy_pproc
     from struphy.console.profile import struphy_profile
@@ -331,7 +332,6 @@ def struphy():
         metavar="FILE",
         help="batch script in current I/O path",
     )
-
     parser_run.add_argument(
         "--batch-abs",
         type=str,
@@ -483,34 +483,55 @@ def struphy():
         action="store_true",
     )
 
-    parser_run.add_argument(
+    parser_likwid = parser_run.add_argument_group("Likwid Options", "Arguments related to Likwid performance measurement")
+
+    # Add Likwid-related arguments to the likwid group
+    parser_likwid.add_argument(
         "--likwid",
         help="run with Likwid",
         action="store_true",
     )
 
-    parser_run.add_argument(
-        "-li",
-        "--likwid-inp",
+    parser_likwid.add_argument(
+        "-g",
+        "--group",
+        default="MEM_DP",
         type=str,
-        metavar="FILE",
-        help="likwid parameter file (.yml) in current I/O path",
+        help="likwid measurement group",
+    )
+    parser_likwid.add_argument(
+        "--nperdomain",
+        default=None, # Example: S:36 means 36 cores/socket
+        type=str,
+        help="Set the number of processes per node by giving an affinity domain and count",
     )
 
-    parser_run.add_argument(
-        "--likwid-input-abs",
-        type=str,
-        metavar="FILE",
-        help="likwid parameter file (.yml), absolute path",
+    parser_likwid.add_argument(
+        "--stats",
+        help="Print Likwid statistics",
+        action="store_true",
     )
-    parser_run.add_argument(
+
+    parser_likwid.add_argument(
+        "--marker",
+        help="Activate Likwid marker API",
+        action="store_true",
+    )
+
+    parser_likwid.add_argument(
+        "--hpcmd_suspend",
+        help="Suspend the HPCMD daemon",
+        action="store_true",
+    )
+
+    parser_likwid.add_argument(
         "-lr",
         "--likwid-repetitions",
         type=int,
         help="number of repetitions of the same simulation",
         default=1,
     )
-
+    
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
         "profile",
@@ -559,6 +580,62 @@ def struphy():
         type=str,
         metavar="NAME",
         help="save (and dont display) the profile figure under NAME, relative to current output path.",
+    )
+
+    parser_likwid_profile = subparsers.add_parser(
+        "likwid_profile",
+        help="Profile finished Struphy runs with likwid",
+        description="Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.",
+    )
+
+    parser_likwid_profile.add_argument(
+        "--dir",
+        type=str,
+        nargs="+",
+        required=True,
+        help="Paths to the data directories (space-separated, supports wildcards)",
+    )
+    parser_likwid_profile.add_argument(
+        "--title",
+        type=str,
+        default="Testing",
+        help="Name of the project",
+    )
+    parser_likwid_profile.add_argument(
+        "--output",
+        type=str,
+        default=".",
+        help="Output directory",
+    )
+    parser_likwid_profile.add_argument(
+        "--groups",
+        type=str,
+        default=["*"],
+        nargs="+",
+        required=False,
+        help="Likwid groups to include",
+    )
+    parser_likwid_profile.add_argument(
+        "--skip",
+        type=str,
+        default=[],
+        nargs="+",
+        required=False,
+        help="Likwid groups to skip",
+    )
+    parser_likwid_profile.add_argument(
+        "--plots",
+        type=str,
+        default=[
+            "pinning",
+            "speedup",
+            "barplots",
+            "loadbalance",
+            "roofline",
+        ],
+        nargs="+",
+        required=False,
+        help="Types of plots to plot",
     )
 
     # 6. "pproc" sub-command
@@ -648,11 +725,20 @@ def struphy():
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
+            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"] + ["performance"],
             metavar="GROUP",
             help='can be either:\na) a model name \
                                     \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "unit" for performing unit tests',
+        )
+        
+        parser_test.add_argument(
+            "-b",
+            "--batch",
+            type=str,
+            choices=batch_files,
+            metavar="FILE",
+            help="batch script in current I/O path",
         )
 
         parser_test.add_argument(
@@ -697,6 +783,12 @@ def struphy():
             action="store_true",
         )
 
+        parser_test.add_argument(
+            "--likwid",
+            help="perform verification runs with LIKWID markers",
+            action="store_true",
+        )
+        
         parser_test.add_argument(
             "--nclones",
             type=int,
