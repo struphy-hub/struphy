@@ -531,6 +531,24 @@ def struphy():
         help="number of repetitions of the same simulation",
         default=1,
     )
+
+    parser_likwid.add_argument(
+        "--time-trace",
+        help="Measure time traces for each call of the regions measured with ProfileManager",
+        action="store_true",
+    )
+
+    parser_likwid.add_argument(
+        "--sample-duration",
+        help="Duration of samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
+
+    parser_likwid.add_argument(
+        "--sample-interval",
+        help="Time between samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
     
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
@@ -725,20 +743,11 @@ def struphy():
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"] + ["performance"],
+            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
             metavar="GROUP",
             help='can be either:\na) a model name \
                                     \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "unit" for performing unit tests',
-        )
-        
-        parser_test.add_argument(
-            "-b",
-            "--batch",
-            type=str,
-            choices=batch_files,
-            metavar="FILE",
-            help="batch script in current I/O path",
         )
 
         parser_test.add_argument(
@@ -780,12 +789,6 @@ def struphy():
         parser_test.add_argument(
             "--verification",
             help="perform verification runs specified in io/inp/verification/",
-            action="store_true",
-        )
-
-        parser_test.add_argument(
-            "--likwid",
-            help="perform verification runs with LIKWID markers",
             action="store_true",
         )
         
@@ -1144,6 +1147,7 @@ def struphy():
     # for k, v in kwargs.items():
     #     print(k, v)
     # exit()
+    # print(f"{kwargs = }")
     func(**kwargs)
 
 

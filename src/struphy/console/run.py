@@ -27,6 +27,9 @@ def struphy_run(
     hpcmd_suspend=None,
     likwid_repetitions=1,
     group="MEM_DP",
+    time_trace=False,
+    sample_duration=1.0,
+    sample_interval=1.0,
 ):
     """Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -177,6 +180,14 @@ def struphy_run(
         "--nclones",
         str(nclones),
     ]
+    if time_trace:
+        cmd_main += [
+            "--time-trace",
+            "--sample-duration",
+            str(sample_duration),
+            "--sample-interval",
+            str(sample_interval)
+            ]
     if verbose:
         cmd_main += ["-v"]
 
