@@ -87,6 +87,12 @@ def assemble_dofs_for_weighted_basisfuns_1d(
     # Set output to zero
     mat[:] = 0.0
 
+    # Find column index for _data:
+    if dim1_out <= dim1_in:
+        cut1 = p1
+    else:
+        cut1 = p1_out
+
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
@@ -105,12 +111,6 @@ def assemble_dofs_for_weighted_basisfuns_1d(
                 m = span1[ii, iq] - p1 + b1  # global index
                 # basis value
                 value = funval * basis1[ii, iq, b1]
-
-                # Find column index for _data:
-                if dim1_out <= dim1_in:
-                    cut1 = p1
-                else:
-                    cut1 = p1_out
 
                 # Diff of global indices, needs to be adjusted for boundary conditions --> col1
                 col1_tmp = m - (i + so1)
@@ -247,6 +247,17 @@ def assemble_dofs_for_weighted_basisfuns_2d(
     # Set output to zero
     mat[:] = 0.0
 
+    # Find column index for _data:
+    if dim1_out <= dim1_in:
+        cut1 = p1
+    else:
+        cut1 = p1_out
+        
+    if dim2_out <= dim2_in:
+        cut2 = p2
+    else:
+        cut2 = p2_out
+
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
@@ -272,12 +283,6 @@ def assemble_dofs_for_weighted_basisfuns_2d(
                         # basis value
                         val1 = funval * basis1[ii, iq, b1]
 
-                        # Find column index for _data:
-                        if dim1_out <= dim1_in:
-                            cut1 = p1
-                        else:
-                            cut1 = p1_out
-
                         # Diff of global indices, needs to be adjusted for boundary conditions --> col1
                         col1_tmp = m - (i + so1)
                         if col1_tmp > cut1:
@@ -291,12 +296,6 @@ def assemble_dofs_for_weighted_basisfuns_2d(
                             # global index
                             n = span2[jj, jq] - p2 + b2
                             value = val1 * basis2[jj, jq, b2]
-
-                            # Find column index for _data:
-                            if dim2_out <= dim2_in:
-                                cut2 = p2
-                            else:
-                                cut2 = p2_out
 
                             # Diff of global indices, needs to be adjusted for boundary conditions --> col2
                             col2_tmp = n - (j + so2)
@@ -466,6 +465,22 @@ def assemble_dofs_for_weighted_basisfuns_3d(
     # Set output to zero
     mat[:] = 0.0
 
+    # Find column index for _data:
+    if dim1_out <= dim1_in:
+        cut1 = p1
+    else:
+        cut1 = p1_out
+
+    if dim2_out <= dim2_in:
+        cut2 = p2
+    else:
+        cut2 = p2_out
+        
+    if dim3_out <= dim3_in:
+        cut3 = p3
+    else:
+        cut3 = p3_out
+
     # Interval (either element or sub-interval thereof)
     # -------------------------------------------------
     cumsub_i = 0  # Cumulative sub-interval index
@@ -506,12 +521,6 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                                 # basis value
                                 val1 = funval * basis1[ii, iq, b1]
 
-                                # Find column index for _data:
-                                if dim1_out <= dim1_in:
-                                    cut1 = p1
-                                else:
-                                    cut1 = p1_out
-
                                 # Diff of global indices, needs to be adjusted for boundary conditions --> col1
                                 col1_tmp = m - (i + so1)
                                 if col1_tmp > cut1:
@@ -526,12 +535,6 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                                     n = span2[jj, jq] - p2 + b2
                                     val2 = val1 * basis2[jj, jq, b2]
 
-                                    # Find column index for _data:
-                                    if dim2_out <= dim2_in:
-                                        cut2 = p2
-                                    else:
-                                        cut2 = p2_out
-
                                     # Diff of global indices, needs to be adjusted for boundary conditions --> col2
                                     col2_tmp = n - (j + so2)
                                     if col2_tmp > cut2:
@@ -545,12 +548,6 @@ def assemble_dofs_for_weighted_basisfuns_3d(
                                         # global index
                                         o = span3[kk, kq] - p3 + b3
                                         value = val2 * basis3[kk, kq, b3]
-
-                                        # Find column index for _data:
-                                        if dim3_out <= dim3_in:
-                                            cut3 = p3
-                                        else:
-                                            cut3 = p3_out
 
                                         # Diff of global indices, needs to be adjusted for boundary conditions --> col3
                                         col3_tmp = o - (k + so3)
