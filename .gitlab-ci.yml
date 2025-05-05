@@ -164,7 +164,7 @@ stages:
     - pip install -U pip
     - python3 -m pip list
     - python3 --version
-  install_on_push:
+  install_pyccel_devel:
     - !reference [.scripts, source_env_matrix_push]
     - git status
     - git fetch origin
@@ -173,10 +173,17 @@ stages:
     - pip uninstall pyccel -y
     - pip uninstall psydac -y
     - pip install -e $(echo $STRUPHY_SOURCE)[test]
+    - struphy compile -d -y
+    - !reference [.scripts, compile_matrix]
+  install_on_push:
+    - !reference [.scripts, source_env_matrix_push]
+    - git status
+    - git fetch origin
+    - git checkout $CI_COMMIT_BRANCH
+    - git pull
+    - pip install -e $(echo $STRUPHY_SOURCE)[test]
     - !reference [.scripts, compile_matrix]
   install:
-    - pip uninstall pyccel -y
-    - pip uninstall psydac -y
     - pip install $(echo $STRUPHY_SOURCE)[test]
     - pip show struphy
     - pip list
@@ -184,13 +191,11 @@ stages:
   compile:
     - pyccel --version
     - struphy compile --status
-    - struphy compile -d -y
     - struphy compile -y
   compile_matrix:
     - pyccel --version
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
-    - struphy compile -d -y
     - struphy compile --language ${LANGUAGE} ${OMP} -y
   build:
     - pip install -U build
@@ -284,6 +289,18 @@ unit_tests:
   script:
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, unit_tests]
+
+tests_pyccel_devel:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_pyccel_devel]
+    - !reference [.scripts, unit_tests]
+    - !reference [.scripts, model_tests]
 
 model_tests:
   stage: test
