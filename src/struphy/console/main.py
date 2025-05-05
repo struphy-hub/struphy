@@ -483,70 +483,71 @@ def struphy():
         action="store_true",
     )
 
-    parser_likwid = parser_run.add_argument_group(
-        "Likwid Options", "Arguments related to Likwid performance measurement"
+    parser_performance = parser_run.add_argument_group(
+        "Performance profiling options",
+        "Arguments related to performance measurement. Note that hardware metrics requires a likwid installation.",
     )
 
     # Add Likwid-related arguments to the likwid group
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--likwid",
         help="run with Likwid",
         action="store_true",
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "-g",
         "--group",
         default="MEM_DP",
         type=str,
         help="likwid measurement group",
     )
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--nperdomain",
         default=None,  # Example: S:36 means 36 cores/socket
         type=str,
         help="Set the number of processes per node by giving an affinity domain and count",
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--stats",
         help="Print Likwid statistics",
         action="store_true",
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--marker",
         help="Activate Likwid marker API",
         action="store_true",
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--hpcmd_suspend",
         help="Suspend the HPCMD daemon",
         action="store_true",
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "-lr",
         "--likwid-repetitions",
         type=int,
-        help="number of repetitions of the same simulation",
+        help="Number of repetitions of the same simulation",
         default=1,
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--time-trace",
         help="Measure time traces for each call of the regions measured with ProfileManager",
         action="store_true",
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--sample-duration",
         help="Duration of samples when measuring time traces with ProfileManager",
         default=1.0,
     )
 
-    parser_likwid.add_argument(
+    parser_performance.add_argument(
         "--sample-interval",
         help="Time between samples when measuring time traces with ProfileManager",
         default=1.0,
@@ -633,7 +634,7 @@ def struphy():
         default=["*"],
         nargs="+",
         required=False,
-        help="Likwid groups to include",
+        help="Likwid groups to include (space-separated, supports wildcards). Default: ['*'].",
     )
     parser_likwid_profile.add_argument(
         "--skip",
@@ -641,7 +642,7 @@ def struphy():
         default=[],
         nargs="+",
         required=False,
-        help="Likwid groups to skip",
+        help="Likwid groups to skip (space-separated, supports wildcards). Default: [].",
     )
     parser_likwid_profile.add_argument(
         "--plots",
@@ -655,7 +656,7 @@ def struphy():
         ],
         nargs="+",
         required=False,
-        help="Types of plots to plot",
+        help="Types of plots to plot (space-separated). Default: [pinning, speedup. barplots, loadbalance, roofline]",
     )
 
     # 6. "pproc" sub-command
