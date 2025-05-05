@@ -240,6 +240,8 @@ def setup_derham(
     nq_el = params_grid["nq_el"]
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid["polar_ck"]
+    # local commuting projectors
+    local_projectors = params_grid["local_projectors"]
 
     derham = Derham(
         Nel,
@@ -253,6 +255,7 @@ def setup_derham(
         with_projectors=True,
         polar_ck=polar_ck,
         domain=domain,
+        local_projectors=local_projectors,
     )
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
