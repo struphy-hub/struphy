@@ -64,8 +64,10 @@ class Maxwell(StruphyModel):
         solver = params["em_fields"]["options"]["Maxwell"]["solver"]
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {"algo": algo,
-                                                    "solver": solver,}
+        self._kwargs[propagators_fields.Maxwell] = {
+            "algo": algo,
+            "solver": solver,
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()

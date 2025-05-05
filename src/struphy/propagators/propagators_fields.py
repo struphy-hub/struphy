@@ -19,13 +19,13 @@ from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.ode.solvers import ODEsolverFEEC
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.ode.solvers import ODEsolverFEEC
 
 
 class Maxwell(Propagator):
@@ -106,12 +106,12 @@ class Maxwell(Propagator):
                 maxiter=solver["maxiter"],
                 verbose=solver["verbose"],
             )
-            
-            # pre-allocate arrays 
+
+            # pre-allocate arrays
             self._byn = self._B.codomain.zeros()
         else:
             self._info = False
-            
+
             # define vector field
             M1_inv = inverse(
                 M1,
@@ -131,13 +131,13 @@ class Maxwell(Propagator):
                 weak_curl.dot(y2, out=out)
                 out.update_ghost_regions()
                 return out
-            
+
             def f2(t, y1, y2, out=out2):
                 curl.dot(y1, out=out)
                 out *= -1.0
                 out.update_ghost_regions()
                 return out
-            
+
             vector_field = {e: f1, b: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
@@ -145,7 +145,6 @@ class Maxwell(Propagator):
         self._e_tmp1 = e.space.zeros()
         self._e_tmp2 = e.space.zeros()
         self._b_tmp1 = b.space.zeros()
-
 
     def __call__(self, dt):
         # current variables
@@ -164,11 +163,11 @@ class Maxwell(Propagator):
             bn1 = self._C.dot(_e, out=self._b_tmp1)
             bn1 *= -dt
             bn1 += bn
-            
+
             # write new coeffs into self.feec_vars
             max_de, max_db = self.feec_vars_update(en1, bn1)
         else:
-            self._ode_solver(0.0, dt) 
+            self._ode_solver(0.0, dt)
 
         if self._info and self.rank == 0:
             if self._algo == "implicit":
@@ -475,7 +474,6 @@ class ShearAlfven(Propagator):
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         if self._algo == "implicit":
-
             self._info = solver["info"]
 
             self._B = -1 / 2 * _T.T @ curl.T @ _M2
@@ -497,7 +495,7 @@ class ShearAlfven(Propagator):
 
             # pre-allocate arrays
             self._byn = self._B.codomain.zeros()
-        
+
         else:
             self._info = False
 
@@ -521,13 +519,13 @@ class ShearAlfven(Propagator):
                 _f1.dot(y2, out=out)
                 out.update_ghost_regions()
                 return out
-            
+
             def f2(t, y1, y2, out=out2):
                 _f2.dot(y1, out=out)
                 out *= -1.0
                 out.update_ghost_regions()
                 return out
-            
+
             vector_field = {u: f1, b: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
@@ -558,7 +556,7 @@ class ShearAlfven(Propagator):
             max_du, max_db = self.feec_vars_update(un1, bn1)
 
         else:
-            self._ode_solver(0.0, dt) 
+            self._ode_solver(0.0, dt)
 
         if self._info and self.rank == 0:
             if self._algo == "implicit":

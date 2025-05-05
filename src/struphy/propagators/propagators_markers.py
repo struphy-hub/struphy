@@ -8,12 +8,12 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
+from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
-from struphy.ode.utils import ButcherTableau
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
@@ -72,9 +72,10 @@ class PushEta(Propagator):
         butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
+
         butcher._a = np.diag(butcher.a, k=-1)
         butcher._a = np.array(list(butcher.a) + [0.0])
-        
+
         args_kernel = (
             butcher.a,
             butcher.b,
@@ -712,6 +713,7 @@ class PushGuidingCenterBxEstar(Propagator):
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
             import numpy as np
+
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
 
@@ -1130,6 +1132,7 @@ class PushGuidingCenterParallel(Propagator):
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
             import numpy as np
+
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
 
@@ -1339,6 +1342,7 @@ class PushDeterministicDiffusion(Propagator):
         self._butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
+
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
@@ -1440,6 +1444,7 @@ class PushRandomDiffusion(Propagator):
         self._butcher = ButcherTableau("forward_euler")
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
+
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 

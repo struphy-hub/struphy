@@ -110,7 +110,7 @@ class LinearMHD(StruphyModel):
         self._kwargs[propagators_fields.ShearAlfven] = {
             "u_space": u_space,
             "solver": alfven_solver,
-            "algo": alfven_algo, 
+            "algo": alfven_algo,
         }
 
         self._kwargs[propagators_fields.Magnetosonic] = {
