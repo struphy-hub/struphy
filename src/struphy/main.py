@@ -414,7 +414,6 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    # likwid
     parser.add_argument(
         "--likwid",
         help="run with Likwid",
@@ -427,7 +426,6 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    # likwid
     parser.add_argument(
         "--sample-duration",
         help="Duration of samples when measuring time traces with ProfileManager",
@@ -441,15 +439,12 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    # print(f"{args.time_trace = }"); exit()
-    # Enable profiling if likwid == True
     config = ProfilingConfig()
     config.likwid = args.likwid
     config.sample_duration = float(args.sample_duration)
     config.sample_interval = float(args.sample_interval)
     config.time_trace = args.time_trace
     config.simulation_label = ""
-    print(f"{config.time_trace = } <---")
     pylikwid_markerinit()
     with ProfileManager.profile_region("main"):
         # solve the model
@@ -466,7 +461,6 @@ if __name__ == "__main__":
             num_clones=args.nclones,
         )
     pylikwid_markerclose()
-    # if args.likwid:
-    #     # all_regions = ProfileManager.get_all_regions()
-    ProfileManager.print_summary()
-    ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_time_trace.pkl"))
+    if config.time_trace:
+        ProfileManager.print_summary()
+        ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_time_trace.pkl"))
