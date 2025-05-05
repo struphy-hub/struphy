@@ -181,9 +181,13 @@ stages:
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
+    - pip uninstall pyccel -y
+    - pip uninstall psydac -y
     - pip install -e $(echo $STRUPHY_SOURCE)[test]
     - !reference [.scripts, compile_matrix]
   install:
+    - pip uninstall pyccel -y
+    - pip uninstall psydac -y
     - pip install $(echo $STRUPHY_SOURCE)[test]
     - pip show struphy
     - pip list
