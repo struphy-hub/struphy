@@ -1,8 +1,10 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
-
 import numpy as np
+
+from struphy.feec.psydac_derham import Derham
+
 
 
 class Propagator(metaclass=ABCMeta):
@@ -112,6 +114,7 @@ class Propagator(metaclass=ABCMeta):
             self,
             "_derham",
         ), "Derham not set. Please do obj.derham = ..."
+        assert isinstance(self._derham, Derham)
         return self._derham
 
     @derham.setter

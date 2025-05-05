@@ -26,6 +26,7 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.ode.solvers import ODEsolverFEEC
+from struphy.ode.utils import ButcherTableau
 
 
 class Maxwell(Propagator):
@@ -44,7 +45,7 @@ class Maxwell(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct["algo"] = ["implicit", "rk4", "forward_euler", "heun2", "rk2", "heun3"]
+        dct["algo"] = ["implicit"] + ButcherTableau.available_methods()
         dct["solver"] = {
             "type": [
                 ("pcg", "MassMatrixPreconditioner"),
@@ -7630,7 +7631,7 @@ class HasegawaWakatani(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct["algo"] = ["rk4", "forward_euler", "heun2", "rk2", "heun3"]
+        dct["algo"] = ButcherTableau.available_methods()
         if default:
             dct = descend_options_dict(dct, [])
         return dct
@@ -7641,9 +7642,24 @@ class HasegawaWakatani(Propagator):
         omega0: StencilVector,
         *,
         phi: StencilVector = None,
+        c_fun: callable = None,
+        kappa: float = 1.0,
+        nu: float = 0.01,
         algo: dict = options(default=True)["algo"],
     ):
         super().__init__(n0, omega0)
+        
+        # get quadrature grid of V0
+        pts = [quad_grid[nquad].points.flatten()
+                    for quad_grid, nquad in zip(
+                        self.derham.get_quad_grids(n0.space), self.derham.nquads,
+                    )
+                ]
+        print(f'{pts[0].shape = }')
+        mesh_pts = np.meshgrid(*pts, indexing="ij")
+        
+        # evaluate c(x, y) at quadrature gird and store
+        self._c_at_mesh_pts = c_fun(*mesh_pts)
 
     def __call__(self, dt):
         # current variables
