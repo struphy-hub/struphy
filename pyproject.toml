@@ -31,7 +31,7 @@ dependencies = [
     'vtk',
     'tqdm',
     'argcomplete',
-    'gvec-to-python',
+    'gvec-to-python @ git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python.git@add-floor-divs-in-kernels',
     'desc-opt',
 ]
 
