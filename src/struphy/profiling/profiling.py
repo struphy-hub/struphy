@@ -74,7 +74,7 @@ class ProfilingConfig:
     @sample_interval.setter
     def sample_interval(self, value):
         self._sample_interval = value
-    
+
     @property
     def time_trace(self):
         return self._time_trace
@@ -260,7 +260,7 @@ class ProfileManager:
 class ProfileRegion:
     """Context manager for profiling specific code regions using LIKWID markers."""
 
-    def __init__(self, region_name, time_trace = False):
+    def __init__(self, region_name, time_trace=False):
         if hasattr(self, "_initialized") and self._initialized:
             return
         self._config = ProfilingConfig()
@@ -275,7 +275,7 @@ class ProfileRegion:
     def __enter__(self):
         if self.config.likwid:
             self._pylikwid().markerstartregion(self.region_name)
-        
+
         self._ncalls += 1
 
         if self._time_trace:
@@ -324,6 +324,7 @@ class ProfileRegion:
     @property
     def started(self):
         return self._started
+
 
 def pylikwid_markerinit():
     """Initialize LIKWID profiling markers."""

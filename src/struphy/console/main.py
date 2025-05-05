@@ -483,7 +483,9 @@ def struphy():
         action="store_true",
     )
 
-    parser_likwid = parser_run.add_argument_group("Likwid Options", "Arguments related to Likwid performance measurement")
+    parser_likwid = parser_run.add_argument_group(
+        "Likwid Options", "Arguments related to Likwid performance measurement"
+    )
 
     # Add Likwid-related arguments to the likwid group
     parser_likwid.add_argument(
@@ -501,7 +503,7 @@ def struphy():
     )
     parser_likwid.add_argument(
         "--nperdomain",
-        default=None, # Example: S:36 means 36 cores/socket
+        default=None,  # Example: S:36 means 36 cores/socket
         type=str,
         help="Set the number of processes per node by giving an affinity domain and count",
     )
@@ -549,7 +551,7 @@ def struphy():
         help="Time between samples when measuring time traces with ProfileManager",
         default=1.0,
     )
-    
+
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
         "profile",
@@ -797,7 +799,7 @@ def struphy():
             help="perform verification runs specified in io/inp/verification/",
             action="store_true",
         )
-        
+
         parser_test.add_argument(
             "--nclones",
             type=int,

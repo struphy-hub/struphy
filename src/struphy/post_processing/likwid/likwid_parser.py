@@ -319,7 +319,7 @@ class Project:
         """Read project folder to gather LIKWID output data."""
         for likwid_output_path in glob.glob(f"{self.path}/{self.likwid_out_naming}"):
             lw_output = read_likwid_output(likwid_output_path)
-            #print(lw_output)
+            # print(lw_output)
             self.simulation_finished = lw_output["struphy_ended"]
             thread_list = None
             if self.nodelist:

@@ -209,7 +209,7 @@ def test_struphy_run(
         if likwid:
             assert is_sublist(
                 run_command,
-                ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", '-mpi', 'openmpi'],
+                ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-mpi", "openmpi"],
             )
             assert os.path.join(libpath, "main.py") in run_command
         else:

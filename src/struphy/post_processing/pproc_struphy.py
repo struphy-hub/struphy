@@ -33,7 +33,7 @@ def main(
 
     no_vtk : bool
         whether vtk files creation should be skipped
-    
+
     time_trace : bool
         whether to plot the time trace of each measured region
     """
@@ -60,9 +60,10 @@ def main(
     except:
         shutil.rmtree(path_pproc)
         os.mkdir(path_pproc)
-    
+
     if time_trace:
         from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart, plot_time_vs_duration
+
         path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
         plot_time_vs_duration(path_time_trace, output_path=path_pproc)
         plot_gantt_chart(path_time_trace, output_path=path_pproc)

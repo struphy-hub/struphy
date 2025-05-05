@@ -70,6 +70,6 @@ def struphy_pproc(
         command += ["--no-vtk"]
 
     if time_trace:
-        command += ['--time-trace']
+        command += ["--time-trace"]
 
     subp_run(command)
