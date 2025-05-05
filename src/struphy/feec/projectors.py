@@ -89,20 +89,20 @@ class CommutingProjector:
             self._dofs_extraction_op = dofs_extraction_op
         else:
             self._dofs_extraction_op = IdentityOperator(
-                self.space.vector_space,
+                self.space.coeff_space,
             )
 
         if base_extraction_op is not None:
             self._base_extraction_op = base_extraction_op
         else:
             self._base_extraction_op = IdentityOperator(
-                self.space.vector_space,
+                self.space.coeff_space,
             )
 
         if boundary_op is not None:
             self._boundary_op = boundary_op
         else:
-            self._boundary_op = IdentityOperator(self.space.vector_space)
+            self._boundary_op = IdentityOperator(self.space.coeff_space)
 
         # convert Kronecker inter-/histopolation matrix to Stencil-/BlockLinearOperator (only needed in polar case)
         if isinstance(self.dofs_extraction_op, PolarExtractionOperator):
@@ -129,8 +129,8 @@ class CommutingProjector:
                 ]
 
                 self._imat = BlockLinearOperator(
-                    self.space.vector_space,
-                    self.space.vector_space,
+                    self.space.coeff_space,
+                    self.space.coeff_space,
                     blocks,
                 )
 
@@ -631,7 +631,7 @@ class CommutingProjectorLocal:
 
         self._fem_space = fem_space
         # codomain
-        self._vector_space = fem_space.vector_space
+        self._coeff_space = fem_space.coeff_space
 
         self._pts = pts
         self._wts = wts
@@ -659,19 +659,19 @@ class CommutingProjectorLocal:
 
         if isinstance(fem_space, TensorFemSpace):
             # The comm, rank and size are only necessary for debugging. In particular, for printing stuff
-            self._comm = self._vector_space.cart.comm
+            self._comm = self._coeff_space.cart.comm
             self._rank = self._comm.Get_rank()
             self._size = self._comm.Get_size()
 
             # We get the start and endpoint for each sublist in out
-            self._starts = np.array(self.vector_space.starts)
-            self._ends = np.array(self.vector_space.ends)
+            self._starts = np.array(self.coeff_space.starts)
+            self._ends = np.array(self.coeff_space.ends)
 
             # We compute the number of FE coefficients the current MPI rank is responsible for
             self._loc_num_coeff = np.array([self._ends[i] + 1 - self._starts[i] for i in range(3)], dtype=int)
 
             # We get the pads
-            self._pds = np.array(self.vector_space.pads)
+            self._pds = np.array(self.coeff_space.pads)
             # We get the number of spaces we have
             self._nsp = 1
 
@@ -682,13 +682,13 @@ class CommutingProjectorLocal:
 
         elif isinstance(fem_space, VectorFemSpace):
             # The comm, rank and size are only necessary for debugging. In particular, for printing stuff
-            self._comm = self._vector_space.spaces[0].cart.comm
+            self._comm = self._coeff_space.spaces[0].cart.comm
             self._rank = self._comm.Get_rank()
             self._size = self._comm.Get_size()
 
             # we collect all starts and ends in two big lists
-            self._starts = np.array([vi.starts for vi in self.vector_space.spaces])
-            self._ends = np.array([vi.ends for vi in self.vector_space.spaces])
+            self._starts = np.array([vi.starts for vi in self.coeff_space.spaces])
+            self._ends = np.array([vi.ends for vi in self.coeff_space.spaces])
 
             # We compute the number of FE coefficients the current MPI rank is responsible for
             self._loc_num_coeff = np.array(
@@ -697,9 +697,9 @@ class CommutingProjectorLocal:
             )
 
             # We collect the pads
-            self._pds = np.array([vi.pads for vi in self.vector_space.spaces])
+            self._pds = np.array([vi.pads for vi in self.coeff_space.spaces])
             # We get the number of space we have
-            self._nsp = len(self.vector_space.spaces)
+            self._nsp = len(self.coeff_space.spaces)
 
             # We define a list in which we shall append the index_translation for each block direction
             self._index_translation = [[], [], []]
@@ -1234,9 +1234,9 @@ class CommutingProjectorLocal:
         return self._fem_space
 
     @property
-    def vector_space(self):
+    def coeff_space(self):
         """The vector space underlying the FEM space."""
-        return self._vector_space
+        return self._coeff_space
 
     @property
     def pts(self):
@@ -1277,7 +1277,7 @@ class CommutingProjectorLocal:
         """
         if isinstance(self._fem_space, TensorFemSpace):
             if out is None:
-                out = self.vector_space.zeros()
+                out = self.coeff_space.zeros()
             else:
                 assert isinstance(out, StencilVector)
 
@@ -1288,7 +1288,7 @@ class CommutingProjectorLocal:
 
         elif isinstance(self._fem_space, VectorFemSpace):
             if out is None:
-                out = self.vector_space.zeros()
+                out = self.coeff_space.zeros()
             else:
                 assert isinstance(out, BlockVector)
 
@@ -2046,7 +2046,7 @@ class L2Projector:
 
         # check output vector
         if dofs is None:
-            dofs = self.space.vector_space.zeros()
+            dofs = self.space.coeff_space.zeros()
         else:
             assert isinstance(dofs, (StencilVector, BlockVector, PolarVector))
             assert dofs.space == self.Mmat.codomain
@@ -2086,8 +2086,8 @@ class L2Projector:
             ),
         ):
             # indices
-            starts = [int(start) for start in fem_space.vector_space.starts]
-            pads = fem_space.vector_space.pads
+            starts = [int(start) for start in fem_space.coeff_space.starts]
+            pads = fem_space.coeff_space.pads
 
             if isinstance(dofs, StencilVector):
                 mass_kernels.kernel_3d_vec(

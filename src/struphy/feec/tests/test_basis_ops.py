@@ -127,13 +127,13 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     x3 = np.reshape(np.arange(V3.nbasis), [space.nbasis for space in V3.spaces])
 
-    x0_st = StencilVector(V0.vector_space)
-    x1_st = BlockVector(V1.vector_space, [StencilVector(comp) for comp in V1.vector_space])
-    x2_st = BlockVector(V2.vector_space, [StencilVector(comp) for comp in V2.vector_space])
-    x3_st = StencilVector(V3.vector_space)
+    x0_st = StencilVector(V0.coeff_space)
+    x1_st = BlockVector(V1.coeff_space, [StencilVector(comp) for comp in V1.coeff_space])
+    x2_st = BlockVector(V2.coeff_space, [StencilVector(comp) for comp in V2.coeff_space])
+    x3_st = StencilVector(V3.coeff_space)
 
     # for testing X1T:
-    x0vec_st = BlockVector(V0vec.vector_space, [StencilVector(comp) for comp in V0vec.vector_space])
+    x0vec_st = BlockVector(V0vec.coeff_space, [StencilVector(comp) for comp in V0vec.coeff_space])
 
     MPI_COMM.Barrier()
 
@@ -826,11 +826,12 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == "__main__":
-    test_some_basis_ops(
-        Nel=[8, 8, 8],
-        p=[2, 2, 2],
-        spl_kind=[False, True, True],
-        mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+    # test_some_basis_ops(
+    #     Nel=[8, 8, 8],
+    #     p=[2, 2, 2],
+    #     spl_kind=[False, True, True],
+    #     mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+    # )
+    test_basis_ops_polar(
+        [6, 9, 7], [2, 2, 3], [False, True, True], None, ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}], False
     )
-    # test_basis_ops_polar([5, 9, 6], [2, 3, 2], [False, True, False], [[None, 'd'], [
-    #                    None, None], ['d', None]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)

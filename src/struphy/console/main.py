@@ -13,9 +13,7 @@ __version__ = importlib.metadata.version("struphy")
 
 
 def struphy():
-    """
-    Struphy main executable. Performs argument parsing and sub-command call.
-    """
+    """Struphy main executable. Performs argument parsing and sub-command call."""
 
     import argparse
     import pickle
@@ -707,6 +705,12 @@ def struphy():
         action="store_true",
     )
 
+    parser_pproc.add_argument(
+        "--no-vtk",
+        help="whether vtk files creation should be skipped",
+        action="store_true",
+    )
+
     # 7. "test" sub-command
     try:
         import pytest_mpi
@@ -793,6 +797,14 @@ def struphy():
             action="store_true",
         )
         
+        parser_test.add_argument(
+            "--nclones",
+            type=int,
+            metavar="N",
+            help="number of domain clones (default=1)",
+            default=1,
+        )
+
         parser_test.add_argument(
             "--show-plots",
             help="show plots of tests",

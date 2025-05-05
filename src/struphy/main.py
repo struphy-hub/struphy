@@ -85,14 +85,15 @@ def main(
 
     # loading of simulation parameters, creating output folder and printing information to screen
     params = pre_processing(
-        model_name,
-        parameters,
-        path_out,
-        restart,
-        runtime,
-        save_step,
-        rank,
-        size,
+        model_name=model_name,
+        parameters=parameters,
+        path_out=path_out,
+        restart=restart,
+        max_sim_time=runtime,
+        save_step=save_step,
+        mpi_rank=rank,
+        mpi_size=size,
+        num_clones=num_clones,
         verbose=verbose,
     )
 

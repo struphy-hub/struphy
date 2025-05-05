@@ -6,9 +6,9 @@ def main(
     physical: bool = False,
     guiding_center: bool = False,
     classify: bool = False,
+    no_vtk: bool = False,
 ):
-    """
-    Post-processing of finished Struphy runs.
+    """Post-processing of finished Struphy runs.
 
     Parameters
     ----------
@@ -29,6 +29,9 @@ def main(
 
     classify : bool
         Classify guiding-center trajectories (passing, trapped or lost).
+
+    no_vtk : bool
+        whether vtk files creation should be skipped
     """
 
     import os
@@ -173,9 +176,10 @@ def main(
             pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         # create vtk files
-        pproc.create_vtk(path_fields, grids_phy, point_data)
-        if physical:
-            pproc.create_vtk(path_fields, grids_phy, point_data_phy, physical=True)
+        if not no_vtk:
+            pproc.create_vtk(path_fields, grids_phy, point_data)
+            if physical:
+                pproc.create_vtk(path_fields, grids_phy, point_data_phy, physical=True)
 
     # kinetic post-processing
     if exist_kinetic is not None:
@@ -264,6 +268,8 @@ if __name__ == "__main__":
         "--classify", help="classify guiding-center trajectories (passing, trapped or lost)", action="store_true"
     )
 
+    parser.add_argument("--no-vtk", help="whether vtk files creation should be skipped", action="store_true")
+
     args = parser.parse_args()
 
     main(
@@ -273,4 +279,5 @@ if __name__ == "__main__":
         physical=args.physical,
         guiding_center=args.guiding_center,
         classify=args.classify,
+        no_vtk=args.no_vtk,
     )

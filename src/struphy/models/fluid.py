@@ -1433,7 +1433,10 @@ class IsothermalEulerSPH(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_markers.PushEta: ["euler_fluid"], propagators_markers.PushVinSPHpressure: ["euler_fluid"]}
+        return {
+            propagators_markers.PushEta: ["euler_fluid"],
+            propagators_markers.PushVinSPHpressure: ["euler_fluid"],
+        }
 
     __em_fields__ = species()["em_fields"]
     __fluid_species__ = species()["fluid"]

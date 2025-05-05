@@ -66,7 +66,7 @@ def push_v_with_efield(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, e_form, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -284,7 +284,7 @@ def push_vxb_implicit(
     n_markers = args_markers.n_markers
     first_init_idx = args_markers.first_init_idx
 
-    #$ omp parallel firstprivate(b_prod) private (ip, e, v, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
@@ -423,7 +423,7 @@ def push_pxb_analytic(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp parallel private (ip, v, dfm, dfinv, dfinv_t, det_df, span1, span2, span3, b_form, a_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -792,7 +792,7 @@ def push_hybrid_xp_ap(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private (ip, e, v, dfm, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
+    #$ omp parallel private (ip, v, dfm, dfinv, dfinv_t, span1, span2, span3, bdd1, bdd2, bdd3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, a_form, a_xx, a_xxtrans, matrixp, matrixpp, matrixppp, lhs, rhs, lhsinv)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1101,7 +1101,7 @@ def push_bxu_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1222,7 +1222,7 @@ def push_bxu_Hcurl(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1343,7 +1343,7 @@ def push_bxu_H1vec(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, span1, span2, span3, b_form, b_cart, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1495,7 +1495,7 @@ def push_bxu_Hdiv_pauli(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, der1, der2, der3, bd1, bd2, bd3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, det_df, dfinv, dfinv_t, span1, span2, span3, der1, der2, der3, b_form, b_cart, b_diff, b_grad, u_form, u_cart, e_cart)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -1898,7 +1898,7 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    #$ omp parallel private(ip, e, v, dfm, dfinv, k)
+    #$ omp parallel private(ip, v, dfm, dfinv, k)
     #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole or a boundary particle
@@ -2763,7 +2763,7 @@ def push_weights_with_efield_lin_va(
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, f0, e_vec_1, e_vec_2, e_vec_3, update)
+    #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
     #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
@@ -2873,7 +2873,7 @@ def push_deterministic_diffusion_stage(
 
     pi_du_value = empty(3, dtype=float)
 
-    #$ omp parallel private(ip, etas, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
+    #$ omp parallel private(ip, span1, span2, span3, pi_u_value, pi_du_value, k, tmp, ginv)
     #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -2983,7 +2983,7 @@ def push_random_diffusion_stage(
     #$ omp end parallel
 
 
-@stack_array("grad_u", "grad_u_cart", "tmp1", "tmp2", "tmp3", "ginv")
+@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
 def push_v_sph_pressure(
     dt: float,
     stage: int,
@@ -3038,9 +3038,8 @@ def push_v_sph_pressure(
     grad_u = zeros(3, dtype=float)
     grad_u_cart = zeros(3, dtype=float)
     tmp1 = zeros((3, 3), dtype=float)
-    tmp2 = zeros((3, 3), dtype=float)
-    tmp3 = zeros((3, 3), dtype=float)
-    ginv = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvT = zeros((3, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -3050,7 +3049,7 @@ def push_v_sph_pressure(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e_form, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     #$ omp for
     for ip in range(n_markers):
         if not valid_mks[ip]:
@@ -3084,7 +3083,7 @@ def push_v_sph_pressure(
             h2,
             h3,
         )
-        grad_u[0] *= kappa * weight / n_at_eta
+        grad_u[0] *= kappa / n_at_eta
 
         sum2 = sph_eval_kernels.boxed_based_kernel(
             eta1,
@@ -3105,7 +3104,7 @@ def push_v_sph_pressure(
             h2,
             h3,
         )
-        sum2 *= kappa * weight
+        sum2 *= kappa
         grad_u[0] += sum2
 
         if kernel_type >= 340:
@@ -3129,7 +3128,7 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            grad_u[1] *= kappa * weight / n_at_eta
+            grad_u[1] *= kappa / n_at_eta
 
             sum4 = sph_eval_kernels.boxed_based_kernel(
                 eta1,
@@ -3150,7 +3149,7 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            sum4 *= kappa * weight
+            sum4 *= kappa
             grad_u[1] += sum4
 
         if kernel_type >= 670:
@@ -3174,7 +3173,7 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            grad_u[2] *= kappa * weight / n_at_eta
+            grad_u[2] *= kappa / n_at_eta
 
             sum6 = sph_eval_kernels.boxed_based_kernel(
                 eta1,
@@ -3195,22 +3194,21 @@ def push_v_sph_pressure(
                 h2,
                 h3,
             )
-            sum6 *= kappa * weight
+            sum6 *= kappa
             grad_u[2] += sum6
 
         # push to Cartesian coordinates
-        evaluation_kernels.g_inv(
+        evaluation_kernels.df_inv(
             eta1,
             eta2,
             eta3,
             args_domain,
             tmp1,
-            tmp2,
-            tmp3,
             False,
-            ginv,
+            dfinv,
         )
-        linalg_kernels.matrix_vector(ginv, grad_u, grad_u_cart)
+        linalg_kernels.transpose(dfinv, dfinvT)
+        linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt * grad_u_cart
