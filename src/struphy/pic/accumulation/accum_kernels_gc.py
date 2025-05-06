@@ -445,10 +445,7 @@ def cc_lin_mhd_5d_curlb(
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        if reduced_coupling:
-            dweight = markers[ip, 5]
-        else:
-            dweight = markers[ip, 7]
+        dweight = markers[ip, 5]
         weight = markers[ip, 7]
         v = markers[ip, 3]
 
@@ -518,8 +515,13 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
-            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para * scale_vec
+            if reduced_coupling:
+                filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+                filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para * scale_vec
+
+            else:
+                filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+                filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v0vec_symm(
@@ -562,8 +564,13 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            if reduced_coupling:
+                filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+                filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+
+            else:
+                filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+                filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v2_symm(
@@ -704,10 +711,7 @@ def cc_lin_mhd_5d_gradB(
             continue
 
         # marker weight and velocity
-        if reduced_coupling:
-            dweight = markers[ip, 5]
-        else:
-            dweight = markers[ip, 7]
+        dweight = markers[ip, 5]
         weight = markers[ip, 7]
         v = markers[ip, 3]
         mu = markers[ip, 9]
@@ -787,7 +791,11 @@ def cc_lin_mhd_5d_gradB(
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
+            if reduced_coupling:
+                filling_v[:] += dweight * tmp_v * mu / abs_b_star_para * scale_vec
+            
+            else:
+                filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
@@ -814,7 +822,11 @@ def cc_lin_mhd_5d_gradB(
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            if reduced_coupling:
+                filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+
+            else:
+                filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
@@ -1001,7 +1013,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
             linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
@@ -1010,7 +1022,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
 
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
@@ -1028,7 +1040,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
             # b contribution
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
@@ -1037,7 +1049,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
 
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
@@ -1231,7 +1243,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # beq * gradPB contribution
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             # beq * dg term contribution
             linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
@@ -1244,7 +1256,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # b * gradPB contribution
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * scale_vec
 
             # b * dg term contribution
             linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
@@ -1266,7 +1278,7 @@ def cc_lin_mhd_5d_gradB_dg(
             # beq * gradPB contribution
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # beq * dg term contribution
             linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
@@ -1282,7 +1294,7 @@ def cc_lin_mhd_5d_gradB_dg(
             # b * gradPB contribution
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # b * dg term contribution
             linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
