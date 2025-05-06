@@ -2824,7 +2824,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             #sum_H_diff_loc = np.sum(self.particles[0].markers[~self.particles[0].holes, 15])
             #print(self.derham.comm.Get_rank(), sum_H_diff_loc)
             
-            buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
+            buffer_array = np.array([sum_H_diff_loc])
             self.derham.comm.Allreduce(
                 MPI.IN_PLACE,
                 buffer_array,
@@ -2857,7 +2857,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
             en_fB_mid = buffer_array[0]
 
-            const = (en_U_new + en_fB_new - en_U_old - en_fB_old - en_fB_mid)/denominator
+            const = ( en_fB_new - en_fB_old - en_fB_mid)/denominator
     
             # update u^{n+1,k}
 
