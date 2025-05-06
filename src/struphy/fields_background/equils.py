@@ -3186,7 +3186,7 @@ class CurrentSheet(CartesianMHDequilibrium):
         B_y &= \text{tanh}(z / \delta) \,,
 
         B_y &= \sqrt{(1 - B_y^2)} \,,
-        
+
         p &= p_0 = 5/2\,,
 
         n &= n_0 = 1 \,.
@@ -3202,7 +3202,7 @@ class CurrentSheet(CartesianMHDequilibrium):
     ----
     In the parameter .yml, use the following in the section ``fluid_background``::
         CurrentSheet :
-            amp : 1. 
+            amp : 1.
             delta : 0.1
 
 

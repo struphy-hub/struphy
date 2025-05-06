@@ -1149,7 +1149,8 @@ class ViscousFluid(StruphyModel):
         E(rho, s) = rho^gamma*exp(s/rho)"""
         gam = self._gamma
         return np.power(rho, gam) * np.exp(s / rho)
-    
+
+
 class ViscoresistiveMHD_with_p(StruphyModel):
     r"""Full (non-linear) visco-resistive MHD equations, with the pressure variable discretized with a variational method.
 
