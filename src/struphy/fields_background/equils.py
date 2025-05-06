@@ -3181,7 +3181,17 @@ class CurrentSheet(CartesianMHDequilibrium):
     r"""
     Current sheet equilibrium
 
-    TODO.
+    .. math::
+
+        B_y &= \text{tanh}(z / \delta) \,,
+
+        B_y &= \sqrt{(1 - B_y^2)} \,,
+        
+        p &= p_0 = 5/2\,,
+
+        n &= n_0 = 1 \,.
+
+    Units are those defned in the parameter file (:code:`struphy units -h`).
 
     Parameters
     ----------
@@ -3190,7 +3200,10 @@ class CurrentSheet(CartesianMHDequilibrium):
 
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
+        CurrentSheet :
+            amp : 1. 
+            delta : 0.1
 
 
     """
