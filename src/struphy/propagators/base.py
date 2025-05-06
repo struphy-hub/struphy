@@ -4,7 +4,9 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 
 from struphy.feec.psydac_derham import Derham
-
+from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.basis_projection_ops import BasisProjectionOperators
+from struphy.geometry.base import Domain
 
 
 class Propagator(metaclass=ABCMeta):
@@ -125,6 +127,7 @@ class Propagator(metaclass=ABCMeta):
     def domain(self):
         """Domain object that characterizes the mapping from the logical to the physical domain."""
         assert hasattr(self, "_domain"), "Domain for analytical MHD equilibrium not set. Please do obj.domain = ..."
+        assert isinstance(self._domain, Domain)
         return self._domain
 
     @domain.setter
@@ -135,6 +138,7 @@ class Propagator(metaclass=ABCMeta):
     def mass_ops(self):
         """Weighted mass operators."""
         assert hasattr(self, "_mass_ops"), "Weighted mass operators not set. Please do obj.mass_ops = ..."
+        assert isinstance(self._mass_ops, WeightedMassOperators)
         return self._mass_ops
 
     @mass_ops.setter
@@ -145,6 +149,7 @@ class Propagator(metaclass=ABCMeta):
     def basis_ops(self):
         """Basis projection operators."""
         assert hasattr(self, "_basis_ops"), "Basis projection operators not set. Please do obj.basis_ops = ..."
+        assert isinstance(self._basis_ops, BasisProjectionOperators)
         return self._basis_ops
 
     @basis_ops.setter
