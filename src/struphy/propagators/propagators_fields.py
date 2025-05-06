@@ -7694,17 +7694,27 @@ class HasegawaWakatani(Propagator):
     ):
         super().__init__(n0, omega0)
         
+        # expose equation parameters
+        self._phi = phi
+        self._kappa = kappa
+        self._nu = nu
+        
         # get quadrature grid of V0
+        femspace = self.derham.Vh_fem['0']
         pts = [quad_grid[nquad].points.flatten()
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(n0.space), self.derham.nquads,
+                        self.derham.get_quad_grids(femspace), self.derham.nquads,
                     )
                 ]
-        print(f'{pts[0].shape = }')
+        print(f'{self.rank = }, {pts[0].shape = }, {pts[1].shape = }, {pts[2].shape = } \n {pts[0]}')
         mesh_pts = np.meshgrid(*pts, indexing="ij")
         
-        # evaluate c(x, y) at quadrature gird and store
-        self._c_at_mesh_pts = c_fun(*mesh_pts)
+        # evaluate c(x, y) at local quadrature gird and store
+        self._c_at_local_mesh_pts = c_fun(*mesh_pts)
+        
+        # mass operators
+        M1 = self.mass_ops.M1
+        M0c = self.mass_ops.create_weighted_mass()
 
     def __call__(self, dt):
         # current variables
