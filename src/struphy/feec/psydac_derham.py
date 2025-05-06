@@ -1336,7 +1336,8 @@ class Derham:
 
         return spans, bns, bds
 
-    def get_quad_grids(self, space, nquads=None):
+    def get_quad_grids(self, space: TensorFemSpace | VectorFemSpace, nquads: tuple | list = None,):
+        '''Return the 1d quadrature grids in each direction as a tuple.'''
         assert self._nquads, "nquads has to be set with self._nquads = nquads"
         if nquads is None:
             nquads = self.nquads
