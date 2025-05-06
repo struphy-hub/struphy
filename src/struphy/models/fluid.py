@@ -41,7 +41,7 @@ class LinearMHD(StruphyModel):
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
         dct["em_fields"]["b_field"] = "Hdiv"
-        dct["fluid"]["mhd"] = {"density": "L2", "velocity": "H1vec", "pressure": "L2"}
+        dct["fluid"]["mhd"] = {"density": "L2", "velocity": "Hdiv", "pressure": "L2"}
         return dct
 
     @staticmethod
@@ -132,13 +132,13 @@ class LinearMHD(StruphyModel):
         self.add_scalar("en_tot")
 
         # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["v"].zeros()
+        self._tmp_u1 = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.Mvn.dot(self.pointer["mhd_velocity"], out=self._tmp_u1)
+        self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u1)
         self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b1)
 
         en_U = self.pointer["mhd_velocity"].dot(self._tmp_u1) / 2
