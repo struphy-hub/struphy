@@ -6612,9 +6612,9 @@ class VariationalPBEvolve(Propagator):
             bn_diff -= bn
             bn_diff += b_advection
 
-            pn_diff = pn1.copy(out= self._tmp_pn_diff)
-            pn_diff -= pn
-            pn_diff += p_advection
+            # pn_diff = pn1.copy(out= self._tmp_pn_diff)
+            # pn_diff -= pn
+            # pn_diff += p_advection
 
             mn_diff = mn1.copy(out=self._tmp_mn_diff)
             mn_diff -= mn
@@ -6624,7 +6624,7 @@ class VariationalPBEvolve(Propagator):
             pn1 -= p_advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, bn_diff, pn_diff)
+            err = self._get_error_newton(mn_diff, bn_diff) #, pn_diff)
 
             if self._info:
                 print("iteration : ", it, " error : ", err)
@@ -7244,7 +7244,7 @@ class VariationalPBEvolve(Propagator):
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
 
-    def _get_error_newton(self, mn_diff, bn_diff, pn_diff):
+    def _get_error_newton(self, mn_diff, bn_diff): #, pn_diff):
         weak_un_diff = self._inv_Mv.dot(
             self.derham.boundary_ops["v"].dot(mn_diff),
             out=self._tmp_un_weak_diff,
@@ -7253,18 +7253,18 @@ class VariationalPBEvolve(Propagator):
             bn_diff,
             out=self._tmp_bn_weak_diff,
         )
-        weak_pn_diff = self.mass_ops.M3.dot(
-            pn_diff,
-            out=self._tmp_pn_weak_diff,
-        )
+        # weak_pn_diff = self.mass_ops.M3.dot(
+        #     pn_diff,
+        #     out=self._tmp_pn_weak_diff,
+        # )
         err_b = weak_bn_diff.dot(bn_diff)
-        err_p = weak_pn_diff.dot(pn_diff)
+        # err_p = weak_pn_diff.dot(pn_diff)
         err_u = weak_un_diff.dot(mn_diff)
         # print("err_b :"+str(err_b))
         # print("err_p :"+str(err_p))
         # print("err_u :"+str(err_u))
-        # return max(err_b, err_u)
-        return max(max(err_b, err_u),err_p)
+        return max(err_b, err_u)
+        # return max(max(err_b, err_u),err_p)
 
     def _get_error_picard(self, un_diff, bn_diff):
         weak_un_diff = self.mass_ops.Mv.dot(
