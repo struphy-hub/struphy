@@ -3640,7 +3640,7 @@ class VariationalDensityEvolve(Propagator):
 
         self._pc_full_mass = inverse(
             self._Mrho,
-            self._lin_solver["type"][0],
+            "pcg",
             pc=self.pc,
             tol=0.01 * self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
@@ -4709,7 +4709,7 @@ class VariationalEntropyEvolve(Propagator):
 
         self._pc_full_mass = inverse(
             self._Mrho,
-            self._lin_solver["type"][0],
+            "pcg",
             pc=self.pc,
             tol=0.01 * self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
@@ -4719,7 +4719,7 @@ class VariationalEntropyEvolve(Propagator):
 
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
-            "pcg",
+            self._lin_solver["type"][0],
             pc=self._pc_full_mass,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
@@ -5688,7 +5688,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._pc_full_mass = inverse(
             self._Mrho,
-            self._lin_solver["type"][0],
+            "pcg",
             pc=self.pc,
             tol=0.01 * self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
@@ -5698,7 +5698,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
-            "pcg",
+            self._lin_solver["type"][0],
             pc=self._pc_full_mass,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
@@ -6569,7 +6569,7 @@ class VariationalPBEvolve(Propagator):
 
         self._pc_full_mass = inverse(
             self._Mrho,
-            self._lin_solver["type"][0],
+            "pcg",
             pc=self.pc,
             tol=0.01 * self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
@@ -6579,7 +6579,7 @@ class VariationalPBEvolve(Propagator):
 
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
-            "pcg",
+            self._lin_solver["type"][0],
             pc=self._pc_full_mass,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
