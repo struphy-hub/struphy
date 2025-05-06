@@ -2603,6 +2603,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
         self._unit_b2 = unit_b2
         self._absB0 = absB0
         self._gradB1 = gradB1
+        self._gradB1 = self.derham.grad.dot(absB0)
+        self._gradB1.update_ghost_regions()
         self._curl_norm_b = curl_unit_b2
 
         self._dg_solver = dg_solver
@@ -2680,26 +2682,20 @@ class CurrentCoupling5DGradB_dg(Propagator):
             self._coupling_vec,
         )
 
-        self._ACC_init = Accumulator(
+        self._ACC_init = AccumulatorVector(
             particles,
             u_space,
             accum_kernel_init,
             self.mass_ops,
             self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=filter,
         )
 
-        self._ACC = Accumulator(
+        self._ACC = AccumulatorVector(
             particles,
             u_space,
             accum_kernel,
             self.mass_ops,
             self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=filter,
         )
 
         self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
@@ -2760,6 +2756,11 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
         _u_new.update_ghost_regions()
 
+
+        # save en_U_new
+        self._A.dot(_u_new, out=self._M2n_dot_u)
+        en_U_new = _u_new.dot(self._M2n_dot_u)/2.
+        
         self._pusher_kernel_init(
             dt,
             self.particles[0].args_markers,
@@ -2775,9 +2776,9 @@ class CurrentCoupling5DGradB_dg(Propagator):
             self._curl_norm_b[0]._data,
             self._curl_norm_b[1]._data,
             self._curl_norm_b[2]._data,
-            _u_old[0]._data,
-            _u_old[1]._data,
-            _u_old[2]._data,
+            un[0]._data,
+            un[1]._data,
+            un[2]._data,
         )
 
         # sorting markers
@@ -2796,8 +2797,6 @@ class CurrentCoupling5DGradB_dg(Propagator):
         )
         en_fB_new = buffer_array[0]
         #if self.derham.comm.Get_rank() == 0: print(en_fB_new)
-        # sorting markers, mid-point
-        self.particles[0].mpi_sort_markers(alpha=0.5, apply_bc=False)
 
         # iterations
         for stage in range(self._dg_solver['maxiter']):
@@ -2858,7 +2857,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
             en_fB_mid = buffer_array[0]
 
-            const = (en_fB_new - en_fB_old - en_fB_mid)/denominator
+            const = (en_U_new + en_fB_new - en_U_old - en_fB_old - en_fB_mid)/denominator
     
             # update u^{n+1,k}
 
@@ -2933,7 +2932,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 op=MPI.SUM,
             )
             diff = buffer_array[0]
-            e_diff = (en_U_new + en_fB_new- en_tot_old)
+            e_diff = (en_U_new + en_fB_new- en_tot_old)/en_tot_old
             
             if diff < self._dg_solver['tol']:
                 if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0: 
