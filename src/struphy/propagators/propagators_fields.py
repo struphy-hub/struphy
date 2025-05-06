@@ -2057,7 +2057,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             return 0 * x
 
         # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors == True:
+        if self.derham.with_local_projectors:
             self._TB = BasisProjectionOperatorLocal(P1, Vh, [[tmp, tmp, tmp]])
         else:
             self._TB = BasisProjectionOperator(P1, Vh, [[tmp, tmp, tmp]])
@@ -3311,7 +3311,7 @@ class VariationalDensityEvolve(Propagator):
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors == True:
+        if self.derham.with_local_projectors:
             self.Pirho = BasisProjectionOperatorLocal(
                 P2,
                 Xh,
@@ -4415,7 +4415,7 @@ class VariationalEntropyEvolve(Propagator):
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors == True:
+        if self.derham.with_local_projectors:
             self.Pis = BasisProjectionOperatorLocal(
                 P2,
                 Xh,
@@ -5660,7 +5660,7 @@ class VariationalMagFieldEvolve(Propagator):
         V2h = self.derham.Vh_fem["2"]
 
         # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors == True:
+        if self.derham.with_local_projectors:
             self.Pib = BasisProjectionOperatorLocal(
                 P1,
                 Xh,
@@ -7485,13 +7485,13 @@ class Stokes(Propagator):
 
     .. math::
 
-        \int_{\Omega} \partial_t  \mathbf{u}\cdot \mathbf{v} \textrm d\mathbf{x} &=  \int_{\Omega}  \phi \nabla \! \cdot \! \mathbf{v} \textrm d\mathbf{x}  + \int_{\Omega}  \mathbf{u}\! \times \! \mathbf{B}_0 \cdot \mathbf{v} \textrm d\mathbf{x} + \nu \int_{\Omega} \nabla \mathbf{u}\! : \! \nabla \mathbf{v} \textrm d\mathbf{x} + \int_{\Omega} f \mathbf{v} \textrm d\mathbf{x} \qquad \forall \mathbf{v} \in H(div) \,.
-    \\[2mm]
-    0 &= - \int_{\Omega} \phi \nabla \! \cdot \! \mathbf{v_e} \textrm d\mathbf{x} - \int_{\Omega} \mathbf{u_e} \! \times \! \mathbf{B}_0 \cdot \mathbf{v_e} \textrm d\mathbf{x}  + \nu_e \int_{\Omega} \nabla \mathbf{u_e}  \!: \! \nabla \mathbf{v_e} \textrm d\mathbf{x} + \int_{\Omega} f_e \mathbf{v_e} \textrm d\mathbf{x} \qquad \forall \mathbf{v_e} \in H(div) \,.
-    \\[2mm]
-    0 &= \int_{\Omega} \psi \nabla \cdot (\mathbf{u}-\mathbf{u_e}) \textrm d\mathbf{x} \qquad \forall \psi \in L^2 \,.
+        \int_{\Omega} \partial_t  \mathbf{u}\cdot \mathbf{v} \, \textrm d\mathbf{x} &=  \int_{\Omega}  \phi \nabla \! \cdot \! \mathbf{v} \, \textrm d\mathbf{x}  + \int_{\Omega}  \mathbf{u}\! \times \! \mathbf{B}_0 \cdot \mathbf{v} \, \textrm d\mathbf{x} + \nu \int_{\Omega} \nabla \mathbf{u}\! : \! \nabla \mathbf{v} \, \textrm d\mathbf{x} + \int_{\Omega} f \mathbf{v} \, \textrm d\mathbf{x} \qquad \forall \, \mathbf{v} \in H(\textrm{div}) \,.
+        \\[2mm]
+        0 &= - \int_{\Omega} \phi \nabla \! \cdot \! \mathbf{v_e} \, \textrm d\mathbf{x} - \int_{\Omega} \mathbf{u_e} \! \times \! \mathbf{B}_0 \cdot \mathbf{v_e} \, \textrm d\mathbf{x}  + \nu_e \int_{\Omega} \nabla \mathbf{u_e}  \!: \! \nabla \mathbf{v_e} \, \textrm d\mathbf{x} + \int_{\Omega} f_e \mathbf{v_e} \, \textrm d\mathbf{x} \qquad \forall \ \mathbf{v_e} \in H(\textrm{div}) \,.
+        \\[2mm]
+        0 &= \int_{\Omega} \psi \nabla \cdot (\mathbf{u}-\mathbf{u_e}) \, \textrm d\mathbf{x} \qquad \forall \, \psi \in L^2 \,.
 
-    :ref:`time_discret`: Implicit Euler.
+    :ref:`time_discret`: fully implicit.
     """
 
     @staticmethod
@@ -7692,7 +7692,7 @@ class Stokes(Propagator):
                         / self.basis_ops.sqrt_g(e1, e2, e3),
                     ]
             self._S21 = None
-            if self.derham._with_local_projectors == True:
+            if self.derham.with_local_projectors:
                 self._S21 = BasisProjectionOperatorLocal(
                     self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
                 )

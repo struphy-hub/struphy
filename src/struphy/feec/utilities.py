@@ -51,7 +51,7 @@ class RotationMatrix:
         return np.transpose(tmp, axes=(2, 3, 4, 0, 1))
 
 
-def create_equal_random_arrays(V, seed=123, flattened=False):
+def create_equal_random_arrays(V: TensorFemSpace | VectorFemSpace, seed: int=123, flattened: bool=False):
     """Creates two equal random arrays, where one array is a numpy array and the other one a distributed psydac array.
 
     Parameters
@@ -73,8 +73,6 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
         arr_psy : StencilVector of BlockVector
             The distributed psydac array.
     """
-
-    assert isinstance(V, (TensorFemSpace, VectorFemSpace))
 
     np.random.seed(seed)
 

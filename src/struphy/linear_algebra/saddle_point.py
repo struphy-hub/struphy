@@ -9,45 +9,41 @@ from psydac.linalg.basic import IdentityOperator
 
 
 class SaddlePointSolverUzawaNumpy:
-    """Solves for math:`\left( \matrix{
-            x^{n+1} \cr y^{n+1}
-        } \\right)` in the block system
+    r"""Solves for :math:`(x, y)` in the saddle point problem
 
     .. math::
 
         \left( \matrix{
             A &  B^{\top} \cr
             B & 0
-        } \\right)
+        } \right)
         \left( \matrix{
-            x^{n+1} \cr y^{n+1}
-        } \\right)
+            x \cr y
+        } \right)
         =
         \left( \matrix{
             f \cr 0
-        } \\right)
+        } \right)
 
     using the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f`. The solution is given by
 
     .. math::
 
-        y^{n+1} = \left[ B A^{-1} B^{\top}\\right]^{-1} B A^{-1} f \,,\\
-        x^{n+1} = A^{-1} \left[ f - B^{\top} y^{n+1} \\right] \,.
-
-    The algorithm works for 
+        y = \left[ B A^{-1} B^{\top}\right]^{-1} B A^{-1} f \,, \qquad
+        x = A^{-1} \left[ f - B^{\top} y \right] \,.
 
     Parameters
     ----------
     A : list
-        Upper left block from [[A :math: `B^{\top}`B], [B 0]].
+        Upper left block.
         The entries on the diagonals of block A are given as list of np.ndarray or sc.sparse.csr_matrix.
 
     B : list
-        Lower left block from [[A :math: `B^{\top}`], [B 0]].
+        Lower left block.
         All entries of block B are given as list of np.ndarray or sc.sparse.csr_matrix.
 
     F : list
-        Right hand side of the upper block from [A :math: `B^{\top}`B]. Given as list of np.ndarray or sc.sparse.csr_matrix.
+        Right hand side of the upper block. Given as list of np.ndarray or sc.sparse.csr_matrix.
 
     Apre : list
         The non-inverted preconditioner for entries on the diagonals of block A are given as list of np.ndarray or sc.sparse.csr_matrix.
@@ -77,8 +73,8 @@ class SaddlePointSolverUzawaNumpy:
         method_to_solve: str,
         preconditioner: bool,
         spectralanalysis: bool,
-        tol=1e-8,
-        max_iter=1000,
+        tol: float=1e-8,
+        max_iter: int=1000,
     ):
         assert isinstance(A, list)
         assert isinstance(B, list)
@@ -223,27 +219,11 @@ class SaddlePointSolverUzawaNumpy:
 
     @property
     def A(self):
-        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
+        """Upper left block."""
         return self._A
-
-    @property
-    def B(self):
-        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
-        return self._B
-
-    @property
-    def F(self):
-        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
-        return self._F
-
-    @property
-    def Apre(self):
-        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
-        return self._Apre
 
     @A.setter
     def A(self, a):
-        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         need_update = True
         A0_old, A1_old = self._A
         A0_new, A1_new = a
@@ -260,20 +240,32 @@ class SaddlePointSolverUzawaNumpy:
         self._Aenp = self._A[1]
         if need_update:
             self._setup_inverses()
+            
+    @property
+    def B(self):
+        """Lower left block."""
+        return self._B
 
     @B.setter
     def B(self, b):
-        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
         self._B = b
+        
+    @property
+    def F(self):
+        """Right hand side vector."""
+        return self._F
 
     @F.setter
     def F(self, f):
-        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
         self._F = f
+        
+    @property
+    def Apre(self):
+        """Preconditioner for upper left block A."""
+        return self._Apre
 
-    @A.setter
+    @Apre.setter
     def Apre(self, a):
-        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
         need_update = True
         A0_old, A1_old = self._Apre
         A0_new, A1_new = a
@@ -485,38 +477,34 @@ class SaddlePointSolverUzawaNumpy:
 
 
 class SaddlePointSolverGMRES:
-    """Solves for math:`\left( \matrix{
-            x^{n+1} \cr y^{n+1}
-        } \\right)` in the block system
+    r"""Solves for :math:`(x, y)` in the block system
 
     .. math::
 
         \left( \matrix{
             A &  B^{\top} \cr
             B & 0
-        } \\right)
+        } \right)
         \left( \matrix{
-            x^{n+1} \cr y^{n+1}
-        } \\right)
+            x \cr y
+        } \right)
         =
         \left( \matrix{
             f \cr 0
-        } \\right)
+        } \right)
 
-    using on of the solvers given in [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47).
-    Prefered solver is GMRES.
-
+    using on of the solvers given in :mod:`psydac.linalg.solvers`. The prefered solver is GMRES.
 
     Parameters
     ----------
     A : LinearOperator
-        Upper left block from [[A :math: `B^{\top}`B], [B 0]].
+        Upper left block.
 
     B : LinearOperator
-        Lower left block from [[A :math: `B^{\top}`], [B 0]].
+        Lower left block.
 
     F : Linear Vector
-        Right hand side vector of the upper block from [A :math: `B^{\top}`B].
+        Right hand side vector of the upper block.
 
     tol : float
         Convergence tolerance for the potential residual.
@@ -525,7 +513,7 @@ class SaddlePointSolverGMRES:
         Maximum number of iterations allowed.
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See :mod:`psydac.linalg.solvers` for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -586,32 +574,32 @@ class SaddlePointSolverGMRES:
 
     @property
     def A(self):
-        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
+        """Upper left block."""
         return self._A
-
-    @property
-    def B(self):
-        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
-        return self._B
-
-    @property
-    def F(self):
-        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
-        return self._F
 
     @A.setter
     def A(self, a):
-        """Upper left block from [[A :math: `B^{\top}`], [B 0]]."""
+        """Upper left block."""
         self._A = a
-
+        
+    @property
+    def B(self):
+        """Lower left block."""
+        return self._B
+    
     @B.setter
     def B(self, b):
-        """Lower left block from [[A :math: `B^{\top}`], [B 0]]."""
+        """Lower left block."""
         self._B = b
+
+    @property
+    def F(self):
+        """Right hand side vector of the upper block."""
+        return self._F
 
     @F.setter
     def F(self, f):
-        """Right hand side vector of the upper block of [A :math: `B^{\top}`]."""
+        """Right hand side vector of the upper block."""
         self._F = f
 
     def __call__(self, U_init=None, Ue_init=None, P_init=None):

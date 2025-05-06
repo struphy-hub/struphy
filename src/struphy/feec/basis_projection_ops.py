@@ -11,9 +11,11 @@ from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
+from struphy.feec.psydac_derham import Derham, get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
+from struphy.geometry.base import Domain
 from struphy.polar.basic import PolarDerhamSpace
+from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class BasisProjectionOperators:
@@ -41,7 +43,7 @@ class BasisProjectionOperators:
     - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, verbose=True, **weights):
+    def __init__(self, derham: Derham, domain: Domain, verbose: bool=True, **weights,):
         self._derham = derham
         self._domain = domain
         self._weights = weights
@@ -884,7 +886,7 @@ class BasisProjectionOperators:
         V_id = self.derham.space_to_form[V_id]
         W_id = self.derham.space_to_form[W_id]
 
-        if self.derham._with_local_projectors == True:
+        if self.derham.with_local_projectors:
             out = BasisProjectionOperatorLocal(
                 self.derham.P[W_id],
                 self.derham.Vh_fem[V_id],
@@ -959,20 +961,17 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
     def __init__(
         self,
-        P,
-        V,
-        weights,
-        V_extraction_op=None,
-        V_boundary_op=None,
-        P_extraction_op=None,
-        P_boundary_op=None,
-        transposed=False,
+        P: CommutingProjectorLocal,
+        V: FemSpace,
+        weights: list,
+        V_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        V_boundary_op: BoundaryOperator | IdentityOperator = None,
+        P_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        P_boundary_op: BoundaryOperator | IdentityOperator = None,
+        transposed: bool=False,
     ):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
-
-        assert isinstance(P, CommutingProjectorLocal)
-        assert isinstance(V, FemSpace)
 
         self._P = P
         self._V = V

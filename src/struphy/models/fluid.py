@@ -1480,24 +1480,25 @@ class IsothermalEulerSPH(StruphyModel):
 
 
 class Stokeslike(StruphyModel):
-    r"""Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
-        return np.power(rho, gam) * np.exp(s / rho)
+    r"""Linearized, quasi-neutral two-fluid model with zero electron inertia.
 
     :ref:`normalization`:
 
     .. math::
 
-        \hat U = \hat v_\textnormal{A} \,.
+        \hat U = \hat v_\textnormal{th} \,.
 
     :ref:`Equations <gempic>`:
 
     .. math::
 
-    &\frac{\partial u}{\partial t} = - \nabla \phi + u \times B + \nu \Delta u + f\,,
+        \frac{\partial \mathbf u}{\partial t} &= - \nabla \phi + \mathbf u \times \mathbf B_0 + \nu \Delta \mathbf u + \mathbf f\,,
         \\[2mm]
-        &0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,,
-        \\[2mm]
-        &\nabla \cdot (u-u_e) = 0\,.
+        0 &= \nabla \phi- \mathbf u_e \times \mathbf B_0 + \nu_e \Delta \mathbf u_e + \mathbf f_e \,,
+        \\[3mm]
+        \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
+
+    where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms. 
 
     :ref:`propagators` (called in sequence):
 

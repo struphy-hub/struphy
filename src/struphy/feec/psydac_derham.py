@@ -558,6 +558,11 @@ class Derham:
     def nq_pr(self):
         """List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction."""
         return self._nq_pr
+    
+    @property
+    def with_local_projectors(self):
+        """True if local projectors are to be used instead of the default global ones."""
+        return self._with_local_projectors
 
     @property
     def comm(self):
@@ -735,7 +740,7 @@ class Derham:
     @property
     def P(self):
         """Dictionary holding global commuting projectors."""
-        if self._with_local_projectors == True:
+        if self.with_local_projectors:
             return self._Ploc
         else:
             return self._P

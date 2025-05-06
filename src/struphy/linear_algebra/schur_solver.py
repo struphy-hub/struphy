@@ -10,26 +10,28 @@ class SchurSolver:
 
         \left( \matrix{
             A & \Delta t B \cr
-            \Delta t C & \\text{Id}
-        } \\right)
+            \Delta t C & \text{Id}
+        } \right)
         \left( \matrix{
             x^{n+1} \cr y^{n+1}
-        } \\right)
+        } \right)
         =
         \left( \matrix{
             A & - \Delta t B \cr
-            - \Delta t C & \\text{Id}
-        } \\right)
+            - \Delta t C & \text{Id}
+        } \right)
         \left( \matrix{
             x^n \cr y^n
-        } \\right)
+        } \right)
 
     using the Schur complement :math:`S = A - \Delta t^2 BC`, where Id is the identity matrix
     and :math:`(x^n, y^n)` is given. The solution is given by
 
     .. math::
 
-        x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t B \, y^n \\right] \,.
+        x^{n+1} = S^{-1} \left[ (A + \Delta t^2 BC) \, x^n - 2 \Delta t B \, y^n \right] \,.
+        
+    The time step :math:`\Delta t` is passed at call and can thus be variable.
 
     Parameters
     ----------
@@ -40,7 +42,7 @@ class SchurSolver:
         Product from [[A B], [C Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See :mod:`psydac.linalg.solvers` for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
@@ -156,15 +158,15 @@ class SchurSolverFull:
 
         \left( \matrix{
             A & B \cr
-            C & \\text{Id}
-        } \\right)
+            C & \text{Id}
+        } \right)
         \left( \matrix{
             x \cr y
-        } \\right)
+        } \right)
         =
         \left( \matrix{
             b_x \cr b_y
-        } \\right)
+        } \right)
 
     using the Schur complement :math:`S = A - BC`, where Id is the identity matrix
     and :math:`(b_x, b_y)^T` is given. The solution is given by
@@ -181,7 +183,7 @@ class SchurSolverFull:
         Matrix [[A B], [C Id]].
 
     solver_name : str
-        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+        See :mod:`psydac.linalg.solvers` for possible names.
 
     **solver_params :
         Must correspond to the chosen solver.
