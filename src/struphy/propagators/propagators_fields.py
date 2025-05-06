@@ -7714,7 +7714,7 @@ class HasegawaWakatani(Propagator):
         
         # mass operators
         M1 = self.mass_ops.M1
-        M0c = self.mass_ops.create_weighted_mass()
+        M0c = self.mass_ops.create_weighted_mass('H1', 'H1', name='M0c', weights=[[self._c_at_local_mesh_pts]], assemble=True,)
 
     def __call__(self, dt):
         # current variables

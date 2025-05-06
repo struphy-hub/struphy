@@ -5,13 +5,13 @@ from psydac.feec.global_projectors import GlobalProjector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic import IdentityOperator, Vector
+from psydac.linalg.basic import IdentityOperator, Vector, LinearOperator, ComposedLinearOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
-from struphy.feec import mass_kernels, preconditioner
+from struphy.feec import mass_kernels
 from struphy.feec.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,
@@ -25,7 +25,6 @@ from struphy.feec.local_projectors_kernels import (
     solve_local_main_loop,
     solve_local_main_loop_weighted,
 )
-from struphy.feec.preconditioner import ProjectorPreconditioner
 from struphy.feec.utilities_local_projectors import (
     build_translation_list_for_non_zero_spline_indices,
     determine_non_zero_rows_for_each_spline,
@@ -1824,6 +1823,9 @@ class L2Projector:
     """
 
     def __init__(self, space_id, mass_ops, **params):
+        
+        from struphy.feec import preconditioner
+        
         assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
 
         params_default = {
@@ -2157,3 +2159,171 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
+
+
+class ProjectorPreconditioner(LinearOperator):
+    r"""
+    Preconditioner for approximately inverting a (polar) 3d inter-/histopolation matrix via
+
+    .. math::
+
+        (B * P * I * E^T * B^T)^{-1} \approx B * P * I^{-1} * E^T * B^T.
+
+    In case that $P$ and $E$ are identity operators, the solution is exact (pure tensor product case).
+
+    Parameters
+    ----------
+    projector : CommutingProjector
+        The global commuting projector for which the inter-/histopolation matrix shall be inverted.
+
+    transposed : bool, optional
+        Whether to invert the transposed inter-/histopolation matrix.
+
+    apply_bc : bool, optional
+        Whether to include the boundary operators.
+    """
+
+    def __init__(self, projector, transposed=False, apply_bc=False):
+        # vector space in tensor product case/polar case
+        self._space = projector.I.domain
+
+        self._codomain = projector.I.codomain
+
+        self._dtype = projector.I.dtype
+
+        self._projector = projector
+
+        self._apply_bc = apply_bc
+
+        # save Kronecker solver (needed in solve method)
+        self._solver = projector.projector_tensor.solver
+        if transposed:
+            self._solver = self.solver.transpose()
+
+        self._transposed = transposed
+
+        # save inter-/histopolation matrix to be inverted
+        if transposed:
+            self._I = projector.IT
+        else:
+            self._I = projector.I
+
+        self._is_composed = isinstance(self._I, ComposedLinearOperator)
+
+        # temporary vectors for dot product
+        if self._is_composed:
+            tmp_vectors = []
+            for op in self._I.multiplicants[1:]:
+                tmp_vectors.append(op.codomain.zeros())
+
+            self._tmp_vectors = tuple(tmp_vectors)
+        else:
+            self._tmp_vector = self._I.codomain.zeros()
+
+    @property
+    def space(self):
+        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
+        return self._space
+
+    @property
+    def solver(self):
+        """KroneckerLinearSolver for exactly inverting tensor product inter-histopolation matrix."""
+        return self._solver
+
+    @property
+    def transposed(self):
+        """Whether to invert the transposed inter-/histopolation matrix."""
+        return self._transposed
+
+    @property
+    def domain(self):
+        """The domain of the linear operator - an element of Vectorspace"""
+        return self._space
+
+    @property
+    def codomain(self):
+        """The codomain of the linear operator - an element of Vectorspace"""
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        """
+        Returns the transposed operator.
+        """
+        return ProjectorPreconditioner(self._projector, True, self._apply_bc)
+
+    def solve(self, rhs, out=None):
+        """
+        Computes (B * P * I^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True) as an approximation for an inverse inter-/histopolation matrix.
+
+        Parameters
+        ----------
+        rhs : psydac.linalg.basic.Vector
+            The right-hand side vector.
+
+        out : psydac.linalg.basic.Vector, optional
+            If given, the output vector will be written into this vector in-place.
+
+        Returns
+        -------
+        out : psydac.linalg.basic.Vector
+            The result of (B * E * M^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True).
+        """
+
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._space
+
+        # successive dot products with all but last operator
+        if self._is_composed:
+            x = rhs
+            for i in range(len(self._tmp_vectors)):
+                y = self._tmp_vectors[-1 - i]
+                A = self._I.multiplicants[-1 - i]
+                if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
+                    self.solver.dot(x, out=y)
+                else:
+                    A.dot(x, out=y)
+                x = y
+
+            # last operator
+            A = self._I.multiplicants[0]
+            if out is None:
+                out = A.dot(x)
+            else:
+                assert isinstance(out, Vector)
+                assert out.space == self._space
+                A.dot(x, out=out)
+
+        else:
+            if out is None:
+                out = self.solver.dot(rhs)
+            self.solver.dot(rhs, out=out)
+        return out
+
+    def dot(self, v, out=None):
+        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
+
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        # newly created output vector
+        if out is None:
+            out = self.solve(v)
+
+        # in-place dot-product (result is written to out)
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+            self.solve(v, out=out)
+
+        return out
+
