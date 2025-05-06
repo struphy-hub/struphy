@@ -19,6 +19,7 @@ from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.ode.solvers import ODEsolverFEEC
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
@@ -43,6 +44,7 @@ class Maxwell(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
+        dct["algo"] = ["implicit", "rk4", "forward_euler", "heun2", "rk2", "heun3"]
         dct["solver"] = {
             "type": [
                 ("pcg", "MassMatrixPreconditioner"),
@@ -55,7 +57,7 @@ class Maxwell(Propagator):
             "recycle": True,
         }
         if default:
-            dct = descend_options_dict(dct, [])
+            dct = descend_options_dict(dct, [], verbose=False)
 
         return dct
 
@@ -64,72 +66,116 @@ class Maxwell(Propagator):
         e: BlockVector,
         b: BlockVector,
         *,
+        algo: dict = options(default=True)["algo"],
         solver: dict = options(default=True)["solver"],
     ):
         super().__init__(e, b)
 
-        self._info = solver["info"]
+        self._algo = algo
 
-        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = self.mass_ops.M1
+        # obtain needed matrices
+        M1 = self.mass_ops.M1
+        M2 = self.mass_ops.M2
+        curl = self.derham.curl
 
-        # no dt
-        self._B = -1 / 2 * self.derham.curl.T @ self.mass_ops.M2
-        self._C = 1 / 2 * self.derham.curl
-
-        # Preconditioner
+        # Preconditioner for M1 + ...
         if solver["type"][1] is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, solver["type"][1])
             pc = pc_class(self.mass_ops.M1)
 
-        # Instantiate Schur solver (constant in this case)
-        _BC = self._B @ self._C
+        if self._algo == "implicit":
+            self._info = solver["info"]
+            # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+            _A = M1
 
-        self._schur_solver = SchurSolver(
-            _A,
-            _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-        )
+            # no dt
+            self._B = -1 / 2 * curl.T @ M2
+            self._C = 1 / 2 * curl
+
+            # Instantiate Schur solver (constant in this case)
+            _BC = self._B @ self._C
+
+            self._schur_solver = SchurSolver(
+                _A,
+                _BC,
+                solver["type"][0],
+                pc=pc,
+                tol=solver["tol"],
+                maxiter=solver["maxiter"],
+                verbose=solver["verbose"],
+            )
+
+            # pre-allocate arrays
+            self._byn = self._B.codomain.zeros()
+        else:
+            self._info = False
+
+            # define vector field
+            M1_inv = inverse(
+                M1,
+                solver["type"][0],
+                pc=pc,
+                tol=solver["tol"],
+                maxiter=solver["maxiter"],
+                verbose=solver["verbose"],
+            )
+            weak_curl = M1_inv @ curl.T @ M2
+
+            # allocate output of vector field
+            out1 = e.space.zeros()
+            out2 = b.space.zeros()
+
+            def f1(t, y1, y2, out=out1):
+                weak_curl.dot(y2, out=out)
+                out.update_ghost_regions()
+                return out
+
+            def f2(t, y1, y2, out=out2):
+                curl.dot(y1, out=out)
+                out *= -1.0
+                out.update_ghost_regions()
+                return out
+
+            vector_field = {e: f1, b: f2}
+            self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
         self._e_tmp1 = e.space.zeros()
         self._e_tmp2 = e.space.zeros()
         self._b_tmp1 = b.space.zeros()
 
-        self._byn = self._B.codomain.zeros()
-
     def __call__(self, dt):
         # current variables
         en = self.feec_vars[0]
         bn = self.feec_vars[1]
 
-        # solve for new e coeffs
-        self._B.dot(bn, out=self._byn)
+        if self._algo == "implicit":
+            # solve for new e coeffs
+            self._B.dot(bn, out=self._byn)
 
-        en1, info = self._schur_solver(en, self._byn, dt, out=self._e_tmp1)
+            en1, info = self._schur_solver(en, self._byn, dt, out=self._e_tmp1)
 
-        # new b coeffs
-        _e = en.copy(out=self._e_tmp2)
-        _e += en1
-        bn1 = self._C.dot(_e, out=self._b_tmp1)
-        bn1 *= -dt
-        bn1 += bn
+            # new b coeffs
+            _e = en.copy(out=self._e_tmp2)
+            _e += en1
+            bn1 = self._C.dot(_e, out=self._b_tmp1)
+            bn1 *= -dt
+            bn1 += bn
 
-        # write new coeffs into self.feec_vars
-        max_de, max_db = self.feec_vars_update(en1, bn1)
+            # write new coeffs into self.feec_vars
+            max_de, max_db = self.feec_vars_update(en1, bn1)
+        else:
+            self._ode_solver(0.0, dt)
 
         if self._info and self.rank == 0:
-            print("Status     for Maxwell:", info["success"])
-            print("Iterations for Maxwell:", info["niter"])
-            print("Maxdiff e1 for Maxwell:", max_de)
-            print("Maxdiff b2 for Maxwell:", max_db)
-            print()
+            if self._algo == "implicit":
+                print("Status     for Maxwell:", info["success"])
+                print("Iterations for Maxwell:", info["niter"])
+                print("Maxdiff e1 for Maxwell:", max_de)
+                print("Maxdiff b2 for Maxwell:", max_db)
+                print()
 
 
 class OhmCold(Propagator):
@@ -376,6 +422,7 @@ class ShearAlfven(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
+        dct["algo"] = ["implicit", "rk4", "forward_euler", "heun2", "rk2", "heun3"]
         dct["solver"] = {
             "type": [
                 ("pcg", "MassMatrixDiagonalPreconditioner"),
@@ -400,23 +447,24 @@ class ShearAlfven(Propagator):
         b: BlockVector,
         *,
         u_space: str,
+        algo: dict = options(default=True)["algo"],
         solver: dict = options(default=True)["solver"],
     ):
         super().__init__(u, b)
 
         assert u_space in {"Hcurl", "Hdiv", "H1vec"}
 
-        self._info = solver["info"]
+        self._algo = algo
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_M = "M" + self.derham.space_to_form[u_space] + "n"
         id_T = "T" + self.derham.space_to_form[u_space]
 
+        # call operators
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
-
-        self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
-        self._C = 1 / 2 * self.derham.curl @ _T
+        _M2 = self.mass_ops.M2
+        curl = self.derham.curl
 
         # Preconditioner
         if solver["type"][1] is None:
@@ -425,53 +473,98 @@ class ShearAlfven(Propagator):
             pc_class = getattr(preconditioner, solver["type"][1])
             pc = pc_class(getattr(self.mass_ops, id_M))
 
-        # instantiate Schur solver (constant in this case)
-        _BC = self._B @ self._C
+        if self._algo == "implicit":
+            self._info = solver["info"]
 
-        self._schur_solver = SchurSolver(
-            _A,
-            _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
-        )
+            self._B = -1 / 2 * _T.T @ curl.T @ _M2
+            self._C = 1 / 2 * curl @ _T
+
+            # instantiate Schur solver (constant in this case)
+            _BC = self._B @ self._C
+
+            self._schur_solver = SchurSolver(
+                _A,
+                _BC,
+                solver["type"][0],
+                pc=pc,
+                tol=solver["tol"],
+                maxiter=solver["maxiter"],
+                verbose=solver["verbose"],
+                recycle=solver["recycle"],
+            )
+
+            # pre-allocate arrays
+            self._byn = self._B.codomain.zeros()
+
+        else:
+            self._info = False
+
+            # define vector field
+            A_inv = inverse(
+                _A,
+                solver["type"][0],
+                pc=pc,
+                tol=solver["tol"],
+                maxiter=solver["maxiter"],
+                verbose=solver["verbose"],
+            )
+            _f1 = A_inv @ _T.T @ curl.T @ _M2
+            _f2 = curl @ _T
+
+            # allocate output of vector field
+            out1 = u.space.zeros()
+            out2 = b.space.zeros()
+
+            def f1(t, y1, y2, out=out1):
+                _f1.dot(y2, out=out)
+                out.update_ghost_regions()
+                return out
+
+            def f2(t, y1, y2, out=out2):
+                _f2.dot(y1, out=out)
+                out *= -1.0
+                out.update_ghost_regions()
+                return out
+
+            vector_field = {u: f1, b: f2}
+            self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
         # allocate dummy vectors to avoid temporary array allocations
         self._u_tmp1 = u.space.zeros()
         self._u_tmp2 = u.space.zeros()
         self._b_tmp1 = b.space.zeros()
 
-        self._byn = self._B.codomain.zeros()
-
     def __call__(self, dt):
         # current variables
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
 
-        # solve for new u coeffs
-        byn = self._B.dot(bn, out=self._byn)
+        if self._algo == "implicit":
+            # solve for new u coeffs
+            byn = self._B.dot(bn, out=self._byn)
 
-        un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
+            un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 
-        # new b coeffs
-        _u = un.copy(out=self._u_tmp2)
-        _u += self._u_tmp1
-        bn1 = self._C.dot(_u, out=self._b_tmp1)
-        bn1 *= -dt
-        bn1 += bn
+            # new b coeffs
+            _u = un.copy(out=self._u_tmp2)
+            _u += self._u_tmp1
+            bn1 = self._C.dot(_u, out=self._b_tmp1)
+            bn1 *= -dt
+            bn1 += bn
 
-        # write new coeffs into self.feec_vars
-        max_du, max_db = self.feec_vars_update(un1, bn1)
+            # write new coeffs into self.feec_vars
+            max_du, max_db = self.feec_vars_update(un1, bn1)
+
+        else:
+            self._ode_solver(0.0, dt)
 
         if self._info and self.rank == 0:
-            print("Status     for ShearAlfven:", info["success"])
-            print("Iterations for ShearAlfven:", info["niter"])
-            print("Maxdiff up for ShearAlfven:", max_du)
-            print("Maxdiff b2 for ShearAlfven:", max_db)
-            print()
+            if self._algo == "implicit":
+                print("Status     for ShearAlfven:", info["success"])
+                print("Iterations for ShearAlfven:", info["niter"])
+                print("Maxdiff up for ShearAlfven:", max_du)
+                print("Maxdiff b2 for ShearAlfven:", max_db)
+                print()
 
 
 class ShearAlfvenB1(Propagator):
