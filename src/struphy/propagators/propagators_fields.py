@@ -3017,9 +3017,13 @@ class VariationalDensityEvolve(Propagator):
 
     .. math::
 
-        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+        &\partial_t \rho + \nabla \cdot ( \tilde{\rho} \mathbf u ) = 0 \,,
         \\[4mm]
-        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x + \int_\Omega \left(\frac{|\mathbf u|^2}{2} - \frac{\partial(\rho \mathcal U(\rho))}{\partial \rho}\right) \nabla \cdot (\rho \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,.
+        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x + \int_\Omega \left(\frac{|\mathbf u|^2}{2} - \frac{\partial(\rho \mathcal U(\rho))}{\partial \rho}\right) \nabla \cdot (\tilde{\rho} \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,.
+
+    Where :math:`\tilde{\rho}` is either :math:`\rho` for full-f models, :math:`\rho_0` for linear models or :math:`\rho_0+\rho` for :math:`\delta f` models.
+    
+    In the case of linear model, the second equation is not updated.
 
     On the logical domain:
 
@@ -3270,6 +3274,8 @@ class VariationalDensityEvolve(Propagator):
             rhon12 = rhon.copy(out = self._tmp_rhon12)
             rhon12 += rhon1
             rhon12 *= 0.5
+            if self._model == "deltaf":
+                rhon12 += self.projected_equil.n3
 
             self.rhof1.vector = rhon12
             self._update_Pirho()
@@ -5113,477 +5119,18 @@ class VariationalEntropyEvolve(Propagator):
         return max(err_s, err_u)
 
 
-class VariationalPressureEvolve(Propagator):
-    r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\mathbf u \in (H^1)^3` and :math:`s \in L^2` such that
-
-    .. math::
-
-        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \frac{1}{\gamma -1} (\nabla p \cdot \mathbf v + \gamma p \nabla \cdot \mathbf v)\,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
-        \\[4mm]
-        &\partial_t p + u \cdot \nabla p + \gamma p \nabla \cdot u = 0 \,.
-
-    On the logical domain:
-
-    .. math::
-
-        \begin{align}
-        &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
-        - \int_{\hat{\Omega}} \left(\frac{\partial \hat{\rho}^3 \mathcal U}{\partial \hat{s}} \right) \nabla \cdot (\hat{s} \hat{\mathbf{v}}) \, \textrm d \boldsymbol \eta = 0 ~ ,
-        \\[2mm]
-        &\partial_t \hat{p} + \frac{1}{\sqrt{g}}\hat{u} \cdot \nabla \hat{p}  + \gamma \hat{p} \nabla \cdot G \hat{u} = 0 \,
-        \end{align}
-
-    .. math::
-
-        \begin{align}
-        &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t} -
-        (\gamma \hat{\Pi}^{0}[\frac{\hat{p_h^{n}} \vec{\boldsymbol \Lambda}^2}{\sqrt{g}}] \hat{\mathbb D} + \hat{\Pi}^{0}[G \tilde{\mathbb G} \hat{p_h^{n} \vec{\boldsymbol \Lambda}^v}])^\top \hat{l}^3(\frac{1}{\gamma-1}) = 0 ~ ,
-        \\[2mm]
-        &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + (\gamma \hat{\Pi}^{0}[\frac{\hat{p_h^{n}} \vec{\boldsymbol \Lambda}^2}{\sqrt{g}}] \hat{\mathbb D} + \hat{\Pi}^{0}[G \tilde{\mathbb G} \hat{p_h^{n} \vec{\boldsymbol \Lambda}^v}]) \mathbf u^{n+1/2} = 0 ~ ,
-        \end{align}
-
-    where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
-
-    .. math::
-        \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
-
-    and the weights in the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
-
-    .. math::
-
-        \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
-
-    and
-
-    .. math::
-        \hat{\mathbb D} = {\mathbb D} \mathcal{Q}^v \, \qquad \tilde{\mathbb G} = {M^2}^{-1} {\mathbb D}^\top M^3 \.
-
-    where :math:`\mathcal{Q}^v` is define in :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator`
-    and $M^2$, $M^3$ in :class:`~struphy.feec.mass.WeightedMassOperators`
-
-    """
-
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["physics"] = {"gamma": 5 / 3}
-
-        if default:
-            dct = descend_options_dict(dct, [])
-
-        return dct
-
-    def __init__(
-        self,
-        p: StencilVector,
-        u: BlockVector,
-        *,
-        model: str = "full_p",
-        gamma: float = options()["physics"]["gamma"],
-        mass_ops: WeightedMassOperator,
-        div_u: StencilVector | None = None,
-        u2: BlockVector | None = None,
-    ):
-        super().__init__(p, u)
-
-        assert model in ["full_p", "linear"]
-        self._divu = div_u
-        self._u2 = u2
-
-        assert mass_ops is not None
-
-        self._model = model
-        self._gamma = gamma
-
-        self._Mrho = mass_ops
-
-        # Femfields for the projector
-        self.pf = self.derham.create_field("pf", "L2")
-
-        # Projector
-        self._initialize_projectors_and_mass()
-
-        # bunch of temporaries to avoid allocating in the loop
-        self._tmp_un1 = u.space.zeros()
-        self._tmp_un2 = u.space.zeros()
-        self._tmp_un_diff = u.space.zeros()
-        self._tmp_un_weak_diff = u.space.zeros()
-        self._tmp_un12 = u.space.zeros()
-        self._tmp_pn1 = p.space.zeros()
-        self._tmp_pn2 = p.space.zeros()
-        self._tmp_pn_diff = p.space.zeros()
-        self._tmp_pn_weak_diff = p.space.zeros()
-        self._tmp_pn12 = p.space.zeros()
-        self._tmp_grad_pn = self.derham.Vh_pol["2"].zeros()
-
-        self._tmp_mn = u.space.zeros()
-        self._tmp_mn1 = u.space.zeros()
-        self._tmp_mn12 = u.space.zeros()
-        self._tmp_advection = u.space.zeros()
-        self._tmp_p_advection = p.space.zeros()
-        self._linear_form_dl_dp = p.space.zeros()
-        self._update_linear_form_u2()
-        
-        if self._model == "linear":
-            self._create_transop0()
-
-    def __call__(self, dt):
-        """Solve the system by explicit update"""
-
-        pn = self.feec_vars[0]
-        un = self.feec_vars[1]
-
-        # Update the field for the projections
-        self.pf.vector = pn
-        un2 = un.copy(out = self._tmp_un2)
-        pn2 = pn.copy(out = self._tmp_pn2)
-
-        self._update_Proj()
-
-        pn1 = pn.copy(out=self._tmp_pn1)
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
-
-        err = 10
-        it = 0
-
-        while (err>1e-8 and it<1):
-            it   +=1
-            pn12 = pn.copy(out = self._tmp_pn12)
-            pn12 += pn1
-            pn12 *= 0.5
-
-            self.pf.vector = pn12
-            self._update_Proj()
-
-            # Advance the velocity (always explicit)
-            advection = self._transopT.dot(
-                self._linear_form_dl_dp,
-                out=self._tmp_advection,
-            )
-            advection *= dt
-
-            if self._model != "linear":
-                self.pc.update_mass_operator(self._Mrho)
-            mn1 = mn.copy(out= self._tmp_mn1)
-            mn1 -= advection
-            un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
-
-            # Middle velocity
-            un12 = un.copy(out=self._tmp_un12)
-            un12 += un1
-            un12 *= 0.5
-
-            # Update p
-            if self._model == "linear":
-
-                p_advection = self._transop0.dot(
-                    un12,
-                    out=self._tmp_p_advection,
-                )
-
-            elif self._model == "full_p":
-                p_advection = self._transop.dot(
-                    un12,
-                    out=self._tmp_p_advection,
-                )     
-
-            p_advection *= dt
-
-            pn1 -= p_advection
-
-            un_diff = un1.copy(out = self._tmp_un_diff)
-            un_diff -= un2
-            un2 = un1.copy(out = self._tmp_un2)
-
-            pn_diff = pn1.copy(out = self._tmp_pn_diff)
-            pn_diff -= pn2
-            pn2 = pn1.copy(out = self._tmp_pn2)
-
-            err = self._get_error_picard(un_diff, pn_diff)
-
-
-        self.div.dot(un12, out=self._divu)
-        self.Uv.dot(un1, out=self._u2)
-
-        self.feec_vars_update(pn1, un1)
-
-    def _initialize_projectors_and_mass(self):
-        """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
-
-        from struphy.feec.projectors import L2Projector
-
-        # Get the projector and the spaces
-        P3 = self.derham.P["3"]
-        P2 = self.derham.P["2"]
-
-        Xh = self.derham.Vh_fem["v"]
-        V3h = self.derham.Vh_fem["3"]
-
-        # Initialize the BasisProjectionOperators
-        self.Pip = BasisProjectionOperator(
-            P2,
-            Xh,
-            [[None, None, None], [None, None, None], [None, None, None]],
-            transposed=False,
-            use_cache=True,
-            V_extraction_op=self.derham.extraction_ops["v"],
-            V_boundary_op=self.derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-        )
-
-        self.Pip_div = BasisProjectionOperator(
-            P3,
-            V3h,
-            [[lambda eta1, eta2, eta3: 0 * eta1]],
-            transposed=False,
-            use_cache=True,
-            V_extraction_op=self.derham.extraction_ops["3"],
-            V_boundary_op=self.derham.boundary_ops["3"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["3"]),
-        )
-
-        # BC?
-
-        self.Uv = self.basis_ops.Uv
-
-        self.PipT = self.Pip.T
-        self.Pip_divT = self.Pip_div.T
-
-        div = self.derham.div
-
-        self.div = div @ self.Uv
-
-        # Initialize the transport operator and transposed
-        self._transop =  div @ self.Pip + self.Pip_div @ self.div
-        self._transopT = self.PipT @ div.T + self.div.T @ self.Pip_divT
-
-        int_grid = [pts.flatten() for pts in self.derham.proj_grid_pts["3"]]
-
-        self.int_grid_spans, self.int_grid_bn, self.int_grid_bd = self.derham.prepare_eval_tp_fixed(
-            int_grid,
-        )
-
-        metric = 1.0 / self.domain.jacobian_det(*int_grid)
-        self._proj_p_metric = deepcopy(metric)
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in int_grid])
-        self._pf_values = np.zeros(grid_shape, dtype=float)
-        self._mapped_pf_values = np.zeros(grid_shape, dtype=float)
-
-        hist_grid = self.derham.proj_grid_pts["2"]
-
-        hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
-        hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
-        hist_grid_2 = [pts.flatten() for pts in hist_grid[2]]
-
-        self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_0,
-        )
-        self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_1,
-        )
-        self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_2,
-        )
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
-        self._pf_0_values = np.zeros(grid_shape, dtype=float)
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
-        self._pf_1_values = np.zeros(grid_shape, dtype=float)
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
-        self._pf_2_values = np.zeros(grid_shape, dtype=float)
-
-        # Inverse weighted mass matrix
-
-        pc_class = getattr(
-            preconditioner,
-            "MassMatrixDiagonalPreconditioner",
-        )
-        self.pc = pc_class(self._Mrho)
-
-        self._Mrhoinv = inverse(
-            self._Mrho,
-            "pcg",
-            pc=self.pc,
-            tol=1e-16,
-            maxiter=1000,
-            verbose=False,
-            recycle=True,
-        )
-
-        self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
-
-        integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
-
-        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
-            self.derham.prepare_eval_tp_fixed(
-                integration_grid,
-            )
-        )
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-
-        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
-
-        metric = self.domain.jacobian_det(
-            *integration_grid,
-        )
-
-        self._energy_metric_term = deepcopy(metric)
-
-    def _update_Proj(self):
-        """Update the weights of the `BasisProjectionOperator`"""
-
-        pf_values = self.pf.eval_tp_fixed_loc(
-            self.int_grid_spans,
-            self.int_grid_bd,
-            out=self._pf_values,
-        )
-
-        self._mapped_pf_values *= 0.0
-        self._mapped_pf_values += pf_values
-        self._mapped_pf_values *= self._proj_p_metric
-        self._mapped_pf_values *= (self._gamma -1.)
-
-        self.Pip_div.update_weights([[self._mapped_pf_values]])
-
-        self.Pip_divT.update_weights([[self._mapped_pf_values]])
-
-        # print(self.Pip_divT._dof_mat._data)
-
-        pf0_values = self.pf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans,
-            self.hist_grid_0_bd,
-            out=self._pf_0_values,
-        )
-        pf1_values = self.pf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans,
-            self.hist_grid_1_bd,
-            out=self._pf_1_values,
-        )
-        pf2_values = self.pf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans,
-            self.hist_grid_2_bd,
-            out=self._pf_2_values,
-        )
-
-        self.Pip.update_weights(
-            [
-                [pf0_values, None, None],
-                [None, pf1_values, None],
-                [None, None, pf2_values],
-            ]
-        )
-
-        self.PipT.update_weights(
-            [
-                [pf0_values, None, None],
-                [None, pf1_values, None],
-                [None, None, pf2_values],
-            ]
-        )
-
-    def _create_transop0(self):
-        """Update the weights of the `BasisProjectionOperator`"""
-
-        self.pf.vector = self.projected_equil.p3
-
-        pf_values = self.pf.eval_tp_fixed_loc(
-            self.int_grid_spans,
-            self.int_grid_bd,
-            out=self._pf_values,
-        )
-
-        self._mapped_pf_values *= 0.0
-        self._mapped_pf_values += pf_values
-        self._mapped_pf_values *= self._proj_p_metric
-        self._mapped_pf_values *= (self._gamma - 1.)
-
-        P3 = self.derham.P["3"]
-        V3h = self.derham.Vh_fem["3"]
-
-        self.Pip_div0 = BasisProjectionOperator(
-            P3,
-            V3h,
-            [[self._mapped_pf_values]],
-            transposed=False,
-            use_cache=True,
-            V_extraction_op=self.derham.extraction_ops["3"],
-            V_boundary_op=self.derham.boundary_ops["3"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["3"]),
-        )
-
-        pf0_values = self.pf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans,
-            self.hist_grid_0_bd,
-            out=self._pf_0_values,
-        )
-        pf1_values = self.pf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans,
-            self.hist_grid_1_bd,
-            out=self._pf_1_values,
-        )
-        pf2_values = self.pf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans,
-            self.hist_grid_2_bd,
-            out=self._pf_2_values,
-        )
-
-        P2 = self.derham.P["2"]
-        Xh = self.derham.Vh_fem["v"]
-
-        self.Pip0 = BasisProjectionOperator(
-            P2,
-            Xh,
-            [[pf0_values, None, None],
-             [None, pf1_values, None],
-             [None, None, pf2_values]],
-            transposed=False,
-            use_cache=True,
-            V_extraction_op=self.derham.extraction_ops["v"],
-            V_boundary_op=self.derham.boundary_ops["v"],
-            P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-        )
-
-        self._transop0 =  self.derham.div @ self.Pip0 + self.Pip_div0 @ self.div
-
-
-    def _update_linear_form_u2(self):
-        """Update the linearform representing integration in V3 against pressure energy"""
-
-        if self._model in ["full_p", "linear"]:
-            self._tmp_int_grid *= 0.0
-            self._tmp_int_grid -= 1.0 / (self._gamma - 1.0)
-            self._tmp_int_grid *= self._energy_metric_term
-
-        self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
-
-    def _get_error_picard(self, un_diff, pn_diff):
-        weak_un_diff = self.mass_ops.Mv.dot(
-            un_diff,
-            out=self._tmp_un_weak_diff,
-        )
-        weak_pn_diff = self.mass_ops.M3.dot(
-            pn_diff,
-            out=self._tmp_pn_weak_diff,
-        )
-        err_p = weak_pn_diff.dot(pn_diff)
-        err_u = weak_un_diff.dot(un_diff)
-        return max(err_p, err_u)
-
-
 class VariationalMagFieldEvolve(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\mathbf u \in (H^1)^3` and :math:`s \in L^2` such that
+    find :math:`\mathbf u \in (H^1)^3` and :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
-        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\mathbf B \times \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
+        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\mathbf \tilde{B} \times \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
         \\[4mm]
-        &\partial_t \mathbf B + \nabla \cdot ( \mathbf B \times \mathbf u ) = 0 \,.
+        &\partial_t \mathbf B + \nabla \cdot ( \mathbf \tilde{B} \times \mathbf u ) = 0 \,.
+        
+
+    Where :math:`\tilde{\mathbf B}` is either :math:`\mathbf B` for full-f models, :math:`\mathbf B_0` for linear models or :math:`\mathbf B_0+\mathbf B` for :math:`\delta f` models.
 
     On the logical domain:
 
@@ -6305,13 +5852,17 @@ class VariationalMagFieldEvolve(Propagator):
 
 class VariationalPBEvolve(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\mathbf u \in (H^1)^3` and :math:`s \in L^2` such that
+    find :math:`\mathbf u \in (H^1)^3`, :math:`p \in L^2` and :math:`\mathbf B \in H(\textnormal{div})` such that
 
     .. math::
 
-        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\mathbf B \times \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
+        &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\tilde{\mathbf B} \times \mathbf v) - \int_\Omega \frac{1}{\gamma -1} (\nabla \cdot (\tilde{p} \mathbf v))\,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
         \\[4mm]
-        &\partial_t \mathbf B + \nabla \cdot ( \mathbf B \times \mathbf u ) = 0 \,.
+        &\partial_t \mathbf B + \nabla \cdot ( \tilde{\mathbf B} \times \mathbf u ) = 0 \,,
+        \\[4mm]
+        &\partial_t p + \nabla \cdot(\tilde{p} \mathbf u) + (\gamma - 1) \tilde{p} \nabla \cdot u = 0 \,.
+
+    Where :math:`\tilde{\mathbf B}` (resp. :math:`\tilde{p}`) is either :math:`\mathbf B` (resp. :math:`p`) for full-f models, :math:`\mathbf B_0` (resp. :math:`p_0`) for linear models or :math:`\mathbf B_0+\mathbf B` (resp. :math:`p_0+p`) for :math:`\delta f` models.
 
     On the logical domain:
 
@@ -6319,9 +5870,12 @@ class VariationalPBEvolve(Propagator):
 
         \begin{align}
         &\int_{\hat{\Omega}} \partial_t ( \hat{\rho}^3  \hat{\mathbf{u}}) \cdot G \hat{\mathbf{v}} \, \textrm d \boldsymbol \eta
-        - \int_{\hat{\Omega}} \hat{\mathbf{B}}^2 \cdot G \,\nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\, \textrm d \boldsymbol \eta = 0 ~ ,
+        - \int_{\hat{\Omega}} \hat{\mathbf{B}}^2 \cdot G \,\nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{v}}) \,\frac{1}{\sqrt g}\,
+        - \frac{g}{\gamma -1} \nabla \cdot (\hat{p} \hat{v})  \textrm d \boldsymbol \eta = 0 ~ ,
         \\[2mm]
-        &\partial_t \hat{\mathbf{B}}^2 + \nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{u}}) = 0 ~ .
+        &\partial_t \hat{\mathbf{B}}^2 + \nabla \times (\hat{\mathbf{B}}^2 \times \hat{\mathbf{u}}) = 0 ~ ,
+        \\[2mm]
+        &\partial_t \hat{p} + \nabla \cdot (\hat{p} \hat{u}) + (\gamma - 1 ) \hat{p} \nabla \cdot G \hat{u} = 0 \,
         \end{align}
 
     It is discretized as
@@ -6330,21 +5884,31 @@ class VariationalPBEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - (\mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}} = 0 ~ ,
+        - (\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3(\frac{g}{\gamma-1})
         \\[2mm]
-        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
-        &\frac{\tilde{\boldsymbol b}^{n+1}-\boldsymbol b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
+        &\frac{\mathbf p^{n+1}- \mathbf p^n}{\Delta t} + \big(\mathbb D \hat{\Pi}^{2}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^v]]
+        + (\gamma - 1)\hat{\Pi}^{3}[\hat{p_h^{n+\frac{1}{2}}} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf u^{n+1/2}= 0 ~ ,
         \\[2mm]
-        &\tilde{\boldsymbol b}^{n+1} = \boldsymbol b^n ~ \text{else},
         \end{align}
+
+    with 
+
+    .. math::
+
+        \hat{l}^3(f)_{ijk}=\int_{\hat{\Omega}} f \Lambda^3_{ijk} \textrm d \boldsymbol \eta
 
     where weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
 
     .. math::
 
-        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
+        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+\frac{1}{2}})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, 
+        \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,
+        \qquad \hat{p}_h^{n+1/2} = (\boldsymbol p^{n+1/2})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
+    and :math:`\mathcal{U}^v` is :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators`.
     """
 
     @staticmethod
@@ -7285,7 +6849,7 @@ class VariationalPBEvolve(Propagator):
 
 class VariationalViscosity(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
-    find :math:`\rho \in L^2` and  :math:`\mathbf u \in (H^1)^3` such that
+    find :math:`s \in L^2` and  :math:`\mathbf u \in (H^1)^3` such that
 
     .. math::
 
@@ -7328,7 +6892,7 @@ class VariationalViscosity(Propagator):
     .. math::
         P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
-    """
+   """
 
     @staticmethod
     def options(default=False):
