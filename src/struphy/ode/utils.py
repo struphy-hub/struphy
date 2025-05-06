@@ -27,8 +27,6 @@ class ButcherTableau:
             "3/8 rule",
         ]
         return meth_avail
-    
-    __available_methods__ = available_methods()
 
     def __init__(self, algo: str = "rk4"):
         # choose algorithm
@@ -39,28 +37,28 @@ class ButcherTableau:
             conv_rate = 1
         elif algo == "heun2":
             a = ((1.0,),)
-            b = (1/2, 1/2)
+            b = (1 / 2, 1 / 2)
             c = (0.0, 1.0)
             conv_rate = 2
         elif algo == "rk2":
-            a = ((1/2,),)
+            a = ((1 / 2,),)
             b = (0.0, 1.0)
-            c = (0.0, 1/2)
+            c = (0.0, 1 / 2)
             conv_rate = 2
         elif algo == "heun3":
-            a = ((1/3,), (0.0, 2/3))
-            b = (1/4, 0.0, 3/4)
-            c = (0.0, 1/3, 2/3)
+            a = ((1 / 3,), (0.0, 2 / 3))
+            b = (1 / 4, 0.0, 3 / 4)
+            c = (0.0, 1 / 3, 2 / 3)
             conv_rate = 3
         elif algo == "rk4":
-            a = ((1/2,), (0.0, 1/2), (0.0, 0.0, 1.0))
-            b = (1/6, 1/3, 1/3, 1/6)
-            c = (0.0, 1/2, 1/2, 1.0)
+            a = ((1 / 2,), (0.0, 1 / 2), (0.0, 0.0, 1.0))
+            b = (1 / 6, 1 / 3, 1 / 3, 1 / 6)
+            c = (0.0, 1 / 2, 1 / 2, 1.0)
             conv_rate = 4
         elif algo == "3/8 rule":
-            a = ((1/3,), (-1/3, 1.0), (1.0, -1.0, 1.0))
-            b = (1/8, 3/8, 3/8, 1/8)
-            c = (0.0, 1/3, 2/3, 1.0)
+            a = ((1 / 3,), (-1 / 3, 1.0), (1.0, -1.0, 1.0))
+            b = (1 / 8, 3 / 8, 3 / 8, 1 / 8)
+            c = (0.0, 1 / 3, 2 / 3, 1.0)
             conv_rate = 4
         else:
             raise NotImplementedError("Chosen algorithm is not implemented.")
@@ -75,8 +73,8 @@ class ButcherTableau:
         self._a = np.tri(self.n_stages, k=-1)
         for l, st in enumerate(a):
             assert len(st) == l + 1
-            self._a[l + 1, :l + 1] = st
-            
+            self._a[l + 1, : l + 1] = st
+
         self._conv_rate = conv_rate
 
     __available_methods__ = available_methods()
@@ -100,7 +98,7 @@ class ButcherTableau:
     def n_stages(self):
         """Number of stages of the s-stage Runge-Kutta method."""
         return self._n_stages
-    
+
     @property
     def conv_rate(self):
         """Convergence rate of the s-stage Runge-Kutta method."""

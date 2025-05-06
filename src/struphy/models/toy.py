@@ -64,8 +64,10 @@ class Maxwell(StruphyModel):
         solver = params["em_fields"]["options"]["Maxwell"]["solver"]
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {"algo": algo,
-                                                    "solver": solver,}
+        self._kwargs[propagators_fields.Maxwell] = {
+            "algo": algo,
+            "solver": solver,
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -404,6 +406,7 @@ class ShearAlfven(StruphyModel):
 
         # extract necessary parameters
         alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
+        alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
@@ -418,6 +421,7 @@ class ShearAlfven(StruphyModel):
         self._kwargs[propagators_fields.ShearAlfven] = {
             "u_space": "Hdiv",
             "solver": alfven_solver,
+            "algo": alfven_algo,
         }
 
         # Initialize propagators used in splitting substeps

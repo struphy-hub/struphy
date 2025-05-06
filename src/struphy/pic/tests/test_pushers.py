@@ -760,9 +760,9 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
+    from struphy.ode.utils import ButcherTableau
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
-    from struphy.ode.utils import ButcherTableau
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
 
