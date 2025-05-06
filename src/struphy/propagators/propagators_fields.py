@@ -8398,7 +8398,7 @@ class VariationalResistivity(Propagator):
         self._scaled_stiffness = 0.00001 * self.phy_stiffness
 
         self.r_op = M2 #- self._scaled_stiffness
-        self.l_op = M2 + self._scaled_stiffness #+ self.phy_cb_stiffness
+        self.l_op = M2 + self._scaled_stiffness + self.phy_cb_stiffness
 
         if self._lin_solver["type"][1] is None:
             self.pc = None
