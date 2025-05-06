@@ -12,6 +12,8 @@ from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilV
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.utilities import RotationMatrix
+from struphy.feec.psydac_derham import Derham
+from struphy.geometry.base import Domain
 
 
 class WeightedMassOperators:
@@ -42,7 +44,7 @@ class WeightedMassOperators:
     - ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, matrix_free=False, verbose=True, **weights):
+    def __init__(self, derham: Derham, domain: Domain, matrix_free: bool=False, verbose: bool=True, **weights,):
         self._derham = derham
         self._domain = domain
         self._weights = weights
