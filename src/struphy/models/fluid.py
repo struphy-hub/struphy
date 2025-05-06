@@ -1150,6 +1150,7 @@ class ViscousFluid(StruphyModel):
         gam = self._gamma
         return np.power(rho, gam) * np.exp(s / rho)
 
+
 class IsothermalEulerSPH(StruphyModel):
     r"""Isothermal Euler equations discretized with smoothed particle hydrodynamics (SPH).
 
@@ -1252,6 +1253,7 @@ class IsothermalEulerSPH(StruphyModel):
             valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2
         ) / (2.0 * self.pointer["euler_fluid"].Np)
         self.update_scalar("en_kin", en_kin)
+
 
 class ViscoresistiveMHD_with_p(StruphyModel):
     r"""Full (non-linear) visco-resistive MHD equations, with the pressure variable discretized with a variational method.
@@ -1472,6 +1474,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
 
     __diagnostics__ = diagnostics_dct()
 
+
 class LinearVariationalMHD(StruphyModel):
     r"""Linear visco-resistive MHD equations discretized with a variational method.
 
@@ -1587,7 +1590,7 @@ class LinearVariationalMHD(StruphyModel):
             "div_u": self.pointer["div_u"],
             "u2": self.pointer["u2"],
             "bt2": self.pointer["bt2"],
-            "pt3":self.pointer["pt3"],
+            "pt3": self.pointer["pt3"],
         }
 
         self._kwargs[propagators_fields.VariationalViscosity] = {
@@ -1611,7 +1614,7 @@ class LinearVariationalMHD(StruphyModel):
             "lin_solver": lin_solver_resistivity,
             "nonlin_solver": nonlin_solver_resistivity,
             "linearize_current": self._linearize_current,
-            "pt3":self.pointer["pt3"],
+            "pt3": self.pointer["pt3"],
         }
 
         # Initialize propagators used in splitting substeps
@@ -1826,7 +1829,7 @@ class DeltafVariationalMHD(StruphyModel):
             "nonlin_solver": nonlin_solver_magfield,
             "gamma": self._gamma,
             "bt2": self.pointer["bt2"],
-            "pt3":self.pointer["pt3"],
+            "pt3": self.pointer["pt3"],
         }
 
         self._kwargs[propagators_fields.VariationalViscosity] = {

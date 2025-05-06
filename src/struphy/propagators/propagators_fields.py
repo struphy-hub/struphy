@@ -3022,7 +3022,7 @@ class VariationalDensityEvolve(Propagator):
         &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x + \int_\Omega \left(\frac{|\mathbf u|^2}{2} - \frac{\partial(\rho \mathcal U(\rho))}{\partial \rho}\right) \nabla \cdot (\tilde{\rho} \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,.
 
     Where :math:`\tilde{\rho}` is either :math:`\rho` for full-f models, :math:`\rho_0` for linear models or :math:`\rho_0+\rho` for :math:`\delta f` models.
-    
+
     In the case of linear model, the second equation is not updated.
 
     On the logical domain:
@@ -3137,7 +3137,7 @@ class VariationalDensityEvolve(Propagator):
             self.rhof1.vector = self.projected_equil.n3
         elif self._model == "deltaf":
             self._tmp_rho_deltaf = rho.space.zeros()
-            rhotmp = rho.copy(out = self._tmp_rho_deltaf)
+            rhotmp = rho.copy(out=self._tmp_rho_deltaf)
             rhotmp += self.projected_equil.n3
             self.rhof1.vector = rhotmp
         else:
@@ -3187,15 +3187,15 @@ class VariationalDensityEvolve(Propagator):
         un = self.feec_vars[1]
 
         if self._model == "linear":
-            advection = self.divPirho.dot(un, out = self._tmp_rho_advection)
+            advection = self.divPirho.dot(un, out=self._tmp_rho_advection)
             advection *= dt
-            rhon1 = rhon.copy(out = self._tmp_rhon1)
+            rhon1 = rhon.copy(out=self._tmp_rhon1)
             rhon1 -= advection
             self.feec_vars_update(rhon1, un)
             return
 
         if self._model == "deltaf":
-            rho = rhon.copy(out = self._tmp_rho_deltaf)
+            rho = rhon.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
             self.rhof1.vector = rho
         else:
@@ -3242,7 +3242,7 @@ class VariationalDensityEvolve(Propagator):
             self.sf.vector = s
 
         if self._model == "deltaf":
-            rho = rhon1.copy(out = self._tmp_rho_deltaf)
+            rho = rhon1.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
             self.rhof1.vector = rho
         else:
@@ -3252,7 +3252,7 @@ class VariationalDensityEvolve(Propagator):
         rhon1 = rhon.copy(out=self._tmp_rhon1)
         rhon1 += self._tmp_rhon_diff
         if self._model == "deltaf":
-            rho = rhon1.copy(out = self._tmp_rho_deltaf)
+            rho = rhon1.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
             self.rhof1.vector = rho
         else:
@@ -3271,7 +3271,7 @@ class VariationalDensityEvolve(Propagator):
             un12 += un1
             un12 *= 0.5
 
-            rhon12 = rhon.copy(out = self._tmp_rhon12)
+            rhon12 = rhon.copy(out=self._tmp_rhon12)
             rhon12 += rhon1
             rhon12 *= 0.5
             if self._model == "deltaf":
@@ -3333,9 +3333,9 @@ class VariationalDensityEvolve(Propagator):
             rhon1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            
+
             if self._model == "deltaf":
-                rho = rhon1.copy(out = self._tmp_rho_deltaf)
+                rho = rhon1.copy(out=self._tmp_rho_deltaf)
                 rho += self.projected_equil.n3
                 self.rhof1.vector = rho
             else:
@@ -5128,7 +5128,7 @@ class VariationalMagFieldEvolve(Propagator):
         &\int_\Omega \partial_t (\rho \mathbf u) \cdot \mathbf v\,\textrm d \mathbf x - \int_\Omega \mathbf B \cdot \nabla \times (\mathbf \tilde{B} \times \mathbf v) \,\textrm d \mathbf x = 0 \qquad \forall \, \mathbf v \in (H^1)^3\,,
         \\[4mm]
         &\partial_t \mathbf B + \nabla \cdot ( \mathbf \tilde{B} \times \mathbf u ) = 0 \,.
-        
+
 
     Where :math:`\tilde{\mathbf B}` is either :math:`\mathbf B` for full-f models, :math:`\mathbf B_0` for linear models or :math:`\mathbf B_0+\mathbf B` for :math:`\delta f` models.
 
@@ -5198,15 +5198,14 @@ class VariationalMagFieldEvolve(Propagator):
         b: BlockVector,
         u: BlockVector,
         *,
-        model: str= "full",
+        model: str = "full",
         mass_ops: WeightedMassOperator,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
     ):
         super().__init__(b, u)
 
-
-        assert model in ["full","full_p", "linear"]
+        assert model in ["full", "full_p", "linear"]
         self._model = model
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
@@ -5237,7 +5236,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._tmp_bn_diff = b.space.zeros()
         self._tmp_un_weak_diff = u.space.zeros()
         self._tmp_bn_weak_diff = b.space.zeros()
-        
+
         self._tmp_mn = u.space.zeros()
         self._tmp_mn1 = u.space.zeros()
         self._tmp_mn_diff = u.space.zeros()
@@ -5336,8 +5335,8 @@ class VariationalMagFieldEvolve(Propagator):
                 advection += advection2
 
                 b_advection = self.curlPib0.dot(
-                un12,
-                out=self._tmp_b_advection,
+                    un12,
+                    out=self._tmp_b_advection,
                 )
             else:
                 advection = self.curlPibT.dot(
@@ -5346,8 +5345,8 @@ class VariationalMagFieldEvolve(Propagator):
                 )
 
                 b_advection = self.curlPib.dot(
-                un12,
-                out=self._tmp_b_advection,
+                    un12,
+                    out=self._tmp_b_advection,
                 )
 
             advection *= dt
@@ -5750,7 +5749,6 @@ class VariationalMagFieldEvolve(Propagator):
         )
 
     def _create_Pib0(self):
-
         self.bf.vector = self.projected_equil.b2
 
         bf0_values = self.bf.eval_tp_fixed_loc(
@@ -5774,16 +5772,18 @@ class VariationalMagFieldEvolve(Propagator):
         Xh = self.derham.Vh_fem["v"]
 
         self.Pib0 = BasisProjectionOperator(
-                P1,
-                Xh,
-                [[None, -bf0_values[2], bf0_values[1]],
+            P1,
+            Xh,
+            [
+                [None, -bf0_values[2], bf0_values[1]],
                 [bf1_values[2], None, -bf1_values[0]],
-                [-bf2_values[1], bf2_values[0], None]],
-                transposed=False,
-                V_extraction_op=self.derham.extraction_ops["v"],
-                V_boundary_op=self.derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-            )
+                [-bf2_values[1], bf2_values[0], None],
+            ],
+            transposed=False,
+            V_extraction_op=self.derham.extraction_ops["v"],
+            V_boundary_op=self.derham.boundary_ops["v"],
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
+        )
 
     def _update_Piu(self):
         """Update the weights of the `BasisProjectionOperator`"""
@@ -5850,6 +5850,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._mdt2_pc_curlPibT_M._scalar = -dt / 2
         self._dt2_curlPib._scalar = dt / 2
 
+
 class VariationalPBEvolve(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in (H^1)^3`, :math:`p \in L^2` and :math:`\mathbf B \in H(\textnormal{div})` such that
@@ -5894,7 +5895,7 @@ class VariationalPBEvolve(Propagator):
         \\[2mm]
         \end{align}
 
-    with 
+    with
 
     .. math::
 
@@ -5904,7 +5905,7 @@ class VariationalPBEvolve(Propagator):
 
     .. math::
 
-        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+\frac{1}{2}})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \, 
+        \hat{\mathbf{B}}_h^{n+1/2} = (\mathbf{b}^{n+\frac{1}{2}})^\top \vec{\boldsymbol \Lambda}^2 \in V_h^2 \,
         \qquad \hat{\rho}_h^{n} = (\boldsymbol \rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,
         \qquad \hat{p}_h^{n+1/2} = (\boldsymbol p^{n+1/2})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
 
@@ -5945,7 +5946,7 @@ class VariationalPBEvolve(Propagator):
         b: BlockVector,
         u: BlockVector,
         *,
-        model: str= "full",
+        model: str = "full",
         gamma: float = options()["physics"]["gamma"],
         mass_ops: WeightedMassOperator,
         lin_solver: dict = options(default=True)["lin_solver"],
@@ -5956,7 +5957,6 @@ class VariationalPBEvolve(Propagator):
         bt2: BlockVector | None = None,
     ):
         super().__init__(p, b, u)
-
 
         assert model in ["full_p", "linear", "deltaf"]
         self._model = model
@@ -6089,14 +6089,11 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_advection2,
                 )
 
-                advection += self._transop_pT.dot(
-                    self._linear_form_dl_dp,
-                    out = self._tmp_advection2)
-                
+                advection += self._transop_pT.dot(self._linear_form_dl_dp, out=self._tmp_advection2)
 
                 b_advection = self.curlPib0.dot(
-                un12,
-                out=self._tmp_b_advection,
+                    un12,
+                    out=self._tmp_b_advection,
                 )
 
                 p_advection = self._transop_p0.dot(
@@ -6120,18 +6117,16 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_advection2,
                 )
 
-                advection += self._transop_pT.dot(
-                    self._linear_form_dl_dp,
-                    out = self._tmp_advection2)
-                
+                advection += self._transop_pT.dot(self._linear_form_dl_dp, out=self._tmp_advection2)
+
                 b_advection = self.curlPib.dot(
-                un12,
-                out=self._tmp_b_advection,
+                    un12,
+                    out=self._tmp_b_advection,
                 )
 
                 b_advection += self.curlPib0.dot(
-                un12,
-                out=self._tmp_b_advection2,
+                    un12,
+                    out=self._tmp_b_advection2,
                 )
 
                 p_advection = self._transop_p0.dot(
@@ -6150,16 +6145,13 @@ class VariationalPBEvolve(Propagator):
                     out=self._tmp_advection,
                 )
 
-                advection2 = self._transop_pT.dot(
-                    self._linear_form_dl_dp,
-                    out = self._tmp_advection2
-                )
+                advection2 = self._transop_pT.dot(self._linear_form_dl_dp, out=self._tmp_advection2)
 
                 advection += advection2
 
                 b_advection = self.curlPib.dot(
-                un12,
-                out=self._tmp_b_advection,
+                    un12,
+                    out=self._tmp_b_advection,
                 )
 
                 p_advection = self._transop_p.dot(
@@ -6184,11 +6176,11 @@ class VariationalPBEvolve(Propagator):
             mn_diff -= mn
             mn_diff += advection
 
-            pn1 = pn.copy(out = self._tmp_pn1)
+            pn1 = pn.copy(out=self._tmp_pn1)
             pn1 -= p_advection
 
             # Get error
-            err = self._get_error_newton(mn_diff, bn_diff) #, pn_diff)
+            err = self._get_error_newton(mn_diff, bn_diff)  # , pn_diff)
 
             if self._info:
                 print("iteration : ", it, " error : ", err)
@@ -6228,7 +6220,7 @@ class VariationalPBEvolve(Propagator):
         self.div.dot(un12, out=self._divu)
         self.Uv.dot(un1, out=self._u2)
 
-        # Update the 2nd order variables 
+        # Update the 2nd order variables
 
         if self._pt3 is not None:
             p_advection = self._transop_p.dot(
@@ -6245,7 +6237,6 @@ class VariationalPBEvolve(Propagator):
             )
             b_advection *= dt
             self._bt2 -= b_advection
-        
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -6354,7 +6345,7 @@ class VariationalPBEvolve(Propagator):
         self.div = div @ self.Uv
 
         # Initialize the transport operator and transposed
-        self._transop_p =  div @ self.Pip + self.Pip_div @ self.div
+        self._transop_p = div @ self.Pip + self.Pip_div @ self.div
         self._transop_pT = self.PipT @ div.T + self.div.T @ self.Pip_divT
 
         int_grid = [pts.flatten() for pts in self.derham.proj_grid_pts["3"]]
@@ -6548,8 +6539,8 @@ class VariationalPBEvolve(Propagator):
             self.curlPib0 = self.curl @ self.Pib0
             self.curlPibT0 = self.Pib0.T @ self.curl.T
 
-            self._full_curlPib = self.curlPib0+self.curlPib
-            self._full_curlPibT = self.curlPibT0+self.curlPibT
+            self._full_curlPib = self.curlPib0 + self.curlPib
+            self._full_curlPibT = self.curlPibT0 + self.curlPibT
 
             self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
 
@@ -6639,7 +6630,6 @@ class VariationalPBEvolve(Propagator):
         )
 
     def _create_Pib0(self):
-
         self.bf.vector = self.projected_equil.b2
 
         bf0_values = self.bf.eval_tp_fixed_loc(
@@ -6663,16 +6653,18 @@ class VariationalPBEvolve(Propagator):
         Xh = self.derham.Vh_fem["v"]
 
         self.Pib0 = BasisProjectionOperator(
-                P1,
-                Xh,
-                [[None, -bf0_values[2], bf0_values[1]],
+            P1,
+            Xh,
+            [
+                [None, -bf0_values[2], bf0_values[1]],
                 [bf1_values[2], None, -bf1_values[0]],
-                [-bf2_values[1], bf2_values[0], None]],
-                transposed=False,
-                V_extraction_op=self.derham.extraction_ops["v"],
-                V_boundary_op=self.derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-            )
+                [-bf2_values[1], bf2_values[0], None],
+            ],
+            transposed=False,
+            V_extraction_op=self.derham.extraction_ops["v"],
+            V_boundary_op=self.derham.boundary_ops["v"],
+            P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
+        )
 
     def _update_Projp(self):
         """Update the weights of the `BasisProjectionOperator`"""
@@ -6686,7 +6678,7 @@ class VariationalPBEvolve(Propagator):
         self._mapped_pf_values *= 0.0
         self._mapped_pf_values += pf_values
         self._mapped_pf_values *= self._proj_p_metric
-        self._mapped_pf_values *= (self._gamma -1.)
+        self._mapped_pf_values *= self._gamma - 1.0
 
         self.Pip_div.update_weights([[self._mapped_pf_values]])
 
@@ -6740,7 +6732,7 @@ class VariationalPBEvolve(Propagator):
         self._mapped_pf_values *= 0.0
         self._mapped_pf_values += pf_values
         self._mapped_pf_values *= self._proj_p_metric
-        self._mapped_pf_values *= (self._gamma - 1.)
+        self._mapped_pf_values *= self._gamma - 1.0
 
         P3 = self.derham.P["3"]
         V3h = self.derham.Vh_fem["3"]
@@ -6778,9 +6770,7 @@ class VariationalPBEvolve(Propagator):
         self.Pip0 = BasisProjectionOperator(
             P2,
             Xh,
-            [[pf0_values, None, None],
-             [None, pf1_values, None],
-             [None, None, pf2_values]],
+            [[pf0_values, None, None], [None, pf1_values, None], [None, None, pf2_values]],
             transposed=False,
             use_cache=True,
             V_extraction_op=self.derham.extraction_ops["v"],
@@ -6788,7 +6778,7 @@ class VariationalPBEvolve(Propagator):
             P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
         )
 
-        self._transop_p0 =  self.derham.div @ self.Pip0 + self.Pip_div0 @ self.div
+        self._transop_p0 = self.derham.div @ self.Pip0 + self.Pip_div0 @ self.div
 
     def _update_linear_form_u2(self):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
@@ -6808,7 +6798,7 @@ class VariationalPBEvolve(Propagator):
 
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
 
-    def _get_error_newton(self, mn_diff, bn_diff): #, pn_diff):
+    def _get_error_newton(self, mn_diff, bn_diff):  # , pn_diff):
         weak_un_diff = self._inv_Mv.dot(
             self.derham.boundary_ops["v"].dot(mn_diff),
             out=self._tmp_un_weak_diff,
@@ -6846,6 +6836,7 @@ class VariationalPBEvolve(Propagator):
     def _get_jacobian(self, dt):
         self._mdt2_pc_curlPibT_M._scalar = -dt / 2
         self._dt2_curlPib._scalar = dt / 2
+
 
 class VariationalViscosity(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -6892,7 +6883,7 @@ class VariationalViscosity(Propagator):
     .. math::
         P^0(g \sqrt{\sum_\nu |(\mathbb G \mathcal{X}^v_\nu \mathbb u)^\top \vec{\boldsymbol \Lambda}^0 |^2]})^\top \vec{\boldsymbol \Lambda}^0 ~.
 
-   """
+    """
 
     @staticmethod
     def options(default=False):
@@ -7638,7 +7629,6 @@ class VariationalResistivity(Propagator):
         self._linearize_current = linearize_current
         self._pt3 = pt3
 
-
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
         # Femfields for the projector
@@ -7664,7 +7654,7 @@ class VariationalResistivity(Propagator):
         self._linear_form_tot_e = s.space.zeros()
         self._linear_form_en1 = s.space.zeros()
         self.tot_rhs = s.space.zeros()
-        if True: #self._linearize_current:
+        if True:  # self._linearize_current:
             self._extracted_b2 = self.derham.boundary_ops["2"].dot(
                 self.derham.extraction_ops["2"].dot(self.projected_equil.b2),
             )
@@ -7692,7 +7682,7 @@ class VariationalResistivity(Propagator):
 
         # Update weighted mass matrix for artificial resistivity
 
-        if self._eta_a>1e-15:
+        if self._eta_a > 1e-15:
             cb = self.Tcurl.dot(bn, out=self._tmp_cb1)
             self.cbf1.vector = cb
             cb_v = self.cbf1.eval_tp_fixed_loc(
@@ -7783,10 +7773,10 @@ class VariationalResistivity(Propagator):
         self.cbf1.vector = cb1
 
         cb12_v = self.cbf12.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_curl,
-                out=self._cb12_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_curl,
+            out=self._cb12_values,
+        )
         cb1_v = self.cbf1.eval_tp_fixed_loc(
             self.integration_grid_spans,
             self.integration_grid_curl,
@@ -7826,7 +7816,7 @@ class VariationalResistivity(Propagator):
 
             e_n *= self._energy_metric
 
-        elif self._model  in ["full_p", "linear_p", "delta_p"]:
+        elif self._model in ["full_p", "linear_p", "delta_p"]:
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
@@ -7860,7 +7850,7 @@ class VariationalResistivity(Propagator):
                 )
                 e_n1 *= self._energy_metric
 
-            elif self._model  in ["full_p", "linear_p", "delta_p"]:
+            elif self._model in ["full_p", "linear_p", "delta_p"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -7932,7 +7922,7 @@ class VariationalResistivity(Propagator):
             for i in range(3):
                 for j in range(3):
                     cb_sq_v += cb12_v[i] * self._sq_term_metric[i, j] * cb1_v[j]
-            
+
             cb_sq_v *= self._cb_sq_values_init
             # 2) Initial energy and linear form
             self.sf.vector = self._pt3
@@ -8054,7 +8044,7 @@ class VariationalResistivity(Propagator):
 
         self._scaled_stiffness = 0.00001 * self.phy_stiffness
 
-        self.r_op = M2 #- self._scaled_stiffness
+        self.r_op = M2  # - self._scaled_stiffness
         self.l_op = M2 + self._scaled_stiffness + self.phy_cb_stiffness
 
         if self._lin_solver["type"][1] is None:

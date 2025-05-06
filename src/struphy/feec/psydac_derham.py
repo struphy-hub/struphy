@@ -1669,7 +1669,6 @@ class Derham:
 
                     # special case of white noise in logical space for different components
                     if "noise" in _type:
-                        print("noise")
                         # component(s) to perturb
                         if isinstance(_params["comps"], bool):
                             comps = [_params["comps"]]
@@ -1682,10 +1681,8 @@ class Derham:
                             if comps[0]:
                                 self._add_noise(**_params)
                         elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                            print("noiseHvec")
                             for n, comp in enumerate(comps):
                                 if comp:
-                                    print(n)
                                     self._add_noise(**_params, n=n)
 
                     # given function class
