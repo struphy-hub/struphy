@@ -373,7 +373,7 @@ class Project:
                 "mpi_procs",
             ]
         ]
-
+        # print(f"{likwid_groups = }")
         # Convert '*' to a regex that matches any string, as users won't write '.*'
         groups_include = [pattern.replace("*", ".*") for pattern in groups_include]
         groups_skip = [pattern.replace("*", ".*") for pattern in groups_skip]
