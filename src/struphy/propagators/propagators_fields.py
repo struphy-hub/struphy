@@ -3043,14 +3043,11 @@ class VariationalDensityEvolve(Propagator):
 
         \begin{align}
         &\frac{\mathbb M^v[\hat{\rho}_h^{n+1}] \mathbf u^{n+1}- \mathbb M^v[\hat{\rho}_h^n] \mathbf u^n}{\Delta t}
-        + (\mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\left(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2}
+        + (\mathbb D \hat{\Pi}^{2}[\hat{\rho_h^{n}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\left(\frac{DF \hat{\mathbf{u}}_h^{n+1} \cdot DF \hat{\mathbf{u}}_h^{n}}{2}
         - \frac{\hat{\rho}_h^{n+1}\mathcal U(\hat{\rho}_h^{n+1})-\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n})}{\hat{\rho}_h^{n+1}-\hat{\rho}_h^n} \right) = 0 ~ ,
         \\[2mm]
-        &\frac{\boldsymbol \rho^{n+1}- \boldsymbol \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\boldsymbol \rho^{n+1}- \boldsymbol \rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\rho_h^{n}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
-        &\frac{\tilde{\boldsymbol \rho}^{n+1}- \boldsymbol\rho^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{\rho}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
-        \\[2mm]
-        &\tilde{\boldsymbol \rho}^{n+1} = \boldsymbol\rho^n ~ \text{else},
         \end{align}
 
     where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
@@ -3083,7 +3080,6 @@ class VariationalDensityEvolve(Propagator):
             "maxiter": 100,
             "type": ["Newton", "Picard"],
             "info": False,
-            "implicit_transport": False,
             "linearize": False,
         }
         dct["physics"] = {"gamma": 5 / 3}
@@ -3117,7 +3113,6 @@ class VariationalDensityEvolve(Propagator):
         self._s = s
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
-        self._implicit_transport = self._nonlin_solver["implicit_transport"]
         self._linearize = self._nonlin_solver["linearize"]
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
@@ -3203,38 +3198,8 @@ class VariationalDensityEvolve(Propagator):
         self.rhof.vector = rhon
         self._update_weighted_MM()
         mn = self._Mrho.dot(un, out=self._tmp_mn)
-
-        # Compute implicit approximation of rho^{n+1}
-        self.uf.vector = un
-        if self._implicit_transport:
-            self._update_Piu()
-
-            if self._info:
-                print("Compute the implicit approximation")
-            # Check it's usefull to invert the transport operator to avoid calling on Id and causing bugs
-            # Explicit call
-            self._dt_divPiu._scalar = -dt
-            rhon1 = self._transop.dot(rhon, out=self._tmp_rhon1)
-            # Get diff
-            rhon_diff = rhon1.copy(out=self._tmp_rhon_diff)
-            rhon_diff -= rhon
-            weak_rhon_diff = self.mass_ops.M3.dot(
-                rhon_diff,
-                out=self._tmp_rhon_weak_diff,
-            )
-            err_rho = weak_rhon_diff.dot(rhon_diff)
-
-            if err_rho > self._lin_solver["tol"]:
-                # Implicit call if needed
-                self._dt_divPiu._scalar = dt
-                rhon1 = self._inv_transop.dot(rhon, out=self._tmp_rhon1)
-            if self._info:
-                print("Linear solver info : ", self._inv_transop._info)
-
-        else:
-            # No implicit
-            rhon1 = rhon.copy(out=self._tmp_rhon1)
-            # rhon1 += self._tmp_rhon_diff
+        
+        rhon1 = rhon.copy(out=self._tmp_rhon1)
 
         # Initialize variable for Newton iteration
         if self._model == "full":
@@ -6038,6 +6003,11 @@ class VariationalPBEvolve(Propagator):
         bn = self.feec_vars[1]
         un = self.feec_vars[2]
 
+        self.bf.vector = bn
+        self._update_Pib()
+        self.pf.vector = pn
+        self._update_Projp()
+
         self.uf.vector = un
 
         self.pc.update_mass_operator(self._Mrho)
@@ -6070,10 +6040,10 @@ class VariationalPBEvolve(Propagator):
             pn12 += pn1
             pn12 *= 0.5
 
-            self.bf.vector = bn12
-            self._update_Pib()
-            self.pf.vector = pn12
-            self._update_Projp()
+            # self.bf.vector = bn12
+            # self._update_Pib()
+            # self.pf.vector = pn12
+            # self._update_Projp()
             # Update the linear form
             self._update_linear_form_u2()
 
