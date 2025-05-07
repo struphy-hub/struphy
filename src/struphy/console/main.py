@@ -610,7 +610,7 @@ def struphy():
         metavar="NAME",
         help="save (and dont display) the profile figure under NAME, relative to current output path.",
     )
-    
+
     try:
         import pylikwid
 
@@ -619,7 +619,6 @@ def struphy():
         add_likwid_parser = False
 
     if add_likwid_parser:
-
         parser_likwid_profile = subparsers.add_parser(
             "likwid_profile",
             help="Profile finished Struphy runs with likwid",
