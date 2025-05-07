@@ -182,7 +182,7 @@ def struphy_run(
     # command parts
     cmd_python = ["python3"]
     cmd_main = [
-        "main.py",
+        f"{libpath}/main.py",
         model,
         "-i",
         input_abs,
@@ -290,7 +290,7 @@ def struphy_run(
                 f.write(line)
             f.write("# Run command added by Struphy\n")
 
-            command = cmd_python + cprofile * cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"]
+            command = cmd_python + cprofile * cmd_cprofile + cmd_main
             if restart:
                 command += ["-r"]
 
