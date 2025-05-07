@@ -49,7 +49,6 @@ dev = [
     'add-trailing-comma',
     'ruff>=0.9.1',
     'pre-commit',
-    'kaleido',
 ]
 doc = [
     'sphinx',
@@ -63,6 +62,11 @@ doc = [
     'mistune',
     'docutils',
     'ipyparallel',
+]
+likwid = [
+    'struphy[dev]',
+    'kaleido',
+    'pylikwid',
 ]
 
 
