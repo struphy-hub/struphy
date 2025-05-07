@@ -2822,7 +2822,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             sum_H_diff_loc = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
             #sum_H_diff_loc = utilities_kernels.Hdiffsquare(self.particles[0].markers)
             #sum_H_diff_loc = np.sum(self.particles[0].markers[~self.particles[0].holes, 15])
-            #print(self.derham.comm.Get_rank(), sum_H_diff_loc)
+            print(self.derham.comm.Get_rank(), sum_H_diff_loc)
             
             buffer_array = np.array([sum_H_diff_loc])
             self.derham.comm.Allreduce(
@@ -2857,7 +2857,11 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
             en_fB_mid = buffer_array[0]
 
-            const = ( en_fB_new - en_fB_old - en_fB_mid)/denominator
+            if denominator == 0.:
+                const = 0.
+
+            else:
+                const = ( en_fB_new - en_fB_old - en_fB_mid)/denominator
     
             # update u^{n+1,k}
 
