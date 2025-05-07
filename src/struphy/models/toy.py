@@ -134,7 +134,7 @@ class Vlasov(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_markers.PushVxB: ["ions"],
+            # propagators_markers.PushVxB: ["ions"],
             propagators_markers.PushEta: ["ions"],
         }
 
@@ -164,12 +164,12 @@ class Vlasov(StruphyModel):
         )
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushVxB] = {
-            "algo": ions_params["options"]["PushVxB"]["algo"],
-            "kappa": 1.0,
-            "b2": self._b_eq,
-            "b2_add": None,
-        }
+        # self._kwargs[propagators_markers.PushVxB] = {
+        #     "algo": ions_params["options"]["PushVxB"]["algo"],
+        #     "kappa": 1.0,
+        #     "b2": self._b_eq,
+        #     "b2_add": None,
+        # }
 
         self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
 
