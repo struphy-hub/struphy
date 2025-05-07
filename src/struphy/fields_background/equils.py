@@ -3185,7 +3185,7 @@ class CurrentSheet(CartesianMHDequilibrium):
 
         B_y &= \text{tanh}(z / \delta) \,,
 
-        B_y &= \sqrt{(1 - B_y^2)} \,,
+        B_x &= \sqrt{(1 - B_y^2)} \,,
 
         p &= p_0 = 5/2\,,
 

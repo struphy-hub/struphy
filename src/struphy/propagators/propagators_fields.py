@@ -2135,7 +2135,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             return 0 * x
 
         # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors == True:
+        if self.derham._with_local_projectors:
             self._TB = BasisProjectionOperatorLocal(P1, Vh, [[tmp, tmp, tmp]])
         else:
             self._TB = BasisProjectionOperator(P1, Vh, [[tmp, tmp, tmp]])
@@ -3445,7 +3445,7 @@ class VariationalDensityEvolve(Propagator):
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors == True:
+        if self.derham._with_local_projectors:
             self.Pirho = BasisProjectionOperatorLocal(
                 P2,
                 Xh,
@@ -4549,7 +4549,7 @@ class VariationalEntropyEvolve(Propagator):
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors == True:
+        if self.derham._with_local_projectors:
             self.Pis = BasisProjectionOperatorLocal(
                 P2,
                 Xh,
@@ -5485,7 +5485,7 @@ class VariationalMagFieldEvolve(Propagator):
         V2h = self.derham.Vh_fem["2"]
 
         # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors == True:
+        if self.derham._with_local_projectors:
             self.Pib = BasisProjectionOperatorLocal(
                 P1,
                 Xh,
@@ -6253,7 +6253,7 @@ class VariationalPBEvolve(Propagator):
         V3h = self.derham.Vh_fem["3"]
 
         # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors == True:
+        if self.derham._with_local_projectors:
             self.Pib = BasisProjectionOperatorLocal(
                 P1,
                 Xh,
