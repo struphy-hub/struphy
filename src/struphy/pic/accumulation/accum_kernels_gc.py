@@ -1281,7 +1281,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # b * gradPB contribution
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
-
+            
             filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # b * dg term contribution

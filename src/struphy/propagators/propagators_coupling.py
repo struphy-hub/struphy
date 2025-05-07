@@ -2239,12 +2239,12 @@ class CurrentCoupling5DGradB(Propagator):
             self._curl_norm_b[0]._data,
             self._curl_norm_b[1]._data,
             self._curl_norm_b[2]._data,
-            self._gradB1[0]._data,
-            self._gradB1[1]._data,
-            self._gradB1[2]._data,
             self._tmp3[0]._data,
             self._tmp3[1]._data,
             self._tmp3[2]._data,
+            self._gradB1[0]._data,
+            self._gradB1[1]._data,
+            self._gradB1[2]._data,
             self._space_key_int,
             self._coupling_mat,
             self._coupling_vec,
@@ -2672,12 +2672,12 @@ class CurrentCoupling5DGradB_dg(Propagator):
             self._curl_norm_b[0]._data,
             self._curl_norm_b[1]._data,
             self._curl_norm_b[2]._data,
-            self._gradB1[0]._data,
-            self._gradB1[1]._data,
-            self._gradB1[2]._data,
             self._grad_PB_b[0]._data,
             self._grad_PB_b[1]._data,
             self._grad_PB_b[2]._data,
+            self._gradB1[0]._data,
+            self._gradB1[1]._data,
+            self._gradB1[2]._data,
             self._space_key_int,
             self._coupling_vec,
         )
@@ -2822,6 +2822,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             sum_H_diff_loc = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
             #sum_H_diff_loc = utilities_kernels.Hdiffsquare(self.particles[0].markers)
             #sum_H_diff_loc = np.sum(self.particles[0].markers[~self.particles[0].holes, 15])
+            #print(self.derham.comm.Get_rank(), sum_H_diff_loc)
             
             buffer_array = np.array([sum_H_diff_loc])
             self.derham.comm.Allreduce(
