@@ -69,6 +69,8 @@ __epyccel__/
 *.vts
 *acquisition.lock
 *.json
+*.sqlite
+*.nsys-rep
 
 # Default simulations and diagnostics
 my_diagnostics
