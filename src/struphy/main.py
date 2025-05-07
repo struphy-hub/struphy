@@ -1,3 +1,38 @@
+def test_gpu():
+    from struphy.pic.pushing.pusher_kernels import matmul_gpu
+    import numpy as np
+    import time
+    N: int = 2**10
+    A = np.zeros((N, N))
+    B = np.zeros((N, N))
+    for i in range(N):
+        for j in range(N):
+            A[i,j] = 1.0 * (i + 1) * (j + 1)
+            B[i,j] = 1.0 * (i + 1) / (j + 1)
+    C_cpu = np.empty((N, N), dtype=np.float64)
+    C_gpu = np.empty((N, N), dtype=np.float64)
+
+    # Warm-up GPU offloading (optional)
+    # matmul_gpu(A, B, C_gpu)
+    
+    print('Start matmul_cpu')
+    # Time CPU matrix multiplication.
+    start_cpu = time.time()
+    # matmul_cpu(A, B, C_cpu)
+    elapsed_cpu = time.time() - start_cpu
+    print("warming up gpu")
+    matmul_gpu(A, B, C_gpu)
+
+    print('Start matmul_gpu', matmul_gpu)
+    # Time GPU matrix multiplication.
+    start_gpu = time.time()
+    matmul_gpu(A, B, C_gpu)
+    elapsed_gpu = time.time() - start_gpu
+    print(C_cpu - C_gpu)
+
+    print(f"{elapsed_cpu = }")
+    print(f"{elapsed_gpu = }")
+
 def main(
     model_name: str,
     parameters: dict | str,
@@ -52,6 +87,7 @@ def main(
     import time
 
     import numpy as np
+    test_gpu()
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
