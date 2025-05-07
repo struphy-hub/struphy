@@ -1941,6 +1941,108 @@ def push_eta_stage(
     #$ omp end parallel
 
 
+from pyccel.stdlib.internal.openmp import omp_set_num_threads, omp_get_num_threads, omp_get_thread_num
+
+# #$ omp parallel private(ip, v, dfm, dfinv, k)
+# #  $  omp for
+
+def matmul_gpu(A: 'float[:,:]', B: 'float[:,:]', C: 'float[:,:]'):
+    N: int = A.shape[0]
+    s: float = 0.0
+    #$ omp target teams distribute parallel for collapse(2)
+    for i in range(N):
+        for j in range(N):
+            s = 0.0
+            for k in range(N):
+                s += A[i, k] * B[k, j] 
+            C[i, j] = s
+
+@stack_array("dfm", "dfinv", "v", "k")
+def push_eta_stage_gpu(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    a: "float[:]",
+    b: "float[:]",
+    c: "float[:]",
+):
+    r"""Single stage of a s-stage Runge-Kutta solve of
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    """
+
+    # allocate metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+
+    # marker position e and velocity v
+    v = empty(3, dtype=float)
+
+    # intermediate k-vector
+    k = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    first_init_idx = args_markers.first_init_idx
+    first_free_idx = args_markers.first_free_idx
+
+    # get number of stages
+    n_stages = shape(b)[0]
+
+    if stage == n_stages - 1:
+        last = 1.0
+    else:
+        last = 0.0
+    # From matmul: omp target teams distribute parallel for collapse(2)
+    # --- # $ omp target teams distribute parallel for    
+    # --- # $ omp parallel private(ip, v, dfm, dfinv, k)
+
+    #$ omp target teams distribute parallel for
+    for ip in range(n_markers):
+        # num_threads = omp_get_num_threads()
+        # thread_num = omp_get_thread_num()
+        # print('iteration', ip, ', thread ', thread_num, '/', num_threads)
+
+        # check if marker is a hole or a boundary particle
+        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        e1 = markers[ip, 0]
+        e2 = markers[ip, 1]
+        e3 = markers[ip, 2]
+        v[:] = markers[ip, 3:6]
+
+        # # evaluate Jacobian, result in dfm
+        # evaluation_kernels.df(
+        #     e1,
+        #     e2,
+        #     e3,
+        #     args_domain,
+        #     dfm,
+        # )
+
+        # # evaluate inverse Jacobian matrix
+        # linalg_kernels.matrix_inv(dfm, dfinv)
+
+        # # pull-back of velocity
+        # linalg_kernels.matrix_vector(dfinv, v, k)
+
+        # accumulation for last stage
+        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
+
+        # update positions for intermediate stages or last stage
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx : first_init_idx + 3]
+            + dt * a[stage] * k
+            + last * markers[ip, first_free_idx : first_free_idx + 3]
+        )
+
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
 def push_pc_eta_rk4_Hcurl_full(
     dt: float,

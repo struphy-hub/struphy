@@ -66,7 +66,8 @@ class PushEta(Propagator):
         super().__init__(particles)
 
         # get kernel
-        kernel = pusher_kernels.push_eta_stage
+        # kernel = pusher_kernels.push_eta_stage
+        kernel = pusher_kernels.push_eta_stage_gpu
 
         # define algorithm
         butcher = ButcherTableau(algo)
@@ -90,6 +91,7 @@ class PushEta(Propagator):
             alpha_in_kernel=1.0,
             n_stages=butcher.n_stages,
             mpi_sort="each",
+            verbose=False,
         )
 
         self._eval_density = False
@@ -98,10 +100,14 @@ class PushEta(Propagator):
             self._density_field = density_field
 
     def __call__(self, dt):
+        import time
+        t0 = time.time()
         self._pusher(dt)
-
+        t1 = time.time()
+        print(f'timing of {self._pusher = }: {t1 - t0}')
         # update_weights
         if self.particles[0].control_variate:
+            print('self.particles[0].control_variate')
             self.particles[0].update_weights()
 
         if self._eval_density:
