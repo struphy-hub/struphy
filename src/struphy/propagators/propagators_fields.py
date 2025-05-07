@@ -7700,21 +7700,21 @@ class HasegawaWakatani(Propagator):
         self._nu = nu
         
         # get quadrature grid of V0
-        femspace = self.derham.Vh_fem['0']
-        pts = [quad_grid[nquad].points.flatten()
-                    for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(femspace), self.derham.nquads,
-                    )
-                ]
+        pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
         print(f'{self.rank = }, {pts[0].shape = }, {pts[1].shape = }, {pts[2].shape = } \n {pts[0]}')
+        #print(f'{self.rank = }, {self.derham.quad_grid_pts["0"][0].flatten().shape = } \n {self.derham.quad_grid_pts["0"][0].flatten()}')
         mesh_pts = np.meshgrid(*pts, indexing="ij")
         
-        # evaluate c(x, y) at local quadrature gird and store
-        self._c_at_local_mesh_pts = c_fun(*mesh_pts)
+        # evaluate c(x, y) at local quadrature grid and store
+        self._c_at_pts = c_fun(*mesh_pts)
+        
+        # evaluate phi at local quadrature grid
+        self._phi_at_pts = 1.
         
         # mass operators
         M1 = self.mass_ops.M1
-        M0c = self.mass_ops.create_weighted_mass('H1', 'H1', name='M0c', weights=[[self._c_at_local_mesh_pts]], assemble=True,)
+        M0c = self.mass_ops.create_weighted_mass('H1', 'H1', name='M0c', weights=[[self._c_at_pts]], assemble=True,)
+        M1hw = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', name='M1hw', weights=[[None, ]])
 
     def __call__(self, dt):
         # current variables
