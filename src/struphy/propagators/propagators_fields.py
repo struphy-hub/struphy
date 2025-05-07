@@ -3161,8 +3161,7 @@ class VariationalDensityEvolve(Propagator):
             self._compute_init_linear_form()
 
         if self._model == "linear":
-            self.rhof1.vector = self.projected_equil.n3
-            self._update_Pirho()
+            self._update_Pirho(self.projected_equil.n3)
 
     def __call__(self, dt):
         if self._nonlin_solver["type"] == "Newton":
@@ -3209,10 +3208,9 @@ class VariationalDensityEvolve(Propagator):
         if self._model == "deltaf":
             rho = rhon1.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
-            self.rhof1.vector = rho
         else:
-            self.rhof1.vector = rhon1
-        self._update_Pirho()
+            rho = rhon1
+        self._update_Pirho(rho)
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
         rhon1 += self._tmp_rhon_diff
@@ -3242,8 +3240,7 @@ class VariationalDensityEvolve(Propagator):
             if self._model == "deltaf":
                 rhon12 += self.projected_equil.n3
 
-            self.rhof1.vector = rhon12
-            self._update_Pirho()
+            self._update_Pirho(rhon12)
 
             # Update the linear form
             self.uf1.vector = un1
@@ -3329,7 +3326,7 @@ class VariationalDensityEvolve(Propagator):
         self.rhof.vector = rhon
         self.rhof1.vector = rhon1
         self._update_weighted_MM()
-        self._update_Pirho()
+        self._update_Pirho(rhon)
         un = self.feec_vars[1]
         mn = self._Mrho.dot(un, out=self._tmp_mn)
         un1 = un.copy(out=self._tmp_un1)
@@ -3402,98 +3399,11 @@ class VariationalDensityEvolve(Propagator):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
         from struphy.feec.projectors import L2Projector
-
-        # Get the projector and the spaces
-        P2 = self.derham.P["2"]
-
-        Xh = self.derham.Vh_fem["v"]
-        V3h = self.derham.Vh_fem["3"]
-
-        # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors:
-            self.Pirho = BasisProjectionOperatorLocal(
-                P2,
-                Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                V_extraction_op=self.derham.extraction_ops["v"],
-                V_boundary_op=self.derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-
-            self.Piu = BasisProjectionOperatorLocal(
-                P2,
-                V3h,
-                [[None], [None], [None]],
-                transposed=False,
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-        else:
-            self.Pirho = BasisProjectionOperator(
-                P2,
-                Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
-                V_extraction_op=self.derham.extraction_ops["v"],
-                V_boundary_op=self.derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-
-            self.Piu = BasisProjectionOperator(
-                P2,
-                V3h,
-                [[None], [None], [None]],
-                transposed=False,
-                use_cache=True,
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-
-        self.PirhoT = self.Pirho.T
-
-        # divergence
-        self.div = self.derham.div_bcfree
+        from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
-        self.divPirho = self.div @ self.Pirho
-        self.divPirhoT = self.PirhoT @ self.div.T
-        self.divPiu = self.div @ self.Piu
-
-        hist_grid = self.derham.proj_grid_pts["2"]
-
-        hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
-        hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
-        hist_grid_2 = [pts.flatten() for pts in hist_grid[2]]
-
-        self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_0,
-        )
-        self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_1,
-        )
-        self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_2,
-        )
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
-        self._rhof_0_values = np.zeros(grid_shape, dtype=float)
-        self._uf_0_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
-        self._rhof_1_values = np.zeros(grid_shape, dtype=float)
-        self._uf_1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
-        self._rhof_2_values = np.zeros(grid_shape, dtype=float)
-        self._uf_2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self.divPirho = L2_transport_operator(self.derham)
+        self.divPirhoT = self.divPirho.T
 
         # Inverse weighted mass matrix
         if self._lin_solver["type"][1] is None:
@@ -3553,20 +3463,6 @@ class VariationalDensityEvolve(Propagator):
         ) * self.domain.jacobian_det(*integration_grid)
         self._proj_u2_metric_term = deepcopy(metric)
 
-        # implicit transport operator
-        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
-        self._dt_divPiu = 2 * self.divPiu
-
-        self._transop = self._I3 + self._dt_divPiu
-        self._inv_transop = inverse(
-            self._transop,
-            "gmres",
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
-
         # Other mass matrices for newton solve
         self._M_un = self.mass_ops.create_weighted_mass("H1vec", "L2")
         self._M_un1 = self.mass_ops.create_weighted_mass("L2", "H1vec")
@@ -3592,6 +3488,8 @@ class VariationalDensityEvolve(Propagator):
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
         # local version to avoid creating new version of LinearOperator every time
+        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
+
         self._dt_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
@@ -3758,63 +3656,12 @@ class VariationalDensityEvolve(Propagator):
             out += 1.0
         return out
 
-    def _update_Pirho(self):
+    def _update_Pirho(self, rho):
         """Update the weights of the `BasisProjectionOperator` Pirho"""
 
-        rhof0_values = self.rhof1.eval_tp_fixed_loc(
-            self.hist_grid_0_spans,
-            self.hist_grid_0_bd,
-            out=self._rhof_0_values,
-        )
-        rhof1_values = self.rhof1.eval_tp_fixed_loc(
-            self.hist_grid_1_spans,
-            self.hist_grid_1_bd,
-            out=self._rhof_1_values,
-        )
-        rhof2_values = self.rhof1.eval_tp_fixed_loc(
-            self.hist_grid_2_spans,
-            self.hist_grid_2_bd,
-            out=self._rhof_2_values,
-        )
+        self.divPirho.update_coeffs(rho)
+        self.divPirhoT.update_coeffs(rho)
 
-        self.Pirho.update_weights(
-            [
-                [rhof0_values, None, None],
-                [None, rhof1_values, None],
-                [None, None, rhof2_values],
-            ]
-        )
-
-        self.PirhoT.update_weights(
-            [
-                [rhof0_values, None, None],
-                [None, rhof1_values, None],
-                [None, None, rhof2_values],
-            ]
-        )
-
-    def _update_Piu(self):
-        """Update the weights of the `BasisProjectionOperator` appearing in the equations"""
-
-        uf0_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans,
-            [self.hist_grid_0_bn] * 3,
-            out=self._uf_0_values,
-        )
-        uf1_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans,
-            [self.hist_grid_1_bn] * 3,
-            out=self._uf_1_values,
-        )
-        uf2_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans,
-            [self.hist_grid_2_bn] * 3,
-            out=self._uf_2_values,
-        )
-
-        self.Piu.update_weights(
-            [[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]],
-        )
 
     def _update_weighted_MM(self):
         """update the weighted mass matrix operator"""
@@ -4180,13 +4027,10 @@ class VariationalEntropyEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t} -
-        (\mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\left( \frac{\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n+1})-\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n})}{\hat{s}_h^{n+1}-\hat{s}_h^n} \right) = 0 ~ ,
+        (\mathbb D \hat{\Pi}^{2}[\hat{s_h^{n}} \vec{\boldsymbol \Lambda}^v])^\top \hat{l}^3\left( \frac{\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n+1})-\hat{\rho}_h^{n}\mathcal U(\hat{\rho}_h^{n},\hat{s}_h^{n})}{\hat{s}_h^{n+1}-\hat{s}_h^n} \right) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
+        &\frac{\mathbf s^{n+1}- \mathbf s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{s_h^{n}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n+1/2} = 0 ~ ,
         \\[2mm]
-        &\frac{\tilde{\boldsymbol s}^{n+1}- \boldsymbol s^n}{\Delta t} + \mathbb D \hat{\Pi}^{2}[\hat{\tilde{s}_h^{n+1}} \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
-        \\[2mm]
-        &\tilde{\boldsymbol s}^{n+1} = \boldsymbol s^n ~ \text{else},
         \end{align}
 
     where :math:`\hat{l}^3(f)` denotes the vector representing the linear form :math:`v_h \mapsto \int_{\hat{\Omega}} f(\boldsymbol \eta) v_h(\boldsymbol \eta) d \boldsymbol \eta`, that is the vector with components
@@ -4218,7 +4062,6 @@ class VariationalEntropyEvolve(Propagator):
             "maxiter": 100,
             "type": ["Newton", "Picard"],
             "info": False,
-            "implicit_transport": False,
             "linearize": "False",
         }
         dct["physics"] = {"gamma": 5 / 3}
@@ -4252,7 +4095,6 @@ class VariationalEntropyEvolve(Propagator):
         self._rho = rho
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
-        self._implicit_transport = nonlin_solver["implicit_transport"]
         self._linearize = self._nonlin_solver["linearize"]
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
@@ -4300,44 +4142,17 @@ class VariationalEntropyEvolve(Propagator):
         if self._info:
             print()
             print("Newton iteration in VariationalEntropyEvolve")
-        # Compute implicit approximation of s^{n+1}
         sn = self.feec_vars[0]
         un = self.feec_vars[1]
-        self.uf.vector = un
-        if self._implicit_transport:
-            self._update_Piu()
-            if self._info:
-                print("Compute the implicit approximation")
-            # Check it's usefull to invert the transport operator to avoid calling on Id and causing bugs
-            # Explicit call
-            self._dt_divPiu._scalar = -dt
-            sn1 = self._transop.dot(sn, out=self._tmp_sn1)
-            # Get diff
-            sn_diff = sn1.copy(out=self._tmp_sn_diff)
-            sn_diff -= sn
-            weak_sn_diff = self.mass_ops.M3.dot(
-                sn_diff,
-                out=self._tmp_sn_weak_diff,
-            )
-            err_s = weak_sn_diff.dot(sn_diff)
-
-            if err_s > self._lin_solver["tol"]:
-                # Implicit call if needed
-                self._dt_divPiu._scalar = dt
-                sn1 = self._inv_transop.dot(sn, out=self._tmp_sn1)
-            if self._info:
-                print("Linear solver info : ", self._inv_transop._info)
-
-        else:
-            # No implicit
-            sn1 = sn.copy(out=self._tmp_sn1)
+        
+        sn1 = sn.copy(out=self._tmp_sn1)
         # Initialize variable for Newton iteration
         rho = self._rho
         self.rhof.vector = rho
 
         self.sf.vector = sn
         self.sf1.vector = sn1
-        self._update_Pis()
+        self._update_Pis(sn)
         self.pc.update_mass_operator(self._Mrho)
 
         mn = self._Mrho.dot(un, out=self._tmp_mn)
@@ -4430,7 +4245,7 @@ class VariationalEntropyEvolve(Propagator):
         self.sf.vector = sn
         self.sf1.vector = sn1
 
-        self._update_Pis()
+        self._update_Pis(sn)
 
         un = self.feec_vars[1]
         un1 = un.copy(out=self._tmp_un1)
@@ -4507,97 +4322,11 @@ class VariationalEntropyEvolve(Propagator):
 
         from struphy.feec.projectors import L2Projector
 
-        # Get the projector and the spaces
-        P2 = self.derham.P["2"]
-
-        Xh = self.derham.Vh_fem["v"]
-        V3h = self.derham.Vh_fem["3"]
-
-        # Initialize the BasisProjectionOperators
-        if self.derham._with_local_projectors:
-            self.Pis = BasisProjectionOperatorLocal(
-                P2,
-                Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                V_extraction_op=self.derham.extraction_ops["v"],
-                V_boundary_op=self.derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-
-            self.Piu = BasisProjectionOperatorLocal(
-                P2,
-                V3h,
-                [[None], [None], [None]],
-                transposed=False,
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-
-        else:
-            self.Pis = BasisProjectionOperator(
-                P2,
-                Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
-                V_extraction_op=self.derham.extraction_ops["v"],
-                V_boundary_op=self.derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-
-            self.Piu = BasisProjectionOperator(
-                P2,
-                V3h,
-                [[None], [None], [None]],
-                transposed=False,
-                use_cache=True,
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["2"]),
-            )
-
-        self.PisT = self.Pis.T
-
-        self.div = self.derham.div_bcfree
+        from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
-        self.divPis = self.div @ self.Pis
-        self.divPisT = self.PisT @ self.div.T
-        self.divPiu = self.div @ self.Piu
-
-        hist_grid = self.derham.proj_grid_pts["2"]
-
-        hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
-        hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
-        hist_grid_2 = [pts.flatten() for pts in hist_grid[2]]
-
-        self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_0,
-        )
-        self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_1,
-        )
-        self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self.derham.prepare_eval_tp_fixed(
-            hist_grid_2,
-        )
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
-        self._sf_0_values = np.zeros(grid_shape, dtype=float)
-        self._uf_0_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
-        self._sf_1_values = np.zeros(grid_shape, dtype=float)
-        self._uf_1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
-        self._sf_2_values = np.zeros(grid_shape, dtype=float)
-        self._uf_2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self.divPis = L2_transport_operator(self.derham)
+        self.divPisT = self.divPis.T
 
         # Inverse weighted mass matrix
         if self._lin_solver["type"][1] is None:
@@ -4630,20 +4359,6 @@ class VariationalEntropyEvolve(Propagator):
             tol=1e-16,
             maxiter=1000,
             verbose=False,
-        )
-
-        # implicit transport operator
-        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
-        self._dt_divPiu = 2 * self.divPiu
-
-        self._transop = self._I3 + self._dt_divPiu
-        self._inv_transop = inverse(
-            self._transop,
-            "gmres",
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
         )
 
         # For Newton solve
@@ -4801,72 +4516,11 @@ class VariationalEntropyEvolve(Propagator):
             out += 1.0
         return out
 
-    def _update_Pis(self):
+    def _update_Pis(self, s):
         """Update the weights of the `BasisProjectionOperator`"""
 
-        sf0_values = self.sf1.eval_tp_fixed_loc(
-            self.hist_grid_0_spans,
-            self.hist_grid_0_bd,
-            out=self._sf_0_values,
-        )
-        sf1_values = self.sf1.eval_tp_fixed_loc(
-            self.hist_grid_1_spans,
-            self.hist_grid_1_bd,
-            out=self._sf_1_values,
-        )
-        sf2_values = self.sf1.eval_tp_fixed_loc(
-            self.hist_grid_2_spans,
-            self.hist_grid_2_bd,
-            out=self._sf_2_values,
-        )
-
-        self.Pis.update_weights(
-            [
-                [sf0_values, None, None],
-                [None, sf1_values, None],
-                [None, None, sf2_values],
-            ]
-        )
-
-        self.PisT.update_weights(
-            [
-                [sf0_values, None, None],
-                [None, sf1_values, None],
-                [None, None, sf2_values],
-            ]
-        )
-
-    def _update_Piu(self):
-        """Update the weights of the `BasisProjectionOperator`"""
-
-        uf0_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans,
-            [self.hist_grid_0_bn] * 3,
-            out=self._uf_0_values,
-        )
-        uf1_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans,
-            [self.hist_grid_1_bn] * 3,
-            out=self._uf_1_values,
-        )
-        uf2_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans,
-            [self.hist_grid_2_bn] * 3,
-            out=self._uf_2_values,
-        )
-
-        # print()
-        # print()
-        # print("ufvalues")
-        # print(np.max(uf0_values))
-        # print(np.max(uf1_values))
-        # print(np.max(uf2_values))
-        # print()
-        # print()
-
-        self.Piu.update_weights(
-            [[uf0_values[0]], [uf1_values[1]], [uf2_values[2]]],
-        )
+        self.divPis.update_coeffs(s)
+        self.divPisT.update_coeffs(s)
 
     def _update_linear_form_u2(self):
         """Update the linearform representing integration in V3 against kynetic energy"""
@@ -5114,13 +4768,9 @@ class VariationalMagFieldEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - (\mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
+        - (\mathbb C \hat{\Pi}^{1}[B_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 B^{n+\frac{1}{2}} \big) = 0 ~ ,
         \\[2mm]
-        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
-        \\[2mm]
-        &\frac{\tilde{\boldsymbol b}^{n+1}-\boldsymbol b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{\tilde{B}_h^{n+1}} \cdot \vec{\boldsymbol \Lambda}^v] \mathbf u^{n} = 0 ~ \text{if parameter 'implicit_transport'},
-        \\[2mm]
-        &\tilde{\boldsymbol b}^{n+1} = \boldsymbol b^n ~ \text{else},
+        &\frac{\mathbf b^{n+1}- \mathbf b^n}{\Delta t} + \mathbb C \hat{\Pi}^{1}[\hat{B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v]] \mathbf u^{n+1/2} = 0 ~ ,
         \end{align}
 
     where weights in the the :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperator` and the :class:`~struphy.feec.mass.WeightedMassOperator` are given by
@@ -5149,7 +4799,6 @@ class VariationalMagFieldEvolve(Propagator):
             "maxiter": 100,
             "type": ["Newton", "Picard"],
             "info": False,
-            "implicit_transport": False,
             "linearize": False,
         }
 
@@ -5175,7 +4824,6 @@ class VariationalMagFieldEvolve(Propagator):
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
-        self._implicit_transport = nonlin_solver["implicit_transport"]
         self._linearize = self._nonlin_solver["linearize"]
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
@@ -5228,33 +4876,8 @@ class VariationalMagFieldEvolve(Propagator):
         bn = self.feec_vars[0]
         un = self.feec_vars[1]
 
-        self.uf.vector = un
-        if self._implicit_transport:
-            self._update_Piu()
-            if self._info:
-                print("Compute the implicit approximation")
-            # Check it's usefull to invert the transport operator to avoid calling on Id and causing bugs
-            # Explicit call
-            self._dt_curlPiu._scalar = -dt
-            bn1 = self._transop.dot(bn, out=self._tmp_bn1)
-            # Get diff
-            bn_diff = bn1.copy(out=self._tmp_bn_diff)
-            bn_diff -= bn
-            weak_bn_diff = self.mass_ops.M2.dot(
-                bn_diff,
-                out=self._tmp_bn_weak_diff,
-            )
-            err_b = weak_bn_diff.dot(bn_diff)
-
-            if err_b > self._lin_solver["tol"]:
-                # Implicit call if needed
-                self._dt_curlPiu._scalar = dt
-                bn1 = self._inv_transop.dot(bn, out=self._tmp_bn1)
-            if self._info:
-                print("Linear solver info : ", self._inv_transop._info)
-        else:
-            # No implicit
-            bn1 = bn.copy(out=self._tmp_bn1)
+        
+        bn1 = bn.copy(out=self._tmp_bn1)
         # Initialize variable for Newton iteration
 
         self.bf.vector = bn1
@@ -5465,17 +5088,6 @@ class VariationalMagFieldEvolve(Propagator):
                 P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
             )
 
-            self.Piu = BasisProjectionOperatorLocal(
-                P1,
-                V2h,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-            )
         else:
             self.Pib = BasisProjectionOperator(
                 P1,
@@ -5492,19 +5104,6 @@ class VariationalMagFieldEvolve(Propagator):
                 P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
             )
 
-            self.Piu = BasisProjectionOperator(
-                P1,
-                V2h,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-            )
-
         self.PibT = self.Pib.T
 
         # gradient of the component of the vector field
@@ -5513,8 +5112,6 @@ class VariationalMagFieldEvolve(Propagator):
         # Initialize the transport operator and transposed
         self.curlPib = self.curl @ self.Pib
         self.curlPibT = self.PibT @ self.curl.T
-
-        self.curlPiu = self.curl @ self.Piu
 
         hist_grid = self.derham.proj_grid_pts["1"]
 
@@ -5603,19 +5200,6 @@ class VariationalMagFieldEvolve(Propagator):
             verbose=False,
         )
 
-        self._I2 = IdentityOperator(self.derham.Vh_pol["2"])
-        self._dt_curlPiu = 2 * self.curlPiu
-
-        self._transop = self._I2 + self._dt_curlPiu
-        self._inv_transop = inverse(
-            self._transop,
-            "gmres",
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
-
         Jacs = BlockVectorSpace(
             self.derham.Vh_pol["v"],
             self.derham.Vh_pol["2"],
@@ -5625,6 +5209,8 @@ class VariationalMagFieldEvolve(Propagator):
         self._tmp_incr = Jacs.zeros()
 
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
+
+        self._I2 = IdentityOperator(self.derham.Vh_pol["2"])
 
         if self._model == "linear":
             # initialize the jacobian differently if linear model
@@ -5750,33 +5336,6 @@ class VariationalMagFieldEvolve(Propagator):
             P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
         )
 
-    def _update_Piu(self):
-        """Update the weights of the `BasisProjectionOperator`"""
-
-        uf0_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_0_spans,
-            [self.hist_grid_0_bn] * 3,
-            out=self._uf0_values,
-        )
-        uf1_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_1_spans,
-            [self.hist_grid_1_bn] * 3,
-            out=self._uf1_values,
-        )
-        uf2_values = self.uf.eval_tp_fixed_loc(
-            self.hist_grid_2_spans,
-            [self.hist_grid_2_bn] * 3,
-            out=self._uf2_values,
-        )
-
-        self.Piu.update_weights(
-            [
-                [None, uf0_values[2], -uf0_values[1]],
-                [-uf1_values[2], None, uf1_values[0]],
-                [uf2_values[1], -uf2_values[0], None],
-            ]
-        )
-
     def _update_linear_form_u2(self):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
         if self._linearize:
@@ -5895,7 +5454,6 @@ class VariationalPBEvolve(Propagator):
             "maxiter": 100,
             "type": ["Picard"],
             "info": False,
-            "implicit_transport": False,
             "linearize": False,
         }
         dct["physics"] = {"gamma": 5 / 3}
@@ -5928,7 +5486,6 @@ class VariationalPBEvolve(Propagator):
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
-        self._implicit_transport = nonlin_solver["implicit_transport"]
         self._linearize = self._nonlin_solver["linearize"]
         self._gamma = gamma
 
@@ -6238,17 +5795,6 @@ class VariationalPBEvolve(Propagator):
                 P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
             )
 
-            self.Piu = BasisProjectionOperatorLocal(
-                P1,
-                V2h,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-            )
         else:
             self.Pib = BasisProjectionOperator(
                 P1,
@@ -6262,19 +5808,6 @@ class VariationalPBEvolve(Propagator):
                 use_cache=True,
                 V_extraction_op=self.derham.extraction_ops["v"],
                 V_boundary_op=self.derham.boundary_ops["v"],
-                P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
-            )
-
-            self.Piu = BasisProjectionOperator(
-                P1,
-                V2h,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
-                transposed=False,
-                use_cache=True,
                 P_boundary_op=IdentityOperator(self.derham.Vh_pol["1"]),
             )
 
@@ -6337,8 +5870,6 @@ class VariationalPBEvolve(Propagator):
         # Initialize the transport operator and transposed
         self.curlPib = self.curl @ self.Pib
         self.curlPibT = self.PibT @ self.curl.T
-
-        self.curlPiu = self.curl @ self.Piu
 
         hist_grid = self.derham.proj_grid_pts["1"]
 
@@ -6465,18 +5996,6 @@ class VariationalPBEvolve(Propagator):
         )
 
         self._I2 = IdentityOperator(self.derham.Vh_pol["2"])
-        self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
-        self._dt_curlPiu = 2 * self.curlPiu
-
-        self._transop = self._I2 + self._dt_curlPiu
-        self._inv_transop = inverse(
-            self._transop,
-            "gmres",
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
 
         Jacs = BlockVectorSpace(
             self.derham.Vh_pol["v"],

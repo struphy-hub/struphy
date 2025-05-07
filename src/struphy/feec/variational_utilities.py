@@ -2,6 +2,7 @@ import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
 
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 
 
 class BracketOperator(LinOpWithTransp):
@@ -52,11 +53,6 @@ class BracketOperator(LinOpWithTransp):
     """
 
     def __init__(self, derham, u):
-        from struphy.feec.basis_projection_ops import (
-            BasisProjectionOperator,
-            BasisProjectionOperatorLocal,
-            CoordinateProjector,
-        )
 
         Xh = derham.Vh_fem["v"]
         V1h = derham.Vh_fem["1"]
@@ -282,3 +278,142 @@ class BracketOperator(LinOpWithTransp):
             out = self.mbrackvw.dot(self._u)
 
         return out
+    
+class L2_transport_operator(LinOpWithTransp):
+    """
+    Operator u -> div(Pi(rho u)) from H1vec to L2.
+    """
+    def __init__(self, derham, transposed = False):
+        # Get the projector and the spaces
+        self._derham = derham
+        self._transposed = transposed
+        if self._transposed:
+            self._codomain = self._derham.Vh_pol["v"]
+            self._domain = self._derham.Vh_pol["3"]
+        else:
+            self._domain = self._derham.Vh_pol["v"]
+            self._codomain = self._derham.Vh_pol["3"]
+        P2 = self._derham.P["2"]
+        Xh = self._derham.Vh_fem["v"]
+        self._dtype = Xh.coeff_space.dtype
+        self.field = self._derham.create_field("rhof", "L2")
+
+        # Initialize the BasisProjectionOperator
+        if self._derham._with_local_projectors:
+            self.Proj = BasisProjectionOperatorLocal(
+                P2,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=transposed,
+                V_extraction_op=self._derham.extraction_ops["v"],
+                V_boundary_op=self._derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
+            )
+
+        else:
+            self.Proj = BasisProjectionOperator(
+                P2,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=transposed,
+                use_cache=True,
+                V_extraction_op=self._derham.extraction_ops["v"],
+                V_boundary_op=self._derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
+            )
+
+        # divergence
+        self.div = self._derham.div_bcfree
+
+        # Initialize the transport operator and transposed
+        if self._transposed:
+            self._op = self.Proj @ self.div.T
+        else:
+            self._op = self.div @ self.Proj
+
+        hist_grid = self._derham.proj_grid_pts["2"]
+
+        hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
+        hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
+        hist_grid_2 = [pts.flatten() for pts in hist_grid[2]]
+
+        self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_0,
+        )
+        self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_1,
+        )
+        self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_2,
+        )
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
+        self._f_0_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
+        self._f_1_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
+        self._f_2_values = np.zeros(grid_shape, dtype=float)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+    
+    def transpose(self, conjugate=False):
+        return L2_transport_operator(self._derham, not self._transposed)
+
+    def dot(self, v, out=None):
+        out = self._op.dot(v, out=out)
+        return out
+    
+    def update_coeffs(self, coeff):
+        self.field.vector = coeff
+
+        f0_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_0_spans,
+            self.hist_grid_0_bd,
+            out=self._f_0_values,
+        )
+        f1_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_1_spans,
+            self.hist_grid_1_bd,
+            out=self._f_1_values,
+        )
+        f2_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_2_spans,
+            self.hist_grid_2_bd,
+            out=self._f_2_values,
+        )
+
+        self.Proj.update_weights(
+            [
+                [f0_values, None, None],
+                [None, f1_values, None],
+                [None, None, f2_values],
+            ]
+        )
