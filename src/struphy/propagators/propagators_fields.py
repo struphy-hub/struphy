@@ -7726,12 +7726,26 @@ class HasegawaWakatani(Propagator):
         self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
         print(f'{self._phi_at_pts.shape = }')
         
+        # grad operator
+        grad = self.derham.grad
+        
         # mass operators
         M1 = self.mass_ops.M1
         M0c = self.mass_ops.create_weighted_mass('H1', 'H1', name='M0c', weights=[[self._c_at_pts]], assemble=True,)
         M1hw = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', name='M1hw', weights=[[None, self._phi_at_pts, None],
                                                                                           [-self._phi_at_pts, None, None],
                                                                                           [None, None, None],], assemble=True,)
+        
+        # basis projection operator
+        fun = [[None, lambda e1, e2, e3: 1.0 + 0.0*e1, None]]
+        self._dy_phi = self.basis_ops.create_basis_op(
+                fun,
+                "Hcurl",
+                "H1",
+                name="dy_phi",
+                assemble=True,
+            )
+        print(f'{self._dy_phi._dof_mat.blocks = }')
 
     def __call__(self, dt):
         # current variables
