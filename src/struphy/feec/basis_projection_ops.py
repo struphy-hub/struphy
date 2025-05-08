@@ -14,6 +14,7 @@ from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
+from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class BasisProjectionOperators:
@@ -1602,22 +1603,20 @@ class BasisProjectionOperator(LinOpWithTransp):
 
     def __init__(
         self,
-        P,
-        V,
-        weights,
-        V_extraction_op=None,
-        V_boundary_op=None,
-        P_extraction_op=None,
-        P_boundary_op=None,
-        transposed=False,
-        polar_shift=False,
-        use_cache=False,
+        P: CommutingProjector,
+        V: FemSpace,
+        weights: list,
+        *,
+        V_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        V_boundary_op: BoundaryOperator | IdentityOperator = None,
+        P_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        P_boundary_op: BoundaryOperator | IdentityOperator = None,
+        transposed: bool = False,
+        polar_shift: bool = False,
+        use_cache:bool = False,
     ):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
-
-        assert isinstance(P, CommutingProjector)
-        assert isinstance(V, FemSpace)
 
         self._P = P
         self._V = V
