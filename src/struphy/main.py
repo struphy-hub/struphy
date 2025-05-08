@@ -97,7 +97,7 @@ def main(
     from struphy.io.setup import pre_processing
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
-    from struphy.profiling.profiling import ProfileRegion
+    from struphy.profiling.profiling import ProfileManager
     from struphy.utils.clone_config import CloneConfig
 
     if sort_step:
@@ -157,7 +157,7 @@ def main(
         except AttributeError:
             pass
 
-    with ProfileRegion("model_class_setup"):
+    with ProfileManager.profile_region("model_class_setup"):
         model = model_class(params=params, comm=comm, clone_config=clone_config)
 
     assert isinstance(model, StruphyModel)
@@ -275,7 +275,7 @@ def main(
 
         # perform one time step dt
         t0 = time.time()
-        with ProfileRegion("model.integrate"):
+        with ProfileManager.profile_region("model.integrate"):
             model.integrate(time_params["dt"], time_params["split_algo"])
         t1 = time.time()
 
@@ -356,10 +356,10 @@ if __name__ == "__main__":
     import struphy
     import struphy.utils.utils as utils
     from struphy.profiling.profiling import (
-        ProfileRegion,
+        ProfileManager,
+        ProfilingConfig,
         pylikwid_markerclose,
         pylikwid_markerinit,
-        set_likwid,
     )
 
     # Read struphy state file
@@ -450,19 +450,39 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    # likwid
     parser.add_argument(
         "--likwid",
         help="run with Likwid",
         action="store_true",
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--time-trace",
+        help="Measure time traces for each call of the regions measured with ProfileManager",
+        action="store_true",
+    )
 
-    # Enable profiling if likwid == True
-    set_likwid(args.likwid)
+    parser.add_argument(
+        "--sample-duration",
+        help="Duration of samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
+
+    parser.add_argument(
+        "--sample-interval",
+        help="Time between samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
+
+    args = parser.parse_args()
+    config = ProfilingConfig()
+    config.likwid = args.likwid
+    config.sample_duration = float(args.sample_duration)
+    config.sample_interval = float(args.sample_interval)
+    config.time_trace = args.time_trace
+    config.simulation_label = ""
     pylikwid_markerinit()
-    with ProfileRegion("main"):
+    with ProfileManager.profile_region("main"):
         # solve the model
         main(
             args.model,
@@ -477,3 +497,6 @@ if __name__ == "__main__":
             num_clones=args.nclones,
         )
     pylikwid_markerclose()
+    if config.time_trace:
+        ProfileManager.print_summary()
+        ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_time_trace.pkl"))

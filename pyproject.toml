@@ -64,6 +64,11 @@ doc = [
     'docutils',
     'ipyparallel',
 ]
+likwid = [
+    'struphy[dev]',
+    'kaleido',
+    'pylikwid',
+]
 
 
 [project.urls]
