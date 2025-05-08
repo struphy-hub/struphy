@@ -18,7 +18,7 @@ def create_femfields(
     *,
     step: int = 1,
 ):
-    """Creates instances of :class:`~struphy.feec.psydac_derham.Derham.Field` from distributed Struphy data.
+    """Creates instances of :class:`~struphy.feec.psydac_derham.SplineFunction` from distributed Struphy data.
 
     Parameters
     ----------
@@ -31,7 +31,7 @@ def create_femfields(
     Returns
     -------
     fields : dict
-        Nested dictionary holding struphy.feec.Derham.Field: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
+        Nested dictionary holding :class:`~struphy.feec.psydac_derham.SplineFunction`: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
 
     space_ids : dict
         The space IDs of the fields (H1, Hcurl, Hdiv, L2 or H1vec). space_ids[name] contains the space ID of the field with the name "name".
