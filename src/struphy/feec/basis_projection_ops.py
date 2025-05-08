@@ -4,8 +4,8 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.stencil import StencilMatrix
+from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -13,7 +13,7 @@ from struphy.feec.local_projectors_kernels import assemble_basis_projection_oper
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
 from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
-from struphy.polar.basic import PolarDerhamSpace
+from struphy.polar.basic import PolarDerhamSpace, PolarVector
 
 
 class BasisProjectionOperators:
@@ -2117,7 +2117,7 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, pol
 
 class CoordinateProjector(LinearOperator):
     r"""
-    Class of projectors on one component of a MultipatchFemSpace.
+    Class of projectors on one component of a :class:`~psydac.linalg.block.BlockVectorSpace`.
     Represent the projection on the :math:`\mu`-th component :
 
     .. math::
@@ -2133,14 +2133,14 @@ class CoordinateProjector(LinearOperator):
     mu : int
         The component on which to project.
 
-    V : psydac.fem.basic.(Product)FemSpace
-        Finite element spline space (domain, input space).
+    V : BlockVectorSpace | PolarDerhamSpace
+        Domain, input space.
 
-    Vmu : psydac.fem.basic.FemSpace
-        Finite element spline space (codomain, out space), must be :math:`\mu`-th space of V.
+    Vmu : StencilVectorSpace | PolarDerhamSpace
+        Codomain, out space, must be :math:`\mu`-th space of V.
     """
 
-    def __init__(self, mu, V, Vmu):
+    def __init__(self, mu: int, V: BlockVectorSpace | PolarDerhamSpace, Vmu: StencilVectorSpace | PolarDerhamSpace,):
         assert isinstance(mu, int)
         if isinstance(V, PolarDerhamSpace):
             assert V.parent_space.spaces[mu] == Vmu.parent_space
@@ -2178,7 +2178,7 @@ class CoordinateProjector(LinearOperator):
     def transpose(self, conjugate=False):
         return CoordinateInclusion(self.dir, self._domain, self._codomain)
 
-    def dot(self, v, out=None):
+    def dot(self, v: BlockVector | PolarVector, out=None,):
         assert v.space == self._domain
         if isinstance(self.domain, PolarDerhamSpace):
             if out is not None:
@@ -2194,10 +2194,10 @@ class CoordinateProjector(LinearOperator):
                 out += v.blocks[self.dir]
             else:
                 out = v.blocks[self.dir].copy()
-        out.update_ghost_regions()
+        out.update_ghost_regions() # TODO: this is usually not done within .dot, should maybe be removed?
         return out
 
-    def idot(self, v, out):
+    def idot(self, v: BlockVector | PolarVector, out: StencilVector | PolarVector,):
         assert v.space == self._domain
         assert out.space == self._codomain
         if isinstance(self.domain, PolarDerhamSpace):
@@ -2208,7 +2208,7 @@ class CoordinateProjector(LinearOperator):
 
 class CoordinateInclusion(LinearOperator):
     r"""
-    Class of inclusion operator from one component of a MultipatchFemSpace.
+    Class of inclusion operator from one component of a :class:`~psydac.linalg.block.BlockVectorSpace`.
     Represent the canonical inclusion on the :math:`\mu`-th component :
 
     .. math::
@@ -2225,14 +2225,14 @@ class CoordinateInclusion(LinearOperator):
     mu : int
         The component on which to project.
 
-    V : psydac.fem.basic.(Product)FemSpace
-        Finite element spline space (codomain, out space).
+    V : BlockVectorSpace | PolarDerhamSpace
+        Codomain, out space.
 
-    Vmu : psydac.fem.basic.FemSpace
-        Finite element spline space (domain, in space), must be :math:`\mu`-th space of V.
+    Vmu : StencilVectorSpace | PolarDerhamSpace
+        Domain, in space, must be :math:`\mu`-th space of V.
     """
 
-    def __init__(self, mu, V, Vmu):
+    def __init__(self, mu: int, V: BlockVectorSpace | PolarDerhamSpace, Vmu: StencilVectorSpace | PolarDerhamSpace,):
         assert isinstance(mu, int)
         if isinstance(V, PolarDerhamSpace):
             assert V.parent_space.spaces[mu] == Vmu.parent_space
@@ -2270,7 +2270,7 @@ class CoordinateInclusion(LinearOperator):
     def transpose(self, conjugate=False):
         return CoordinateProjector(self.dir, self._codomain, self._domain)
 
-    def dot(self, v, out=None):
+    def dot(self, v: StencilVector | PolarVector, out=None):
         assert v.space == self._domain
 
         if isinstance(self.domain, PolarDerhamSpace):
@@ -2294,7 +2294,7 @@ class CoordinateInclusion(LinearOperator):
         out.update_ghost_regions()
         return out
 
-    def idot(self, v, out):
+    def idot(self, v: StencilVector | PolarVector, out: BlockVector | PolarVector):
         assert v.space == self._domain
         assert out.space == self._codomain
         out._blocks[self.dir] += v
