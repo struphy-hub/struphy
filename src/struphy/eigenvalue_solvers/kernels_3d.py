@@ -147,10 +147,9 @@ def kernel_l2error(
     c2: "float[:,:,:]",
     mat_map: "float[:,:,:,:,:,:]",
 ):
+    # loop over all elements
     #$ omp parallel private(ie1, ie2, ie3, q1, q2, q3, wvol, bi, bj, il1, il2, il3, jl1, jl2, jl3)
     #$ omp for
-
-    # loop over all elements
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
             for ie3 in range(nel[2]):
