@@ -1901,44 +1901,46 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    #$ omp parallel private(ip, v, dfm, dfinv, k)
-    #$ omp for
+    # --- #$ omp parallel private(ip, v, dfm, dfinv, k)
+    # --- #$ omp for
     for ip in range(n_markers):
-        # check if marker is a hole or a boundary particle
-        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
-            continue
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+        for _ in range(10):
+            # check if marker is a hole or a boundary particle
+            if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
+                continue
 
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            e1,
-            e2,
-            e3,
-            args_domain,
-            dfm,
-        )
+            e1 = markers[ip, 0]
+            e2 = markers[ip, 1]
+            e3 = markers[ip, 2]
+            v[:] = markers[ip, 3:6]
 
-        # evaluate inverse Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, dfinv)
+            # evaluate Jacobian, result in dfm
+            evaluation_kernels.df(
+                e1,
+                e2,
+                e3,
+                args_domain,
+                dfm,
+            )
 
-        # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k)
+            # evaluate inverse Jacobian matrix
+            linalg_kernels.matrix_inv(dfm, dfinv)
 
-        # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
+            # pull-back of velocity
+            linalg_kernels.matrix_vector(dfinv, v, k)
 
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * a[stage] * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
-        )
+            # accumulation for last stage
+            markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
 
-    #$ omp end parallel
+            # update positions for intermediate stages or last stage
+            markers[ip, 0:3] = (
+                markers[ip, first_init_idx : first_init_idx + 3]
+                + dt * a[stage] * k
+                + last * markers[ip, first_free_idx : first_free_idx + 3]
+            )
+
+    # --- #$ omp end parallel
 
 
 from pyccel.stdlib.internal.openmp import omp_set_num_threads, omp_get_num_threads, omp_get_thread_num
@@ -2000,48 +2002,54 @@ def push_eta_stage_gpu(
     else:
         last = 0.0
     # From matmul: omp target teams distribute parallel for collapse(2)
-    # --- # $ omp target teams distribute parallel for    
-    # --- # $ omp parallel private(ip, v, dfm, dfinv, k)
+    # --- #$ omp target teams distribute parallel for    
+    # --- #$ omp parallel private(ip, v, dfm, dfinv, k)
+    # --- #$ omp target teams distribute parallel for private(ip, v, dfm, dfinv, k)
 
-    #$ omp target teams distribute parallel for
-    for ip in range(n_markers):
-        # num_threads = omp_get_num_threads()
-        # thread_num = omp_get_thread_num()
-        # print('iteration', ip, ', thread ', thread_num, '/', num_threads)
+    # #$ omp target teams distribute parallel for
+    # for ip in range(n_markers):
+    #     # num_threads = omp_get_num_threads()
+    #     # thread_num = omp_get_thread_num()
+    #     # print('iteration', ip, ', thread ', thread_num, '/', num_threads)
+    
+    #     # check if marker is a hole or a boundary particle
+    #     if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
+    #         continue
 
-        # check if marker is a hole or a boundary particle
-        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
-            continue
+    #     e1 = markers[ip, 0]
+    #     e2 = markers[ip, 1]
+    #     e3 = markers[ip, 2]
+    #     v[:] = markers[ip, 3:6]
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+    #     # evaluate Jacobian, result in dfm
+    #     evaluation_kernels.df(
+    #         e1,
+    #         e2,
+    #         e3,
+    #         args_domain,
+    #         dfm,
+    #     )
 
-        # # evaluate Jacobian, result in dfm
-        # evaluation_kernels.df(
-        #     e1,
-        #     e2,
-        #     e3,
-        #     args_domain,
-        #     dfm,
-        # )
+    #     # evaluate inverse Jacobian matrix
+    #     linalg_kernels.matrix_inv(dfm, dfinv)
 
-        # # evaluate inverse Jacobian matrix
-        # linalg_kernels.matrix_inv(dfm, dfinv)
+    #     # pull-back of velocity
+    #     linalg_kernels.matrix_vector(dfinv, v, k)
 
-        # # pull-back of velocity
-        # linalg_kernels.matrix_vector(dfinv, v, k)
+    #     # accumulation for last stage
+    #     markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
 
-        # accumulation for last stage
-        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
+    #     # update positions for intermediate stages or last stage
+    #     markers[ip, 0:3] = (
+    #         markers[ip, first_init_idx : first_init_idx + 3]
+    #         + dt * a[stage] * k
+    #         + last * markers[ip, first_free_idx : first_free_idx + 3]
+    #     )
 
-        # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * a[stage] * k
-            + last * markers[ip, first_free_idx : first_free_idx + 3]
-        )
+    # #$ omp target teams distribute parallel for private(ip)
+    # for ip in range(n_markers):
+    #     markers[ip, 0] += 1.0
+    # #$ omp end target teams distribute parallel for
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
 def push_pc_eta_rk4_Hcurl_full(
