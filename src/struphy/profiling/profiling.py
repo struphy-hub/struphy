@@ -38,8 +38,9 @@ class ProfilingConfig:
             cls._instance = super().__new__(cls)
             cls._instance.likwid = False  # Default value (profiling disabled)
             cls._instance.simulation_label = ""
-            cls._instance.sample_duration = 0.1
-            cls._instance.sample_interval = 1.0
+            cls._instance.sample_duration = None
+            cls._instance.sample_interval = None
+            cls._instance.time_trace = False
         return cls._instance
 
     @property
@@ -74,6 +75,17 @@ class ProfilingConfig:
     def sample_interval(self, value):
         self._sample_interval = value
 
+    @property
+    def time_trace(self):
+        return self._time_trace
+
+    @time_trace.setter
+    def time_trace(self, value):
+        if value:
+            assert self.sample_interval is not None, "sample_interval must be set first!"
+            assert self.sample_duration is not None, "sample_duration must be set first!"
+        self._time_trace = value
+
 
 class ProfileManager:
     """
@@ -99,8 +111,10 @@ class ProfileManager:
         if region_name in cls._regions:
             return cls._regions[region_name]
         else:
+            # Check if time profiling is enabled
+            _config = ProfilingConfig()
             # Create and register a new ProfileRegion
-            new_region = ProfileRegion(region_name)
+            new_region = ProfileRegion(region_name, time_trace=_config.time_trace)
             cls._regions[region_name] = new_region
             return new_region
 
@@ -141,6 +155,12 @@ class ProfileManager:
         file_path: str
             Path to the file where data will be saved.
         """
+
+        _config = ProfilingConfig()
+        if not _config.time_trace:
+            print("time_trace is not set to True --> Time traces are not measured --> Skip saving...")
+            return
+
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
         size = comm.Get_size()
@@ -210,6 +230,11 @@ class ProfileManager:
         Print a summary of the profiling data for all regions.
         """
 
+        _config = ProfilingConfig()
+        if not _config.time_trace:
+            print("time_trace is not set to True --> Time traces are not measured --> Skip printing summary...")
+            return
+
         print("Profiling Summary:")
         print("=" * 40)
         for name, region in cls._regions.items():
@@ -235,55 +260,70 @@ class ProfileManager:
 class ProfileRegion:
     """Context manager for profiling specific code regions using LIKWID markers."""
 
-    def __init__(self, region_name):
+    def __init__(self, region_name, time_trace=False):
         if hasattr(self, "_initialized") and self._initialized:
             return
-        self.config = ProfilingConfig()
-        self.region_name = self.config.simulation_label + region_name
+        self._config = ProfilingConfig()
+        self._region_name = self.config.simulation_label + region_name
+        self._time_trace = time_trace
         self._ncalls = 0
         self._start_times = []
         self._end_times = []
         self._durations = []
-        self.started = False
+        self._started = False
 
     def __enter__(self):
         if self.config.likwid:
             self._pylikwid().markerstartregion(self.region_name)
 
         self._ncalls += 1
-        self._start_time = MPI.Wtime()
-        if self._start_time % self.config.sample_interval < self.config.sample_duration or self._ncalls == 1:
-            self._start_times.append(self._start_time)
-            self.started = True
+
+        if self._time_trace:
+            self._start_time = MPI.Wtime()
+            if self._start_time % self.config.sample_interval < self.config.sample_duration or self._ncalls == 1:
+                self._start_times.append(self._start_time)
+                self._started = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.config.likwid:
             self._pylikwid().markerstopregion(self.region_name)
-        if self.started:
+        if self._time_trace and self.started:
             end_time = MPI.Wtime()
             self._end_times.append(end_time)
             self._durations.append(end_time - self._start_time)
-            self.started = False
+            self._started = False
 
     def _pylikwid(self):
         return _import_pylikwid()
 
     @property
-    def ncalls(self):
-        return self._ncalls
+    def config(self):
+        return self._config
 
     @property
     def durations(self):
         return self._durations
 
     @property
+    def end_times(self):
+        return self._end_times
+
+    @property
+    def ncalls(self):
+        return self._ncalls
+
+    @property
+    def region_name(self):
+        return self._region_name
+
+    @property
     def start_times(self):
         return self._start_times
 
     @property
-    def end_times(self):
-        return self._end_times
+    def started(self):
+        return self._started
 
 
 def pylikwid_markerinit():

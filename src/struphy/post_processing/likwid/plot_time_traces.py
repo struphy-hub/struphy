@@ -63,7 +63,7 @@ def plot_time_vs_duration(
     # plt.show()
     figure_path = os.path.join(output_path, "time_vs_duration.pdf")
     plt.savefig(figure_path)
-    print(f"open {figure_path}")
+    print(f"Saved time trace to:{figure_path}")
 
 
 def plot_gantt_chart(
@@ -160,7 +160,7 @@ def plot_gantt_chart(
     # Save the plot as a PDF file
     figure_path = os.path.join(output_path, "gantt_chart.pdf")
     plt.savefig(figure_path)
-    print(f"open {figure_path}")
+    print(f"Saved gantt chart to:{figure_path}")
 
 
 if __name__ == "__main__":
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--path",
         type=str,
-        default=os.path.join(o_path, "sim_1", "profiling_data.pkl"),
+        default=os.path.join(o_path, "sim_1", "profiling_time_trace.pkl"),
         help="Path to the profiling data file (default: o_path from struphy state)",
     )
 

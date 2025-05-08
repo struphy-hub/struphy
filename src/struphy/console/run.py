@@ -28,6 +28,9 @@ def struphy_run(
     hpcmd_suspend=None,
     likwid_repetitions=1,
     group="MEM_DP",
+    time_trace=False,
+    sample_duration=1.0,
+    sample_interval=1.0,
 ):
     """Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -85,7 +88,6 @@ def struphy_run(
     stats=None,
     marker=None,
     hpcmd_suspend=None,
-    
 
     likwid_repetitions : int, optional
         Number of repetitions for Likwid profiling. Default is 1.
@@ -153,14 +155,13 @@ def struphy_run(
     if likwid:
         # if likwid_inp is None and likwid_input_abs is None:
         #     # use default likwid parameters
-        likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, '-mpi', 'openmpi']
+        likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-mpi", "openmpi"]
         if nperdomain:
             likwid_command += ["-nperdomain", nperdomain]
         if stats:
             likwid_command += ["-stats"]
         if marker:
             likwid_command += ["-marker"]
-        
     # command parts
     cmd_python = ["python3"]
     cmd_main = [
@@ -179,6 +180,14 @@ def struphy_run(
         "--nclones",
         str(nclones),
     ]
+    if time_trace:
+        cmd_main += [
+            "--time-trace",
+            "--sample-duration",
+            str(sample_duration),
+            "--sample-interval",
+            str(sample_interval),
+        ]
     if verbose:
         cmd_main += ["-v"]
 
@@ -306,7 +315,7 @@ def struphy_run(
                 print(f"Running with likwid with {likwid_repetitions = }")
                 f.write(f"# Launching likwid {likwid_repetitions} times with likwid-mpirun\n")
                 for i in range(likwid_repetitions):
-                    f.write(f"\n\n# Run number {i+1:03}\n")
+                    f.write(f"\n\n# Run number {i + 1:03}\n")
                     f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))
             else:
                 print("Running with srun")

@@ -70,6 +70,7 @@ def get_data(
             groups_include=groups_include,
             groups_skip=groups_skip,
         )
+        # print(f"{groups = }")
         for group in groups:
             group_dict = {
                 "simulation_name": project.name,  #
@@ -776,9 +777,9 @@ def plot_files(
             output_path=f"{output_path}/roofline",
             groups_include=groups_include,
             groups_skip=groups_skip,
-            xmin=0.01,
+            xmin=0.0001,
             xmax=100,
-            ymin=0.1,
+            ymin=0.001,
             ymax=1e4,
             title=title,
         )
@@ -807,7 +808,7 @@ def load_projects(data_paths, procs_per_clone="any"):
                 sim = path.split("/")[-2]
             else:
                 sim = path.split("/")[-1]
-            print(f"{sim = } {path =}")
+            # print(f"{sim = } {path =}")
             project = lp.Project(
                 name=lp.pad_numbers(sim),
                 path=path,
