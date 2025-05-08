@@ -8,22 +8,21 @@ from mpi4py.MPI import Intracomm
 from psydac.ddm.cart import DomainDecomposition
 from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
 from psydac.feec.global_projectors import Projector_H1, Projector_H1vec, Projector_Hcurl, Projector_Hdiv, Projector_L2
-from psydac.fem.basic import FemSpace
 from psydac.fem.grid import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart
 from psydac.fem.splines import SplineSpace
 from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import MultipatchFemSpace, VectorFemSpace
+from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
+from psydac.linalg.block import BlockVector, BlockVectorSpace
+from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
+from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
@@ -898,16 +897,16 @@ class Derham:
         grids_1d : 3-list of 1d arrays
             Points of the tensor product grid.
 
-        space : FemSpace
-            The Vh_fem space from which we want to evaluate the splines.
-
         Returns
         -------
         spans : 3-tuple of 2d int arrays
             Knot span indices in each direction in format (n, nq).
 
-        bases : 3-tuple of 3d float arrays
-            Values of p + 1 non-zero eta basis functions at quadrature points in format (n, nq, basis).
+        bns : 3-tuple of 3d float arrays
+            Values of p + 1 non-zero B-Splines at quadrature points in format (n, nq, basis).
+            
+        bds : 3-tuple of 3d float arrays
+            Values of p non-zero D-Splines at quadrature points in format (n, nq, basis).
         """
 
         # spline degree and knot vectors must come from N-spline spaces (V0 space)
@@ -1018,7 +1017,7 @@ class Derham:
 
         Returns
         -------
-        Vh : <FemSpace>
+        Vh : TensorFemSpace | VectorFemSpace
             The discrete FEM space.
         """
 
@@ -1394,6 +1393,8 @@ class SplineFunction:
         self._space_key = derham.space_to_form[space_id]
         self._space = derham.Vh[self._space_key]
         self._fem_space = derham.Vh_fem[self._space_key]
+        assert isinstance(self.space, (StencilVectorSpace, BlockVectorSpace))
+        assert isinstance(self.fem_space, (TensorFemSpace, VectorFemSpace))
 
         if coeffs is not None:
             assert coeffs.space == self.space
@@ -1421,10 +1422,10 @@ class SplineFunction:
 
         if self._space_id in {"H1", "L2"}:
             self._nbasis = tuple(
-                [space.nbasis for space in self._space.spaces],
+                [space.nbasis for space in self.fem_space.spaces],
             )
         else:
-            self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self._space.spaces]
+            self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
 
     @property
     def name(self):
@@ -1453,7 +1454,7 @@ class SplineFunction:
     
     @property
     def fem_space(self):
-        """FE space (FEMSpace) of the field."""
+        """FE space (FemSpace) of the field."""
         return self._fem_space
 
     @property
@@ -2441,13 +2442,13 @@ class DiscreteDerham:
 
     Parameters
     ----------
-    *spaces : list of FemSpace
+    *spaces : list of TensorFemSpace | VectorFemSpace
         The discrete spaces of the de Rham sequence.
     """
 
     def __init__(self, *spaces):
         assert len(spaces) == 4
-        assert all(isinstance(space, FemSpace) for space in spaces)
+        assert all(isinstance(space, (TensorFemSpace, VectorFemSpace)) for space in spaces)
 
         self._spaces = spaces
         self._dim = 3
