@@ -1360,7 +1360,7 @@ class Derham:
 
 class SplineFunction:
     """
-    Initializes a callable field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial conditions.
+    Initializes a callable spline function with a method for assigning initial conditions.
 
     Parameters
     ----------
@@ -1374,7 +1374,7 @@ class SplineFunction:
         Discrete Derham complex.
         
     coeffs : StencilVector | BlockVector
-        The spline coefficients.
+        The spline coefficients (optional).
 
     bckgr_params : dict
         Field's background parameters.
@@ -1392,29 +1392,29 @@ class SplineFunction:
 
         # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
         self._space_key = derham.space_to_form[space_id]
-        self._space = derham.Vh_fem[self._space_key]
+        self._space = derham.Vh[self._space_key]
+        self._fem_space = derham.Vh_fem[self._space_key]
 
         if coeffs is not None:
-            print(f'{coeffs.space = }, {self.space = }')
             assert coeffs.space == self.space
             self._vector = coeffs
         else:
             self._vector = derham.Vh_pol[self.space_key].zeros()
 
-        self._vector_stencil = self._space.coeff_space.zeros()
+        self._vector_stencil = self.space.zeros()
 
         # transposed basis extraction operator for PolarVector --> Stencil-/BlockVector
         self._ET = derham.extraction_ops[self._space_key].transpose()
 
         # global indices of each process, and paddings
         if self._space_id in {"H1", "L2"}:
-            self._gl_s = self._space.coeff_space.starts
-            self._gl_e = self._space.coeff_space.ends
-            self._pads = self._space.coeff_space.pads
+            self._gl_s = self.space.starts
+            self._gl_e = self.space.ends
+            self._pads = self.space.pads
         else:
-            self._gl_s = [comp.starts for comp in self._space.coeff_space.spaces]
-            self._gl_e = [comp.ends for comp in self._space.coeff_space.spaces]
-            self._pads = [comp.pads for comp in self._space.coeff_space.spaces]
+            self._gl_s = [comp.starts for comp in self.space.spaces]
+            self._gl_e = [comp.ends for comp in self.space.spaces]
+            self._pads = [comp.pads for comp in self.space.spaces]
 
         # dimensions in each direction
         # self._nbasis = derham.nbasis[self._space_key]
@@ -1448,8 +1448,13 @@ class SplineFunction:
 
     @property
     def space(self):
-        """Discrete space of the field, either psydac.fem.tensor.TensorFemSpace or psydac.fem.vector.VectorFemSpace."""
+        """Coefficient space (VectorSpace) of the field."""
         return self._space
+    
+    @property
+    def fem_space(self):
+        """FE space (FEMSpace) of the field."""
+        return self._fem_space
 
     @property
     def ET(self):
