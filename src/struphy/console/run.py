@@ -21,9 +21,15 @@ def struphy_run(
     cprofile=False,
     verbose=False,
     likwid=False,
-    likwid_inp=None,
-    likwid_input_abs=None,
+    nperdomain=None,
+    stats=None,
+    marker=None,
+    hpcmd_suspend=None,
     likwid_repetitions=1,
+    group="MEM_DP",
+    time_trace=False,
+    sample_duration=1.0,
+    sample_interval=1.0,
 ):
     """Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -77,11 +83,11 @@ def struphy_run(
     likwid : bool
         Whether to run with Likwid (Needs to be installed first). Default is False.
 
-    likwid_inp : str, optional
-        The .yml input parameter file for Likwid relative to <struphy_path>/io/inp. Default is None.
+    nperdomain
+    stats=None,
+    marker=None,
+    hpcmd_suspend=None,
 
-    likwid_input_abs : str, optional
-        The absolute path to the .yml input parameter file for Likwid. Default is None.
 
     likwid_repetitions : int, optional
         Number of repetitions for Likwid profiling. Default is 1.
@@ -89,9 +95,11 @@ def struphy_run(
 
     import os
     import shutil
+    import subprocess
 
     import yaml
 
+    import struphy
     import struphy.utils.utils as utils
 
     libpath = struphy.__path__[0]
@@ -144,45 +152,20 @@ def struphy_run(
 
     # Read likwid params
     if likwid:
-        if likwid_inp is None and likwid_input_abs is None:
-            # use default likwid parameters
-            likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker"]
-        else:
-            if likwid_inp is not None:
-                likwid_input_abs = os.path.join(i_path, likwid_inp)
-
-            with open(likwid_input_abs, "r") as file:
-                config = yaml.safe_load(file)
-
-            # Get the command from the configuration
-            command_base = config.get("command", None)
-            if not command_base:
-                print("Missing required configuration: 'command'")
-                exit(1)
-
-            likwid_config = config.get(command_base, {})
-
-            # Get the options list
-            options = likwid_config.get("options", [])
-
-            # Flatten the options list
-            flattened_options = ["-np", str(mpi)]
-            for item in options:
-                if isinstance(item, dict):
-                    for key, value in item.items():
-                        flattened_options.append(key)
-                        flattened_options.append(str(value))  # Ensure the value is a string
-                else:
-                    flattened_options.append(item)
-
-            # Construct the command as a list
-            likwid_command = [command_base]
-            likwid_command.extend(flattened_options)
+        # if likwid_inp is None and likwid_input_abs is None:
+        #     # use default likwid parameters
+        likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-mpi", "openmpi"]
+        if nperdomain:
+            likwid_command += ["-nperdomain", nperdomain]
+        if stats:
+            likwid_command += ["-stats"]
+        if marker:
+            likwid_command += ["-marker"]
 
     # command parts
     cmd_python = ["python3"]
     cmd_main = [
-        "main.py",
+        f"{libpath}/main.py",
         model,
         "-i",
         input_abs,
@@ -197,6 +180,14 @@ def struphy_run(
         "--nclones",
         str(nclones),
     ]
+    if time_trace:
+        cmd_main += [
+            "--time-trace",
+            "--sample-duration",
+            str(sample_duration),
+            "--sample-interval",
+            str(sample_interval),
+        ]
     if verbose:
         cmd_main += ["-v"]
 
@@ -223,7 +214,6 @@ def struphy_run(
                 + cmd_main
             )
         elif likwid:
-            cmd_main[0] = f"{libpath}/{cmd_main[0]}"
             command = likwid_command + cmd_python + cprofile * cmd_cprofile + cmd_main + ["--likwid"]
         else:
             print("\nLaunching main() in normal mode ...")
@@ -290,7 +280,7 @@ def struphy_run(
                 f.write(line)
             f.write("# Run command added by Struphy\n")
 
-            command = cmd_python + cprofile * cmd_cprofile + [f"{libpath}/{' '.join(cmd_main)}"]
+            command = cmd_python + cprofile * cmd_cprofile + cmd_main
             if restart:
                 command += ["-r"]
 
@@ -298,10 +288,10 @@ def struphy_run(
                 command = likwid_command + command + ["--likwid"]
 
             if likwid:
-                print("Running with likwid")
+                print(f"Running with likwid with {likwid_repetitions = }")
                 f.write(f"# Launching likwid {likwid_repetitions} times with likwid-mpirun\n")
                 for i in range(likwid_repetitions):
-                    f.write(f"\n\n# Run number {i:03}\n")
+                    f.write(f"\n\n# Run number {i + 1:03}\n")
                     f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))
             else:
                 print("Running with srun")
