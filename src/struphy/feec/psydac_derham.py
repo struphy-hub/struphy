@@ -857,7 +857,7 @@ class Derham:
 
         return _derham
 
-    def create_field(self, name, space_id, bckgr_params=None, pert_params=None):
+    def create_field(self, name: str, space_id: str, bckgr_params: dict=None, pert_params: dict=None,):
         """Creat a callable spline field.
 
         Parameters
@@ -1369,7 +1369,7 @@ class Derham:
             Field's perturbation parameters for initial condition.
         """
 
-        def __init__(self, name, space_id, derham, bckgr_params=None, pert_params=None):
+        def __init__(self, name: str, space_id: str, derham, bckgr_params: dict=None, pert_params: dict=None,):
             self._name = name
             self._space_id = space_id
             self._derham = derham
