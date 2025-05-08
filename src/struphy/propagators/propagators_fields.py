@@ -13,6 +13,7 @@ import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.psydac_derham import SplineFunction
 from struphy.feec.variational_utilities import BracketOperator
 from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
@@ -7686,7 +7687,7 @@ class HasegawaWakatani(Propagator):
         n0: StencilVector,
         omega0: StencilVector,
         *,
-        phi: StencilVector = None,
+        phi: SplineFunction = None,
         c_fun: callable = None,
         kappa: float = 1.0,
         nu: float = 0.01,
@@ -7694,9 +7695,17 @@ class HasegawaWakatani(Propagator):
     ):
         super().__init__(n0, omega0)
         
+        # default phi
+        if phi is None:
+            self._phi = self.derham.create_spline_function('phi', 'H1')
+        else:
+            self._phi = phi
+        
+        # default c-function
+        if c_fun is None:
+            c_fun = lambda e1, e2, e3: 0.0*e1 + 1.
+        
         # expose equation parameters
-        self._phi = self.derham.create_spline_function('phi', '0')
-        self._phi.vector = phi
         self._kappa = kappa
         self._nu = nu
         
@@ -7707,15 +7716,20 @@ class HasegawaWakatani(Propagator):
         
         # evaluate c(x, y) at local quadrature grid and store
         self._c_at_pts = c_fun(*mesh_pts)
+        print(f'{self._c_at_pts.shape = }')
         
         # evaluate phi at local quadrature grid
         
-        self._phi_at_pts = 1.
+        self._spans, self._bns, self._bnd = self.derham.prepare_eval_tp_fixed(pts)
+        self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
+        print(f'{self._phi_at_pts.shape = }')
         
         # mass operators
         M1 = self.mass_ops.M1
         M0c = self.mass_ops.create_weighted_mass('H1', 'H1', name='M0c', weights=[[self._c_at_pts]], assemble=True,)
-        M1hw = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', name='M1hw', weights=[[None, ]])
+        M1hw = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', name='M1hw', weights=[[None, self._phi_at_pts, None],
+                                                                                          [-self._phi_at_pts, None, None],
+                                                                                          [None, None, None],], assemble=True,)
 
     def __call__(self, dt):
         # current variables

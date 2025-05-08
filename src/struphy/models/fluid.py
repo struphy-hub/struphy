@@ -1520,7 +1520,7 @@ class HasegawaWakatani(StruphyModel):
 
     @staticmethod
     def bulk_species():
-        return "mhd"
+        return "hw"
 
     @staticmethod
     def velocity_scale():
@@ -1546,9 +1546,9 @@ class HasegawaWakatani(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
     
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from struphy.polar.basic import PolarVector
 
