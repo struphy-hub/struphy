@@ -261,8 +261,8 @@ class Derham:
                     ):
                         assert isinstance(space, SplineSpace)
                         fag = quad_grid[nquad]
-                        assert isinstance(fag, FemAssemblyGrid) 
-                        
+                        assert isinstance(fag, FemAssemblyGrid)
+
                         self._nbasis[sp_form][-1] += [space.nbasis]
                         self._spline_types[sp_form][-1] += [space.basis]
                         self._spline_types_pyccel[sp_form][-1] += [
@@ -318,7 +318,7 @@ class Derham:
                     assert isinstance(space, SplineSpace)
                     fag = quad_grid[nquad]
                     assert isinstance(fag, FemAssemblyGrid)
-                    
+
                     self._nbasis[sp_form] += [space.nbasis]
                     self._spline_types[sp_form] += [space.basis]
                     self._spline_types_pyccel[sp_form] += [
@@ -353,7 +353,7 @@ class Derham:
                     self._spline_types_pyccel[sp_form],
                 )
             else:
-                raise TypeError(f'{fem_space = } is not a valid type.')
+                raise TypeError(f"{fem_space = } is not a valid type.")
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
@@ -867,7 +867,14 @@ class Derham:
 
         return _derham
 
-    def create_spline_function(self, name: str, space_id: str, coeffs: StencilVector | BlockVector = None, bckgr_params: dict=None, pert_params: dict=None,):
+    def create_spline_function(
+        self,
+        name: str,
+        space_id: str,
+        coeffs: StencilVector | BlockVector = None,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+    ):
         """Creat a callable spline function.
 
         Parameters
@@ -877,7 +884,7 @@ class Derham:
 
         space_id : str
             Space identifier for the field ("H1", "Hcurl", "Hdiv", "L2" or "H1vec").
-            
+
         coeffs : StencilVector | BlockVector
             The spline coefficients.
 
@@ -887,7 +894,14 @@ class Derham:
         pert_params : dict
             Field's perturbation parameters for initial condition.
         """
-        return SplineFunction(name, space_id, self, coeffs, bckgr_params=bckgr_params, pert_params=pert_params,)
+        return SplineFunction(
+            name,
+            space_id,
+            self,
+            coeffs,
+            bckgr_params=bckgr_params,
+            pert_params=pert_params,
+        )
 
     def prepare_eval_tp_fixed(self, grids_1d):
         """Obtain knot span indices and spline basis functions evaluated at tensor product grid.
@@ -904,7 +918,7 @@ class Derham:
 
         bns : 3-tuple of 3d float arrays
             Values of p + 1 non-zero B-Splines at quadrature points in format (n, nq, basis).
-            
+
         bds : 3-tuple of 3d float arrays
             Values of p non-zero D-Splines at quadrature points in format (n, nq, basis).
         """
@@ -1349,8 +1363,12 @@ class Derham:
 
         return spans, bns, bds
 
-    def get_quad_grids(self, space: TensorFemSpace | VectorFemSpace, nquads: tuple | list = None,):
-        '''Return the 1d quadrature grids in each direction as a tuple.'''
+    def get_quad_grids(
+        self,
+        space: TensorFemSpace | VectorFemSpace,
+        nquads: tuple | list = None,
+    ):
+        """Return the 1d quadrature grids in each direction as a tuple."""
         assert self._nquads, "nquads has to be set with self._nquads = nquads"
         if nquads is None:
             nquads = self.nquads
@@ -1371,7 +1389,7 @@ class SplineFunction:
 
     derham : struphy.feec.psydac_derham.Derham
         Discrete Derham complex.
-        
+
     coeffs : StencilVector | BlockVector
         The spline coefficients (optional).
 
@@ -1382,7 +1400,15 @@ class SplineFunction:
         Field's perturbation parameters for initial condition.
     """
 
-    def __init__(self, name: str, space_id: str, derham: Derham, coeffs: StencilVector | BlockVector = None, bckgr_params: dict=None, pert_params: dict=None,):
+    def __init__(
+        self,
+        name: str,
+        space_id: str,
+        derham: Derham,
+        coeffs: StencilVector | BlockVector = None,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+    ):
         self._name = name
         self._space_id = space_id
         self._derham = derham
@@ -1451,7 +1477,7 @@ class SplineFunction:
     def space(self):
         """Coefficient space (VectorSpace) of the field."""
         return self._space
-    
+
     @property
     def fem_space(self):
         """FE space (FemSpace) of the field."""
@@ -1486,9 +1512,7 @@ class SplineFunction:
                 s1, s2, s3 = self.starts[n]
                 e1, e2, e3 = self.ends[n]
 
-                self._vector[n][s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[n][
-                    s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1
-                ]
+                self._vector[n][s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[n][s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1]
 
         elif isinstance(self._vector, PolarVector):
             assert isinstance(value, (PolarVector, list, tuple))

@@ -5,7 +5,7 @@ from psydac.feec.global_projectors import GlobalProjector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic import IdentityOperator, Vector, LinearOperator, ComposedLinearOperator
+from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.solvers import inverse
@@ -1823,9 +1823,8 @@ class L2Projector:
     """
 
     def __init__(self, space_id, mass_ops, **params):
-        
         from struphy.feec import preconditioner
-        
+
         assert space_id in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
 
         params_default = {
@@ -2326,4 +2325,3 @@ class ProjectorPreconditioner(LinearOperator):
             self.solve(v, out=out)
 
         return out
-

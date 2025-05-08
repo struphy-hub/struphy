@@ -2,13 +2,13 @@ import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
 from psydac.linalg.block import BlockVector
 
-from struphy.feec.psydac_derham import Derham
-from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.basis_projection_ops import (
-            BasisProjectionOperator,
-            BasisProjectionOperatorLocal,
-            CoordinateProjector,
-        )
+    BasisProjectionOperator,
+    BasisProjectionOperatorLocal,
+    CoordinateProjector,
+)
+from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.psydac_derham import Derham
 
 
 class BracketOperator(LinOpWithTransp):
@@ -58,8 +58,11 @@ class BracketOperator(LinOpWithTransp):
 
     """
 
-    def __init__(self, derham: Derham, u: BlockVector,):
-
+    def __init__(
+        self,
+        derham: Derham,
+        u: BlockVector,
+    ):
         Xh = derham.Vh_fem["v"]
         V1h = derham.Vh_fem["1"]
         self._domain = derham.Vh_pol["v"]

@@ -713,6 +713,7 @@ class PushGuidingCenterBxEstar(Propagator):
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
             import numpy as np
+
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
 
@@ -1131,6 +1132,7 @@ class PushGuidingCenterParallel(Propagator):
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
             import numpy as np
+
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
 
@@ -1340,6 +1342,7 @@ class PushDeterministicDiffusion(Propagator):
         self._butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
+
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
@@ -1441,6 +1444,7 @@ class PushRandomDiffusion(Propagator):
         self._butcher = ButcherTableau("forward_euler")
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
+
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 

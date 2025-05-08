@@ -1,11 +1,12 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
+
 import numpy as np
 
-from struphy.feec.psydac_derham import Derham
-from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
+from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
 
 

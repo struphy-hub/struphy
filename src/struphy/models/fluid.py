@@ -1483,38 +1483,38 @@ class IsothermalEulerSPH(StruphyModel):
 
 class HasegawaWakatani(StruphyModel):
     r"""Hasegawa-Wakatani equations in 2D.
-    
+
     :ref:`normalization`:
 
     .. math::
-    
+
         \hat u = \hat v_\textnormal{th}\,,\qquad \hat \phi = \hat u\, \hat x \,.
 
     :ref:`Equations <gempic>`:
 
     .. math::
-    
+
         &\frac{\partial n}{\partial t} = C (\phi - n) - [\phi, n] - \kappa\, \partial_y \phi + \nu\, \nabla^{2N} n\,,
         \\[2mm]
         &\frac{\partial \omega}{\partial t} = C (\phi - n) - [\phi, \omega] + \nu\, \nabla^{2N} \omega \,,
         \\[3mm]
         &\Delta \phi = \omega\,,
 
-    where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`, :math:`C = C(x, y)` and 
+    where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`, :math:`C = C(x, y)` and
     :math:`\kappa` and :math:`\nu` are constants (at the moment only :math:`N=1` is available).
 
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.Poisson`
     2. :class:`~struphy.propagators.propagators_fields.HasegawaWakatani`
-    
+
     :ref:`Model info <add_model>`:
     """
 
     @staticmethod
     def species():
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
-        
+
         dct["fluid"]["hw"] = {"n0": "H1", "omega0": "H1", "phi0": "H1"}
         return dct
 
@@ -1525,7 +1525,7 @@ class HasegawaWakatani(StruphyModel):
     @staticmethod
     def velocity_scale():
         return "alfvén"
-        
+
     # @staticmethod
     # def diagnostics_dct():
     #     dct = {}
@@ -1538,14 +1538,14 @@ class HasegawaWakatani(StruphyModel):
             propagators_fields.Poisson: ["hw_phi0"],
             propagators_fields.HasegawaWakatani: ["hw_n0", "hw_omega0"],
         }
-        
+
     __em_fields__ = species()["em_fields"]
     __fluid_species__ = species()["fluid"]
     __kinetic_species__ = species()["kinetic"]
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-    
+
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
@@ -1569,10 +1569,10 @@ class HasegawaWakatani(StruphyModel):
         self._kwargs[propagators_fields.HasegawaWakatani] = {
             "algo": algo,
         }
-        
+
         # Initialize propagators used in splitting substeps
         self.init_propagators()
-        
+
         self.add_scalar("en_U")
         self.add_scalar("en_p")
         self.add_scalar("en_B")
@@ -1587,34 +1587,35 @@ class HasegawaWakatani(StruphyModel):
         self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
+        pass
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u1)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b1)
+        # self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u1)
+        # self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b1)
 
-        en_U = self.pointer["mhd_velocity"].dot(self._tmp_u1) / 2
-        en_B = self.pointer["b_field"].dot(self._tmp_b1) / 2
-        en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)
+        # en_U = self.pointer["mhd_velocity"].dot(self._tmp_u1) / 2
+        # en_B = self.pointer["b_field"].dot(self._tmp_b1) / 2
+        # en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)
 
-        self.update_scalar("en_U", en_U)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_p", en_p)
-        self.update_scalar("en_tot", en_U + en_B + en_p)
+        # self.update_scalar("en_U", en_U)
+        # self.update_scalar("en_B", en_B)
+        # self.update_scalar("en_p", en_p)
+        # self.update_scalar("en_tot", en_U + en_B + en_p)
 
-        # background fields
-        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        # # background fields
+        # self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
 
-        en_B0 = self._b_eq.dot(self._tmp_b1) / 2
-        en_p0 = self._p_eq.dot(self._ones) / (5 / 3 - 1)
+        # en_B0 = self._b_eq.dot(self._tmp_b1) / 2
+        # en_p0 = self._p_eq.dot(self._ones) / (5 / 3 - 1)
 
-        self.update_scalar("en_B_eq", en_B0)
-        self.update_scalar("en_p_eq", en_p0)
+        # self.update_scalar("en_B_eq", en_B0)
+        # self.update_scalar("en_p_eq", en_p0)
 
-        # total magnetic field
-        self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer["b_field"]
+        # # total magnetic field
+        # self._b_eq.copy(out=self._tmp_b1)
+        # self._tmp_b1 += self.pointer["b_field"]
 
-        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        # self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 
-        en_Btot = self._tmp_b1.dot(self._tmp_b2) / 2
+        # en_Btot = self._tmp_b1.dot(self._tmp_b2) / 2
 
-        self.update_scalar("en_B_tot", en_Btot)
+        # self.update_scalar("en_B_tot", en_Btot)

@@ -510,7 +510,7 @@ def descend_options_dict(
 
     pop_again : bool
         Whether to pop one more time from keys; this is automatically set to True when depth is reached during recursion.
-        
+
     verbose : bool
         Show some output on screen.
     """
@@ -526,15 +526,15 @@ def descend_options_dict(
 
         if d_default is None:
             out = copy.deepcopy(d)
-            
+
     if verbose:
-        print(f'{d = }')
-        print(f'{out = }')
-        print(f'{d_default = }')
-        print(f'{d_opts = }')
-        print(f'{keys = }')
-        print(f'{depth = }')
-        print(f'{pop_again = }')
+        print(f"{d = }")
+        print(f"{out = }")
+        print(f"{d_default = }")
+        print(f"{d_opts = }")
+        print(f"{keys = }")
+        print(f"{depth = }")
+        print(f"{pop_again = }")
 
     if verbose:
         print(f"{d = }")
@@ -592,9 +592,9 @@ def descend_options_dict(
                         )
                     out_sublist += [d_copy]
                 out += [out_sublist]
-                
+
             if verbose:
-                print(f'{out = }')
+                print(f"{out = }")
 
             if verbose:
                 print(f"{out = }")

@@ -811,7 +811,14 @@ class BasisProjectionOperators:
     ##########################################
     # Wrapper around BasisProjectionOperator #
     ##########################################
-    def create_basis_op(self, fun: list, V_id: str, W_id: str, assemble: bool = False, name: str = None,):
+    def create_basis_op(
+        self,
+        fun: list,
+        V_id: str,
+        W_id: str,
+        assemble: bool = False,
+        name: str = None,
+    ):
         r"""Basis projection operator :math:`V^\alpha_h \to V^\beta_h` with given (rank 0, 1 or 2) weight function :math:`A(\boldsymbol \eta)`:
 
         .. math::
@@ -832,10 +839,10 @@ class BasisProjectionOperators:
 
         W_id : str
             Specifier for the co-domain of the operator ('H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec').
-            
+
         assemble: bool
             Whether to assemble the DOF matrix.
-            
+
         name: bstr
             Name of the operator.
 
@@ -882,7 +889,6 @@ class BasisProjectionOperators:
                 transposed=False,
                 polar_shift=self.domain.pole,
             )
-
 
         if assemble:
             if self.rank == 0 and self.verbose:
@@ -1620,7 +1626,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         P_boundary_op: BoundaryOperator | IdentityOperator = None,
         transposed: bool = False,
         polar_shift: bool = False,
-        use_cache:bool = False,
+        use_cache: bool = False,
     ):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -2153,7 +2159,12 @@ class CoordinateProjector(LinearOperator):
         Codomain, out space, must be :math:`\mu`-th space of V.
     """
 
-    def __init__(self, mu: int, V: BlockVectorSpace | PolarDerhamSpace, Vmu: StencilVectorSpace | PolarDerhamSpace,):
+    def __init__(
+        self,
+        mu: int,
+        V: BlockVectorSpace | PolarDerhamSpace,
+        Vmu: StencilVectorSpace | PolarDerhamSpace,
+    ):
         assert isinstance(mu, int)
         if isinstance(V, PolarDerhamSpace):
             assert V.parent_space.spaces[mu] == Vmu.parent_space
@@ -2191,7 +2202,11 @@ class CoordinateProjector(LinearOperator):
     def transpose(self, conjugate=False):
         return CoordinateInclusion(self.dir, self._domain, self._codomain)
 
-    def dot(self, v: BlockVector | PolarVector, out=None,):
+    def dot(
+        self,
+        v: BlockVector | PolarVector,
+        out=None,
+    ):
         assert v.space == self._domain
         if isinstance(self.domain, PolarDerhamSpace):
             if out is not None:
@@ -2207,10 +2222,14 @@ class CoordinateProjector(LinearOperator):
                 out += v.blocks[self.dir]
             else:
                 out = v.blocks[self.dir].copy()
-        out.update_ghost_regions() # TODO: this is usually not done within .dot, should maybe be removed?
+        out.update_ghost_regions()  # TODO: this is usually not done within .dot, should maybe be removed?
         return out
 
-    def idot(self, v: BlockVector | PolarVector, out: StencilVector | PolarVector,):
+    def idot(
+        self,
+        v: BlockVector | PolarVector,
+        out: StencilVector | PolarVector,
+    ):
         assert v.space == self._domain
         assert out.space == self._codomain
         if isinstance(self.domain, PolarDerhamSpace):
@@ -2245,7 +2264,12 @@ class CoordinateInclusion(LinearOperator):
         Domain, in space, must be :math:`\mu`-th space of V.
     """
 
-    def __init__(self, mu: int, V: BlockVectorSpace | PolarDerhamSpace, Vmu: StencilVectorSpace | PolarDerhamSpace,):
+    def __init__(
+        self,
+        mu: int,
+        V: BlockVectorSpace | PolarDerhamSpace,
+        Vmu: StencilVectorSpace | PolarDerhamSpace,
+    ):
         assert isinstance(mu, int)
         if isinstance(V, PolarDerhamSpace):
             assert V.parent_space.spaces[mu] == Vmu.parent_space

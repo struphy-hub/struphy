@@ -21,14 +21,13 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.ode.solvers import ODEsolverFEEC
+from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.ode.solvers import ODEsolverFEEC
-from struphy.ode.utils import ButcherTableau
 
 
 class Maxwell(Propagator):
@@ -134,11 +133,13 @@ class Maxwell(Propagator):
                 weak_curl.dot(y2, out=out)
                 out.update_ghost_regions()
                 return out
+
             def f2(t, y1, y2, out=out2):
                 curl.dot(y1, out=out)
                 out *= -1.0
                 out.update_ghost_regions()
                 return out
+
             vector_field = {e: f1, b: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
@@ -2625,12 +2626,12 @@ class ImplicitDiffusion(Propagator):
         # initial guess and solver params
         self._x0 = x0
         self._info = solver["info"]
-        
+
         if stab_mat == "Id":
             stab_mat = IdentityOperator(phi.space)
         else:
             stab_mat = getattr(self.mass_ops, stab_mat)
-            
+
         if isinstance(diffusion_mat, str):
             diffusion_mat = getattr(self.mass_ops, diffusion_mat)
         else:
@@ -2782,7 +2783,7 @@ class Poisson(ImplicitDiffusion):
 
         \left( \epsilon\,\mathbb S + \mathbb G^\top \mathbb M^1 \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
 
-    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix 
+    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix
     and :math:`\mathbb S` is a stabilization matrix.
 
     Parameters
@@ -2845,17 +2846,18 @@ class Poisson(ImplicitDiffusion):
         x0: StencilVector = None,
         solver: dict = options(default=True)["solver"],
     ):
-
-        super().__init__(phi, 
-                         sigma_1=stab_eps,
-                         sigma_2 = 0.,
-                         sigma_3 = 1.,
-                         divide_by_dt=False,
-                         stab_mat=stab_mat,
-                         diffusion_mat="M1",
-                         rho=rho,
-                         x0=x0,
-                         solver=solver,)
+        super().__init__(
+            phi,
+            sigma_1=stab_eps,
+            sigma_2=0.0,
+            sigma_3=1.0,
+            divide_by_dt=False,
+            stab_mat=stab_mat,
+            diffusion_mat="M1",
+            rho=rho,
+            x0=x0,
+            solver=solver,
+        )
 
 
 class VariationalMomentumAdvection(Propagator):
@@ -7663,14 +7665,14 @@ class HasegawaWakatani(Propagator):
 
     .. math::
 
-        &\int_\Omega\frac{\partial n}{\partial t} m \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, m \,\textrm d \mathbf x - \int_\Omega \phi [n, m] \,\textrm d \mathbf x - \kappa \int_\Omega  \partial_y \phi \,m \,\textrm d \mathbf x - \nu \int_\Omega \nabla n \cdot \nabla m \,\textrm d \mathbf x \qquad \forall m \in H^1\,, 
+        &\int_\Omega\frac{\partial n}{\partial t} m \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, m \,\textrm d \mathbf x - \int_\Omega \phi [n, m] \,\textrm d \mathbf x - \kappa \int_\Omega  \partial_y \phi \,m \,\textrm d \mathbf x - \nu \int_\Omega \nabla n \cdot \nabla m \,\textrm d \mathbf x \qquad \forall m \in H^1\,,
         \\[2mm]
-        &\int_\Omega\frac{\partial \omega}{\partial t} \psi \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, \psi \,\textrm d \mathbf x - \int_\Omega \phi [\omega, \psi] \,\textrm d \mathbf x - \nu \int_\Omega \nabla \omega \cdot \nabla \psi \,\textrm d \mathbf x \qquad \forall \psi \in H^1\,, 
+        &\int_\Omega\frac{\partial \omega}{\partial t} \psi \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, \psi \,\textrm d \mathbf x - \int_\Omega \phi [\omega, \psi] \,\textrm d \mathbf x - \nu \int_\Omega \nabla \omega \cdot \nabla \psi \,\textrm d \mathbf x \qquad \forall \psi \in H^1\,,
 
-    where  :math:`\phi \in H^1` is a given stream function, 
+    where  :math:`\phi \in H^1` is a given stream function,
     :math:`C = C(x, y)`, :math:`\kappa` and :math:`\nu` are constants and
     :math:`[a, b] = \partial_x a \partial_y b - \partial_y a \partial_x b`.
-    
+
     :ref:`time_discret`: explicit Runge-Kutta, see :class:`~struphy.ode.solvers.ODEsolverFEEC`.
     """
 
@@ -7694,58 +7696,72 @@ class HasegawaWakatani(Propagator):
         algo: dict = options(default=True)["algo"],
     ):
         super().__init__(n0, omega0)
-        
+
         # default phi
         if phi is None:
-            self._phi = self.derham.create_spline_function('phi', 'H1')
-            self._phi.vector[:] =  1.0
+            self._phi = self.derham.create_spline_function("phi", "H1")
+            self._phi.vector[:] = 1.0
             self._phi.vector.update_ghost_regions()
         else:
             self._phi = phi
-        
+
         # default c-function
         if c_fun is None:
-            c_fun = lambda e1, e2, e3: 0.0*e1 + 1.
-        
+            c_fun = lambda e1, e2, e3: 0.0 * e1 + 1.0
+
         # expose equation parameters
         self._kappa = kappa
         self._nu = nu
-        
+
         # get quadrature grid of V0
         pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
-        print(f'{self.rank = }, {pts[0].shape = }, {pts[1].shape = }, {pts[2].shape = } \n {pts[0]}')
+        print(f"{self.rank = }, {pts[0].shape = }, {pts[1].shape = }, {pts[2].shape = } \n {pts[0]}")
         mesh_pts = np.meshgrid(*pts, indexing="ij")
-        
+
         # evaluate c(x, y) at local quadrature grid and store
         self._c_at_pts = c_fun(*mesh_pts)
-        print(f'{self._c_at_pts.shape = }')
-        
+        print(f"{self._c_at_pts.shape = }")
+
         # evaluate phi at local quadrature grid
-        
+
         self._spans, self._bns, self._bnd = self.derham.prepare_eval_tp_fixed(pts)
         self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
-        print(f'{self._phi_at_pts.shape = }')
-        
+        print(f"{self._phi_at_pts.shape = }")
+
         # grad operator
         grad = self.derham.grad
-        
+
         # mass operators
         M1 = self.mass_ops.M1
-        M0c = self.mass_ops.create_weighted_mass('H1', 'H1', name='M0c', weights=[[self._c_at_pts]], assemble=True,)
-        M1hw = self.mass_ops.create_weighted_mass('Hcurl', 'Hcurl', name='M1hw', weights=[[None, self._phi_at_pts, None],
-                                                                                          [-self._phi_at_pts, None, None],
-                                                                                          [None, None, None],], assemble=True,)
-        
+        M0c = self.mass_ops.create_weighted_mass(
+            "H1",
+            "H1",
+            name="M0c",
+            weights=[[self._c_at_pts]],
+            assemble=True,
+        )
+        M1hw = self.mass_ops.create_weighted_mass(
+            "Hcurl",
+            "Hcurl",
+            name="M1hw",
+            weights=[
+                [None, self._phi_at_pts, None],
+                [-self._phi_at_pts, None, None],
+                [None, None, None],
+            ],
+            assemble=True,
+        )
+
         # basis projection operator
-        fun = [[None, lambda e1, e2, e3: 1.0 + 0.0*e1, None]]
+        fun = [[None, lambda e1, e2, e3: 1.0 + 0.0 * e1, None]]
         self._dy_phi = self.basis_ops.create_basis_op(
-                fun,
-                "Hcurl",
-                "H1",
-                name="dy_phi",
-                assemble=True,
-            )
-        print(f'{self._dy_phi._dof_mat.blocks = }')
+            fun,
+            "Hcurl",
+            "H1",
+            name="dy_phi",
+            assemble=True,
+        )
+        print(f"{self._dy_phi._dof_mat.blocks = }")
 
     def __call__(self, dt):
         # current variables
@@ -7753,6 +7769,4 @@ class HasegawaWakatani(Propagator):
         omega_n = self.feec_vars[1]
 
         # write new coeffs into self.feec_vars
-        #max_dn0, max_domega0 = self.feec_vars_update(n1, omega1)
-
-
+        # max_dn0, max_domega0 = self.feec_vars_update(n1, omega1)

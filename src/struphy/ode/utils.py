@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class ButcherTableau:
     r"""
     Butcher tableau for explicit s-stage Runge-Kutta methods.

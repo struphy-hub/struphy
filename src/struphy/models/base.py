@@ -8,13 +8,9 @@ import yaml
 from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector
 
-from struphy.profiling.profiling import ProfileRegion
-from struphy.propagators.base import Propagator
-from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
-from struphy.feec.psydac_derham import SplineFunction
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
 from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibrium,
@@ -22,6 +18,11 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.io.setup import setup_derham, setup_domain_and_equil
+from struphy.profiling.profiling import ProfileRegion
+from struphy.propagators.base import Propagator
+from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
+
 
 class StruphyModel(metaclass=ABCMeta):
     """
@@ -50,7 +51,6 @@ class StruphyModel(metaclass=ABCMeta):
         comm: MPI.Intracomm = None,
         clone_config: CloneConfig = None,
     ):
-        
         assert "em_fields" in self.species()
         assert "fluid" in self.species()
         assert "kinetic" in self.species()
