@@ -8,3 +8,8 @@ repos:
       - id: check-toml              # Attempts to load all TOML files to verify syntax.
       - id: check-yaml              # Attempts to load all yaml files to verify syntax.
         args: ["--unsafe"]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout # remove jupyter notebook cell output
