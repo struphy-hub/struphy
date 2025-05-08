@@ -417,3 +417,361 @@ class L2_transport_operator(LinOpWithTransp):
                 [None, None, f2_values],
             ]
         )
+
+class InternalEnergyEvaluator:
+    """Helper class for the evaluation of the internal energy or its partial derivative/discrete partial derivatives on an integration grid"""
+
+    def __init__(self, derham, gamma):
+        self._derham = derham
+        self._gamma = gamma
+        integration_grid = [grid_1d.flatten() for grid_1d in self._derham.quad_grid_pts["0"]]
+
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
+            self._derham.prepare_eval_tp_fixed(
+                integration_grid,
+            )
+        )
+
+        self.sf = self._derham.create_field("sf", "L2")
+        self.sf1 = self._derham.create_field("sf", "L2")
+        self.rhof = self._derham.create_field("rhof", "L2")
+        self.rhof1 = self._derham.create_field("rhof1", "L2")
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+        self._rhof_values = np.zeros(grid_shape, dtype=float)
+        self._rhof1_values = np.zeros(grid_shape, dtype=float)
+        self._sf_values = np.zeros(grid_shape, dtype=float)
+        self._sf1_values = np.zeros(grid_shape, dtype=float)
+        self._delta_values = np.zeros(grid_shape, dtype=float)
+        self._rhof_mid_values = np.zeros(grid_shape, dtype=float)
+        self._sf_mid_values = np.zeros(grid_shape, dtype=float)
+        self._eta_values = np.zeros(grid_shape, dtype=float)
+        self._en_values = np.zeros(grid_shape, dtype=float)
+        self._en1_values = np.zeros(grid_shape, dtype=float)
+        self._de_values = np.zeros(grid_shape, dtype=float)
+        self._d2e_values = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid2 = np.zeros(grid_shape, dtype=float)
+        self._DG_values = np.zeros(grid_shape, dtype=float)
+
+    def _ener(self, rho, s, out=None):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        gam = self._gamma
+        if out is None:
+            out = np.power(rho, gam) * np.exp(s / rho)
+        else:
+            out *= 0.0
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+            np.power(rho, gam, out=self._tmp_int_grid)
+            out *= self._tmp_int_grid
+        return out
+    
+    def _dener_drho(self, rho, s, out=None):
+        """Derivative with respect to rho of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        dE(rho, s)/drho = (gamma*rho^{gamma-1} - s*rho^{gamma-2})*exp(s/rho)"""
+        gam = self._gamma
+        if out is None:
+            out = (gam * np.power(rho, gam - 1) - s * np.power(rho, gam - 2)) * np.exp(s / rho)
+        else:
+            out *= 0.0
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+
+            np.power(rho, gam - 1, out=self._tmp_int_grid)
+            self._tmp_int_grid *= gam
+
+            np.power(rho, gam - 2, out=self._tmp_int_grid2)
+            self._tmp_int_grid2 *= s
+
+            self._tmp_int_grid -= self._tmp_int_grid2
+            out *= self._tmp_int_grid
+        return out
+    
+    def _dener_ds(self, rho, s, out=None):
+        """Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        dE(rho, s)/ds = (rho^{gamma-1})*exp(s/rho)"""
+        gam = self._gamma
+        if out is None:
+            out = np.power(rho, gam - 1) * np.exp(s / rho)
+        else:
+            out *= 0.0
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+            np.power(rho, gam - 1, out=self._tmp_int_grid)
+            out *= self._tmp_int_grid
+        return out
+    
+    def _d2ener_drho2(self, rho, s, out=None):
+        """Second derivative with respect to (rho, rho) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        d^2E(rho, s)/drho^2 = (gamma*(gamma-1) rho^{gamma-2}- 2*s*(gamma-1)*rho^{gamma-3}+ s^2*rho^{gamma-4})*exp(s/rho)"""
+        gam = self._gamma
+        if out is None:
+            out = (
+                gam * (gam - 1) * np.power(rho, gam - 2)
+                - s * 2 * (gam - 1) * np.power(rho, gam - 3)
+                + s**2 * np.power(rho, gam - 4)
+            ) * np.exp(s / rho)
+        else:
+            out *= 0.0
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+
+            np.power(rho, gam - 2, out=self._tmp_int_grid)
+            self._tmp_int_grid *= gam * (gam - 1)
+
+            np.power(rho, gam - 3, out=self._tmp_int_grid2)
+            self._tmp_int_grid2 *= s
+            self._tmp_int_grid2 *= 2 * (gam - 1)
+            self._tmp_int_grid -= self._tmp_int_grid2
+
+            np.power(rho, gam - 4, out=self._tmp_int_grid2)
+            self._tmp_int_grid2 *= s
+            self._tmp_int_grid2 *= s
+            self._tmp_int_grid += self._tmp_int_grid2
+            out *= self._tmp_int_grid
+        return out
+    
+    def _d2ener_ds2(self, rho, s, out=None):
+        """Second derivative with respect to (s, s) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        d^2E(rho, s)/ds^2 = (rho^{gamma-2})*exp(s/rho)"""
+        gam = self._gamma
+        if out is None:
+            out = np.power(rho, gam - 2) * np.exp(s / rho)
+        else:
+            out *= 0.0
+            out += s
+            out /= rho
+            np.exp(out, out=out)
+            np.power(rho, gam - 2, out=self._tmp_int_grid)
+            out *= self._tmp_int_grid
+        return out
+    
+    def _eta(self, delta_x, out=None):
+        if out is None:
+            out = 1.0 - np.exp(-((delta_x / 1e-5) ** 2))
+        else:
+            out *= 0.0
+            out += delta_x
+            out /= 1e-5
+            out **= 2
+            out *= -1
+            np.exp(out, out=out)
+            out *= -1
+            out += 1.0
+        return out
+    
+    def evaluate_discrete_de_drho_grid(self,rhon, rhon1, sn, out=None):
+
+        # Get the value of the fields on the grid
+        self.rhof.vector = rhon
+        self.rhof1.vector = rhon1
+        self.sf.vector = sn
+
+        rhof_values = self.rhof.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._rhof_values,
+            )
+        rhof1_values = self.rhof1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._rhof1_values,
+            )
+
+        sf_values = self.sf.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf_values,
+            )
+
+        # delta_rho_values = rhof1_values-rhof_values
+        delta_rho_values = self._delta_values
+        delta_rho_values *= 0.0
+        delta_rho_values += rhof1_values
+        delta_rho_values -= rhof_values
+
+        # rho_mid_values = (rhof1_values+rhof_values)/2
+        rho_mid_values = self._rhof_mid_values
+        rho_mid_values *= 0
+        rho_mid_values += rhof1_values
+        rho_mid_values += rhof_values
+        rho_mid_values /= 2
+
+        eta = self._eta(delta_rho_values, out=self._eta_values)
+
+        e_rho1_s = self._ener(
+                rhof1_values,
+                sf_values,
+                out=self._en1_values,
+            )
+        e_rho_s = self._ener(
+                rhof_values,
+                sf_values,
+                out=self._en_values,
+            )
+
+        de_rhom_s = self._dener_drho(
+                rho_mid_values,
+                sf_values,
+                out=self._de_values,
+            )
+
+        # eta*delta_rho_values*(e_rho1_s-e_rho_s)*delta_rho_values/(delta_rho_values**2+1e-40)
+        self._tmp_int_grid *= 0.0
+        self._tmp_int_grid += e_rho1_s
+        self._tmp_int_grid -= e_rho_s
+        self._tmp_int_grid *= delta_rho_values
+        delta_rho_values **= 2
+        delta_rho_values += 1e-40
+        self._tmp_int_grid /= delta_rho_values
+        self._tmp_int_grid *= eta
+
+        # (1-eta)*de_rhom_s
+        eta -= 1.0
+        eta *= -1.0
+        de_rhom_s *= eta
+
+        out *= 0.0
+        out += self._tmp_int_grid
+        out += de_rhom_s
+
+        return out
+
+    def evaluate_exact_de_drho_grid(self, rhon, sn, out = None):
+        
+        self.rhof.vector = rhon
+        self.sf.vector = sn
+        
+        rhof0_values = self.rhof.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof_values,
+        )
+
+        sf0_values = self.sf.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf_values,
+        )
+
+        out = self._dener_drho(
+            rhof0_values,
+            sf0_values,
+            out = out
+        )
+
+        return out
+
+    def evaluate_discrete_de_ds_grid(self, rhon, sn, sn1, out=None):
+        # Get the value of the fields on the grid
+        self.rhof.vector = rhon
+        self.sf.vector = sn
+        self.sf1.vector = sn1
+
+        sf_values = self.sf.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf_values,
+            )
+        sf1_values = self.sf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf1_values,
+            )
+
+        rhof_values = self.rhof.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._rhof_values,
+            )
+
+        # delta_s_values = s1_values-sf_values
+        delta_s_values = self._delta_values
+        delta_s_values *= 0.0
+        delta_s_values += sf1_values
+        delta_s_values -= sf_values
+
+        # rho_mid_values = (rhof1_values+rhof_values)/2
+        s_mid_values = self._sf_mid_values
+        s_mid_values *= 0.0
+        s_mid_values += sf1_values
+        s_mid_values += sf_values
+        s_mid_values /= 2.0
+        
+
+        eta = self._eta(delta_s_values, out=self._eta_values)
+
+        e_rho_s1 = self._ener(
+                rhof_values,
+                sf1_values,
+                out=self._en1_values,
+            )
+        e_rho_s = self._ener(
+                rhof_values,
+                sf_values,
+                out=self._en_values,
+            )
+
+        de_rho_sm = self._dener_ds(
+                rhof_values,
+                s_mid_values,
+                out=self._de_values,
+            )
+
+        #(eta*delta_s_values*(e_rho_s1-e_rho_s) / (delta_s_values**2+1e-40)+(1-eta)*de_rho_sm)
+
+        # eta*delta_s_values*(e_rho_s1-e_rho_s) /(delta_s_values**2+1e-40)
+        self._tmp_int_grid *= 0.0
+        self._tmp_int_grid += e_rho_s1
+        self._tmp_int_grid -= e_rho_s
+        self._tmp_int_grid *= delta_s_values
+        self._tmp_int_grid *= eta
+
+        # delta_s_values**2+1e-40
+        delta_s_values **= 2
+        delta_s_values += 1e-40
+        self._tmp_int_grid /= delta_s_values
+
+        # (1-eta)
+        eta -= 1.0
+        eta *= -1.0
+
+        # (1-eta)*de_rho_sm
+        de_rho_sm *= eta
+
+        out *= 0.0
+        out += self._tmp_int_grid
+        out += de_rho_sm
+
+        return out
+    
+    def evaluate_exact_de_ds_grid(self, rhon, sn, out = None):
+        
+        self.rhof.vector = rhon
+        self.sf.vector = sn
+        
+        rhof0_values = self.rhof.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof_values,
+        )
+
+        sf0_values = self.sf.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf_values,
+        )
+
+        out = self._dener_ds(
+            rhof0_values,
+            sf0_values,
+            out = out
+        )
+
+        return out
