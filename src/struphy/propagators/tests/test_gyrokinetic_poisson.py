@@ -143,7 +143,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
             rho_vec = L2Projector('H1', mass_ops).get_dofs(rho1, apply_bc=True)
 
             # create Poisson solver
-            _phi = derham.create_field('phi', 'H1')
+            _phi = derham.create_spline_function('phi', 'H1')
             poisson_solver = ImplicitDiffusion(_phi.vector,
                                                sigma_1=1e-12,
                                                sigma_2=0.,
@@ -330,7 +330,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
     rho_vec2 = l2_proj.get_dofs(rho2, apply_bc=True)
 
     # Create Poisson solvers
-    _phi1 = derham.create_field('test1', 'H1')
+    _phi1 = derham.create_spline_function('test1', 'H1')
     poisson_solver1 = ImplicitDiffusion(_phi1.vector,
                                         sigma_1=1e-8,
                                         sigma_2=0.,
@@ -339,7 +339,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         rho=rho_vec1,
                                         solver=solver_params)
 
-    _phi2 = derham.create_field('test2', 'H1')
+    _phi2 = derham.create_spline_function('test2', 'H1')
     poisson_solver2 = ImplicitDiffusion(_phi2.vector,
                                         sigma_1=1e-8,
                                         sigma_2=0.,
@@ -464,8 +464,8 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     print(f'{rho_vec[:].shape = }')
 
     # Create 3d Poisson solver
-    _phi = derham.create_field('test2', 'H1')
-    _phi_2p5d = derham.create_field('sol_2p5d', 'H1')
+    _phi = derham.create_spline_function('test2', 'H1')
+    _phi_2p5d = derham.create_spline_function('sol_2p5d', 'H1')
     poisson_solver_3d = ImplicitDiffusion(_phi.vector,
                                           sigma_1=1e-8,
                                           sigma_2=0.,
@@ -489,8 +489,8 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     Propagator.derham = derham
     Propagator.mass_ops = mass_ops
 
-    _phi_small = derham.create_field('test_small', 'H1')
-    rhs = derham.create_field('rhs', 'H1')
+    _phi_small = derham.create_spline_function('test_small', 'H1')
+    rhs = derham.create_spline_function('rhs', 'H1')
     poisson_solver_2p5d = ImplicitDiffusion(_phi_small.vector,
                                             sigma_1=1e-8,
                                             sigma_2=0.,

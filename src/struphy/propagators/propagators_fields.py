@@ -2128,7 +2128,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         Vh = self.derham.Vh_fem[self._u_id]
 
         # Femfield for the field evaluation
-        self._bf = self.derham.create_field("bf", "Hdiv")
+        self._bf = self.derham.create_spline_function("bf", "Hdiv")
 
         # define temp callable
         def tmp(x, y, z):
@@ -3220,11 +3220,11 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.sf = self.derham.create_field("sf", "L2")
-        self.rhof = self.derham.create_field("rhof", "L2")
-        self.rhof1 = self.derham.create_field("rhof1", "L2")
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
+        self.sf = self.derham.create_spline_function("sf", "L2")
+        self.rhof = self.derham.create_spline_function("rhof", "L2")
+        self.rhof1 = self.derham.create_spline_function("rhof1", "L2")
+        self.uf = self.derham.create_spline_function("uf", "H1vec")
+        self.uf1 = self.derham.create_spline_function("uf1", "H1vec")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -4338,11 +4338,11 @@ class VariationalEntropyEvolve(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.rhof = self.derham.create_field("rhof", "L2")
-        self.sf = self.derham.create_field("sf", "L2")
-        self.sf1 = self.derham.create_field("sf1", "L2")
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
+        self.rhof = self.derham.create_spline_function("rhof", "L2")
+        self.sf = self.derham.create_spline_function("sf", "L2")
+        self.sf1 = self.derham.create_spline_function("sf1", "L2")
+        self.uf = self.derham.create_spline_function("uf", "H1vec")
+        self.uf1 = self.derham.create_spline_function("uf1", "H1vec")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -5246,8 +5246,8 @@ class VariationalPressureEvolve(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.pf = self.derham.create_field("pf", "L2")
-        self.gradpf = self.derham.create_field("gradpf", "Hdiv")
+        self.pf = self.derham.create_spline_function("pf", "L2")
+        self.gradpf = self.derham.create_spline_function("gradpf", "Hdiv")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -5591,10 +5591,10 @@ class VariationalMagFieldEvolve(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.bf = self.derham.create_field("bf", "Hdiv")
+        self.bf = self.derham.create_spline_function("bf", "Hdiv")
 
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
+        self.uf = self.derham.create_spline_function("uf", "H1vec")
+        self.uf1 = self.derham.create_spline_function("uf1", "H1vec")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -6262,17 +6262,17 @@ class VariationalViscosity(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.rhof = self.derham.create_field("rhof", "L2")
-        self.sf = self.derham.create_field("sf", "L2")
-        self.sf1 = self.derham.create_field("sf1", "L2")
-        self.uf1 = self.derham.create_field("uf", "H1vec")
-        self.uf12 = self.derham.create_field("uf1", "H1vec")
-        self.gu0f = self.derham.create_field("gu0", "Hcurl")
-        self.gu1f = self.derham.create_field("gu1", "Hcurl")
-        self.gu2f = self.derham.create_field("gu2", "Hcurl")
-        self.gu120f = self.derham.create_field("gu120", "Hcurl")
-        self.gu121f = self.derham.create_field("gu121", "Hcurl")
-        self.gu122f = self.derham.create_field("gu122", "Hcurl")
+        self.rhof = self.derham.create_spline_function("rhof", "L2")
+        self.sf = self.derham.create_spline_function("sf", "L2")
+        self.sf1 = self.derham.create_spline_function("sf1", "L2")
+        self.uf1 = self.derham.create_spline_function("uf", "H1vec")
+        self.uf12 = self.derham.create_spline_function("uf1", "H1vec")
+        self.gu0f = self.derham.create_spline_function("gu0", "Hcurl")
+        self.gu1f = self.derham.create_spline_function("gu1", "Hcurl")
+        self.gu2f = self.derham.create_spline_function("gu2", "Hcurl")
+        self.gu120f = self.derham.create_spline_function("gu120", "Hcurl")
+        self.gu121f = self.derham.create_spline_function("gu121", "Hcurl")
+        self.gu122f = self.derham.create_spline_function("gu122", "Hcurl")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -6940,13 +6940,13 @@ class VariationalResistivity(Propagator):
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
         # Femfields for the projector
-        self.rhof = self.derham.create_field("rhof", "L2")
-        self.sf = self.derham.create_field("sf", "L2")
-        self.sf1 = self.derham.create_field("sf1", "L2")
-        self.bf = self.derham.create_field("Bf", "Hdiv")
-        self.bf1 = self.derham.create_field("Bf1", "Hdiv")
-        self.cbf1 = self.derham.create_field("cBf", "Hcurl")
-        self.cbf12 = self.derham.create_field("cBf", "Hcurl")
+        self.rhof = self.derham.create_spline_function("rhof", "L2")
+        self.sf = self.derham.create_spline_function("sf", "L2")
+        self.sf1 = self.derham.create_spline_function("sf1", "L2")
+        self.bf = self.derham.create_spline_function("Bf", "Hdiv")
+        self.bf1 = self.derham.create_spline_function("Bf1", "Hdiv")
+        self.cbf1 = self.derham.create_spline_function("cBf", "Hcurl")
+        self.cbf12 = self.derham.create_spline_function("cBf", "Hcurl")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -7695,20 +7695,21 @@ class HasegawaWakatani(Propagator):
         super().__init__(n0, omega0)
         
         # expose equation parameters
-        self._phi = phi
+        self._phi = self.derham.create_spline_function('phi', '0')
+        self._phi.vector = phi
         self._kappa = kappa
         self._nu = nu
         
         # get quadrature grid of V0
         pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
         print(f'{self.rank = }, {pts[0].shape = }, {pts[1].shape = }, {pts[2].shape = } \n {pts[0]}')
-        #print(f'{self.rank = }, {self.derham.quad_grid_pts["0"][0].flatten().shape = } \n {self.derham.quad_grid_pts["0"][0].flatten()}')
         mesh_pts = np.meshgrid(*pts, indexing="ij")
         
         # evaluate c(x, y) at local quadrature grid and store
         self._c_at_pts = c_fun(*mesh_pts)
         
         # evaluate phi at local quadrature grid
+        
         self._phi_at_pts = 1.
         
         # mass operators

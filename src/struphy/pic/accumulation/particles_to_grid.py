@@ -477,7 +477,7 @@ class Accumulator:
         a = proj.solve(self.vectors[0])
 
         # create field and assign coeffs
-        field = self.derham.create_field("accum_field", self.space_id)
+        field = self.derham.create_spline_function("accum_field", self.space_id)
         field.vector = a
 
         # plot field
@@ -713,7 +713,7 @@ class AccumulatorVector:
         a = proj.solve(self.vectors[0])
 
         # create field and assign coeffs
-        field = self.derham.create_field("accum_field", self.space_id)
+        field = self.derham.create_spline_function("accum_field", self.space_id)
         field.vector = a
 
         # plot field

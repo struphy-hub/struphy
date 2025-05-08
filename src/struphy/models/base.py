@@ -1774,7 +1774,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if "params" in variable:
                     continue
                 else:
-                    dct["obj"] = self.derham.create_field(
+                    dct["obj"] = self.derham.create_spline_function(
                         variable,
                         dct["space"],
                         bckgr_params=dct.get("background"),
@@ -1790,7 +1790,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     if "params" in variable:
                         continue
                     else:
-                        subdct["obj"] = self.derham.create_field(
+                        subdct["obj"] = self.derham.create_spline_function(
                             variable,
                             subdct["space"],
                             bckgr_params=subdct.get("background"),
@@ -1915,7 +1915,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if "params" in key:
                     continue
                 else:
-                    val["obj"] = self.derham.create_field(
+                    val["obj"] = self.derham.create_spline_function(
                         key,
                         val["space"],
                         bckgr_params=None,

@@ -536,7 +536,7 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
         
     assert np.allclose(vals, vals_mpi_fixed)
     
-    field = derham.create_field('test', 'L2')
+    field = derham.create_spline_function('test', 'L2')
     field.vector = x3_psy
     
     assert np.allclose(field.vector._data, x3_psy._data)

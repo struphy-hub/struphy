@@ -163,7 +163,7 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
             rho_vec = L2Projector('H1', mass_ops).get_dofs(rho1, apply_bc=True)
 
             # create Poisson solver
-            _phi = derham.create_field('phi', 'H1')
+            _phi = derham.create_spline_function('phi', 'H1')
             poisson_solver = ImplicitDiffusion(_phi.vector,
                                                sigma_1=1e-12,
                                                sigma_2=0.,
@@ -344,7 +344,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     rho_vec2 = l2_proj.get_dofs(rho2, apply_bc=True)
 
     # Create Poisson solvers
-    _phi1 = derham.create_field('test1', 'H1')
+    _phi1 = derham.create_spline_function('test1', 'H1')
     poisson_solver1 = ImplicitDiffusion(_phi1.vector,
                                         sigma_1=1e-8,
                                         sigma_2=0.,
@@ -352,7 +352,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
                                         rho=rho_vec1,
                                         solver=solver_params)
 
-    _phi2 = derham.create_field('test2', 'H1')
+    _phi2 = derham.create_spline_function('test2', 'H1')
     poisson_solver2 = ImplicitDiffusion(_phi2.vector,
                                         sigma_1=1e-8,
                                         sigma_2=0.,

@@ -442,7 +442,7 @@ class WeightedMassOperators:
             )
 
             tmp_a2 = self.derham.curl.dot(a_eq)
-            b02fun = self.derham.create_field("b02", "Hdiv")
+            b02fun = self.derham.create_spline_function("b02", "Hdiv")
             b02fun.vector = tmp_a2
 
             def b02funx(x, y, z):
@@ -514,7 +514,7 @@ class WeightedMassOperators:
 
             tmp_a2 = self.derham.Vh["2"].zeros()
             self.derham.curl.dot(a_eq, out=tmp_a2)
-            b02fun = self.derham.create_field("b02", "Hdiv")
+            b02fun = self.derham.create_spline_function("b02", "Hdiv")
             b02fun.vector = tmp_a2
 
             def b02funx(x, y, z):

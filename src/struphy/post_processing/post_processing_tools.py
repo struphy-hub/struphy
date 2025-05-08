@@ -74,7 +74,7 @@ def create_femfields(
     for t in t_grid:
         fields[t] = {}
         for field_name, ID in space_ids.items():
-            fields[t][field_name] = derham.create_field(field_name, ID)
+            fields[t][field_name] = derham.create_spline_function(field_name, ID)
 
     # get hdf5 data
     for rank in range(int(nproc)):
