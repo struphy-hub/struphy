@@ -7,6 +7,7 @@ from mpi4py.MPI import IN_PLACE, SUM
 
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.profiling.profiling import ProfileManager
 
 class Pusher:
     r"""
@@ -280,13 +281,14 @@ class Pusher:
                 print(f'call kernel {self.kernel.__name__ = }')
                 t0 = time.time()
                 # push markers
-                self.kernel(
-                    dt,
-                    stage,
-                    self.particles.args_markers,
-                    self._args_domain,
-                    *self._args_kernel,
-                )
+                with ProfileManager.profile_region(self.kernel.__name__):
+                    self.kernel(
+                        dt,
+                        stage,
+                        self.particles.args_markers,
+                        self._args_domain,
+                        *self._args_kernel,
+                    )
                 t1 = time.time()
                 # print(f'return kernel {self.kernel = }')
                 print(f"Timing: {t1 - t0}")
