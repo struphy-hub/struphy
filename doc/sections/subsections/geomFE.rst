@@ -99,7 +99,7 @@ The tensor-product basis functions are denoted as follows:
     \Lambda^3_{ijk}(\eta_1,\eta_2,\eta_3) &= D_i^{p_1 - 1}(\eta_1) D_j^{p_2 - 1}(\eta_2) D_k^{p_3 - 1}(\eta_3)\,,\qquad &&\mathbf \Lambda^3 = (\Lambda^3_{ijk})_{i=1, j=1, k=1}^{d_1, d_2, d_3} \qquad
     \end{align}
 
-Elements of the discrete spaces ("FE fields") are linear combinations of the respective basis functions:
+Elements of the discrete spaces are linear combinations of the respective basis functions:
 
 .. math::
     :nowrap:
@@ -117,16 +117,16 @@ Elements of the discrete spaces ("FE fields") are linear combinations of the res
     V_h^3 &= \textnormal{span}(\mathbf \Lambda^3)\,,\qquad n_h^3(\eta_1,\eta_2,\eta_3) = \sum_{ijk}^{\phantom{3}} n_{ijk}\, \Lambda^3_{ijk}(\eta_1,\eta_2,\eta_3) = \mathbf n^\top \mathbf \Lambda^3  \quad \in \,V_h^3
     \end{align}
 
-The discrete FE fields are represented by their **FE coefficients** :math:`\mathbf p \in \mathbb R^{N_0}`, 
+The discrete spline functions are represented by their **FE coefficients** :math:`\mathbf p \in \mathbb R^{N_0}`, 
 :math:`\mathbf e \in \mathbb R^{N_1}`, :math:`\mathbf b \in \mathbb R^{N_2}` and :math:`\mathbf n \in \mathbb R^{N_3}`.
-The class for creating such FE fields in Struphy is :class:`struphy.feec.derham.Derham.Field`.
-In particular, each ``Field`` object has 
+The class for callable spline functions in Struphy is :class:`struphy.feec.derham.SplineFuntion`.
+In particular, each :class:`~struphy.feec.derham.SplineFuntion` object has 
 
-1. the property ``Field.vector`` holding the FE coefficients, along with a setter method,
+1. the property ``vector`` holding the FE coefficients, along with a setter method,
 
-2. a ``__call__()`` method for evaluating the field at (an array of) points :math:`(\eta_{ijk})_{ijk}`.
+2. a ``__call__()`` method for evaluating the spline at (an array of) points :math:`(\eta_{ijk})_{ijk}`.
  
-A field can be created via the factory function ``struphy.feec.derham.Derham.create_field()``. 
+A splien function can be created via the factory function ``struphy.feec.derham.Derham.create_spline_function()``. 
 The space dimensions are products of the uni-variate dimensions:
 
 .. math::

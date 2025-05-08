@@ -994,7 +994,7 @@ class WeightedMassOperatorsOldForTesting:
     - ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(self, derham, domain, matrix_free=False, **weights):
+    def __init__(self, derham: Derham, domain: Domain, matrix_free: bool=False, **weights,):
         self._derham = derham
         self._domain = domain
         self._weights = weights
@@ -1473,8 +1473,7 @@ class WeightedMassOperatorsOldForTesting:
             )
 
             tmp_a2 = self.derham.curl.dot(a_eq)
-            b02fun = self.derham.create_field("b02", "Hdiv")
-            b02fun.vector = tmp_a2
+            b02fun = self.derham.create_spline_function("b02", "Hdiv", coeffs=tmp_a2)
 
             def b02funx(x, y, z):
                 return b02fun(
@@ -1554,8 +1553,7 @@ class WeightedMassOperatorsOldForTesting:
 
             tmp_a2 = self.derham.Vh["2"].zeros()
             self.derham.curl.dot(a_eq, out=tmp_a2)
-            b02fun = self.derham.create_field("b02", "Hdiv")
-            b02fun.vector = tmp_a2
+            b02fun = self.derham.create_spline_function("b02", "Hdiv", coeffs=tmp_a2)
 
             def b02funx(x, y, z):
                 return b02fun(

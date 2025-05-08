@@ -1,7 +1,14 @@
 import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
+from psydac.linalg.block import BlockVector
 
+from struphy.feec.psydac_derham import Derham
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.basis_projection_ops import (
+            BasisProjectionOperator,
+            BasisProjectionOperatorLocal,
+            CoordinateProjector,
+        )
 
 
 class BracketOperator(LinOpWithTransp):
@@ -51,12 +58,7 @@ class BracketOperator(LinOpWithTransp):
 
     """
 
-    def __init__(self, derham, u):
-        from struphy.feec.basis_projection_ops import (
-            BasisProjectionOperator,
-            BasisProjectionOperatorLocal,
-            CoordinateProjector,
-        )
+    def __init__(self, derham: Derham, u: BlockVector,):
 
         Xh = derham.Vh_fem["v"]
         V1h = derham.Vh_fem["1"]
@@ -66,10 +68,10 @@ class BracketOperator(LinOpWithTransp):
         self._u = u
 
         # tmp for evaluating u
-        self.vf = derham.create_field("uf", "H1vec")
-        self.gv1f = derham.create_field("gu1f", "Hcurl")  # grad(u[0])
-        self.gv2f = derham.create_field("gu2f", "Hcurl")  # grad(u[1])
-        self.gv3f = derham.create_field("gu3f", "Hcurl")  # grad(u[2])
+        self.vf = derham.create_spline_function("uf", "H1vec")
+        self.gv1f = derham.create_spline_function("gu1f", "Hcurl")  # grad(u[0])
+        self.gv2f = derham.create_spline_function("gu2f", "Hcurl")  # grad(u[1])
+        self.gv3f = derham.create_spline_function("gu3f", "Hcurl")  # grad(u[2])
 
         self.gp1v = derham.Vh_pol["1"].zeros()
         self.gp2v = derham.Vh_pol["1"].zeros()
