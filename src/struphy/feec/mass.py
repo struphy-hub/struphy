@@ -10,10 +10,11 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
-from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.linear_operators import LinOpWithTransp, BoundaryOperator
 from struphy.feec.utilities import RotationMatrix
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class WeightedMassOperators:
@@ -1897,23 +1898,20 @@ class WeightedMassOperator(LinOpWithTransp):
 
     def __init__(
         self,
-        derham,
-        V,
-        W,
-        V_extraction_op=None,
-        W_extraction_op=None,
-        V_boundary_op=None,
-        W_boundary_op=None,
-        weights_info=None,
-        transposed=False,
-        matrix_free=False,
-        nquads=None,
+        derham: Derham,
+        V: TensorFemSpace | VectorFemSpace,
+        W: TensorFemSpace | VectorFemSpace,
+        V_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        W_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        V_boundary_op: BoundaryOperator | IdentityOperator = None,
+        W_boundary_op: BoundaryOperator | IdentityOperator = None,
+        weights_info: str | list = None,
+        transposed: bool = False,
+        matrix_free: bool = False,
+        nquads: Tuple | list = None,
     ):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
-
-        assert isinstance(V, (TensorFemSpace, VectorFemSpace))
-        assert isinstance(W, (TensorFemSpace, VectorFemSpace))
 
         self._derham = derham
         self._nquads = nquads
