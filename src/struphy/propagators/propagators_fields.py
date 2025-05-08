@@ -7698,6 +7698,8 @@ class HasegawaWakatani(Propagator):
         # default phi
         if phi is None:
             self._phi = self.derham.create_spline_function('phi', 'H1')
+            self._phi.vector[:] =  1.0
+            self._phi.vector.update_ghost_regions()
         else:
             self._phi = phi
         

@@ -1908,7 +1908,7 @@ class WeightedMassOperator(LinOpWithTransp):
         weights_info: str | list = None,
         transposed: bool = False,
         matrix_free: bool = False,
-        nquads: Tuple | list = None,
+        nquads: tuple | list = None,
     ):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -2612,8 +2612,6 @@ class WeightedMassOperator(LinOpWithTransp):
                             continue
 
                     loc_weight = self._weights[a][b]
-                    if rank == 0 and verbose:
-                        print(f"Assemble block {a, b}")
 
                     # evaluate weight at quadrature points
                     if callable(loc_weight):
@@ -2673,6 +2671,8 @@ class WeightedMassOperator(LinOpWithTransp):
                             )
                             mat = self._mat[a, b]
 
+                        if rank == 0 and verbose:
+                            print(f"Assemble block {a, b}")
                         self._assembly_kernel(
                             *codomain_spans,
                             *codomain_space.degree,
@@ -2689,7 +2689,6 @@ class WeightedMassOperator(LinOpWithTransp):
                     else:
                         if clear:
                             self._mat[a, b] = None
-
                         else:
                             continue
 
