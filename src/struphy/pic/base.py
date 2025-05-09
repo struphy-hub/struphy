@@ -21,8 +21,8 @@ from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.amrex import Amrex
-from struphy.pic.pushing.pusher_kers_vectorized import amrex_reflect
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
+from struphy.pic.pushing.pusher_kers_vectorized import amrex_reflect
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,
@@ -184,14 +184,14 @@ class Particles(metaclass=ABCMeta):
         else:
             self._mpi_comm = self.clone_config.sub_comm
             num_clones = self.clone_config.num_clones
-            
+
         # other parameters
         self._name = name
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
-        
+
         # check for mpi communicator
         if self.mpi_comm is None:
             self._mpi_size = 1
@@ -199,7 +199,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self._mpi_size = self.mpi_comm.Get_size()
             self._mpi_rank = self.mpi_comm.Get_rank()
-        
+
         # domain decomposition (MPI) and cell information
         self._boxes_per_dim = boxes_per_dim
         if domain_decomp is None:
@@ -207,7 +207,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self._domain_array = domain_decomp[0]
             self._nprocs = domain_decomp[1]
-            
+
         # total number of cells (equal to mpi_size if no grid)
         n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
         if verbose:
@@ -227,7 +227,7 @@ class Particles(metaclass=ABCMeta):
 
         if verbose:
             print(f"{self.mpi_rank = }, {n_boxes = }")
-        
+
         # total number of markers (Np) and particles per cell (ppc)
         if Np is not None:
             self._Np = int(Np)

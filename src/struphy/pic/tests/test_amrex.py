@@ -646,6 +646,6 @@ if __name__ == "__main__":
 # add flat_eval option for jacobians (evaluate metric coef) DONE
 # fix reflect bug DONE
 # (merge) DONE
-# profiling with more cores 
+# profiling with more cores
 # work on GPU with cupy
 # transform push_v_with_efield
