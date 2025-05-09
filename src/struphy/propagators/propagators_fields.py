@@ -1616,6 +1616,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                 accum_kernels_gc.cc_lin_mhd_5d_M_scalar,
                 self.mass_ops,
                 self.domain.args_domain,
+                filter_params=filter,
             )
 
             self._args_accum_kernel= (
