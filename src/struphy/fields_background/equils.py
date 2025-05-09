@@ -3144,7 +3144,7 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
         return gradBx, gradBy, gradBz
 
 
-class FluxAlignedTokamak(AxisymmMHDequilibrium):
+class CircularTokamak(AxisymmMHDequilibrium):
     r"""
     Tokamak MHD equilibrium with circular concentric flux surfaces.
 
@@ -3186,18 +3186,16 @@ class FluxAlignedTokamak(AxisymmMHDequilibrium):
         On-axis (r=0) toroidal magnetic field (default: 10.).
     Bp : float
         Poloidal magnetic field (default: 12.5).
-
+        
     Note
     ----
-    In the parameter .yml, use the following in the section `mhd_equilibrium`::
+    In the parameter .yml, use the following in the section ``fluid_background``::
 
-        mhd_equilibrium :
-            type : FluxAlignedTokamak
-            FluxAlignedTokamak :
-                a       : 1.   # minor radius
-                R0      : 2.   # major radius
-                B0      : 10.  # on-axis toroidal magnetic field
-                Bp      : 12.5 # poloidal magnetic field
+        CircularTokamak :
+            a       : 1.   # minor radius
+            R0      : 2.   # major radius
+            B0      : 10.  # on-axis toroidal magnetic field
+            Bp      : 12.5 # poloidal magnetic field
     """
 
     def __init__(self, **params):

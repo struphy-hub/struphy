@@ -117,7 +117,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 )
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
-            elif "FluxAlignedTokamak" in key:
+            elif "CircularTokamak" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
