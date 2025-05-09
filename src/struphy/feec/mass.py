@@ -474,7 +474,7 @@ class WeightedMassOperators:
             )
 
             self._M2B_div0 = self.create_weighted_mass(
-                "Hdiv", "Hdiv", weights=[rot_B, "1/sqrt_g"], name="M2B_div0", assemble=True
+                "Hdiv", "Hdiv", weights=[rot_B, "1/sqrt_g"], name="M2B_div0", assemble=True,
             )
 
         return self._M2B_div0
@@ -505,7 +505,7 @@ class WeightedMassOperators:
             )
 
             self._M2B = self.create_weighted_mass(
-                "Hdiv", "Hdiv", weights=[rot_B, "1/sqrt_g"], name="M2B", assemble=True
+                "Hdiv", "Hdiv", weights=[rot_B, "1/sqrt_g"], name="M2B", assemble=True,
             )
 
         return self._M2B
