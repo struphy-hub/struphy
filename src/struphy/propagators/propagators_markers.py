@@ -8,11 +8,12 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
+from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc, pusher_kers_vectorized
-from struphy.pic.pushing.pusher import ButcherTableau, Pusher
+from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
@@ -32,7 +33,7 @@ class PushEta(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
 
     Parameters
     ----------
@@ -74,6 +75,12 @@ class PushEta(Propagator):
 
         # define algorithm
         butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+
+        butcher._a = np.diag(butcher.a, k=-1)
+        butcher._a = np.array(list(butcher.a) + [0.0])
+
         args_kernel = (
             butcher.a,
             butcher.b,
@@ -399,7 +406,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
@@ -709,6 +716,11 @@ class PushGuidingCenterBxEstar(Propagator):
 
         else:
             butcher = ButcherTableau(algo["method"])
+            # temp fix due to refactoring of ButcherTableau:
+            import numpy as np
+
+            butcher._a = np.diag(butcher.a, k=-1)
+            butcher._a = np.array(list(butcher.a) + [0.0])
 
             kernel = pusher_kernels_gc.push_gc_bxEstar_explicit_multistage
 
@@ -805,7 +817,7 @@ class PushGuidingCenterParallel(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton` 
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`  
@@ -1123,6 +1135,11 @@ class PushGuidingCenterParallel(Propagator):
 
         else:
             butcher = ButcherTableau(algo["method"])
+            # temp fix due to refactoring of ButcherTableau:
+            import numpy as np
+
+            butcher._a = np.diag(butcher.a, k=-1)
+            butcher._a = np.array(list(butcher.a) + [0.0])
 
             kernel = pusher_kernels_gc.push_gc_Bstar_explicit_multistage
 
@@ -1297,7 +1314,7 @@ class PushDeterministicDiffusion(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
 
     @staticmethod
@@ -1328,6 +1345,11 @@ class PushDeterministicDiffusion(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
+        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
         self._u_on_grid = AccumulatorVector(
             particles,
@@ -1425,6 +1447,11 @@ class PushRandomDiffusion(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau("forward_euler")
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
+        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
         # instantiate Pusher
         args_kernel = (
@@ -1483,7 +1510,7 @@ class PushVinSPHpressure(Propagator):
     where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
     Time stepping:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
 
     Parameters
     ----------
