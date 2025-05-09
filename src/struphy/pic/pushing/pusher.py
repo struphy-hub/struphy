@@ -278,7 +278,7 @@ class Pusher:
                         remove_ghost=False,
                     )
 
-                print(f'call kernel {self.kernel.__name__ = }')
+                print(f'call kernel {self.kernel.__name__ = } with {self._args_domain.kind_map = }')
                 t0 = time.time()
                 # push markers
                 with ProfileManager.profile_region(self.kernel.__name__):
