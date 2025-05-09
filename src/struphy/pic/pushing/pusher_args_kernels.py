@@ -1,5 +1,5 @@
 # from numpy import copy
-from numpy import empty
+from numpy import empty, copy
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle kernels.
@@ -145,14 +145,14 @@ class DomainArguments:
         cz: "float[:,:,:]",
     ):
         self.kind_map = kind_map
-        self.params = params
-        self.p = p
-        self.t1 = t1
-        self.t2 = t2
-        self.t3 = t3
-        self.ind1 = ind1
-        self.ind2 = ind2
-        self.ind3 = ind3
-        self.cx = cx
-        self.cy = cy
-        self.cz = cz
+        self.params = copy(params)
+        self.p = copy(p)
+        self.t1 = copy(t1)
+        self.t2 = copy(t2)
+        self.t3 = copy(t3)
+        self.ind1 = copy(ind1)
+        self.ind2 = copy(ind2)
+        self.ind3 = copy(ind3)
+        self.cx = copy(cx)
+        self.cy = copy(cy)
+        self.cz = copy(cz)
