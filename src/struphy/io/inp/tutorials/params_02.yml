@@ -7,6 +7,7 @@ grid :
     nq_el    : [6, 2, 1] # quadrature points per grid cell
     nq_pr    : [6, 2, 1] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    local_projectors: False # Whether to build the local commuting projectors based on quasi-inter-/histopolation.
 
 units : # units not stated here can be viewed via "struphy units -h"
     x      : 0.022771076724847367 # Om_c * v_A
