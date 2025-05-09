@@ -1141,9 +1141,9 @@ class ManufacturedSolutionVelocity_x:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # ux = -np.sin(y)
-        # ux = -y**2
-        ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+        # ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+        ux = np.sin(2 * np.pi * x) + 1.0
+        # ux = np.sin(2 * np.pi * x)
 
         return ux
 
@@ -1185,9 +1185,9 @@ class ManufacturedSolutionVelocity_y:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # uy = np.cos(x)
-        # uy = x**2
-        uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+        # uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+        uy = 0.0*x
+        # uy = np.cos(2 * np.pi * x)
 
         return uy
 
@@ -1229,9 +1229,8 @@ class ManufacturedSolutionVelocityElectrons_x:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # ux = -0.5*np.sin(y)
-        # ux = -y**3
-        ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+        # ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+        ux = np.sin(2 * np.pi * x) 
 
         return ux
 
@@ -1273,9 +1272,9 @@ class ManufacturedSolutionVelocityElectrons_y:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # uy = 0.5*np.cos(x)
-        # uy = x**3
-        uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+        # uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+        uy = 0.0*x
+        # uy = np.cos(2 * np.pi * x)
 
         return uy
 
@@ -1317,9 +1316,8 @@ class ManufacturedSolutionPotential:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # phi = x+y
-        # phi = x**2+y**2
-        phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
+        # phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
+        phi = np.sin(2 * np.pi * x) 
 
         return phi
 
@@ -1364,12 +1362,24 @@ class ManufacturedSolutionForceterm_x:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # fx = 1.0 - self._nu*np.sin(y)-self._b* np.cos(x)
-        # fx = 2.0*x - self._b*x**2+2.0*self._nu
+        # fx = (
+        #     -2.0 * np.pi * np.sin(2 * np.pi * x)
+        #     + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._b
+        #     - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+        # )
+        # fx = (
+        #     2.0 * np.pi * np.cos(2 * np.pi * x)
+        #     + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) 
+        # )
+        # fx = (
+        #     2.0 * np.pi * np.cos(2 * np.pi * x)
+        #     - self._b * np.cos(2 * np.pi * x)
+        #     + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) 
+        # )
+        
         fx = (
-            -2.0 * np.pi * np.sin(2 * np.pi * x)
-            + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._b
-            - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+            2.0 * np.pi * np.cos(2 * np.pi * x)
+             +  (np.sin(2 * np.pi * x)+1.0)/0.1 
         )
 
         return fx
@@ -1415,14 +1425,22 @@ class ManufacturedSolutionForceterm_y:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # fy = 1.0 + self._nu*np.cos(x)-self._b* np.sin(y)
-        # fy = 2*y - self._b*y**2 -2.0*self._nu
-        fy = (
-            2.0 * np.pi * np.cos(2 * np.pi * y)
-            - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._b
-            - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
-        )
-
+        # fy = (
+        #     2.0 * np.pi * np.cos(2 * np.pi * y)
+        #     - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._b
+        #     - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+        # )
+        # fy = (
+        #     + (np.sin(2 * np.pi * x) + 1.0)  * self._b
+        # )
+        # fy = (
+        #     + np.sin(2 * np.pi * x)  * self._b
+        #     + self._nu * 4.0 * np.pi**2 * np.cos(2 * np.pi * x)
+        # )
+        
+        fy = 0.0*x
+        
+        
         return fy
 
 
@@ -1466,12 +1484,24 @@ class ManufacturedSolutionForcetermElectrons_x:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # fx = -1.0  - self._nu_e*0.5*np.sin(y)+ 0.5*self._b* np.cos(x)
-        # fx = -2*x+self._b*x**3+6.0*y*self._nu_e
+        # fx = (
+        #     2.0 * np.pi * np.sin(2 * np.pi * x)
+        #     - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._b
+        #     - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+        # )
+        # fx = (
+        #     -2.0 * np.pi * np.cos(2 * np.pi * x)
+        #     + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) 
+        # )
+        # fx = (
+        #     -2.0 * np.pi * np.cos(2 * np.pi * x)
+        #     + np.cos(2 * np.pi * x) * self._b
+        #     + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) 
+        # )
+        
         fx = (
-            2.0 * np.pi * np.sin(2 * np.pi * x)
-            - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._b
-            - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+            -2.0 * np.pi * np.cos(2 * np.pi * x)
+            - 1e-3 * np.sin(2 * np.pi * x) 
         )
 
         return fx
@@ -1517,12 +1547,19 @@ class ManufacturedSolutionForcetermElectrons_y:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        # fy = -1.0 + self._nu_e*0.5*np.cos(x)+ 0.5*self._b* np.sin(y)
-        # fy = -2*y + self._b * y**3 - 6.0*x*self._nu_e
-        fy = (
-            -2.0 * np.pi * np.cos(2 * np.pi * y)
-            + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._b
-            - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-        )
+        # fy = (
+        #     -2.0 * np.pi * np.cos(2 * np.pi * y)
+        #     + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._b
+        #     - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+        # )
+        # fy = (
+        #     - np.sin(2 * np.pi * x) * self._b
+        # )
+        # fy = (
+        #     - np.sin(2 * np.pi * x) * self._b
+        #     + 4.0 * np.pi**2 * np.cos(2 * np.pi * x) * self._nu_e
+        # )
+        
+        fy = 0.0*x
 
         return fy
