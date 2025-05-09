@@ -1,7 +1,8 @@
+from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
+import numpy as np
+import time
+
 def test_gpu():
-    from struphy.pic.pushing.pusher_kernels import matmul_gpu
-    import numpy as np
-    import time
     N: int = 2**10
     A = np.zeros((N, N))
     B = np.zeros((N, N))
@@ -18,7 +19,7 @@ def test_gpu():
     print('Start matmul_cpu')
     # Time CPU matrix multiplication.
     start_cpu = time.time()
-    # matmul_cpu(A, B, C_cpu)
+    matmul_cpu(A, B, C_cpu)
     elapsed_cpu = time.time() - start_cpu
     print("warming up gpu")
     matmul_gpu(A, B, C_gpu)
@@ -223,7 +224,7 @@ def main(
     # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
     model.update_markers_to_be_saved()
-    model.update_distr_functions()
+    # model.update_distr_functions()
     model.add_time_state(time_state["value"])
 
     # add all variables to be saved to data object
@@ -291,7 +292,7 @@ def main(
             # compute scalars and kinetic data
             model.update_scalar_quantities()
             model.update_markers_to_be_saved()
-            model.update_distr_functions()
+            # model.update_distr_functions()
 
             # extract FEM coefficients
             for key, val in model.em_fields.items():
@@ -350,6 +351,7 @@ def main(
 
 
 if __name__ == "__main__":
+    
     import argparse
     import os
 
