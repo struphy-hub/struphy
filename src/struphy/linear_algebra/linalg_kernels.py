@@ -1,9 +1,33 @@
-from pyccel.decorators import pure, stack_array
+from pyccel.decorators import pure, stack_array, inline
 from numpy import zeros
 
 
 @pure
 def matrix_vector(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
+    """
+    Performs the matrix-vector product of a 3x3 matrix with a vector.
+
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (3,3).
+
+        b : array[float]
+            The input array (vector) of shape (3,).
+
+        c : array[float]
+            The output array (vector) of shape (3,) which is the result of the matrix-vector product a.dot(b).
+    """
+
+    c[:] = 0.
+
+    for i in range(3):
+        for j in range(3):
+            c[i] += a[i, j] * b[j]
+
+@pure
+@inline
+def matrix_vector_inline(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
     """
     Performs the matrix-vector product of a 3x3 matrix with a vector.
 
@@ -193,6 +217,37 @@ def matrix_inv(a: 'float[:,:]', b: 'float[:,:]'):
     b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) / det_a
     b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
     b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a
+
+@pure
+@inline
+def matrix_inv_inline(a: 'float[:,:]', b: 'float[:,:]'):
+    """
+    Computes the inverse of a 3x3 matrix.
+
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (3,3).
+
+        b : array[float]
+            The output array (matrix) of shape (3,3).
+    """
+
+    det_a = det(a)
+
+    b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) / det_a
+    b[0, 1] = (a[2, 1]*a[0, 2] - a[0, 1]*a[2, 2]) / det_a
+    b[0, 2] = (a[0, 1]*a[1, 2] - a[1, 1]*a[0, 2]) / det_a
+
+    b[1, 0] = (a[1, 2]*a[2, 0] - a[2, 2]*a[1, 0]) / det_a
+    b[1, 1] = (a[2, 2]*a[0, 0] - a[0, 2]*a[2, 0]) / det_a
+    b[1, 2] = (a[0, 2]*a[1, 0] - a[1, 2]*a[0, 0]) / det_a
+
+    b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) / det_a
+    b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
+    b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a
+
+
 
 
 @pure
