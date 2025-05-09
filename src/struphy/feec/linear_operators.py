@@ -50,9 +50,9 @@ class LinOpWithTransp(LinearOperator):
         v = self.domain.zeros()
         # We define a temporal vector
         tmp2 = self.codomain.zeros()
-        if isinstance(self.domain.starts[0], tuple):  # isinstance(self.domain, BlockVectorSpace):
+        if isinstance(self.domain, BlockVectorSpace):
             comm = self.domain.spaces[0].cart.comm
-        elif isinstance(self.domain.starts[0], np.int64):  # isinstance(self.domain, StencilVectorSpace):
+        elif isinstance(self.domain, StencilVectorSpace):
             comm = self.domain.cart.comm
         rank = comm.Get_rank()
         size = comm.Get_size()
