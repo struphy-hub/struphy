@@ -18,6 +18,8 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
 
+from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
+
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -67,7 +69,7 @@ class PushEta(Propagator):
 
         # get kernel
         # kernel = pusher_kernels.push_eta_stage
-        kernel = pusher_kernels.push_eta_stage_gpu
+        kernel = push_eta_stage_gpu
 
         # define algorithm
         butcher = ButcherTableau(algo)
