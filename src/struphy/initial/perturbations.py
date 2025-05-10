@@ -775,7 +775,7 @@ class RestelliAnalyticSolutionVelocity:
         \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
-        
+
     References
     ----------
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
@@ -826,7 +826,7 @@ class RestelliAnalyticSolutionVelocity:
         uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
         if self._comp == 0:
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi  
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == 1:
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
@@ -864,7 +864,7 @@ class RestelliAnalyticSolutionPotential:
         \phi = \frac{1}{2} a B_0 \alpha \left( \frac{(R-R_0)^2+z^2}{a^2} - \frac{2}{3} \right)
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
-    
+
     References
     ----------
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
@@ -954,15 +954,15 @@ class ManufacturedSolutionVelocity:
             # ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
             ux = np.sin(2 * np.pi * x) + 1.0
             # ux = np.sin(2 * np.pi * x)
-            
+
             """y component"""
             # uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
             uy = 0.0*x
             # uy = np.cos(2 * np.pi * x)
-            
+
             """z component"""
             uz = 0.0*x
-            
+
             if self._comp == '0':
                 return ux
             elif self._comp == '1':
@@ -971,21 +971,20 @@ class ManufacturedSolutionVelocity:
                 return uz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
-            
+
         elif self._species == 'Electrons':
             """Velocity of electrons."""
             """x component"""
             # ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-            ux = np.sin(2 * np.pi * x) 
-            
+            ux = np.sin(2 * np.pi * x)
+
             """y component"""
             # uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
             uy = 0.0*x
             # uy = np.cos(2 * np.pi * x)
-            
+
             """z component"""
             uz = 0.0*x
-            
 
             if self._comp == '0':
                 return ux
@@ -995,10 +994,10 @@ class ManufacturedSolutionVelocity:
                 return uz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
-            
+
         else:
             raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
-        
+
 
 class ManufacturedSolutionPotential:
     r"""Analytic solution :math:`\phi` of the system:
@@ -1038,6 +1037,6 @@ class ManufacturedSolutionPotential:
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
         # phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
-        phi = np.sin(2 * np.pi * x) 
+        phi = np.sin(2 * np.pi * x)
 
         return phi
