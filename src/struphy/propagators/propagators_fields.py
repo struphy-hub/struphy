@@ -35,11 +35,8 @@ from struphy.initial import perturbations
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 
-from struphy.linear_algebra.saddle_point import (
-    SaddlePointSolverGMRES,
-    SaddlePointSolverGMRESwithPC,
-    SaddlePointSolverUzawaNumpy,
-)
+from struphy.linear_algebra.saddle_point import SaddlePointSolver
+
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 from struphy.examples.restelli2018 import callables
 
@@ -8548,7 +8545,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._p = p
         self._spl_kind = spl_kind
 
-        self._variant = "GMRES"  # 'GMRES' , 'Uzawa'
+        self._variant = "Uzawa"  # 'GMRES' , 'Uzawa'
         self._method_to_solve = (
             "DirectNPInverse"  # 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
         )
@@ -8741,24 +8738,11 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 verbose=solver["verbose"],
             )
 
-            self._solver_GMRESwithPC = SaddlePointSolverGMRESwithPC(
-                _A,
-                _B,
-                _A11_0,
-                _A22_0,
-                _F,
-                precdt=M2pre,
-                solver_name=solver["type"][0],
-                tol=solver["tol"],
-                max_iter=solver["maxiter"],
-                verbose=solver["verbose"],
-                pc=None,
-            )
 
-            self._solver_GMRES = SaddlePointSolverGMRES(
-                _A,
-                _B,
-                _F,
+            self._solver_GMRES = SaddlePointSolver(
+                A=_A,
+                B=_B,
+                F=_F,
                 solver_name=solver["type"][0],
                 tol=solver["tol"],
                 max_iter=solver["maxiter"],
@@ -8772,14 +8756,14 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # self._b_tmp1 = phi.space.zeros()
 
         elif self._variant == "Uzawa":
-            self._solver_UzawaNumpy = SaddlePointSolverUzawaNumpy(
-                _Anp,
-                _Bnp,
-                _Fnp,
-                _Anppre,
-                self._method_to_solve,
-                self._preconditioner,
-                spectralanalysis,
+            self._solver_UzawaNumpy = SaddlePointSolver(
+                A=_Anp,
+                B=_Bnp,
+                F=_Fnp,
+                Apre=_Anppre,
+                method_to_solve=self._method_to_solve,
+                preconditioner=self._preconditioner,
+                spectralanalysis=spectralanalysis,
                 tol=solver["tol"],
                 max_iter=solver["maxiter"],
             )
