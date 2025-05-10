@@ -41,6 +41,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.initial import perturbations
     from struphy.feec.projectors import L2Projector
     from struphy.feec.psydac_derham import TransformedPformComponent
+    from struphy.examples.restelli2018 import callables
 
     if MPI.COMM_WORLD.size > 1:
         pytest.skip("SaddlePointSolverUzawaNumpy only works in serial mode")
@@ -210,10 +211,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
 
         # Manufactured solution
-        _ux = getattr(perturbations, "ManufacturedSolutionVelocity_x")(B0)
-        _uy = getattr(perturbations, "ManufacturedSolutionVelocity_y")(B0)
-        _uex = getattr(perturbations, "ManufacturedSolutionVelocityElectrons_x")(B0)
-        _uey = getattr(perturbations, "ManufacturedSolutionVelocityElectrons_x")(B0)
+        _ux = getattr(perturbations, "ManufacturedSolutionVelocity")(species='Ions', comp='0', b0=B0)
+        _uy = getattr(perturbations, "ManufacturedSolutionVelocity")(species='Ions', comp='1', b0=B0)
+        _uex = getattr(perturbations, "ManufacturedSolutionVelocity")(species='Electrons', comp='0', b0=B0)
+        _uey = getattr(perturbations, "ManufacturedSolutionVelocity")(species='Electrons', comp='1', b0=B0)
         _pot = getattr(perturbations, "ManufacturedSolutionPotential")(B0)
 
         # get callable(s) for specified init type
@@ -245,10 +246,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
         # ###Restelli
         # _forceterm_logical = lambda e1, e2, e3: 0 * e1
-        # _ux = getattr(perturbations, "AnalyticSolutionRestelliVelocity_x")()
-        # _uy = getattr(perturbations, "AnalyticSolutionRestelliVelocity_y")()
-        # _uz = getattr(perturbations, "AnalyticSolutionRestelliVelocity_z")()
-        # _pot = getattr(perturbations, "AnalyticSolutionRestelliPotential")()
+        # _ux = getattr(perturbations, "RestelliAnalyticSolutionVelocity")(comp='0')
+        # _uy = getattr(perturbations, "RestelliAnalyticSolutionVelocity")(comp='1')
+        # _uz = getattr(perturbations, "RestelliAnalyticSolutionVelocity")(comp='2')
+        # _pot = getattr(perturbations, "RestelliAnalyticSolutionPotential")()
 
         # get callable(s) for specified init type
         # velocity_class = [_ux, _uy, _uz]
@@ -274,10 +275,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
         # Foreceterm
 
-        _funx = getattr(perturbations, "ManufacturedSolutionForceterm_x")(B0, nu)
-        _funy = getattr(perturbations, "ManufacturedSolutionForceterm_y")(B0, nu)
-        _funelectronsx = getattr(perturbations, "ManufacturedSolutionForcetermElectrons_x")(B0, nue)
-        _funelectronsy = getattr(perturbations, "ManufacturedSolutionForcetermElectrons_y")(B0, nue)
+        _funx = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='0', b0=B0, nu=nu)
+        _funy = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='1', b0=B0, nu=nu)
+        _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='0', b0=B0, nu_e=nue)
+        _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='1', b0=B0, nu_e=nue)
 
         # get callable(s) for specified init type
         forceterm_class = [_funx, _funy, _forceterm_logical]

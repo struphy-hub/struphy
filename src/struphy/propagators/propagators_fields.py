@@ -41,6 +41,7 @@ from struphy.linear_algebra.saddle_point import (
     SaddlePointSolverUzawaNumpy,
 )
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
+from struphy.examples.restelli2018 import callables
 
 
 class Maxwell(Propagator):
@@ -8581,10 +8582,10 @@ class Stokes(Propagator):
 
         ### Manufactured solution ###
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
-        _funx = getattr(perturbations, "ManufacturedSolutionForceterm_x")(self._B0, self._nu)
-        _funy = getattr(perturbations, "ManufacturedSolutionForceterm_y")(self._B0, self._nu)
-        _funelectronsx = getattr(perturbations, "ManufacturedSolutionForcetermElectrons_x")(self._B0, self._nu_e)
-        _funelectronsy = getattr(perturbations, "ManufacturedSolutionForcetermElectrons_y")(self._B0, self._nu_e)
+        _funx = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='0', b0=self._B0, nu=self._nu)
+        _funy = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='1', b0=self._B0, nu=self._nu)
+        _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='0', b0=self._B0, nu_e=self._nu_e)
+        _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='1', b0=self._B0, nu_e=self._nu_e)
         
         # get callable(s) for specified init type
         forceterm_class = [_funx, _funy, _forceterm_logical]
