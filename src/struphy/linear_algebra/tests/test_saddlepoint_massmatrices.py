@@ -66,18 +66,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     hodge_mats = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
-    # mass_old_fortesting = WeightedMassOperatorsOldForTesting(derham, domain, eq_mhd=eq_mhd)
 
-    fun = []
-    for m in range(3):
-        fun += [[]]
-        for n in range(3):
-            fun[-1] += [
-                lambda e1, e2, e3, m=m, n=n: hodge_mats.G(e1, e2, e3)[:, :, :, m, n] / hodge_mats.sqrt_g(e1, e2, e3),
-            ]
-
-    S21 = BasisProjectionOperatorLocal(derham._Ploc["1"], derham.Vh_fem["2"], fun, transposed=False)  # hodge_mats.S21 #
-    Hodge = hodge_mats.S21
+    S21 = hodge_mats.S21
     M2R = mass_mats.M2B
     M2 = mass_mats.M2
     C = derham.curl
@@ -418,20 +408,17 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             )
             x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9 * x1mf, 0.9 * x2mf, 1.1 * ymf)
         else:
-            # ###wrong initialization to check if changed
-            # solver = SaddlePointSolverUzawaNumpy(
-            #     Anppre,
-            #     Bnp,
-            #     [Anppre[0].dot(x1np), Anppre[0].dot(x1np)],
-            #     Anppre,
-            #     method_to_solve,
-            #     preconditioner,
-            #     spectralanalysis,
-            #     tol=tol,
-            #     max_iter=max_iter,
-            # )
+            ###wrong initialization to check if changed
             solver = SaddlePointSolverUzawaNumpy(
-                Anp, Bnp, [Anppre[0].dot(x1np), Anppre[0].dot(x1np)], Anppre, method_to_solve, preconditioner, spectralanalysis, tol=tol, max_iter=max_iter
+                Anppre,
+                Bnp,
+                [Anppre[0].dot(x1np), Anppre[0].dot(x1np)],
+                Anppre,
+                method_to_solve,
+                preconditioner,
+                spectralanalysis,
+                tol=tol,
+                max_iter=max_iter,
             )
             solver.A = Anp
             solver.B = Bnp
@@ -439,7 +426,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             solver.Apre = Anppre
             x_u, x_ue, y_uzawa, info, residual_norms = solver(
                 0.9 * x1, 0.9 * x2, 1.1 * y1_rdm
-            )  # 0.9*x1, 0.9*x2, 1.1*y1_rdm
+            ) 
         x_uzawa = {}
         x_uzawa[0] = x_u
         x_uzawa[1] = x_ue
@@ -452,12 +439,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             )
             x_uzawa, y_uzawa, info = solver(0.9 * x1mf, 0.9 * x2mf, 1.1 * ymf)
         else:
+            # Wrong initialization to check if changed
             solver = SaddlePointSolverGMRES(
                 Afalse, B, Ffalse, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
             )
-            # solver = SaddlePointSolverGMRES(
-            #     A, B, F, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
-            # )
             solver.A = A
             solver.F = F
             x_uzawa, y_uzawa, info = solver(0.9 * x1, 0.9 * x2, 1.1 * y1_rdm)
