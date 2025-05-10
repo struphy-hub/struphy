@@ -43,7 +43,7 @@ class BasisProjectionOperators:
     - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(self, derham: Derham, domain: Domain, verbose: bool=True, **weights,):
+    def __init__(self, derham: Derham, domain: Domain, verbose: bool = True, **weights,):
         self._derham = derham
         self._domain = domain
         self._weights = weights
@@ -968,7 +968,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         V_boundary_op: BoundaryOperator | IdentityOperator = None,
         P_extraction_op: PolarExtractionOperator | IdentityOperator = None,
         P_boundary_op: BoundaryOperator | IdentityOperator = None,
-        transposed: bool=False,
+        transposed: bool = False,
     ):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"

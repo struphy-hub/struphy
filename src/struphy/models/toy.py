@@ -1204,8 +1204,8 @@ class PressureLessSPH(StruphyModel):
         ) / (2.0 * self.pointer["p_fluid"].Np)
 
         self.update_scalar("en_kin", en_kin)
-        
-        
+
+
 class TwoFluidQuasiNeutralToy(StruphyModel):
     r"""Linearized, quasi-neutral two-fluid model with zero electron inertia.
 
@@ -1232,7 +1232,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     1. :class:`~struphy.propagators.propagators_fields.Stokes`
 
     :ref:`Model info <add_model>`:
-    
+
     References
     ----------
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
@@ -1378,4 +1378,3 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         # en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
 
         # self.update_scalar('en_B_tot', en_Btot)
-

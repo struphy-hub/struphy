@@ -3186,7 +3186,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
         On-axis (r=0) toroidal magnetic field (default: 10.).
     Bp : float
         Poloidal magnetic field (default: 12.5).
-        
+
     Note
     ----
     In the parameter .yml, use the following in the section ``fluid_background``::

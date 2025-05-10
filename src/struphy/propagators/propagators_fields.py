@@ -8569,7 +8569,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             )
             _A12 = None
             _A21 = _A12
-            _A22 = - self._eps * IdentityOperator(_A11.domain) 
+            _A22 = - self._eps * IdentityOperator(_A11.domain)
             #     + self.mass_ops.M2B + self._nu_e * (
             #     self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
             #     + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
@@ -8581,9 +8581,11 @@ class TwoFluidQuasiNeutralFull(Propagator):
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
         _funx = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='0', b0=self._B0, nu=self._nu)
         _funy = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='1', b0=self._B0, nu=self._nu)
-        _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='0', b0=self._B0, nu_e=self._nu_e)
-        _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='1', b0=self._B0, nu_e=self._nu_e)
-        
+        _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
+            species='Electrons', comp='0', b0=self._B0, nu_e=self._nu_e)
+        _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
+            species='Electrons', comp='1', b0=self._B0, nu_e=self._nu_e)
+
         # get callable(s) for specified init type
         forceterm_class = [_funx, _funy, _forceterm_logical]
         forcetermelectrons_class = [_funelectronsx, _funelectronsy, _forceterm_logical]
@@ -8604,10 +8606,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
         l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
         self._F1 = l2_proj([funx, funy, _forceterm_logical])
         self._F2 = l2_proj([fun_electronsx, fun_electronsy, _forceterm_logical])
-        
+
         # self._F1 = self.derham.P['2']([funx, funy, funy])
         # self._F2 = self.derham.P['2']([fun_electronsx, fun_electronsy, fun_electronsy])
-        
 
         if self._variant == "GMRES":
             if _A12 is not None:
@@ -8738,7 +8739,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 verbose=solver["verbose"],
             )
 
-
             self._solver_GMRES = SaddlePointSolver(
                 A=_A,
                 B=_B,
@@ -8839,7 +8839,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
             x0 = BlockVector(self._block_domainM, blocks=self._solblocks)
             self._solverM._options["x0"] = x0
 
-
             # use setter to update lhs matrix
             self._solverM.linop = _M
             _sol = self._solverM.dot(_RHS)
@@ -8860,10 +8859,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # uen = _sol1[1]
             # phin = _sol2
 
-
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
-
 
         elif self._variant == "Uzawa":
             # Numpy
@@ -8890,14 +8887,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
-            _A11prenp = self._M2np / dt #+ self._nu * (
+            _A11prenp = self._M2np / dt  # + self._nu * (
             #     self._Dnp.T @ self._M3np @ self._Dnp
-            # ) 
+            # )
             _Anppre = [_A11prenp, _A22prenp]
             _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
             # _F1np = self._F1np
             _Fnp = [_F1np, self._F2np]
-
 
             if self.rank == 0:
                 self._solver_UzawaNumpy.A = _Anp

@@ -782,7 +782,7 @@ class RestelliAnalyticSolutionVelocity:
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, comp, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+    def __init__(self, comp='0', a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
         """
             Parameters
         ----------
@@ -825,13 +825,13 @@ class RestelliAnalyticSolutionVelocity:
         ) * (-(R - self._R0))
         uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
-        if self._comp == 0:
+        if self._comp == '0':
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
-        elif self._comp == 1:
+        elif self._comp == '1':
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
-        elif self._comp == 2:
+        elif self._comp == '2':
             uz = uZ
             return uz
         else:
@@ -930,7 +930,7 @@ class ManufacturedSolutionVelocity:
         u_e =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
     """
 
-    def __init__(self, species, comp, b0=1.0):
+    def __init__(self, species='Ions', comp='0', b0=1.0):
         """
             Parameters
         ----------

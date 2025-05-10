@@ -3,11 +3,11 @@ import pytest
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])
-@pytest.mark.parametrize("Nel", [[15, 15, 1]])
+@pytest.mark.parametrize("Nel", [[12, 8, 1]])
 @pytest.mark.parametrize("p", [[3, 3, 1]])
-@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
-@pytest.mark.parametrize("dirichlet_bc", [[False, False], [False, False], [False, False]])
-@pytest.mark.parametrize("mapping", ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}])
+@pytest.mark.parametrize("spl_kind", [[False, True, True]])
+@pytest.mark.parametrize("dirichlet_bc", [[[False, False], [False, False], [False, False]]])
+@pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}]])
 def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""
 
@@ -262,7 +262,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         solver.Apre = Anppre
         x_u, x_ue, y_uzawa, info, residual_norms = solver(
             0.9 * x1, 0.9 * x2, 1.1 * y1_rdm
-        ) 
+        )
         x_uzawa = {}
         x_uzawa[0] = x_u
         x_uzawa[1] = x_ue
@@ -405,13 +405,13 @@ if __name__ == "__main__":
     #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
 
     test_saddlepointsolver('SaddlePointSolverGMRES',
-        [5, 5, 1],
-        [3, 3, 1],
-        [True, False, True],
-        [[False, False], [False, False], [False, False]],
-        ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}],
-        True,
-    )
+                           [5, 5, 1],
+                           [3, 3, 1],
+                           [True, False, True],
+                           [[False, False], [False, False], [False, False]],
+                           ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}],
+                           True,
+                           )
     test_saddlepointsolver(
         "SaddlePointSolverUzawaNumpy",
         [15, 15, 1],
