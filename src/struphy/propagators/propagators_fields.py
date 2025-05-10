@@ -8465,7 +8465,7 @@ class AdiabaticPhi(Propagator):
         return dct
 
 
-class Stokes(Propagator):
+class TwoFluidQuasiNeutralFull(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf u \in H(\textnormal{div})`, :math:`\mathbf u_e \in H(\textnormal{div})` and  :math:`\mathbf \phi \in L^2` such that
 
