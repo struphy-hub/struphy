@@ -1,19 +1,12 @@
 import pytest
 
 
-@pytest.mark.parametrize(
-    "method_for_solving,Nel,p,spl_kind,dirichlet_bc,mapping",
-    [
-        (
-            "SaddlePointSolverUzawaNumpy",
-            [15, 15, 1],
-            [3, 3, 1],
-            [True, False, True],
-            [[False, False], [False, False], [False, False]],
-            ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}],
-        )
-    ],
-)
+@pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])
+@pytest.mark.parametrize("Nel", [[15, 15, 1]])
+@pytest.mark.parametrize("p", [[3, 3, 1]])
+@pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
+@pytest.mark.parametrize("dirichlet_bc", [[False, False], [False, False], [False, False]])
+@pytest.mark.parametrize("mapping", ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}])
 def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""
 
@@ -85,7 +78,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
                 lambda e1, e2, e3, m=m, n=n: hodge_mats.G(e1, e2, e3)[:, :, :, m, n] / hodge_mats.sqrt_g(e1, e2, e3),
             ]
 
-    S21 = BasisProjectionOperatorLocal(derham._Ploc["1"], derham.Vh_fem["2"], fun, transposed=False) #hodge_mats.S21 # 
+    S21 = BasisProjectionOperatorLocal(derham._Ploc["1"], derham.Vh_fem["2"], fun, transposed=False)  # hodge_mats.S21 #
     Hodge = hodge_mats.S21
     M2R = mass_mats.M2B
     M2 = mass_mats.M2
@@ -109,7 +102,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     max_iter = 4000
     pc = None  # M2pre # Preconditioner
     # Conjugate gradient solver  'bicg', 'bicgstab',  'lsmr', 'gmres', 'cg', 'pcg', 'minres'
-    solver_name = "gmres" #lsmr gmres
+    solver_name = "gmres"  # lsmr gmres
     verbose = False
 
     x1 = derham.curl.dot(x1_rdm)
@@ -160,14 +153,15 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
                 + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
-            _A22np = np.identity(A22np.shape[0])  #+ nue*(Dnp.T @ M3np @ Dnp)
+            _A22np = np.identity(A22np.shape[0])  # + nue*(Dnp.T @ M3np @ Dnp)
         elif method_to_solve in ("SparseSolver", "ScipySparse"):
             A22np = (
                 eps * sc.sparse.identity(A11np.shape[0], format="csr")
                 + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
-            _A22np = eps*sc.sparse.identity(A22np.shape[0], format="csr") #+ nue*(Dnp.T @ M3np @ Dnp)  #sc.sparse.identity(A22np.shape[0], format="csr") #
+            # + nue*(Dnp.T @ M3np @ Dnp)  #sc.sparse.identity(A22np.shape[0], format="csr") #
+            _A22np = eps*sc.sparse.identity(A22np.shape[0], format="csr")
             _A22np = _A22np.tocsr()
         B1np = -M3np @ Dnp
         B2np = M3np @ Dnp
@@ -178,7 +172,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         Anp = [A11np, A22np]
         Bnp = [B1np, B2np]
         Fnp = [F1np, F2np]
-        _A11np = M2np / dt + nu * (Dnp.T @ M3np @ Dnp)  
+        _A11np = M2np / dt + nu * (Dnp.T @ M3np @ Dnp)
         Anppre = [_A11np, _A22np]
 
     if method_for_solving in ('SaddlePointSolverGMRES', 'SaddlePointSolverGMRESwithPC'):
@@ -277,8 +271,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
         _funx = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='0', b0=B0, nu=nu)
         _funy = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='1', b0=B0, nu=nu)
-        _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='0', b0=B0, nu_e=nue)
-        _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(species='Electrons', comp='1', b0=B0, nu_e=nue)
+        _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
+            species='Electrons', comp='0', b0=B0, nu_e=nue)
+        _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
+            species='Electrons', comp='1', b0=B0, nu_e=nue)
 
         # get callable(s) for specified init type
         forceterm_class = [_funx, _funy, _forceterm_logical]
@@ -375,7 +371,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             print(f"{RestAnp =}")
             print(f"{RestAenp =}")
             print(f"{RestDivnp =}")
-            
+
             # Compare numpy to psydac
             c1 = C.dot(x1_rdm)
             c2 = Cnp.dot(x1_rdm.toarray())
@@ -393,7 +389,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
             # compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
             print(f"Comparison numpy to psydac succesfull.")
-        
 
     # Manufactured solution
     # uanalyt0 = lambda x, y, z: -np.sin(2*np.pi*x)*np.sin(2*np.pi*y)
@@ -438,7 +433,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             #     max_iter=max_iter,
             # )
             solver = SaddlePointSolverUzawaNumpy(
-                Anp,  Bnp, [Anppre[0].dot(x1np), Anppre[0].dot(x1np)], Anppre, method_to_solve, preconditioner, spectralanalysis,  tol=tol, max_iter=max_iter
+                Anp, Bnp, [Anppre[0].dot(x1np), Anppre[0].dot(x1np)], Anppre, method_to_solve, preconditioner, spectralanalysis, tol=tol, max_iter=max_iter
             )
             solver.A = Anp
             solver.B = Bnp
