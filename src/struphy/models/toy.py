@@ -1225,7 +1225,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         \\[3mm]
         \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
 
-    where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms. 
+    where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms.
 
     :ref:`propagators` (called in sequence):
 

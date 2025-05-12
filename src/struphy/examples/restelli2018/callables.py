@@ -126,7 +126,7 @@ class ManufacturedSolutionForceterm:
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
-        if self._species == 'Ions':
+        if self._species == "Ions":
             """Forceterm for ions on the right hand side."""
             """x component"""
             # fx = (
@@ -144,10 +144,7 @@ class ManufacturedSolutionForceterm:
             #     + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
             # )
 
-            fx = (
-                2.0 * np.pi * np.cos(2 * np.pi * x)
-                + (np.sin(2 * np.pi * x)+1.0)/0.1
-            )
+            fx = 2.0 * np.pi * np.cos(2 * np.pi * x) + (np.sin(2 * np.pi * x) + 1.0) / 0.1
 
             """y component"""
             # fy = (
@@ -163,21 +160,21 @@ class ManufacturedSolutionForceterm:
             #     + self._nu * 4.0 * np.pi**2 * np.cos(2 * np.pi * x)
             # )
 
-            fy = 0.0*x
+            fy = 0.0 * x
 
             """z component"""
-            fz = 0.0*x
+            fz = 0.0 * x
 
-            if self._comp == '0':
+            if self._comp == "0":
                 return fx
-            elif self._comp == '1':
+            elif self._comp == "1":
                 return fy
-            elif self._comp == '2':
+            elif self._comp == "2":
                 return fz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
 
-        elif self._species == 'Electrons':
+        elif self._species == "Electrons":
             """Forceterm for electrons on the right hand side."""
             """x component"""
             # fx = (
@@ -195,10 +192,7 @@ class ManufacturedSolutionForceterm:
             #     + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
             # )
 
-            fx = (
-                -2.0 * np.pi * np.cos(2 * np.pi * x)
-                - 1e-3 * np.sin(2 * np.pi * x)
-            )
+            fx = -2.0 * np.pi * np.cos(2 * np.pi * x) - 1e-3 * np.sin(2 * np.pi * x)
 
             """y component"""
             # fy = (
@@ -214,16 +208,16 @@ class ManufacturedSolutionForceterm:
             #     + 4.0 * np.pi**2 * np.cos(2 * np.pi * x) * self._nu_e
             # )
 
-            fy = 0.0*x
+            fy = 0.0 * x
 
             """z component"""
-            fz = 0.0*x
+            fz = 0.0 * x
 
-            if self._comp == '0':
+            if self._comp == "0":
                 return fx
-            elif self._comp == '1':
+            elif self._comp == "1":
                 return fy
-            elif self._comp == '2':
+            elif self._comp == "2":
                 return fz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")

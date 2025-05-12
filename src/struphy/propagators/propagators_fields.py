@@ -8569,7 +8569,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             )
             _A12 = None
             _A21 = _A12
-            _A22 = - self._eps * IdentityOperator(_A11.domain)
+            _A22 = -self._eps * IdentityOperator(_A11.domain)
             #     + self.mass_ops.M2B + self._nu_e * (
             #     self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
             #     + self.basis_ops.S21.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21
@@ -8579,12 +8579,14 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         ### Manufactured solution ###
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
-        _funx = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='0', b0=self._B0, nu=self._nu)
-        _funy = getattr(callables, "ManufacturedSolutionForceterm")(species='Ions', comp='1', b0=self._B0, nu=self._nu)
+        _funx = getattr(callables, "ManufacturedSolutionForceterm")(species="Ions", comp="0", b0=self._B0, nu=self._nu)
+        _funy = getattr(callables, "ManufacturedSolutionForceterm")(species="Ions", comp="1", b0=self._B0, nu=self._nu)
         _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
-            species='Electrons', comp='0', b0=self._B0, nu_e=self._nu_e)
+            species="Electrons", comp="0", b0=self._B0, nu_e=self._nu_e
+        )
         _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
-            species='Electrons', comp='1', b0=self._B0, nu_e=self._nu_e)
+            species="Electrons", comp="1", b0=self._B0, nu_e=self._nu_e
+        )
 
         # get callable(s) for specified init type
         forceterm_class = [_funx, _funy, _forceterm_logical]
@@ -8802,7 +8804,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 #     @ self.basis_ops.S21
                 # )
                 # + self.mass_ops.M2B
-                - self._eps * IdentityOperator(_A11.domain)
+                -self._eps * IdentityOperator(_A11.domain)
             )
             _B1 = -self.mass_ops.M3 @ self.derham.div
             _B2 = self.mass_ops.M3 @ self.derham.div
@@ -8930,7 +8932,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             else:
                 print(f"Stokes is only running on one MPI.")
 
-            #_plot_residual_norms(residual_norms)
+            # _plot_residual_norms(residual_norms)
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)

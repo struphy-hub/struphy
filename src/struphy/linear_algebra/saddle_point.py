@@ -27,7 +27,7 @@ class SaddlePointSolver:
         } \right)
 
     using either the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f` or using on of the solvers given in :mod:`psydac.linalg.solvers`. The prefered solver is GMRES.
-    The decission which variant to use is given by the type of A. If A is of type list of np.ndarrays or sc.sparse.csr_matrices, then this class uses the Uzawa algorithm. 
+    The decission which variant to use is given by the type of A. If A is of type list of np.ndarrays or sc.sparse.csr_matrices, then this class uses the Uzawa algorithm.
     If A is of type LinearOperator or BlockLinearOperator, a solver is used for the inverse.
     Using the Uzawa algorithm, solution is given by:
 
@@ -81,17 +81,17 @@ class SaddlePointSolver:
         B: Union[list, LinearOperator, BlockLinearOperator],
         F: Union[list, Vector, BlockVector],
         Apre: list = None,
-        method_to_solve: str = 'DirectNPInverse',
+        method_to_solve: str = "DirectNPInverse",
         preconditioner: bool = False,
         spectralanalysis: bool = False,
-        solver_name: str = 'GMRES',
+        solver_name: str = "GMRES",
         tol: float = 1e-8,
         max_iter: int = 1000,
         **solver_params,
     ):
         assert type(A) == type(B)
         if isinstance(A, list):
-            self._variant = 'Uzawa'
+            self._variant = "Uzawa"
             for i in A:
                 assert isinstance(i, np.ndarray) or isinstance(i, sc.sparse.csr_matrix)
             for i in B:
@@ -100,8 +100,9 @@ class SaddlePointSolver:
                 assert isinstance(i, np.ndarray) or isinstance(i, sc.sparse.csr_matrix)
             for i in Apre:
                 assert (
-                    isinstance(i, np.ndarray) or isinstance(
-                        i, sc.sparse.csr_matrix) or isinstance(i, sc.sparse.csr_array)
+                    isinstance(i, np.ndarray)
+                    or isinstance(i, sc.sparse.csr_matrix)
+                    or isinstance(i, sc.sparse.csr_array)
                 )
             assert method_to_solve in ("SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse")
             assert A[0].shape[0] == B[0].shape[1]
@@ -109,11 +110,13 @@ class SaddlePointSolver:
             assert A[1].shape[0] == B[1].shape[1]
             assert A[1].shape[1] == B[1].shape[1]
 
-            self._method_to_solve = method_to_solve  # 'SparseSolver', 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse'
+            self._method_to_solve = (
+                method_to_solve  # 'SparseSolver', 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse'
+            )
             self._preconditioner = preconditioner
 
         elif isinstance(A, LinearOperator) or isinstance(A, BlockLinearOperator):
-            self._variant = 'Inverse_Solver'
+            self._variant = "Inverse_Solver"
             assert A.domain == B.domain
             assert A.codomain == B.domain
             self._solver_name = solver_name
@@ -128,7 +131,7 @@ class SaddlePointSolver:
         self._tol = tol
         self._max_iter = max_iter
 
-        if self._variant == 'Inverse_Solver':
+        if self._variant == "Inverse_Solver":
             self._BT = B.transpose()
 
             # Allocate memory for matrices used in solving the Schur system
@@ -154,8 +157,7 @@ class SaddlePointSolver:
             self._iterations_solverA = 0  # Total iterations for _solverA
             self._iterations_schur = 0  # Iterations for _solverschur
 
-        elif self._variant == 'Uzawa':
-
+        elif self._variant == "Uzawa":
             if self._method_to_solve in ("InexactNPInverse", "SparseSolver"):
                 self._preconditioner = False
 
@@ -194,7 +196,7 @@ class SaddlePointSolver:
 
     @A.setter
     def A(self, a):
-        if self._variant == 'Uzawa':
+        if self._variant == "Uzawa":
             need_update = True
             A0_old, A1_old = self._A
             A0_new, A1_new = a
@@ -211,7 +213,7 @@ class SaddlePointSolver:
             self._Aenp = self._A[1]
             if need_update:
                 self._setup_inverses()
-        elif self._variant == 'Inverse_Solver':
+        elif self._variant == "Inverse_Solver":
             self._A = a
 
     @property
@@ -239,7 +241,7 @@ class SaddlePointSolver:
 
     @Apre.setter
     def Apre(self, a):
-        if self._variant == 'Uzawa':
+        if self._variant == "Uzawa":
             need_update = True
             A0_old, A1_old = self._Apre
             A0_new, A1_new = a
@@ -254,7 +256,7 @@ class SaddlePointSolver:
             self._Apre = a
             if need_update:
                 self._setup_inverses()
-        elif self._variant == 'Inverse_Solver':
+        elif self._variant == "Inverse_Solver":
             self._Apre = a
 
     def __call__(self, U_init=None, Ue_init=None, P_init=None, out=None):
@@ -283,7 +285,7 @@ class SaddlePointSolver:
         info : dict
             Convergence information.
         """
-        if self._variant == 'Inverse_Solver':
+        if self._variant == "Inverse_Solver":
             self._P1 = P_init if P_init is not None else self._P
             self._U1 = U_init if U_init is not None else self._Utmp[0]
             self._U2 = Ue_init if Ue_init is not None else self._Utmp[1]
@@ -308,8 +310,7 @@ class SaddlePointSolver:
 
             return self._U, self._P, self._solverM._info
 
-        elif self._variant == 'Uzawa':
-
+        elif self._variant == "Uzawa":
             info = {}
 
             # Initialize P to zero or given initial guess

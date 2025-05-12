@@ -70,7 +70,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     D = derham.div
     M3 = mass_mats.M3
     B0 = 1.0
-    nue = 0.01*100
+    nue = 0.01 * 100
     nu = 1.0
     dt = 0.001
     eps = 1e-5
@@ -90,7 +90,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     x1 = derham.curl.dot(x1_rdm)
     x2 = derham.curl.dot(x2_rdm)
-    if method_for_solving in ('SaddlePointSolverGMRES', 'SaddlePointSolverGMRESwithPC'):
+    if method_for_solving in ("SaddlePointSolverGMRES", "SaddlePointSolverGMRESwithPC"):
         A11 = M2 / dt + nu * (D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21) - M2R
         A12 = None
         A21 = A12
@@ -104,7 +104,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         # Preconditioner
         _A11 = M2 / dt + nu * (D.T @ M3 @ D)  # + S21.T @ C.T @ M2 @ C @ S21
         _A22 = nue * (D.T @ M3 @ D) + M2  # +eps2*IdentityOperator(A22.domain)  #
-    elif method_for_solving in ('SaddlePointSolverUzawaNumpy'):
+    elif method_for_solving in ("SaddlePointSolverUzawaNumpy"):
         # Change to numpy
         if method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
             M2np = M2._mat.toarray()
@@ -144,7 +144,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
                 + M2Bnp
             )
             # + nue*(Dnp.T @ M3np @ Dnp)  #sc.sparse.identity(A22np.shape[0], format="csr") #
-            _A22np = eps*sc.sparse.identity(A22np.shape[0], format="csr")
+            _A22np = eps * sc.sparse.identity(A22np.shape[0], format="csr")
             _A22np = _A22np.tocsr()
         B1np = -M3np @ Dnp
         B2np = M3np @ Dnp
@@ -158,7 +158,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         _A11np = M2np / dt + nu * (Dnp.T @ M3np @ Dnp)
         Anppre = [_A11np, _A22np]
 
-    if method_for_solving in ('SaddlePointSolverGMRES', 'SaddlePointSolverGMRESwithPC'):
+    if method_for_solving in ("SaddlePointSolverGMRES", "SaddlePointSolverGMRESwithPC"):
         if A12 is not None:
             assert A11.codomain == A12.codomain
         if A21 is not None:
@@ -181,10 +181,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         Afalse = BlockLinearOperator(block_domainA, block_codomainA, blocks=blocksfalse)
         B = BlockLinearOperator(block_domainB, block_codomainB, blocks=[[B1, B2]])
         F = BlockVector(block_domainA, blocks=[F1, F2])
-        Ffalse = BlockVector(block_domainA, blocks=[0.*F1, 0.*F2])
+        Ffalse = BlockVector(block_domainA, blocks=[0.0 * F1, 0.0 * F2])
 
     # TestA = F[0]-A11.dot(x1) - B1T.dot(y1_rdm)
-    if method_for_solving in ('SaddlePointSolverGMRES', 'SaddlePointSolverGMRESwithPC'):
+    if method_for_solving in ("SaddlePointSolverGMRES", "SaddlePointSolverGMRESwithPC"):
         TestA = (
             F[0]
             - (M2 / dt + nu * (D.T @ M3 @ D + 1.0 * S21.T @ C.T @ M2 @ C @ S21) - 1.0 * M2R).dot(x1)
@@ -202,7 +202,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         print(f"{RestA =}")
         print(f"{RestAe =}")
         print(f"{RestDiv =}")
-    elif method_for_solving in ('SaddlePointSolverUzawaNumpy'):
+    elif method_for_solving in ("SaddlePointSolverUzawaNumpy"):
         TestAnp = (
             F1np
             - (M2np / dt + nu * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) - M2Bnp).dot(x1np)
@@ -260,9 +260,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         solver.B = Bnp
         solver.F = Fnp
         solver.Apre = Anppre
-        x_u, x_ue, y_uzawa, info, residual_norms = solver(
-            0.9 * x1, 0.9 * x2, 1.1 * y1_rdm
-        )
+        x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9 * x1, 0.9 * x2, 1.1 * y1_rdm)
         x_uzawa = {}
         x_uzawa[0] = x_u
         x_uzawa[1] = x_ue
@@ -271,7 +269,15 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     elif method_for_solving == "SaddlePointSolverGMRES":
         # Wrong initialization to check if changed
         solver = SaddlePointSolver(
-            A=Afalse, B=B, F=Ffalse, Apre=None, solver_name=solver_name, tol=tol, max_iter=max_iter, verbose=verbose, pc=pc
+            A=Afalse,
+            B=B,
+            F=Ffalse,
+            Apre=None,
+            solver_name=solver_name,
+            tol=tol,
+            max_iter=max_iter,
+            verbose=verbose,
+            pc=pc,
         )
         solver.A = A
         solver.F = F
@@ -404,14 +410,15 @@ if __name__ == "__main__":
     #                        [[False,  False], [False, False], [False, False]],
     #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
 
-    test_saddlepointsolver('SaddlePointSolverGMRES',
-                           [5, 5, 1],
-                           [3, 3, 1],
-                           [True, False, True],
-                           [[False, False], [False, False], [False, False]],
-                           ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}],
-                           True,
-                           )
+    test_saddlepointsolver(
+        "SaddlePointSolverGMRES",
+        [5, 5, 1],
+        [3, 3, 1],
+        [True, False, True],
+        [[False, False], [False, False], [False, False]],
+        ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}],
+        True,
+    )
     test_saddlepointsolver(
         "SaddlePointSolverUzawaNumpy",
         [15, 15, 1],
