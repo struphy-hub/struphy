@@ -2,7 +2,7 @@ from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
 import numpy as np
 import time
 
-def test_gpu():
+def gpu_warmup():
     N: int = 2**10
     A = np.zeros((N, N))
     B = np.zeros((N, N))
@@ -88,7 +88,6 @@ def main(
     import time
 
     import numpy as np
-    test_gpu()
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
@@ -352,6 +351,7 @@ def main(
 
 if __name__ == "__main__":
     
+    gpu_warmup()
     import argparse
     import os
 
