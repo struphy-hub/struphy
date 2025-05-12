@@ -60,7 +60,7 @@ class LinOpWithTransp(LinearOperator):
         if is_sparse == False:
             if out is None:
                 # We declare the matrix form of our linear operator
-                out = np.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+                out = np.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype,)
             else:
                 assert isinstance(out, np.ndarray)
                 assert out.shape[0] == self.codomain.dimension
