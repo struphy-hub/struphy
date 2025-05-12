@@ -282,8 +282,20 @@ class BracketOperator(LinOpWithTransp):
         return out
     
 class L2_transport_operator(LinOpWithTransp):
-    """
-    Operator u -> div(Pi(rho u)) from H1vec to L2.
+    r"""
+    Operator 
+
+    .. math::
+        \mathbf u \mapsto \nabla \cdot(\Pi^2(\rho \mathbf u)) \, 
+    from H1vec to L2, where :math:`\rho` is a discrete 3-form which can be updated.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    transposed : Bool
+        Assemble the transposed operator
     """
     def __init__(self, derham, transposed = False):
         # Get the projector and the spaces
@@ -394,6 +406,13 @@ class L2_transport_operator(LinOpWithTransp):
         return out
     
     def update_coeffs(self, coeff):
+        r"""Update the coefficient of the projection operator.
+
+        Parameters
+        ---------- 
+        coeffs : StencilVector
+            coefficient of the discrete 3 form to update the projection operator.
+        """
         self.field.vector = coeff
 
         f0_values = self.field.eval_tp_fixed_loc(
@@ -421,8 +440,20 @@ class L2_transport_operator(LinOpWithTransp):
         )
 
 class Hdiv0_transport_operator(LinOpWithTransp):
-    """
-    Operator u -> curl(Pi(B x u)) from H1vec to Hdiv.
+    r"""
+    Operator 
+
+    .. math::
+        u \mapsto \nabla \times (\Pi^1(\mathbf B \times \mathbf u)) \, 
+    from H1vec to H(div), where :math:`\mathbf B` is a discrete 2-form which can be updated.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    transposed : Bool
+        Assemble the transposed operator
     """
     def __init__(self, derham, transposed = False):
         # Get the projector and the spaces
@@ -559,6 +590,14 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         return out
     
     def update_coeffs(self, coeff):
+        r"""
+        Update the coefficient of the projection operator.
+
+        Parameters
+        ---------- 
+        coeffs : BlockVector
+            coefficient of the discrete 2 form to update the projection operator.
+        """
         self.field.vector = coeff
 
         bf0_values = self.field.eval_tp_fixed_loc(
@@ -586,8 +625,29 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         )
 
 class Pressure_transport_operator(LinOpWithTransp):
-    """
-    Operator u -> curl(Pi(B x u)) from H1vec to Hdiv.
+    r"""
+    Operator 
+
+    .. math::
+        \mathbf u \mapsto \nabla \cdot (\Pi^2(p \mathbf u)) + (\gamma -1) \Pi^3(p \nabla \cdot \Pi^2(\mathbf u))  \, 
+    from H1vec to L2, where :math:`p` is a discrete 3-form which can be updated.
+
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    phys_domain : Domain
+        The domain in which the problem is discretized (needed for metric terms)
+
+    Uv : BasisProjectionOperator 
+        The projection from H1vec to H(div)
+
+    gamma : Float
+        Thermodynamical constant
+
+    transposed : Bool
+        Assemble the transposed operator
     """
     def __init__(self, derham, phys_domain, Uv, gamma, transposed = False):
         # Get the projector and the spaces
@@ -713,6 +773,13 @@ class Pressure_transport_operator(LinOpWithTransp):
         return out
     
     def update_coeffs(self, coeff):
+        r"""Update the coefficient of the projection operator.
+
+        Parameters
+        ---------- 
+        coeffs : StencilVector
+            coefficient of the discrete 3 form to update the projection operator.
+        """
         self.field.vector = coeff
 
         pf_values = self.field.eval_tp_fixed_loc(
