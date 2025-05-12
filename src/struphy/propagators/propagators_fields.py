@@ -3099,7 +3099,7 @@ class VariationalDensityEvolve(Propagator):
         mass_ops: WeightedMassOperator,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
-        energy_evaluator : InternalEnergyEvaluator = None,
+        energy_evaluator: InternalEnergyEvaluator = None,
     ):
         super().__init__(rho, u)
 
@@ -3195,7 +3195,7 @@ class VariationalDensityEvolve(Propagator):
         self.rhof.vector = rhon
         self._update_weighted_MM()
         mn = self._Mrho.dot(un, out=self._tmp_mn)
-        
+
         rhon1 = rhon.copy(out=self._tmp_rhon1)
 
         # Initialize variable for Newton iteration
@@ -3491,7 +3491,6 @@ class VariationalDensityEvolve(Propagator):
         self.divPirho.update_coeffs(rho)
         self.divPirhoT.update_coeffs(rho)
 
-
     def _update_weighted_MM(self):
         """update the weighted mass matrix operator"""
 
@@ -3573,7 +3572,7 @@ class VariationalDensityEvolve(Propagator):
         if self._model == "full":
             self._energy_evaluator.evaluate_discrete_de_drho_grid(rhon, rhon1, sn, out=self._tmp_de_drho)
 
-            self._tmp_int_grid *= 0 
+            self._tmp_int_grid *= 0
             self._tmp_int_grid += self._tmp_de_drho
 
             if self._linearize:
@@ -3595,7 +3594,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
-        self._energy_evaluator.evaluate_exact_de_drho_grid(self.projected_equil.n3,s,out=self._init_dener_drho)
+        self._energy_evaluator.evaluate_exact_de_drho_grid(self.projected_equil.n3, s, out=self._init_dener_drho)
 
     def _get_jacobian(self, dt, rhon, rhon1, sn):
         uf_values = self.uf.eval_tp_fixed_loc(
@@ -3669,6 +3668,7 @@ class VariationalDensityEvolve(Propagator):
         err_rho = weak_rhon_diff.dot(rhon_diff)
         err_u = weak_un_diff.dot(mn_diff)
         return max(err_rho, err_u)
+
 
 class VariationalEntropyEvolve(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -3751,7 +3751,7 @@ class VariationalEntropyEvolve(Propagator):
         mass_ops: WeightedMassOperator,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
-        energy_evaluator : InternalEnergyEvaluator = None,
+        energy_evaluator: InternalEnergyEvaluator = None,
     ):
         super().__init__(s, u)
 
@@ -3812,7 +3812,7 @@ class VariationalEntropyEvolve(Propagator):
             print("Newton iteration in VariationalEntropyEvolve")
         sn = self.feec_vars[0]
         un = self.feec_vars[1]
-        
+
         sn1 = sn.copy(out=self._tmp_sn1)
         # Initialize variable for Newton iteration
         rho = self._rho
@@ -3907,7 +3907,6 @@ class VariationalEntropyEvolve(Propagator):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
 
         from struphy.feec.projectors import L2Projector
-
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
@@ -4069,14 +4068,13 @@ class VariationalEntropyEvolve(Propagator):
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
-        self._energy_evaluator.evaluate_exact_de_ds_grid(self.projected_equil.n3,s,out=self._init_dener_ds)
-
+        self._energy_evaluator.evaluate_exact_de_ds_grid(self.projected_equil.n3, s, out=self._init_dener_ds)
 
     def _get_jacobian(self, dt, rhon, sn, sn1):
         if self._model == "full":
             self._energy_evaluator.evaluate_discrete_d2e_ds2_grid(rhon, sn, sn1, out=self._tmp_int_grid)
             self._tmp_int_grid *= self._proj_ds_metric_term
-            
+
             self._M_ds.assemble([[self._tmp_int_grid]], verbose=False)
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
@@ -4231,7 +4229,6 @@ class VariationalMagFieldEvolve(Propagator):
         bn = self.feec_vars[0]
         un = self.feec_vars[1]
 
-        
         bn1 = bn.copy(out=self._tmp_bn1)
         # Initialize variable for Newton iteration
 
@@ -4446,14 +4443,14 @@ class VariationalMagFieldEvolve(Propagator):
     def _update_Pib(self, b):
         """Update the weights of the `BasisProjectionOperator`"""
 
-        self.curlPib.update_coeffs(b)        
-        self.curlPibT.update_coeffs(b)        
+        self.curlPib.update_coeffs(b)
+        self.curlPibT.update_coeffs(b)
 
     def _create_Pib0(self):
         from struphy.feec.variational_utilities import Hdiv0_transport_operator
 
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
-        self.curlPibT0 = self.curlPib0.T 
+        self.curlPibT0 = self.curlPib0.T
 
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
@@ -5010,31 +5007,32 @@ class VariationalPBEvolve(Propagator):
         #                          tol=self._lin_solver['tol'],
         #                          maxiter=self._lin_solver['maxiter'],
         #                          verbose=self._lin_solver['verbose'],
-        #      
+        #
         #                     recycle=True)
 
     def _update_Pib(self, b):
         """Update the weights of the `BasisProjectionOperator`"""
 
-        self.curlPib.update_coeffs(b)        
-        self.curlPibT.update_coeffs(b)  
+        self.curlPib.update_coeffs(b)
+        self.curlPibT.update_coeffs(b)
 
     def _create_Pib0(self):
         from struphy.feec.variational_utilities import Hdiv0_transport_operator
 
         self.curlPib0 = Hdiv0_transport_operator(self.derham)
         self.curlPibT0 = self.curlPib.T
-        self.curlPib0.update_coeffs(self.projected_equil.b2)        
-        self.curlPibT0.update_coeffs(self.projected_equil.b2) 
+        self.curlPib0.update_coeffs(self.projected_equil.b2)
+        self.curlPibT0.update_coeffs(self.projected_equil.b2)
 
     def _update_Projp(self, p):
         """Update the weights of the `BasisProjectionOperator`"""
         self._transop_p.update_coeffs(p)
         self._transop_pT.update_coeffs(p)
-        
+
     def _create_transop0(self):
         """Update the weights of the `BasisProjectionOperator`"""
         from struphy.feec.variational_utilities import Pressure_transport_operator
+
         self._transop_p0 = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
         self._transop_p0T = self._transop_p0.T
         self._transop_p0.update_coeffs(self.projected_equil.p3)

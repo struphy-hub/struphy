@@ -1,10 +1,10 @@
+from copy import deepcopy
+
 import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
 
-from copy import deepcopy
-
-from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
+from struphy.feec.linear_operators import LinOpWithTransp
 
 
 class BracketOperator(LinOpWithTransp):
@@ -55,7 +55,6 @@ class BracketOperator(LinOpWithTransp):
     """
 
     def __init__(self, derham, u):
-
         Xh = derham.Vh_fem["v"]
         V1h = derham.Vh_fem["1"]
         self._domain = derham.Vh_pol["v"]
@@ -280,13 +279,14 @@ class BracketOperator(LinOpWithTransp):
             out = self.mbrackvw.dot(self._u)
 
         return out
-    
+
+
 class L2_transport_operator(LinOpWithTransp):
     r"""
-    Operator 
+    Operator
 
     .. math::
-        \mathbf u \mapsto \nabla \cdot(\Pi^2(\rho \mathbf u)) \, 
+        \mathbf u \mapsto \nabla \cdot(\Pi^2(\rho \mathbf u)) \,
     from H1vec to L2, where :math:`\rho` is a discrete 3-form which can be updated.
 
     Parameters
@@ -297,7 +297,8 @@ class L2_transport_operator(LinOpWithTransp):
     transposed : Bool
         Assemble the transposed operator
     """
-    def __init__(self, derham, transposed = False):
+
+    def __init__(self, derham, transposed=False):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
@@ -397,19 +398,19 @@ class L2_transport_operator(LinOpWithTransp):
     @property
     def toarray(self):
         raise NotImplementedError()
-    
+
     def transpose(self, conjugate=False):
         return L2_transport_operator(self._derham, not self._transposed)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
         return out
-    
+
     def update_coeffs(self, coeff):
         r"""Update the coefficient of the projection operator.
 
         Parameters
-        ---------- 
+        ----------
         coeffs : StencilVector
             coefficient of the discrete 3 form to update the projection operator.
         """
@@ -439,12 +440,13 @@ class L2_transport_operator(LinOpWithTransp):
             ]
         )
 
+
 class Hdiv0_transport_operator(LinOpWithTransp):
     r"""
-    Operator 
+    Operator
 
     .. math::
-        u \mapsto \nabla \times (\Pi^1(\mathbf B \times \mathbf u)) \, 
+        u \mapsto \nabla \times (\Pi^1(\mathbf B \times \mathbf u)) \,
     from H1vec to H(div), where :math:`\mathbf B` is a discrete 2-form which can be updated.
 
     Parameters
@@ -455,7 +457,8 @@ class Hdiv0_transport_operator(LinOpWithTransp):
     transposed : Bool
         Assemble the transposed operator
     """
-    def __init__(self, derham, transposed = False):
+
+    def __init__(self, derham, transposed=False):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
@@ -581,20 +584,20 @@ class Hdiv0_transport_operator(LinOpWithTransp):
     @property
     def toarray(self):
         raise NotImplementedError()
-    
+
     def transpose(self, conjugate=False):
         return Hdiv0_transport_operator(self._derham, not self._transposed)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
         return out
-    
+
     def update_coeffs(self, coeff):
         r"""
         Update the coefficient of the projection operator.
 
         Parameters
-        ---------- 
+        ----------
         coeffs : BlockVector
             coefficient of the discrete 2 form to update the projection operator.
         """
@@ -624,12 +627,13 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             ]
         )
 
+
 class Pressure_transport_operator(LinOpWithTransp):
     r"""
-    Operator 
+    Operator
 
     .. math::
-        \mathbf u \mapsto \nabla \cdot (\Pi^2(p \mathbf u)) + (\gamma -1) \Pi^3(p \nabla \cdot \Pi^2(\mathbf u))  \, 
+        \mathbf u \mapsto \nabla \cdot (\Pi^2(p \mathbf u)) + (\gamma -1) \Pi^3(p \nabla \cdot \Pi^2(\mathbf u))  \,
     from H1vec to L2, where :math:`p` is a discrete 3-form which can be updated.
 
     Parameters
@@ -640,7 +644,7 @@ class Pressure_transport_operator(LinOpWithTransp):
     phys_domain : Domain
         The domain in which the problem is discretized (needed for metric terms)
 
-    Uv : BasisProjectionOperator 
+    Uv : BasisProjectionOperator
         The projection from H1vec to H(div)
 
     gamma : Float
@@ -649,7 +653,8 @@ class Pressure_transport_operator(LinOpWithTransp):
     transposed : Bool
         Assemble the transposed operator
     """
-    def __init__(self, derham, phys_domain, Uv, gamma, transposed = False):
+
+    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False):
         # Get the projector and the spaces
         self._derham = derham
         self._phys_domain = phys_domain
@@ -718,7 +723,6 @@ class Pressure_transport_operator(LinOpWithTransp):
         self._mapped_pf_values = np.zeros(grid_shape, dtype=float)
 
         # gradient of the component of the vector field
-        
 
         hist_grid_P2 = self._derham.proj_grid_pts["2"]
 
@@ -764,19 +768,19 @@ class Pressure_transport_operator(LinOpWithTransp):
     @property
     def toarray(self):
         raise NotImplementedError()
-    
+
     def transpose(self, conjugate=False):
         return Pressure_transport_operator(self._derham, self._phys_domain, self._Uv, self._gamma, not self._transposed)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
         return out
-    
+
     def update_coeffs(self, coeff):
         r"""Update the coefficient of the projection operator.
 
         Parameters
-        ---------- 
+        ----------
         coeffs : StencilVector
             coefficient of the discrete 3 form to update the projection operator.
         """
@@ -821,9 +825,10 @@ class Pressure_transport_operator(LinOpWithTransp):
             ]
         )
 
+
 class InternalEnergyEvaluator:
     r"""Helper class for the evaluation of the internal energy or its partial derivative/discrete partial derivatives on an integration grid
-    
+
     This class only contains a lot of array corresponding to the integration grid to avoid the allocation of temporaries,
     and method that can be called to evaluate the energy and derivatives on the grid.
     """
@@ -863,7 +868,7 @@ class InternalEnergyEvaluator:
 
     def ener(self, rho, s, out=None):
         r"""Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
-        
+
         .. math::
             E(\rho, s) = \rho^\gamma \text{exp}(s/\rho) \,.
         """
@@ -878,10 +883,10 @@ class InternalEnergyEvaluator:
             np.power(rho, gam, out=self._tmp_int_grid)
             out *= self._tmp_int_grid
         return out
-    
+
     def dener_drho(self, rho, s, out=None):
         r"""Derivative with respect to rho of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
-        
+
         .. math::
             \frac{\partial E}{\partial \rho}(\rho, s) = (\gamma \rho^{\gamma-1} - s \rho^{\gamma-2})*\text{exp}(s/\rho) \,.
         """
@@ -903,7 +908,7 @@ class InternalEnergyEvaluator:
             self._tmp_int_grid -= self._tmp_int_grid2
             out *= self._tmp_int_grid
         return out
-    
+
     def dener_ds(self, rho, s, out=None):
         r"""Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
 
@@ -921,7 +926,7 @@ class InternalEnergyEvaluator:
             np.power(rho, gam - 1, out=self._tmp_int_grid)
             out *= self._tmp_int_grid
         return out
-    
+
     def d2ener_drho2(self, rho, s, out=None):
         r"""Second derivative with respect to (rho, rho) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
 
@@ -955,7 +960,7 @@ class InternalEnergyEvaluator:
             self._tmp_int_grid += self._tmp_int_grid2
             out *= self._tmp_int_grid
         return out
-    
+
     def d2ener_ds2(self, rho, s, out=None):
         r"""Second derivative with respect to (s, s) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
 
@@ -973,7 +978,7 @@ class InternalEnergyEvaluator:
             np.power(rho, gam - 2, out=self._tmp_int_grid)
             out *= self._tmp_int_grid
         return out
-    
+
     def eta(self, delta_x, out=None):
         r"""Switch function :math:`\eta(\delta) = 1- \text{exp}((-\delta/10^{-5})^2)`."""
         if out is None:
@@ -988,10 +993,10 @@ class InternalEnergyEvaluator:
             out *= -1
             out += 1.0
         return out
-    
-    def evaluate_discrete_de_drho_grid(self,rhon, rhon1, sn, out=None):
+
+    def evaluate_discrete_de_drho_grid(self, rhon, rhon1, sn, out=None):
         r"""Evaluate the discrete gradient of the internal energy with respect to the :math:`\rho` variable
-        
+
         .. math::
             \eta(\delta \rho)\frac{e(\rho^{n+1},s^n)-e(\rho^{n},s^n)}{\rho^{n+1}-\rho^n}+(1-\eta(\delta \rho))\frac{\partial e}{\partial \rho}(\rho^{n+\frac{1}{2}}, s^n) \,,
 
@@ -1003,21 +1008,21 @@ class InternalEnergyEvaluator:
         self.sf.vector = sn
 
         rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._rhof_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof_values,
+        )
         rhof1_values = self.rhof1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._rhof1_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof1_values,
+        )
 
         sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._sf_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf_values,
+        )
 
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
@@ -1035,21 +1040,21 @@ class InternalEnergyEvaluator:
         eta = self.eta(delta_rho_values, out=self._eta_values)
 
         e_rho1_s = self.ener(
-                rhof1_values,
-                sf_values,
-                out=self._en1_values,
-            )
+            rhof1_values,
+            sf_values,
+            out=self._en1_values,
+        )
         e_rho_s = self.ener(
-                rhof_values,
-                sf_values,
-                out=self._en_values,
-            )
+            rhof_values,
+            sf_values,
+            out=self._en_values,
+        )
 
         de_rhom_s = self.dener_drho(
-                rho_mid_values,
-                sf_values,
-                out=self._de_values,
-            )
+            rho_mid_values,
+            sf_values,
+            out=self._de_values,
+        )
 
         # eta*delta_rho_values*(e_rho1_s-e_rho_s)*delta_rho_values/(delta_rho_values**2+1e-40)
         self._tmp_int_grid *= 0.0
@@ -1072,14 +1077,14 @@ class InternalEnergyEvaluator:
 
         return out
 
-    def evaluate_exact_de_drho_grid(self, rhon, sn, out = None):
+    def evaluate_exact_de_drho_grid(self, rhon, sn, out=None):
         r"""
         Evaluation of the derivative of :math:`E` with respect to :math:`\rho` on the grid.
         """
-        
+
         self.rhof.vector = rhon
         self.sf.vector = sn
-        
+
         rhof0_values = self.rhof.eval_tp_fixed_loc(
             self.integration_grid_spans,
             self.integration_grid_bd,
@@ -1092,17 +1097,13 @@ class InternalEnergyEvaluator:
             out=self._sf_values,
         )
 
-        out = self.dener_drho(
-            rhof0_values,
-            sf0_values,
-            out = out
-        )
+        out = self.dener_drho(rhof0_values, sf0_values, out=out)
 
         return out
 
     def evaluate_discrete_de_ds_grid(self, rhon, sn, sn1, out=None):
         r"""Evaluate the discrete gradient of the internal energy with respect to the :math:`s` variable
-        
+
         .. math::
             \eta(\delta \rho)\frac{e(\rho^{n},s^{n+1})-e(\rho^{n},s^n)}{s^{n+1}-s^n}+(1-\eta(\delta s))\frac{\partial e}{\partial s}(\rho^n, s^{n+\frac{1}{2}}) \,,
 
@@ -1113,21 +1114,21 @@ class InternalEnergyEvaluator:
         self.sf1.vector = sn1
 
         sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._sf_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf_values,
+        )
         sf1_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._sf1_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf1_values,
+        )
 
         rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._rhof_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof_values,
+        )
 
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
@@ -1141,28 +1142,27 @@ class InternalEnergyEvaluator:
         s_mid_values += sf1_values
         s_mid_values += sf_values
         s_mid_values /= 2.0
-        
 
         eta = self.eta(delta_s_values, out=self._eta_values)
 
         e_rho_s1 = self.ener(
-                rhof_values,
-                sf1_values,
-                out=self._en1_values,
-            )
+            rhof_values,
+            sf1_values,
+            out=self._en1_values,
+        )
         e_rho_s = self.ener(
-                rhof_values,
-                sf_values,
-                out=self._en_values,
-            )
+            rhof_values,
+            sf_values,
+            out=self._en_values,
+        )
 
         de_rho_sm = self.dener_ds(
-                rhof_values,
-                s_mid_values,
-                out=self._de_values,
-            )
+            rhof_values,
+            s_mid_values,
+            out=self._de_values,
+        )
 
-        #(eta*delta_s_values*(e_rho_s1-e_rho_s) / (delta_s_values**2+1e-40)+(1-eta)*de_rho_sm)
+        # (eta*delta_s_values*(e_rho_s1-e_rho_s) / (delta_s_values**2+1e-40)+(1-eta)*de_rho_sm)
 
         # eta*delta_s_values*(e_rho_s1-e_rho_s) /(delta_s_values**2+1e-40)
         self._tmp_int_grid *= 0.0
@@ -1188,14 +1188,14 @@ class InternalEnergyEvaluator:
         out += de_rho_sm
 
         return out
-    
-    def evaluate_exact_de_ds_grid(self, rhon, sn, out = None):
+
+    def evaluate_exact_de_ds_grid(self, rhon, sn, out=None):
         r"""
         Evaluation of the derivative of :math:`E` with respect to :math:`s` on the grid.
         """
         self.rhof.vector = rhon
         self.sf.vector = sn
-        
+
         rhof0_values = self.rhof.eval_tp_fixed_loc(
             self.integration_grid_spans,
             self.integration_grid_bd,
@@ -1208,14 +1208,10 @@ class InternalEnergyEvaluator:
             out=self._sf_values,
         )
 
-        out = self.dener_ds(
-            rhof0_values,
-            sf0_values,
-            out = out
-        )
+        out = self.dener_ds(rhof0_values, sf0_values, out=out)
 
         return out
-    
+
     def evaluate_discrete_d2e_drho2_grid(self, rhon, rhon1, sn, out=None):
         "Evaluate the derivative of the discrete derivative with respect to rhon1"
         # Get the value of the fields on the grid
@@ -1224,52 +1220,51 @@ class InternalEnergyEvaluator:
         self.sf.vector = sn
 
         rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._rhof_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof_values,
+        )
         rhof1_values = self.rhof1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._rhof1_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof1_values,
+        )
         sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._sf_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf_values,
+        )
 
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
         delta_rho_values *= 0.0
         delta_rho_values += rhof1_values
         delta_rho_values -= rhof_values
-            
 
         eta = self.eta(delta_rho_values)
 
         e_rho1_s = self.ener(
-                rhof1_values,
-                sf_values,
-                out=self._en1_values,
-            )
+            rhof1_values,
+            sf_values,
+            out=self._en1_values,
+        )
         e_rho_s = self.ener(
-                rhof_values,
-                sf_values,
-                out=self._en_values,
-            )
+            rhof_values,
+            sf_values,
+            out=self._en_values,
+        )
 
         de_rho1_s = self.dener_drho(
-                rhof1_values,
-                sf_values,
-                out=self._de_values,
-            )
+            rhof1_values,
+            sf_values,
+            out=self._de_values,
+        )
 
         d2e_rho1_s = self.d2ener_drho2(
-                rhof1_values,
-                sf_values,
-                out=self._d2e_values,
-            )
+            rhof1_values,
+            sf_values,
+            out=self._d2e_values,
+        )
 
         # eta*(de_rho1_s*delta_rho_values-e_rho1_s+e_rho_s)/(delta_rho_values**2+1e-40)
         self._DG_values *= 0.0
@@ -1293,7 +1288,7 @@ class InternalEnergyEvaluator:
         out -= d2e_rho1_s
 
         return out
-    
+
     def evaluate_discrete_d2e_ds2_grid(self, rhon, sn, sn1, out=None):
         "Evaluate the derivative of the discrete derivative with respect to sn1"
         # Get the value of the fields on the grid
@@ -1302,20 +1297,20 @@ class InternalEnergyEvaluator:
         self.sf.vector = sn
 
         rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._rhof_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._rhof_values,
+        )
         sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._sf_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf_values,
+        )
         sf1_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._sf1_values,
-            )
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._sf1_values,
+        )
 
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
@@ -1326,27 +1321,27 @@ class InternalEnergyEvaluator:
         eta = self.eta(delta_s_values, out=self._eta_values)
 
         e_rho_s1 = self.ener(
-                rhof_values,
-                sf1_values,
-                out=self._en1_values,
-            )
+            rhof_values,
+            sf1_values,
+            out=self._en1_values,
+        )
         e_rho_s = self.ener(
-                rhof_values,
-                sf_values,
-                out=self._en_values,
-            )
+            rhof_values,
+            sf_values,
+            out=self._en_values,
+        )
 
         de_rho_s1 = self.dener_ds(
-                rhof_values,
-                sf1_values,
-                out=self._de_values,
-            )
+            rhof_values,
+            sf1_values,
+            out=self._de_values,
+        )
 
         d2e_rho_s1 = self.d2ener_ds2(
-                rhof_values,
-                sf1_values,
-                out=self._d2e_values,
-            )
+            rhof_values,
+            sf1_values,
+            out=self._d2e_values,
+        )
 
         # de_rho_s1*delta_s_values-e_rho_s1+e_rho_s
         out *= 0.0

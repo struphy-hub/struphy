@@ -475,6 +475,7 @@ class ColdPlasma(StruphyModel):
         self.update_scalar("kinetic energy", en_J)
         self.update_scalar("total energy", en_E + en_B + en_J)
 
+
 class ViscoresistiveMHD(StruphyModel):
     r"""Full (non-linear) visco-resistive MHD equations discretized with a variational method.
 
@@ -552,7 +553,6 @@ class ViscoresistiveMHD(StruphyModel):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
-        
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -580,6 +580,7 @@ class ViscoresistiveMHD(StruphyModel):
         model = "full"
 
         from struphy.feec.variational_utilities import InternalEnergyEvaluator
+
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
 
         # set keyword arguments for propagators
@@ -822,6 +823,7 @@ class ViscousFluid(StruphyModel):
         model = "full"
 
         from struphy.feec.variational_utilities import InternalEnergyEvaluator
+
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
 
         # set keyword arguments for propagators

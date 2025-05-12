@@ -775,6 +775,7 @@ class VariationalCompressibleFluid(StruphyModel):
         model = "full"
 
         from struphy.feec.variational_utilities import InternalEnergyEvaluator
+
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
 
         # set keyword arguments for propagators
