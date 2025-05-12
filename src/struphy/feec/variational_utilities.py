@@ -1,6 +1,8 @@
 import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
 
+from copy import deepcopy
+
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 
@@ -418,8 +420,346 @@ class L2_transport_operator(LinOpWithTransp):
             ]
         )
 
+class Hdiv0_transport_operator(LinOpWithTransp):
+    """
+    Operator u -> curl(Pi(B x u)) from H1vec to Hdiv.
+    """
+    def __init__(self, derham, transposed = False):
+        # Get the projector and the spaces
+        self._derham = derham
+        self._transposed = transposed
+        if self._transposed:
+            self._codomain = self._derham.Vh_pol["v"]
+            self._domain = self._derham.Vh_pol["2"]
+        else:
+            self._domain = self._derham.Vh_pol["v"]
+            self._codomain = self._derham.Vh_pol["2"]
+        P1 = self._derham.P["1"]
+        Xh = self._derham.Vh_fem["v"]
+        self._dtype = Xh.coeff_space.dtype
+        self.field = self._derham.create_field("Bf", "Hdiv")
+
+        # Initialize the BasisProjectionOperators
+        if self._derham._with_local_projectors:
+            self.Proj = BasisProjectionOperatorLocal(
+                P1,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=transposed,
+                V_extraction_op=self._derham.extraction_ops["v"],
+                V_boundary_op=self._derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self._derham.Vh_pol["1"]),
+            )
+
+        else:
+            self.Proj = BasisProjectionOperator(
+                P1,
+                Xh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=transposed,
+                use_cache=True,
+                V_extraction_op=self._derham.extraction_ops["v"],
+                V_boundary_op=self._derham.boundary_ops["v"],
+                P_boundary_op=IdentityOperator(self._derham.Vh_pol["1"]),
+            )
+
+        # gradient of the component of the vector field
+        self.curl = self._derham.curl_bcfree
+
+        # Initialize the transport operator and transposed
+        if self._transposed:
+            self._op = self.Proj @ self.curl.T
+        else:
+            self._op = self.curl @ self.Proj
+
+        hist_grid = self._derham.proj_grid_pts["1"]
+
+        hist_grid_0 = [pts.flatten() for pts in hist_grid[0]]
+        hist_grid_1 = [pts.flatten() for pts in hist_grid[1]]
+        hist_grid_2 = [pts.flatten() for pts in hist_grid[2]]
+
+        self.hist_grid_0_spans, self.hist_grid_0_bn, self.hist_grid_0_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_0,
+        )
+        self.hist_grid_1_spans, self.hist_grid_1_bn, self.hist_grid_1_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_1,
+        )
+        self.hist_grid_2_spans, self.hist_grid_2_bn, self.hist_grid_2_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_2,
+        )
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
+        self._bf0_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self.hist_grid_0_b = [
+            [self.hist_grid_0_bn[0], self.hist_grid_0_bd[1], self.hist_grid_0_bd[2]],
+            [
+                self.hist_grid_0_bd[0],
+                self.hist_grid_0_bn[1],
+                self.hist_grid_0_bd[2],
+            ],
+            [self.hist_grid_0_bd[0], self.hist_grid_0_bd[1], self.hist_grid_0_bn[2]],
+        ]
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
+        self._bf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self.hist_grid_1_b = [
+            [self.hist_grid_1_bn[0], self.hist_grid_1_bd[1], self.hist_grid_1_bd[2]],
+            [
+                self.hist_grid_1_bd[0],
+                self.hist_grid_1_bn[1],
+                self.hist_grid_1_bd[2],
+            ],
+            [self.hist_grid_1_bd[0], self.hist_grid_1_bd[1], self.hist_grid_1_bn[2]],
+        ]
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
+        self._bf2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self.hist_grid_2_b = [
+            [self.hist_grid_2_bn[0], self.hist_grid_2_bd[1], self.hist_grid_2_bd[2]],
+            [
+                self.hist_grid_2_bd[0],
+                self.hist_grid_2_bn[1],
+                self.hist_grid_2_bd[2],
+            ],
+            [self.hist_grid_2_bd[0], self.hist_grid_2_bd[1], self.hist_grid_2_bn[2]],
+        ]
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+    
+    def transpose(self, conjugate=False):
+        return Hdiv0_transport_operator(self._derham, not self._transposed)
+
+    def dot(self, v, out=None):
+        out = self._op.dot(v, out=out)
+        return out
+    
+    def update_coeffs(self, coeff):
+        self.field.vector = coeff
+
+        bf0_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_0_spans,
+            self.hist_grid_0_b,
+            out=self._bf0_values,
+        )
+        bf1_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_1_spans,
+            self.hist_grid_1_b,
+            out=self._bf1_values,
+        )
+        bf2_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_2_spans,
+            self.hist_grid_2_b,
+            out=self._bf2_values,
+        )
+
+        self.Proj.update_weights(
+            [
+                [None, -bf0_values[2], bf0_values[1]],
+                [bf1_values[2], None, -bf1_values[0]],
+                [-bf2_values[1], bf2_values[0], None],
+            ]
+        )
+
+class Pressure_transport_operator(LinOpWithTransp):
+    """
+    Operator u -> curl(Pi(B x u)) from H1vec to Hdiv.
+    """
+    def __init__(self, derham, phys_domain, Uv, gamma, transposed = False):
+        # Get the projector and the spaces
+        self._derham = derham
+        self._phys_domain = phys_domain
+        self._Uv = Uv
+        self._transposed = transposed
+        self._gamma = gamma
+        if self._transposed:
+            self._codomain = self._derham.Vh_pol["v"]
+            self._domain = self._derham.Vh_pol["3"]
+        else:
+            self._domain = self._derham.Vh_pol["v"]
+            self._codomain = self._derham.Vh_pol["3"]
+        P2 = self._derham.P["2"]
+        P3 = self._derham.P["3"]
+        Xh = self._derham.Vh_fem["v"]
+        V3h = self._derham.Vh_fem["3"]
+        self._dtype = Xh.coeff_space.dtype
+        self.field = self._derham.create_field("pf", "L2")
+
+        self.Pip = BasisProjectionOperator(
+            P2,
+            Xh,
+            [[None, None, None], [None, None, None], [None, None, None]],
+            transposed=transposed,
+            use_cache=True,
+            V_extraction_op=self._derham.extraction_ops["v"],
+            V_boundary_op=self._derham.boundary_ops["v"],
+            P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
+        )
+
+        self.Pip_div = BasisProjectionOperator(
+            P3,
+            V3h,
+            [[lambda eta1, eta2, eta3: 0 * eta1]],
+            transposed=transposed,
+            use_cache=True,
+            V_extraction_op=self._derham.extraction_ops["3"],
+            V_boundary_op=self._derham.boundary_ops["3"],
+            P_boundary_op=IdentityOperator(self._derham.Vh_pol["3"]),
+        )
+
+        # BC?
+
+        div = self._derham.div
+
+        self.div = div @ Uv
+
+        # Initialize the transport operator and transposed
+        if self._transposed:
+            self._op = self.Pip @ div.T + self.div.T @ self.Pip_div
+
+        else:
+            self._op = div @ self.Pip + self.Pip_div @ self.div
+
+        int_grid = [pts.flatten() for pts in self._derham.proj_grid_pts["3"]]
+
+        self.int_grid_spans, self.int_grid_bn, self.int_grid_bd = self._derham.prepare_eval_tp_fixed(
+            int_grid,
+        )
+
+        metric = 1.0 / phys_domain.jacobian_det(*int_grid)
+        self._proj_p_metric = deepcopy(metric)
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in int_grid])
+        self._pf_values = np.zeros(grid_shape, dtype=float)
+        self._mapped_pf_values = np.zeros(grid_shape, dtype=float)
+
+        # gradient of the component of the vector field
+        
+
+        hist_grid_P2 = self._derham.proj_grid_pts["2"]
+
+        hist_grid_20 = [pts.flatten() for pts in hist_grid_P2[0]]
+        hist_grid_21 = [pts.flatten() for pts in hist_grid_P2[1]]
+        hist_grid_22 = [pts.flatten() for pts in hist_grid_P2[2]]
+
+        self.hist_grid_20_spans, self.hist_grid_20_bn, self.hist_grid_20_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_20,
+        )
+        self.hist_grid_21_spans, self.hist_grid_21_bn, self.hist_grid_21_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_21,
+        )
+        self.hist_grid_22_spans, self.hist_grid_22_bn, self.hist_grid_22_bd = self._derham.prepare_eval_tp_fixed(
+            hist_grid_22,
+        )
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_20])
+        self._pf_0_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_21])
+        self._pf_1_values = np.zeros(grid_shape, dtype=float)
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_22])
+        self._pf_2_values = np.zeros(grid_shape, dtype=float)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def tosparse(self):
+        raise NotImplementedError()
+
+    @property
+    def toarray(self):
+        raise NotImplementedError()
+    
+    def transpose(self, conjugate=False):
+        return Pressure_transport_operator(self._derham, self._phys_domain, self._Uv, self._gamma, not self._transposed)
+
+    def dot(self, v, out=None):
+        out = self._op.dot(v, out=out)
+        return out
+    
+    def update_coeffs(self, coeff):
+        self.field.vector = coeff
+
+        pf_values = self.field.eval_tp_fixed_loc(
+            self.int_grid_spans,
+            self.int_grid_bd,
+            out=self._pf_values,
+        )
+
+        self._mapped_pf_values *= 0.0
+        self._mapped_pf_values += pf_values
+        self._mapped_pf_values *= self._proj_p_metric
+        self._mapped_pf_values *= self._gamma - 1.0
+
+        self.Pip_div.update_weights([[self._mapped_pf_values]])
+
+        # print(self.Pip_divT._dof_mat._data)
+
+        pf0_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_20_spans,
+            self.hist_grid_20_bd,
+            out=self._pf_0_values,
+        )
+        pf1_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_21_spans,
+            self.hist_grid_21_bd,
+            out=self._pf_1_values,
+        )
+        pf2_values = self.field.eval_tp_fixed_loc(
+            self.hist_grid_22_spans,
+            self.hist_grid_22_bd,
+            out=self._pf_2_values,
+        )
+
+        self.Pip.update_weights(
+            [
+                [pf0_values, None, None],
+                [None, pf1_values, None],
+                [None, None, pf2_values],
+            ]
+        )
+
 class InternalEnergyEvaluator:
-    """Helper class for the evaluation of the internal energy or its partial derivative/discrete partial derivatives on an integration grid"""
+    r"""Helper class for the evaluation of the internal energy or its partial derivative/discrete partial derivatives on an integration grid
+    
+    This class only contains a lot of array corresponding to the integration grid to avoid the allocation of temporaries,
+    and method that can be called to evaluate the energy and derivatives on the grid.
+    """
 
     def __init__(self, derham, gamma):
         self._derham = derham
@@ -454,9 +794,12 @@ class InternalEnergyEvaluator:
         self._tmp_int_grid2 = np.zeros(grid_shape, dtype=float)
         self._DG_values = np.zeros(grid_shape, dtype=float)
 
-    def _ener(self, rho, s, out=None):
-        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        E(rho, s) = rho^gamma*exp(s/rho)"""
+    def ener(self, rho, s, out=None):
+        r"""Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
+        
+        .. math::
+            E(\rho, s) = \rho^\gamma \text{exp}(s/\rho) \,.
+        """
         gam = self._gamma
         if out is None:
             out = np.power(rho, gam) * np.exp(s / rho)
@@ -469,9 +812,12 @@ class InternalEnergyEvaluator:
             out *= self._tmp_int_grid
         return out
     
-    def _dener_drho(self, rho, s, out=None):
-        """Derivative with respect to rho of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        dE(rho, s)/drho = (gamma*rho^{gamma-1} - s*rho^{gamma-2})*exp(s/rho)"""
+    def dener_drho(self, rho, s, out=None):
+        r"""Derivative with respect to rho of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
+        
+        .. math::
+            \frac{\partial E}{\partial \rho}(\rho, s) = (\gamma \rho^{\gamma-1} - s \rho^{\gamma-2})*\text{exp}(s/\rho) \,.
+        """
         gam = self._gamma
         if out is None:
             out = (gam * np.power(rho, gam - 1) - s * np.power(rho, gam - 2)) * np.exp(s / rho)
@@ -491,9 +837,12 @@ class InternalEnergyEvaluator:
             out *= self._tmp_int_grid
         return out
     
-    def _dener_ds(self, rho, s, out=None):
-        """Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        dE(rho, s)/ds = (rho^{gamma-1})*exp(s/rho)"""
+    def dener_ds(self, rho, s, out=None):
+        r"""Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
+
+        .. math::
+            \frac{\partial E}{\partial s}(\rho, s) = \rho^{\gamma-1} \text{exp}(s/\rho) \,.
+        """
         gam = self._gamma
         if out is None:
             out = np.power(rho, gam - 1) * np.exp(s / rho)
@@ -506,9 +855,12 @@ class InternalEnergyEvaluator:
             out *= self._tmp_int_grid
         return out
     
-    def _d2ener_drho2(self, rho, s, out=None):
-        """Second derivative with respect to (rho, rho) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        d^2E(rho, s)/drho^2 = (gamma*(gamma-1) rho^{gamma-2}- 2*s*(gamma-1)*rho^{gamma-3}+ s^2*rho^{gamma-4})*exp(s/rho)"""
+    def d2ener_drho2(self, rho, s, out=None):
+        r"""Second derivative with respect to (rho, rho) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
+
+        .. math::
+            \frac{\partial^2 E}{\partial \rho^2}(\rho, s) = (\gamma*(\gamma-1) \rho^{\gamma-2}- 2 s (\gamma-1) rho^{\gamma-3}+ s^2 \rho^{\gamma-4}) \text{exp}(s/\rho) \,.
+        """
         gam = self._gamma
         if out is None:
             out = (
@@ -537,9 +889,12 @@ class InternalEnergyEvaluator:
             out *= self._tmp_int_grid
         return out
     
-    def _d2ener_ds2(self, rho, s, out=None):
-        """Second derivative with respect to (s, s) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        d^2E(rho, s)/ds^2 = (rho^{gamma-2})*exp(s/rho)"""
+    def d2ener_ds2(self, rho, s, out=None):
+        r"""Second derivative with respect to (s, s) of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
+
+        .. math::
+            \frac{\partial^2 E}{\partial s^2}(\rho, s) = \rho^{\gamma-2} \text{exp}(s/ \rho) \,.
+        """
         gam = self._gamma
         if out is None:
             out = np.power(rho, gam - 2) * np.exp(s / rho)
@@ -552,7 +907,8 @@ class InternalEnergyEvaluator:
             out *= self._tmp_int_grid
         return out
     
-    def _eta(self, delta_x, out=None):
+    def eta(self, delta_x, out=None):
+        r"""Switch function :math:`\eta(\delta) = 1- \text{exp}((-\delta/10^{-5})^2)`."""
         if out is None:
             out = 1.0 - np.exp(-((delta_x / 1e-5) ** 2))
         else:
@@ -567,6 +923,12 @@ class InternalEnergyEvaluator:
         return out
     
     def evaluate_discrete_de_drho_grid(self,rhon, rhon1, sn, out=None):
+        r"""Evaluate the discrete gradient of the internal energy with respect to the :math:`\rho` variable
+        
+        .. math::
+            \eta(\delta \rho)\frac{e(\rho^{n+1},s^n)-e(\rho^{n},s^n)}{\rho^{n+1}-\rho^n}+(1-\eta(\delta \rho))\frac{\partial e}{\partial \rho}(\rho^{n+\frac{1}{2}}, s^n) \,,
+
+        """
 
         # Get the value of the fields on the grid
         self.rhof.vector = rhon
@@ -603,20 +965,20 @@ class InternalEnergyEvaluator:
         rho_mid_values += rhof_values
         rho_mid_values /= 2
 
-        eta = self._eta(delta_rho_values, out=self._eta_values)
+        eta = self.eta(delta_rho_values, out=self._eta_values)
 
-        e_rho1_s = self._ener(
+        e_rho1_s = self.ener(
                 rhof1_values,
                 sf_values,
                 out=self._en1_values,
             )
-        e_rho_s = self._ener(
+        e_rho_s = self.ener(
                 rhof_values,
                 sf_values,
                 out=self._en_values,
             )
 
-        de_rhom_s = self._dener_drho(
+        de_rhom_s = self.dener_drho(
                 rho_mid_values,
                 sf_values,
                 out=self._de_values,
@@ -644,6 +1006,9 @@ class InternalEnergyEvaluator:
         return out
 
     def evaluate_exact_de_drho_grid(self, rhon, sn, out = None):
+        r"""
+        Evaluation of the derivative of :math:`E` with respect to :math:`\rho` on the grid.
+        """
         
         self.rhof.vector = rhon
         self.sf.vector = sn
@@ -660,7 +1025,7 @@ class InternalEnergyEvaluator:
             out=self._sf_values,
         )
 
-        out = self._dener_drho(
+        out = self.dener_drho(
             rhof0_values,
             sf0_values,
             out = out
@@ -669,6 +1034,12 @@ class InternalEnergyEvaluator:
         return out
 
     def evaluate_discrete_de_ds_grid(self, rhon, sn, sn1, out=None):
+        r"""Evaluate the discrete gradient of the internal energy with respect to the :math:`s` variable
+        
+        .. math::
+            \eta(\delta \rho)\frac{e(\rho^{n},s^{n+1})-e(\rho^{n},s^n)}{s^{n+1}-s^n}+(1-\eta(\delta s))\frac{\partial e}{\partial s}(\rho^n, s^{n+\frac{1}{2}}) \,,
+
+        """
         # Get the value of the fields on the grid
         self.rhof.vector = rhon
         self.sf.vector = sn
@@ -705,20 +1076,20 @@ class InternalEnergyEvaluator:
         s_mid_values /= 2.0
         
 
-        eta = self._eta(delta_s_values, out=self._eta_values)
+        eta = self.eta(delta_s_values, out=self._eta_values)
 
-        e_rho_s1 = self._ener(
+        e_rho_s1 = self.ener(
                 rhof_values,
                 sf1_values,
                 out=self._en1_values,
             )
-        e_rho_s = self._ener(
+        e_rho_s = self.ener(
                 rhof_values,
                 sf_values,
                 out=self._en_values,
             )
 
-        de_rho_sm = self._dener_ds(
+        de_rho_sm = self.dener_ds(
                 rhof_values,
                 s_mid_values,
                 out=self._de_values,
@@ -752,7 +1123,9 @@ class InternalEnergyEvaluator:
         return out
     
     def evaluate_exact_de_ds_grid(self, rhon, sn, out = None):
-        
+        r"""
+        Evaluation of the derivative of :math:`E` with respect to :math:`s` on the grid.
+        """
         self.rhof.vector = rhon
         self.sf.vector = sn
         
@@ -768,10 +1141,166 @@ class InternalEnergyEvaluator:
             out=self._sf_values,
         )
 
-        out = self._dener_ds(
+        out = self.dener_ds(
             rhof0_values,
             sf0_values,
             out = out
         )
 
         return out
+    
+    def evaluate_discrete_d2e_drho2_grid(self, rhon, rhon1, sn, out=None):
+        "Evaluate the derivative of the discrete derivative with respect to rhon1"
+        # Get the value of the fields on the grid
+        self.rhof.vector = rhon
+        self.rhof1.vector = rhon1
+        self.sf.vector = sn
+
+        rhof_values = self.rhof.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._rhof_values,
+            )
+        rhof1_values = self.rhof1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._rhof1_values,
+            )
+        sf_values = self.sf.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf_values,
+            )
+
+        # delta_rho_values = rhof1_values-rhof_values
+        delta_rho_values = self._delta_values
+        delta_rho_values *= 0.0
+        delta_rho_values += rhof1_values
+        delta_rho_values -= rhof_values
+            
+
+        eta = self.eta(delta_rho_values)
+
+        e_rho1_s = self.ener(
+                rhof1_values,
+                sf_values,
+                out=self._en1_values,
+            )
+        e_rho_s = self.ener(
+                rhof_values,
+                sf_values,
+                out=self._en_values,
+            )
+
+        de_rho1_s = self.dener_drho(
+                rhof1_values,
+                sf_values,
+                out=self._de_values,
+            )
+
+        d2e_rho1_s = self.d2ener_drho2(
+                rhof1_values,
+                sf_values,
+                out=self._d2e_values,
+            )
+
+        # eta*(de_rho1_s*delta_rho_values-e_rho1_s+e_rho_s)/(delta_rho_values**2+1e-40)
+        self._DG_values *= 0.0
+        self._DG_values += de_rho1_s
+        self._DG_values *= delta_rho_values
+        self._DG_values -= e_rho1_s
+        self._DG_values += e_rho_s
+        delta_rho_values **= 2
+        delta_rho_values += 1e-40
+        self._DG_values /= delta_rho_values
+        self._DG_values *= eta
+
+        # (1-eta)*d2e_rho1_s
+        eta -= 1.0
+        eta *= -1.0
+        d2e_rho1_s *= eta
+
+        # -metric_term * (DG_values + d2e_rho1_s)
+        out *= 0.0
+        out -= self._DG_values
+        out -= d2e_rho1_s
+
+        return out
+    
+    def evaluate_discrete_d2e_ds2_grid(self, rhon, sn, sn1, out=None):
+        "Evaluate the derivative of the discrete derivative with respect to sn1"
+        # Get the value of the fields on the grid
+        self.rhof.vector = rhon
+        self.sf1.vector = sn1
+        self.sf.vector = sn
+
+        rhof_values = self.rhof.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._rhof_values,
+            )
+        sf_values = self.sf.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf_values,
+            )
+        sf1_values = self.sf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._sf1_values,
+            )
+
+        # delta_s_values = s1_values-sf_values
+        delta_s_values = self._delta_values
+        delta_s_values *= 0.0
+        delta_s_values += sf1_values
+        delta_s_values -= sf_values
+
+        eta = self.eta(delta_s_values, out=self._eta_values)
+
+        e_rho_s1 = self.ener(
+                rhof_values,
+                sf1_values,
+                out=self._en1_values,
+            )
+        e_rho_s = self.ener(
+                rhof_values,
+                sf_values,
+                out=self._en_values,
+            )
+
+        de_rho_s1 = self.dener_ds(
+                rhof_values,
+                sf1_values,
+                out=self._de_values,
+            )
+
+        d2e_rho_s1 = self.d2ener_ds2(
+                rhof_values,
+                sf1_values,
+                out=self._d2e_values,
+            )
+
+        # de_rho_s1*delta_s_values-e_rho_s1+e_rho_s
+        out *= 0.0
+        out += de_rho_s1
+        out *= delta_s_values
+        out -= e_rho_s1
+        out += e_rho_s
+
+        # (delta_s_values**2+1e-40)
+        delta_s_values **= 2
+        delta_s_values += 1e-40
+
+        # eta*(de_rho_s1*delta_s_values-e_rho_s1+e_rho_s)/(delta_s_values**2+1e-40)
+        out /= delta_s_values
+        out *= eta
+
+        # (1-eta)*d2e_rho_s1
+        eta -= 1.0
+        eta *= -1.0
+        d2e_rho_s1 *= eta
+
+        # -metric *(eta*(de_rho_s1*delta_s_values-e_rho_s1+e_rho_s)/(delta_s_values**2+1e-40) + (1-eta)*d2e_rho_s1)
+        out += d2e_rho_s1
+        out *= -1.0

@@ -709,19 +709,19 @@ class ViscoresistiveMHD(StruphyModel):
         :meta private:
         """
         en_prop = self._propagators[0]
-        en_prop.sf.vector = self.pointer["mhd_s3"]
-        en_prop.rhof.vector = self.pointer["mhd_rho3"]
-        sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._energy_evaluator._sf_values,
+        self._energy_evaluator.sf.vector = self.pointer["mhd_s3"]
+        self._energy_evaluator.rhof.vector = self.pointer["mhd_rho3"]
+        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._sf_values,
         )
-        rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._rhof_values,
+        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._rhof_values,
         )
-        e = self.__ener
+        e = self._energy_evaluator.ener
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_drho)
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
@@ -919,30 +919,24 @@ class ViscousFluid(StruphyModel):
         :meta private:
         """
         en_prop = self._propagators[0]
-        en_prop.sf.vector = self.pointer["fluid_s3"]
-        en_prop.rhof.vector = self.pointer["fluid_rho3"]
-        sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._sf_values,
+        self._energy_evaluator.sf.vector = self.pointer["fluid_s3"]
+        self._energy_evaluator.rhof.vector = self.pointer["fluid_rho3"]
+        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._sf_values,
         )
-        rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._rhof_values,
+        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._rhof_values,
         )
-        e = self.__ener
+        e = self._energy_evaluator.ener
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_drho)
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
-
-    def __ener(self, rho, s):
-        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        E(rho, s) = rho^gamma*exp(s/rho)"""
-        gam = self._gamma
-        return np.power(rho, gam) * np.exp(s / rho)
 
 
 class ViscoresistiveMHD_with_p(StruphyModel):
