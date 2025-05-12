@@ -370,7 +370,7 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def unit_b_cart(self, *etas, squeeze_out=False):
         """Unit vector Cartesian components of magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
-        absB = self.absB0(*etas, squeeze_out=squeeze_out)
+        absB = self.absBcart(*etas, squeeze_out=squeeze_out)
         out = np.array([b[0] / absB, b[1] / absB, b[2] / absB], dtype=float)
         return out, xyz
 
@@ -456,6 +456,11 @@ class FluidEquilibriumWithB(FluidEquilibrium):
 
     def absB0(self, *etas, squeeze_out=False):
         """0-form absolute value of magnetic field on logical cube [0, 1]^3."""
+        b = self.bv(*etas, squeeze_out=squeeze_out)
+        return np.sqrt(b[0] ** 2 + b[1] ** 2 + b[2] ** 2)
+
+    def absBcart(self, *etas, squeeze_out=False):
+        """absolute value of cartesian magnetic field on logical cube [0, 1]^3."""
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         return np.sqrt(b[0] ** 2 + b[1] ** 2 + b[2] ** 2)
 
@@ -779,7 +784,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
         gradB, xyz = self.gradB_cart(*etas, squeeze_out=squeeze_out)
-        absB = self.absB0(*etas, squeeze_out=squeeze_out)
+        absB = self.absBcart(*etas, squeeze_out=squeeze_out)
         out = np.array(
             [
                 j[0] / absB + (b[1] * gradB[2] - b[2] * gradB[1]) / absB**2,
@@ -907,7 +912,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
         n_dens = self.n0(e1, e2, e3)
         print("Computation of density done.")
 
-        absB = self.absB0(e1, e2, e3)
+        absB = self.absBcart(e1, e2, e3)
         print("Computation of abs(B) done.")
         j_cart, xyz = self.j_cart(e1, e2, e3)
         print("Computation of current density done.")

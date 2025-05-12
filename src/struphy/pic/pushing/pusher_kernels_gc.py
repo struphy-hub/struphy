@@ -2600,7 +2600,7 @@ def push_gc_cc_J2_dg_Hdiv(
         linalg_kernels.matrix_vector(tmp1, ud, tmp2)
         tmp2 *= const
 
-        #e += tmp2
+        e += tmp2
 
         e /= abs_b_star_para
         e /= det_df

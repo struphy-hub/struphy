@@ -2824,7 +2824,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             #sum_H_diff_loc = np.sum(self.particles[0].markers[~self.particles[0].holes, 15])
             #print(self.derham.comm.Get_rank(), sum_H_diff_loc)
             
-            buffer_array = np.array([sum_H_diff_loc])
+            buffer_array = np.array([sum_H_diff_loc + sum_u_diff_loc])
             self.derham.comm.Allreduce(
                 MPI.IN_PLACE,
                 buffer_array,
@@ -2936,9 +2936,9 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 op=MPI.SUM,
             )
             diff = buffer_array[0]
-            e_diff = (en_U_new + en_fB_new- en_tot_old)/en_tot_old
+            e_diff = np.abs((en_U_new + en_fB_new- en_tot_old)/en_tot_old)
             
-            if diff < self._dg_solver['tol']:
+            if (diff < self._dg_solver['tol'] or e_diff < self._dg_solver['tol']):
                 if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0: 
                     print("converged diff:", diff)
                     print("converged ediff:", e_diff)
