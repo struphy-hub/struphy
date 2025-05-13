@@ -1,4 +1,4 @@
-from numpy import empty, floor, sqrt, zeros
+from numpy import empty, floor, sqrt, zeros, copy
 from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -10,6 +10,11 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.bsplines.evaluation_kernels_3d import get_spans
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+
+def _tmp_floor_division_pusher_utilities_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
+    return x // 2
 
 @stack_array('dfm', 'dfinv', 'eta', 'v', 'v_logical')
 def reflect(
