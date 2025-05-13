@@ -2510,7 +2510,7 @@ def push_gc_cc_J2_dg_Hdiv(
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta_mid[0], eta_mid[0], eta_mid[0],
+            eta_mid[0], eta_mid[1], eta_mid[2],
             args_domain,
             dfm,
         )
