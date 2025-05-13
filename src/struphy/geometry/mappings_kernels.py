@@ -1,4 +1,4 @@
-from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan, zeros
+from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan, zeros, copy
 from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -8,7 +8,12 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not 
 from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
 def _tmp_floor_division_mapping_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
+
+def _do_things_mapping_kernels(x: 'float[:]'):
+    y = copy(x)
 
 @stack_array("b1", "b2", "b3", "tmp1", "tmp2", "tmp3")
 def spline_3d(

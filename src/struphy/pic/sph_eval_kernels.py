@@ -1,9 +1,11 @@
-from numpy import sqrt
+from numpy import sqrt, zeros, copy
 
 import struphy.pic.sorting_kernels as sorting_kernels
 import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
 
 def _tmp_floor_division_sph_eval_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 def distance(x: "float", y: "float", periodic: "bool") -> float:

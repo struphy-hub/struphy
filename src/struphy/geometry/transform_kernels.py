@@ -45,7 +45,7 @@
 
 from pyccel.decorators import stack_array
 
-from numpy import shape, empty, sqrt, zeros
+from numpy import shape, empty, sqrt, zeros, copy
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
@@ -54,6 +54,8 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not r
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 def _tmp_floor_division_transform_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @stack_array('dfmat1', 'dfmat2')

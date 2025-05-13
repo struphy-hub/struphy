@@ -1,5 +1,5 @@
 from pyccel.decorators import pure, stack_array
-from numpy import empty
+from numpy import empty, zeros, copy
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels 
 import struphy.pic.accumulation.filler_kernels as filler_kernels 
@@ -9,6 +9,8 @@ import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not r
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 def _tmp_floor_division_utilities_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @pure
@@ -95,7 +97,7 @@ def l2_projection_V0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
 #     nel2 = spans2.size
 #     nel3 = spans3.size
 
-#     #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value, il1, il2, il3, i1, i2, i3)
+#     # -- removed omp: #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value, il1, il2, il3, i1, i2, i3)
 #     for iel1 in range(nel1):
 #         for iel2 in range(nel2):
 #             for iel3 in range(nel3):
@@ -116,7 +118,7 @@ def l2_projection_V0(pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float
 #                                             coeffs[i1, i2, i3]
 
 #                             data[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = value
-#     #$ omp end parallel
+#     # -- removed omp: #$ omp end parallel
 
 
 # ================= 3d =================================
@@ -137,7 +139,7 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
     G = empty((3, 3), dtype=float)
     value_new = empty(3, dtype=float)
 
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
+    # -- removed omp: #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
     for iel1 in range(nel1):
         for iel2 in range(nel2):
             for iel3 in range(nel3):
@@ -199,4 +201,4 @@ def hybrid_weight(pads1: int, pads2: int, pads3: int,
                                 value_new[1]
                             data3[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = \
                                 value_new[2]
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel

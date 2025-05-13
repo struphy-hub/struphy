@@ -1,4 +1,4 @@
-from numpy import shape, zeros
+from numpy import shape, zeros, copy
 from pyccel.decorators import stack_array
 
 # import modules for B-spline evaluation
@@ -13,6 +13,8 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 def _tmp_floor_division_sampling_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @stack_array("e", "v")

@@ -1,6 +1,6 @@
 "Initialization routines (initial guess, evaluations) for 5D gyro-center pusher kernels."
 
-from numpy import abs, empty, log, mod, shape, size, sqrt, zeros
+from numpy import abs, empty, log, mod, shape, size, sqrt, zeros, copy
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -22,6 +22,8 @@ from struphy.bsplines.evaluation_kernels_3d import (
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 def _tmp_floor_division_eval_kernels_gc(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @stack_array("eta_k", "eta_n", "eta")

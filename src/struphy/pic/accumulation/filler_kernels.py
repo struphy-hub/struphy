@@ -10,11 +10,13 @@ __all__ = [ 'fill_mat',
             'fill_mat_vec_pressure'
             ]
 """
-
+from numpy import copy, zeros
 from pyccel.decorators import pure
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
 def _tmp_floor_division_filler_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @pure

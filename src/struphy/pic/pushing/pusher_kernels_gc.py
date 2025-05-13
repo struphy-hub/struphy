@@ -1,6 +1,6 @@
 "Pusher kernels for gyro-center (5D) dynamics."
 
-from numpy import empty, mod, shape, sqrt, zeros
+from numpy import empty, mod, shape, sqrt, zeros, copy
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -21,6 +21,8 @@ from struphy.bsplines.evaluation_kernels_3d import (
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 def _tmp_floor_division_pusher_kernels_gc(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @stack_array("dfm", "unit_b1", "e_star", "e_field", "Exb", "k")
@@ -2107,8 +2109,8 @@ def push_gc_cc_J1_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, span1, span2, span3, b, u, e, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
-    #$ omp for
+    # -- removed omp: #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, span1, span2, span3, b, u, e, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
+    # -- removed omp: #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -2202,7 +2204,7 @@ def push_gc_cc_J1_Hdiv(
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array(
@@ -2509,8 +2511,8 @@ def push_gc_cc_J2_stage_Hdiv(
     else:
         last = 0.0
 
-    #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, tmp1, tmp2, abs_b_star_para)
-    #$ omp for
+    # -- removed omp: #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, tmp1, tmp2, abs_b_star_para)
+    # -- removed omp: #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
         if markers[ip, first_init_idx] == -1.0:
@@ -2642,4 +2644,4 @@ def push_gc_cc_J2_stage_Hdiv(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel

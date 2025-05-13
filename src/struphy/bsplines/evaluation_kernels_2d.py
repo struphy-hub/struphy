@@ -17,11 +17,13 @@ Possible combinations for tensor product (BB):
 """
 from pyccel.decorators import pure, stack_array
 
-from numpy import empty, zeros
+from numpy import empty, zeros, copy
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
 def _tmp_floor_division_evaluation_kernels_2d(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @pure

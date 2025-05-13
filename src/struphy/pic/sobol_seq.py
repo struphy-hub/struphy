@@ -17,12 +17,15 @@
 
 from __future__ import division
 import numpy as np
+from numpy import zeros, copy
 from scipy.stats import norm
 
 __all__ = ['i4_bit_hi1', 'i4_bit_lo0', 'i4_sobol_generate',
            'i4_sobol', 'i4_uniform', 'prime_ge', 'is_prime']
 
 def _tmp_floor_sobol_seq(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 

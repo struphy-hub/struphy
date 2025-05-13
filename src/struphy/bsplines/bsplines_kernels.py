@@ -3,10 +3,12 @@
 """
 Basic functions for point-wise B-spline evaluation
 """
-from numpy import empty, zeros
+from numpy import empty, zeros, copy
 from pyccel.decorators import pure, stack_array, allow_negative_index
 
 def _tmp_floor_division_bsplines_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 @pure

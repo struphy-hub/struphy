@@ -17,8 +17,8 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
 
     # ======================================================================================
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -36,11 +36,11 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
 
                             b1value[ie1, ie2, ie3, q1, q2, q3] = value  
     
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -57,11 +57,11 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
                                         value += bn1[ie1, il1, 0, q1] * bd2[ie2, il2, 0, q2] * bn3[ie3, il3, 0, q3] * b2[idnx[ie1, il1],iddy[ie2, il2], idnz[ie3, il3]]
 
                             b2value[ie1, ie2, ie3, q1, q2, q3] = value  
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -78,11 +78,11 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
                                         value += bn1[ie1, il1, 0, q1] * bn2[ie2, il2, 0, q2] * bd3[ie3, il3, 0, q3] * b3[idnx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]]
 
                             b3value[ie1, ie2, ie3, q1, q2, q3] = value  
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, generate_weight1, generate_weight3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, generate_weight1, generate_weight3)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -106,8 +106,8 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
                             b2value[ie1,ie2,ie3,q1,q2,q3] = generate_weight1[1]
                             b3value[ie1,ie2,ie3,q1,q2,q3] = generate_weight1[2]
 
-    #$ omp end do
-    #$ omp end parallel 
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel 
 
     
     ierr = 0 
@@ -120,8 +120,8 @@ def bvright2(DFI_11, DFI_12, DFI_13, DFI_21, DFI_22, DFI_23, DFI_31, DFI_32, DFI
     # ======================================================================================
 
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, detdet, generate_weight1, generate_weight3, Jeq)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, detdet, generate_weight1, generate_weight3, Jeq)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -152,8 +152,8 @@ def bvright2(DFI_11, DFI_12, DFI_13, DFI_21, DFI_22, DFI_23, DFI_31, DFI_32, DFI
                             b2value[ie1,ie2,ie3,q1,q2,q3] = detdet * uvalue[ie1,ie2,ie3,q1,q2,q3] * (generate_weight3[2]*generate_weight1[0] - generate_weight3[0]*generate_weight1[2])
                             b3value[ie1,ie2,ie3,q1,q2,q3] = detdet * uvalue[ie1,ie2,ie3,q1,q2,q3] * (generate_weight3[0]*generate_weight1[1] - generate_weight3[1]*generate_weight1[0])
 
-    #$ omp end do
-    #$ omp end parallel 
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel 
 
     
     ierr = 0 

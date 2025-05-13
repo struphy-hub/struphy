@@ -1,4 +1,4 @@
-from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros
+from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros, copy
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -17,6 +17,8 @@ from struphy.bsplines.evaluation_kernels_3d import (
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 def _tmp_floor_division_pic_utilities_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
     return x // 2
 
 
@@ -212,7 +214,7 @@ def eval_magnetic_background_energy(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, abs_B)
+    # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, abs_B)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -238,7 +240,7 @@ def eval_magnetic_background_energy(
 
         markers[ip, first_diagnostics_idx] = mu * abs_B
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array("dfm", "norm_b1", "b")
@@ -267,7 +269,7 @@ def eval_magnetic_energy(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, b, b_para, abs_B, norm_b1, dfm, det_df)
+    # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, mu, span1, span2, span3, b, b_para, abs_B, norm_b1, dfm, det_df)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -331,7 +333,7 @@ def eval_magnetic_energy(
 
         markers[ip, first_diagnostics_idx] = mu * (abs_B + b_para)
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
@@ -661,8 +663,8 @@ def canonical_kinetic_particles(
 
     # get number of markers
     n_markers = shape(markers)[0]
-    #$ omp parallel private (ip, v, w, dfm, dfinv, dfinv_t, span1, span2, span3, a_form, dfta_form)
-    #$ omp for reduction( + : res)
+    # -- removed omp: #$ omp parallel private (ip, v, w, dfm, dfinv, dfinv_t, span1, span2, span3, a_form, dfta_form)
+    # -- removed omp: #$ omp for reduction( + : res)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -706,7 +708,7 @@ def canonical_kinetic_particles(
 
         res[0] += 0.5 * w * ((v[0] - dfta_form[0]) ** 2.0 + (v[1] - dfta_form[1]) ** 2.0 + (v[2] - dfta_form[2]) ** 2.0)
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array("det_df", "dfm")
@@ -772,8 +774,8 @@ def thermal_energy(
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
 
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, dfm, det_df)
-    #$ omp for reduction( + : res)
+    # -- removed omp: #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, eta1, eta2, eta3, wvol, vv, dfm, det_df)
+    # -- removed omp: #$ omp for reduction( + : res)
     for iel1 in range(nel1):
         for iel2 in range(nel2):
             for iel3 in range(nel3):
@@ -804,4 +806,4 @@ def thermal_energy(
                             det_df = linalg_kernels.det(dfm)
 
                             res[0] += vv * det_df * log(vv) * wvol
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
