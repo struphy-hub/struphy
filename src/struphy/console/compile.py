@@ -286,7 +286,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         cmd = [
             "psydac-accelerate",
             "--language=" + language,
-            # "--compiler=" + compiler, # Compiler flag not implemented yet
+            "--compiler=" + compiler,
         ]
         subp_run(cmd)
 
