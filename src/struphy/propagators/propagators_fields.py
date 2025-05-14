@@ -6079,11 +6079,11 @@ class VariationalPBEvolve(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.bf = self.derham.create_field("bf", "Hdiv")
-        self.pf = self.derham.create_field("pf", "L2")
+        self.bf = self.derham.create_spline_function("bf", "Hdiv")
+        self.pf = self.derham.create_spline_function("pf", "L2")
 
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
+        self.uf = self.derham.create_spline_function("uf", "H1vec")
+        self.uf1 = self.derham.create_spline_function("uf1", "H1vec")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -8599,7 +8599,7 @@ class HasegawaWakatani(Propagator):
 
         # default c-function
         if c_fun is None:
-            c_fun = lambda e1, e2, e3: 0.0 * e1 + 1.0
+            c_fun = lambda e1, e2, e3: 1.0 + 0.0*e1
 
         # expose equation parameters
         self._kappa = kappa
@@ -8615,10 +8615,10 @@ class HasegawaWakatani(Propagator):
         print(f"{self._c_at_pts.shape = }")
 
         # evaluate phi at local quadrature grid
-
         self._spans, self._bns, self._bnd = self.derham.prepare_eval_tp_fixed(pts)
         self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
         print(f"{self._phi_at_pts.shape = }")
+        #exit()
 
         # grad operator
         grad = self.derham.grad
