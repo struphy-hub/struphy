@@ -25,7 +25,7 @@ from pyccel.decorators import stack_array
 
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
-# import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments#, DomainArguments
 
 def do_things(x: 'float[:]'):
