@@ -30,9 +30,6 @@ dependencies = [
     'vtk',
     'tqdm',
     'argcomplete',
-    'tabulate',
-    'pandas',
-    'plotly',
 ]
 
 [project.optional-dependencies]
@@ -54,6 +51,7 @@ dev = [
     'add-trailing-comma',
     'ruff>=0.9.1',
     'pre-commit',
+    'tabulate',
 ]
 doc = [
     'sphinx',
@@ -72,6 +70,8 @@ likwid = [
     'struphy[dev]',
     'kaleido',
     'pylikwid',
+    'pandas',
+    'plotly',
 ]
 
 
