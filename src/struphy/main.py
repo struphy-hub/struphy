@@ -1,36 +1,41 @@
-from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
+#from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
+from pusher_kernels_gpu import matmul_gpu, matmul_cpu
+
 import numpy as np
 import time
 
-def gpu_warmup():
-    N: int = 2**10
-    A = np.zeros((N, N))
-    B = np.zeros((N, N))
-    for i in range(N):
-        for j in range(N):
-            A[i,j] = 1.0 * (i + 1) * (j + 1)
-            B[i,j] = 1.0 * (i + 1) / (j + 1)
-    C_cpu = np.empty((N, N), dtype=np.float64)
-    C_gpu = np.empty((N, N), dtype=np.float64)
+def gpu_warmup(N = 2000):
+    A = np.random.random((N, N))
+    B = np.random.random((N, N))
+    
+    C_cpu = np.empty((N, N))
+    C_gpu = np.empty((N, N))
 
     # Warm-up GPU offloading (optional)
     # matmul_gpu(A, B, C_gpu)
-    
+    print(f'matrix size: {N}')
     print('Start matmul_cpu')
     # Time CPU matrix multiplication.
     start_cpu = time.time()
     matmul_cpu(A, B, C_cpu)
     elapsed_cpu = time.time() - start_cpu
-    print("warming up gpu")
-    matmul_gpu(A, B, C_gpu)
 
-    print('Start matmul_gpu', matmul_gpu)
+    matmul_gpu(A, B, C_gpu)
+    print('End matmul_cpu')
+    # print("warming up gpu")
+    # matmul_gpu(A, B, C_gpu)
+    print('Start matmul_gpu')
     # Time GPU matrix multiplication.
     start_gpu = time.time()
+    #while True:    
     matmul_gpu(A, B, C_gpu)
     elapsed_gpu = time.time() - start_gpu
-    print(C_cpu - C_gpu)
-
+    print('End matmul_gpu')
+    # print(f"{A = }")
+    # print(f"{B = }")
+    # print(f"{C_cpu = }")
+    # print(f"{C_gpu = }")
+    print(f"{np.allclose(C_cpu, C_gpu) = }")
     print(f"{elapsed_cpu = }")
     print(f"{elapsed_gpu = }")
 
@@ -350,7 +355,6 @@ def main(
 
 
 if __name__ == "__main__":
-    
     gpu_warmup()
     import argparse
     import os
