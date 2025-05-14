@@ -13,28 +13,16 @@ def test_gvec_equil():
 
     import os
 
-    # if gvec_spec is None:
-    #     from struphy.console.run import subp_run
-    #     from struphy.utils.utils import read_state
-    #     cmd = ['pip', 'install', '-U', 'gvec-to-python',]
-    #     subp_run(cmd)
-    #     state = read_state()
-    #     language = state["last_used_language"]
-    #     compiler = state["last_used_compiler"]
-    #     cmd = [
-    #         "compile-gvec-tp",
-    #         "--language=" + language,
-    #         "--compiler=" + compiler,
-    #     ]
-    #     subp_run(cmd)
-    from gvec_to_python import GVEC
-    from gvec_to_python.geometry.domain import GVEC_domain
-    from gvec_to_python.reader.gvec_reader import create_GVEC_json
+    
 
     from struphy.fields_background.equils import GVECequilibrium
 
     # struphy discrete equilibirum
     mhd_equil = GVECequilibrium(rmin=0.0)
+
+    from gvec_to_python import GVEC
+    from gvec_to_python.geometry.domain import GVEC_domain
+    from gvec_to_python.reader.gvec_reader import create_GVEC_json
 
     # gvec continuous equilibirum
     import struphy
