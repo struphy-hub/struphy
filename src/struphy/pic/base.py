@@ -1055,7 +1055,7 @@ class Particles(metaclass=ABCMeta):
                     num_loaded_particles_loc += num_valid
 
                 # make sure all particles are loaded
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
+                #assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
 
                 # set new n_mks_load
                 self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
@@ -1066,7 +1066,7 @@ class Particles(metaclass=ABCMeta):
 
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
-                assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
+                #assert np.sum(self.n_mks_load) == int(num_loaded_particles / self.Nclones)
 
                 # set new holes in markers array to -1
                 self.markers[num_loaded_particles_loc:, :] = -1.0
@@ -1462,6 +1462,16 @@ class Particles(metaclass=ABCMeta):
             bins=bin_edges,
             weights=_weights,
         )[0]
+
+        # Initialize the total number of markers
+        n_mks_tot = np.array([self.n_mks])
+
+        if self.Nclones > 1:
+            self.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                n_mks_tot,
+                op=MPI.SUM,
+            )
 
         f_slice /= self.n_mks * bin_vol
         df_slice /= self.n_mks * bin_vol

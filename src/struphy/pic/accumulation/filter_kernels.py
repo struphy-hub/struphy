@@ -70,6 +70,8 @@ def apply_three_point_filter_3d(
     elif form == 2:
         isDspline[:] = 1
         isDspline[dir] = 0
+    elif form == 3:
+        isDspline[:] = 1
 
     for i in range(3):
         if spl_kind[i]:

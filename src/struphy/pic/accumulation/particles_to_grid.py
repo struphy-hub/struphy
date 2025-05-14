@@ -645,7 +645,6 @@ class AccumulatorVector:
             *optional_args,
         )
 
-
         # apply filter
         if self.filter_params["use_filter"] is not None:
 
@@ -667,42 +666,7 @@ class AccumulatorVector:
                         if self.space_id in ("H1", "L2"):
                             filters.apply_three_point_filter_3d(
                                 vec._data,
-                                i,
-                                form,
-                                np.array(self.derham.Nel),
-                                np.array(self.derham.spl_kind),
-                                np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
-                                alpha=self.filter_params["alpha"],
-                            )
-
-                            vec.update_ghost_regions()
-
-                        else:
-                            for i in range(3):
-                                filters.apply_three_point_filter_3d(
-                                    vec[i]._data,
-                                    i,
-                                    form,
-                                    np.array(self.derham.Nel),
-                                    np.array(self.derham.spl_kind),
-                                    np.array(self.derham.p),
-                                    np.array(self.derham.Vh[self.form][i].starts),
-                                    np.array(self.derham.Vh[self.form][i].ends),
-                                    alpha=self.filter_params["alpha"],
-                                )
-
-                            vec.update_ghost_regions()
-
-                elif self.filter_params["use_filter"] == "hybrid":
-                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
-
-                    for _ in range(self.filter_params["repeat"]):
-                        if self.space_id in ("H1", "L2"):
-                            filters.apply_three_point_filter_3d(
-                                vec._data,
-                                i,
+                                0,
                                 form,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
@@ -735,13 +699,13 @@ class AccumulatorVector:
                         if self.space_id in ("H1", "L2"):
                             filters.apply_three_point_filter_3d(
                                 vec._data,
-                                i,
+                                0,
                                 form,
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
+                                np.array(self.derham.Vh[self.form].starts),
+                                np.array(self.derham.Vh[self.form].ends),
                                 alpha=self.filter_params["alpha"],
                             )
 
@@ -882,8 +846,8 @@ class AccumulatorVector:
         assert self.derham.domain_decomposition.nprocs[2] == 1
 
         if self.space_id in ("H1", "L2"):
-            starts = self.derham.Vh[ſelf.form][axis].starts
-            ends = self.derham.Vh[self.form][axis].ends
+            starts = self.derham.Vh[ſelf.form].starts
+            ends = self.derham.Vh[self.form].ends
 
             # index range
             for i in range(3):
