@@ -1,13 +1,13 @@
 "Available fluid backgrounds:"
 
+import importlib.util
+import os
 import warnings
 from time import time
+
 import numpy as np
-import os
-import importlib.util
 
 from struphy.console.run import subp_run
-from struphy.utils.utils import read_state
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -23,6 +23,7 @@ from struphy.fields_background.base import (
     NumericalFluidEquilibriumWithB,
     NumericalMHDequilibrium,
 )
+from struphy.utils.utils import read_state
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -2153,11 +2154,15 @@ class GVECequilibrium(NumericalMHDequilibrium):
     """
 
     def __init__(self, units=None, **params):
-        
         # install if necessary
-        gvec_spec = importlib.util.find_spec('gvec_to_python')
+        gvec_spec = importlib.util.find_spec("gvec_to_python")
         if gvec_spec is None:
-            cmd = ['pip', 'install', '-U', 'gvec-to-python',]
+            cmd = [
+                "pip",
+                "install",
+                "-U",
+                "gvec-to-python",
+            ]
             subp_run(cmd)
             state = read_state()
             language = state["last_used_language"]
@@ -2501,11 +2506,16 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         t = time()
         # install if necessary
-        desc_spec = importlib.util.find_spec('desc')
+        desc_spec = importlib.util.find_spec("desc")
         if desc_spec is None:
-            cmd = ['pip', 'install', '-U', 'desc-opt',]
+            cmd = [
+                "pip",
+                "install",
+                "-U",
+                "desc-opt",
+            ]
             subp_run(cmd)
-            
+
         import desc
 
         print(f"DESC import: {time() - t} seconds")

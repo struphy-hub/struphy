@@ -1,9 +1,11 @@
-import pytest
-import numpy as np
-from matplotlib import pyplot as plt
 import importlib.util
 
-desc_spec = importlib.util.find_spec('desc')
+import numpy as np
+import pytest
+from matplotlib import pyplot as plt
+
+desc_spec = importlib.util.find_spec("desc")
+
 
 @pytest.mark.mpi_skip
 @pytest.mark.skipif(desc_spec is None, reason="desc-opt not installed.")
