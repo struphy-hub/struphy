@@ -23,15 +23,6 @@ def struphy():
     # struphy path
     import struphy
     import struphy.utils.utils as utils
-    from struphy.console.compile import struphy_compile
-    from struphy.console.format import struphy_format, struphy_lint
-    from struphy.console.likwid import struphy_likwid_profile
-    from struphy.console.params import struphy_params
-    from struphy.console.pproc import struphy_pproc
-    from struphy.console.profile import struphy_profile
-    from struphy.console.run import struphy_run
-    from struphy.console.test import struphy_test
-    from struphy.console.units import struphy_units
 
     libpath = struphy.__path__[0]
 
@@ -1147,8 +1138,27 @@ def struphy():
         print("Done.")
         exit()
 
-    # load sub-command function (see functions below)
-    func = locals()["struphy_" + args.command]
+    # load sub-command function
+    if args.command == "compile":
+        from struphy.console.compile import struphy_compile as func
+    elif args.command == "lint":
+        from struphy.console.format import struphy_lint as func
+    elif args.command == "lint":
+        from struphy.console.format import struphy_format as func
+    elif args.command == "likwid_profile":
+        from struphy.console.likwid import struphy_likwid_profile as func
+    elif args.command == "params":
+        from struphy.console.params import struphy_params as func
+    elif args.command == "pproc":
+        from struphy.console.pproc import struphy_pproc as func
+    elif args.command == "profile":
+        from struphy.console.profile import struphy_profile as func
+    elif args.command == "run":
+        from struphy.console.run import struphy_run as func
+    elif args.command == "test":
+        from struphy.console.test import struphy_test as func
+    elif args.command == "units":
+        from struphy.console.units import struphy_units as func
 
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
@@ -1171,10 +1181,7 @@ def struphy():
     # start sub-command function with all parameters of that function
     # for k, v in kwargs.items():
     #     print(k, v)
-    # exit()
-    # print(f"{kwargs = }")
     func(**kwargs)
-
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
     """
