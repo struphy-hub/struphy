@@ -300,7 +300,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
             flags += " --verbose"
 
         # compilation
-        gvec_spec = importlib.util.find_spec('gvec-to-python')
+        gvec_spec = importlib.util.find_spec('gvec_to_python')
         if gvec_spec is not None:
             cmd = [
                 "compile-gvec-tp",

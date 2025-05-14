@@ -173,7 +173,7 @@ stages:
     - pip install -e $(echo $STRUPHY_SOURCE)[test]
     - !reference [.scripts, compile_matrix]
   install:
-    - pip install $(echo $STRUPHY_SOURCE)[test]
+    - pip install $(echo $STRUPHY_SOURCE)[phys,test]
     - pip show struphy
     - pip list
     - struphy -h
