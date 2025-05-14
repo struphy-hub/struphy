@@ -170,10 +170,10 @@ stages:
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
-    - pip install -e $(echo $STRUPHY_SOURCE)[test]
+    - pip install -e $(echo $STRUPHY_SOURCE)
     - !reference [.scripts, compile_matrix]
   install:
-    - pip install $(echo $STRUPHY_SOURCE)[phys,test]
+    - pip install $(echo $STRUPHY_SOURCE)[phys]
     - pip show struphy
     - pip list
     - struphy -h
@@ -438,7 +438,7 @@ test_build:
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, build]
-    - pip install $(echo dist/struphy*.whl)[test] --no-cache-dir
+    - pip install $(echo dist/struphy*.whl) --no-cache-dir
 
 unit_tests_scheduled:
   stage: test

@@ -220,13 +220,13 @@ For running (parallel) tests:
 
         .. code-block::
 
-            pip install --no-cache-dir -U struphy[test]
+            pip install --no-cache-dir -U struphy
 
     .. tab-item:: zsh
 
         .. code-block::
 
-            pip install --no-cache-dir -U struphy"[test]"
+            pip install --no-cache-dir -U struphy
 
 Compile kernels in ``c`` (default)::
 
@@ -284,7 +284,6 @@ Struphy features optional dependencies:
     .. tab-item:: bash
 
         * ``pip install .[phys]`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
-        * ``pip install .[test]`` enables (parallel) tests
         * ``pip install .[dev]`` enables the development environment (testing, linting, formatting)
         * ``pip install .[doc]`` enables :ref:`change_doc`
 
@@ -293,7 +292,6 @@ Struphy features optional dependencies:
     .. tab-item:: zsh
 
         * ``pip install ."[phys]"`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
-        * ``pip install ."[test]"`` enables (parallel) tests
         * ``pip install ."[dev]"`` enables the development environment (testing, linting, formatting)
         * ``pip install ."[doc]"`` enables :ref:`change_doc`
 

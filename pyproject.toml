@@ -30,6 +30,8 @@ dependencies = [
     'vtk',
     'tqdm',
     'argcomplete',
+    'pytest',
+    'pytest-mpi',
 ]
 
 [project.optional-dependencies]
@@ -37,12 +39,7 @@ phys = [
     'gvec-to-python',
     'desc-opt',
 ]
-test = [
-    'pytest',
-    'pytest-mpi',
-]
 dev = [
-    'struphy[test]',
     'notebook',
     'autopep8',
     'isort',
