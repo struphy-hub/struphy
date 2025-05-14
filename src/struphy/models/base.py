@@ -615,7 +615,7 @@ class StruphyModel(metaclass=ABCMeta):
         for prop in self.propagators:
             prop.add_time_state(time_state)
 
-    def init_propagators(self):
+    def init_propagators(self, gpu=False):
         """Initialize the propagator objects specified in :attr:`~propagators_cls`."""
         if self.rank_world == 0 and self.verbose:
             print("\nPROPAGATORS:")
@@ -638,10 +638,11 @@ class StruphyModel(metaclass=ABCMeta):
                             print(f"{k}: {repr(v)}")
                         else:
                             print(f"{k}: {v}")
-
+                print(f'{kwargs_i = } {prop = }')
                 prop_instance = prop(
                     *[self.pointer[var] for var in variables],
                     **kwargs_i,
+                    gpu=gpu,
                 )
                 assert isinstance(prop_instance, Propagator)
                 self._propagators += [prop_instance]

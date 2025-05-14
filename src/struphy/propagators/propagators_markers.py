@@ -18,8 +18,8 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
 
-# from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
-from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
+from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
+# from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
@@ -161,7 +161,7 @@ class PushVxB(Propagator):
         kappa: float = 1.0,
         b2: BlockVector | PolarVector,
         b2_add: BlockVector | PolarVector = None,
-        gpu=True,
+        gpu=False,
     ):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         assert b2.space == self.derham.Vh["2"]
@@ -177,13 +177,14 @@ class PushVxB(Propagator):
         self._b2_add = b2_add
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
-
         # define pusher kernel
         if gpu:
             if algo == "analytic":
-                kernel = push_vxb_analytic_gpu
+                kernel = pusher_kernels.push_vxb_analytic
+                # kernel = push_vxb_analytic_gpu
             elif algo == "implicit":
-                kernel = push_vxb_implicit_gpu
+                kernel = pusher_kernels.push_vxb_implicit
+                # kernel = push_vxb_implicit_gpu
             else:
                 raise ValueError(f"{algo = } not supported.")
         else:

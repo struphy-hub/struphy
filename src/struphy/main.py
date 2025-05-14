@@ -1,5 +1,5 @@
-#from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
-from pusher_kernels_gpu import matmul_gpu, matmul_cpu
+from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
+# from pusher_kernels_gpu import matmul_gpu, matmul_cpu
 
 import numpy as np
 import time
@@ -51,6 +51,7 @@ def main(
     supress_out: bool = False,
     sort_step: int = 0,
     num_clones: int = 1,
+    gpu = True,
 ):
     """
     Run a Struphy model.
@@ -163,7 +164,7 @@ def main(
             pass
 
     with ProfileManager.profile_region("model_class_setup"):
-        model = model_class(params=params, comm=comm, clone_config=clone_config)
+        model = model_class(params=params, comm=comm, clone_config=clone_config, gpu=gpu)
 
     assert isinstance(model, StruphyModel)
 
@@ -355,7 +356,7 @@ def main(
 
 
 if __name__ == "__main__":
-    gpu_warmup()
+    # gpu_warmup()
     import argparse
     import os
 
