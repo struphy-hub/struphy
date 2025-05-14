@@ -1,14 +1,31 @@
 import numpy as np
 import pytest
+import importlib.util
 
+gvec_spec = importlib.util.find_spec('gvec_to_python')
 
 @pytest.mark.mpi_skip
+@pytest.mark.skipif(gvec_spec is None, reason="gvec-to-python not installed.")
 def test_gvec_equil():
     """Test the workflow of creating a gvec mhd equilibirum and compares struphy with gvec_to_python evaluations."""
 
     import os
+    
+    # if gvec_spec is None:
+    #     from struphy.console.run import subp_run
+    #     from struphy.utils.utils import read_state
+    #     cmd = ['pip', 'install', '-U', 'gvec-to-python',]
+    #     subp_run(cmd)
+    #     state = read_state()
+    #     language = state["last_used_language"]
+    #     compiler = state["last_used_compiler"]
+    #     cmd = [
+    #         "compile-gvec-tp",
+    #         "--language=" + language,
+    #         "--compiler=" + compiler,
+    #     ]
+    #     subp_run(cmd)
 
-    import numpy as np
     from gvec_to_python import GVEC
     from gvec_to_python.geometry.domain import GVEC_domain
     from gvec_to_python.reader.gvec_reader import create_GVEC_json

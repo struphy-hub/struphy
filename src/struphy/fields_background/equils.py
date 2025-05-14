@@ -2,9 +2,12 @@
 
 import warnings
 from time import time
-
 import numpy as np
+import os
+import importlib.util
 
+from struphy.console.run import subp_run
+from struphy.utils.utils import read_state
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -2150,7 +2153,21 @@ class GVECequilibrium(NumericalMHDequilibrium):
     """
 
     def __init__(self, units=None, **params):
-        import os
+        
+        # install if necessary
+        gvec_spec = importlib.util.find_spec('gvec_to_python')
+        if gvec_spec is None:
+            cmd = ['pip', 'install', '-U', 'gvec-to-python',]
+            subp_run(cmd)
+            state = read_state()
+            language = state["last_used_language"]
+            compiler = state["last_used_compiler"]
+            cmd = [
+                "compile-gvec-tp",
+                "--language=" + language,
+                "--compiler=" + compiler,
+            ]
+            subp_run(cmd)
 
         from gvec_to_python import GVEC
         from gvec_to_python.reader.gvec_reader import create_GVEC_json
@@ -2483,6 +2500,12 @@ class DESCequilibrium(NumericalMHDequilibrium):
         import os
 
         t = time()
+        # install if necessary
+        desc_spec = importlib.util.find_spec('desc')
+        if desc_spec is None:
+            cmd = ['pip', 'install', '-U', 'desc-opt',]
+            subp_run(cmd)
+            
         import desc
 
         print(f"DESC import: {time() - t} seconds")
