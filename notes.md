@@ -8,3 +8,4 @@ export HSA_XNACK=1
 export OFFLOAD_TRACK_ALLOCATION_TRACES=true
 export LD_LIBRARY_PATH=/mpcdf/soft/RHEL_9/packages/x86_64/gcc/14.1.0/lib64:$LD_LIBRARY_PATH
 
+# Check the kernel in src/struphy/propagators/propagators_markers.py
