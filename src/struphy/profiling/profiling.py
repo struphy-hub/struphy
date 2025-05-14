@@ -11,8 +11,14 @@ using LIKWID markers. It includes:
 LIKWID is imported only when profiling is enabled to avoid unnecessary overhead.
 """
 
+import os
+import pickle
+
 # Import the profiling configuration class and context manager
 from functools import lru_cache
+
+import numpy as np
+from mpi4py import MPI
 
 
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports
@@ -23,9 +29,7 @@ def _import_pylikwid():
 
 
 class ProfilingConfig:
-    """
-    Singleton class for managing global profiling configuration.
-    """
+    """Singleton class for managing global profiling configuration."""
 
     _instance = None
 
@@ -34,153 +38,301 @@ class ProfilingConfig:
             cls._instance = super().__new__(cls)
             cls._instance.likwid = False  # Default value (profiling disabled)
             cls._instance.simulation_label = ""
+            cls._instance.sample_duration = None
+            cls._instance.sample_interval = None
+            cls._instance.time_trace = False
         return cls._instance
 
-    def set_likwid(self, value, simulation_label=""):
-        """
-        Set the profiling flag to enable or disable profiling.
+    @property
+    def likwid(self):
+        return self._likwid
 
-        Parameters
-        ----------
-        value: bool
-            True to enable profiling, False to disable.
-        """
-        self.likwid = value
+    @likwid.setter
+    def likwid(self, value):
+        self._likwid = value
 
-    def set_simulation_label(self, value):
-        """
-        Set the label for the simulation. When profiling a region,
-        the region_name will be appended to the label.
+    @property
+    def simulation_label(self):
+        return self._simulation_label
 
-        Parameters
-        ----------
-        value: str
-            Label name
-        """
+    @simulation_label.setter
+    def simulation_label(self, value):
+        self._simulation_label = value
 
-        self.simulation_label = value
+    @property
+    def sample_duration(self):
+        return self._sample_duration
 
-    def get_likwid(self):
-        """
-        Get the current profiling configuration.
+    @sample_duration.setter
+    def sample_duration(self, value):
+        self._sample_duration = value
 
-        Returns:
-            bool: True if profiling is enabled, False otherwise.
-        """
-        return self.likwid
+    @property
+    def sample_interval(self):
+        return self._sample_interval
+
+    @sample_interval.setter
+    def sample_interval(self, value):
+        self._sample_interval = value
+
+    @property
+    def time_trace(self):
+        return self._time_trace
+
+    @time_trace.setter
+    def time_trace(self, value):
+        if value:
+            assert self.sample_interval is not None, "sample_interval must be set first!"
+            assert self.sample_duration is not None, "sample_duration must be set first!"
+        self._time_trace = value
 
 
-class ProfileRegion:
+class ProfileManager:
     """
-    Context manager for profiling specific code regions using LIKWID markers.
-
-    Attributes:
-    ----------
-    region_name: str
-        Name of the profiling region.
-
-    config: ProfilingConfig
-        Instance of ProfilingConfig for accessing profiling settings.
+    Singleton class to manage and track all ProfileRegion instances.
     """
 
-    def __init__(self, region_name):
+    _regions = {}
+
+    @classmethod
+    def profile_region(cls, region_name):
         """
-        Initialize the ProfileRegion context manager.
+        Get an existing ProfileRegion by name, or create a new one if it doesn't exist.
 
         Parameters
         ----------
         region_name: str
-            Name of the profiling region.
+            The name of the profiling region.
+
+        Returns
+        -------
+        ProfileRegion: The ProfileRegion instance.
+        """
+        if region_name in cls._regions:
+            return cls._regions[region_name]
+        else:
+            # Check if time profiling is enabled
+            _config = ProfilingConfig()
+            # Create and register a new ProfileRegion
+            new_region = ProfileRegion(region_name, time_trace=_config.time_trace)
+            cls._regions[region_name] = new_region
+            return new_region
+
+    @classmethod
+    def get_region(cls, region_name):
+        """
+        Get a registered ProfileRegion by name.
+
+        Parameters
+        ----------
+        region_name: str
+            The name of the profiling region.
+
+        Returns
+        -------
+        ProfileRegion or None: The registered ProfileRegion instance or None if not found.
+        """
+        return cls._regions.get(region_name)
+
+    @classmethod
+    def get_all_regions(cls):
+        """
+        Get all registered ProfileRegion instances.
+
+        Returns
+        -------
+        dict: Dictionary of all registered ProfileRegion instances.
+        """
+        return cls._regions
+
+    @classmethod
+    def save_to_pickle(cls, file_path):
+        """
+        Save profiling data to a single file using pickle and NumPy arrays in parallel.
+
+        Parameters
+        ----------
+        file_path: str
+            Path to the file where data will be saved.
         """
 
-        self.config = ProfilingConfig()
-        # By default, self.config.simulation_label = ''
-        # --> self.region_name = region_name
-        self.region_name = self.config.simulation_label + region_name
+        _config = ProfilingConfig()
+        if not _config.time_trace:
+            print("time_trace is not set to True --> Time traces are not measured --> Skip saving...")
+            return
+
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+
+        # Prepare the data to be gathered
+        local_data = {}
+        for name, region in cls._regions.items():
+            local_data[name] = {
+                "ncalls": region.ncalls,
+                "durations": np.array(region.durations, dtype=np.float64),
+                "start_times": np.array(region.start_times, dtype=np.float64),
+                "end_times": np.array(region.end_times, dtype=np.float64),
+                "config": {
+                    "likwid": region.config.likwid,
+                    "simulation_label": region.config.simulation_label,
+                    "sample_duration": region.config.sample_duration,
+                    "sample_interval": region.config.sample_interval,
+                },
+            }
+
+        # Gather all data at the root process (rank 0)
+        all_data = comm.gather(local_data, root=0)
+
+        # Save the likwid configuration data
+        likwid_data = {}
+        if ProfilingConfig().likwid:
+            pylikwid = _import_pylikwid()
+
+            # Gather LIKWID-specific information
+            pylikwid.inittopology()
+            likwid_data["cpu_info"] = pylikwid.getcpuinfo()
+            likwid_data["cpu_topology"] = pylikwid.getcputopology()
+            pylikwid.finalizetopology()
+
+            likwid_data["numa_info"] = pylikwid.initnuma()
+            pylikwid.finalizenuma()
+
+            likwid_data["affinity_info"] = pylikwid.initaffinity()
+            pylikwid.finalizeaffinity()
+
+            pylikwid.initconfiguration()
+            likwid_data["configuration"] = pylikwid.getconfiguration()
+            pylikwid.destroyconfiguration()
+
+            likwid_data["groups"] = pylikwid.getgroups()
+
+        if rank == 0:
+            # Combine the data from all processes
+            combined_data = {"config": None, "rank_data": {f"rank_{i}": data for i, data in enumerate(all_data)}}
+
+            # Add the likwid data
+            if likwid_data:
+                combined_data["config"] = likwid_data
+
+            # Convert the file path to an absolute path
+            absolute_path = os.path.abspath(file_path)
+
+            # Save the combined data using pickle
+            with open(absolute_path, "wb") as file:
+                pickle.dump(combined_data, file)
+
+            print(f"Data saved to {absolute_path}")
+
+    @classmethod
+    def print_summary(cls):
+        """
+        Print a summary of the profiling data for all regions.
+        """
+
+        _config = ProfilingConfig()
+        if not _config.time_trace:
+            print("time_trace is not set to True --> Time traces are not measured --> Skip printing summary...")
+            return
+
+        print("Profiling Summary:")
+        print("=" * 40)
+        for name, region in cls._regions.items():
+            if region.ncalls > 0:
+                total_duration = sum(region.durations)
+                average_duration = total_duration / region.ncalls
+                min_duration = min(region.durations)
+                max_duration = max(region.durations)
+                std_duration = np.std(region.durations)
+            else:
+                total_duration = average_duration = min_duration = max_duration = std_duration = 0
+
+            print(f"Region: {name}")
+            print(f"  Number of Calls: {region.ncalls}")
+            print(f"  Total Duration: {total_duration:.6f} seconds")
+            print(f"  Average Duration: {average_duration:.6f} seconds")
+            print(f"  Min Duration: {min_duration:.6f} seconds")
+            print(f"  Max Duration: {max_duration:.6f} seconds")
+            print(f"  Std Deviation: {std_duration:.6f} seconds")
+            print("-" * 40)
+
+
+class ProfileRegion:
+    """Context manager for profiling specific code regions using LIKWID markers."""
+
+    def __init__(self, region_name, time_trace=False):
+        if hasattr(self, "_initialized") and self._initialized:
+            return
+        self._config = ProfilingConfig()
+        self._region_name = self.config.simulation_label + region_name
+        self._time_trace = time_trace
+        self._ncalls = 0
+        self._start_times = []
+        self._end_times = []
+        self._durations = []
+        self._started = False
 
     def __enter__(self):
-        """
-        Enter the profiling context, starting the LIKWID marker if profiling is enabled.
-
-        Returns:
-            ProfileRegion: The current instance of ProfileRegion.
-        """
-        if self.config.get_likwid():
+        if self.config.likwid:
             self._pylikwid().markerstartregion(self.region_name)
+
+        self._ncalls += 1
+
+        if self._time_trace:
+            self._start_time = MPI.Wtime()
+            if self._start_time % self.config.sample_interval < self.config.sample_duration or self._ncalls == 1:
+                self._start_times.append(self._start_time)
+                self._started = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """
-        Exit the profiling context, stopping the LIKWID marker if profiling is enabled.
-
-        Args:
-            exc_type (type): The exception type, if any.
-            exc_value (Exception): The exception value, if any.
-            traceback (traceback): The traceback object, if any.
-        """
-        if self.config.get_likwid():
+        if self.config.likwid:
             self._pylikwid().markerstopregion(self.region_name)
+        if self._time_trace and self.started:
+            end_time = MPI.Wtime()
+            self._end_times.append(end_time)
+            self._durations.append(end_time - self._start_time)
+            self._started = False
 
     def _pylikwid(self):
-        """
-        Import and return the pylikwid module, caching the result to avoid repeated imports.
-
-        Returns:
-            module: The pylikwid module.
-        """
         return _import_pylikwid()
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def durations(self):
+        return self._durations
+
+    @property
+    def end_times(self):
+        return self._end_times
+
+    @property
+    def ncalls(self):
+        return self._ncalls
+
+    @property
+    def region_name(self):
+        return self._region_name
+
+    @property
+    def start_times(self):
+        return self._start_times
+
+    @property
+    def started(self):
+        return self._started
 
 
 def pylikwid_markerinit():
-    """
-    Initialize LIKWID profiling markers.
-
-    This function imports pylikwid only if profiling is enabled.
-    """
-    if ProfilingConfig().get_likwid():
+    """Initialize LIKWID profiling markers."""
+    if ProfilingConfig().likwid:
         _import_pylikwid().markerinit()
 
 
 def pylikwid_markerclose():
-    """
-    Close LIKWID profiling markers.
-
-    This function imports pylikwid only if profiling is enabled.
-    """
-    if ProfilingConfig().get_likwid():
+    """Close LIKWID profiling markers."""
+    if ProfilingConfig().likwid:
         _import_pylikwid().markerclose()
-
-
-def set_likwid(value):
-    """
-    Set the global profiling configuration.
-
-    Parameters
-    ----------
-    value: bool
-        True to enable profiling, False to disable.
-    """
-    ProfilingConfig().set_likwid(value)
-
-
-def set_simulation_label(value):
-    """
-    Set the simulation label
-
-    Parameters
-    ----------
-    value: str
-        Simulation label
-    """
-    # This allows  for running multiple simulations with different labels but where the regions have the same name.
-    ProfilingConfig().set_simulation_label(value)
-
-
-def get_likwid():
-    """
-    Get the current global profiling configuration.
-
-    Returns:
-        bool: True if profiling is enabled, False otherwise.
-    """
-    return ProfilingConfig().get_likwid()

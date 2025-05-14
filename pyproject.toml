@@ -22,25 +22,24 @@ dependencies = [
     'numpy',
     'pyccel>=1.11.1',
     'mpi4py',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
     'h5py',
     'matplotlib',
     'pyyaml',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'vtk',
     'tqdm',
     'argcomplete',
-    'gvec-to-python',
-    'desc-opt',
-]
-
-[project.optional-dependencies]
-test = [
     'pytest',
     'pytest-mpi',
 ]
+
+[project.optional-dependencies]
+phys = [
+    'gvec-to-python',
+    'desc-opt',
+]
 dev = [
-    'struphy[test]',
     'notebook',
     'autopep8',
     'isort',
@@ -50,8 +49,10 @@ dev = [
     'ruff>=0.9.1',
     'pre-commit',
     'nbstripout',
+    'tabulate',
 ]
 doc = [
+    'struphy[phys]',
     'sphinx',
     'sphinx-design',
     'lxml_html_clean',
@@ -63,6 +64,13 @@ doc = [
     'mistune',
     'docutils',
     'ipyparallel',
+]
+likwid = [
+    'struphy[dev]',
+    'kaleido',
+    'pylikwid',
+    'pandas',
+    'plotly',
 ]
 
 
