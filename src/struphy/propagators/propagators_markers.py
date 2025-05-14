@@ -19,7 +19,7 @@ from struphy.propagators.base import Propagator
 
 
 # from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
-from pusher_kernels_gpu import push_eta_stage_gpu
+from pusher_kernels_gpu import push_eta_stage_gpu, push_vxb_analytic_gpu, push_vxb_implicit_gpu
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
@@ -64,13 +64,16 @@ class PushEta(Propagator):
         *,
         algo: str = options(default=True)["algo"],
         density_field: StencilVector | None = None,
+        gpu=True,
     ):
         # base class constructor call
         super().__init__(particles)
 
         # get kernel
-        #kernel = pusher_kernels.push_eta_stage
-        kernel = push_eta_stage_gpu
+        if gpu:
+            kernel = push_eta_stage_gpu
+        else:
+            kernel = pusher_kernels.push_eta_stage
 
         # define algorithm
         butcher = ButcherTableau(algo)
@@ -158,6 +161,7 @@ class PushVxB(Propagator):
         kappa: float = 1.0,
         b2: BlockVector | PolarVector,
         b2_add: BlockVector | PolarVector = None,
+        gpu=True,
     ):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         assert b2.space == self.derham.Vh["2"]
@@ -175,12 +179,20 @@ class PushVxB(Propagator):
         self._b_full = self.derham.Vh["2"].zeros()
 
         # define pusher kernel
-        if algo == "analytic":
-            kernel = pusher_kernels.push_vxb_analytic
-        elif algo == "implicit":
-            kernel = pusher_kernels.push_vxb_implicit
+        if gpu:
+            if algo == "analytic":
+                kernel = push_vxb_analytic_gpu
+            elif algo == "implicit":
+                kernel = push_vxb_implicit_gpu
+            else:
+                raise ValueError(f"{algo = } not supported.")
         else:
-            raise ValueError(f"{algo = } not supported.")
+            if algo == "analytic":
+                kernel = pusher_kernels.push_vxb_analytic
+            elif algo == "implicit":
+                kernel = pusher_kernels.push_vxb_implicit
+            else:
+                raise ValueError(f"{algo = } not supported.")
 
         # instantiate Pusher
         args_kernel = (
