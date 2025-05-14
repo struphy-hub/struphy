@@ -13,8 +13,6 @@ def test_gvec_equil():
 
     import os
 
-    
-
     from struphy.fields_background.equils import GVECequilibrium
 
     # struphy discrete equilibirum

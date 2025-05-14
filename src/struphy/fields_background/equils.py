@@ -2496,7 +2496,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # install if necessary
         desc_spec = importlib.util.find_spec("desc")
 
-        
         if desc_spec is None:
             print("Simulation aborted, desc-opt must be installed!")
             print("Install with:\npip install desc-opt")

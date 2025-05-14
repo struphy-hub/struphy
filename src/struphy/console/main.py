@@ -1143,7 +1143,7 @@ def struphy():
         from struphy.console.compile import struphy_compile as func
     elif args.command == "lint":
         from struphy.console.format import struphy_lint as func
-    elif args.command == "lint":
+    elif args.command == "format":
         from struphy.console.format import struphy_format as func
     elif args.command == "likwid_profile":
         from struphy.console.likwid import struphy_likwid_profile as func
@@ -1182,6 +1182,7 @@ def struphy():
     # for k, v in kwargs.items():
     #     print(k, v)
     func(**kwargs)
+
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
     """
