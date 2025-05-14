@@ -1851,13 +1851,13 @@ class BasisProjectionOperator(LinOpWithTransp):
             self._P,
             self._V,
             self._weights,
-            self._V_extraction_op,
-            self._V_boundary_op,
-            self._P_extraction_op,
-            self._P_boundary_op,
-            not self.transposed,
-            self._polar_shift,
-            self._use_cache,
+            V_extraction_op=self._V_extraction_op,
+            V_boundary_op=self._V_boundary_op,
+            P_extraction_op=self._P_extraction_op,
+            P_boundary_op=self._P_boundary_op,
+            transposed=not self.transposed,
+            polar_shift=self._polar_shift,
+            use_cache=self._use_cache,
         )
 
     def update_weights(self, weights):

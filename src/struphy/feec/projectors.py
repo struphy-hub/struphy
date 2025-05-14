@@ -9,7 +9,7 @@ from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, Linear
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilVector
+from psydac.linalg.stencil import StencilVector, StencilMatrix
 
 from struphy.feec import mass_kernels
 from struphy.feec.local_projectors_args_kernels import LocalProjectorsArguments
