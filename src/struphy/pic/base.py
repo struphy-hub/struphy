@@ -1907,7 +1907,97 @@ class Particles(metaclass=ABCMeta):
         from_tesselation : bool
             Whether to compute weights as the cell averages over tiles.
         """
+        
+        if self.amrex:
+            self._initialize_weights_amrex(bckgr_params = bckgr_params, pert_params= pert_params, reject_weights = reject_weights, threshold=threshold, from_tesselation=from_tesselation)
+        else:
+            self._initialize_weights_struphy(bckgr_params = bckgr_params, pert_params= pert_params, reject_weights = reject_weights, threshold=threshold, from_tesselation=from_tesselation)
 
+    def _initialize_weights_amrex(self,
+        *,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+        reject_weights: bool = False,
+        threshold: float = 1e-8,
+        from_tesselation: bool = False,):
+        
+        for pti in self._markers.iterator(self._markers, 0):
+            markers_array = pti.soa().to_numpy()[0]
+        
+            if from_tesselation: # TODO (Mati)
+                if self.pforms[0] is None:
+                    fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
+                else:
+                    fvol = self.f_init
+                cell_avg = self.tesselation.cell_averages(fvol, n_quad=self.loading_params["n_quad"])
+                self.weights0 = cell_avg.flatten()
+            else:
+                assert self.domain is not None, "A domain is needed to initialize weights."
+
+                # set initial condition
+                if bckgr_params is not None:
+                    self._bckgr_params = bckgr_params
+
+                if pert_params is not None:
+                    self._pert_params = pert_params
+
+                if self.type != "sph":
+                    self._set_initial_condition()
+
+                # # evaluate initial distribution function
+                # if self.type == "sph":
+                #     f_init = self.f_init(self.positions)
+                # else:
+                #     f_init = self.f_init(*self.f_coords.T)
+
+                # if f_init is vol-form, transform to 0-form
+                if self.pforms[0] == "vol":
+                    f_init /= self.domain.jacobian_det(self.positions)
+
+                if self.pforms[1] == "vol":
+                    f_init /= self.f_init.velocity_jacobian_det(
+                        *self.f_jacobian_coords.T,
+                    )
+
+                # compute s0
+                markers_array["s0"][:] = self.s0(
+                    markers_array["x"],
+                    markers_array["y"],
+                    markers_array["z"],
+                    markers_array["v1"],
+                    markers_array["v2"],
+                    markers_array["v3"],
+                    flat_eval=True,
+                )[:]
+                # compute w0
+                markers_array["w0"][:] = (
+                    self.f_init(np.ascontiguousarray([markers_array["x"], markers_array["y"], markers_array["z"]]).T)
+                    / markers_array["s0"]
+                )[:]
+
+            if reject_weights:
+                reject = self.markers[:, self.index["w0"]] < threshold
+                self._markers[reject] = -1.0
+                self.update_holes()
+                print(
+                    f"\nWeights < {threshold} have been rejected, number of valid markers on current process is {self.n_mks_loc}."
+                )
+
+            # compute (time-dependent) weights at vdim + 3
+            if self.control_variate:
+                self.update_weights()
+            else:
+                markers_array["weights"][:] = markers_array["w0"][:]
+
+
+    def _initialize_weights_struphy(self,
+        *,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
+        reject_weights: bool = False,
+        threshold: float = 1e-8,
+        from_tesselation: bool = False,):
+        
         if from_tesselation:
             if self.pforms[0] is None:
                 fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
@@ -1943,19 +2033,11 @@ class Particles(metaclass=ABCMeta):
                     *self.f_jacobian_coords.T,
                 )
 
-            if self.amrex:
-                for pti in self._markers.iterator(self._markers, 0):
-                    markers_array = pti.soa().to_numpy()[0]
-                    # compute s0
-                    markers_array["s0"][:] = self.s0(*self.phasespace_coords.T, flat_eval=True)[:]
-                    # compute w0
-                    markers_array["w0"][:] = f_init / markers_array["s0"][:]
-            else:
-                # compute s0 and save at vdim + 4
-                self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
+            # compute s0 and save at vdim + 4
+            self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
 
-                # compute w0 and save at vdim + 5
-                self.weights0 = f_init / self.sampling_density
+            # compute w0 and save at vdim + 5
+            self.weights0 = f_init / self.sampling_density
 
         if reject_weights:
             reject = self.markers[:, self.index["w0"]] < threshold
