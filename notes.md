@@ -8,10 +8,27 @@ module load gcc/14 rocm/6.3 openmpi/5.0 python-waterboa/2024.06
 module load amd-llvm/6.1
 ```
 
-# pusher_args_kernels.py
-# src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.f90
+Create a virtual environment and install struphy and pyccel from source
 
-First, 
+```
+python -m venv ~/virtual_envs/env_struphy
+source ~/virtual_envs/env_struphy/bin/activate
+pip install --upgrade pip
+cd /u/maxlin/git_repos/struphy
+pip install -e .
+cd /u/maxlin/git_repos/pyccel
+pip install -e .
+```
+
+Go back to struphy dir
+
+```
+cd /u/maxlin/git_repos/struphy
+```
+
+## Compile all the kernels
+
+Compile all the kernels the usual way
 
 ```
 struphy compile --language fortran --compiler /u/maxlin/git_repos/struphy/compiler_llvm.json
