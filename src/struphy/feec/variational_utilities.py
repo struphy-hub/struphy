@@ -1395,7 +1395,7 @@ class KineticEnergyEvaluator:
 
     This class only contains arrays corresponding to the integration grid to avoid the allocation of temporaries,
     methods that can be called to evaluate the energy and derivatives on the grid and weighted mass operators corresponding to integration against a vector field.
-    
+
     Parameters
     ----------
     derham : Derham

@@ -4949,7 +4949,7 @@ class VariationalViscosity(Propagator):
 
         # Update artificial viscosity weighted mass matrix
         total_viscosity = self._update_artificial_viscosity(un, dt)
-    
+
         self._scaled_stiffness._scalar = dt * self._mu  # /2.
         self._scaled_Mv._scalar = dt * self._alpha
         # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
@@ -5289,7 +5289,7 @@ class VariationalViscosity(Propagator):
         weak_sn_diff = self._inv_M3.dot(sn_diff, out=self._tmp_sn_weak_diff)
         err_s = weak_sn_diff.dot(sn_diff)
         return err_s
-    
+
     def _update_artificial_viscosity(self, un, dt):
         """Update the artificial viscosity as the norm of the gradient of un.
         Update the associated mass matrix and return the total viscosity for later computation"""
@@ -6043,7 +6043,7 @@ class VariationalResistivity(Propagator):
             cb_sq_v += dt * self._eta
 
         return cb_sq_v
-    
+
     def _get_energy_change(self, bn, bn1, total_resistivity):
         """Return the total energy change caused by the resistivity"""
         bn12 = bn.copy(out=self._tmp_bn12)
@@ -6090,6 +6090,7 @@ class VariationalResistivity(Propagator):
         cb_sq_v *= total_resistivity
 
         return cb_sq_v
+
 
 class TimeDependentSource(Propagator):
     r"""Propagates a source term :math:`S(t) \in V_h^n` of the form
