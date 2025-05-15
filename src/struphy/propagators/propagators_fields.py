@@ -4036,7 +4036,7 @@ class VariationalMagFieldEvolve(Propagator):
             un12 *= 0.5
 
             # Update the linear form
-            self._update_linear_form_u2()
+            self._update_linear_form_dl_db()
 
             # Compute the advection terms
             if self._model == "linear":
@@ -4203,7 +4203,7 @@ class VariationalMagFieldEvolve(Propagator):
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
 
-    def _update_linear_form_u2(self):
+    def _update_linear_form_dl_db(self):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
         if self._linearize:
             wb = self.mass_ops.M2.dot(self._tmp_bn12 - self._extracted_b2, out=self._linear_form_dl_db)
@@ -4425,22 +4425,18 @@ class VariationalPBEvolve(Propagator):
             # Picard iteration
             # half time step approximation
 
-            bn12 = bn.copy(out=self._tmp_bn12)
-            bn12 += bn1
-            bn12 *= 0.5
-
             un12 = un.copy(out=self._tmp_un12)
             un12 += un1
             un12 *= 0.5
 
-            pn12 = pn.copy(out=self._tmp_pn12)
-            pn12 += pn1
-            pn12 *= 0.5
+            # pn12 = pn.copy(out=self._tmp_pn12)
+            # pn12 += pn1
+            # pn12 *= 0.5
 
             # self._update_Pib()
             # self._update_Projp()
             # Update the linear form
-            self._update_linear_form_u2()
+            self._update_linear_form_dl_db(bn, bn1)
 
             # Compute the advection terms
             if self._model == "linear":
@@ -4740,12 +4736,15 @@ class VariationalPBEvolve(Propagator):
         self._transop_p0.update_coeffs(self.projected_equil.p3)
         self._transop_p0T.update_coeffs(self.projected_equil.p3)
 
-    def _update_linear_form_u2(self):
+    def _update_linear_form_dl_db(self, bn, bn1):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
+        bn12 = bn.copy(out=self._tmp_bn12)
+        bn12 += bn1
+        bn12 *= 0.5
         if self._linearize:
-            wb = self.mass_ops.M2.dot(self._tmp_bn12 - self._extracted_b2, out=self._linear_form_dl_db)
+            wb = self.mass_ops.M2.dot(bn12 - self._extracted_b2, out=self._linear_form_dl_db)
         else:
-            wb = self.mass_ops.M2.dot(self._tmp_bn12, out=self._linear_form_dl_db)
+            wb = self.mass_ops.M2.dot(bn12, out=self._linear_form_dl_db)
         wb *= -1
 
     def _create_linear_form_p(self):
@@ -4949,68 +4948,8 @@ class VariationalViscosity(Propagator):
             print("Computing the dissipation in VariationalViscosity")
 
         # Update artificial viscosity weighted mass matrix
-        gu0 = self.grad_0.dot(un, out=self._tmp_gu0)
-        gu1 = self.grad_1.dot(un, out=self._tmp_gu1)
-        gu2 = self.grad_2.dot(un, out=self._tmp_gu2)
-
-        self.gu0f.vector = gu0
-        self.gu1f.vector = gu1
-        self.gu2f.vector = gu2
-
-        gu0_v = self.gu0f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf0_values,
-        )
-        gu1_v = self.gu1f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf1_values,
-        )
-        gu2_v = self.gu2f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf2_values,
-        )
-
-        gu_sq_v = self._gu_init_values
-        gu_sq_v *= 0.0
-        for i in range(3):
-            gu0_v[i] **= 2
-            gu1_v[i] **= 2
-            gu2_v[i] **= 2
-            gu_sq_v += gu0_v[i]
-            gu_sq_v += gu1_v[i]
-            gu_sq_v += gu2_v[i]
-
-        np.sqrt(gu_sq_v, out=gu_sq_v)
-
-        gu_sq_v *= dt * self._mu_a  # /2
-
-        self.M1_du.assemble(
-            [
-                [
-                    gu_sq_v * self._mass_M1_metric[0, 0],
-                    gu_sq_v * self._mass_M1_metric[0, 1],
-                    gu_sq_v * self._mass_M1_metric[0, 2],
-                ],
-                [
-                    gu_sq_v * self._mass_M1_metric[1, 0],
-                    gu_sq_v * self._mass_M1_metric[1, 1],
-                    gu_sq_v * self._mass_M1_metric[1, 2],
-                ],
-                [
-                    gu_sq_v * self._mass_M1_metric[2, 0],
-                    gu_sq_v * self._mass_M1_metric[2, 1],
-                    gu_sq_v * self._mass_M1_metric[2, 2],
-                ],
-            ],
-            verbose=False,
-        )
-
-        # gu_sq_v *= 2.
-        gu_sq_v += dt * self._mu
-
+        total_viscosity = self._update_artificial_viscosity(un, dt)
+    
         self._scaled_stiffness._scalar = dt * self._mu  # /2.
         self._scaled_Mv._scalar = dt * self._alpha
         # self.evol_op._multiplicants[1]._addends[0]._scalar = - dt*self._mu/2.
@@ -5024,85 +4963,7 @@ class VariationalViscosity(Propagator):
 
         # Energy balance term
         # 1) Pointwize energy change
-        un12 = un.copy(out=self._tmp_un12)
-        un12 += un1
-        un12 /= 2.0
-        gu0 = self.grad_0.dot(un1, out=self._tmp_gu0)
-        gu1 = self.grad_1.dot(un1, out=self._tmp_gu1)
-        gu2 = self.grad_2.dot(un1, out=self._tmp_gu2)
-
-        gu012 = self.grad_0.dot(un12, out=self._tmp_gu120)
-        gu112 = self.grad_1.dot(un12, out=self._tmp_gu121)
-        gu212 = self.grad_2.dot(un12, out=self._tmp_gu122)
-
-        self.gu0f.vector = gu0
-        self.gu1f.vector = gu1
-        self.gu2f.vector = gu2
-
-        self.gu120f.vector = gu012
-        self.gu121f.vector = gu112
-        self.gu122f.vector = gu212
-
-        self.uf1.vector = un1
-        self.uf12.vector = un12
-
-        gu0_v = self.gu0f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf0_values,
-        )
-        gu1_v = self.gu1f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf1_values,
-        )
-        gu2_v = self.gu2f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf2_values,
-        )
-
-        gu120_v = self.gu120f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf120_values,
-        )
-        gu121_v = self.gu121f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf121_values,
-        )
-        gu122_v = self.gu122f.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_gradient,
-            out=self._guf122_values,
-        )
-
-        u1_v = self.uf1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_u,
-            out=self._uf1_values,
-        )
-        u12_v = self.uf12.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_u,
-            out=self._uf12_values,
-        )
-
-        gu_sq_v = self._gu_sq_values
-        u_sq_v = self._u_sq_values
-        gu_sq_v *= 0.0
-        u_sq_v *= 0.0
-        for i in range(3):
-            for j in range(3):
-                gu_sq_v += gu0_v[i] * self._mass_M1_metric[i, j] * gu120_v[j]
-                gu_sq_v += gu1_v[i] * self._mass_M1_metric[i, j] * gu121_v[j]
-                gu_sq_v += gu2_v[i] * self._mass_M1_metric[i, j] * gu122_v[j]
-                u_sq_v += u1_v[i] * self._mass_Mv_metric[i, j] * u12_v[j]
-
-        gu_sq_v *= self._gu_init_values
-        u_sq_v *= dt * self._alpha
-        gu_sq_v += u_sq_v
+        energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
         rho = self._rho
         self.sf.vector = sn
@@ -5131,9 +4992,9 @@ class VariationalViscosity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
-        gu_sq_v += e_n
+        energy_change += e_n
 
-        self._get_L2dofs_V3(gu_sq_v, dofs=self._linear_form_tot_e)
+        self._get_L2dofs_V3(energy_change, dofs=self._linear_form_tot_e)
 
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
@@ -5428,6 +5289,157 @@ class VariationalViscosity(Propagator):
         weak_sn_diff = self._inv_M3.dot(sn_diff, out=self._tmp_sn_weak_diff)
         err_s = weak_sn_diff.dot(sn_diff)
         return err_s
+    
+    def _update_artificial_viscosity(self, un, dt):
+        """Update the artificial viscosity as the norm of the gradient of un.
+        Update the associated mass matrix and return the total viscosity for later computation"""
+        gu0 = self.grad_0.dot(un, out=self._tmp_gu0)
+        gu1 = self.grad_1.dot(un, out=self._tmp_gu1)
+        gu2 = self.grad_2.dot(un, out=self._tmp_gu2)
+
+        self.gu0f.vector = gu0
+        self.gu1f.vector = gu1
+        self.gu2f.vector = gu2
+
+        gu0_v = self.gu0f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf0_values,
+        )
+        gu1_v = self.gu1f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf1_values,
+        )
+        gu2_v = self.gu2f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf2_values,
+        )
+
+        gu_sq_v = self._gu_init_values
+        gu_sq_v *= 0.0
+        for i in range(3):
+            gu0_v[i] **= 2
+            gu1_v[i] **= 2
+            gu2_v[i] **= 2
+            gu_sq_v += gu0_v[i]
+            gu_sq_v += gu1_v[i]
+            gu_sq_v += gu2_v[i]
+
+        np.sqrt(gu_sq_v, out=gu_sq_v)
+
+        gu_sq_v *= dt * self._mu_a  # /2
+
+        self.M1_du.assemble(
+            [
+                [
+                    gu_sq_v * self._mass_M1_metric[0, 0],
+                    gu_sq_v * self._mass_M1_metric[0, 1],
+                    gu_sq_v * self._mass_M1_metric[0, 2],
+                ],
+                [
+                    gu_sq_v * self._mass_M1_metric[1, 0],
+                    gu_sq_v * self._mass_M1_metric[1, 1],
+                    gu_sq_v * self._mass_M1_metric[1, 2],
+                ],
+                [
+                    gu_sq_v * self._mass_M1_metric[2, 0],
+                    gu_sq_v * self._mass_M1_metric[2, 1],
+                    gu_sq_v * self._mass_M1_metric[2, 2],
+                ],
+            ],
+            verbose=False,
+        )
+
+        # gu_sq_v *= 2.
+        gu_sq_v += dt * self._mu
+
+        return gu_sq_v
+
+    def _get_energy_change(self, un, un1, dt, total_viscosity):
+        """Return the total energy change caused by the viscosity"""
+        un12 = un.copy(out=self._tmp_un12)
+        un12 += un1
+        un12 /= 2.0
+        gu0 = self.grad_0.dot(un1, out=self._tmp_gu0)
+        gu1 = self.grad_1.dot(un1, out=self._tmp_gu1)
+        gu2 = self.grad_2.dot(un1, out=self._tmp_gu2)
+
+        gu012 = self.grad_0.dot(un12, out=self._tmp_gu120)
+        gu112 = self.grad_1.dot(un12, out=self._tmp_gu121)
+        gu212 = self.grad_2.dot(un12, out=self._tmp_gu122)
+
+        self.gu0f.vector = gu0
+        self.gu1f.vector = gu1
+        self.gu2f.vector = gu2
+
+        self.gu120f.vector = gu012
+        self.gu121f.vector = gu112
+        self.gu122f.vector = gu212
+
+        self.uf1.vector = un1
+        self.uf12.vector = un12
+
+        gu0_v = self.gu0f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf0_values,
+        )
+        gu1_v = self.gu1f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf1_values,
+        )
+        gu2_v = self.gu2f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf2_values,
+        )
+
+        gu120_v = self.gu120f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf120_values,
+        )
+        gu121_v = self.gu121f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf121_values,
+        )
+        gu122_v = self.gu122f.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_gradient,
+            out=self._guf122_values,
+        )
+
+        u1_v = self.uf1.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_u,
+            out=self._uf1_values,
+        )
+        u12_v = self.uf12.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_u,
+            out=self._uf12_values,
+        )
+
+        gu_sq_v = self._gu_sq_values
+        u_sq_v = self._u_sq_values
+        gu_sq_v *= 0.0
+        u_sq_v *= 0.0
+        for i in range(3):
+            for j in range(3):
+                gu_sq_v += gu0_v[i] * self._mass_M1_metric[i, j] * gu120_v[j]
+                gu_sq_v += gu1_v[i] * self._mass_M1_metric[i, j] * gu121_v[j]
+                gu_sq_v += gu2_v[i] * self._mass_M1_metric[i, j] * gu122_v[j]
+                u_sq_v += u1_v[i] * self._mass_Mv_metric[i, j] * u12_v[j]
+
+        gu_sq_v *= total_viscosity
+        u_sq_v *= dt * self._alpha
+        gu_sq_v += u_sq_v
+
+        return gu_sq_v
 
 
 class VariationalResistivity(Propagator):
@@ -5585,54 +5597,7 @@ class VariationalResistivity(Propagator):
             print()
             print("Computing the dissipation in VariationalResistivity")
 
-        # Update weighted mass matrix for artificial resistivity
-
-        if self._eta_a > 1e-15:
-            cb = self.Tcurl.dot(bn, out=self._tmp_cb1)
-            self.cbf1.vector = cb
-            cb_v = self.cbf1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_curl,
-                out=self._cb1_values,
-            )
-
-            cb_sq_v = self._cb_sq_values_init
-            cb_sq_v *= 0.0
-            for i in range(3):
-                for j in range(3):
-                    cb_sq_v += cb_v[i] * self._sq_term_metric_no_jac[i, j] * cb_v[j]
-
-            np.sqrt(cb_sq_v, out=cb_sq_v)
-
-            cb_sq_v *= dt * self._eta_a
-
-            self.M1_cb.assemble(
-                [
-                    [
-                        cb_sq_v * self._sq_term_metric[0, 0],
-                        cb_sq_v * self._sq_term_metric[0, 1],
-                        cb_sq_v * self._sq_term_metric[0, 2],
-                    ],
-                    [
-                        cb_sq_v * self._sq_term_metric[1, 0],
-                        cb_sq_v * self._sq_term_metric[1, 1],
-                        cb_sq_v * self._sq_term_metric[1, 2],
-                    ],
-                    [
-                        cb_sq_v * self._sq_term_metric[2, 0],
-                        cb_sq_v * self._sq_term_metric[2, 1],
-                        cb_sq_v * self._sq_term_metric[2, 2],
-                    ],
-                ],
-                verbose=False,
-            )
-
-            cb_sq_v += dt * self._eta
-
-        else:
-            cb_sq_v = self._cb_sq_values_init
-            cb_sq_v *= 0.0
-            cb_sq_v += dt * self._eta
+        total_resistivity = self._update_artificial_resistivity(bn, dt)
 
         self._scaled_stiffness._scalar = dt * self._eta
         # self.evol_op._multiplicants[1]._addends[0]._scalar = -dt*self._eta/2.
@@ -5653,48 +5618,7 @@ class VariationalResistivity(Propagator):
 
         # Energy balance term
         # 1) Pointwize energy change
-        bn12 = bn.copy(out=self._tmp_bn12)
-        bn12 += bn1
-        bn12 /= 2.0
-        if self._linearize_current:
-            cb1 = self.Tcurl.dot(
-                bn1 - self._extracted_b2,
-                out=self._tmp_cb1,
-            )
-        else:
-            cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
-
-        if self._model in ["full", "full_p"]:
-            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
-
-        elif self._model in ["linear_p"]:
-            cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
-
-        elif self._model in ["delta_p"]:
-            bn12 += self._extracted_b2
-            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
-
-        self.cbf12.vector = cb12
-        self.cbf1.vector = cb1
-
-        cb12_v = self.cbf12.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_curl,
-            out=self._cb12_values,
-        )
-        cb1_v = self.cbf1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_curl,
-            out=self._cb1_values,
-        )
-
-        cb_sq_v = self._cb_sq_values
-        cb_sq_v *= 0.0
-        for i in range(3):
-            for j in range(3):
-                cb_sq_v += cb12_v[i] * self._sq_term_metric[i, j] * cb1_v[j]
-
-        cb_sq_v *= self._cb_sq_values_init
+        energy_change = self._get_energy_change(bn, bn1, total_resistivity)
         # 2) Initial energy and linear form
         rho = self._rho
         self.rhof.vector = rho
@@ -5728,9 +5652,9 @@ class VariationalResistivity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
-        cb_sq_v += e_n
+        energy_change += e_n
 
-        self._get_L2dofs_V3(cb_sq_v, dofs=self._linear_form_tot_e)
+        self._get_L2dofs_V3(energy_change, dofs=self._linear_form_tot_e)
 
         # 3) Newton iteration
         sn1 = sn.copy(out=self._tmp_sn1)
@@ -6068,6 +5992,104 @@ class VariationalResistivity(Propagator):
         err_s = weak_sn_diff.dot(sn_diff)
         return err_s
 
+    def _update_artificial_resistivity(self, bn, dt):
+        """Update the artificial resistivity as the norm of the gradient of un.
+        Update the associated mass matrix and return the total resistivity for later computation"""
+        if self._eta_a > 1e-15:
+            cb = self.Tcurl.dot(bn, out=self._tmp_cb1)
+            self.cbf1.vector = cb
+            cb_v = self.cbf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_curl,
+                out=self._cb1_values,
+            )
+
+            cb_sq_v = self._cb_sq_values_init
+            cb_sq_v *= 0.0
+            for i in range(3):
+                for j in range(3):
+                    cb_sq_v += cb_v[i] * self._sq_term_metric_no_jac[i, j] * cb_v[j]
+
+            np.sqrt(cb_sq_v, out=cb_sq_v)
+
+            cb_sq_v *= dt * self._eta_a
+
+            self.M1_cb.assemble(
+                [
+                    [
+                        cb_sq_v * self._sq_term_metric[0, 0],
+                        cb_sq_v * self._sq_term_metric[0, 1],
+                        cb_sq_v * self._sq_term_metric[0, 2],
+                    ],
+                    [
+                        cb_sq_v * self._sq_term_metric[1, 0],
+                        cb_sq_v * self._sq_term_metric[1, 1],
+                        cb_sq_v * self._sq_term_metric[1, 2],
+                    ],
+                    [
+                        cb_sq_v * self._sq_term_metric[2, 0],
+                        cb_sq_v * self._sq_term_metric[2, 1],
+                        cb_sq_v * self._sq_term_metric[2, 2],
+                    ],
+                ],
+                verbose=False,
+            )
+
+            cb_sq_v += dt * self._eta
+
+        else:
+            cb_sq_v = self._cb_sq_values_init
+            cb_sq_v *= 0.0
+            cb_sq_v += dt * self._eta
+
+        return cb_sq_v
+    
+    def _get_energy_change(self, bn, bn1, total_resistivity):
+        """Return the total energy change caused by the resistivity"""
+        bn12 = bn.copy(out=self._tmp_bn12)
+        bn12 += bn1
+        bn12 /= 2.0
+        if self._linearize_current:
+            cb1 = self.Tcurl.dot(
+                bn1 - self._extracted_b2,
+                out=self._tmp_cb1,
+            )
+        else:
+            cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
+
+        if self._model in ["full", "full_p"]:
+            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
+
+        elif self._model in ["linear_p"]:
+            cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
+
+        elif self._model in ["delta_p"]:
+            bn12 += self._extracted_b2
+            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
+
+        self.cbf12.vector = cb12
+        self.cbf1.vector = cb1
+
+        cb12_v = self.cbf12.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_curl,
+            out=self._cb12_values,
+        )
+        cb1_v = self.cbf1.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_curl,
+            out=self._cb1_values,
+        )
+
+        cb_sq_v = self._cb_sq_values
+        cb_sq_v *= 0.0
+        for i in range(3):
+            for j in range(3):
+                cb_sq_v += cb12_v[i] * self._sq_term_metric[i, j] * cb1_v[j]
+
+        cb_sq_v *= total_resistivity
+
+        return cb_sq_v
 
 class TimeDependentSource(Propagator):
     r"""Propagates a source term :math:`S(t) \in V_h^n` of the form
