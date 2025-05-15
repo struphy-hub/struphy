@@ -833,7 +833,7 @@ class InternalEnergyEvaluator:
 
     This class only contains a lot of array corresponding to the integration grid to avoid the allocation of temporaries,
     and method that can be called to evaluate the energy and derivatives on the grid.
-    
+
     Parameters
     ----------
     derham : Derham
@@ -1389,9 +1389,10 @@ class H1vecMassMatrix_density:
             recycle=True,
         )
 
+
 class KineticEnergyEvaluator:
     """Helper class to evaluate the different Kinetic energy terms appearing in VariationalDensityEvolve
-    
+
     This class only contains arrays corresponding to the integration grid to avoid the allocation of temporaries,
     methods that can be called to evaluate the energy and derivatives on the grid and weighted mass operators corresponding to integration against a vector field.
     Parameters
@@ -1407,13 +1408,10 @@ class KineticEnergyEvaluator:
     """
 
     def __init__(self, derham, domain, mass_ops):
-
         integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
 
-        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
-            derham.prepare_eval_tp_fixed(
-                integration_grid,
-            )
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
+            integration_grid,
         )
 
         # tmps
@@ -1438,15 +1436,18 @@ class KineticEnergyEvaluator:
         self._M_un = mass_ops.create_weighted_mass("H1vec", "L2")
         self._M_un1 = mass_ops.create_weighted_mass("L2", "H1vec")
 
-
     @property
-    def M_un(self,):
+    def M_un(
+        self,
+    ):
         """Weighted mass matrix with domain H1vec et codomain L2
         represented the integration against a vector field in H1vec"""
         return self._M_un
-    
+
     @property
-    def M_un1(self,):
+    def M_un1(
+        self,
+    ):
         """Weighted mass matrix with domain L2 et codomain H1vec
         represented the integration against a vector field in H1vec"""
         return self._M_un1
@@ -1484,7 +1485,7 @@ class KineticEnergyEvaluator:
 
         out *= 0.5
         return out
-    
+
     def assemble_M_un(self, un):
         """Update the weights of the matrix M_un with the vector fields given by the coeficient un"""
         self.uf.vector = un

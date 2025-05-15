@@ -13,7 +13,12 @@ import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.variational_utilities import BracketOperator, H1vecMassMatrix_density, InternalEnergyEvaluator, KineticEnergyEvaluator
+from struphy.feec.variational_utilities import (
+    BracketOperator,
+    H1vecMassMatrix_density,
+    InternalEnergyEvaluator,
+    KineticEnergyEvaluator,
+)
 from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
@@ -3413,7 +3418,7 @@ class VariationalDensityEvolve(Propagator):
     def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kynetic energy"""
 
-        self._kinetic_evaluator.get_u2_grid(un,un1,self._eval_dl_drho)
+        self._kinetic_evaluator.get_u2_grid(un, un1, self._eval_dl_drho)
 
         if self._model == "barotropic":
             rhof_values = self.rhof.eval_tp_fixed_loc(
