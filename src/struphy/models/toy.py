@@ -162,7 +162,7 @@ class Vlasov(StruphyModel):
                 self.equil.b2_3,
             ]
         )
-        print('algo = ', ions_params["options"])
+        # print('algo = ', ions_params["options"]["PushVxB"]["algo"])
         # set keyword arguments for propagators
         # self._kwargs[propagators_markers.PushVxB] = {
         #     "algo": ions_params["options"]["PushVxB"]["algo"],

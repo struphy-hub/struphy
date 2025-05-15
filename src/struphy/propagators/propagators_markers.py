@@ -4,6 +4,7 @@ from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
+from struphy.profiling.profiling import ProfileManager
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
@@ -18,8 +19,8 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
 
-# from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
-from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
+from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
+# from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves

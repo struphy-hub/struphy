@@ -255,8 +255,9 @@ class Pusher:
                             alpha=alpha[:3],
                             remove_ghost=False,
                         )
-
+                    
                     # evaluate
+                    # with ProfileManager.profile_region(ker.__name__):
                     ker(
                         alpha,
                         column_nr,
@@ -279,9 +280,10 @@ class Pusher:
                     )
 
                 print(f'call kernel {self.kernel.__name__ = } with n_markers = {self.particles.args_markers.n_markers}')
-                t0 = time.time()
+                
                 # push markers
                 with ProfileManager.profile_region(self.kernel.__name__):
+                    t0 = time.time()
                     self.kernel(
                         dt,
                         stage,
@@ -289,9 +291,9 @@ class Pusher:
                         self._args_domain,
                         *self._args_kernel,
                     )
-                t1 = time.time()
-                # print(f'return kernel {self.kernel = }')
-                print(f"Timing: {t1 - t0}")
+                    t1 = time.time()
+                    # print(f'return kernel {self.kernel = }')
+                    print(f"Timing: {t1 - t0}")
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
                 self.particles.update_holes()

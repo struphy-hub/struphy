@@ -1,5 +1,7 @@
-# from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
-from pusher_kernels_gpu import matmul_gpu, matmul_cpu
+gpu = True
+
+from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
+# from pusher_kernels_gpu import matmul_gpu, matmul_cpu
 
 import numpy as np
 import time
@@ -19,7 +21,6 @@ def gpu_warmup(N = 1000):
     start_cpu = time.time()
     matmul_cpu(A, B, C_cpu)
     elapsed_cpu = time.time() - start_cpu
-
     matmul_gpu(A, B, C_gpu)
     print('End matmul_cpu')
     # print("warming up gpu")
@@ -27,7 +28,7 @@ def gpu_warmup(N = 1000):
     print('Start matmul_gpu')
     # Time GPU matrix multiplication.
     start_gpu = time.time()
-    #while True:    
+    #for i in range(1000):    
     matmul_gpu(A, B, C_gpu)
     elapsed_gpu = time.time() - start_gpu
     print('End matmul_gpu')
@@ -51,7 +52,6 @@ def main(
     supress_out: bool = False,
     sort_step: int = 0,
     num_clones: int = 1,
-    gpu = True,
 ):
     """
     Run a Struphy model.
