@@ -823,6 +823,7 @@ def select_metric_coeff(
 
 ### Vectorized kernels ###
 
+
 @stack_array("tmp0", "tmp1", "tmp2", "tmp3", "out")
 def kernel_evaluate(
     eta1: "float[:,:,:]",

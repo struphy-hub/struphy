@@ -1683,6 +1683,7 @@ def eval_vectorfield_spline_mpi(
 ### Vectorized Derham field evaluation ###
 ###########################################
 
+
 @stack_array("e_form")
 def eval_1form_spline_vectorized(
     span1: "int[:]",
@@ -1694,19 +1695,28 @@ def eval_1form_spline_vectorized(
     form_coeffs_3: "float[:,:,:]",
     out: "float[:, :, :]",
 ):
-    
     e_form = zeros(3, dtype=float)
-    
-    np = len(span1)
-    
-    for i in range(np):
-        eval_1form_spline_mpi(span1[i], span2[i], span3[i], args_derham, form_coeffs_1, form_coeffs_2, form_coeffs_3, e_form)
-        out[i,:, 0] = e_form
-        
-def get_spans_vectorized(eta1: "float[:]", eta2: "float[:]", eta3: "float[:]", args_derham: "DerhamArguments", span1: "int[:]", span2: "int[:]", span3: "int[:]"):
 
+    np = len(span1)
+
+    for i in range(np):
+        eval_1form_spline_mpi(
+            span1[i], span2[i], span3[i], args_derham, form_coeffs_1, form_coeffs_2, form_coeffs_3, e_form
+        )
+        out[i, :, 0] = e_form
+
+
+def get_spans_vectorized(
+    eta1: "float[:]",
+    eta2: "float[:]",
+    eta3: "float[:]",
+    args_derham: "DerhamArguments",
+    span1: "int[:]",
+    span2: "int[:]",
+    span3: "int[:]",
+):
     np = len(eta1)
-    
+
     for i in range(np):
         s1, s2, s3 = get_spans(eta1[i], eta2[i], eta3[i], args_derham)
         span1[i] = s1

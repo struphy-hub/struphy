@@ -3,8 +3,8 @@
 from numpy import array, matmul, newaxis, shape, transpose, zeros
 from numpy.linalg import inv
 
+from struphy.bsplines.evaluation_kernels_3d import eval_1form_spline_vectorized, get_spans_vectorized
 from struphy.geometry.base import Domain
-from struphy.bsplines.evaluation_kernels_3d import get_spans_vectorized, eval_1form_spline_vectorized
 
 
 def push_v_with_efield(
@@ -34,18 +34,18 @@ def push_v_with_efield(
         const : float
             A constant (usuallly related to the charge-to-mass ratio).
     """
-    
+
     span1 = zeros(particles.Np, dtype=int)
     span2 = zeros(particles.Np, dtype=int)
     span3 = zeros(particles.Np, dtype=int)
     e_form = zeros((particles.Np, 3, 1), dtype=float)
-    
+
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = pti.soa().to_numpy()[0]
         e1 = markers_array["x"]
         e2 = markers_array["y"]
         e3 = markers_array["z"]
-        
+
         # evaluate Jacobian
         jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
 
@@ -57,7 +57,7 @@ def push_v_with_efield(
         get_spans_vectorized(e1, e2, e3, args_derham, span1, span2, span3)
 
         # electric field: 1-form components
-        eval_1form_spline_vectorized( 
+        eval_1form_spline_vectorized(
             span1,
             span2,
             span3,
@@ -69,13 +69,14 @@ def push_v_with_efield(
         )
 
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        e_cart = matmul(jacobian_inverse_T, e_form) # TODO (Mati) maybe better to write our own piccelized 
+        e_cart = matmul(jacobian_inverse_T, e_form)  # TODO (Mati) maybe better to write our own piccelized
 
         # update velocities
         temp = dt * const * e_cart
-        markers_array["v1"][:] = markers_array["v1"][:] + temp[:,0].squeeze()
-        markers_array["v2"][:] = markers_array["v2"][:] + temp[:,1].squeeze()
-        markers_array["v3"][:] = markers_array["v3"][:] + temp[:,2].squeeze()
+        markers_array["v1"][:] = markers_array["v1"][:] + temp[:, 0].squeeze()
+        markers_array["v2"][:] = markers_array["v2"][:] + temp[:, 1].squeeze()
+        markers_array["v3"][:] = markers_array["v3"][:] + temp[:, 2].squeeze()
+
 
 def push_eta_stage(
     dt: float,
@@ -102,8 +103,8 @@ def push_eta_stage(
     else:
         last = 0.0
 
-# TODO (Mati) preallocate outside of the time loop and pass to the kernel, create slices (particles.velocity_buffer?)
-# attach to the propagator?
+    # TODO (Mati) preallocate outside of the time loop and pass to the kernel, create slices (particles.velocity_buffer?)
+    # attach to the propagator?
 
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = pti.soa().to_numpy()[0]
@@ -121,7 +122,7 @@ def push_eta_stage(
         v = array([v1, v2, v3]).T
         v = v[..., newaxis]  # Npx3x1
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        k = matmul(jacobian_inv, v) # TODO (Mati) maybe better to write our own piccelized 
+        k = matmul(jacobian_inv, v)  # TODO (Mati) maybe better to write our own piccelized
         # accumulation for last stage
         temp = dt * b[stage] * k
         markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0].squeeze()
