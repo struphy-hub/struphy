@@ -8618,7 +8618,7 @@ class HasegawaWakatani(Propagator):
         self._spans, self._bns, self._bnd = self.derham.prepare_eval_tp_fixed(pts)
         self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
         print(f"{self._phi_at_pts.shape = }")
-        #exit()
+        print(f"{self._phi_at_pts.squeeze() = }")
 
         # grad operator
         grad = self.derham.grad
@@ -8654,6 +8654,26 @@ class HasegawaWakatani(Propagator):
             assemble=True,
         )
         print(f"{self._dy_phi._dof_mat.blocks = }")
+        
+        # rhs-callables for explicit ode solve
+        weak_curl = M1_inv @ curl.T @ M2
+
+        out1 = n0.space.zeros()
+        out2 = omega0.space.zeros()
+        
+        def f1(t, y1, y2, out=out1):
+            weak_curl.dot(y2, out=out)
+            out.update_ghost_regions()
+            return out
+
+        def f2(t, y1, y2, out=out2):
+            curl.dot(y1, out=out)
+            out *= -1.0
+            out.update_ghost_regions()
+            return out
+
+        vector_field = {e: f1, b: f2}
+        self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
     def __call__(self, dt):
         # current variables
