@@ -1,15 +1,16 @@
 "Pusher kernels for full orbit (6D) particles and AMReX data structures."
 
-from numpy import array, matmul, newaxis, shape, stack
+from numpy import array, matmul, newaxis, shape, transpose, zeros
+from numpy.linalg import inv
 
 from struphy.geometry.base import Domain
+from struphy.bsplines.evaluation_kernels_3d import get_spans_vectorized, eval_1form_spline_vectorized
 
 
 def push_v_with_efield(
     dt: float,
     stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
+    particles: "Particles",
     args_derham: "DerhamArguments",
     e1_1: "float[:,:,:]",
     e1_2: "float[:,:,:]",
@@ -33,49 +34,30 @@ def push_v_with_efield(
         const : float
             A constant (usuallly related to the charge-to-mass ratio).
     """
-
-    # allocate metric coeffs
-    dfm = zeros((3, 3), dtype=float)
-    dfinv = zeros((3, 3), dtype=float)
-    dfinvt = zeros((3, 3), dtype=float)
-
-    # allocate for field evaluations (1-form and Cartesian components)
-    e_form = zeros(3, dtype=float)
-    e_cart = zeros(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-
-    #$ omp parallel private(ip, eta1, eta2, eta3, dfm, dfinv, dfinvt, span1, span2, span3, e_form, e_cart)
-    #$ omp for
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            dfm,
-        )
+    
+    span1 = zeros(particles.Np, dtype=int)
+    span2 = zeros(particles.Np, dtype=int)
+    span3 = zeros(particles.Np, dtype=int)
+    e_form = zeros((particles.Np, 3, 1), dtype=float)
+    
+    for pti in particles.markers.iterator(particles.markers, 0):
+        markers_array = pti.soa().to_numpy()[0]
+        e1 = markers_array["x"]
+        e2 = markers_array["y"]
+        e3 = markers_array["z"]
+        
+        # evaluate Jacobian
+        jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinvt)
+        jacobian_inverse = inv(jacobian)
+        jacobian_inverse_T = transpose(jacobian_inverse, [0, 2, 1])
 
         # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        get_spans_vectorized(e1, e2, e3, args_derham, span1, span2, span3)
 
         # electric field: 1-form components
-        eval_1form_spline_mpi(
+        eval_1form_spline_vectorized( 
             span1,
             span2,
             span3,
@@ -86,14 +68,14 @@ def push_v_with_efield(
             e_form,
         )
 
-        # electric field: Cartesian components
-        linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
+        # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
+        e_cart = matmul(jacobian_inverse_T, e_form) # TODO (Mati) maybe better to write our own piccelized 
 
         # update velocities
-        markers[ip, 3:6] += dt * const * e_cart
-
-    #$ omp end parallel
-
+        temp = dt * const * e_cart
+        markers_array["v1"][:] = markers_array["v1"][:] + temp[:,0].squeeze()
+        markers_array["v2"][:] = markers_array["v2"][:] + temp[:,1].squeeze()
+        markers_array["v3"][:] = markers_array["v3"][:] + temp[:,2].squeeze()
 
 def push_eta_stage(
     dt: float,
@@ -120,14 +102,17 @@ def push_eta_stage(
     else:
         last = 0.0
 
+# TODO (Mati) preallocate outside of the time loop and pass to the kernel, create slices (particles.velocity_buffer?)
+# attach to the propagator?
+
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = pti.soa().to_numpy()[0]
-        e1 = markers_array["x"][:]
-        e2 = markers_array["y"][:]
-        e3 = markers_array["z"][:]
-        v1 = markers_array["v1"][:]
-        v2 = markers_array["v2"][:]
-        v3 = markers_array["v3"][:]
+        e1 = markers_array["x"]
+        e2 = markers_array["y"]
+        e3 = markers_array["z"]
+        v1 = markers_array["v1"]
+        v2 = markers_array["v2"]
+        v3 = markers_array["v3"]
 
         # evaluate inverse Jacobian matrices for each point
         jacobian_inv = particles.domain.jacobian_inv(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
@@ -136,7 +121,7 @@ def push_eta_stage(
         v = array([v1, v2, v3]).T
         v = v[..., newaxis]  # Npx3x1
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        k = matmul(jacobian_inv, v)
+        k = matmul(jacobian_inv, v) # TODO (Mati) maybe better to write our own piccelized 
         # accumulation for last stage
         temp = dt * b[stage] * k
         markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0].squeeze()

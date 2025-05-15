@@ -101,6 +101,8 @@ class PushEta(Propagator):
         if density_field is not None:
             self._eval_density = True
             self._density_field = density_field
+            
+            # TODO (Mati) allocate vectors for pyamrex velocity calc etc
 
     def __call__(self, dt):
         self._pusher(dt)
@@ -237,7 +239,7 @@ class PushVinEfield(Propagator):
 
     def __init__(
         self,
-        particles: Particles6D,
+        particles: Particles6D | ParticlesSPH,
         *,
         e_field: BlockVector | PolarVector,
         kappa: float = 1.0,
