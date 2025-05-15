@@ -686,20 +686,36 @@ class Particles(metaclass=ABCMeta):
     def index(self):
         """Dict holding the column indices referring to specific marker parameters (coordinates)."""
         out = {}
-        out["pos"] = slice(0, 3)  # positions
-        out["vel"] = slice(3, 3 + self.vdim)  # velocities
-        out["coords"] = slice(0, 3 + self.vdim)  # phasespace_coords
-        out["com"] = {}
-        out["com"]["6D"] = slice(12, 15)  # constants of motion (Particles6D)
-        out["com"]["5D"] = slice(8, 11)  # constants of motion (Particles5D)
-        out["pos+energy"] = {}
-        out["pos+energy"]["6D"] = slice(9, 13)  # positions + energy
-        out["pos+energy"]["5D"] = list(range(0, 3)) + [8]  # positions + energy
-        out["weights"] = 3 + self.vdim  # weights
-        out["s0"] = 4 + self.vdim  # sampling density at t=0
-        out["w0"] = 5 + self.vdim  # weights at t=0
-        out["box"] = -2  # sorting box index
-        out["ids"] = -1  # marker_inds
+        if self.amrex:
+            out["pos"] = ["x", "y", "z"]  # positions
+            out["vel"] = ["v1", "v2", "v3"]  # velocities
+            out["coords"] = ["x", "y", "z", "v1", "v2", "v3"]  # phasespace_coords
+            out["com"] = {}
+            out["com"]["6D"] = {}  # constants of motion (Particles6D) TODO (Mati)
+            out["com"]["5D"] = {}  # constants of motion (Particles5D) TODO (Mati)
+            out["pos+energy"] = {}
+            out["pos+energy"]["6D"] = {}  # positions + energy TODO (Mati)
+            out["pos+energy"]["5D"] = {}  # positions + energy TODO (Mati)
+            out["weights"] = "weights"  # weights
+            out["s0"] = "s0"  # sampling density at t=0
+            out["w0"] = "w0"  # weights at t=0
+            out["box"] = "box"  # sorting box index TODO (Mati)
+            out["ids"] = {}  # marker_inds TODO (Mati)
+        else:
+            out["pos"] = slice(0, 3)  # positions
+            out["vel"] = slice(3, 3 + self.vdim)  # velocities
+            out["coords"] = slice(0, 3 + self.vdim)  # phasespace_coords
+            out["com"] = {}
+            out["com"]["6D"] = slice(12, 15)  # constants of motion (Particles6D)
+            out["com"]["5D"] = slice(8, 11)  # constants of motion (Particles5D)
+            out["pos+energy"] = {}
+            out["pos+energy"]["6D"] = slice(9, 13)  # positions + energy
+            out["pos+energy"]["5D"] = list(range(0, 3)) + [8]  # positions + energy
+            out["weights"] = 3 + self.vdim  # weights
+            out["s0"] = 4 + self.vdim  # sampling density at t=0
+            out["w0"] = 5 + self.vdim  # weights at t=0
+            out["box"] = -2  # sorting box index
+            out["ids"] = -1  # marker_inds
         return out
 
     @property
@@ -724,7 +740,7 @@ class Particles(metaclass=ABCMeta):
     def positions(self):
         """Array holding the marker positions in logical space. The i-th row holds the i-th marker info."""
         if self.amrex:
-            return np.ascontiguousarray(self._markers.to_df()[["x", "y", "z"]].to_numpy())
+            return np.ascontiguousarray(self._markers.to_df()[self.index["pos"]].to_numpy())
         else:
             return self.markers[self.valid_mks, self.index["pos"]]
 
@@ -740,7 +756,7 @@ class Particles(metaclass=ABCMeta):
     def velocities(self):
         """Array holding the marker velocities in logical space. The i-th row holds the i-th marker info."""
         if self.amrex:
-            return np.ascontiguousarray(self._markers.to_df()[["v1", "v2", "v3"]].to_numpy())
+            return np.ascontiguousarray(self._markers.to_df()[self.index["vel"]].to_numpy())
         else:
             return self.markers[self.valid_mks, self.index["vel"]]
 
@@ -755,10 +771,15 @@ class Particles(metaclass=ABCMeta):
     @property
     def phasespace_coords(self):
         """Array holding the marker velocities in logical space. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["coords"]]
+        if self.amrex:
+            return np.ascontiguousarray(self._markers.to_df()[self.index["coords"]].to_numpy())
+        else:
+            return self.markers[self.valid_mks, self.index["coords"]]
 
     @phasespace_coords.setter
     def phasespace_coords(self, new):
+        if self.amrex:
+            raise AttributeError("Impossible to set phase space coordinates in AMReX array")
         assert isinstance(new, np.ndarray)
         assert new.shape == (self.n_mks_loc, 3 + self.vdim)
         self._markers[self.valid_mks, self.index["coords"]] = new
@@ -766,7 +787,10 @@ class Particles(metaclass=ABCMeta):
     @property
     def weights(self):
         """Array holding the current marker weights. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["weights"]]
+        if self.amrex:
+            return np.ascontiguousarray(self._markers.to_df()[self.index["weights"]].to_numpy())
+        else:
+            return self.markers[self.valid_mks, self.index["weights"]]
 
     @weights.setter
     def weights(self, new):
@@ -777,7 +801,10 @@ class Particles(metaclass=ABCMeta):
     @property
     def sampling_density(self):
         """Array holding the current marker 0form sampling density s0. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["s0"]]
+        if self.amrex:
+            return np.ascontiguousarray(self._markers.to_df()[self.index["s0"]].to_numpy())
+        else:
+            return self.markers[self.valid_mks, self.index["s0"]]
 
     @sampling_density.setter
     def sampling_density(self, new):
@@ -788,7 +815,10 @@ class Particles(metaclass=ABCMeta):
     @property
     def weights0(self):
         """Array holding the initial marker weights. The i-th row holds the i-th marker info."""
-        return self.markers[self.valid_mks, self.index["w0"]]
+        if self.amrex:
+            return np.ascontiguousarray(self._markers.to_df()[self.index["w0"]].to_numpy())
+        else:
+            return self.markers[self.valid_mks, self.index["w0"]]
 
     @weights0.setter
     def weights0(self, new):
@@ -1409,15 +1439,17 @@ class Particles(metaclass=ABCMeta):
             Show info on screen.
         """
         if self.amrex:
-            self._draw_markers_amrex(verbose=verbose)
+            self._draw_markers_amrex(sort=sort, verbose=verbose)
         else:
             self._draw_markers_struphy(sort=sort, verbose=verbose)
 
     def _draw_markers_amrex(
         self,
+        sort: bool = True,
         verbose: bool = True,
     ):
         _seed = self.loading_params["seed"]
+        
         if amr.ParallelDescriptor.MyProc() == 0 and verbose:
             print("\nMARKERS:")
             print(("name:").ljust(25), self.name)
@@ -1440,7 +1472,7 @@ class Particles(metaclass=ABCMeta):
         self._markers.add_real_comp("v1")
         self._markers.add_real_comp("v2")
         self._markers.add_real_comp("v3")
-        self._markers.add_real_comp("weight")
+        self._markers.add_real_comp("weights")
         self._markers.add_real_comp("s0")
         self._markers.add_real_comp("w0")
         self._markers.add_real_comp("init_x")
@@ -1449,71 +1481,83 @@ class Particles(metaclass=ABCMeta):
         self._markers.add_real_comp("init_v1")
         self._markers.add_real_comp("init_v2")
         self._markers.add_real_comp("init_v3")
+        self._markers.add_real_comp("box")
+        
+        # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
+        if self.type == "sph":
+            self._set_initial_condition()
+            for pti in self._markers.iterator(self._markers, 0):
+                markers_array = pti.soa().to_numpy()[0]
+                positions = np.ascontiguousarray([markers_array["x"],markers_array["y"],markers_array["z"]]).T
+                velocities = self.u_init(positions)[0]
+                markers_array["v1"][:] = velocities[0][:]
+                markers_array["v2"][:] = velocities[1][:]
+                markers_array["v3"][:] = velocities[2][:]
+        else:
+            # inverse transform sampling in velocity space
+            u_mean = np.array(
+                self.loading_params["moments"][: self.vdim],
+            )
+            v_th = np.array(
+                self.loading_params["moments"][self.vdim :],
+            )
 
-        # inverse transform sampling in velocity space
-        u_mean = np.array(
-            self.loading_params["moments"][: self.vdim],
-        )
-        v_th = np.array(
-            self.loading_params["moments"][self.vdim :],
-        )
+            for pti in self._markers.iterator(self._markers, 0):
+                markers_array = pti.soa().to_numpy()[0]
 
-        for pti in self._markers.iterator(self._markers, 0):
-            markers_array = pti.soa().to_numpy()[0]
+                # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
+                if self.vdim == 3:
+                    markers_array["v1"][:] = (
+                        sp.erfinv(
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[0]
+                        + u_mean[0]
+                    )
+                    markers_array["v2"][:] = (
+                        sp.erfinv(
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[1]
+                        + u_mean[1]
+                    )
+                    markers_array["v3"][:] = (
+                        sp.erfinv(
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[2]
+                        + u_mean[2]
+                    )
+                # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
+                elif self.vdim == 2:
+                    markers_array["v1"][:] = (
+                        sp.erfinv(
+                            2 * rng.random(size=markers_array["v1"].size) - 1,
+                        )
+                        * np.sqrt(2)
+                        * v_th[0]
+                        + u_mean[0]
+                    )
 
-            # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
-            if self.vdim == 3:
-                markers_array["v1"][:] = (
-                    sp.erfinv(
-                        2 * rng.random(size=markers_array["v1"].size) - 1,
+                    markers_array["v2"][:] = (
+                        np.sqrt(
+                            -1 * np.log(1 - rng.random(size=markers_array["v1"].size)),
+                        )
+                        * np.sqrt(2)
+                        * v_th[1]
+                        + u_mean[1]
                     )
-                    * np.sqrt(2)
-                    * v_th[0]
-                    + u_mean[0]
-                )
-                markers_array["v2"][:] = (
-                    sp.erfinv(
-                        2 * rng.random(size=markers_array["v1"].size) - 1,
+                elif self.vdim == 0:
+                    pass
+                else:
+                    raise NotImplementedError(
+                        "Inverse transform sampling of given vdim is not implemented!",
                     )
-                    * np.sqrt(2)
-                    * v_th[1]
-                    + u_mean[1]
-                )
-                markers_array["v3"][:] = (
-                    sp.erfinv(
-                        2 * rng.random(size=markers_array["v1"].size) - 1,
-                    )
-                    * np.sqrt(2)
-                    * v_th[2]
-                    + u_mean[2]
-                )
-            # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
-            elif self.vdim == 2:
-                markers_array["v1"][:] = (
-                    sp.erfinv(
-                        2 * rng.random(size=markers_array["v1"].size) - 1,
-                    )
-                    * np.sqrt(2)
-                    * v_th[0]
-                    + u_mean[0]
-                )
 
-                markers_array["v2"][:] = (
-                    np.sqrt(
-                        -1 * np.log(1 - rng.random(size=markers_array["v1"].size)),
-                    )
-                    * np.sqrt(2)
-                    * v_th[1]
-                    + u_mean[1]
-                )
-            elif self.vdim == 0:
-                pass
-            else:
-                raise NotImplementedError(
-                    "Inverse transform sampling of given vdim is not implemented!",
-                )
-
-            assert self._markers.num_real_comps == 20
+            assert self._markers.num_real_comps == 21
 
             # inversion method for drawing uniformly on the disc
             self._spatial = self.loading_params["spatial"]
@@ -1899,11 +1943,19 @@ class Particles(metaclass=ABCMeta):
                     *self.f_jacobian_coords.T,
                 )
 
-            # compute s0 and save at vdim + 4
-            self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
+            if self.amrex:
+                for pti in self._markers.iterator(self._markers, 0):
+                    markers_array = pti.soa().to_numpy()[0]
+                    # compute s0
+                    markers_array["s0"][:] = self.s0(*self.phasespace_coords.T, flat_eval=True)[:]
+                    #compute w0
+                    markers_array["w0"][:] = f_init / markers_array["s0"][:]
+            else:
+                # compute s0 and save at vdim + 4
+                self.sampling_density = self.s0(*self.phasespace_coords.T, flat_eval=True)
 
-            # compute w0 and save at vdim + 5
-            self.weights0 = f_init / self.sampling_density
+                # compute w0 and save at vdim + 5
+                self.weights0 = f_init / self.sampling_density
 
         if reject_weights:
             reject = self.markers[:, self.index["w0"]] < threshold

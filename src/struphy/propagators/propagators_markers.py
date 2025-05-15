@@ -257,10 +257,18 @@ class PushVinEfield(Propagator):
             self._e_field[2]._data,
             self.kappa,
         )
+        
+        # get kernel
+        if particles.amrex:
+            kernel = pusher_kers_vectorized.push_v_with_efield
+            self.amrex = True
+        else:
+            kernel = pusher_kernels.push_v_with_efield
+            self.amrex = False
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_v_with_efield,
+            kernel,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
