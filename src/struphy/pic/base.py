@@ -1449,7 +1449,7 @@ class Particles(metaclass=ABCMeta):
         verbose: bool = True,
     ):
         _seed = self.loading_params["seed"]
-        
+
         if amr.ParallelDescriptor.MyProc() == 0 and verbose:
             print("\nMARKERS:")
             print(("name:").ljust(25), self.name)
@@ -1482,13 +1482,13 @@ class Particles(metaclass=ABCMeta):
         self._markers.add_real_comp("init_v2")
         self._markers.add_real_comp("init_v3")
         self._markers.add_real_comp("box")
-        
+
         # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
         if self.type == "sph":
             self._set_initial_condition()
             for pti in self._markers.iterator(self._markers, 0):
                 markers_array = pti.soa().to_numpy()[0]
-                positions = np.ascontiguousarray([markers_array["x"],markers_array["y"],markers_array["z"]]).T
+                positions = np.ascontiguousarray([markers_array["x"], markers_array["y"], markers_array["z"]]).T
                 velocities = self.u_init(positions)[0]
                 markers_array["v1"][:] = velocities[0][:]
                 markers_array["v2"][:] = velocities[1][:]
@@ -1948,7 +1948,7 @@ class Particles(metaclass=ABCMeta):
                     markers_array = pti.soa().to_numpy()[0]
                     # compute s0
                     markers_array["s0"][:] = self.s0(*self.phasespace_coords.T, flat_eval=True)[:]
-                    #compute w0
+                    # compute w0
                     markers_array["w0"][:] = f_init / markers_array["s0"][:]
             else:
                 # compute s0 and save at vdim + 4

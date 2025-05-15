@@ -257,7 +257,7 @@ class PushVinEfield(Propagator):
             self._e_field[2]._data,
             self.kappa,
         )
-        
+
         # get kernel
         if particles.amrex:
             kernel = pusher_kers_vectorized.push_v_with_efield
