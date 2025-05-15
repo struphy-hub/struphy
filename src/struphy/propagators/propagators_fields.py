@@ -13,7 +13,7 @@ import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.variational_utilities import BracketOperator, InternalEnergyEvaluator
+from struphy.feec.variational_utilities import BracketOperator, InternalEnergyEvaluator, H1vecMassMatrix_density
 from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
@@ -2814,7 +2814,7 @@ class VariationalMomentumAdvection(Propagator):
         self,
         u: BlockVector,
         *,
-        mass_ops: WeightedMassOperator,
+        mass_ops: H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
     ):
@@ -2844,9 +2844,9 @@ class VariationalMomentumAdvection(Propagator):
 
         self.brack = BracketOperator(self.derham, self._tmp_mn)
         self._dt2_brack = 2.0 * self.brack
-        self.derivative = self._Mrho + self._dt2_brack
+        self.derivative = self._Mrho.massop + self._dt2_brack
         self.inv_derivative = inverse(
-            self.pc @ self.derivative,
+            self._Mrho.inv @ self.derivative,
             "gmres",
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
@@ -2863,12 +2863,11 @@ class VariationalMomentumAdvection(Propagator):
     def __call_newton(self, dt):
         # Initialize variable for Newton iteration
         un = self.feec_vars[0]
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
         tol = self._nonlin_solver["tol"]
         err = tol + 1
-        self.pc.update_mass_operator(self._Mrho)
         # Jacobian matrix for Newton solve
         self._dt2_brack._scalar = dt / 2
         if self._info:
@@ -2899,7 +2898,7 @@ class VariationalMomentumAdvection(Propagator):
                 break
 
             # Newton step
-            pc_diff = self.pc.dot(diff, out=self._tmp__pc_diff)
+            pc_diff = self._Mrho.inv.dot(diff, out=self._tmp__pc_diff)
             update = self.inv_derivative.dot(pc_diff, out=self._tmp_update)
             if self._info:
                 print(
@@ -2907,7 +2906,7 @@ class VariationalMomentumAdvection(Propagator):
                     self.inv_derivative._info,
                 )
             un1 -= update
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -2919,12 +2918,11 @@ class VariationalMomentumAdvection(Propagator):
     def __call_picard(self, dt):
         # Initialize variable for Picard iteration
         un = self.feec_vars[0]
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
         mn1 = mn.copy(out=self._tmp_mn1)
         un1 = un.copy(out=self._tmp_un1)
         tol = self._nonlin_solver["tol"]
         err = tol + 1
-        self.pc.update_mass_operator(self._Mrho)
         # Jacobian matrix for Newton solve
 
         for it in range(self._nonlin_solver["maxiter"]):
@@ -2947,7 +2945,7 @@ class VariationalMomentumAdvection(Propagator):
             diff += advection
 
             # Compute the norm of the difference
-            weak_diff = self._Mrhoinv.dot(
+            weak_diff = self._Mrho.inv.dot(
                 self._tmp_diff,
                 out=self._tmp_weak_diff,
             )
@@ -2958,7 +2956,7 @@ class VariationalMomentumAdvection(Propagator):
             mn1 -= advection
 
             # Inverse the mass matrix to get the velocity
-            un1 = self._Mrhoinv.dot(mn1, out=self._tmp_un1)
+            un1 = self._Mrho.inv.dot(mn1, out=self._tmp_un1)
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -2969,26 +2967,6 @@ class VariationalMomentumAdvection(Propagator):
 
     def _initialize_mass(self):
         """Initialization of the mass matrix solver"""
-        # Inverse weighted mass matrix
-        if self._lin_solver["type"][1] is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self._lin_solver["type"][1],
-            )
-            self.pc = pc_class(self._Mrho)
-
-        self._Mrhoinv = inverse(
-            self._Mrho,
-            self._lin_solver["type"][0],
-            pc=self.pc,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
-            recycle=True,
-        )
-
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
             self.mass_ops.Mv,
@@ -3096,7 +3074,7 @@ class VariationalDensityEvolve(Propagator):
         model: str = "barotropic",
         gamma: float = options()["physics"]["gamma"],
         s: StencilVector = None,
-        mass_ops: WeightedMassOperator,
+        mass_ops: H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         energy_evaluator: InternalEnergyEvaluator = None,
@@ -3120,7 +3098,6 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.sf = self.derham.create_field("sf", "L2")
         self.rhof = self.derham.create_field("rhof", "L2")
         self.rhof1 = self.derham.create_field("rhof1", "L2")
         self.uf = self.derham.create_field("uf", "H1vec")
@@ -3130,15 +3107,14 @@ class VariationalDensityEvolve(Propagator):
         self._energy_evaluator = energy_evaluator
         self._initialize_projectors_and_mass()
         if self._model == "linear":
-            self.rhof1.vector = self.projected_equil.n3
+            rhotmp = self.projected_equil.n3
         elif self._model == "deltaf":
             self._tmp_rho_deltaf = rho.space.zeros()
             rhotmp = rho.copy(out=self._tmp_rho_deltaf)
             rhotmp += self.projected_equil.n3
-            self.rhof1.vector = rhotmp
         else:
-            self.rhof1.vector = rho
-        self._update_weighted_MM()
+            rhotmp = rho
+        self._update_weighted_MM(rhotmp)
 
         # bunch of temporaries to avoid allocating in the loop
         self._tmp_un1 = u.space.zeros()
@@ -3177,6 +3153,7 @@ class VariationalDensityEvolve(Propagator):
         # Initial variables
         rhon = self.feec_vars[0]
         un = self.feec_vars[1]
+        self.uf.vector = un
 
         if self._model == "linear":
             advection = self.divPirho.dot(un, out=self._tmp_rho_advection)
@@ -3189,27 +3166,22 @@ class VariationalDensityEvolve(Propagator):
         if self._model == "deltaf":
             rho = rhon.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
-            self.rhof1.vector = rho
         else:
-            self.rhof1.vector = rhon
-        self.rhof.vector = rhon
-        self._update_weighted_MM()
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
-
-        rhon1 = rhon.copy(out=self._tmp_rhon1)
+            rho = rhon
+        self._update_weighted_MM(rho)
+        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
 
         # Initialize variable for Newton iteration
         if self._model == "full":
             s = self._s
-            self.sf.vector = s
         else:
             s = None
 
         if self._model == "deltaf":
-            rho = rhon1.copy(out=self._tmp_rho_deltaf)
+            rho = rhon.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
         else:
-            rho = rhon1
+            rho = rhon
         self._update_Pirho(rho)
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
@@ -3217,16 +3189,15 @@ class VariationalDensityEvolve(Propagator):
         if self._model == "deltaf":
             rho = rhon1.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
-            self.rhof1.vector = rho
         else:
-            self.rhof1.vector = rhon1
-        self._update_weighted_MM()
+            rho = rhon1
+        self._update_weighted_MM(rho)
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver["tol"]
         err = tol + 1
-
+        
         for it in range(self._nonlin_solver["maxiter"]):
             # Newton iteration
 
@@ -3234,13 +3205,13 @@ class VariationalDensityEvolve(Propagator):
             un12 += un1
             un12 *= 0.5
 
-            rhon12 = rhon.copy(out=self._tmp_rhon12)
-            rhon12 += rhon1
-            rhon12 *= 0.5
-            if self._model == "deltaf":
-                rhon12 += self.projected_equil.n3
+            # rhon12 = rhon.copy(out=self._tmp_rhon12)
+            # rhon12 += rhon1
+            # rhon12 *= 0.5
+            # if self._model == "deltaf":
+            #     rhon12 += self.projected_equil.n3
 
-            self._update_Pirho(rhon12)
+             #self._update_Pirho(rhon12)
 
             # Update the linear form
             self.uf1.vector = un1
@@ -3281,7 +3252,6 @@ class VariationalDensityEvolve(Propagator):
             self._get_jacobian(dt, rhon, rhon1, s)
 
             # Newton step
-            self.pc.update_mass_operator(self._Mrho)
             self._tmp_f[0] = mn_diff
             self._tmp_f[1] = rhon_diff
 
@@ -3299,11 +3269,11 @@ class VariationalDensityEvolve(Propagator):
             if self._model == "deltaf":
                 rho = rhon1.copy(out=self._tmp_rho_deltaf)
                 rho += self.projected_equil.n3
-                self.rhof1.vector = rho
+                self._update_weighted_MM(rho)
             else:
-                self.rhof1.vector = rhon1
-            self._update_weighted_MM()
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+                self._update_weighted_MM(rhon1)
+            
+            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -3323,26 +3293,6 @@ class VariationalDensityEvolve(Propagator):
         # Initialize the transport operator and transposed
         self.divPirho = L2_transport_operator(self.derham)
         self.divPirhoT = self.divPirho.T
-
-        # Inverse weighted mass matrix
-        if self._lin_solver["type"][1] is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self._lin_solver["type"][1],
-            )
-            self.pc = pc_class(self._Mrho)
-
-        self._Mrhoinv = inverse(
-            self._Mrho,
-            self._lin_solver["type"][0],
-            pc=self.pc,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
-            recycle=True,
-        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
@@ -3413,27 +3363,17 @@ class VariationalDensityEvolve(Propagator):
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
 
-        self._Jacobian[0, 0] = self._Mrho + self._dt2_pc_divPirhoT @ self._M_un
+        self._Jacobian[0, 0] = self._Mrho.massop + self._dt2_pc_divPirhoT @ self._M_un
         self._Jacobian[0, 1] = self._M_un1 + self._dt_pc_divPirhoT @ self._M_drho
         self._Jacobian[1, 0] = self._dt2_divPirho
         self._Jacobian[1, 1] = self._I3
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._pc_full_mass = inverse(
-            self._Mrho,
-            "pcg",
-            pc=self.pc,
-            tol=0.01 * self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
-
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             "pbicgstab",
-            pc=self._pc_full_mass,
+            pc=self._Mrho.inv,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
             verbose=self._lin_solver["verbose"],
@@ -3491,33 +3431,10 @@ class VariationalDensityEvolve(Propagator):
         self.divPirho.update_coeffs(rho)
         self.divPirhoT.update_coeffs(rho)
 
-    def _update_weighted_MM(self):
+    def _update_weighted_MM(self, rho):
         """update the weighted mass matrix operator"""
 
-        rhof_values = self.rhof1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof_values,
-        )
-        for i in range(3):
-            for j in range(3):
-                self._full_term_mass[i, j] = rhof_values * self._mass_metric_term[i, j]
-
-        self._Mrho.assemble(
-            [
-                [self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
-                [
-                    self._full_term_mass[1, 0],
-                    self._full_term_mass[
-                        1,
-                        1,
-                    ],
-                    self._full_term_mass[1, 2],
-                ],
-                [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
-            ],
-            verbose=False,
-        )
+        self._Mrho.update_weight(rho)
 
     def _update_linear_form_dl_drho(self, rhon, rhon1, sn):
         """Update the linearform representing integration in V3 against kynetic energy"""
@@ -3585,16 +3502,12 @@ class VariationalDensityEvolve(Propagator):
         self._get_L2dofs_V3(self._eval_dl_drho, dofs=self._linear_form_dl_drho)
 
     def _compute_init_linear_form(self):
-        self.rhof.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.n3)
-
         if abs(self._gamma - 5 / 3) < 1e-3:
-            s = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_monoatomic)
+            self._energy_evaluator.evaluate_exact_de_drho_grid(self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_drho)
         elif abs(self._gamma - 7 / 5) < 1e-3:
-            s = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_diatomic)
+            self._energy_evaluator.evaluate_exact_de_drho_grid(self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_drho)
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
-
-        self._energy_evaluator.evaluate_exact_de_drho_grid(self.projected_equil.n3, s, out=self._init_dener_drho)
 
     def _get_jacobian(self, dt, rhon, rhon1, sn):
         uf_values = self.uf.eval_tp_fixed_loc(
@@ -3748,7 +3661,7 @@ class VariationalEntropyEvolve(Propagator):
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
         rho: StencilVector,
-        mass_ops: WeightedMassOperator,
+        mass_ops: H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         energy_evaluator: InternalEnergyEvaluator = None,
@@ -3770,13 +3683,6 @@ class VariationalEntropyEvolve(Propagator):
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
         self._Mrho = mass_ops
-
-        # Femfields for the projector
-        self.rhof = self.derham.create_field("rhof", "L2")
-        self.sf = self.derham.create_field("sf", "L2")
-        self.sf1 = self.derham.create_field("sf1", "L2")
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
 
         # Projector
         self._energy_evaluator = energy_evaluator
@@ -3816,20 +3722,14 @@ class VariationalEntropyEvolve(Propagator):
         sn1 = sn.copy(out=self._tmp_sn1)
         # Initialize variable for Newton iteration
         rho = self._rho
-        self.rhof.vector = rho
-
-        self.sf.vector = sn
-        self.sf1.vector = sn1
         self._update_Pis(sn)
-        self.pc.update_mass_operator(self._Mrho)
 
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
         sn1 = sn.copy(out=self._tmp_sn1)
         sn1 += self._tmp_sn_diff
-        self.sf1.vector = sn1
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver["tol"]
         err = tol + 1
 
@@ -3841,7 +3741,6 @@ class VariationalEntropyEvolve(Propagator):
             un12 *= 0.5
 
             # Update the linear form
-            self.uf1.vector = un1
             self._update_linear_form_dl_ds(rho, sn, sn1)
 
             # Compute the advection terms
@@ -3892,8 +3791,7 @@ class VariationalEntropyEvolve(Propagator):
             sn1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            self.sf1.vector = sn1
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -3912,26 +3810,6 @@ class VariationalEntropyEvolve(Propagator):
         # Initialize the transport operator and transposed
         self.divPis = L2_transport_operator(self.derham)
         self.divPisT = self.divPis.T
-
-        # Inverse weighted mass matrix
-        if self._lin_solver["type"][1] is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self._lin_solver["type"][1],
-            )
-            self.pc = pc_class(self._Mrho)
-
-        self._Mrhoinv = inverse(
-            self._Mrho,
-            self._lin_solver["type"][0],
-            pc=self.pc,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
-            recycle=True,
-        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
@@ -3965,27 +3843,17 @@ class VariationalEntropyEvolve(Propagator):
         self._dt_pc_divPisT = 2 * (self.divPisT)
         self._dt2_divPis = 2 * self.divPis
 
-        self._Jacobian[0, 0] = self._Mrho
+        self._Jacobian[0, 0] = self._Mrho.massop
         self._Jacobian[0, 1] = self._dt_pc_divPisT @ self._M_ds
         self._Jacobian[1, 0] = self._dt2_divPis
         self._Jacobian[1, 1] = self._I3
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._pc_full_mass = inverse(
-            self._Mrho,
-            "pcg",
-            pc=self.pc,
-            tol=0.01 * self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
-
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self._lin_solver["type"][0],
-            pc=self._pc_full_mass,
+            pc=self._Mrho.inv,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
             verbose=self._lin_solver["verbose"],
@@ -4059,16 +3927,12 @@ class VariationalEntropyEvolve(Propagator):
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_ds)
 
     def _compute_init_linear_form(self):
-        self.rhof.vector = self.derham.extraction_ops["3"].dot(self.projected_equil.n3)
-
         if abs(self._gamma - 5 / 3) < 1e-3:
-            s = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_monoatomic)
+            self._energy_evaluator.evaluate_exact_de_ds_grid(self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_ds)
         elif abs(self._gamma - 7 / 5) < 1e-3:
-            s = self.derham.extraction_ops["3"].dot(self.projected_equil.s3_diatomic)
+            self._energy_evaluator.evaluate_exact_de_ds_grid(self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_ds)
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
-
-        self._energy_evaluator.evaluate_exact_de_ds_grid(self.projected_equil.n3, s, out=self._init_dener_ds)
 
     def _get_jacobian(self, dt, rhon, sn, sn1):
         if self._model == "full":
@@ -4169,7 +4033,7 @@ class VariationalMagFieldEvolve(Propagator):
         u: BlockVector,
         *,
         model: str = "full",
-        mass_ops: WeightedMassOperator,
+        mass_ops: H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
     ):
@@ -4234,15 +4098,14 @@ class VariationalMagFieldEvolve(Propagator):
 
         self.bf.vector = bn1
         self._update_Pib(bn)
-        self.pc.update_mass_operator(self._Mrho)
 
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
         self.bf.vector = bn1
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver["tol"]
         err = tol + 1
 
@@ -4327,7 +4190,7 @@ class VariationalMagFieldEvolve(Propagator):
             bn1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -4345,26 +4208,6 @@ class VariationalMagFieldEvolve(Propagator):
 
         self.curlPib = Hdiv0_transport_operator(self.derham)
         self.curlPibT = self.curlPib.T
-
-        # Inverse weighted mass matrix
-        if self._lin_solver["type"][1] is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self._lin_solver["type"][1],
-            )
-            self.pc = pc_class(self._Mrho)
-
-        self._Mrhoinv = inverse(
-            self._Mrho,
-            self._lin_solver["type"][0],
-            pc=self.pc,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
-            recycle=True,
-        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
@@ -4406,27 +4249,17 @@ class VariationalMagFieldEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._Mrho
+        self._Jacobian[0, 0] = self._Mrho.massop
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
         self._Jacobian[1, 1] = self._I2
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._pc_full_mass = inverse(
-            self._Mrho,
-            "pcg",
-            pc=self.pc,
-            tol=0.01 * self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
-
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self._lin_solver["type"][0],
-            pc=self._pc_full_mass,
+            pc=self._Mrho.inv,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
             verbose=self._lin_solver["verbose"],
@@ -4577,7 +4410,7 @@ class VariationalPBEvolve(Propagator):
         *,
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
-        mass_ops: WeightedMassOperator,
+        mass_ops: H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         div_u: StencilVector | None = None,
@@ -4673,9 +4506,7 @@ class VariationalPBEvolve(Propagator):
 
         self.uf.vector = un
 
-        self.pc.update_mass_operator(self._Mrho)
-
-        mn = self._Mrho.dot(un, out=self._tmp_mn)
+        mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
         pn1 = pn.copy(out=self._tmp_pn1)
@@ -4683,7 +4514,7 @@ class VariationalPBEvolve(Propagator):
         self.pf.vector = pn1
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
-        mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+        mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver["tol"]
         err = tol + 1
 
@@ -4838,7 +4669,7 @@ class VariationalPBEvolve(Propagator):
             bn1 -= incr[1]
 
             # Multiply by the mass matrix to get the momentum
-            mn1 = self._Mrho.dot(un1, out=self._tmp_mn1)
+            mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -4893,26 +4724,6 @@ class VariationalPBEvolve(Propagator):
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
         self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
-
-        # Inverse weighted mass matrix
-        if self._lin_solver["type"][1] is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self._lin_solver["type"][1],
-            )
-            self.pc = pc_class(self._Mrho)
-
-        self._Mrhoinv = inverse(
-            self._Mrho,
-            self._lin_solver["type"][0],
-            pc=self.pc,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
-            recycle=True,
-        )
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
@@ -4975,27 +4786,17 @@ class VariationalPBEvolve(Propagator):
 
         # local version to avoid creating new version of LinearOperator every time
 
-        self._Jacobian[0, 0] = self._Mrho
+        self._Jacobian[0, 0] = self._Mrho.massop
         self._Jacobian[0, 1] = self._mdt2_pc_curlPibT_M
         self._Jacobian[1, 0] = self._dt2_curlPib
         self._Jacobian[1, 1] = self._I2
 
         from struphy.linear_algebra.schur_solver import SchurSolverFull
 
-        self._pc_full_mass = inverse(
-            self._Mrho,
-            "pcg",
-            pc=self.pc,
-            tol=0.01 * self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=False,
-            recycle=True,
-        )
-
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
             self._lin_solver["type"][0],
-            pc=self._pc_full_mass,
+            pc=self._Mrho.inv,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
             verbose=self._lin_solver["verbose"],
@@ -5171,9 +4972,10 @@ class VariationalViscosity(Propagator):
         mu: float = options()["physics"]["mu"],
         mu_a: float = options()["physics"]["mu_a"],
         alpha: float = options()["physics"]["alpha"],
-        mass_ops: WeightedMassOperator,
+        mass_ops: H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
+        energy_evaluator: InternalEnergyEvaluator = None,
     ):
         super().__init__(s, u)
 
@@ -5187,13 +4989,13 @@ class VariationalViscosity(Propagator):
         self._alpha = alpha
         self._mu = mu
         self._rho = rho
+        self._energy_evaluator = energy_evaluator
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.rhof = self.derham.create_field("rhof", "L2")
         self.sf = self.derham.create_field("sf", "L2")
         self.sf1 = self.derham.create_field("sf1", "L2")
         self.uf1 = self.derham.create_field("uf", "H1vec")
@@ -5235,7 +5037,6 @@ class VariationalViscosity(Propagator):
     def __call_newton(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         # Compute dissipation implicitely
-        self.pc.update_mass_operator(self._Mrho)
         sn = self.feec_vars[0]
         un = self.feec_vars[1]
         if self._mu < 1.0e-15 and self._mu_a < 1.0e-15 and self._alpha < 1.0e-15:
@@ -5403,7 +5204,6 @@ class VariationalViscosity(Propagator):
         gu_sq_v += u_sq_v
         # 2) Initial energy and linear form
         rho = self._rho
-        self.rhof.vector = rho
         self.sf.vector = sn
 
         sf_values = self.sf.eval_tp_fixed_loc(
@@ -5413,13 +5213,9 @@ class VariationalViscosity(Propagator):
         )
 
         if self._model == "full":
-            rhof_values = self.rhof.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._rhof_values,
-            )
+            rhof_values = self._energy_evaluator.eval_3form(rho,out=self._rhof_values)
 
-            e_n = self.__ener(
+            e_n = self._energy_evaluator.ener(
                 rhof_values,
                 sf_values,
                 out=self._e_n,
@@ -5454,7 +5250,7 @@ class VariationalViscosity(Propagator):
             )
 
             if self._model == "full":
-                e_n1 = self.__ener(
+                e_n1 = self._energy_evaluator.ener(
                     rhof_values,
                     sf1_values,
                     out=self._e_n1,
@@ -5484,7 +5280,7 @@ class VariationalViscosity(Propagator):
                 break
 
             if self._model == "full":
-                deds = self.__dener_ds(
+                deds = self._energy_evaluator.dener_ds(
                     rhof_values,
                     sf1_values,
                     out=self._de_s1_values,
@@ -5548,7 +5344,7 @@ class VariationalViscosity(Propagator):
         self.M_de_ds = self.mass_ops.create_weighted_mass("L2", "L2")
 
         if self._lin_solver["type"][1] is None:
-            self.pc = None
+            self.pc_jac = None
         else:
             pc_class = getattr(
                 preconditioner,
@@ -5591,26 +5387,17 @@ class VariationalViscosity(Propagator):
 
         self._scaled_Mv = 0.1 * self.mass_ops.Mv
 
-        self.r_op = self._Mrho  # - self._scaled_stiffness - self.du_phy_stiffness
-        self.l_op = self._Mrho + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
+        self.r_op = self._Mrho.massop  # - self._scaled_stiffness - self.du_phy_stiffness
+        self.l_op = self._Mrho.massop + self._scaled_Mv + self._scaled_stiffness + self.du_phy_stiffness
 
         self.grad_0 = grad @ Pcoord0 @ Xv
         self.grad_1 = grad @ Pcoord1 @ Xv
         self.grad_2 = grad @ Pcoord2 @ Xv
 
-        if self._lin_solver["type"][1] is None:
-            self.pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                self._lin_solver["type"][1],
-            )
-            self.pc = pc_class(self._Mrho)
-
         self.inv_lop = inverse(
             self.l_op,
             "pcg",
-            pc=self.pc,
+            pc=self._Mrho.inv,
             tol=self._lin_solver["tol"],
             maxiter=self._lin_solver["maxiter"],
             verbose=False,
@@ -5736,36 +5523,6 @@ class VariationalViscosity(Propagator):
 
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
 
-    def __ener(self, rho, s, out=None):
-        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        E(rho, s) = rho^gamma*exp(s/rho)"""
-        gam = self._gamma
-        if out is None:
-            out = np.power(rho, gam) * np.exp(s / rho)
-        else:
-            out *= 0.0
-            out += s
-            out /= rho
-            np.exp(out, out=out)
-            np.power(rho, gam, out=self._tmp_int_grid)
-            out *= self._tmp_int_grid
-        return out
-
-    def __dener_ds(self, rho, s, out=None):
-        """Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        dE(rho, s)/ds = (rho^{gamma-1})*exp(s/rho)"""
-        gam = self._gamma
-        if out is None:
-            out = np.power(rho, gam - 1) * np.exp(s / rho)
-        else:
-            out *= 0.0
-            out += s
-            out /= rho
-            np.exp(out, out=out)
-            np.power(rho, gam - 1, out=self._tmp_int_grid)
-            out *= self._tmp_int_grid
-        return out
-
     def _get_error_newton(self, sn_diff):
         weak_sn_diff = self._inv_M3.dot(sn_diff, out=self._tmp_sn_weak_diff)
         err_s = weak_sn_diff.dot(sn_diff)
@@ -5858,12 +5615,14 @@ class VariationalResistivity(Propagator):
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         linearize_current: dict = options(default=True)["linearize_current"],
+        energy_evaluator: InternalEnergyEvaluator = None,
         pt3: StencilVector | None = None,
     ):
         super().__init__(s, b)
 
         assert model in ["full", "full_p", "linear_p", "delta_p"]
 
+        self._energy_evaluator = energy_evaluator
         self._model = model
         self._gamma = gamma
         self._eta = eta
@@ -6053,7 +5812,7 @@ class VariationalResistivity(Propagator):
                 out=self._rhof_values,
             )
 
-            e_n = self.__ener(
+            e_n = self._energy_evaluator.ener(
                 rhof_values,
                 sf_values,
                 out=self._e_n,
@@ -6088,7 +5847,7 @@ class VariationalResistivity(Propagator):
             )
 
             if self._model == "full":
-                e_n1 = self.__ener(
+                e_n1 = self._energy_evaluator.ener(
                     rhof_values,
                     sf1_values,
                     out=self._e_n1,
@@ -6117,7 +5876,7 @@ class VariationalResistivity(Propagator):
                 break
 
             if self._model == "full":
-                deds = self.__dener_ds(
+                deds = self._energy_evaluator.dener_ds(
                     rhof_values,
                     sf1_values,
                     out=self._de_s1_values,
@@ -6402,36 +6161,6 @@ class VariationalResistivity(Propagator):
         self._sq_term_metric_no_jac = deepcopy(metric)
 
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
-
-    def __ener(self, rho, s, out=None):
-        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        E(rho, s) = rho^gamma*exp(s/rho)"""
-        gam = self._gamma
-        if out is None:
-            out = np.power(rho, gam) * np.exp(s / rho)
-        else:
-            out *= 0.0
-            out += s
-            out /= rho
-            np.exp(out, out=out)
-            np.power(rho, gam, out=self._tmp_int_grid)
-            out *= self._tmp_int_grid
-        return out
-
-    def __dener_ds(self, rho, s, out=None):
-        """Derivative with respect to s of the thermodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        dE(rho, s)/ds = (rho^{gamma-1})*exp(s/rho)"""
-        gam = self._gamma
-        if out is None:
-            out = np.power(rho, gam - 1) * np.exp(s / rho)
-        else:
-            out *= 0.0
-            out += s
-            out /= rho
-            np.exp(out, out=out)
-            np.power(rho, gam - 1, out=self._tmp_int_grid)
-            out *= self._tmp_int_grid
-        return out
 
     def _get_error_newton(self, sn_diff):
         weak_sn_diff = self._inv_M3.dot(sn_diff, out=self._tmp_sn_weak_diff)

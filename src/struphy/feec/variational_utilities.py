@@ -2,9 +2,11 @@ from copy import deepcopy
 
 import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
+from psydac.linalg.solvers import inverse
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec import preconditioner
 
 
 class BracketOperator(LinOpWithTransp):
@@ -844,6 +846,7 @@ class InternalEnergyEvaluator:
             )
         )
 
+        self._density_field = self._derham.create_field("f3", "L2")
         self.sf = self._derham.create_field("sf", "L2")
         self.sf1 = self._derham.create_field("sf", "L2")
         self.rhof = self._derham.create_field("rhof", "L2")
@@ -1003,26 +1006,9 @@ class InternalEnergyEvaluator:
         """
 
         # Get the value of the fields on the grid
-        self.rhof.vector = rhon
-        self.rhof1.vector = rhon1
-        self.sf.vector = sn
-
-        rhof_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof_values,
-        )
-        rhof1_values = self.rhof1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof1_values,
-        )
-
-        sf_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf_values,
-        )
+        rhof_values = self.eval_3form(rhon, out=self._rhof_values)
+        rhof1_values = self.eval_3form(rhon1, out=self._rhof1_values)
+        sf_values = self.eval_3form(sn, out=self._sf_values)
 
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
@@ -1082,23 +1068,10 @@ class InternalEnergyEvaluator:
         Evaluation of the derivative of :math:`E` with respect to :math:`\rho` on the grid.
         """
 
-        self.rhof.vector = rhon
-        self.sf.vector = sn
+        rhof_values = self.eval_3form(rhon, out=self._rhof_values)
+        sf_values = self.eval_3form(sn, out=self._sf_values)
 
-        rhof0_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof_values,
-        )
-
-        sf0_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf_values,
-        )
-
-        out = self.dener_drho(rhof0_values, sf0_values, out=out)
-
+        out = self.dener_drho(rhof_values, sf_values, out=out)
         return out
 
     def evaluate_discrete_de_ds_grid(self, rhon, sn, sn1, out=None):
@@ -1109,26 +1082,9 @@ class InternalEnergyEvaluator:
 
         """
         # Get the value of the fields on the grid
-        self.rhof.vector = rhon
-        self.sf.vector = sn
-        self.sf1.vector = sn1
-
-        sf_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf_values,
-        )
-        sf1_values = self.sf1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf1_values,
-        )
-
-        rhof_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof_values,
-        )
+        sf_values = self.eval_3form(sn, out=self._sf_values)
+        sf1_values = self.eval_3form(sn1, out=self._sf1_values)
+        rhof_values = self.eval_3form(rhon, out=self._rhof_values)
 
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
@@ -1193,47 +1149,18 @@ class InternalEnergyEvaluator:
         r"""
         Evaluation of the derivative of :math:`E` with respect to :math:`s` on the grid.
         """
-        self.rhof.vector = rhon
-        self.sf.vector = sn
+        rhof_values = self.eval_3form(rhon, out=self._rhof_values)
+        sf_values = self.eval_3form(sn, out=self._sf_values)
 
-        rhof0_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof_values,
-        )
-
-        sf0_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf_values,
-        )
-
-        out = self.dener_ds(rhof0_values, sf0_values, out=out)
-
+        out = self.dener_ds(rhof_values, sf_values, out=out)
         return out
 
     def evaluate_discrete_d2e_drho2_grid(self, rhon, rhon1, sn, out=None):
         "Evaluate the derivative of the discrete derivative with respect to rhon1"
-        # Get the value of the fields on the grid
-        self.rhof.vector = rhon
-        self.rhof1.vector = rhon1
-        self.sf.vector = sn
-
-        rhof_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof_values,
-        )
-        rhof1_values = self.rhof1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof1_values,
-        )
-        sf_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf_values,
-        )
+        # Get the value of the fields on the grid        
+        rhof_values = self.eval_3form(rhon, out=self._rhof_values)
+        rhof1_values = self.eval_3form(rhon1, out=self._rhof1_values)
+        sf_values = self.eval_3form(sn, out=self._sf_values)
 
         # delta_rho_values = rhof1_values-rhof_values
         delta_rho_values = self._delta_values
@@ -1292,25 +1219,9 @@ class InternalEnergyEvaluator:
     def evaluate_discrete_d2e_ds2_grid(self, rhon, sn, sn1, out=None):
         "Evaluate the derivative of the discrete derivative with respect to sn1"
         # Get the value of the fields on the grid
-        self.rhof.vector = rhon
-        self.sf1.vector = sn1
-        self.sf.vector = sn
-
-        rhof_values = self.rhof.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._rhof_values,
-        )
-        sf_values = self.sf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf_values,
-        )
-        sf1_values = self.sf1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            self.integration_grid_bd,
-            out=self._sf1_values,
-        )
+        rhof_values = self.eval_3form(rhon, out=self._rhof_values)
+        sf_values = self.eval_3form(sn, out=self._sf_values)
+        sf1_values = self.eval_3form(sn1, out=self._sf1_values)
 
         # delta_s_values = s1_values-sf_values
         delta_s_values = self._delta_values
@@ -1366,3 +1277,103 @@ class InternalEnergyEvaluator:
         # -metric *(eta*(de_rho_s1*delta_s_values-e_rho_s1+e_rho_s)/(delta_s_values**2+1e-40) + (1-eta)*d2e_rho_s1)
         out += d2e_rho_s1
         out *= -1.0
+
+    def eval_3form(self, coeffs, out=None):
+        """Evaluate the 3 form with FE coefficient coeffs on the grid"""
+        self._density_field.vector = coeffs
+        f_values = self._density_field.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=out,
+        )
+
+        return f_values
+
+
+class H1vecMassMatrix_density:
+    """Wrapper around a Weighted mass operator from H1vec to H1vec whose weights are given by a 3 form"""
+    def __init__(self, derham, mass_ops, domain):
+
+        self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.field = derham.create_field("field", "L2")
+
+        integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
+
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
+            derham.prepare_eval_tp_fixed(
+                integration_grid,
+            )
+        )
+
+        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+        self._f_values = np.zeros(grid_shape, dtype=float)
+
+        metric = domain.metric(*integration_grid)
+        self._mass_metric_term = deepcopy(metric)
+        self._full_term_mass = deepcopy(metric)
+
+    @property
+    def massop(self,):
+        """The WeightedMassOperator"""
+        return self._massop
+    
+    @property
+    def inv(self,):
+        """The inverse WeightedMassOperator"""
+        if not hasattr(self, '_inv'):
+            self._create_inv()
+        return self._inv
+
+    def update_weight(self, coeffs):
+        """Update the weighted mass matrix operator"""
+
+        self.field.vector = coeffs
+        f_values = self.field.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            self.integration_grid_bd,
+            out=self._f_values,
+        )
+        for i in range(3):
+            for j in range(3):
+                self._full_term_mass[i, j] = f_values * self._mass_metric_term[i, j]
+
+        self._massop.assemble(
+            [
+                [self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
+                [
+                    self._full_term_mass[1, 0],
+                    self._full_term_mass[
+                        1,
+                        1,
+                    ],
+                    self._full_term_mass[1, 2],
+                ],
+                [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
+            ],
+            verbose=False,
+        )
+
+        if hasattr(self, '_inv') and self._pc is not None:
+            self._pc.update_mass_operator(self._massop)
+
+    def _create_inv(self, type='pcg', pc_type='MassMatrixDiagonalPreconditioner', tol=1e-16, maxiter=500, verbose=False):
+        """Inverse the  weighted mass matrix"""
+        if pc_type is None:
+            self._pc = None
+        else:
+            pc_class = getattr(
+                preconditioner,
+                pc_type,
+            )
+            self._pc = pc_class(self.massop)
+
+        self._inv = inverse(
+            self.massop,
+            type,
+            pc=self._pc,
+            tol=tol,
+            maxiter=maxiter,
+            verbose=verbose,
+            recycle=True,
+        )
+        

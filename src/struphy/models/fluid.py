@@ -548,11 +548,12 @@ class ViscoresistiveMHD(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
         from struphy.polar.basic import PolarVector
+        from struphy.feec.variational_utilities import InternalEnergyEvaluator, H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -578,8 +579,6 @@ class ViscoresistiveMHD(StruphyModel):
         self._eta = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta"]
         self._eta_a = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta_a"]
         model = "full"
-
-        from struphy.feec.variational_utilities import InternalEnergyEvaluator
 
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
 
@@ -627,6 +626,7 @@ class ViscoresistiveMHD(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_viscosity,
             "nonlin_solver": nonlin_solver_viscosity,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         self._kwargs[propagators_fields.VariationalResistivity] = {
@@ -638,6 +638,7 @@ class ViscoresistiveMHD(StruphyModel):
             "lin_solver": lin_solver_resistivity,
             "nonlin_solver": nonlin_solver_resistivity,
             "linearize_current": self._linearize_current,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         # Initialize propagators used in splitting substeps
@@ -674,13 +675,7 @@ class ViscoresistiveMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        rhon = self.pointer["mhd_rho3"]
-        self._propagators[0].rhof1.vector = rhon
-
-        self._propagators[0]._update_weighted_MM()
-
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
+        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
 
         en_U = self.pointer["mhd_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
@@ -728,13 +723,6 @@ class ViscoresistiveMHD(StruphyModel):
         en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
-
-    def __ener(self, rho, s):
-        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        E(rho, s) = rho^gamma*exp(s/rho)"""
-        gam = self._gamma
-        return np.power(rho, gam) * np.exp(s / rho)
-
 
 class ViscousFluid(StruphyModel):
     r"""Full (non-linear) viscous Navier-Stokes equations discretized with a variational method.
@@ -805,7 +793,9 @@ class ViscousFluid(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        from struphy.feec.variational_utilities import InternalEnergyEvaluator, H1vecMassMatrix_density
+
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -821,8 +811,6 @@ class ViscousFluid(StruphyModel):
         self._mu = params["fluid"]["fluid"]["options"]["VariationalViscosity"]["physics"]["mu"]
         self._mu_a = params["fluid"]["fluid"]["options"]["VariationalViscosity"]["physics"]["mu_a"]
         model = "full"
-
-        from struphy.feec.variational_utilities import InternalEnergyEvaluator
 
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
 
@@ -862,6 +850,7 @@ class ViscousFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_viscosity,
             "nonlin_solver": nonlin_solver_viscosity,
+            "energy_evaluator": self._energy_evaluator
         }
 
         # Initialize propagators used in splitting substeps
@@ -894,13 +883,7 @@ class ViscousFluid(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        rhon = self.pointer["fluid_rho3"]
-        self._propagators[0].rhof1.vector = rhon
-
-        self._propagators[0]._update_weighted_MM()
-
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
+        m1 = self.WMM.massop.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
 
         en_U = self.pointer["fluid_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
@@ -1010,11 +993,12 @@ class ViscoresistiveMHD_with_p(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
         from struphy.polar.basic import PolarVector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -1114,13 +1098,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        rhon = self.pointer["mhd_rho3"]
-        self._propagators[0].rhof1.vector = rhon
-
-        self._propagators[0]._update_weighted_MM()
-
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
+        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
 
         en_U = self.pointer["mhd_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
@@ -1221,11 +1199,12 @@ class ViscoresistiveLinearMHD(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
         from struphy.polar.basic import PolarVector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
@@ -1328,8 +1307,7 @@ class ViscoresistiveLinearMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
+        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
 
         en_U = self.pointer["mhd_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
@@ -1447,11 +1425,12 @@ class ViscoresistiveDeltafMHD(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
         from struphy.polar.basic import PolarVector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -1559,8 +1538,7 @@ class ViscoresistiveDeltafMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
+        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
 
         en_U = self.pointer["mhd_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
