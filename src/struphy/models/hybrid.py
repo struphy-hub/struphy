@@ -910,8 +910,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_sonic["filter"],
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_sonic["boundary_cut"],
-                "full_f": params_sonic["full_f"],
-                "particle_on": params_sonic["particle_on"]
+                "reduced_coupling": self._reduced_coupling,
+                "MJb_on": params_sonic["MJb_on"],
             }
 
         # Initialize propagators used in splitting substeps

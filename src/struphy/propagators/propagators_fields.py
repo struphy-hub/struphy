@@ -1641,6 +1641,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                 self._unit_b1[2]._data,
                 self._scale_vec,
                 self._boundary_cut_e1,
+                True,
             )
 
         # if self._particles.control_variate:
@@ -1834,8 +1835,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["full_f"] = True
-        dct["particle_on"] = False
+        dct["MJb_on"] = False
         dct["turn_off"] = False
 
         if default:
@@ -1858,8 +1858,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        full_f: bool = options(default=True)["full_f"],
-        particle_on: bool = options(default=True)["particle_on"],
+        reduced_coupling: bool,
+        MJb_on: bool = options(default=True)["MJb_on"],
     ):
         super().__init__(n, u, p)
 
@@ -1867,8 +1867,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._b = b
         self._unit_b1 = unit_b1
         self._absB0 = absB0
-
-        self._particle_on = particle_on
 
         self._info = solver["info"]
 
@@ -1884,8 +1882,11 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             self._space_key_int = int(self._u_id)
 
         self._boundary_cut_e1 = boundary_cut["e1"]
+        self._MJb_on = MJb_on
 
-        self._full_f = full_f
+        # scheme2
+        if MJb_on:
+            assert not reduced_coupling
 
         self._ACC = Accumulator(
             particles,
@@ -1898,6 +1899,14 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             filter_params=filter,
         )
 
+        self._args_accum_kernel =(
+                self._unit_b1[0]._data,
+                self._unit_b1[1]._data,
+                self._unit_b1[2]._data,
+                self._scale_vec,
+                self._boundary_cut_e1,
+                reduced_coupling,
+        )
         # if self._particles.control_variate:
 
         #     # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
@@ -2009,23 +2018,17 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         byn1 = self._B.dot(pn, out=self._byn1)
         byn2 = self._MJ.dot(self._b, out=self._byn2)
 
-        if self._particle_on:
-            # accumulate
-            self._ACC(
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._scale_vec,
-                self._boundary_cut_e1,
-                self._full_f,
-            )
+        if not self._MJb_on:
+            byn2 *= 0.
+            
+        self._ACC(*self._args_accum_kernel)
 
-            # update time-dependent operator
-            self._b.update_ghost_regions()
-            self._update_weights_TBT()
+        # update time-dependent operator
+        self._b.update_ghost_regions()
+        self._update_weights_TBT()
 
-            b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
-            byn2 += b2acc
+        b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
+        byn2 += b2acc
 
         byn2 *= 1 / 2
         byn1 -= byn2
