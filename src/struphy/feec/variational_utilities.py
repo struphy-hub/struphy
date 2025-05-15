@@ -4,9 +4,9 @@ import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
 from psydac.linalg.solvers import inverse
 
+from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.linear_operators import LinOpWithTransp
-from struphy.feec import preconditioner
 
 
 class BracketOperator(LinOpWithTransp):
@@ -1157,7 +1157,7 @@ class InternalEnergyEvaluator:
 
     def evaluate_discrete_d2e_drho2_grid(self, rhon, rhon1, sn, out=None):
         "Evaluate the derivative of the discrete derivative with respect to rhon1"
-        # Get the value of the fields on the grid        
+        # Get the value of the fields on the grid
         rhof_values = self.eval_3form(rhon, out=self._rhof_values)
         rhof1_values = self.eval_3form(rhon1, out=self._rhof1_values)
         sf_values = self.eval_3form(sn, out=self._sf_values)
@@ -1292,17 +1292,15 @@ class InternalEnergyEvaluator:
 
 class H1vecMassMatrix_density:
     """Wrapper around a Weighted mass operator from H1vec to H1vec whose weights are given by a 3 form"""
-    def __init__(self, derham, mass_ops, domain):
 
+    def __init__(self, derham, mass_ops, domain):
         self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
         self.field = derham.create_field("field", "L2")
 
         integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
 
-        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
-            derham.prepare_eval_tp_fixed(
-                integration_grid,
-            )
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
+            integration_grid,
         )
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
@@ -1313,14 +1311,18 @@ class H1vecMassMatrix_density:
         self._full_term_mass = deepcopy(metric)
 
     @property
-    def massop(self,):
+    def massop(
+        self,
+    ):
         """The WeightedMassOperator"""
         return self._massop
-    
+
     @property
-    def inv(self,):
+    def inv(
+        self,
+    ):
         """The inverse WeightedMassOperator"""
-        if not hasattr(self, '_inv'):
+        if not hasattr(self, "_inv"):
             self._create_inv()
         return self._inv
 
@@ -1353,10 +1355,12 @@ class H1vecMassMatrix_density:
             verbose=False,
         )
 
-        if hasattr(self, '_inv') and self._pc is not None:
+        if hasattr(self, "_inv") and self._pc is not None:
             self._pc.update_mass_operator(self._massop)
 
-    def _create_inv(self, type='pcg', pc_type='MassMatrixDiagonalPreconditioner', tol=1e-16, maxiter=500, verbose=False):
+    def _create_inv(
+        self, type="pcg", pc_type="MassMatrixDiagonalPreconditioner", tol=1e-16, maxiter=500, verbose=False
+    ):
         """Inverse the  weighted mass matrix"""
         if pc_type is None:
             self._pc = None
@@ -1376,4 +1380,3 @@ class H1vecMassMatrix_density:
             verbose=verbose,
             recycle=True,
         )
-        

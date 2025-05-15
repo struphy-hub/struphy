@@ -753,8 +753,8 @@ class VariationalCompressibleFluid(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
-        from struphy.feec.variational_utilities import H1vecMassMatrix_density
         from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)

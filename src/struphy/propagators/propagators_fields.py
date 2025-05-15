@@ -13,7 +13,7 @@ import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.variational_utilities import BracketOperator, InternalEnergyEvaluator, H1vecMassMatrix_density
+from struphy.feec.variational_utilities import BracketOperator, H1vecMassMatrix_density, InternalEnergyEvaluator
 from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
@@ -3197,7 +3197,7 @@ class VariationalDensityEvolve(Propagator):
         mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
         tol = self._nonlin_solver["tol"]
         err = tol + 1
-        
+
         for it in range(self._nonlin_solver["maxiter"]):
             # Newton iteration
 
@@ -3211,7 +3211,7 @@ class VariationalDensityEvolve(Propagator):
             # if self._model == "deltaf":
             #     rhon12 += self.projected_equil.n3
 
-             #self._update_Pirho(rhon12)
+            # self._update_Pirho(rhon12)
 
             # Update the linear form
             self.uf1.vector = un1
@@ -3272,7 +3272,7 @@ class VariationalDensityEvolve(Propagator):
                 self._update_weighted_MM(rho)
             else:
                 self._update_weighted_MM(rhon1)
-            
+
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
@@ -3503,9 +3503,13 @@ class VariationalDensityEvolve(Propagator):
 
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:
-            self._energy_evaluator.evaluate_exact_de_drho_grid(self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_drho)
+            self._energy_evaluator.evaluate_exact_de_drho_grid(
+                self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_drho
+            )
         elif abs(self._gamma - 7 / 5) < 1e-3:
-            self._energy_evaluator.evaluate_exact_de_drho_grid(self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_drho)
+            self._energy_evaluator.evaluate_exact_de_drho_grid(
+                self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_drho
+            )
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
@@ -3928,9 +3932,13 @@ class VariationalEntropyEvolve(Propagator):
 
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:
-            self._energy_evaluator.evaluate_exact_de_ds_grid(self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_ds)
+            self._energy_evaluator.evaluate_exact_de_ds_grid(
+                self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_ds
+            )
         elif abs(self._gamma - 7 / 5) < 1e-3:
-            self._energy_evaluator.evaluate_exact_de_ds_grid(self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_ds)
+            self._energy_evaluator.evaluate_exact_de_ds_grid(
+                self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_ds
+            )
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
@@ -5213,7 +5221,7 @@ class VariationalViscosity(Propagator):
         )
 
         if self._model == "full":
-            rhof_values = self._energy_evaluator.eval_3form(rho,out=self._rhof_values)
+            rhof_values = self._energy_evaluator.eval_3form(rho, out=self._rhof_values)
 
             e_n = self._energy_evaluator.ener(
                 rhof_values,

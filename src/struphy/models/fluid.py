@@ -547,8 +547,8 @@ class ViscoresistiveMHD(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density, InternalEnergyEvaluator
         from struphy.polar.basic import PolarVector
-        from struphy.feec.variational_utilities import InternalEnergyEvaluator, H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
@@ -724,6 +724,7 @@ class ViscoresistiveMHD(StruphyModel):
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
 
+
 class ViscousFluid(StruphyModel):
     r"""Full (non-linear) viscous Navier-Stokes equations discretized with a variational method.
 
@@ -793,7 +794,7 @@ class ViscousFluid(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from struphy.feec.variational_utilities import InternalEnergyEvaluator, H1vecMassMatrix_density
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density, InternalEnergyEvaluator
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -850,7 +851,7 @@ class ViscousFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_viscosity,
             "nonlin_solver": nonlin_solver_viscosity,
-            "energy_evaluator": self._energy_evaluator
+            "energy_evaluator": self._energy_evaluator,
         }
 
         # Initialize propagators used in splitting substeps
@@ -992,8 +993,8 @@ class ViscoresistiveMHD_with_p(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
-        from struphy.polar.basic import PolarVector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
+        from struphy.polar.basic import PolarVector
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
@@ -1198,8 +1199,8 @@ class ViscoresistiveLinearMHD(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
-        from struphy.polar.basic import PolarVector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
+        from struphy.polar.basic import PolarVector
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
@@ -1424,8 +1425,8 @@ class ViscoresistiveDeltafMHD(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
-        from struphy.polar.basic import PolarVector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
+        from struphy.polar.basic import PolarVector
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
