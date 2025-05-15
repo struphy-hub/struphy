@@ -770,7 +770,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def phasespace_coords(self):
-        """Array holding the marker velocities in logical space. The i-th row holds the i-th marker info."""
+        """Array holding the marker positions and velocities in logical space. The i-th row holds the i-th marker info."""
         if self.amrex:
             return np.ascontiguousarray(self._markers.to_df()[self.index["coords"]].to_numpy())
         else:

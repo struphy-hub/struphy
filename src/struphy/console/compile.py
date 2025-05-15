@@ -39,6 +39,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
     """
 
     import importlib.metadata
+    import importlib.util
     import os
     import re
     import sysconfig
@@ -285,7 +286,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         cmd = [
             "psydac-accelerate",
             "--language=" + language,
-            # "--compiler=" + compiler, # Compiler flag not implemented yet
+            "--compiler=" + compiler,
         ]
         subp_run(cmd)
 
@@ -299,12 +300,14 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
             flags += " --verbose"
 
         # compilation
-        cmd = [
-            "compile-gvec-tp",
-            "--language=" + language,
-            "--compiler=" + compiler,
-        ]
-        subp_run(cmd)
+        gvec_spec = importlib.util.find_spec("gvec_to_python")
+        if gvec_spec is not None:
+            cmd = [
+                "compile-gvec-tp",
+                "--language=" + language,
+                "--compiler=" + compiler,
+            ]
+            subp_run(cmd)
 
         print("\nCompiling Struphy kernels ...")
         cmd = [
