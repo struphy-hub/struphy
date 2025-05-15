@@ -13,7 +13,7 @@ import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.variational_utilities import BracketOperator, H1vecMassMatrix_density, InternalEnergyEvaluator
+from struphy.feec.variational_utilities import BracketOperator, H1vecMassMatrix_density, InternalEnergyEvaluator, KineticEnergyEvaluator
 from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
@@ -3100,11 +3100,10 @@ class VariationalDensityEvolve(Propagator):
         # Femfields for the projector
         self.rhof = self.derham.create_field("rhof", "L2")
         self.rhof1 = self.derham.create_field("rhof1", "L2")
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
 
         # Projector
         self._energy_evaluator = energy_evaluator
+        self._kinetic_evaluator = KineticEnergyEvaluator(self.derham, self.domain, self.mass_ops)
         self._initialize_projectors_and_mass()
         if self._model == "linear":
             rhotmp = self.projected_equil.n3
@@ -3153,7 +3152,6 @@ class VariationalDensityEvolve(Propagator):
         # Initial variables
         rhon = self.feec_vars[0]
         un = self.feec_vars[1]
-        self.uf.vector = un
 
         if self._model == "linear":
             advection = self.divPirho.dot(un, out=self._tmp_rho_advection)
@@ -3214,8 +3212,7 @@ class VariationalDensityEvolve(Propagator):
             # self._update_Pirho(rhon12)
 
             # Update the linear form
-            self.uf1.vector = un1
-            self._update_linear_form_dl_drho(rhon, rhon1, s)
+            self._update_linear_form_dl_drho(rhon, rhon1, un, un1, s)
 
             # Compute the advection terms
             advection = self.divPirhoT.dot(
@@ -3249,7 +3246,7 @@ class VariationalDensityEvolve(Propagator):
                 break
 
             # Derivative for Newton
-            self._get_jacobian(dt, rhon, rhon1, s)
+            self._get_jacobian(dt, rhon, rhon1, un, un1, s)
 
             # Newton step
             self._tmp_f[0] = mn_diff
@@ -3316,35 +3313,12 @@ class VariationalDensityEvolve(Propagator):
             )
         )
 
-        metric = self.domain.metric(*integration_grid)
-        self._mass_metric_term = deepcopy(metric)
-
         # tmps
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
         self._rhof_values = np.zeros(grid_shape, dtype=float)
 
-        self._full_term_mass = deepcopy(metric)
-
-        # prepare for integration of linear form
-
-        metric = self.domain.metric(
-            *integration_grid,
-        ) * self.domain.jacobian_det(*integration_grid)
-        self._proj_u2_metric_term = deepcopy(metric)
-
         # Other mass matrices for newton solve
-        self._M_un = self.mass_ops.create_weighted_mass("H1vec", "L2")
-        self._M_un1 = self.mass_ops.create_weighted_mass("L2", "H1vec")
         self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
-
-        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-
-        self._Guf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        self._Guf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-
-        metric = self.domain.metric(*integration_grid)
-        self._mass_u_metric_term = deepcopy(metric)
 
         Jacs = BlockVectorSpace(
             self.derham.Vh_pol["v"],
@@ -3363,8 +3337,8 @@ class VariationalDensityEvolve(Propagator):
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
 
-        self._Jacobian[0, 0] = self._Mrho.massop + self._dt2_pc_divPirhoT @ self._M_un
-        self._Jacobian[0, 1] = self._M_un1 + self._dt_pc_divPirhoT @ self._M_drho
+        self._Jacobian[0, 0] = self._Mrho.massop + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
+        self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
         self._Jacobian[1, 0] = self._dt2_divPirho
         self._Jacobian[1, 1] = self._I3
 
@@ -3436,36 +3410,10 @@ class VariationalDensityEvolve(Propagator):
 
         self._Mrho.update_weight(rho)
 
-    def _update_linear_form_dl_drho(self, rhon, rhon1, sn):
+    def _update_linear_form_dl_drho(self, rhon, rhon1, un, un1, sn):
         """Update the linearform representing integration in V3 against kynetic energy"""
 
-        uf_values = self.uf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
-            out=self._uf_values,
-        )
-        uf1_values = self.uf1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
-            out=self._uf1_values,
-        )
-
-        self._eval_dl_drho *= 0.0
-        for i in range(3):
-            for j in range(3):
-                self._tmp_int_grid *= 0
-                self._tmp_int_grid += uf_values[i]
-                self._tmp_int_grid *= self._proj_u2_metric_term[i, j]
-                self._tmp_int_grid *= uf1_values[j]
-                self._eval_dl_drho += self._tmp_int_grid
-
-        self._eval_dl_drho *= 0.5
+        self._kinetic_evaluator.get_u2_grid(un,un1,self._eval_dl_drho)
 
         if self._model == "barotropic":
             rhof_values = self.rhof.eval_tp_fixed_loc(
@@ -3513,38 +3461,9 @@ class VariationalDensityEvolve(Propagator):
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
 
-    def _get_jacobian(self, dt, rhon, rhon1, sn):
-        uf_values = self.uf.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
-            out=self._uf_values,
-        )
-        uf1_values = self.uf1.eval_tp_fixed_loc(
-            self.integration_grid_spans,
-            [
-                self.integration_grid_bn,
-            ]
-            * 3,
-            out=self._uf1_values,
-        )
-
-        # Guf = metric @ uf
-        for i in range(3):
-            self._Guf_values[i] *= 0.0
-            self._Guf1_values[i] *= 0.0
-            for j in range(3):
-                self._tmp_int_grid *= 0.0
-                self._tmp_int_grid += self._mass_u_metric_term[i, j]
-                self._tmp_int_grid *= uf_values[j]
-                self._Guf_values[i] += self._tmp_int_grid
-
-                self._tmp_int_grid *= 0.0
-                self._tmp_int_grid += self._mass_u_metric_term[i, j]
-                self._tmp_int_grid *= uf1_values[j]
-                self._Guf1_values[i] += self._tmp_int_grid
+    def _get_jacobian(self, dt, rhon, rhon1, un, un1, sn):
+        self._kinetic_evaluator.assemble_M_un(un)
+        self._kinetic_evaluator.assemble_M_un1(un1)
 
         if self._model == "barotropic":
             self._M_drho = -self.mass_ops.M3 / 2.0
@@ -3557,15 +3476,6 @@ class VariationalDensityEvolve(Propagator):
 
         elif self._model == "full_p":
             self._M_drho.assemble([[0.0 * self._tmp_int_grid]], verbose=False)
-
-        self._M_un.assemble(
-            [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]],
-            verbose=False,
-        )
-        self._M_un1.assemble(
-            [[self._Guf1_values[0]], [self._Guf1_values[1]], [self._Guf1_values[2]]],
-            verbose=False,
-        )
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
         self._dt_pc_divPirhoT._scalar = dt
@@ -4058,12 +3968,6 @@ class VariationalMagFieldEvolve(Propagator):
 
         self._Mrho = mass_ops
 
-        # Femfields for the projector
-        self.bf = self.derham.create_field("bf", "Hdiv")
-
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
-
         # Projector
         self._initialize_projectors_and_mass()
 
@@ -4104,13 +4008,11 @@ class VariationalMagFieldEvolve(Propagator):
         bn1 = bn.copy(out=self._tmp_bn1)
         # Initialize variable for Newton iteration
 
-        self.bf.vector = bn1
         self._update_Pib(bn)
 
         mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
-        self.bf.vector = bn1
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
@@ -4445,13 +4347,6 @@ class VariationalPBEvolve(Propagator):
 
         self._Mrho = mass_ops
 
-        # Femfields for the projector
-        self.bf = self.derham.create_field("bf", "Hdiv")
-        self.pf = self.derham.create_field("pf", "L2")
-
-        self.uf = self.derham.create_field("uf", "H1vec")
-        self.uf1 = self.derham.create_field("uf1", "H1vec")
-
         # Projector
         self._initialize_projectors_and_mass()
 
@@ -4507,19 +4402,14 @@ class VariationalPBEvolve(Propagator):
         bn = self.feec_vars[1]
         un = self.feec_vars[2]
 
-        self.bf.vector = bn
         self._update_Pib(bn)
-        self.pf.vector = pn
         self._update_Projp(pn)
-
-        self.uf.vector = un
 
         mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
         bn1 = bn.copy(out=self._tmp_bn1)
         bn1 += self._tmp_bn_diff
         pn1 = pn.copy(out=self._tmp_pn1)
         pn1 += self._tmp_pn_diff
-        self.pf.vector = pn1
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
@@ -4542,9 +4432,7 @@ class VariationalPBEvolve(Propagator):
             pn12 += pn1
             pn12 *= 0.5
 
-            # self.bf.vector = bn12
             # self._update_Pib()
-            # self.pf.vector = pn12
             # self._update_Projp()
             # Update the linear form
             self._update_linear_form_u2()

@@ -833,6 +833,14 @@ class InternalEnergyEvaluator:
 
     This class only contains a lot of array corresponding to the integration grid to avoid the allocation of temporaries,
     and method that can be called to evaluate the energy and derivatives on the grid.
+    
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    gamma : Float
+        Thermodynamical constant
     """
 
     def __init__(self, derham, gamma):
@@ -1379,4 +1387,152 @@ class H1vecMassMatrix_density:
             maxiter=maxiter,
             verbose=verbose,
             recycle=True,
+        )
+
+class KineticEnergyEvaluator:
+    """Helper class to evaluate the different Kinetic energy terms appearing in VariationalDensityEvolve
+    
+    This class only contains arrays corresponding to the integration grid to avoid the allocation of temporaries,
+    methods that can be called to evaluate the energy and derivatives on the grid and weighted mass operators corresponding to integration against a vector field.
+    Parameters
+    ----------
+    derham : Derham
+        Discrete de Rham sequence.
+
+    domain : Domain
+        The domain in which the problem is discretized (needed for metric terms)
+
+    mass_ops : WeightedMassOperators
+        The weighted mass operators needed to create new mass matrices
+    """
+
+    def __init__(self, derham, domain, mass_ops):
+
+        integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
+
+        self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
+            derham.prepare_eval_tp_fixed(
+                integration_grid,
+            )
+        )
+
+        # tmps
+        grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+
+        self.uf = derham.create_field("uf", "H1vec")
+        self.uf1 = derham.create_field("uf1", "H1vec")
+
+        self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._Guf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+
+        metric = domain.metric(
+            *integration_grid,
+        ) * domain.jacobian_det(*integration_grid)
+        self._proj_u2_metric_term = deepcopy(metric)
+
+        metric = domain.metric(*integration_grid)
+        self._mass_u_metric_term = deepcopy(metric)
+
+        self._M_un = mass_ops.create_weighted_mass("H1vec", "L2")
+        self._M_un1 = mass_ops.create_weighted_mass("L2", "H1vec")
+
+
+    @property
+    def M_un(self,):
+        """Weighted mass matrix with domain H1vec et codomain L2
+        represented the integration against a vector field in H1vec"""
+        return self._M_un
+    
+    @property
+    def M_un1(self,):
+        """Weighted mass matrix with domain L2 et codomain H1vec
+        represented the integration against a vector field in H1vec"""
+        return self._M_un1
+
+    def get_u2_grid(self, un, un1, out):
+        """Values of :math:`u_n \cdot u_{n+1}` represented by the coefficient un and un1, on the integration grid"""
+        self.uf.vector = un
+        self.uf1.vector = un1
+
+        uf_values = self.uf.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            [
+                self.integration_grid_bn,
+            ]
+            * 3,
+            out=self._uf_values,
+        )
+        uf1_values = self.uf1.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            [
+                self.integration_grid_bn,
+            ]
+            * 3,
+            out=self._uf1_values,
+        )
+
+        out *= 0.0
+        for i in range(3):
+            for j in range(3):
+                self._tmp_int_grid *= 0
+                self._tmp_int_grid += uf_values[i]
+                self._tmp_int_grid *= self._proj_u2_metric_term[i, j]
+                self._tmp_int_grid *= uf1_values[j]
+                out += self._tmp_int_grid
+
+        out *= 0.5
+        return out
+    
+    def assemble_M_un(self, un):
+        """Update the weights of the matrix M_un with the vector fields given by the coeficient un"""
+        self.uf.vector = un
+
+        uf_values = self.uf.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            [
+                self.integration_grid_bn,
+            ]
+            * 3,
+            out=self._uf_values,
+        )
+
+        for i in range(3):
+            self._Guf_values[i] *= 0.0
+            for j in range(3):
+                self._tmp_int_grid *= 0.0
+                self._tmp_int_grid += self._mass_u_metric_term[i, j]
+                self._tmp_int_grid *= uf_values[j]
+                self._Guf_values[i] += self._tmp_int_grid
+
+        self._M_un.assemble(
+            [[self._Guf_values[0], self._Guf_values[1], self._Guf_values[2]]],
+            verbose=False,
+        )
+
+    def assemble_M_un1(self, un1):
+        """Update the weights of the matrix M_un1 with the vector fields given by the coeficient un1"""
+        self.uf1.vector = un1
+
+        uf1_values = self.uf1.eval_tp_fixed_loc(
+            self.integration_grid_spans,
+            [
+                self.integration_grid_bn,
+            ]
+            * 3,
+            out=self._uf1_values,
+        )
+
+        for i in range(3):
+            self._Guf_values[i] *= 0.0
+            for j in range(3):
+                self._tmp_int_grid *= 0.0
+                self._tmp_int_grid += self._mass_u_metric_term[i, j]
+                self._tmp_int_grid *= uf1_values[j]
+                self._Guf_values[i] += self._tmp_int_grid
+
+        self._M_un1.assemble(
+            [[self._Guf_values[0]], [self._Guf_values[1]], [self._Guf_values[2]]],
+            verbose=False,
         )
