@@ -1907,24 +1907,37 @@ class Particles(metaclass=ABCMeta):
         from_tesselation : bool
             Whether to compute weights as the cell averages over tiles.
         """
-        
-        if self.amrex:
-            self._initialize_weights_amrex(bckgr_params = bckgr_params, pert_params= pert_params, reject_weights = reject_weights, threshold=threshold, from_tesselation=from_tesselation)
-        else:
-            self._initialize_weights_struphy(bckgr_params = bckgr_params, pert_params= pert_params, reject_weights = reject_weights, threshold=threshold, from_tesselation=from_tesselation)
 
-    def _initialize_weights_amrex(self,
+        if self.amrex:
+            self._initialize_weights_amrex(
+                bckgr_params=bckgr_params,
+                pert_params=pert_params,
+                reject_weights=reject_weights,
+                threshold=threshold,
+                from_tesselation=from_tesselation,
+            )
+        else:
+            self._initialize_weights_struphy(
+                bckgr_params=bckgr_params,
+                pert_params=pert_params,
+                reject_weights=reject_weights,
+                threshold=threshold,
+                from_tesselation=from_tesselation,
+            )
+
+    def _initialize_weights_amrex(
+        self,
         *,
         bckgr_params: dict = None,
         pert_params: dict = None,
         reject_weights: bool = False,
         threshold: float = 1e-8,
-        from_tesselation: bool = False,):
-        
+        from_tesselation: bool = False,
+    ):
         for pti in self._markers.iterator(self._markers, 0):
             markers_array = pti.soa().to_numpy()[0]
-        
-            if from_tesselation: # TODO (Mati)
+
+            if from_tesselation:  # TODO (Mati)
                 if self.pforms[0] is None:
                     fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
                 else:
@@ -1989,15 +2002,15 @@ class Particles(metaclass=ABCMeta):
             else:
                 markers_array["weights"][:] = markers_array["w0"][:]
 
-
-    def _initialize_weights_struphy(self,
+    def _initialize_weights_struphy(
+        self,
         *,
         bckgr_params: dict = None,
         pert_params: dict = None,
         reject_weights: bool = False,
         threshold: float = 1e-8,
-        from_tesselation: bool = False,):
-        
+        from_tesselation: bool = False,
+    ):
         if from_tesselation:
             if self.pforms[0] is None:
                 fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
