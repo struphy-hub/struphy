@@ -16,11 +16,11 @@ from pyccel.decorators import inline
 # import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
 # import struphy.pic.sph_eval_kernels as sph_eval_kernels
 # from struphy.bsplines.evaluation_kernels_3d import (
-#     eval_0form_spline_mpi,
-#     eval_1form_spline_mpi,
+#     # eval_0form_spline_mpi,
+#     # eval_1form_spline_mpi,
 #     eval_2form_spline_mpi,
-#     eval_3form_spline_mpi,
-#     eval_vectorfield_spline_mpi,
+#     # eval_3form_spline_mpi,
+#     # eval_vectorfield_spline_mpi,
 #     get_spans,
 # )
 
@@ -33,10 +33,10 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 # # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
 # # from struphy.geometry.evaluation_kernels import df
 
-def _tmp_floor_division_pusher_kernels(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
+# def _tmp_floor_division_pusher_kernels(x: int):
+#     y = zeros(10)
+#     z = copy(y)
+#     return x // 2
 
 
 
@@ -108,12 +108,6 @@ def push_eta_stage_gpu(
         last = 0.0
     
     args_domain_params = args_domain.params
-    # From matmul: omp target teams distribute parallel for collapse(2)
-    # -- removed omp: #$ omp target teams distribute parallel for    
-    # -- removed omp: #$ omp parallel private(ip, v, dfm, dfinv, k)
-    # -- removed omp: #$ omp target teams distribute parallel for private(ip, v, dfm, dfinv, k)
-
-    # matrix_inv_pusher(dfm, dfinv)
 
     #$ omp target teams distribute parallel for
     for ip in range(n_markers):
@@ -138,11 +132,11 @@ def push_eta_stage_gpu(
         # ------------ END DF ------------ #
 
         # evaluate inverse Jacobian matrix
-        matrix_inv_pusher(dfm, dfinv)
+        matrix_inv_inline(dfm, dfinv)
         # linalg_kernels.matrix_inv_inline(dfm, dfinv)
 
         # pull-back of velocity
-        matrix_vector_pusher(dfinv, v, k)
+        matrix_vector_inline(dfinv, v, k)
         # linalg_kernels.matrix_vector_inline(dfinv, v, k)
 
         # accumulation for last stage
@@ -155,123 +149,139 @@ def push_eta_stage_gpu(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
-@stack_array("dfm", "b_form", "b_cart", "b_norm", "v", "vperp", "vxb_norm", "b_normxvperp")
-def push_vxb_analytic_gpu(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    b2_1: "float[:,:,:]",
-    b2_2: "float[:,:,:]",
-    b2_3: "float[:,:,:]",
-):
-    r"""Solves exactly the rotation
+# # @stack_array("dfm", "b_form", "b_cart", "b_norm", "v", "vperp", "vxb_norm", "b_normxvperp")
+# def push_vxb_analytic_gpu(
+#     dt: float,
+#     stage: int,
+#     args_markers: "MarkerArguments",
+#     args_domain: "DomainArguments",
+#     args_derham: "DerhamArguments",
+#     b2_1: "float[:,:,:]",
+#     b2_2: "float[:,:,:]",
+#     b2_3: "float[:,:,:]",
+# ):
+#     r"""Solves exactly the rotation
 
-    .. math::
+#     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+#         \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
 
-    for each marker :math:`p` in markers array, with fixed rotation vector.
+#     for each marker :math:`p` in markers array, with fixed rotation vector.
 
-    Parameters
-    ----------
-        b2_1, b2_2, b2_3: array[float]
-            3d array of FE coeffs of B-field as 2-form.
-    """
+#     Parameters
+#     ----------
+#         b2_1, b2_2, b2_3: array[float]
+#             3d array of FE coeffs of B-field as 2-form.
+#     """
 
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
+#     # allocate metric coeffs
+#     dfm = empty((3, 3), dtype=float)
 
-    # allocate for field evaluations (2-form components, Cartesian components and normalized Cartesian components)
-    b_form = empty(3, dtype=float)
-    b_cart = empty(3, dtype=float)
-    b_norm = empty(3, dtype=float)
+#     # allocate for field evaluations (2-form components, Cartesian components and normalized Cartesian components)
+#     b_form = empty(3, dtype=float)
+#     b_cart = empty(3, dtype=float)
+#     b_norm = empty(3, dtype=float)
 
-    # particle velocity
-    v = empty(3, dtype=float)
+#     # particle velocity
+#     v = empty(3, dtype=float)
 
-    # perpendicular velocity, v x b_norm and b_norm x vperp
-    vperp = empty(3, dtype=float)
-    vxb_norm = empty(3, dtype=float)
-    b_normxvperp = empty(3, dtype=float)
+#     # perpendicular velocity, v x b_norm and b_norm x vperp
+#     vperp = empty(3, dtype=float)
+#     vxb_norm = empty(3, dtype=float)
+#     b_normxvperp = empty(3, dtype=float)
 
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
+#     # get marker arguments
+#     markers = args_markers.markers
+#     n_markers = args_markers.n_markers
+#     first_init_idx = args_markers.first_init_idx
+#     args_domain_params = args_domain.params
+    
+#     # -- removed omp: #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
+#     # -- removed omp: #$ omp for
+#     for ip in range(n_markers):
+#         # check if marker is a hole
+#         if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
+#             continue
 
-    # -- removed omp: #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
-    # -- removed omp: #$ omp for
-    for ip in range(n_markers):
-        # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
-            continue
+#         e1 = markers[ip, 0]
+#         e2 = markers[ip, 1]
+#         e3 = markers[ip, 2]
+#         v[:] = markers[ip, 3:6]
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+#         # evaluate Jacobian, result in dfm
+#         # evaluation_kernels.df(
+#         #     e1,
+#         #     e2,
+#         #     e3,
+#         #     args_domain,
+#         #     dfm,
+#         # )
+#         df_pusher_inline_nodomainargs(
+#             e1,
+#             e2,
+#             e3,
+#             args_domain_params,
+#             dfm,
+#         )
 
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            e1,
-            e2,
-            e3,
-            args_domain,
-            dfm,
-        )
+#         # metric coeffs
+#         det_df = linalg_kernels.det(dfm)
 
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+#         # # spline evaluation
+#         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
-        # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
+#         # # magnetic field 2-form
+#         eval_2form_spline_mpi(
+#             span1,
+#             span2,
+#             span3,
+#             args_derham,
+#             b2_1,
+#             b2_2,
+#             b2_3,
+#             b_form,
+#         )
 
-        # magnetic field 2-form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            b2_1,
-            b2_2,
-            b2_3,
-            b_form,
-        )
+#         # magnetic field: Cartesian components
+#         # linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+#         # matrix_vector_inline(dfm, b_form, b_cart)
+#         # Temporary start
+#         b_cart[:] = 0.
+#         for i in range(3):
+#             for j in range(3):
+#                 b_cart[i] += dfm[i, j] * b_form[j]
+#         # Temporary end
 
-        # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
-        b_cart[:] = b_cart / det_df
+#         b_cart[:] = b_cart / det_df
 
-        # magnetic field: magnitude
-        b_abs = sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
+#         # magnetic field: magnitude
+#         b_abs = sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
 
-        # only push vxb if magnetic field is non-zero
-        if b_abs != 0.0:
-            # normalized magnetic field direction
-            b_norm[:] = b_cart / b_abs
+#         # only push vxb if magnetic field is non-zero
+#         if b_abs != 0.0:
+#             # normalized magnetic field direction
+#             b_norm[:] = b_cart / b_abs
 
-            # parallel velocity v.b_norm
-            vpar = linalg_kernels.scalar_dot(v, b_norm)
+#             # parallel velocity v.b_norm
+#             vpar = linalg_kernels.scalar_dot(v, b_norm)
 
-            # first component of perpendicular velocity
-            linalg_kernels.cross(v, b_norm, vxb_norm)
-            linalg_kernels.cross(b_norm, vxb_norm, vperp)
+#             # first component of perpendicular velocity
+#             linalg_kernels.cross(v, b_norm, vxb_norm)
+#             linalg_kernels.cross(b_norm, vxb_norm, vperp)
 
-            # second component of perpendicular velocity
-            linalg_kernels.cross(b_norm, vperp, b_normxvperp)
+#             # second component of perpendicular velocity
+#             linalg_kernels.cross(b_norm, vperp, b_normxvperp)
 
-            # analytic rotation
-            markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+#             # analytic rotation
+#             markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
 
-    # -- removed omp: #$ omp end parallel
+#     # -- removed omp: #$ omp end parallel
 
 
 
 @pure
 @inline
-def matrix_vector_pusher(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
+def matrix_vector_inline(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
     """
     Performs the matrix-vector product of a 3x3 matrix with a vector.
 
@@ -296,7 +306,7 @@ def matrix_vector_pusher(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
 
 # # @stack_array('det_a')
 @inline
-def matrix_inv_pusher(a: 'float[:,:]', b: 'float[:,:]'):
+def matrix_inv_inline(a: 'float[:,:]', b: 'float[:,:]'):
     """
     Computes the inverse of a 3x3 matrix.
 

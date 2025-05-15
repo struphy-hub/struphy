@@ -18,8 +18,8 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
 
-from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
-# from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
+# from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
+from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves

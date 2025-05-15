@@ -1,10 +1,10 @@
-from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
-# from pusher_kernels_gpu import matmul_gpu, matmul_cpu
+# from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
+from pusher_kernels_gpu import matmul_gpu, matmul_cpu
 
 import numpy as np
 import time
 
-def gpu_warmup(N = 2000):
+def gpu_warmup(N = 1000):
     A = np.random.random((N, N))
     B = np.random.random((N, N))
     
@@ -356,7 +356,7 @@ def main(
 
 
 if __name__ == "__main__":
-    # gpu_warmup()
+    gpu_warmup()
     import argparse
     import os
 
