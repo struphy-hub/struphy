@@ -1488,7 +1488,7 @@ class Particles(metaclass=ABCMeta):
             self._set_initial_condition()
             for pti in self._markers.iterator(self._markers, 0):
                 markers_array = pti.soa().to_numpy()[0]
-                positions = np.stack([markers_array["x"], markers_array["y"], markers_array["z"]]).T
+                positions = np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float)
                 velocities = self.u_init(positions)[0]
                 markers_array["v1"][:] = velocities[0][:]
                 markers_array["v2"][:] = velocities[1][:]
@@ -1984,7 +1984,7 @@ class Particles(metaclass=ABCMeta):
                 )[:]
                 # compute w0
                 markers_array["w0"][:] = (
-                    self.f_init(np.ascontiguousarray([markers_array["x"], markers_array["y"], markers_array["z"]]).T)
+                    self.f_init(np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float))
                     / markers_array["s0"]
                 )[:]
 

@@ -22,8 +22,10 @@ seed = 123456
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_push_v_in_e_field(plot=False, verbose=False):
+    # initialize Amrex
     amrex = Amrex()
 
+    # define domain
     l1 = -0.5
     r1 = 0.5
     l2 = -0.5
@@ -58,55 +60,33 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
     # instantiate Particle object (for random drawing of markers)
     Np = 1000
 
-    particles_1 = ParticlesSPH(
+    particles_1_amrex = ParticlesSPH(
         bc=bc,
         domain=domain,
         bckgr_params=bel_flow,
         Np=Np,
         amrex=amrex,
     )
+    
+    particles_1_struphy = ParticlesSPH(
+        bc=bc,
+        domain=domain,
+        bckgr_params=bel_flow,
+        Np=Np,
+    )
 
-    # # instantiate Particle object (for regular tesselation drawing of markers)
-    # ppb = 4
-    # boxes_per_dim = (16, 16, 1)
-    # loading = "tesselation"
-    # loading_params = {"n_quad": 1}
-    # eps = 0.5
+    particles_1_amrex.draw_markers(sort=False)
+    particles_1_struphy.draw_markers(sort=False)
 
-    # particles_2 = ParticlesSPH(
-    #         bc=bc,
-    #         domain=domain,
-    #         bckgr_params=bel_flow,
-    #         ppb=ppb,
-    #         boxes_per_dim=boxes_per_dim,
-    #         loading=loading,
-    #         loading_params=loading_params,
-    #         eps=eps,
-    #     )
-
-    particles_1.draw_markers(sort=False)
-    # particles_2.draw_markers(sort=False)
-
-    particles_1.initialize_weights()
-    # particles_2.initialize_weights(from_tesselation=True)
-
-    print(f"{particles_1.positions.shape = }")
-    # print(f'{particles_2.positions.shape = }')
-
-    # positions on the physical domain Omega
-    print(f"random: \n{domain(particles_1.positions).T[:10]}")
-    # print(f'\ntesselation: \n{domain(particles_2.positions).T[:10]}')
-
-    # default parameters of Propagator
-    opts_eta = PushEta.options(default=False)
-    print(opts_eta)
+    particles_1_amrex.initialize_weights()
+    particles_1_struphy.initialize_weights()
 
     # pass simulation parameters to Propagator class
     PushEta.domain = domain
 
     # instantiate Propagator object
-    prop_eta_1 = PushEta(particles_1, algo="forward_euler")
-    # prop_eta_2 = PushEta(particles_2, algo = "forward_euler")
+    prop_eta_1_amrex = PushEta(particles_1_amrex, algo="forward_euler")
+    prop_eta_1_struphy = PushEta(particles_1_struphy, algo="forward_euler")
 
     Nel = [64, 64, 1]  # Number of grid cells
     p = [3, 3, 1]  # spline degrees
@@ -115,7 +95,6 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
     derham = Derham(Nel, p, spl_kind)
 
     p_coeffs = derham.P["0"](p0)
-    p_coeffs
 
     # instantiate Propagator object
     PushVinEfield.domain = domain
@@ -124,77 +103,46 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
     p_h = derham.create_field("pressure", "H1")
     p_h.vector = p_coeffs
 
-    if plot:
-        plt.figure(figsize=(12, 12))
-        x = np.linspace(-0.5, 0.5, 100)
-        y = np.linspace(-0.5, 0.5, 90)
-        xx, yy = np.meshgrid(x, y)
-        eta1 = np.linspace(0, 1, 100)
-        eta2 = np.linspace(0, 1, 90)
-
-        plt.subplot(2, 2, 1)
-        plt.pcolor(xx, yy, p_xyz(xx, yy, 0))
-        plt.axis("square")
-        plt.title("p_xyz")
-        plt.colorbar()
-
-        plt.subplot(2, 2, 2)
-        p_vals = p0(eta1, eta2, 0, squeeze_out=True).T
-        plt.pcolor(eta1, eta2, p_vals)
-        plt.axis("square")
-        plt.title("p logical")
-        plt.colorbar()
-
-        plt.subplot(2, 2, 3)
-        p_h_vals = p_h(eta1, eta2, 0, squeeze_out=True).T
-        plt.pcolor(eta1, eta2, p_h_vals)
-        plt.axis("square")
-        plt.title("p_h (logical)")
-        plt.colorbar()
-
-        plt.subplot(2, 2, 4)
-        plt.pcolor(eta1, eta2, np.abs(p_vals - p_h_vals))
-        plt.axis("square")
-        plt.title("difference")
-        plt.colorbar()
-
-        plt.show()
-
     grad_p = derham.grad.dot(p_coeffs)
     grad_p.update_ghost_regions()  # very important, we will move it inside grad
     grad_p *= -1.0
-    prop_v_1 = PushVinEfield(particles_1, e_field=grad_p)
-    # prop_v_2 = PushVinEfield(particles_2, e_field=grad_p)
+    prop_v_1_amrex = PushVinEfield(particles_1_amrex, e_field=grad_p)
+    prop_v_1_struphy = PushVinEfield(particles_1_struphy, e_field=grad_p)
 
     if plot:
         fig = plt.figure(figsize=(15, 8))
         ax1 = fig.add_subplot(1, 2, 1, projection="3d")
-        pos_1 = domain(particles_1.positions).T
+        pos_1 = domain(particles_1_amrex.positions).T
         ax1.scatter(pos_1[:, 0], pos_1[:, 1], pos_1[:, 2])
-        ax1.set_title("random starting positions")
+        ax1.set_title("starting positions Amrex")
 
-        # ax2 = fig.add_subplot(1, 2, 2, projection="3d")
-        # pos_2 = domain(particles_2.positions).T
-        # ax2.scatter(pos_2[:, 0],pos_2[:, 1],pos_2[:, 2])
-        # ax2.set_title("starting positions from tesselation")
+        ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+        pos_2 = domain(particles_1_struphy.positions).T
+        ax2.scatter(pos_2[:, 0],pos_2[:, 1],pos_2[:, 2])
+        ax2.set_title("starting positions Struphy")
 
-        plt.show()
+        plt.savefig("./push_v_efield_start.jpg")
 
     # time stepping
     dt = 0.02
     Nt = 200
 
     # random particles
-    pos_1 = np.zeros((Nt + 1, particles_1.Np, 3), dtype=float)
-    velo_1 = np.zeros((Nt + 1, particles_1.Np, 3), dtype=float)
-    energy_1 = np.zeros((Nt + 1, particles_1.Np), dtype=float)
+    pos_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np, 3), dtype=float)
+    velo_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np, 3), dtype=float)
+    energy_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np), dtype=float)
+    
+    pos_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np, 3), dtype=float)
+    velo_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np, 3), dtype=float)
+    energy_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np), dtype=float)
 
-    # particles_1.draw_markers(sort=False)
-    # particles_1.initialize_weights()
+    pos_1_amrex[0] = domain(particles_1_amrex.positions).T
+    velo_1_amrex[0] = particles_1_amrex.velocities
+    energy_1_amrex[0] = 0.5 * (velo_1_amrex[0, :, 0] ** 2 + velo_1_amrex[0, :, 1] ** 2) + p_h(particles_1_amrex.positions)
 
-    pos_1[0] = domain(particles_1.positions).T
-    velo_1[0] = particles_1.velocities
-    energy_1[0] = 0.5 * (velo_1[0, :, 0] ** 2 + velo_1[0, :, 1] ** 2) + p_h(particles_1.positions)
+    pos_1_struphy[0] = domain(particles_1_struphy.positions).T
+    velo_1_struphy[0] = particles_1_struphy.velocities
+    energy_1_struphy[0] = 0.5 * (velo_1_struphy[0, :, 0] ** 2 + velo_1_struphy[0, :, 1] ** 2) + p_h(particles_1_struphy.positions)
 
     time = 0.0
     time_vec = np.zeros(Nt + 1, dtype=float)
@@ -205,50 +153,60 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         time_vec[n] = time
 
         # advance in time
-        prop_eta_1(dt / 2)
-        prop_v_1(dt)
-        prop_eta_1(dt / 2)
+        prop_eta_1_amrex(dt / 2)
+        prop_v_1_amrex(dt)
+        prop_eta_1_amrex(dt / 2)
+        
+        prop_eta_1_struphy(dt / 2)
+        prop_v_1_struphy(dt)
+        prop_eta_1_struphy(dt / 2)
 
         # positions on the physical domain Omega
-        pos_1[n] = domain(particles_1.positions).T
-        velo_1[n] = particles_1.velocities
+        pos_1_amrex[n] = domain(particles_1_amrex.positions).T
+        velo_1_amrex[n] = particles_1_amrex.velocities
+        energy_1_amrex[n] = 0.5 * (velo_1_amrex[n, :, 0] ** 2 + velo_1_amrex[n, :, 1] ** 2) + p_h(particles_1_amrex.positions)
 
-        energy_1[n] = 0.5 * (velo_1[n, :, 0] ** 2 + velo_1[n, :, 1] ** 2) + p_h(particles_1.positions)
+        pos_1_struphy[n] = domain(particles_1_struphy.positions).T
+        velo_1_struphy[n] = particles_1_struphy.velocities
+        energy_1_struphy[n] = 0.5 * (velo_1_struphy[n, :, 0] ** 2 + velo_1_struphy[n, :, 1] ** 2) + p_h(particles_1_struphy.positions)
+
 
     if plot:
-        # energy plots (random)
+        # energy plots (amrex)
         fig = plt.figure(figsize=(13, 6))
 
         plt.subplot(2, 2, 1)
-        plt.plot(time_vec, energy_1[:, 0])
+        plt.plot(time_vec, energy_1_amrex[:, 0])
         plt.title("particle 1")
         plt.xlabel("time")
         plt.ylabel("energy")
 
         plt.subplot(2, 2, 2)
-        plt.plot(time_vec, energy_1[:, 1])
+        plt.plot(time_vec, energy_1_amrex[:, 1])
         plt.title("particle 2")
         plt.xlabel("time")
         plt.ylabel("energy")
 
         plt.subplot(2, 2, 3)
-        plt.plot(time_vec, energy_1[:, 2])
+        plt.plot(time_vec, energy_1_amrex[:, 2])
         plt.title("particle 3")
         plt.xlabel("time")
         plt.ylabel("energy")
 
         plt.subplot(2, 2, 4)
-        plt.plot(time_vec, energy_1[:, 3])
+        plt.plot(time_vec, energy_1_amrex[:, 3])
         plt.title("particle 4")
         plt.xlabel("time")
         plt.ylabel("energy")
 
-        plt.show()
+        plt.suptitle("Amrex")
+
+        plt.savefig("./energy_amrex.jpg")
 
         plt.figure(figsize=(12, 28))
 
         coloring = np.select(
-            [pos_1[0, :, 0] <= -0.2, np.abs(pos_1[0, :, 0]) < +0.2, pos_1[0, :, 0] >= 0.2], [-1.0, 0.0, +1.0]
+            [pos_1_amrex[0, :, 0] <= -0.2, np.abs(pos_1_amrex[0, :, 0]) < +0.2, pos_1_amrex[0, :, 0] >= 0.2], [-1.0, 0.0, +1.0]
         )
 
         interval = Nt / 20
@@ -259,7 +217,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
                 plot_ct += 1
                 plt.subplot(5, 2, plot_ct)
                 ax = plt.gca()
-                plt.scatter(pos_1[i, :, 0], pos_1[i, :, 1], c=coloring)
+                plt.scatter(pos_1_amrex[i, :, 0], pos_1_amrex[i, :, 1], c=coloring)
                 plt.axis("square")
                 plt.title("n0_scatter")
                 plt.xlim(l1, r1)
@@ -269,7 +227,68 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
             if plot_ct == 10:
                 break
 
-        plt.show()
+        plt.suptitle("Amrex")
+
+        plt.savefig("./position_amrex.jpg")
+        
+        # energy plots (struphy)
+        fig = plt.figure(figsize=(13, 6))
+
+        plt.subplot(2, 2, 1)
+        plt.plot(time_vec, energy_1_struphy[:, 0])
+        plt.title("particle 1")
+        plt.xlabel("time")
+        plt.ylabel("energy")
+
+        plt.subplot(2, 2, 2)
+        plt.plot(time_vec, energy_1_struphy[:, 1])
+        plt.title("particle 2")
+        plt.xlabel("time")
+        plt.ylabel("energy")
+
+        plt.subplot(2, 2, 3)
+        plt.plot(time_vec, energy_1_struphy[:, 2])
+        plt.title("particle 3")
+        plt.xlabel("time")
+        plt.ylabel("energy")
+
+        plt.subplot(2, 2, 4)
+        plt.plot(time_vec, energy_1_struphy[:, 3])
+        plt.title("particle 4")
+        plt.xlabel("time")
+        plt.ylabel("energy")
+        
+        plt.suptitle("Struphy")
+
+        plt.savefig("./energy_struphy.jpg")
+
+        plt.figure(figsize=(12, 28))
+
+        coloring = np.select(
+            [pos_1_struphy[0, :, 0] <= -0.2, np.abs(pos_1_struphy[0, :, 0]) < +0.2, pos_1_struphy[0, :, 0] >= 0.2], [-1.0, 0.0, +1.0]
+        )
+
+        interval = Nt / 20
+        plot_ct = 0
+        for i in range(Nt):
+            if i % interval == 0:
+                print(f"{i = }")
+                plot_ct += 1
+                plt.subplot(5, 2, plot_ct)
+                ax = plt.gca()
+                plt.scatter(pos_1_struphy[i, :, 0], pos_1_struphy[i, :, 1], c=coloring)
+                plt.axis("square")
+                plt.title("n0_scatter")
+                plt.xlim(l1, r1)
+                plt.ylim(l2, r2)
+                plt.colorbar()
+                plt.title(f"Gas at t={i * dt}")
+            if plot_ct == 10:
+                break
+
+        plt.suptitle("Struphy")
+
+        plt.savefig("./position_struphy.jpg")
 
     amrex.finalize()
 
@@ -892,7 +911,7 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 
 if __name__ == "__main__":
-    test_amrex_push_v_in_e_field(plot=False, verbose=True)
+    test_amrex_push_v_in_e_field(plot=True, verbose=True)
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
