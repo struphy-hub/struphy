@@ -2795,10 +2795,7 @@ class Poisson(ImplicitDiffusion):
         Stabilization parameter multiplied on stab_mat (default=0.0).
 
     stab_mat : str
-        Name of the matrix :math:`M^0_{n_0}`.
-
-    diffusion_mat : str
-        Name of the matrix :math:`M^1_{D_0}`.
+        Name of the stabilizing matrix.
 
     rho : StencilVector or tuple or list
         (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
@@ -8566,11 +8563,37 @@ class HasegawaWakatani(Propagator):
     :math:`[a, b] = \partial_x a \partial_y b - \partial_y a \partial_x b`.
 
     :ref:`time_discret`: explicit Runge-Kutta, see :class:`~struphy.ode.solvers.ODEsolverFEEC`.
+    
+    Parameters
+    ----------
+    n0 : StencilVector
+        The density.
+        
+    omega0 : StencilVector
+        The stream function.
+        
+    phi : SplineFuncion
+        The potential.
+        
+    c_fun : str
+        Defines the function c(x,y) in front of (phi - n).
+        
+    kappa, nu : float
+        Equation parameters.
+        
+    algo : str
+        See :class:`~struphy.ode.utils.ButcherTableau` for available algorithms.
+        
+    M0_solver : dict
+        Solver parameters for M0 inversion.
     """
 
     @staticmethod
     def options(default=False):
         dct = {}
+        dct["c_fun"] = ["const"]
+        dct["kappa"] = 1.0
+        dct["nu"] = 0.01
         dct["algo"] = ButcherTableau.available_methods()
         dct["M0_solver"] = {
             "type": [
@@ -8593,10 +8616,10 @@ class HasegawaWakatani(Propagator):
         omega0: StencilVector,
         *,
         phi: SplineFunction = None,
-        c_fun: callable = None,
-        kappa: float = 1.0,
-        nu: float = 0.01,
-        algo: dict = options(default=True)["algo"],
+        c_fun: str = options(default=True)["c_fun"],
+        kappa: float = options(default=True)["kappa"],
+        nu: float = options(default=True)["nu"],
+        algo: str = options(default=True)["algo"],
         M0_solver: dict = options(default=True)["M0_solver"],
     ):
         super().__init__(n0, omega0)
@@ -8610,8 +8633,10 @@ class HasegawaWakatani(Propagator):
             self._phi = phi
 
         # default c-function
-        if c_fun is None:
+        if c_fun == "const":
             c_fun = lambda e1, e2, e3: 1.0 + 0.0*e1
+        else:
+            raise NotImplementedError(f'{c_fun = } is not available.')
 
         # expose equation parameters
         self._kappa = kappa
@@ -8724,7 +8749,7 @@ class HasegawaWakatani(Propagator):
     def __call__(self, dt):
         # update time-dependent mass operator
         self._phi_at_pts[:] = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
-        self._M1hw.assemble()
+        self._M1hw.assemble(verbose=False)
         # print('\nRK solved:')
         # print(f"{self._M1hw._mat.blocks = }")
         # print(f"{self._M1hw._mat.blocks[0][1].toarray() = }")

@@ -1948,7 +1948,8 @@ class HasegawaWakatani(StruphyModel):
     def species():
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
-        dct["fluid"]["hw"] = {"n0": "H1", "omega0": "H1", "phi0": "H1"}
+        dct["em_fields"] = {"phi0": "H1"}
+        dct["fluid"]["hw"] = {"n0": "H1", "omega0": "H1",}
         return dct
 
     @staticmethod
@@ -1968,7 +1969,7 @@ class HasegawaWakatani(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_fields.Poisson: ["hw_phi0"],
+            propagators_fields.Poisson: ["phi0"],
             propagators_fields.HasegawaWakatani: ["hw_n0", "hw_omega0"],
         }
 
@@ -1986,10 +1987,14 @@ class HasegawaWakatani(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        stab_eps = params["fluid"]["hw"]["options"]["Poisson"]["stabilization"]["stab_eps"]
-        stab_mat = params["fluid"]["hw"]["options"]["Poisson"]["stabilization"]["stab_mat"]
-        solver = params["fluid"]["hw"]["options"]["Poisson"]["solver"]
+        stab_eps = params["em_fields"]["options"]["Poisson"]["stabilization"]["stab_eps"]
+        stab_mat = params["em_fields"]["options"]["Poisson"]["stabilization"]["stab_mat"]
+        solver = params["em_fields"]["options"]["Poisson"]["solver"]
+        c_fun = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["c_fun"]
+        kappa = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["kappa"]
+        nu = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["nu"]
         algo = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["algo"]
+        M0_solver = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["M0_solver"]
 
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.Poisson] = {
@@ -2000,24 +2005,29 @@ class HasegawaWakatani(StruphyModel):
         }
 
         self._kwargs[propagators_fields.HasegawaWakatani] = {
+            "phi": self.em_fields["phi0"]["obj"],
+            "c_fun": c_fun,
+            "kappa": kappa,
+            "nu": nu,
             "algo": algo,
+            "M0_solver": M0_solver,
         }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
-        self.add_scalar("en_U")
-        self.add_scalar("en_p")
-        self.add_scalar("en_B")
-        self.add_scalar("en_p_eq")
-        self.add_scalar("en_B_eq")
-        self.add_scalar("en_B_tot")
-        self.add_scalar("en_tot")
+        # self.add_scalar("en_U")
+        # self.add_scalar("en_p")
+        # self.add_scalar("en_B")
+        # self.add_scalar("en_p_eq")
+        # self.add_scalar("en_B_eq")
+        # self.add_scalar("en_B_tot")
+        # self.add_scalar("en_tot")
 
         # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["2"].zeros()
-        self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
+        # self._tmp_u1 = self.derham.Vh["2"].zeros()
+        # self._tmp_b1 = self.derham.Vh["2"].zeros()
+        # self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         pass
