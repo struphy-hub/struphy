@@ -273,7 +273,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order(
             grad_H,
         )
 
-        grad_H *= epsilon*mu
+        grad_H *= mu
 
         if evaluate_e_field:
             eval_1form_spline_mpi(
@@ -300,7 +300,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order(
          # calculate k
         linalg_kernels.cross(unit_b1, grad_I, Exb)
 
-        k[:] = Exb/b_star_parallel
+        k[:] = Exb/b_star_parallel*epsilon
 
         # accumulation for last stage
         markers[ip, 0:3] = eta_n + dt*k
@@ -448,7 +448,7 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
             grad_H,
         )
 
-        grad_H *= epsilon*mu
+        grad_H *= mu
 
         if evaluate_e_field:
             eval_1form_spline_mpi(
@@ -492,7 +492,7 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
         # calculate k
         linalg_kernels.cross(unit_b1, grad_I, Exb)
 
-        k[:] = Exb/b_star_parallel
+        k[:] = Exb/b_star_parallel*epsilon
 
         # accumulation for last stage
         markers[ip, 0:3] = eta_n + dt*k
@@ -660,7 +660,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
             B_dot_b_coeffs,
         )
 
-        H_k = epsilon*v**2/2. + epsilon*mu*B_dot_b + phi
+        H_k = v**2/2. + mu*B_dot_b + phi
 
         # compute grad_H at (n+1, k)
         eval_1form_spline_mpi(
@@ -672,7 +672,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
             grad_H,
         )
 
-        grad_H *= epsilon*mu
+        grad_H *= mu
 
         if evaluate_e_field:
             eval_1form_spline_mpi(
@@ -711,6 +711,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
         bcross_mat[2, 0] = -unit_b1[1]
         bcross_mat[2, 1] = unit_b1[0]
         bcross_mat /= b_star_parallel
+        bcross_mat *= epsilon
 
         # compute F
         linalg_kernels.matrix_vector(bcross_mat, grad_I, func)
@@ -1026,7 +1027,7 @@ def push_gc_Bstar_discrete_gradient_1st_order(
         H_n = markers[ip, first_free_idx]
 
         # Poisson matrix at n (from init_kernel)
-        b_star_parallel = epsilon * markers[ip, first_free_idx + 1]
+        b_star_parallel = markers[ip, first_free_idx + 1]
         b_star[:] = markers[ip, first_free_idx + 2:first_free_idx + 5]
 
         # Hamiltonian at (n+1, k) (from eval_kernel)
@@ -1048,7 +1049,7 @@ def push_gc_Bstar_discrete_gradient_1st_order(
             grad_H,
         )
 
-        grad_H *= epsilon*mu
+        grad_H *= mu
 
         if evaluate_e_field:
             eval_1form_spline_mpi(
@@ -1064,7 +1065,7 @@ def push_gc_Bstar_discrete_gradient_1st_order(
             grad_H += e_field
 
         # compute grad_I
-        grad_H_v = epsilon * v_mid
+        grad_H_v = v_mid
 
         dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) + v_diff*grad_H_v
         dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff) + v_diff*v_diff
@@ -1236,7 +1237,7 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
             grad_H,
         )
 
-        grad_H *= epsilon*mu
+        grad_H *= mu
 
         if evaluate_e_field:
             eval_1form_spline_mpi(
@@ -1252,7 +1253,7 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
             grad_H += e_field
 
         # compute grad_I
-        grad_H_v = epsilon * v_mid
+        grad_H_v =  v_mid
 
         dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) + v_diff*grad_H_v
         dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff) + v_diff*v_diff
@@ -1301,7 +1302,7 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
 
         b_star_parallel *= epsilon * v_mid
         b_star_parallel += B_dot_b
-        b_star_parallel *= epsilon * det_df
+        b_star_parallel *= det_df
 
         # calculate k for eta
         k[:] = b_star/b_star_parallel * grad_I_v
@@ -1460,7 +1461,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         H_n = markers[ip, first_free_idx]
 
         # Poisson matrix at n
-        b_star_parallel = epsilon * markers[ip, first_free_idx + 1]
+        b_star_parallel = markers[ip, first_free_idx + 1]
         b_star[:] = markers[ip, first_free_idx + 2:first_free_idx + 5]
 
         # Hamiltonian at eta_1^(n+1, k)
@@ -1493,8 +1494,8 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
             B_dot_b_coeffs,
         )
 
-        H_k = epsilon*v_k**2/2. + epsilon*mu*B_dot_b + phi
-        H_k123 = epsilon*v_n**2/2. + epsilon*mu*B_dot_b + phi
+        H_k = v_k**2/2. + mu*B_dot_b + phi
+        H_k123 = v_n**2/2. + mu*B_dot_b + phi
 
         # compute grad_H at (n+1, k)
         eval_1form_spline_mpi(
@@ -1506,7 +1507,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
             grad_H,
         )
 
-        grad_H *= epsilon*mu
+        grad_H *= mu
 
         if evaluate_e_field:
             eval_1form_spline_mpi(
@@ -1522,7 +1523,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
             grad_H += e_field
 
         # compute the Itoh discrete gradient
-        grad_H_v = epsilon * v_k
+        grad_H_v =  v_k
 
         if eta_diff[0] == 0.:
             grad_I[0] = grad_H[0]
@@ -1614,7 +1615,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         markers[ip, 3] -= k_v
 
         # residual
-        markers[ip, residual_idx] = sqrt(k[0]**2 + k[1]**2 + k[2]**2 + (k_v/v_k)**2)
+        markers[ip, residual_idx] = sqrt(k[0]**2 + k[1]**2 + k[2]**2 + k_v**2)
 
 
 @stack_array('dfm', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')

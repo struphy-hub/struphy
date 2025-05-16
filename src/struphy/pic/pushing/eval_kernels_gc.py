@@ -99,7 +99,7 @@ def driftkinetic_hamiltonian(
         )
 
         # save
-        markers[ip, column_nr] = epsilon*v**2/2. + epsilon*mu*B_dot_b + phi
+        markers[ip, column_nr] = v**2/2. + mu*B_dot_b + phi
 
 
 @stack_array('eta_k', 'eta_n', 'eta', 'grad_H', 'e_field')
@@ -181,7 +181,7 @@ def grad_driftkinetic_hamiltonian(
             grad_H,
         )
 
-        grad_H *= epsilon*mu
+        grad_H *= mu
 
         if evaluate_e_field:
             eval_1form_spline_mpi(
