@@ -300,12 +300,12 @@ class L2_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, transposed=False, weights = None):
+    def __init__(self, derham, transposed=False, weights=None):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
         if weights == None:
-            weights = [[None]*3]*3
+            weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
             self._codomain = self._derham.Vh_pol["v"]
@@ -397,7 +397,7 @@ class L2_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return L2_transport_operator(self._derham, not self._transposed, weights = self._weights)
+        return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -430,14 +430,12 @@ class L2_transport_operator(LinOpWithTransp):
         )
 
         self._weights = [
-                [f0_values, None, None],
-                [None, f1_values, None],
-                [None, None, f2_values],
-            ]
+            [f0_values, None, None],
+            [None, f1_values, None],
+            [None, None, f2_values],
+        ]
 
-        self.Proj.update_weights(
-            self._weights
-        )
+        self.Proj.update_weights(self._weights)
 
 
 class Hdiv0_transport_operator(LinOpWithTransp):
@@ -457,12 +455,12 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, transposed=False, weights = None):
+    def __init__(self, derham, transposed=False, weights=None):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
         if weights == None:
-            weights = [[None]*3]*3
+            weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
             self._codomain = self._derham.Vh_pol["v"]
@@ -580,7 +578,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return Hdiv0_transport_operator(self._derham, not self._transposed, weights = self._weights)
+        return Hdiv0_transport_operator(self._derham, not self._transposed, weights=self._weights)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -614,14 +612,12 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         )
 
         self._weights = [
-                [None, -bf0_values[2], bf0_values[1]],
-                [bf1_values[2], None, -bf1_values[0]],
-                [-bf2_values[1], bf2_values[0], None],
-            ]
+            [None, -bf0_values[2], bf0_values[1]],
+            [bf1_values[2], None, -bf1_values[0]],
+            [-bf2_values[1], bf2_values[0], None],
+        ]
 
-        self.Proj.update_weights(
-            self._weights
-        )
+        self.Proj.update_weights(self._weights)
 
 
 class Pressure_transport_operator(LinOpWithTransp):
@@ -650,7 +646,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1= None, weights2= None):
+    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1=None, weights2=None):
         # Get the projector and the spaces
         self._derham = derham
         self._phys_domain = phys_domain
@@ -658,7 +654,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         self._transposed = transposed
         self._gamma = gamma
         if weights1 is None:
-            weights1 = [[None]*3]*3
+            weights1 = [[None] * 3] * 3
         self._weights1 = weights1
         if weights2 is None:
             weights2 = [[lambda eta1, eta2, eta3: 0 * eta1]]
@@ -772,8 +768,15 @@ class Pressure_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return Pressure_transport_operator(self._derham, self._phys_domain, self._Uv, self._gamma, not self._transposed,
-                                           weights1 = self._weights1, weights2=self._weights2)
+        return Pressure_transport_operator(
+            self._derham,
+            self._phys_domain,
+            self._Uv,
+            self._gamma,
+            not self._transposed,
+            weights1=self._weights1,
+            weights2=self._weights2,
+        )
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -798,7 +801,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         self._mapped_pf_values *= 0.0
         self._mapped_pf_values += pf_values
         self._mapped_pf_values *= self._proj_p_metric
-        self._mapped_pf_values *= (self._gamma - 1.0)
+        self._mapped_pf_values *= self._gamma - 1.0
 
         self._weights2 = [[self._mapped_pf_values]]
 
@@ -823,14 +826,12 @@ class Pressure_transport_operator(LinOpWithTransp):
         )
 
         self._weights1 = [
-                [pf0_values, None, None],
-                [None, pf1_values, None],
-                [None, None, pf2_values],
-            ]
+            [pf0_values, None, None],
+            [None, pf1_values, None],
+            [None, None, pf2_values],
+        ]
 
-        self.Pip.update_weights(
-            self._weights1
-        )
+        self.Pip.update_weights(self._weights1)
 
 
 class InternalEnergyEvaluator:
