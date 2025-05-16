@@ -8572,6 +8572,17 @@ class HasegawaWakatani(Propagator):
     def options(default=False):
         dct = {}
         dct["algo"] = ButcherTableau.available_methods()
+        dct["M0_solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
         if default:
             dct = descend_options_dict(dct, [])
         return dct
@@ -8586,6 +8597,7 @@ class HasegawaWakatani(Propagator):
         kappa: float = 1.0,
         nu: float = 0.01,
         algo: dict = options(default=True)["algo"],
+        M0_solver: dict = options(default=True)["M0_solver"],
     ):
         super().__init__(n0, omega0)
 
@@ -8607,23 +8619,24 @@ class HasegawaWakatani(Propagator):
 
         # get quadrature grid of V0
         pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
-        print(f"{self.rank = }, {pts[0].shape = }, {pts[1].shape = }, {pts[2].shape = } \n {pts[0]}")
+        # print(f"{self.rank = }, {pts[0].shape = }, {pts[1].shape = }, {pts[2].shape = } \n {pts[0]}")
         mesh_pts = np.meshgrid(*pts, indexing="ij")
 
         # evaluate c(x, y) at local quadrature grid and store
         self._c_at_pts = c_fun(*mesh_pts)
-        print(f"{self._c_at_pts.shape = }")
+        # print(f"{self._c_at_pts.shape = }")
 
         # evaluate phi at local quadrature grid
         self._spans, self._bns, self._bnd = self.derham.prepare_eval_tp_fixed(pts)
         self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
-        print(f"{self._phi_at_pts.shape = }")
-        print(f"{self._phi_at_pts.squeeze() = }")
+        # print(f"{self._phi_at_pts.shape = }")
+        # print(f"{self._phi_at_pts.squeeze() = }")
 
         # grad operator
         grad = self.derham.grad
 
         # mass operators
+        M0 = self.mass_ops.M0
         M1 = self.mass_ops.M1
         M0c = self.mass_ops.create_weighted_mass(
             "H1",
@@ -8632,17 +8645,31 @@ class HasegawaWakatani(Propagator):
             weights=[[self._c_at_pts]],
             assemble=True,
         )
-        M1hw = self.mass_ops.create_weighted_mass(
-            "Hcurl",
-            "Hcurl",
-            name="M1hw",
-            weights=[
+        self._M1hw_weights = [
                 [None, self._phi_at_pts, None],
                 [-self._phi_at_pts, None, None],
                 [None, None, None],
-            ],
+            ]
+        self._M1hw = self.mass_ops.create_weighted_mass(
+            "Hcurl",
+            "Hcurl",
+            name="M1hw",
+            weights=self._M1hw_weights,
             assemble=True,
         )
+        # print(f"{self._M1hw._mat.blocks = }")
+        # print(f"{self._M1hw._mat.blocks[0][1].toarray() = }")
+        
+        # inverse M0 mass matrix
+        solver = M0_solver["type"][0]
+        if M0_solver["type"][1] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, M0_solver["type"][1])
+            pc = pc_class(self.mass_ops.M0)
+        M0_solver.pop("type")
+        self._info = M0_solver.pop("info")
+        M0_inv = inverse(M0, solver, pc=pc, **M0_solver)
 
         # basis projection operator
         fun = [[None, lambda e1, e2, e3: 1.0 + 0.0 * e1, None]]
@@ -8653,32 +8680,54 @@ class HasegawaWakatani(Propagator):
             name="dy_phi",
             assemble=True,
         )
-        print(f"{self._dy_phi._dof_mat.blocks = }")
+        # print(f"{self._dy_phi._dof_mat.blocks = }")
+        
+        # pre-allocated helper arrays
+        self._tmp1 = n0.space.zeros()
+        tmp2 = n0.space.zeros()
+        self._tmp3 = n0.space.zeros()
+        tmp4 = n0.space.zeros()
+        tmp5 = n0.space.zeros()
         
         # rhs-callables for explicit ode solve
-        weak_curl = M1_inv @ curl.T @ M2
+        terms1_n = - M0c + grad.T @ self._M1hw @ grad - nu * grad.T @ M1 @ grad 
+        terms1_phi = M0c - kappa * self._dy_phi @ grad
+        
+        terms2_omega = grad.T @ self._M1hw @ grad - nu * grad.T @ M1 @ grad 
+        terms2_n = - M0c
+        terms2_phi = M0c 
 
         out1 = n0.space.zeros()
         out2 = omega0.space.zeros()
         
-        def f1(t, y1, y2, out=out1):
-            weak_curl.dot(y2, out=out)
-            out.update_ghost_regions()
+        def f1(t, n, omega, out=out1):
+            terms1_n.dot(n, out=self._tmp1)
+            terms1_phi.dot(self._phi.vector, out=tmp2)
+            self._tmp1 += tmp2 
+            self._tmp1.update_ghost_regions()
+            M0_inv.dot(self._tmp1, out=out)
             return out
 
-        def f2(t, y1, y2, out=out2):
-            curl.dot(y1, out=out)
-            out *= -1.0
-            out.update_ghost_regions()
+        def f2(t, n, omega, out=out2):
+            terms2_omega.dot(omega, out=self._tmp3)
+            terms2_n.dot(n, out=tmp4)
+            terms2_phi.dot(self._phi.vector, out=tmp5)
+            self._tmp3 += tmp4 
+            self._tmp3 += tmp5
+            self._tmp3.update_ghost_regions()
+            M0_inv.dot(self._tmp3, out=out)
             return out
 
-        vector_field = {e: f1, b: f2}
+        vector_field = {n0: f1, omega0: f2}
         self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
 
     def __call__(self, dt):
-        # current variables
-        n_n = self.feec_vars[0]
-        omega_n = self.feec_vars[1]
-
-        # write new coeffs into self.feec_vars
-        # max_dn0, max_domega0 = self.feec_vars_update(n1, omega1)
+        # update time-dependent mass operator
+        self._phi_at_pts[:] = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
+        self._M1hw.assemble()
+        # print('\nRK solved:')
+        # print(f"{self._M1hw._mat.blocks = }")
+        # print(f"{self._M1hw._mat.blocks[0][1].toarray() = }")
+        
+        # solve with RK 
+        self._ode_solver(0.0, dt)
