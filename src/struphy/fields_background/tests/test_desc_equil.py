@@ -1,7 +1,14 @@
+import importlib.util
+
 import numpy as np
+import pytest
 from matplotlib import pyplot as plt
 
+desc_spec = importlib.util.find_spec("desc")
 
+
+@pytest.mark.mpi_skip
+@pytest.mark.skipif(desc_spec is None, reason="desc-opt not installed.")
 def test_desc_equil(do_plot=False):
     """Test the workflow of creating a DESC mhd equilibirum and compares
     push forwards to native DESC results."""

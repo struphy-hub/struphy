@@ -2,13 +2,12 @@ import numpy as np
 
 # from tqdm import tqdm
 import vtkmodules.all as vtk
-from gvec_to_python import GVEC, Form, Variable
 from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
 from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
 from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
 
 
-def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec: GVEC, s_range, u_range, v_range, periodic):
+def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic):
     """A helper function to orchestrate operations to run many test cases.
 
     This is not needed in practice.
