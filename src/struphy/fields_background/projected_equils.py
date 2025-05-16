@@ -48,6 +48,13 @@ class ProjectedFluidEquilibrium:
         return coeffs
 
     @property
+    def q0(self):
+        tmp = self._P0(self.equil.q0)
+        coeffs = self._E0T.dot(tmp)
+        coeffs.update_ghost_regions()
+        return coeffs
+
+    @property
     def n0(self):
         tmp = self._P0(self.equil.n0)
         coeffs = self._E0T.dot(tmp)
@@ -95,6 +102,13 @@ class ProjectedFluidEquilibrium:
     @property
     def p3(self):
         tmp = self._P3(self.equil.p3)
+        coeffs = self._E3T.dot(tmp)
+        coeffs.update_ghost_regions()
+        return coeffs
+
+    @property
+    def q3(self):
+        tmp = self._P3(self.equil.q3)
         coeffs = self._E3T.dot(tmp)
         coeffs.update_ghost_regions()
         return coeffs

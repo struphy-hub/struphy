@@ -145,6 +145,23 @@ class FluidEquilibrium(metaclass=ABCMeta):
             squeeze_out=squeeze_out,
         )
 
+    def q0(self, *etas, squeeze_out=False):
+        """0-form square root of the pressure on logical cube [0, 1]^3."""
+        # xyz = self.domain(*etas, squeeze_out=False)
+        p = self.p0(*etas)
+        q = np.sqrt(p)
+        return self.domain.pull(q, *etas, kind="0", squeeze_out=squeeze_out)
+
+    def q3(self, *etas, squeeze_out=False):
+        """3-form square root of the pressure on logical cube [0, 1]^3."""
+        return self.domain.transform(
+            self.q0(*etas, squeeze_out=False),
+            *etas,
+            kind="0_to_3",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
+        )
+
     def s0_monoatomic(self, *etas, squeeze_out=False):
         """0-form entropy density on logical cube [0, 1]^3.
         Hard coded assumption : gamma = 5/3 (monoatomic perfect gaz)
