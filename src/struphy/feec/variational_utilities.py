@@ -300,10 +300,13 @@ class L2_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, transposed=False):
+    def __init__(self, derham, transposed=False, weights = None):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
+        if weights == None:
+            weights = [[None]*3]*3
+        self._weights = weights
         if self._transposed:
             self._codomain = self._derham.Vh_pol["v"]
             self._domain = self._derham.Vh_pol["3"]
@@ -320,11 +323,7 @@ class L2_transport_operator(LinOpWithTransp):
             self.Proj = BasisProjectionOperatorLocal(
                 P2,
                 Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
+                self._weights,
                 transposed=transposed,
                 V_extraction_op=self._derham.extraction_ops["v"],
                 V_boundary_op=self._derham.boundary_ops["v"],
@@ -335,11 +334,7 @@ class L2_transport_operator(LinOpWithTransp):
             self.Proj = BasisProjectionOperator(
                 P2,
                 Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
+                self._weights,
                 transposed=transposed,
                 use_cache=True,
                 V_extraction_op=self._derham.extraction_ops["v"],
@@ -402,7 +397,7 @@ class L2_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return L2_transport_operator(self._derham, not self._transposed)
+        return L2_transport_operator(self._derham, not self._transposed, weights = self._weights)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -434,12 +429,14 @@ class L2_transport_operator(LinOpWithTransp):
             out=self._f_2_values,
         )
 
-        self.Proj.update_weights(
-            [
+        self._weights = [
                 [f0_values, None, None],
                 [None, f1_values, None],
                 [None, None, f2_values],
             ]
+
+        self.Proj.update_weights(
+            self._weights
         )
 
 
@@ -460,10 +457,13 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, transposed=False):
+    def __init__(self, derham, transposed=False, weights = None):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
+        if weights == None:
+            weights = [[None]*3]*3
+        self._weights = weights
         if self._transposed:
             self._codomain = self._derham.Vh_pol["v"]
             self._domain = self._derham.Vh_pol["2"]
@@ -480,11 +480,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             self.Proj = BasisProjectionOperatorLocal(
                 P1,
                 Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
+                self._weights,
                 transposed=transposed,
                 V_extraction_op=self._derham.extraction_ops["v"],
                 V_boundary_op=self._derham.boundary_ops["v"],
@@ -495,11 +491,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             self.Proj = BasisProjectionOperator(
                 P1,
                 Xh,
-                [
-                    [None, None, None],
-                    [None, None, None],
-                    [None, None, None],
-                ],
+                self._weights,
                 transposed=transposed,
                 use_cache=True,
                 V_extraction_op=self._derham.extraction_ops["v"],
@@ -588,7 +580,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return Hdiv0_transport_operator(self._derham, not self._transposed)
+        return Hdiv0_transport_operator(self._derham, not self._transposed, weights = self._weights)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -621,12 +613,14 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             out=self._bf2_values,
         )
 
-        self.Proj.update_weights(
-            [
+        self._weights = [
                 [None, -bf0_values[2], bf0_values[1]],
                 [bf1_values[2], None, -bf1_values[0]],
                 [-bf2_values[1], bf2_values[0], None],
             ]
+
+        self.Proj.update_weights(
+            self._weights
         )
 
 
@@ -656,13 +650,19 @@ class Pressure_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False):
+    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1= None, weights2= None):
         # Get the projector and the spaces
         self._derham = derham
         self._phys_domain = phys_domain
         self._Uv = Uv
         self._transposed = transposed
         self._gamma = gamma
+        if weights1 is None:
+            weights1 = [[None]*3]*3
+        self._weights1 = weights1
+        if weights2 is None:
+            weights2 = [[lambda eta1, eta2, eta3: 0 * eta1]]
+        self._weights2 = weights2
         if self._transposed:
             self._codomain = self._derham.Vh_pol["v"]
             self._domain = self._derham.Vh_pol["3"]
@@ -679,7 +679,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         self.Pip = BasisProjectionOperator(
             P2,
             Xh,
-            [[None, None, None], [None, None, None], [None, None, None]],
+            self._weights1,
             transposed=transposed,
             use_cache=True,
             V_extraction_op=self._derham.extraction_ops["v"],
@@ -690,7 +690,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         self.Pip_div = BasisProjectionOperator(
             P3,
             V3h,
-            [[lambda eta1, eta2, eta3: 0 * eta1]],
+            self._weights2,
             transposed=transposed,
             use_cache=True,
             V_extraction_op=self._derham.extraction_ops["3"],
@@ -772,7 +772,8 @@ class Pressure_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return Pressure_transport_operator(self._derham, self._phys_domain, self._Uv, self._gamma, not self._transposed)
+        return Pressure_transport_operator(self._derham, self._phys_domain, self._Uv, self._gamma, not self._transposed,
+                                           weights1 = self._weights1, weights2=self._weights2)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -797,9 +798,11 @@ class Pressure_transport_operator(LinOpWithTransp):
         self._mapped_pf_values *= 0.0
         self._mapped_pf_values += pf_values
         self._mapped_pf_values *= self._proj_p_metric
-        self._mapped_pf_values *= self._gamma - 1.0
+        self._mapped_pf_values *= (self._gamma - 1.0)
 
-        self.Pip_div.update_weights([[self._mapped_pf_values]])
+        self._weights2 = [[self._mapped_pf_values]]
+
+        self.Pip_div.update_weights(self._weights2)
 
         # print(self.Pip_divT._dof_mat._data)
 
@@ -819,12 +822,14 @@ class Pressure_transport_operator(LinOpWithTransp):
             out=self._pf_2_values,
         )
 
-        self.Pip.update_weights(
-            [
+        self._weights1 = [
                 [pf0_values, None, None],
                 [None, pf1_values, None],
                 [None, None, pf2_values],
             ]
+
+        self.Pip.update_weights(
+            self._weights1
         )
 
 
