@@ -1984,7 +1984,9 @@ class Particles(metaclass=ABCMeta):
                 )[:]
                 # compute w0
                 markers_array["w0"][:] = (
-                    self.f_init(np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float))
+                    self.f_init(
+                        np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float)
+                    )
                     / markers_array["s0"]
                 )[:]
 

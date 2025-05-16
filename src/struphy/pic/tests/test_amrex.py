@@ -67,7 +67,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         Np=Np,
         amrex=amrex,
     )
-    
+
     particles_1_struphy = ParticlesSPH(
         bc=bc,
         domain=domain,
@@ -118,7 +118,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
 
         ax2 = fig.add_subplot(1, 2, 2, projection="3d")
         pos_2 = domain(particles_1_struphy.positions).T
-        ax2.scatter(pos_2[:, 0],pos_2[:, 1],pos_2[:, 2])
+        ax2.scatter(pos_2[:, 0], pos_2[:, 1], pos_2[:, 2])
         ax2.set_title("starting positions Struphy")
 
         plt.savefig("./push_v_efield_start.jpg")
@@ -131,18 +131,22 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
     pos_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np, 3), dtype=float)
     velo_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np, 3), dtype=float)
     energy_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np), dtype=float)
-    
+
     pos_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np, 3), dtype=float)
     velo_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np, 3), dtype=float)
     energy_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np), dtype=float)
 
     pos_1_amrex[0] = domain(particles_1_amrex.positions).T
     velo_1_amrex[0] = particles_1_amrex.velocities
-    energy_1_amrex[0] = 0.5 * (velo_1_amrex[0, :, 0] ** 2 + velo_1_amrex[0, :, 1] ** 2) + p_h(particles_1_amrex.positions)
+    energy_1_amrex[0] = 0.5 * (velo_1_amrex[0, :, 0] ** 2 + velo_1_amrex[0, :, 1] ** 2) + p_h(
+        particles_1_amrex.positions
+    )
 
     pos_1_struphy[0] = domain(particles_1_struphy.positions).T
     velo_1_struphy[0] = particles_1_struphy.velocities
-    energy_1_struphy[0] = 0.5 * (velo_1_struphy[0, :, 0] ** 2 + velo_1_struphy[0, :, 1] ** 2) + p_h(particles_1_struphy.positions)
+    energy_1_struphy[0] = 0.5 * (velo_1_struphy[0, :, 0] ** 2 + velo_1_struphy[0, :, 1] ** 2) + p_h(
+        particles_1_struphy.positions
+    )
 
     time = 0.0
     time_vec = np.zeros(Nt + 1, dtype=float)
@@ -156,7 +160,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         prop_eta_1_amrex(dt / 2)
         prop_v_1_amrex(dt)
         prop_eta_1_amrex(dt / 2)
-        
+
         prop_eta_1_struphy(dt / 2)
         prop_v_1_struphy(dt)
         prop_eta_1_struphy(dt / 2)
@@ -164,12 +168,15 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         # positions on the physical domain Omega
         pos_1_amrex[n] = domain(particles_1_amrex.positions).T
         velo_1_amrex[n] = particles_1_amrex.velocities
-        energy_1_amrex[n] = 0.5 * (velo_1_amrex[n, :, 0] ** 2 + velo_1_amrex[n, :, 1] ** 2) + p_h(particles_1_amrex.positions)
+        energy_1_amrex[n] = 0.5 * (velo_1_amrex[n, :, 0] ** 2 + velo_1_amrex[n, :, 1] ** 2) + p_h(
+            particles_1_amrex.positions
+        )
 
         pos_1_struphy[n] = domain(particles_1_struphy.positions).T
         velo_1_struphy[n] = particles_1_struphy.velocities
-        energy_1_struphy[n] = 0.5 * (velo_1_struphy[n, :, 0] ** 2 + velo_1_struphy[n, :, 1] ** 2) + p_h(particles_1_struphy.positions)
-
+        energy_1_struphy[n] = 0.5 * (velo_1_struphy[n, :, 0] ** 2 + velo_1_struphy[n, :, 1] ** 2) + p_h(
+            particles_1_struphy.positions
+        )
 
     if plot:
         # energy plots (amrex)
@@ -206,7 +213,8 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         plt.figure(figsize=(12, 28))
 
         coloring = np.select(
-            [pos_1_amrex[0, :, 0] <= -0.2, np.abs(pos_1_amrex[0, :, 0]) < +0.2, pos_1_amrex[0, :, 0] >= 0.2], [-1.0, 0.0, +1.0]
+            [pos_1_amrex[0, :, 0] <= -0.2, np.abs(pos_1_amrex[0, :, 0]) < +0.2, pos_1_amrex[0, :, 0] >= 0.2],
+            [-1.0, 0.0, +1.0],
         )
 
         interval = Nt / 20
@@ -230,7 +238,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         plt.suptitle("Amrex")
 
         plt.savefig("./position_amrex.jpg")
-        
+
         # energy plots (struphy)
         fig = plt.figure(figsize=(13, 6))
 
@@ -257,7 +265,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         plt.title("particle 4")
         plt.xlabel("time")
         plt.ylabel("energy")
-        
+
         plt.suptitle("Struphy")
 
         plt.savefig("./energy_struphy.jpg")
@@ -265,7 +273,8 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         plt.figure(figsize=(12, 28))
 
         coloring = np.select(
-            [pos_1_struphy[0, :, 0] <= -0.2, np.abs(pos_1_struphy[0, :, 0]) < +0.2, pos_1_struphy[0, :, 0] >= 0.2], [-1.0, 0.0, +1.0]
+            [pos_1_struphy[0, :, 0] <= -0.2, np.abs(pos_1_struphy[0, :, 0]) < +0.2, pos_1_struphy[0, :, 0] >= 0.2],
+            [-1.0, 0.0, +1.0],
         )
 
         interval = Nt / 20
