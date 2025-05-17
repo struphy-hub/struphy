@@ -3086,7 +3086,7 @@ class VariationalDensityEvolve(Propagator):
     ):
         super().__init__(rho, u)
 
-        assert model in ["pressureless", "barotropic", "full", "full_p", "full_q", "linear", "deltaf"]
+        assert model in ["pressureless", "barotropic", "full", "full_p", "full_q", "linear", "deltaf","linear_q", "deltaf_q"]
         if model == "full":
             assert s is not None
         assert mass_ops is not None
@@ -3110,9 +3110,9 @@ class VariationalDensityEvolve(Propagator):
         self._energy_evaluator = energy_evaluator
         self._kinetic_evaluator = KineticEnergyEvaluator(self.derham, self.domain, self.mass_ops)
         self._initialize_projectors_and_mass()
-        if self._model == "linear":
+        if self._model in ["linear", "linear_q"]:
             rhotmp = self.projected_equil.n3
-        elif self._model == "deltaf":
+        elif self._model in ["deltaf", "deltaf_q"]:
             self._tmp_rho_deltaf = rho.space.zeros()
             rhotmp = rho.copy(out=self._tmp_rho_deltaf)
             rhotmp += self.projected_equil.n3
@@ -3141,7 +3141,7 @@ class VariationalDensityEvolve(Propagator):
         if self._linearize:
             self._compute_init_linear_form()
 
-        if self._model == "linear":
+        if self._model in ["linear", "linear_q"]:
             self._update_Pirho(self.projected_equil.n3)
 
     def __call__(self, dt):
@@ -3158,7 +3158,7 @@ class VariationalDensityEvolve(Propagator):
         rhon = self.feec_vars[0]
         un = self.feec_vars[1]
 
-        if self._model == "linear":
+        if self._model in ["linear", "linear_q"]:
             advection = self.divPirho.dot(un, out=self._tmp_rho_advection)
             advection *= dt
             rhon1 = rhon.copy(out=self._tmp_rhon1)
@@ -3166,7 +3166,7 @@ class VariationalDensityEvolve(Propagator):
             self.feec_vars_update(rhon1, un)
             return
 
-        if self._model == "deltaf":
+        if self._model in ["deltaf", "deltaf_q"]:
             rho = rhon.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
         else:
@@ -3180,7 +3180,7 @@ class VariationalDensityEvolve(Propagator):
         else:
             s = None
 
-        if self._model == "deltaf":
+        if self._model in ["deltaf", "deltaf_q"]:
             rho = rhon.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
         else:
@@ -3189,7 +3189,7 @@ class VariationalDensityEvolve(Propagator):
 
         rhon1 = rhon.copy(out=self._tmp_rhon1)
         rhon1 += self._tmp_rhon_diff
-        if self._model == "deltaf":
+        if self._model in ["deltaf", "deltaf_q"]:
             rho = rhon1.copy(out=self._tmp_rho_deltaf)
             rho += self.projected_equil.n3
         else:
@@ -3268,7 +3268,7 @@ class VariationalDensityEvolve(Propagator):
 
             # Multiply by the mass matrix to get the momentum
 
-            if self._model == "deltaf":
+            if self._model in ["deltaf", "deltaf_q"]:
                 rho = rhon1.copy(out=self._tmp_rho_deltaf)
                 rho += self.projected_equil.n3
                 self._update_weighted_MM(rho)
@@ -4889,7 +4889,7 @@ class VariationalQBEvolve(Propagator):
     ):
         super().__init__(q, b, u)
 
-        assert model in ["full_q", "linear", "deltaf"]
+        assert model in ["full_q", "linear_q", "deltaf_q"]
         self._model = model
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
@@ -4946,14 +4946,14 @@ class VariationalQBEvolve(Propagator):
         if self._nonlin_solver["type"] == "Picard":
             self.__call_picard(dt)
         else:
-            raise ValueError("Only Picard solver is implemented for VariationalPBEvolve")
+            raise ValueError("Only Picard solver is implemented for VariationalQBEvolve")
 
     def __call_picard(self, dt):
         """Solve the non linear system for updating the variables using Newton iteration method"""
         # In fact it is linear due to the explicit update, only one iteration will be done at each time step
         if self._info:
             print()
-            print("Newton iteration in VariationalPBEvolve")
+            print("Newton iteration in VariationalQBEvolve")
 
         qn = self.feec_vars[0]
         bn = self.feec_vars[1]
@@ -4986,7 +4986,7 @@ class VariationalQBEvolve(Propagator):
             self._update_linear_form_dl_dq(qn, qn1)
 
             # Compute the advection terms
-            if self._model == "linear":
+            if self._model == "linear_q":
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
@@ -5011,7 +5011,7 @@ class VariationalQBEvolve(Propagator):
                     out=self._tmp_q_advection,
                 )
 
-            elif self._model == "deltaf":
+            elif self._model == "deltaf_q":
                 advection = self.curlPibT0.dot(
                     self._linear_form_dl_db,
                     out=self._tmp_advection,
@@ -5201,7 +5201,7 @@ class VariationalQBEvolve(Propagator):
 
         self._Jacobian = BlockLinearOperator(Jacs, Jacs)
 
-        if self._model == "linear":
+        if self._model == "linear_q":
             # initialize the jacobian differently if linear model
             self._create_Pib0()
             self._create_transop0()
@@ -5215,7 +5215,7 @@ class VariationalQBEvolve(Propagator):
             self._mdt2_pc_transopT_M = 2 * (self._transop_q0T @ self.mass_ops.M3)
             self._dt2_transop = 2 * self._transop_q0
 
-        elif self._model == "deltaf":
+        elif self._model == "deltaf_q":
             # initialize the jacobian differently if linear model
             self._create_Pib0()
             self._create_transop0()
@@ -5450,10 +5450,11 @@ class VariationalViscosity(Propagator):
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         energy_evaluator: InternalEnergyEvaluator = None,
+        pt3: StencilVector | None = None,
     ):
         super().__init__(s, u)
 
-        assert model in ["full", "full_p", "full_q", "linear_p"]
+        assert model in ["full", "full_p", "full_q", "linear_p", "linear_q", "deltaf_q"]
 
         self._model = model
         self._gamma = gamma
@@ -5463,6 +5464,7 @@ class VariationalViscosity(Propagator):
         self._alpha = alpha
         self._mu = mu
         self._rho = rho
+        self._pt3 = pt3
         self._energy_evaluator = energy_evaluator
 
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
@@ -5540,7 +5542,10 @@ class VariationalViscosity(Propagator):
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
         # 2) Initial energy and linear form
         rho = self._rho
-        self.sf.vector = sn
+        if self._model in ["deltaf_q", "linear_q"]:
+            self.sf.vector = self._pt3
+        else:
+            self.sf.vector = sn
 
         sf_values = self.sf.eval_tp_fixed_loc(
             self.integration_grid_spans,
@@ -5566,6 +5571,22 @@ class VariationalViscosity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
+        elif self._model in ["full_q"]:
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n **=2
+            e_n *= 1.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
+        elif self._model in ["linear_q", "deltaf_q"]:
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n *= self._q0_values
+            e_n *= 2.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
         energy_change += e_n
 
         self._get_L2dofs_V3(energy_change, dofs=self._linear_form_tot_e)
@@ -5577,7 +5598,10 @@ class VariationalViscosity(Propagator):
         err = tol + 1
 
         for it in range(self._nonlin_solver["maxiter"]):
-            self.sf1.vector = sn1
+            if self._model in ["deltaf_q", "linear_q"]:
+                self.sf1.vector = self._pt3
+            else:
+                self.sf1.vector = sn
 
             sf1_values = self.sf1.eval_tp_fixed_loc(
                 self.integration_grid_spans,
@@ -5598,6 +5622,22 @@ class VariationalViscosity(Propagator):
                 e_n1 *= 0.0
                 e_n1 += sf1_values
                 e_n1 *= 1.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+            elif self._model in ["full_q"]:
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 **=2
+                e_n1 *= 1.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+            elif self._model in ["linear_q", "deltaf_q"]: 
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 *= self._q0_values
+                e_n1 *= 2.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
             self._get_L2dofs_V3(e_n1, dofs=self._linear_form_en1)
@@ -5626,12 +5666,28 @@ class VariationalViscosity(Propagator):
                 self.M_de_ds.assemble([[deds]], verbose=False)
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
+            elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+                if self._model in ["deltaf_q", "linear_q"]:
+                    sf1_values = self._q0_values
+
+                deds = self._de_s1_values
+                deds *= 0.
+                deds += sf1_values
+                deds *= 2/(self._gamma-1.)
+                deds *= self._mass_metric_term
+
+                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.pc_jac.update_mass_operator(self.M_de_ds)
+
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
             if self._info:
                 print("information on the linear solver : ", self.inv_jac._info)
 
-            sn1 += incr
+            if self._model in ["deltaf_q", "linear_q"]:
+                self._pt3 += incr
+            else:
+                sn1 += incr
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -5839,6 +5895,23 @@ class VariationalViscosity(Propagator):
             self.M_de_ds.assemble([[deds]], verbose=False)
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
+        elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                -2,
+            )
+            self._mass_metric_term = deepcopy(metric)
+
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                -1,
+            )
+            self._energy_metric = deepcopy(metric)
+
         metric = np.power(
             self.domain.jacobian_det(
                 *integration_grid,
@@ -5851,6 +5924,14 @@ class VariationalViscosity(Propagator):
             *integration_grid,
         ) * self.domain.jacobian_det(*integration_grid)
         self._mass_M1_metric = deepcopy(metric)
+
+        if self._model in ["linear_q", "deltaf_q"]:
+            self.sf1.vector = self.projected_equil.q3
+
+            self._q0_values = self.sf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd
+            )
 
         metric = self.domain.metric(
             *integration_grid,
@@ -6107,7 +6188,7 @@ class VariationalResistivity(Propagator):
     ):
         super().__init__(s, b)
 
-        assert model in ["full", "full_p", "full_q", "linear_p", "delta_p"]
+        assert model in ["full", "full_p", "full_q", "linear_p", "delta_p", "linear_q", "deltaf_q"]
 
         self._energy_evaluator = energy_evaluator
         self._model = model
@@ -6196,7 +6277,10 @@ class VariationalResistivity(Propagator):
         # 2) Initial energy and linear form
         rho = self._rho
         self.rhof.vector = rho
-        self.sf.vector = sn
+        if self._model in ["deltaf_q", "linear_q"]:
+            self.sf.vector = self._pt3
+        else:
+            self.sf.vector = sn
 
         sf_values = self.sf.eval_tp_fixed_loc(
             self.integration_grid_spans,
@@ -6226,6 +6310,22 @@ class VariationalResistivity(Propagator):
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
+        elif self._model in ["full_q"]:
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n **=2
+            e_n *= 1.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
+        elif self._model in ["linear_q", "deltaf_q"]:
+            e_n = self._e_n
+            e_n *= 0.0
+            e_n += sf_values
+            e_n *= self._q0_values
+            e_n *= 2.0 / (self._gamma - 1.0)
+            e_n *= self._energy_metric
+
         energy_change += e_n
 
         self._get_L2dofs_V3(energy_change, dofs=self._linear_form_tot_e)
@@ -6237,7 +6337,10 @@ class VariationalResistivity(Propagator):
         err = tol + 1
 
         for it in range(self._nonlin_solver["maxiter"]):
-            self.sf1.vector = sn1
+            if self._model in ["deltaf_q", "linear_q"]:
+                self.sf1.vector = self._pt3
+            else:
+                self.sf1.vector = sn
 
             sf1_values = self.sf1.eval_tp_fixed_loc(
                 self.integration_grid_spans,
@@ -6258,6 +6361,22 @@ class VariationalResistivity(Propagator):
                 e_n1 *= 0.0
                 e_n1 += sf1_values
                 e_n1 *= 1.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+            elif self._model in ["full_q"]:
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 **=2
+                e_n1 *= 1.0 / (self._gamma - 1.0)
+                e_n1 *= self._energy_metric
+
+            elif self._model in ["linear_q", "deltaf_q"]: 
+                e_n1 = self._e_n1
+                e_n1 *= 0.0
+                e_n1 += sf1_values
+                e_n1 *= self._q0_values
+                e_n1 *= 2.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
             self._get_L2dofs_V3(e_n1, dofs=self._linear_form_en1)
@@ -6285,12 +6404,27 @@ class VariationalResistivity(Propagator):
                 self.M_de_ds.assemble([[deds]], verbose=False)
                 self.pc_jac.update_mass_operator(self.M_de_ds)
 
+            elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+                if self._model in ["deltaf_q", "linear_q"]:
+                    sf1_values = self._q0_values
+                deds = self._de_s1_values
+                deds *= 0.
+                deds += sf1_values
+                deds *= 2/(self._gamma-1.)
+                deds *= self._mass_metric_term
+
+                self.M_de_ds.assemble([[deds]], verbose=False)
+                self.pc_jac.update_mass_operator(self.M_de_ds)
+
             incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
             if self._info:
                 print("information on the linear solver : ", self.inv_jac._info)
 
-            sn1 += incr
+            if self._model in ["deltaf_q", "linear_q"]:
+                self._pt3 += incr
+            else:
+                sn1 += incr
 
         if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
             print(
@@ -6299,91 +6433,91 @@ class VariationalResistivity(Propagator):
 
         self.feec_vars_update(sn1, bn1)
 
-        if self._pt3 is not None:
-            bn12 = bn.copy(out=self._tmp_bn12)
-            bn12 += bn1
-            bn12 /= 2.0
-            cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
-            cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
+        # if self._pt3 is not None:
+        #     bn12 = bn.copy(out=self._tmp_bn12)
+        #     bn12 += bn1
+        #     bn12 /= 2.0
+        #     cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
+        #     cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
-            self.cbf12.vector = cb12
-            self.cbf1.vector = cb1
+        #     self.cbf12.vector = cb12
+        #     self.cbf1.vector = cb1
 
-            cb12_v = self.cbf12.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_curl,
-                out=self._cb12_values,
-            )
-            cb1_v = self.cbf1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_curl,
-                out=self._cb1_values,
-            )
+        #     cb12_v = self.cbf12.eval_tp_fixed_loc(
+        #         self.integration_grid_spans,
+        #         self.integration_grid_curl,
+        #         out=self._cb12_values,
+        #     )
+        #     cb1_v = self.cbf1.eval_tp_fixed_loc(
+        #         self.integration_grid_spans,
+        #         self.integration_grid_curl,
+        #         out=self._cb1_values,
+        #     )
 
-            cb_sq_v = self._cb_sq_values
-            cb_sq_v *= 0.0
-            for i in range(3):
-                for j in range(3):
-                    cb_sq_v += cb12_v[i] * self._sq_term_metric[i, j] * cb1_v[j]
+        #     cb_sq_v = self._cb_sq_values
+        #     cb_sq_v *= 0.0
+        #     for i in range(3):
+        #         for j in range(3):
+        #             cb_sq_v += cb12_v[i] * self._sq_term_metric[i, j] * cb1_v[j]
 
-            cb_sq_v *= self._cb_sq_values_init
-            # 2) Initial energy and linear form
-            self.sf.vector = self._pt3
+        #     cb_sq_v *= self._cb_sq_values_init
+        #     # 2) Initial energy and linear form
+        #     self.sf.vector = self._pt3
 
-            sf_values = self.sf.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._sf_values,
-            )
+        #     sf_values = self.sf.eval_tp_fixed_loc(
+        #         self.integration_grid_spans,
+        #         self.integration_grid_bd,
+        #         out=self._sf_values,
+        #     )
 
-            e_n = self._e_n
-            e_n *= 0.0
-            e_n += sf_values
-            e_n *= 1.0 / (self._gamma - 1.0)
-            e_n *= self._energy_metric
+        #     e_n = self._e_n
+        #     e_n *= 0.0
+        #     e_n += sf_values
+        #     e_n *= 1.0 / (self._gamma - 1.0)
+        #     e_n *= self._energy_metric
 
-            cb_sq_v += e_n
+        #     cb_sq_v += e_n
 
-            self._get_L2dofs_V3(cb_sq_v, dofs=self._linear_form_tot_e)
+        #     self._get_L2dofs_V3(cb_sq_v, dofs=self._linear_form_tot_e)
 
-            tol = self._nonlin_solver["tol"]
-            err = tol + 1
+        #     tol = self._nonlin_solver["tol"]
+        #     err = tol + 1
 
-            for it in range(self._nonlin_solver["maxiter"]):
-                self.sf1.vector = self._pt3
+        #     for it in range(self._nonlin_solver["maxiter"]):
+        #         self.sf1.vector = self._pt3
 
-                sf1_values = self.sf1.eval_tp_fixed_loc(
-                    self.integration_grid_spans,
-                    self.integration_grid_bd,
-                    out=self._sf1_values,
-                )
+        #         sf1_values = self.sf1.eval_tp_fixed_loc(
+        #             self.integration_grid_spans,
+        #             self.integration_grid_bd,
+        #             out=self._sf1_values,
+        #         )
 
-                e_n1 = self._e_n1
-                e_n1 *= 0.0
-                e_n1 += sf1_values
-                e_n1 *= 1.0 / (self._gamma - 1.0)
-                e_n1 *= self._energy_metric
+        #         e_n1 = self._e_n1
+        #         e_n1 *= 0.0
+        #         e_n1 += sf1_values
+        #         e_n1 *= 1.0 / (self._gamma - 1.0)
+        #         e_n1 *= self._energy_metric
 
-                self._get_L2dofs_V3(e_n1, dofs=self._linear_form_en1)
+        #         self._get_L2dofs_V3(e_n1, dofs=self._linear_form_en1)
 
-                self.tot_rhs *= 0.0
-                self.tot_rhs -= self._linear_form_en1
-                self.tot_rhs += self._linear_form_tot_e
+        #         self.tot_rhs *= 0.0
+        #         self.tot_rhs -= self._linear_form_en1
+        #         self.tot_rhs += self._linear_form_tot_e
 
-                err = self._get_error_newton(self.tot_rhs)
+        #         err = self._get_error_newton(self.tot_rhs)
 
-                if self._info:
-                    print("iteration : ", it, " error : ", err)
+        #         if self._info:
+        #             print("iteration : ", it, " error : ", err)
 
-                if (err < tol**2 and it > 0) or np.isnan(err):
-                    break
+        #         if (err < tol**2 and it > 0) or np.isnan(err):
+        #             break
 
-                incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
+        #         incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
 
-                if self._info:
-                    print("information on the linear solver : ", self.inv_jac._info)
+        #         if self._info:
+        #             print("information on the linear solver : ", self.inv_jac._info)
 
-                self._pt3 += incr
+        #         self._pt3 += incr
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
@@ -6549,6 +6683,31 @@ class VariationalResistivity(Propagator):
             self.M_de_ds.assemble([[deds]], verbose=False)
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
+        elif self._model in ["full_q", "linear_q", "deltaf_q"]:
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                -2,
+            )
+            self._mass_metric_term = deepcopy(metric)
+
+            metric = np.power(
+                self.domain.jacobian_det(
+                    *integration_grid,
+                ),
+                -1,
+            )
+            self._energy_metric = deepcopy(metric)
+
+        if self._model in ["linear_q", "deltaf_q"]:
+            self.sf1.vector = self.projected_equil.q3
+
+            self._q0_values = self.sf1.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd
+            )
+
         metric = self.domain.metric_inv(
             *integration_grid,
         ) * self.domain.jacobian_det(*integration_grid)
@@ -6631,14 +6790,14 @@ class VariationalResistivity(Propagator):
         else:
             cb1 = self.Tcurl.dot(bn1, out=self._tmp_cb1)
 
-        if self._model in ["full", "full_p"]:
+        if self._model in ["full", "full_p", "full_q"]:
             cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
-        elif self._model in ["linear_p"]:
-            cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
+        # elif self._model in ["linear_p", "linear_q"]:
+        #     cb12 = self.Tcurl.dot(self._extracted_b2, out=self._tmp_cb12)
 
-        elif self._model in ["delta_p"]:
-            bn12 += self._extracted_b2
+        elif self._model in ["delta_p", "deltaf_q", "linear_p", "linear_q"]:
+            # bn12 += self._extracted_b2
             cb12 = self.Tcurl.dot(bn12, out=self._tmp_cb12)
 
         self.cbf12.vector = cb12
