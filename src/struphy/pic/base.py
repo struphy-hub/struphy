@@ -1580,6 +1580,9 @@ class Particles(metaclass=ABCMeta):
                         self.first_pusher_idx + 3 + self.vdim + axis,
                     ] += -1.0
                 else:
+                    assert not np.any(self.markers[outside_right_inds,self.first_pusher_idx + 3 + self.vdim + axis,] == -1.0)
+                    assert not np.any(self.markers[outside_left_inds,self.first_pusher_idx + 3 + self.vdim + axis,] == 1.0)
+
                     self.markers[
                         :,
                         self.first_pusher_idx + 3 + self.vdim + axis,

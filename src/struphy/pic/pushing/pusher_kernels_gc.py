@@ -1615,7 +1615,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         markers[ip, 3] -= k_v
 
         # residual
-        markers[ip, residual_idx] = sqrt(k[0]**2 + k[1]**2 + k[2]**2 + k_v**2)
+        markers[ip, residual_idx] = sqrt(k[0]**2 + k[1]**2 + k[2]**2 + (k_v/v_k)**2)
 
 
 @stack_array('dfm', 'e', 'u', 'b', 'b_star', 'norm_b1', 'curl_norm_b')
