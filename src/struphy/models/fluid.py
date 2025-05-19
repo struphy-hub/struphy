@@ -1589,7 +1589,7 @@ class ViscoresistiveDeltafMHD(StruphyModel):
 
 
 class ViscoresistiveMHD_with_q(StruphyModel):
-    r"""Full (non-linear) visco-resistive MHD equations, with the pressure variable discretized with a variational method.
+    r"""Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure) discretized with a variational method.
 
     :ref:`normalization`:
 
@@ -1603,9 +1603,9 @@ class ViscoresistiveMHD_with_q(StruphyModel):
 
         &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
         \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \frac{1}{\gamma -1} \nabla p + \mathbf B \times \nabla \times \mathbf B - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \mathbf u \right) = 0 \,,
+        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \frac{2q}{\gamma -1} \nabla q + \mathbf B \times \nabla \times \mathbf B - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \mathbf u \right) = 0 \,,
         \\[4mm]
-        &\partial_t p + u \cdot \nabla p + \gamma p \nabla \cdot u = \frac{1}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2\right) \,,
+        &\partial_t q + \cdot(\nabla q \mathbf u) + (\gamma/2 -1) q \nabla \cdot u = \frac{2 q}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2\right) \,,
         \\[4mm]
         &\partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \mathbf B = 0 \,,
 
@@ -1614,8 +1614,10 @@ class ViscoresistiveMHD_with_q(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
     2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalPBEvolve`
+    3. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
     4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
     5. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
 
@@ -1800,7 +1802,7 @@ class ViscoresistiveMHD_with_q(StruphyModel):
 
 
 class ViscoresistiveLinearMHD_with_q(StruphyModel):
-    r"""Linear visco-resistive MHD equations discretized with a variational method.
+    r"""Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
 
     :ref:`normalization`:
 
@@ -1814,9 +1816,9 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
 
         &\partial_t \tilde{\rho} + \nabla \cdot ( \rho_0 \tilde{\mathbf u} ) = 0 \,,
         \\[4mm]
-        &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{1}{\gamma -1} \nabla \tilde{p} + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
+        &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{2 q_0}{\gamma -1} \nabla \tilde{q} +  \frac{2 \tilde{q}}{\gamma -1} \nabla q_0 + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
         \\[4mm]
-        &\partial_t \tilde{p} + \tilde{\mathbf u} \cdot \nabla p_0 + \gamma p_0 \nabla \cdot \tilde{\mathbf u} = \frac{1}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \tilde{\mathbf u}|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \tilde{\mathbf B}|^2\right) \,,
+        &\partial_t \tilde{q} + \cdot(\nabla q_0 \mathbf u) + (\gamma/2 -1) q_0 \nabla \cdot u = 0 \,,
         \\[4mm]
         &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf B_0 \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
 
@@ -1825,7 +1827,7 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalPBEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
     3. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
     4. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
 
@@ -2047,20 +2049,21 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
 
         &\partial_t \tilde{\rho} + \nabla \cdot ( \rho_0 \tilde{\mathbf u} ) = 0 \,,
         \\[4mm]
-        &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{1}{\gamma -1} \nabla \tilde{p} + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
+        &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{2 q_0}{\gamma -1} \nabla \tilde{q} +  \frac{2 \tilde{q}}{\gamma -1} \nabla q_0 + \frac{2 \tilde{q}}{\gamma -1} \nabla \tilde{q} + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
         \\[4mm]
-        &\partial_t \tilde{p} + \tilde{\mathbf u} \cdot \nabla p_0 + \gamma p_0 \nabla \cdot \tilde{\mathbf u} = \frac{1}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \tilde{\mathbf u}|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \tilde{\mathbf B}|^2\right) \,,
+        &\partial_t \tilde{q} + \cdot(\nabla (q_0 + \tilde{q}) \mathbf u) + (\gamma/2 -1) (q_0 + \tilde{q}) \nabla \cdot u = 0 \,, 
         \\[4mm]
-        &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf B_0 \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
+        &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf (B_0 + \tilde{\mathbf B}) \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
 
     and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
 
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    2. :class:`~struphy.propagators.propagators_fields.VariationalPBEvolve`
-    3. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
-    4. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
+    4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
+    5. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
 
     :ref:`Model info <add_model>`:
     """
@@ -2084,6 +2087,7 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
     def propagators_dct():
         return {
             propagators_fields.VariationalDensityEvolve: ["mhd_rho3", "mhd_uv"],
+            propagators_fields.VariationalMomentumAdvection: ["mhd_uv"],
             propagators_fields.VariationalQBEvolve: ["mhd_q3", "b2", "mhd_uv"],
             propagators_fields.VariationalViscosity: ["mhd_q3", "mhd_uv"],
             propagators_fields.VariationalResistivity: ["mhd_q3", "b2"],
@@ -2109,6 +2113,8 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
         nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
+        lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
+        nonlin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
         lin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["lin_solver"]
         nonlin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["nonlin_solver"]
         lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
@@ -2134,6 +2140,12 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_density,
             "nonlin_solver": nonlin_solver_density,
+        }
+
+        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_momentum,
+            "nonlin_solver": nonlin_solver_momentum,
         }
 
         self._kwargs[propagators_fields.VariationalQBEvolve] = {
