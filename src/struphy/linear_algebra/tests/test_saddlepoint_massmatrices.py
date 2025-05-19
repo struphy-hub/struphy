@@ -282,23 +282,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         solver.A = A
         solver.F = F
         x_uzawa, y_uzawa, info = solver(0.9 * x1, 0.9 * x2, 1.1 * y1_rdm)
-    # elif method_for_solving == "SaddlePointSolverGMRESwithPC":
-    #     solver = SaddlePointSolverGMRESwithPC(
-    #         A,
-    #         B,
-    #         _A11,
-    #         _A22,
-    #         F,
-    #         M2pre,
-    #         rho=rho,
-    #         solver_name=solver_name,
-    #         tol=tol,
-    #         max_iter=max_iter,
-    #         verbose=verbose,
-    #         pc=pc,
-    #         derham=derham,
-    #     )
-    #     x_uzawa, y_uzawa, info = solver(dt, 0.9 * x1, 0.9 * x2, 1.1 * y1_rdm)
 
     end_time = time.time()
 
@@ -403,13 +386,6 @@ def _plot_velocity(data_reshaped):
 
 
 if __name__ == "__main__":
-    # test_saddlepointsolver('SaddlePointSolverUzawaNumpy',
-    #                        [10, 10, 1],
-    #                        [3, 3, 1],
-    #                        [True, False, True],
-    #                        [[False,  False], [False, False], [False, False]],
-    #                        ['Colella', {'Lx': 1., 'Ly': 6., 'alpha': .1, 'Lz': 10.}], True)
-
     test_saddlepointsolver(
         "SaddlePointSolverGMRES",
         [5, 5, 1],

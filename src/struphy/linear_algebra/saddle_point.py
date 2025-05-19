@@ -1,12 +1,11 @@
 import numpy as np
 import scipy as sc
-from psydac.linalg.basic import LinearOperator, Vector, SumLinearOperator, ComposedLinearOperator
+from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
 from psydac.linalg.direct_solvers import SparseSolver
 from typing import Union
 
-from psydac.linalg.basic import IdentityOperator
 
 
 class SaddlePointSolver:
@@ -134,28 +133,17 @@ class SaddlePointSolver:
         if self._variant == "Inverse_Solver":
             self._BT = B.transpose()
 
-            # Allocate memory for matrices used in solving the Schur system
-            self._rhs = self._F.copy()
-            self._R = self._B.codomain.zeros()
-
             # initialize solver with dummy matrix A
             self._block_domainM = BlockVectorSpace(self._A.domain, self._B.transpose().domain)
             self._block_codomainM = self._block_domainM
             self._blocks = [[self._A, self._B.T], [self._B, None]]
-            self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
-            self._solverM = inverse(self._M, solver_name, tol=tol, maxiter=max_iter, **solver_params)
+            _Minit = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
+            self._solverMinv = inverse(_Minit, solver_name, tol=tol, maxiter=max_iter, **solver_params)
 
             # Solution vectors
             self._P = B.codomain.zeros()
             self._U = A.codomain.zeros()
             self._Utmp = F.copy() * 0
-
-            # List to store residual norms
-            self._residual_norms = []
-
-            # Initialize counters
-            self._iterations_solverA = 0  # Total iterations for _solverA
-            self._iterations_schur = 0  # Iterations for _solverschur
 
         elif self._variant == "Uzawa":
             if self._method_to_solve in ("InexactNPInverse", "SparseSolver"):
@@ -290,25 +278,24 @@ class SaddlePointSolver:
             self._U1 = U_init if U_init is not None else self._Utmp[0]
             self._U2 = Ue_init if Ue_init is not None else self._Utmp[1]
 
+            _blocksM = [[self._A, self._B.T], [self._B, None]]
+            _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
+            _RHS = BlockVector(self._block_domainM, blocks=[self._F, self._B.codomain.zeros()])
+
             self._blockU = BlockVector(self._A.domain, blocks=[self._U1, self._U2])
             self._solblocks = [self._blockU, self._P1]
             x0 = BlockVector(self._block_domainM, blocks=self._solblocks)
-            self._solverM._options["x0"] = x0
-
-            self._M *= 0.0
-            self._blocks = [[self._A, self._B.T], [self._B, None]]
-            self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=self._blocks)
-            self._RHS = BlockVector(self._block_domainM, blocks=[self._F, self._B.codomain.zeros()])
+            self._solverMinv._options["x0"] = x0
 
             # use setter to update lhs matrix
-            self._solverM.linop = self._M
+            self._solverMinv.linop = _M
 
             # Initialize P to zero or given initial guess
-            self._sol = self._solverM.dot(self._RHS)
+            self._sol = self._solverMinv.dot(_RHS)
             self._U = self._sol[0]
             self._P = self._sol[1]
 
-            return self._U, self._P, self._solverM._info
+            return self._U, self._P, self._solverMinv._info
 
         elif self._variant == "Uzawa":
             info = {}

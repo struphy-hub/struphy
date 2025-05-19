@@ -36,8 +36,6 @@ from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
-
-from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 from struphy.examples.restelli2018 import callables
 
 
@@ -8545,7 +8543,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._p = p
         self._spl_kind = spl_kind
 
-        self._variant = "Uzawa"  # 'GMRES' , 'Uzawa'
+        self._variant = "GMRES"  # 'GMRES' , 'Uzawa'
         self._method_to_solve = (
             "DirectNPInverse"  # 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
         )
@@ -8609,9 +8607,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._F1 = l2_proj([funx, funy, _forceterm_logical])
         self._F2 = l2_proj([fun_electronsx, fun_electronsy, _forceterm_logical])
 
-        # self._F1 = self.derham.P['2']([funx, funy, funy])
-        # self._F2 = self.derham.P['2']([fun_electronsx, fun_electronsy, fun_electronsy])
-
         if self._variant == "GMRES":
             if _A12 is not None:
                 assert _A11.codomain == _A12.codomain
@@ -8633,22 +8628,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
             _blocksB = [[_B1, _B2]]
             _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-            _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1
-
-            self._block_domainM = BlockVectorSpace(_A.domain, _B.transpose().domain)
-            self._block_codomainM = self._block_domainM
-            _blocksM = [[_A, _B.T], [_B, None]]
-            self._M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
-
-            M2pre = MassMatrixPreconditioner(self.mass_ops.M2)
-
-            # Preconditioner
-            _A11_0 = self._nu * self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.mass_ops.M2 / 0.01
-            _A22_0 = (
-                self._nu_e * self.derham.div.T @ self.mass_ops.M3 @ self.derham.div
-                + self.mass_ops.M2
-                + self._eps * IdentityOperator(_A11.domain)
-            )
+            _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1   
 
         elif self._variant == "Uzawa":
             # Numpy
@@ -8724,6 +8704,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             B1np = -self._M3np @ self._Dnp
             B2np = self._M3np @ self._Dnp
+            self._B1np = B1np
             self._F1np = self._F1.toarray()
             self._F2np = self._F2.toarray()
             _Anp = [A11np, self.A22np]
@@ -8733,14 +8714,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _Anppre = [_A11prenp, self._A22prenp]
 
         if self._variant == "GMRES":
-            self._solverM = inverse(
-                self._M,
-                solver["type"][0],
-                tol=solver["tol"],
-                maxiter=solver["maxiter"],
-                verbose=solver["verbose"],
-            )
-
             self._solver_GMRES = SaddlePointSolver(
                 A=_A,
                 B=_B,
@@ -8752,10 +8725,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 pc=None,
             )
 
-            # allocate place-holder vectors to avoid temporary array allocations in __call__
-            self._e_tmp1 = self._block_codomainM.zeros()
-            # self._e_tmp2 = ue.space.zeros()
-            # self._b_tmp1 = phi.space.zeros()
 
         elif self._variant == "Uzawa":
             self._solver_UzawaNumpy = SaddlePointSolver(
@@ -8825,41 +8794,22 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
             _blocksB = [[_B1, _B2]]
             _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-            # Split diffusive term
-            # _blocksF = [self._F1 + 1 / dt * self.mass_ops.M2.dot(unfeec) - self._nu*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @
-            #                                                                            self.basis_ops.S21p).dot(un), self._F2 - self._nu_e*0.5 * (self.derham.div.T @ self.mass_ops.M3 @ self.derham.div + self.basis_ops.S21p.T @ self.derham.curl.T @ self.mass_ops.M2 @ self.derham.curl @ self.basis_ops.S21p).dot(un)]
             _blocksF = [self._F1 + self.mass_ops.M2.dot(unfeec) / dt, self._F2]  #
             _F = BlockVector(self._block_domainA, blocks=_blocksF)
 
-            # Solve here
-            _blocksM = [[_A, _B.T], [_B, None]]
-            _M = BlockLinearOperator(self._block_domainM, self._block_codomainM, blocks=_blocksM)
-            _RHS = BlockVector(self._block_domainM, blocks=[_F, _B.codomain.zeros()])
+            # Imported solver
+            self._solver_GMRES.A = _A
+            self._solver_GMRES.B = _B
+            self._solver_GMRES.F = _F
 
-            self._blockU = BlockVector(_A.domain, blocks=[unfeec, uenfeec])
-            self._solblocks = [self._blockU, phinfeec]
-            x0 = BlockVector(self._block_domainM, blocks=self._solblocks)
-            self._solverM._options["x0"] = x0
-
-            # use setter to update lhs matrix
-            self._solverM.linop = _M
-            _sol = self._solverM.dot(_RHS)
-            info = self._solverM._info
-            un = _sol[0][0]
-            uen = _sol[0][1]
-            phin = _sol[1]
-
-            # # Imported solver
-            # self._solver_GMRES.A = _A
-            # self._solver_GMRES.F = _F
-            # (
-            #     _sol1,
-            #     _sol2,
-            #     info,
-            # ) = self._solver_GMRES(unfeec, uenfeec, phinfeec)
-            # un = _sol1[0]
-            # uen = _sol1[1]
-            # phin = _sol2
+            (
+                _sol1,
+                _sol2,
+                info,
+            ) = self._solver_GMRES(unfeec, uenfeec, phinfeec)
+            un = _sol1[0]
+            uen = _sol1[1]
+            phin = _sol2
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
@@ -8933,6 +8883,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 print(f"Stokes is only running on one MPI.")
 
             # _plot_residual_norms(residual_norms)
+            print(f'Is outcoming a solution?')
+            diffAout = A11np.dot(un) + self._B1np.T.dot(phin) - self._F1np
+            print(f'{max(diffAout)=}')
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
