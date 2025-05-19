@@ -5596,7 +5596,7 @@ class VariationalViscosity(Propagator):
             if self._model in ["deltaf_q", "linear_q"]:
                 self.sf1.vector = self._pt3
             else:
-                self.sf1.vector = sn
+                self.sf1.vector = sn1
 
             sf1_values = self.sf1.eval_tp_fixed_loc(
                 self.integration_grid_spans,
