@@ -1,10 +1,13 @@
 "Available fluid backgrounds:"
 
+import importlib.util
+import os
 import warnings
 from time import time
 
 import numpy as np
 
+from struphy.console.run import subp_run
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -20,6 +23,7 @@ from struphy.fields_background.base import (
     NumericalFluidEquilibriumWithB,
     NumericalMHDequilibrium,
 )
+from struphy.utils.utils import read_state
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -2150,7 +2154,13 @@ class GVECequilibrium(NumericalMHDequilibrium):
     """
 
     def __init__(self, units=None, **params):
-        import os
+        # install if necessary
+        gvec_spec = importlib.util.find_spec("gvec_to_python")
+        if gvec_spec is None:
+            print("Simulation aborted, gvec-to-python must be installed and compiled!")
+            print("Install and compile with:")
+            print("pip install gvec-to-python; struphy compile")
+            exit()
 
         from gvec_to_python import GVEC
         from gvec_to_python.reader.gvec_reader import create_GVEC_json
@@ -2483,6 +2493,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
         import os
 
         t = time()
+        # install if necessary
+        desc_spec = importlib.util.find_spec("desc")
+
+        if desc_spec is None:
+            print("Simulation aborted, desc-opt must be installed!")
+            print("Install with:\npip install desc-opt")
+            exit()
+
         import desc
 
         print(f"DESC import: {time() - t} seconds")
