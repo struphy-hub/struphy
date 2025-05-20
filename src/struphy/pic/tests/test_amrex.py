@@ -17,11 +17,11 @@ except ImportError:
     amr = None
 
 Np = 4
-seed = 123456
+seed = 12345
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
-def test_amrex_push_v_in_e_field(plot=False, verbose=False):
+def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coords=True):
     # initialize Amrex
     amrex = Amrex()
 
@@ -59,6 +59,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
 
     # instantiate Particle object (for random drawing of markers)
     Np = 1000
+    loading_params = {"seed": seed}
 
     particles_1_amrex = ParticlesSPH(
         bc=bc,
@@ -66,20 +67,37 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         bckgr_params=bel_flow,
         Np=Np,
         amrex=amrex,
+        loading_params=loading_params,
     )
 
     particles_1_struphy = ParticlesSPH(
         bc=bc,
         domain=domain,
         bckgr_params=bel_flow,
+        loading_params=loading_params,
         Np=Np,
     )
 
-    particles_1_amrex.draw_markers(sort=False)
     particles_1_struphy.draw_markers(sort=False)
+    particles_1_amrex.draw_markers(sort=False)
 
-    particles_1_amrex.initialize_weights()
+    if same_phasespace_coords:
+        pos = particles_1_struphy.positions
+        vel = particles_1_struphy.velocities
+
+        particle_container = particles_1_amrex.markers
+
+        for pti in particle_container.iterator(particle_container, 0):
+            markers_array = pti.soa().to_numpy()[0]
+            markers_array["x"][:] = pos[:, 0]
+            markers_array["y"][:] = pos[:, 1]
+            markers_array["z"][:] = pos[:, 2]
+            markers_array["v1"][:] = vel[:, 0]
+            markers_array["v2"][:] = vel[:, 1]
+            markers_array["v3"][:] = vel[:, 2]
+
     particles_1_struphy.initialize_weights()
+    particles_1_amrex.initialize_weights()
 
     # pass simulation parameters to Propagator class
     PushEta.domain = domain
@@ -156,14 +174,59 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         n += 1
         time_vec[n] = time
 
+        if verbose:
+            print("*************** BEFORE TIMESTEP ***************")
+            print(f"Amrex positions: \n{particles_1_amrex.positions[:10]}")
+            print(f"Amrex velocities: \n{particles_1_amrex.velocities[:10]}")
+            print(
+                f"Amrex energy: \n{
+                    (
+                        0.5 * (particles_1_amrex.velocities[:, 0] ** 2 + particles_1_amrex.velocities[:, 1] ** 2)
+                        + 0 * p_h(particles_1_amrex.positions)
+                    )[:10]
+                }"
+            )
+
+            print(f"Struphy positions: \n{particles_1_struphy.positions[:10]}")
+            print(f"Struphy velocities: \n{particles_1_struphy.velocities[:10]}")
+            print(
+                f"Struphy energy: \n{
+                    (
+                        0.5 * (particles_1_struphy.velocities[:, 0] ** 2 + particles_1_struphy.velocities[:, 1] ** 2)
+                        + 0 * p_h(particles_1_struphy.positions)
+                    )[:20]
+                }"
+            )
+
         # advance in time
         prop_eta_1_amrex(dt / 2)
-        prop_v_1_amrex(dt)
-        prop_eta_1_amrex(dt / 2)
+        prop_eta_1_struphy(dt / 2)
 
-        prop_eta_1_struphy(dt / 2)
+        if same_phasespace_coords:
+            assert np.all(particles_1_amrex.positions == particles_1_struphy.positions)
+            assert np.all(particles_1_amrex.velocities == particles_1_struphy.velocities)
+
+        prop_v_1_amrex(dt)
         prop_v_1_struphy(dt)
+
+        if same_phasespace_coords:
+            assert np.all(particles_1_amrex.positions == particles_1_struphy.positions)
+            assert np.all(particles_1_amrex.velocities == particles_1_struphy.velocities)
+
+        prop_eta_1_amrex(dt / 2)
         prop_eta_1_struphy(dt / 2)
+
+        if same_phasespace_coords:
+            assert np.all(particles_1_amrex.positions == particles_1_struphy.positions)
+            assert np.all(particles_1_amrex.velocities == particles_1_struphy.velocities)
+
+        if verbose:
+            print("*************** AFTER TIMESTEP ***************")
+            print(f"Amrex positions: \n{particles_1_amrex.positions[:10]}")
+            print(f"Amrex velocities: \n{particles_1_amrex.velocities[:10]}")
+
+            print(f"Struphy positions: \n{particles_1_struphy.positions[:10]}")
+            print(f"Struphy velocities: \n{particles_1_struphy.velocities[:10]}")
 
         # positions on the physical domain Omega
         pos_1_amrex[n] = domain(particles_1_amrex.positions).T
@@ -177,6 +240,28 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False):
         energy_1_struphy[n] = 0.5 * (velo_1_struphy[n, :, 0] ** 2 + velo_1_struphy[n, :, 1] ** 2) + p_h(
             particles_1_struphy.positions
         )
+
+    # plt.figure()
+    # expand = np.ones_like(energy_1_amrex[0,:])
+    # for i in range(Nt):
+    #     plt.scatter(time_vec[i]*expand,  velo_1_amrex[i,:,0])
+    # plt.show()
+
+    # plt.figure()
+    # for i in range(Nt):
+    #     plt.scatter(time_vec[i]*expand,  velo_1_struphy[i,:,0])
+    # plt.show()
+
+    # plt.figure()
+    # expand = np.ones_like(energy_1_amrex[0,:])
+    # for i in range(Nt):
+    #     plt.scatter(time_vec[i]*expand,  energy_1_amrex[i,:])
+    # plt.show()
+
+    # plt.figure()
+    # for i in range(Nt):
+    #     plt.scatter(time_vec[i]*expand,  energy_1_struphy[i,:])
+    # plt.show()
 
     if plot:
         # energy plots (amrex)
@@ -920,7 +1005,7 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 
 if __name__ == "__main__":
-    test_amrex_push_v_in_e_field(plot=True, verbose=True)
+    test_amrex_push_v_in_e_field(plot=False, verbose=True)
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE

@@ -32,7 +32,7 @@ def push_v_with_efield(
             3d array of FE coeffs of E-field as 1-form.
 
         const : float
-            A constant (usuallly related to the charge-to-mass ratio).
+            A constant (usually related to the charge-to-mass ratio).
     """
 
     span1 = zeros(particles.Np, dtype=int)
@@ -73,9 +73,9 @@ def push_v_with_efield(
 
         # update velocities
         temp = dt * const * e_cart
-        markers_array["v1"][:] = markers_array["v1"][:] + temp[:, 0].squeeze()
-        markers_array["v2"][:] = markers_array["v2"][:] + temp[:, 1].squeeze()
-        markers_array["v3"][:] = markers_array["v3"][:] + temp[:, 2].squeeze()
+        markers_array["v1"][:] = markers_array["v1"][:] + temp[:, 0, 0]
+        markers_array["v2"][:] = markers_array["v2"][:] + temp[:, 1, 0]
+        markers_array["v3"][:] = markers_array["v3"][:] + temp[:, 2, 0]
 
 
 def push_eta_stage(
@@ -125,21 +125,15 @@ def push_eta_stage(
         k = matmul(jacobian_inv, v)  # TODO (Mati) maybe better to write our own piccelized
         # accumulation for last stage
         temp = dt * b[stage] * k
-        markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0].squeeze()
-        markers_array["real_comp1"][:] = markers_array["real_comp1"][:] + temp[:, 1].squeeze()
-        markers_array["real_comp2"][:] = markers_array["real_comp2"][:] + temp[:, 2].squeeze()
+        markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0, 0]
+        markers_array["real_comp1"][:] = markers_array["real_comp1"][:] + temp[:, 1, 0]
+        markers_array["real_comp2"][:] = markers_array["real_comp2"][:] + temp[:, 2, 0]
 
         # update positions for intermediate stages or last stage
         temp = dt * a[stage] * k
-        markers_array["x"][:] = (
-            markers_array["init_x"][:] + temp[:, 0].squeeze() + last * markers_array["real_comp0"][:]
-        )
-        markers_array["y"][:] = (
-            markers_array["init_y"][:] + temp[:, 1].squeeze() + last * markers_array["real_comp1"][:]
-        )
-        markers_array["z"][:] = (
-            markers_array["init_z"][:] + temp[:, 2].squeeze() + last * markers_array["real_comp2"][:]
-        )
+        markers_array["x"][:] = markers_array["init_x"][:] + temp[:, 0, 0] + last * markers_array["real_comp0"][:]
+        markers_array["y"][:] = markers_array["init_y"][:] + temp[:, 1, 0] + last * markers_array["real_comp1"][:]
+        markers_array["z"][:] = markers_array["init_z"][:] + temp[:, 2, 0] + last * markers_array["real_comp2"][:]
 
 
 def amrex_reflect(markers_array: "dict", outside_inds: "int[:]", axis: "int", domain: "Domain"):
@@ -188,6 +182,6 @@ def amrex_reflect(markers_array: "dict", outside_inds: "int[:]", axis: "int", do
     v = matmul(jacobian, v_logical)
 
     # update the particle velocities
-    markers_array["v1"][outside_inds] = v[:, 0].squeeze()
-    markers_array["v2"][outside_inds] = v[:, 1].squeeze()
-    markers_array["v3"][outside_inds] = v[:, 2].squeeze()
+    markers_array["v1"][outside_inds] = v[:, 0, 0]
+    markers_array["v2"][outside_inds] = v[:, 1, 0]
+    markers_array["v3"][outside_inds] = v[:, 2, 0]
