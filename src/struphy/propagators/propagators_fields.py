@@ -8497,6 +8497,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
         dct["alpha"] = 0.1
         dct["beta"] = 1.0
         dct["eps"] = 0.00001
+        dct["variant"] = "Uzawa"
+        dct["method_to_solve"] = "DirectNPInverse"
+        dct["preconditioner"] = False
+        dct["spectralanalysis"] = False
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -8521,6 +8525,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
         Nel: list,
         p: list,
         spl_kind: list,
+        variant: str = options(default=True)["variant"],
+        method_to_solve: str = options(default=True)["method_to_solve"],
+        preconditioner: str = options(default=True)["preconditioner"],
+        spectralanalysis: str = options(default=True)["spectralanalysis"],
     ):
         super().__init__(u, ue, phi)
 
@@ -8542,13 +8550,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._Nel = Nel
         self._p = p
         self._spl_kind = spl_kind
-
-        self._variant = "GMRES"  # 'GMRES' , 'Uzawa'
-        self._method_to_solve = (
-            "DirectNPInverse"  # 'ScipySparse', 'InexactNPInverse', 'DirectNPInverse', 'SparseSolver'
-        )
-        self._preconditioner = False
-        spectralanalysis = False
+        self._variant = variant
+        self._method_to_solve = method_to_solve
+        self._preconditioner = preconditioner
 
         if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
@@ -8628,7 +8632,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
             _blocksB = [[_B1, _B2]]
             _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-            _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1   
+            _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1
 
         elif self._variant == "Uzawa":
             # Numpy
@@ -8724,7 +8728,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 verbose=solver["verbose"],
                 pc=None,
             )
-
 
         elif self._variant == "Uzawa":
             self._solver_UzawaNumpy = SaddlePointSolver(

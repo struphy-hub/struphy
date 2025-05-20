@@ -1294,6 +1294,10 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_Nel = params["grid"]["Nel"]
         stokes_p = params["grid"]["p"]
         stokes_spl_kind = params["grid"]["spl_kind"]
+        stokes_variant = params["fluid"]["mhd"]["options"]["Stokes"]["variant"]
+        stokes_method_to_solve = params["fluid"]["mhd"]["options"]["Stokes"]["method_to_solve"]
+        stokes_preconditioner = params["fluid"]["mhd"]["options"]["Stokes"]["preconditioner"]
+        stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["Stokes"]["spectralanalysis"]
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
@@ -1326,6 +1330,10 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             "Nel": stokes_Nel,
             "p": stokes_p,
             "spl_kind": stokes_spl_kind,
+            "variant": stokes_variant,
+            "method_to_solve": stokes_method_to_solve,
+            "preconditioner": stokes_preconditioner,
+            "spectralanalysis": stokes_spectralanalysis,
         }
 
         # Initialize propagators used in splitting substeps

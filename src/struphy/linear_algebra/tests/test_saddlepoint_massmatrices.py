@@ -386,15 +386,15 @@ def _plot_velocity(data_reshaped):
 
 
 if __name__ == "__main__":
-    test_saddlepointsolver(
-        "SaddlePointSolverGMRES",
-        [5, 5, 1],
-        [3, 3, 1],
-        [True, False, True],
-        [[False, False], [False, False], [False, False]],
-        ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}],
-        True,
-    )
+    # test_saddlepointsolver(
+    #     "SaddlePointSolverGMRES",
+    #     [15, 15, 1],
+    #     [3, 3, 1],
+    #     [True, False, True],
+    #     [[False, False], [False, False], [False, False]],
+    #     ["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}],
+    #     True,
+    # )
     test_saddlepointsolver(
         "SaddlePointSolverUzawaNumpy",
         [15, 15, 1],
