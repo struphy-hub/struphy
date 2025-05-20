@@ -3,7 +3,7 @@
 from numpy import array, matmul, newaxis, shape, transpose, zeros
 from numpy.linalg import inv
 
-from struphy.bsplines.evaluation_kernels_3d import eval_1form_spline_vectorized, get_spans_vectorized
+from struphy.bsplines.evaluation_kernels_3d import get_spans_and_eval_1form_spline_vectorized
 from struphy.geometry.base import Domain
 
 
@@ -53,14 +53,11 @@ def push_v_with_efield(
         jacobian_inverse = inv(jacobian)
         jacobian_inverse_T = transpose(jacobian_inverse, [0, 2, 1])
 
-        # spline evaluation
-        get_spans_vectorized(e1, e2, e3, args_derham, span1, span2, span3)
-
-        # electric field: 1-form components
-        eval_1form_spline_vectorized(
-            span1,
-            span2,
-            span3,
+        # spline evaluation and electric field: 1-form components
+        get_spans_and_eval_1form_spline_vectorized(
+            e1,
+            e2,
+            e3,
             args_derham,
             e1_1,
             e1_2,

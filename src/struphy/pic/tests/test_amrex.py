@@ -194,7 +194,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
                     (
                         0.5 * (particles_1_struphy.velocities[:, 0] ** 2 + particles_1_struphy.velocities[:, 1] ** 2)
                         + 0 * p_h(particles_1_struphy.positions)
-                    )[:20]
+                    )[:10]
                 }"
             )
 
@@ -1005,7 +1005,7 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 
 if __name__ == "__main__":
-    test_amrex_push_v_in_e_field(plot=False, verbose=True)
+    test_amrex_push_v_in_e_field(plot=True, verbose=False, same_phasespace_coords=False)
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
@@ -1013,4 +1013,4 @@ if __name__ == "__main__":
 # (merge) DONE
 # profiling with more cores
 # work on GPU with cupy
-# transform push_v_with_efield
+# transform push_v_with_efield DONE
