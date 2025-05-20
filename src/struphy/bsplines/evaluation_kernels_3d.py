@@ -1697,12 +1697,8 @@ def get_spans_and_eval_1form_spline_vectorized(
 ):
     np = len(eta1)
     e_form = zeros(3, dtype=float)
-    
-    for i in range(np):
-        span1, span2, span3  = get_spans(eta1[i], eta2[i], eta3[i], args_derham)
-        eval_1form_spline_mpi(
-            span1, span2, span3, args_derham, form_coeffs_1, form_coeffs_2, form_coeffs_3, e_form
-        )
-        out[i, :, 0] = e_form
-    
 
+    for i in range(np):
+        span1, span2, span3 = get_spans(eta1[i], eta2[i], eta3[i], args_derham)
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, form_coeffs_1, form_coeffs_2, form_coeffs_3, e_form)
+        out[i, :, 0] = e_form
