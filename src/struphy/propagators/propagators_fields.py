@@ -3479,7 +3479,7 @@ class VariationalDensityEvolve(Propagator):
 
             self._M_drho.assemble([[self._tmp_int_grid]], verbose=False)
 
-        elif self._model == "full_p":
+        else:
             self._M_drho.assemble([[0.0 * self._tmp_int_grid]], verbose=False)
 
         # This way we can update only the scalar multiplying the operator and avoid creating multiple operators
