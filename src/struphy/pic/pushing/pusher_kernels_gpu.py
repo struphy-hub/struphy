@@ -18,7 +18,7 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 # from struphy.bsplines.evaluation_kernels_3d import (
 #     # eval_0form_spline_mpi,
 #     # eval_1form_spline_mpi,
-#     eval_2form_spline_mpi,
+#     # eval_2form_spline_mpi,
 #     # eval_3form_spline_mpi,
 #     # eval_vectorfield_spline_mpi,
 #     get_spans,
@@ -198,6 +198,8 @@ def push_vxb_analytic_gpu(
     
     # -- removed omp: #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     # -- removed omp: #$ omp for
+
+    #$ omp target teams distribute parallel for
     for ip in range(n_markers):
         # check if marker is a hole
         if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
@@ -227,53 +229,53 @@ def push_vxb_analytic_gpu(
         # # metric coeffs
         det_df = linalg_kernels.det(dfm)
 
-        # # # spline evaluation
-        # span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
+        # # spline evaluation
+        span1, span2, span3 = get_spans_inline(e1, e2, e3, args_derham)
 
-        # # # magnetic field 2-form
-        # eval_2form_spline_mpi(
-        #     span1,
-        #     span2,
-        #     span3,
-        #     args_derham,
-        #     b2_1,
-        #     b2_2,
-        #     b2_3,
-        #     b_form,
-        # )
+        # magnetic field 2-form
+        eval_2form_spline_mpi_inline(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
 
-        # # magnetic field: Cartesian components
-        # # linalg_kernels.matrix_vector(dfm, b_form, b_cart)
-        # # matrix_vector_inline(dfm, b_form, b_cart)
-        # # Temporary start
+        # magnetic field: Cartesian components
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        # matrix_vector_inline(dfm, b_form, b_cart)
+        # Temporary start (replacement of linalg_kernels.matrix_vector)
         # b_cart[:] = 0.
         # for i in range(3):
         #     for j in range(3):
         #         b_cart[i] += dfm[i, j] * b_form[j]
-        # # Temporary end
+        # Temporary end
 
-        # b_cart[:] = b_cart / det_df
+        b_cart[:] = b_cart / det_df
 
-        # # magnetic field: magnitude
-        # b_abs = sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
+        # magnetic field: magnitude
+        b_abs = sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
 
-        # # only push vxb if magnetic field is non-zero
-        # if b_abs != 0.0:
-        #     # normalized magnetic field direction
-        #     b_norm[:] = b_cart / b_abs
+        # only push vxb if magnetic field is non-zero
+        if b_abs != 0.0:
+            # normalized magnetic field direction
+            b_norm[:] = b_cart / b_abs
 
-        #     # parallel velocity v.b_norm
-        #     vpar = linalg_kernels.scalar_dot(v, b_norm)
+            # parallel velocity v.b_norm
+            vpar = linalg_kernels.scalar_dot(v, b_norm)
 
-        #     # first component of perpendicular velocity
-        #     linalg_kernels.cross(v, b_norm, vxb_norm)
-        #     linalg_kernels.cross(b_norm, vxb_norm, vperp)
+            # first component of perpendicular velocity
+            linalg_kernels.cross(v, b_norm, vxb_norm)
+            linalg_kernels.cross(b_norm, vxb_norm, vperp)
 
-        #     # second component of perpendicular velocity
-        #     linalg_kernels.cross(b_norm, vperp, b_normxvperp)
+            # second component of perpendicular velocity
+            linalg_kernels.cross(b_norm, vperp, b_normxvperp)
 
-        #     # analytic rotation
-        #     markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+            # analytic rotation
+            markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
 
     # -- removed omp: #$ omp end parallel
 
@@ -387,3 +389,246 @@ def df_pusher_inline_nodomainargs(
         args_params[5],
         df_out,
     )
+
+@inline
+def get_spans_inline(eta1: float, eta2: float, eta3: float, args_derham: "DerhamArguments"):
+    """Compute the knot span index,
+    the N-spline values (in bn) and the D-spline values (in bd)
+    at (eta1, eta2, eta3)."""
+
+    # find spans
+    span1 = find_span_inline(args_derham.tn1, args_derham.pn[0], eta1)
+    span2 = find_span_inline(args_derham.tn2, args_derham.pn[1], eta2)
+    span3 = find_span_inline(args_derham.tn3, args_derham.pn[2], eta3)
+
+    # get spline values at eta
+    b_d_splines_slim_inline(
+        args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1
+    )
+    b_d_splines_slim_inline(
+        args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2
+    )
+    b_d_splines_slim_inline(
+        args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3
+    )
+
+    return span1, span2, span3
+
+
+
+@pure
+@inline
+def find_span_inline(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
+    """
+    Computes the knot span index i for which the B-splines i-p until i are non-vanishing at point eta.
+
+    Parameters:
+    -----------
+        t : array
+            knot sequence
+
+        p : integer
+            degree of the basis splines
+
+        eta : float
+            Evaluation point
+
+    Returns:
+    --------
+        span-index 
+    """
+
+    # Knot index at left/right boundary
+    low = p
+    high = len(t) - 1 - p
+
+    # Check if point is exactly on left/right boundary, or outside domain
+    if eta <= t[low]:
+        returnVal = low
+    elif eta >= t[high]:
+        returnVal = high - 1
+    else:
+        # Perform binary search
+        span = (low + high)//2
+
+        while eta < t[span] or eta >= t[span + 1]:
+
+            if eta < t[span]:
+                high = span
+            else:
+                low = span
+            span = (low + high)//2
+
+        returnVal = span
+
+    return returnVal
+
+# @inline
+@pure
+def b_d_splines_slim_inline(tn: 'float[:]', pn: 'int', eta: 'float', span: 'int', bn: 'float[:]', bd: 'float[:]'):
+    """
+    One function to compute the values of non-vanishing B-splines and D-splines.
+
+    Parameters
+    ---------- 
+        tn : array
+            Knot sequence of B-splines.
+
+        pn : int
+            Polynomial degree of B-splines.
+
+        span : integer
+            Knot span index i -> [i-p,i] basis functions are non-vanishing.
+
+        eta : float
+            Evaluation point.
+
+        bn : array[float]
+            Output: pn + 1 non-vanishing B-splines at eta
+
+        bd : array[float]
+            Output: pn non-vanishing D-splines at eta
+    """
+
+    # compute D-spline degree
+    pd = pn - 1
+
+    # make sure the arrays we are writing to are empty
+    bn[:] = 0.
+    bd[:] = 0.
+
+    # Initialize variables left and right used for computing the value
+    left = zeros(pn, dtype=float)
+    right = zeros(pn, dtype=float)
+
+    bn[0] = 1.
+
+    for j in range(pn):
+        left[j] = eta - tn[span - j]
+        right[j] = tn[span + 1 + j] - eta
+        saved = 0.
+
+        if j == pn-1:
+            # compute D-splines values by scaling B-splines of degree pn-1
+            for il in range(pd + 1):
+                bd[pd - il] = pn/(
+                    tn[span - il + pn] -
+                    tn[span - il]
+                ) * bn[pd - il]
+
+        for r in range(j + 1):
+            temp = bn[r]/(right[r] + left[j - r])
+            bn[r] = saved + right[r] * temp
+            saved = left[j - r] * temp
+
+        bn[j + 1] = saved
+
+
+def eval_2form_spline_mpi_inline(
+    span1: int,
+    span2: int,
+    span3: int,
+    args_derham: "DerhamArguments",
+    form_coeffs_1: "float[:,:,:]",
+    form_coeffs_2: "float[:,:,:]",
+    form_coeffs_3: "float[:,:,:]",
+    out: "float[:]",
+):
+    """Single-point evaluation of Derham 2-form spline defined by form_coeffs,
+    given N-spline values (in bn), D-spline values (in bd)
+    and knot span indices span."""
+
+    out[0] = eval_spline_mpi_kernel_inline(
+        args_derham.pn[0],
+        args_derham.pn[1] - 1,
+        args_derham.pn[2] - 1,
+        args_derham.bn1,
+        args_derham.bd2,
+        args_derham.bd3,
+        span1,
+        span2,
+        span3,
+        form_coeffs_1,
+        args_derham.starts,
+    )
+
+    out[1] = eval_spline_mpi_kernel_inline(
+        args_derham.pn[0] - 1,
+        args_derham.pn[1],
+        args_derham.pn[2] - 1,
+        args_derham.bd1,
+        args_derham.bn2,
+        args_derham.bd3,
+        span1,
+        span2,
+        span3,
+        form_coeffs_2,
+        args_derham.starts,
+    )
+
+    out[2] = eval_spline_mpi_kernel_inline(
+        args_derham.pn[0] - 1,
+        args_derham.pn[1] - 1,
+        args_derham.pn[2],
+        args_derham.bd1,
+        args_derham.bd2,
+        args_derham.bn3,
+        span1,
+        span2,
+        span3,
+        form_coeffs_3,
+        args_derham.starts,
+    )
+
+
+def eval_spline_mpi_kernel_inline(
+    p1: "int",
+    p2: "int",
+    p3: "int",
+    basis1: "float[:]",
+    basis2: "float[:]",
+    basis3: "float[:]",
+    span1: "int",
+    span2: "int",
+    span3: "int",
+    _data: "float[:,:,:]",
+    starts: "int[:]",
+) -> float:
+    """
+    Summing non-zero contributions of a spline function with distributed memory (domain decomposition).
+
+    Parameters
+    ----------
+        p1, p2, p3 : int
+            Degrees of the univariate splines in each direction.
+
+        basis1, basis2, basis3 : array[float]
+            The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
+
+        span1, span2, span3: int
+            Knot span index in each direction.
+
+        _data : array[float]
+            The spline coefficients c_ijk of the current process, ie. the _data attribute of a StencilVector.
+
+        starts : array[int]
+            Starting indices of current process.
+
+    Returns
+    -------
+        spline_value : float
+            Value of tensor-product spline at point (eta1, eta2, eta3).
+    """
+
+    spline_value = 0.0
+
+    for il1 in range(p1 + 1):
+        i1 = span1 + il1 - starts[0]
+        for il2 in range(p2 + 1):
+            i2 = span2 + il2 - starts[1]
+            for il3 in range(p3 + 1):
+                i3 = span3 + il3 - starts[2]
+
+                spline_value += _data[i1, i2, i3] * basis1[il1] * basis2[il2] * basis3[il3]
+
+    return spline_value

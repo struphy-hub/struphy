@@ -1,9 +1,11 @@
+import line_profiler
 import copy
 import os
 from abc import ABCMeta, abstractmethod
 
 import h5py
 import numpy as np
+import cupy as cp
 import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -163,6 +165,7 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         equation_params: dict = None,
         verbose: bool = False,
+        gpu: bool = False,
     ):
         self._clone_config = clone_config
         if self.clone_config is None:
@@ -178,6 +181,8 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
+
+        self._gpu = gpu
 
         # check for mpi communicator
 
@@ -1012,7 +1017,9 @@ class Particles(metaclass=ABCMeta):
             n_mks_load_loc * (1 + 1 / np.sqrt(n_mks_load_loc) + self.eps),
         )
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
-
+        # if self._gpu:
+        #     self._markers_gpu = cp.asarray(self._markers)
+        self._markers_gpu = cp.asarray(self._markers)
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)
@@ -1233,6 +1240,7 @@ class Particles(metaclass=ABCMeta):
         self,
         sort: bool = True,
         verbose: bool = True,
+        gpu=False,
     ):
         r""" 
         Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
@@ -1529,15 +1537,17 @@ class Particles(metaclass=ABCMeta):
         if self._initialized_sorting and sort:
             if self.mpi_rank == 0 and verbose:
                 print("Sorting the markers after initial draw")
-            self.mpi_sort_markers()
+            self.mpi_sort_markers(gpu=gpu)
             self.do_sort()
 
+    @line_profiler.profile
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
         alpha: tuple | list | int | float = 1.0,
         do_test: bool = False,
         remove_ghost: bool = True,
+        gpu=False,
     ):
         """
         Sorts markers according to MPI domain decomposition.
@@ -1570,13 +1580,16 @@ class Particles(metaclass=ABCMeta):
 
         # before sorting, apply kinetic bc
         if apply_bc:
-            self.apply_kinetic_bc()
+            self.apply_kinetic_bc(gpu=gpu)
 
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = (alpha, alpha, alpha)
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
-        hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
+        if gpu:
+            hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
+        else:
+            hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
 
         # determine where to send markers_to_be_sent
         send_info = self.sendrecv_get_destinations(send_inds)
@@ -1834,7 +1847,8 @@ class Particles(metaclass=ABCMeta):
 
         plt.show()
 
-    def _find_outside_particles(self, axis):
+    def _find_outside_particles(self, axis, gpu = False):
+        
         # determine particles outside of the logical unit cube
         self._is_outside_right[:] = self.markers[:, axis] > 1.0
         self._is_outside_left[:] = self.markers[:, axis] < 0.0
@@ -1854,7 +1868,43 @@ class Particles(metaclass=ABCMeta):
 
         return outside_inds
 
-    def apply_kinetic_bc(self, newton=False):
+    @line_profiler.profile
+    def _find_outside_particles_gpu(self, axis):
+        """
+        GPU-accelerated version of _find_outside_particles.
+        Determines which particles are outside the logical unit cube along a given axis.
+        Returns NumPy array of outside particle indices.
+        """
+        # Copy necessary data to GPU
+        m_axis = cp.asarray(self.markers[:, axis])
+        holes_gpu = cp.asarray(self.holes)
+        ghosts_gpu = cp.asarray(self.ghost_particles)
+
+        # Allocate CuPy arrays for masks
+        is_outside_right = m_axis > 1.0
+        is_outside_left = m_axis < 0.0
+
+        # Apply exclusions for holes and ghosts
+        is_outside_right[holes_gpu] = False
+        is_outside_right[ghosts_gpu] = False
+        is_outside_left[holes_gpu] = False
+        is_outside_left[ghosts_gpu] = False
+
+        # Combine into full outside mask
+        is_outside = cp.logical_or(is_outside_right, is_outside_left)
+        
+        # Update attributes
+        self._is_outside_right[:] = cp.asnumpy(is_outside_right)
+        self._is_outside_left[:] = cp.asnumpy(is_outside_left)
+        self._is_outside[:] = cp.asnumpy(is_outside)
+
+        # Get indices (on GPU) and convert to NumPy
+        outside_inds = cp.nonzero(is_outside)[0]
+
+        return cp.asnumpy(outside_inds)
+
+    @line_profiler.profile
+    def apply_kinetic_bc(self, newton=False, gpu=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
 
@@ -1867,7 +1917,10 @@ class Particles(metaclass=ABCMeta):
 
         # apply boundary conditions
         for axis in self._remove_axes:
-            outside_inds = self._find_outside_particles(axis)
+            if gpu:
+                outside_inds = self._find_outside_particles_gpu(axis, gpu=gpu)
+            else:
+                outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
@@ -1879,7 +1932,10 @@ class Particles(metaclass=ABCMeta):
             self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
         for axis in self._periodic_axes:
-            outside_inds = self._find_outside_particles(axis)
+            if gpu:
+                outside_inds = self._find_outside_particles_gpu(axis)
+            else:
+                outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
@@ -1902,7 +1958,7 @@ class Particles(metaclass=ABCMeta):
                 self.markers[
                     :,
                     self.first_pusher_idx + 3 + self.vdim + axis,
-                ] = 0.0
+                ] = np.float32(0.0)
                 self.markers[
                     outside_right_inds,
                     self.first_pusher_idx + 3 + self.vdim + axis,
@@ -1915,7 +1971,10 @@ class Particles(metaclass=ABCMeta):
         # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
         outside_inds_per_axis = {}
         for axis in self._reflect_axes:
-            outside_inds = self._find_outside_particles(axis)
+            if gpu:
+                outside_inds = self._find_outside_particles_gpu(axis)
+            else:
+                outside_inds = self._find_outside_particles(axis)
 
             self.markers[self._is_outside_left, axis] = 1e-4
             self.markers[self._is_outside_right, axis] = 1 - 1e-4
@@ -3331,6 +3390,76 @@ class Particles(metaclass=ABCMeta):
         hole_inds_after_send = np.nonzero(np.logical_or(~self._can_stay, self.holes))[0]
 
         return hole_inds_after_send, send_inds
+
+    @line_profiler.profile
+    def sendrecv_determine_mtbs_gpu(
+        self,
+        alpha: list | tuple | np.ndarray = (1.0, 1.0, 1.0),
+    ):
+        """
+        Determine which markers have to be sent from current process and put them in a new array.
+        Corresponding rows in markers array become holes and are therefore set to -1.
+        This can be done purely with numpy functions (fast, vectorized).
+
+        Parameters
+        ----------
+            alpha : list | tuple
+                For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
+                alpha[i] must be between 0 and 1.
+
+        Returns
+        -------
+            hole_inds_after_send : array[int]
+                Indices of empty columns in markers after send.
+
+            sorting_etas : array[float]
+                Eta-values of shape (n_send, :) according to which the sorting is performed.
+        """
+
+        # position that determines the sorting (including periodic shift of boundary conditions)
+        if not isinstance(alpha, np.ndarray):
+            alpha = np.array(alpha, dtype=np.float64)
+
+        assert alpha.size == 3
+        assert np.all(alpha >= 0.0) and np.all(alpha <= 1.0)
+
+        alpha_gpu = cp.asarray(alpha)
+        bi = self.first_pusher_idx
+        vdim = self.vdim
+
+        # Copy required marker slices to GPU
+        m_cpu = self.markers
+        self._markers_gpu[:] = cp.asarray(m_cpu)
+        # m_part1 = cp.asarray(m_cpu[:, :3])  # positions
+        # m_part2 = cp.asarray(m_cpu[:, bi + 3 + vdim : bi + 3 + vdim + 3])  # periodic shifts
+        # m_part3 = cp.asarray(m_cpu[:, bi : bi + 3])  # physical positions
+
+        # Compute sorting etas
+        sorting_etas = cp.mod(
+            alpha_gpu * (self._markers_gpu[:, :3] + self._markers_gpu[:, bi + 3 + vdim : bi + 3 + vdim + 3]) + (1.0 - alpha_gpu) * self._markers_gpu[:, bi : bi + 3],
+            1.0
+        )
+        self._sorting_etas = cp.asnumpy(sorting_etas)
+
+        # Domain bounds from CPU to GPU
+        dom_gpu = cp.asarray(self.domain_array)
+        is_on_proc_domain = cp.logical_and(
+            sorting_etas > dom_gpu[self.mpi_rank, 0::3],
+            sorting_etas < dom_gpu[self.mpi_rank, 1::3],
+        )
+
+        can_stay = cp.all(is_on_proc_domain, axis=1)
+
+        # Apply holes and ghosts (remain on CPU, converted to GPU indices)
+        holes_gpu = cp.asarray(self.holes)
+        ghosts_gpu = cp.asarray(self.ghost_particles)
+        can_stay[holes_gpu] = True
+        can_stay[ghosts_gpu] = True
+
+        send_inds = cp.nonzero(~can_stay)[0]
+        hole_inds_after_send = cp.nonzero(cp.logical_or(~can_stay, cp.asarray(self.holes)))[0]
+
+        return cp.asnumpy(hole_inds_after_send), cp.asnumpy(send_inds)
 
     def sendrecv_get_destinations(self, send_inds):
         """

@@ -13,7 +13,7 @@ from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
+from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gpu, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
@@ -67,6 +67,8 @@ class PushEta(Propagator):
         density_field: StencilVector | None = None,
         gpu=True,
     ):
+        
+        print(f"Initializing PushEta with {gpu = }")
         # base class constructor call
         super().__init__(particles)
 
@@ -99,6 +101,7 @@ class PushEta(Propagator):
             n_stages=butcher.n_stages,
             mpi_sort="each",
             verbose=False,
+            gpu=gpu,
         )
 
         self._eval_density = False
@@ -108,10 +111,10 @@ class PushEta(Propagator):
 
     def __call__(self, dt):
         import time
-        t0 = time.time()
+        # t0 = time.time()
         self._pusher(dt)
-        t1 = time.time()
-        print(f'timing of {self._pusher = }: {t1 - t0}')
+        # t1 = time.time()
+        # print(f'timing of {self._pusher = }: {t1 - t0}')
         # update_weights
         if self.particles[0].control_variate:
             print('self.particles[0].control_variate')
@@ -180,9 +183,11 @@ class PushVxB(Propagator):
         self._b_full = self.derham.Vh["2"].zeros()
         # define pusher kernel
         if gpu:
+            print(f'{algo = }')
             if algo == "analytic":
-                kernel = pusher_kernels.push_vxb_analytic
+                # kernel = pusher_kernels.push_vxb_analytic
                 # kernel = push_vxb_analytic_gpu
+                kernel = pusher_kernels_gpu.push_vxb_analytic_gpu
             elif algo == "implicit":
                 kernel = pusher_kernels.push_vxb_implicit
                 # kernel = push_vxb_implicit_gpu

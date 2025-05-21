@@ -397,6 +397,18 @@ def struphy():
         action="store_true",
     )
 
+    parser_run.add_argument(
+        "--gpu",
+        help="Launch with GPU kernels",
+        action="store_true",
+    )
+
+    parser_run.add_argument(
+        "--line-profile",
+        help="Launch with kernprof -l",
+        action="store_true",
+    )
+
     # 3. "units" sub-command
     parser_units = subparsers.add_parser(
         "units",

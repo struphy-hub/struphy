@@ -615,7 +615,7 @@ class StruphyModel(metaclass=ABCMeta):
         for prop in self.propagators:
             prop.add_time_state(time_state)
 
-    def init_propagators(self, gpu=False):
+    def init_propagators(self):
         """Initialize the propagator objects specified in :attr:`~propagators_cls`."""
         if self.rank_world == 0 and self.verbose:
             print("\nPROPAGATORS:")
@@ -642,7 +642,6 @@ class StruphyModel(metaclass=ABCMeta):
                 prop_instance = prop(
                     *[self.pointer[var] for var in variables],
                     **kwargs_i,
-                    gpu=gpu,
                 )
                 assert isinstance(prop_instance, Propagator)
                 self._propagators += [prop_instance]
@@ -775,7 +774,7 @@ class StruphyModel(metaclass=ABCMeta):
             sq_str += key + ": {:14.11f}".format(val[0]) + "   "
         print(sq_str)
 
-    def initialize_from_params(self):
+    def initialize_from_params(self, gpu=False):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid)
         and markers according to parameter file.
@@ -932,8 +931,8 @@ class StruphyModel(metaclass=ABCMeta):
                         else:
                             print("No perturbation.")
 
-                    obj.draw_markers(sort=True, verbose=self.verbose)
-                    obj.mpi_sort_markers(do_test=True)
+                    obj.draw_markers(sort=True, verbose=self.verbose,gpu=gpu)
+                    obj.mpi_sort_markers(do_test=True,gpu=gpu)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":

@@ -134,7 +134,7 @@ class Vlasov(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            # propagators_markers.PushVxB: ["ions"],
+            propagators_markers.PushVxB: ["ions"],
             propagators_markers.PushEta: ["ions"],
         }
 
@@ -146,6 +146,8 @@ class Vlasov(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None, gpu=False):
+
+        print(f"Init Vlasov with {gpu = }")
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -164,20 +166,21 @@ class Vlasov(StruphyModel):
         )
         # print('algo = ', ions_params["options"]["PushVxB"]["algo"])
         # set keyword arguments for propagators
-        # self._kwargs[propagators_markers.PushVxB] = {
-        #     "algo": ions_params["options"]["PushVxB"]["algo"],
-        #     "kappa": 1.0,
-        #     "b2": self._b_eq,
-        #     "b2_add": None,
-        # }
+        self._kwargs[propagators_markers.PushVxB] = {
+            "algo": ions_params["options"]["PushVxB"]["algo"],
+            "kappa": 1.0,
+            "b2": self._b_eq,
+            "b2_add": None,
+            "gpu": gpu,
+        }
 
         self._kwargs[propagators_markers.PushEta] = {
             "algo": ions_params["options"]["PushEta"]["algo"],
-            # "gpu": gpu,
+            "gpu": gpu,
         }
 
         # Initialize propagators used in splitting substeps
-        self.init_propagators(gpu=gpu)
+        self.init_propagators()
 
         # Scalar variables to be saved during simulation
         self.add_scalar("en_f", compute="from_particles", species="ions")

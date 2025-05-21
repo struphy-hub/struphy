@@ -1,5 +1,5 @@
 "Accelerated particle pushing."
-
+import line_profiler
 import time
 
 import numpy as np
@@ -110,6 +110,7 @@ class Pusher:
         tol: float = 1.0e-8,
         mpi_sort: str = None,
         verbose: bool = False,
+        gpu: bool = False,
     ):
         self._particles = particles
         self._kernel = kernel
@@ -163,7 +164,10 @@ class Pusher:
             self._box_comm = self.particles.sorting_boxes.communicate
         else:
             self._box_comm = False
+        
+        self._gpu = gpu
 
+    @line_profiler.profile
     def __call__(self, dt: float):
         """
         Applies the chosen pusher kernel by a time step dt,
@@ -221,6 +225,7 @@ class Pusher:
             if self._box_comm:
                 self.particles.put_particles_in_boxes()
 
+        # print(f"Runnign stages with {self._gpu = }")
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
@@ -254,18 +259,20 @@ class Pusher:
                             apply_bc=False,
                             alpha=alpha[:3],
                             remove_ghost=False,
+                            gpu = self._gpu,
                         )
                     
                     # evaluate
                     # with ProfileManager.profile_region(ker.__name__):
-                    ker(
-                        alpha,
-                        column_nr,
-                        comps,
-                        self.particles.args_markers,
-                        self._args_domain,
-                        *add_args,
-                    )
+                    with ProfileManager.profile_region(ker.__name__):
+                        ker(
+                            alpha,
+                            column_nr,
+                            comps,
+                            self.particles.args_markers,
+                            self._args_domain,
+                            *add_args,
+                        )
 
                     # update boxes
                     if self._box_comm:
@@ -273,17 +280,19 @@ class Pusher:
 
                 # sort according to alpha-weighted average
                 if self.particles.mpi_comm is not None:
-                    self.particles.mpi_sort_markers(
-                        apply_bc=False,
-                        alpha=self._alpha_in_kernel,
-                        remove_ghost=False,
-                    )
+                    with ProfileManager.profile_region("mpi_sort_markers"):
+                        self.particles.mpi_sort_markers(
+                            apply_bc=False,
+                            alpha=self._alpha_in_kernel,
+                            remove_ghost=False,
+                            gpu = self._gpu,
+                        )
 
-                print(f'call kernel {self.kernel.__name__ = } with n_markers = {self.particles.args_markers.n_markers}')
+                # print(f'call kernel {self.kernel.__name__ = } with n_markers = {self.particles.args_markers.n_markers}')
                 
                 # push markers
                 with ProfileManager.profile_region(self.kernel.__name__):
-                    t0 = time.time()
+                    # t0 = time.time()
                     self.kernel(
                         dt,
                         stage,
@@ -291,11 +300,12 @@ class Pusher:
                         self._args_domain,
                         *self._args_kernel,
                     )
-                    t1 = time.time()
+                    # t1 = time.time()
                     # print(f'return kernel {self.kernel = }')
-                    print(f"Timing: {t1 - t0}")
-
-                self.particles.apply_kinetic_bc(newton=self._newton)
+                    # print(f"Timing: {t1 - t0}")
+                
+                with ProfileManager.profile_region("apply_kinetic_bc"):
+                    self.particles.apply_kinetic_bc(newton=self._newton,gpu = self._gpu)
                 self.particles.update_holes()
 
                 # update boxes
@@ -341,9 +351,10 @@ class Pusher:
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
+                            with ProfileManager.profile_region("mpi_sort_markers"):
+                                self.particles.mpi_sort_markers(gpu = self._gpu)
                         else:
-                            self.particles.apply_kinetic_bc()
+                            self.particles.apply_kinetic_bc(gpu = self._gpu)
                     break
 
                 # check for convergence
@@ -351,9 +362,10 @@ class Pusher:
                     # sort markers according to domain decomposition
                     if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
-                            self.particles.mpi_sort_markers()
+                            with ProfileManager.profile_region("mpi_sort_markers"):
+                                self.particles.mpi_sort_markers(gpu = self._gpu)
                         else:
-                            self.particles.apply_kinetic_bc()
+                            self.particles.apply_kinetic_bc(gpu = self._gpu)
 
                     break
 
@@ -368,9 +380,10 @@ class Pusher:
         # sort markers according to domain decomposition
         if self.mpi_sort == "last":
             if self.particles.mpi_comm is not None:
-                self.particles.mpi_sort_markers(do_test=True)
+                with ProfileManager.profile_region("mpi_sort_markers"):
+                    self.particles.mpi_sort_markers(do_test=True)
             else:
-                self.particles.apply_kinetic_bc()
+                self.particles.apply_kinetic_bc(gpu = self._gpu)
 
     @property
     def particles(self):

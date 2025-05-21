@@ -30,6 +30,8 @@ def struphy_run(
     time_trace=False,
     sample_duration=1.0,
     sample_interval=1.0,
+    gpu=False,
+    line_profile=False,
 ):
     """Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -163,7 +165,10 @@ def struphy_run(
             likwid_command += ["-marker"]
 
     # command parts
-    cmd_python = ["python3"]
+    if line_profile:
+        cmd_python = ["kernprof", "-l"]
+    else:
+        cmd_python = ["python3"]
     cmd_main = [
         f"{libpath}/main.py",
         model,
@@ -191,6 +196,8 @@ def struphy_run(
     if verbose:
         cmd_main += ["-v"]
 
+    if gpu:
+        cmd_main += ["--gpu"]
     cmd_cprofile = ["-m", "cProfile", "-o", os.path.join(output_abs, "profile_tmp"), "-s", "time"]
 
     # run in normal or debug mode

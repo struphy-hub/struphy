@@ -1,12 +1,13 @@
-gpu = True
-
 from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
 # from pusher_kernels_gpu import matmul_gpu, matmul_cpu
-
+# from struphy.test_cupy_timings import compare_np_cp
 import numpy as np
 import time
 
-def gpu_warmup(N = 1000):
+def gpu_warmup(N = 2000):
+
+    # compare_np_cp()
+
     A = np.random.random((N, N))
     B = np.random.random((N, N))
     
@@ -39,6 +40,7 @@ def gpu_warmup(N = 1000):
     print(f"{np.allclose(C_cpu, C_gpu) = }")
     print(f"{elapsed_cpu = }")
     print(f"{elapsed_gpu = }")
+    print(f"Speedup: {elapsed_cpu / elapsed_gpu}")
 
 def main(
     model_name: str,
@@ -52,6 +54,7 @@ def main(
     supress_out: bool = False,
     sort_step: int = 0,
     num_clones: int = 1,
+    gpu = False,
 ):
     """
     Run a Struphy model.
@@ -88,6 +91,9 @@ def main(
     num_clones: int, optional
         Number of domain clones (default=1)
     """
+    if gpu:
+        gpu_warmup()
+    print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
     import copy
     import os
@@ -213,7 +219,7 @@ def main(
 
     # set initial conditions for all variables
     if not restart:
-        model.initialize_from_params()
+        model.initialize_from_params(gpu=gpu)
 
         total_steps = str(int(round(time_params["Tend"] / time_params["dt"])))
 
@@ -356,7 +362,10 @@ def main(
 
 
 if __name__ == "__main__":
+
     gpu_warmup()
+    exit()
+
     import argparse
     import os
 
@@ -481,6 +490,13 @@ if __name__ == "__main__":
         default=1.0,
     )
 
+    parser.add_argument(
+        "--gpu",
+        help="run with GPU",
+        action="store_true",
+    )
+
+
     args = parser.parse_args()
     config = ProfilingConfig()
     config.likwid = args.likwid
@@ -502,6 +518,7 @@ if __name__ == "__main__":
             supress_out=args.supress_out,
             sort_step=args.sort_step,
             num_clones=args.nclones,
+            gpu=args.gpu,
         )
     pylikwid_markerclose()
     if config.time_trace:
