@@ -2310,8 +2310,8 @@ class Derham:
                 tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
                 Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
             elif direction == "e1e2e3":
+                tmp_arrays = np.zeros((nprocs[0],nprocs[1], nprocs[2])).tolist()
                 Warning, f"3d noise in the directions {direction} is not correctly initilaized for MPI !!"
-                pass
             else:
                 raise ValueError("Invalid direction for tmp_arrays.")
 
