@@ -7,9 +7,6 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
-def _tmp_floor_division_mapping_kernels(x: int):
-    return x // 2
-
 @stack_array("b1", "b2", "b3", "tmp1", "tmp2", "tmp3")
 def spline_3d(
     eta1: float,
