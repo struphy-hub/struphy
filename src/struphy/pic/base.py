@@ -699,7 +699,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def phasespace_coords(self):
-        """Array holding the marker velocities in logical space. The i-th row holds the i-th marker info."""
+        """Array holding the marker positions and velocities in logical space. The i-th row holds the i-th marker info."""
         return self.markers[self.valid_mks, self.index["coords"]]
 
     @phasespace_coords.setter
