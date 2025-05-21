@@ -1,46 +1,14 @@
 from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
 # from pusher_kernels_gpu import matmul_gpu, matmul_cpu
-# from struphy.test_cupy_timings import compare_np_cp
+from struphy.gpu.test_cupy_timings import compare_np_cp
+from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
 import numpy as np
 import time
 
-def gpu_warmup(N = 2000):
+def compare_gpu_cpu(N = 2000):
 
-    # compare_np_cp()
-
-    A = np.random.random((N, N))
-    B = np.random.random((N, N))
-    
-    C_cpu = np.empty((N, N))
-    C_gpu = np.empty((N, N))
-
-    # Warm-up GPU offloading (optional)
-    # matmul_gpu(A, B, C_gpu)
-    print(f'matrix size: {N}')
-    print('Start matmul_cpu')
-    # Time CPU matrix multiplication.
-    start_cpu = time.time()
-    matmul_cpu(A, B, C_cpu)
-    elapsed_cpu = time.time() - start_cpu
-    matmul_gpu(A, B, C_gpu)
-    print('End matmul_cpu')
-    # print("warming up gpu")
-    # matmul_gpu(A, B, C_gpu)
-    print('Start matmul_gpu')
-    # Time GPU matrix multiplication.
-    start_gpu = time.time()
-    #for i in range(1000):    
-    matmul_gpu(A, B, C_gpu)
-    elapsed_gpu = time.time() - start_gpu
-    print('End matmul_gpu')
-    # print(f"{A = }")
-    # print(f"{B = }")
-    # print(f"{C_cpu = }")
-    # print(f"{C_gpu = }")
-    print(f"{np.allclose(C_cpu, C_gpu) = }")
-    print(f"{elapsed_cpu = }")
-    print(f"{elapsed_gpu = }")
-    print(f"Speedup: {elapsed_cpu / elapsed_gpu}")
+    compare_pyccel_cpu_gpu(N = 2000)
+    compare_np_cp()
 
 def main(
     model_name: str,
@@ -92,7 +60,7 @@ def main(
         Number of domain clones (default=1)
     """
     if gpu:
-        gpu_warmup()
+        compare_gpu_cpu()
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
     import copy
@@ -363,8 +331,7 @@ def main(
 
 if __name__ == "__main__":
 
-    gpu_warmup()
-    exit()
+    compare_gpu_cpu()
 
     import argparse
     import os
