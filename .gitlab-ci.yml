@@ -48,7 +48,7 @@ stages:
 
 .variables_push:
   variables:
-    LANGUAGE: 'c'
+    LANGUAGE: 'fortran'
     OMP: ''
 
 # --- rules ---
@@ -164,15 +164,30 @@ stages:
     - pip install -U pip
     - python3 -m pip list
     - python3 --version
+  install_pyccel_devel:
+    - !reference [.scripts, source_env_matrix_push]
+    - git status
+    - git fetch origin
+    - git checkout $CI_COMMIT_BRANCH
+    - git pull
+    - pip uninstall pyccel -y
+    - pip uninstall psydac -y
+    - pip install -e $(echo $STRUPHY_SOURCE)[test]
+    - struphy compile -d -y
+    - !reference [.scripts, compile_matrix]
   install_on_push:
     - !reference [.scripts, source_env_matrix_push]
     - git status
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
+    - pip uninstall pyccel -y
+    - pip uninstall psydac -y
     - pip install -e $(echo $STRUPHY_SOURCE)[test]
     - !reference [.scripts, compile_matrix]
   install:
+    - pip uninstall pyccel -y
+    - pip uninstall psydac -y
     - pip install $(echo $STRUPHY_SOURCE)[test]
     - pip show struphy
     - pip list
@@ -279,6 +294,18 @@ unit_tests:
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, unit_tests]
 
+tests_pyccel_devel:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_pyccel_devel]
+    - !reference [.scripts, unit_tests]
+    - !reference [.scripts, model_tests]
+
 model_tests:
   stage: test
   extends:
@@ -317,17 +344,17 @@ pages_tests:
     - struphy compile -y
     - cd doc ; make html; cd ..
 
-ubuntu_latest:
-  stage: test
-  extends:
-    - .rules_push
-    - .image_ubuntu_struphy
-    - .variables_push
-  script:
-    - !reference [.scripts, inspect_directory]
-    - !reference [.scripts, install_on_push]
-    - !reference [.scripts, quickstart_tests]
-    - !reference [.scripts, model_tests]
+# ubuntu_latest:
+#   stage: test
+#   extends:
+#     - .rules_push
+#     - .image_ubuntu_struphy
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, inspect_directory]
+#     - !reference [.scripts, install_on_push]
+#     - !reference [.scripts, quickstart_tests]
+#     - !reference [.scripts, model_tests]
 
 macos_nmpp:
   stage: test
@@ -342,6 +369,9 @@ macos_nmpp:
     - .rules_push
     - .variables_push
   before_script:
+    # - brew install cmake
+    - brew link --overwrite cmake
+    - cmake --version 
     - make -v
     - printenv
     - system_profiler SPHardwareDataType

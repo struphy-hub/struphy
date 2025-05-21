@@ -1352,6 +1352,7 @@ class PushDeterministicDiffusion(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
             n_stages=self._butcher.n_stages,
+            mpi_sort="each",
         )
 
     def __call__(self, dt):
@@ -1437,6 +1438,7 @@ class PushRandomDiffusion(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
             n_stages=self._butcher.n_stages,
+            mpi_sort="each",
         )
 
         # self._tmp = self.derham.Vh['1'].zeros()

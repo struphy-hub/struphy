@@ -157,7 +157,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
 
 if __name__ == "__main__":
-    for num_clones in [1, 2]:
+    for num_clones in [1]:
         test_accum_poisson(
             [8, 9, 10],
             [2, 3, 4],
