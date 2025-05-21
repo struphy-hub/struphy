@@ -522,8 +522,8 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
-            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para * scale_vec
+            filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+            filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v0vec_symm(
@@ -566,8 +566,8 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+            filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v2_symm(
@@ -792,7 +792,7 @@ def cc_lin_mhd_5d_gradB(
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # b x grad b para
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
@@ -821,7 +821,7 @@ def cc_lin_mhd_5d_gradB(
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # b x grad b para
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)

@@ -2864,7 +2864,6 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 const = ( en_fB_new - en_fB_old - en_fB_mid)/denominator
     
             # update u^{n+1,k}
-
             self._ACC(*self._args_accum_kernel, const)
 
             _ku = self._solver.dot(self._ACC.vectors[0], out=self._ku)
@@ -2936,9 +2935,9 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 op=MPI.SUM,
             )
             diff = buffer_array[0]
-            e_diff = np.abs((en_U_new + en_fB_new- en_tot_old)/en_tot_old)
+            e_diff = np.abs(en_U_new + en_fB_new- en_tot_old)
             
-            if (diff < self._dg_solver['tol'] or e_diff < self._dg_solver['tol']):
+            if diff < self._dg_solver['tol']:
                 if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0: 
                     print("converged diff:", diff)
                     print("converged ediff:", e_diff)

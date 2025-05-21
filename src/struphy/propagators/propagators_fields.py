@@ -1905,7 +1905,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                 self._unit_b1[2]._data,
                 self._scale_vec,
                 self._boundary_cut_e1,
-                reduced_coupling,
+                True,
         )
         # if self._particles.control_variate:
 

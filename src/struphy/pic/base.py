@@ -1473,8 +1473,8 @@ class Particles(metaclass=ABCMeta):
                 op=MPI.SUM,
             )
 
-        f_slice /= self.n_mks * bin_vol
-        df_slice /= self.n_mks * bin_vol
+        f_slice /= n_mks_tot * bin_vol
+        df_slice /= n_mks_tot * bin_vol
 
         return f_slice, df_slice
 
