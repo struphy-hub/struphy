@@ -23,8 +23,8 @@ struphy compile --language fortran --compiler /u/maxlin/git_repos/struphy/compil
 # Running
 
 ```
-python src/struphy/test_cupy_timings.py
-python src/struphy/test_pyccel_timings.py
+python src/struphy/gpu/test_cupy_timings.py
+python src/struphy/gpu/test_pyccel_timings.py
 ```
 
 ```
