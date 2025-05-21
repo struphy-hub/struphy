@@ -16,6 +16,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+
 def eval_magnetic_moment_5d(
     markers: "float[:,:]",
     args_derham: "DerhamArguments",

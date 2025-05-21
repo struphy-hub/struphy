@@ -1,12 +1,11 @@
+from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-from numpy import empty, shape, zeros, sqrt, log, abs, sign, pi
 
 
-@stack_array('x', 'v', 'B', 'unit_B', 'vperp', 'temp', 'Larmor_r')
-def calculate_guiding_center_from_6d(markers: 'float[:,:]',
-                                     B_cart: 'float[:,:]'):
+@stack_array("x", "v", "B", "unit_B", "vperp", "temp", "Larmor_r")
+def calculate_guiding_center_from_6d(markers: "float[:,:]", B_cart: "float[:,:]"):
     r"""
     Calculate guiding center positions :math:`\overline{\mathbf X}` from 6d Cartesian phase-space coordinates :math:`(\mathbf x, \mathbf v)`:
 
@@ -14,7 +13,7 @@ def calculate_guiding_center_from_6d(markers: 'float[:,:]',
 
         \overline{\mathbf X} = \mathbf x - \boldsymbol{\rho}_\textrm{L}(\mathbf x, \mathbf v) \,.
 
-    where :math:`\boldsymbol{\rho}_\textrm{L}` is a normalized Larmor-radius vector defined as 
+    where :math:`\boldsymbol{\rho}_\textrm{L}` is a normalized Larmor-radius vector defined as
 
     .. math::
 
@@ -35,9 +34,8 @@ def calculate_guiding_center_from_6d(markers: 'float[:,:]',
     n_markers = shape(markers)[0]
 
     for ip in range(n_markers):
-
         # skip holes
-        if (markers[ip, 0] == 0. and markers[ip, 1] == 0. and markers[ip, 2] == 0.):
+        if markers[ip, 0] == 0.0 and markers[ip, 1] == 0.0 and markers[ip, 2] == 0.0:
             continue
 
         x[:] = markers[ip, 0:3]
@@ -45,8 +43,8 @@ def calculate_guiding_center_from_6d(markers: 'float[:,:]',
         B[:] = B_cart[ip, 0:3]
 
         # calculate magnitude of the magnetic field unit magnetic field
-        absB = sqrt(B[0]**2 + B[1]**2 + B[2]**2)
-        unit_B = B/absB
+        absB = sqrt(B[0] ** 2 + B[1] ** 2 + B[2] ** 2)
+        unit_B = B / absB
 
         # calculate parallel velocity
         markers[ip, 3] = linalg_kernels.scalar_dot(v, unit_B)
@@ -55,10 +53,10 @@ def calculate_guiding_center_from_6d(markers: 'float[:,:]',
         linalg_kernels.cross(v, unit_B, temp)
         linalg_kernels.cross(unit_B, temp, vperp)
 
-        vperp_square = sqrt(vperp[0]**2 + vperp[1]**2 + vperp[2]**2)
+        vperp_square = sqrt(vperp[0] ** 2 + vperp[1] ** 2 + vperp[2] ** 2)
 
         markers[ip, 4] = vperp_square
-        markers[ip, 5] = vperp_square**2/(2*absB)
+        markers[ip, 5] = vperp_square**2 / (2 * absB)
 
         # calculate unit Larmor radius vector
         linalg_kernels.cross(unit_B, vperp, Larmor_r)

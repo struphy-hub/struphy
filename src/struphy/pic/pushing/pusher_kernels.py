@@ -22,6 +22,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
+
 @stack_array("dfm", "dfinv", "dfinvt", "e_form", "e_cart")
 def push_v_with_efield(
     dt: float,
