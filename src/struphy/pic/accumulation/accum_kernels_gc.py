@@ -275,7 +275,6 @@ def cc_lin_mhd_5d_M(
     norm_b13: "float[:,:,:]",  # model specific argument
     scale_vec: "float",  # model specific argument
     boundary_cut: "float",  # model specific argument
-    reduced_coupling: "bool",
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D` and :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`.
 
@@ -319,10 +318,7 @@ def cc_lin_mhd_5d_M(
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        if reduced_coupling:
-            weight = markers[ip, 5]
-        else:
-            weight = markers[ip, 7]
+        weight = markers[ip, 5]
         mu = markers[ip, 9]
 
         if eta1 < boundary_cut or eta1 > 1.0 - boundary_cut:
@@ -450,10 +446,6 @@ def cc_lin_mhd_5d_curlb(
 
         # marker weight and velocity
         dweight = markers[ip, 5]
-        if reduced_coupling:
-            weight = dweight
-        else:
-            weight = markers[ip, 7]
         v = markers[ip, 3]
 
         if eta1 < boundary_cut or eta1 > 1.0 - boundary_cut:

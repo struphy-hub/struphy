@@ -1641,7 +1641,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                 self._unit_b1[2]._data,
                 self._scale_vec,
                 self._boundary_cut_e1,
-                True,
             )
 
         # if self._particles.control_variate:
@@ -1858,7 +1857,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        reduced_coupling: bool,
         MJb_on: bool = options(default=True)["MJb_on"],
     ):
         super().__init__(n, u, p)
@@ -1884,10 +1882,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._boundary_cut_e1 = boundary_cut["e1"]
         self._MJb_on = MJb_on
 
-        # scheme2
-        if MJb_on:
-            assert not reduced_coupling
-
         self._ACC = Accumulator(
             particles,
             'Hdiv',
@@ -1905,7 +1899,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                 self._unit_b1[2]._data,
                 self._scale_vec,
                 self._boundary_cut_e1,
-                True,
         )
         # if self._particles.control_variate:
 
