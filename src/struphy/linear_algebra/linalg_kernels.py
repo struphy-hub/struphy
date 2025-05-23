@@ -317,7 +317,7 @@ def det4(a: "float[:,:]") -> float:
 
 def scalar_dot_vectorized_flat(a1: "float[:]", a2: "float[:]", a3: "float[:]", b: "float[:,:]") -> "float[:]":
     np = len(a1)
-    a = zeros((3, 3), dtype=float)
+    a = zeros(3, dtype=float)
     out = zeros(np, dtype=float)
     for i in range(np):
         a[0] = a1[i]
@@ -329,7 +329,7 @@ def scalar_dot_vectorized_flat(a1: "float[:]", a2: "float[:]", a3: "float[:]", b
 
 def cross_vectorized_flat(a1: "float[:]", a2: "float[:]", a3: "float[:]", b: "float[:,:]") -> "float[:,:]":
     np = len(a1)
-    a = zeros((3, 3), dtype=float)
+    a = zeros(3, dtype=float)
     out = zeros((np, 3), dtype=float)
     c = zeros(3, dtype=float)
     for i in range(np):
