@@ -68,7 +68,7 @@ __epyccel__/
 *.h5py
 *.vts
 *acquisition.lock
-*.json
+#*.json
 *.sqlite
 *.nsys-rep
 .output*
