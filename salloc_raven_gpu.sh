@@ -1,0 +1,1 @@
+salloc --partition=gpudev --ntasks=1 --time=00:15:00 --mem=12500 --gres=gpu:a100:1
