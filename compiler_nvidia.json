@@ -1,0 +1,123 @@
+{
+    "c": {
+        "exec": "nvc",
+        "mpi_exec": "mpicc",
+        "debug_flags": [
+            "-g",
+            "-O0"
+        ],
+        "release_flags": [
+            "-O3",
+            "-Munroll"
+        ],
+        "general_flags": [
+            "-fPIC",
+	    "-noswitcherror"
+        ],
+        "standard_flags": [
+            "-std=c99"
+        ],
+        "openmp": {
+            "flags": [
+                "-mp=gpu"
+            ]
+        },
+        "openacc": {
+            "flags": "-acc"
+        },
+        "libs": [
+            "-lm"
+        ],
+        "python": {
+            "flags": [
+                "-DNDEBUG",
+                "-O2",
+                "-Wall",
+                "-fPIC",
+                "-O2",
+                "-isystem",
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/include",
+                "-fPIC",
+                "-O2",
+                "-isystem",
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/include",
+                "-pthread",
+                "-B",
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/compiler_compat"
+            ],
+            "includes": [
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/include/python3.12",
+                "/u/maxlin/virtual_envs/env_pyccel/lib/python3.12/site-packages/numpy/_core/include"
+            ],
+            "shared_suffix": ".cpython-312-x86_64-linux-gnu.so",
+            "dependencies": [
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/lib/libpython3.12.so"
+            ],
+            "libdirs": [
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/lib"
+            ]
+        }
+    },
+    "fortran": {
+        "exec": "nvfort",
+        "mpi_exec": "mpifort",
+        "module_output_flag": "-module",
+        "debug_flags": [
+            "-Mbounds",
+            "-g",
+            "-O0"
+        ],
+        "release_flags": [
+            "-O3",
+            "-Munroll"
+        ],
+        "general_flags": [
+            "-fPIC"
+        ],
+        "standard_flags": [
+            "-Mstandard"
+        ],
+        "openmp": {
+            "flags": [
+                "-mp=gpu",
+		        "-gpu=cc80",
+                "-Minfo=all"
+            ]
+        },
+        "openacc": {
+            "flags": "-acc"
+        },
+        "libs": [
+            "-lm"
+        ],
+        "python": {
+            "flags": [
+                "-DNDEBUG",
+                "-O2",
+                "-Wall",
+                "-fPIC",
+                "-O2",
+                "-isystem",
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/include",
+                "-fPIC",
+                "-O2",
+                "-isystem",
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/include",
+                "-pthread",
+                "-B",
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/compiler_compat"
+            ],
+            "includes": [
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/include/python3.12",
+                "/u/maxlin/virtual_envs/env_pyccel/lib/python3.12/site-packages/numpy/_core/include"
+            ],
+            "shared_suffix": ".cpython-312-x86_64-linux-gnu.so",
+            "dependencies": [
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/lib/libpython3.12.so"
+            ],
+            "libdirs": [
+                "/mpcdf/soft/SLE_15/packages/x86_64/python-waterboa/2024.06/lib"
+            ]
+        }
+    }
+}
