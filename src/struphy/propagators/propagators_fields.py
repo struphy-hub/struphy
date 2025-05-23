@@ -1,5 +1,6 @@
 "Only FEEC variables are updated."
 
+from collections.abc import Callable
 from copy import deepcopy
 
 import numpy as np
@@ -13,6 +14,7 @@ import struphy.feec.utilities as util
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
+from struphy.feec.psydac_derham import SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,
     H1vecMassMatrix_density,
@@ -25,6 +27,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.ode.solvers import ODEsolverFEEC
+from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
@@ -49,7 +52,7 @@ class Maxwell(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct["algo"] = ["implicit", "rk4", "forward_euler", "heun2", "rk2", "heun3"]
+        dct["algo"] = ["implicit"] + ButcherTableau.available_methods()
         dct["solver"] = {
             "type": [
                 ("pcg", "MassMatrixPreconditioner"),
@@ -2133,7 +2136,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         Vh = self.derham.Vh_fem[self._u_id]
 
         # Femfield for the field evaluation
-        self._bf = self.derham.create_field("bf", "Hdiv")
+        self._bf = self.derham.create_spline_function("bf", "Hdiv")
 
         # define temp callable
         def tmp(x, y, z):
@@ -2556,7 +2559,7 @@ class ImplicitDiffusion(Propagator):
             "sigma_1": 1.0,
             "sigma_2": 0.0,
             "sigma_3": 1.0,
-            "stab_mat": ["M0", "M0ad"],
+            "stab_mat": ["M0", "M0ad", "Id"],
             "diffusion_mat": ["M1", "M1perp"],
         }
         dct["solver"] = {
@@ -2568,7 +2571,7 @@ class ImplicitDiffusion(Propagator):
             "maxiter": 3000,
             "info": False,
             "verbose": False,
-            "recycle": False,
+            "recycle": True,
         }
         if default:
             dct = descend_options_dict(dct, [])
@@ -2585,7 +2588,7 @@ class ImplicitDiffusion(Propagator):
         divide_by_dt: bool = False,
         stab_mat: str = options(default=True)["model"]["stab_mat"],
         diffusion_mat: str = options(default=True)["model"]["diffusion_mat"],
-        rho: StencilVector | tuple | list = None,
+        rho: StencilVector | tuple | list | Callable = None,
         x0: StencilVector = None,
         solver: dict = options(default=True)["solver"],
     ):
@@ -2621,6 +2624,8 @@ class ImplicitDiffusion(Propagator):
                 assert isinstance(rho[1], Particles)
                 # assert rho[0].space_id == 'H1'
                 rho = [rho]
+            elif isinstance(rho, Callable):
+                rho = [rho()]
             else:
                 assert rho.space == phi.space
                 rho = [rho]
@@ -2629,7 +2634,13 @@ class ImplicitDiffusion(Propagator):
         # initial guess and solver params
         self._x0 = x0
         self._info = solver["info"]
-        stab_mat = getattr(self.mass_ops, stab_mat)
+
+        if stab_mat == "Id":
+            stab_mat = IdentityOperator(phi.space)
+        else:
+            stab_mat = getattr(self.mass_ops, stab_mat)
+
+        print(f"{diffusion_mat = }")
         if isinstance(diffusion_mat, str):
             diffusion_mat = getattr(self.mass_ops, diffusion_mat)
         else:
@@ -2645,8 +2656,8 @@ class ImplicitDiffusion(Propagator):
         if solver["type"][1] is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(stab_mat)
+            # TODO: waiting for multigrid preconditioner
+            pc = None
 
         # solver just with A_2, but will be set during call with dt
         self._solver = inverse(
@@ -2761,6 +2772,98 @@ class ImplicitDiffusion(Propagator):
             print(info)
 
         self.feec_vars_update(out)
+
+
+class Poisson(ImplicitDiffusion):
+    r"""
+    Weak discretization of the (stabilized) Poisson equation.
+
+    Find :math:`\phi \in H^1` such that
+
+    .. math::
+
+        \epsilon \int_\Omega \psi\, \phi\,\textrm d \mathbf x + \int_\Omega \nabla \psi^\top \, \nabla \phi \,\textrm d \mathbf x = \sum_i \int_\Omega \psi\, \rho_i(\mathbf x)\,\textrm d \mathbf x \qquad \forall \ \psi \in H^1\,,
+
+    where :math:`\epsilon \in \mathbb R` is a stabilization parameter.
+    Boundary terms from integration by parts are assumed to vanish.
+    The equation is discretized as
+
+    .. math::
+
+        \left( \epsilon\,\mathbb S + \mathbb G^\top \mathbb M^1 \mathbb G \right)\, \boldsymbol\phi^{n+1} = \sum_i(\Lambda^0, \rho_i  )_{L^2}\,,
+
+    where :math:`\mathbb M^1` is the :math:`H(\textnormal{curl})`-mass matrix
+    and :math:`\mathbb S` is a stabilization matrix.
+
+    Parameters
+    ----------
+    phi : StencilVector
+        FE coefficients of the solution as a discrete 0-form.
+
+    stab_eps : float
+        Stabilization parameter multiplied on stab_mat (default=0.0).
+
+    stab_mat : str
+        Name of the stabilizing matrix.
+
+    rho : StencilVector or tuple or list
+        (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
+        Can be either a) StencilVector or b) 2-tuple, or a list of those.
+        In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
+        and the second entry must be :class:`~struphy.pic.base.Particles`.
+
+    x0 : StencilVector
+        Initial guess for the iterative solver (optional, can be set with a setter later).
+
+    solver : dict
+        Parameters for the iterative solver (see ``__init__`` for details).
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["stabilization"] = {
+            "stab_eps": 0.0,
+            "stab_mat": ["Id", "M0", "M0ad"],
+        }
+        dct["solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        phi: StencilVector,
+        *,
+        stab_eps: float = 0.0,
+        stab_mat: str = options(default=True)["stabilization"]["stab_mat"],
+        rho: StencilVector | tuple | list | Callable = None,
+        x0: StencilVector = None,
+        solver: dict = options(default=True)["solver"],
+    ):
+        super().__init__(
+            phi,
+            sigma_1=stab_eps,
+            sigma_2=0.0,
+            sigma_3=1.0,
+            divide_by_dt=False,
+            stab_mat=stab_mat,
+            diffusion_mat="M1",
+            rho=rho,
+            x0=x0,
+            solver=solver,
+        )
 
 
 class VariationalMomentumAdvection(Propagator):
@@ -3103,8 +3206,8 @@ class VariationalDensityEvolve(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.rhof = self.derham.create_field("rhof", "L2")
-        self.rhof1 = self.derham.create_field("rhof1", "L2")
+        self.rhof = self.derham.create_spline_function("rhof", "L2")
+        self.rhof1 = self.derham.create_spline_function("rhof1", "L2")
 
         # Projector
         self._energy_evaluator = energy_evaluator
@@ -4896,16 +4999,16 @@ class VariationalViscosity(Propagator):
         self._Mrho = mass_ops
 
         # Femfields for the projector
-        self.sf = self.derham.create_field("sf", "L2")
-        self.sf1 = self.derham.create_field("sf1", "L2")
-        self.uf1 = self.derham.create_field("uf", "H1vec")
-        self.uf12 = self.derham.create_field("uf1", "H1vec")
-        self.gu0f = self.derham.create_field("gu0", "Hcurl")
-        self.gu1f = self.derham.create_field("gu1", "Hcurl")
-        self.gu2f = self.derham.create_field("gu2", "Hcurl")
-        self.gu120f = self.derham.create_field("gu120", "Hcurl")
-        self.gu121f = self.derham.create_field("gu121", "Hcurl")
-        self.gu122f = self.derham.create_field("gu122", "Hcurl")
+        self.sf = self.derham.create_spline_function("sf", "L2")
+        self.sf1 = self.derham.create_spline_function("sf1", "L2")
+        self.uf1 = self.derham.create_spline_function("uf", "H1vec")
+        self.uf12 = self.derham.create_spline_function("uf1", "H1vec")
+        self.gu0f = self.derham.create_spline_function("gu0", "Hcurl")
+        self.gu1f = self.derham.create_spline_function("gu1", "Hcurl")
+        self.gu2f = self.derham.create_spline_function("gu2", "Hcurl")
+        self.gu120f = self.derham.create_spline_function("gu120", "Hcurl")
+        self.gu121f = self.derham.create_spline_function("gu121", "Hcurl")
+        self.gu122f = self.derham.create_spline_function("gu122", "Hcurl")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -5549,13 +5652,13 @@ class VariationalResistivity(Propagator):
         self._info = self._nonlin_solver["info"] and (self.rank == 0)
 
         # Femfields for the projector
-        self.rhof = self.derham.create_field("rhof", "L2")
-        self.sf = self.derham.create_field("sf", "L2")
-        self.sf1 = self.derham.create_field("sf1", "L2")
-        self.bf = self.derham.create_field("Bf", "Hdiv")
-        self.bf1 = self.derham.create_field("Bf1", "Hdiv")
-        self.cbf1 = self.derham.create_field("cBf", "Hcurl")
-        self.cbf12 = self.derham.create_field("cBf", "Hcurl")
+        self.rhof = self.derham.create_spline_function("rhof", "L2")
+        self.sf = self.derham.create_spline_function("sf", "L2")
+        self.sf1 = self.derham.create_spline_function("sf1", "L2")
+        self.bf = self.derham.create_spline_function("Bf", "Hdiv")
+        self.bf1 = self.derham.create_spline_function("Bf1", "Hdiv")
+        self.cbf1 = self.derham.create_spline_function("cBf", "Hcurl")
+        self.cbf12 = self.derham.create_spline_function("cBf", "Hcurl")
 
         # Projector
         self._initialize_projectors_and_mass()
@@ -6345,3 +6448,242 @@ class AdiabaticPhi(Propagator):
             "recycle": True,
         }
         return dct
+
+
+class HasegawaWakatani(Propagator):
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
+    find :math:`(n, \omega) \in H^1 \times H^1` such that
+
+    .. math::
+
+        &\int_\Omega\frac{\partial n}{\partial t} m \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, m \,\textrm d \mathbf x - \int_\Omega \phi [n, m] \,\textrm d \mathbf x - \kappa \int_\Omega  \partial_y \phi \,m \,\textrm d \mathbf x - \nu \int_\Omega \nabla n \cdot \nabla m \,\textrm d \mathbf x \qquad \forall m \in H^1\,,
+        \\[2mm]
+        &\int_\Omega\frac{\partial \omega}{\partial t} \psi \,\textrm d \mathbf x = \int_\Omega C(x, y)(\phi - n) \, \psi \,\textrm d \mathbf x - \int_\Omega \phi [\omega, \psi] \,\textrm d \mathbf x - \nu \int_\Omega \nabla \omega \cdot \nabla \psi \,\textrm d \mathbf x \qquad \forall \psi \in H^1\,,
+
+    where  :math:`\phi \in H^1` is a given stream function,
+    :math:`C = C(x, y)`, :math:`\kappa` and :math:`\nu` are constants and
+    :math:`[a, b] = \partial_x a \partial_y b - \partial_y a \partial_x b`.
+
+    :ref:`time_discret`: explicit Runge-Kutta, see :class:`~struphy.ode.solvers.ODEsolverFEEC`.
+
+    Parameters
+    ----------
+    n0 : StencilVector
+        The density.
+
+    omega0 : StencilVector
+        The stream function.
+
+    phi : SplineFuncion
+        The potential.
+
+    c_fun : str
+        Defines the function c(x,y) in front of (phi - n).
+
+    kappa, nu : float
+        Equation parameters.
+
+    algo : str
+        See :class:`~struphy.ode.utils.ButcherTableau` for available algorithms.
+
+    M0_solver : dict
+        Solver parameters for M0 inversion.
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["c_fun"] = ["const"]
+        dct["kappa"] = 1.0
+        dct["nu"] = 0.01
+        dct["algo"] = ButcherTableau.available_methods()
+        dct["M0_solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(
+        self,
+        n0: StencilVector,
+        omega0: StencilVector,
+        *,
+        phi: SplineFunction = None,
+        c_fun: str = options(default=True)["c_fun"],
+        kappa: float = options(default=True)["kappa"],
+        nu: float = options(default=True)["nu"],
+        algo: str = options(default=True)["algo"],
+        M0_solver: dict = options(default=True)["M0_solver"],
+    ):
+        super().__init__(n0, omega0)
+
+        # default phi
+        if phi is None:
+            self._phi = self.derham.create_spline_function("phi", "H1")
+            self._phi.vector[:] = 1.0
+            self._phi.vector.update_ghost_regions()
+        else:
+            self._phi = phi
+
+        # default c-function
+        if c_fun == "const":
+            c_fun = lambda e1, e2, e3: 0.0 + 0.0 * e1
+        else:
+            raise NotImplementedError(f"{c_fun = } is not available.")
+
+        # expose equation parameters
+        self._kappa = kappa
+        self._nu = nu
+
+        # get quadrature grid of V0
+        pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
+        mesh_pts = np.meshgrid(*pts, indexing="ij")
+
+        # evaluate c(x, y) and metric coeff at local quadrature grid and multiply
+        self._weights = c_fun(*mesh_pts)
+        self._weights *= self.domain.jacobian_det(*mesh_pts)
+
+        # evaluate phi at local quadrature grid
+        self._spans, self._bns, self._bnd = self.derham.prepare_eval_tp_fixed(pts)
+        self._phi_at_pts = self._phi.eval_tp_fixed_loc(self._spans, self._bns)
+
+        # Jacobain at quad grid
+        self._jac_det = self.domain.jacobian_det(*mesh_pts)
+        self._jac_inv = self.domain.jacobian_inv(*mesh_pts, change_out_order=True)
+        self._jac_invT = self.domain.jacobian_inv(*mesh_pts, change_out_order=True, transposed=True)
+
+        # grad operator
+        grad = self.derham.grad
+
+        # mass operators
+        M0 = self.mass_ops.M0
+        M1 = self.mass_ops.M1
+        M0c = self.mass_ops.create_weighted_mass(
+            "H1",
+            "H1",
+            name="M0c",
+            weights=[[self._weights]],
+            assemble=True,
+        )
+
+        self._M1hw_weights = []
+        for m in range(3):
+            self._M1hw_weights += [[None, None, None]]
+
+        self._phi_5d = np.zeros((*self._phi_at_pts.shape, 3, 3), dtype=float)
+        self._tmp_5d = np.zeros((*self._phi_at_pts.shape, 3, 3), dtype=float)
+        self._tmp_5dT = np.zeros((3, 3, *self._phi_at_pts.shape), dtype=float)
+        self._phi_5d[:, :, :, 0, 1] = self._phi_at_pts * self._jac_det
+        self._phi_5d[:, :, :, 1, 0] = -self._phi_at_pts * self._jac_det
+        self._tmp_5d[:] = self._jac_inv @ self._phi_5d @ self._jac_invT
+        self._tmp_5dT[:] = np.transpose(self._tmp_5d, axes=(3, 4, 0, 1, 2))
+
+        self._M1hw_weights[0][1] = self._tmp_5dT[0, 1, :, :, :]
+        self._M1hw_weights[1][0] = self._tmp_5dT[1, 0, :, :, :]
+
+        # self._self._M1hw_weights = ["DFinv", [self._phi_5d], "DFinvT"]
+        self._M1hw = self.mass_ops.create_weighted_mass(
+            "Hcurl",
+            "Hcurl",
+            name="M1hw",
+            weights=self._M1hw_weights,
+            assemble=True,
+        )
+
+        # inverse M0 mass matrix
+        solver = M0_solver["type"][0]
+        if M0_solver["type"][1] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, M0_solver["type"][1])
+            pc = pc_class(self.mass_ops.M0)
+        solver_params = deepcopy(M0_solver)  # need a copy to pop, otherwise testing fails
+        solver_params.pop("type")
+        self._info = solver_params.pop("info")
+        M0_inv = inverse(M0, solver, pc=pc, **solver_params)
+
+        # basis projection operator
+        df_12 = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3)[0, 1, :, :, :]
+        df_22 = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3)[1, 1, :, :, :]
+        df_32 = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3)[2, 1, :, :, :]
+        fun = [[df_12, df_22, df_32]]
+        # fun = [[None, lambda e1, e2, e3: 1.0 + 0.0 * e1, None]]
+        self._BPO = self.basis_ops.create_basis_op(
+            fun,
+            "Hcurl",
+            "H1",
+            name="dy_phi",
+            assemble=True,
+        )
+        # print(f"{self._BPO._dof_mat.blocks = }")
+
+        # pre-allocated helper arrays
+        self._tmp1 = n0.space.zeros()
+        tmp2 = n0.space.zeros()
+        self._tmp3 = n0.space.zeros()
+        tmp4 = n0.space.zeros()
+        tmp5 = n0.space.zeros()
+
+        # rhs-callables for explicit ode solve
+        terms1_n = -M0c + grad.T @ self._M1hw @ grad - nu * grad.T @ M1 @ grad
+        terms1_phi = M0c
+        terms1_phi_strong = -kappa * self._BPO @ grad
+
+        terms2_omega = grad.T @ self._M1hw @ grad - nu * grad.T @ M1 @ grad
+        terms2_n = -M0c
+        terms2_phi = M0c
+
+        out1 = n0.space.zeros()
+        out2 = omega0.space.zeros()
+
+        def f1(t, n, omega, out=out1):
+            terms1_n.dot(n, out=self._tmp1)
+            terms1_phi.dot(self._phi.vector, out=tmp2)
+            self._tmp1 += tmp2
+            M0_inv.dot(self._tmp1, out=out)
+            terms1_phi_strong.dot(self._phi.vector, out=tmp2)
+            out += tmp2
+            out.update_ghost_regions()
+            return out
+
+        def f2(t, n, omega, out=out2):
+            terms2_omega.dot(omega, out=self._tmp3)
+            terms2_n.dot(n, out=tmp4)
+            terms2_phi.dot(self._phi.vector, out=tmp5)
+            self._tmp3 += tmp4
+            self._tmp3 += tmp5
+            M0_inv.dot(self._tmp3, out=out)
+            out.update_ghost_regions()
+            return out
+
+        vector_field = {n0: f1, omega0: f2}
+        self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
+
+    def __call__(self, dt):
+        # update time-dependent mass operator
+        self._phi.eval_tp_fixed_loc(self._spans, self._bns, out=self._phi_at_pts)
+
+        self._phi_5d[:, :, :, 0, 1] = self._phi_at_pts * self._jac_det
+        self._phi_5d[:, :, :, 1, 0] = -self._phi_at_pts * self._jac_det
+        self._tmp_5d[:] = self._jac_inv @ self._phi_5d @ self._jac_invT
+        self._tmp_5dT[:] = np.transpose(self._tmp_5d, axes=(3, 4, 0, 1, 2))
+
+        self._M1hw_weights[0][1] = self._tmp_5dT[0, 1, :, :, :]
+        self._M1hw_weights[1][0] = self._tmp_5dT[1, 0, :, :, :]
+
+        self._M1hw.assemble(
+            weights=self._M1hw_weights,
+            verbose=False,
+        )
+
+        # solve with RK
+        self._ode_solver(0.0, dt)

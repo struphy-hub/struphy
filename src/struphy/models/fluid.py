@@ -1690,3 +1690,151 @@ class IsothermalEulerSPH(StruphyModel):
             valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2
         ) / (2.0 * self.pointer["euler_fluid"].Np)
         self.update_scalar("en_kin", en_kin)
+
+
+class HasegawaWakatani(StruphyModel):
+    r"""Hasegawa-Wakatani equations in 2D.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u = \hat v_\textnormal{th}\,,\qquad \hat \phi = \hat u\, \hat x \,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        &\frac{\partial n}{\partial t} = C (\phi - n) - [\phi, n] - \kappa\, \partial_y \phi + \nu\, \nabla^{2N} n\,,
+        \\[2mm]
+        &\frac{\partial \omega}{\partial t} = C (\phi - n) - [\phi, \omega] + \nu\, \nabla^{2N} \omega \,,
+        \\[3mm]
+        &\Delta \phi = \omega\,,
+
+    where :math:`[\phi, n] = \partial_x \phi \partial_y n - \partial_y \phi \partial_x n`, :math:`C = C(x, y)` and
+    :math:`\kappa` and :math:`\nu` are constants (at the moment only :math:`N=1` is available).
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.Poisson`
+    2. :class:`~struphy.propagators.propagators_fields.HasegawaWakatani`
+
+    :ref:`Model info <add_model>`:
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["em_fields"] = {"phi0": "H1"}
+        dct["fluid"]["hw"] = {
+            "n0": "H1",
+            "omega0": "H1",
+        }
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "hw"
+
+    @staticmethod
+    def velocity_scale():
+        return "alfvén"
+
+    # @staticmethod
+    # def diagnostics_dct():
+    #     dct = {}
+    #     dct["projected_density"] = "L2"
+    #     return dct
+
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_fields.Poisson: ["phi0"],
+            propagators_fields.HasegawaWakatani: ["hw_n0", "hw_omega0"],
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    def __init__(self, params, comm, clone_config=None):
+        # initialize base class
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        from struphy.polar.basic import PolarVector
+
+        # extract necessary parameters
+        self._stab_eps = params["em_fields"]["options"]["Poisson"]["stabilization"]["stab_eps"]
+        self._stab_mat = params["em_fields"]["options"]["Poisson"]["stabilization"]["stab_mat"]
+        self._solver = params["em_fields"]["options"]["Poisson"]["solver"]
+        c_fun = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["c_fun"]
+        kappa = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["kappa"]
+        nu = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["nu"]
+        algo = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["algo"]
+        M0_solver = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["M0_solver"]
+
+        # rhs of Poisson
+        self._rho = self.derham.Vh["0"].zeros()
+        self.update_rho()
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Poisson] = {
+            "stab_eps": self._stab_eps,
+            "stab_mat": self._stab_mat,
+            "rho": self.update_rho,
+            "solver": self._solver,
+        }
+
+        self._kwargs[propagators_fields.HasegawaWakatani] = {
+            "phi": self.em_fields["phi0"]["obj"],
+            "c_fun": c_fun,
+            "kappa": kappa,
+            "nu": nu,
+            "algo": algo,
+            "M0_solver": M0_solver,
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+    def update_rho(self):
+        self._rho = self.mass_ops.M0.dot(self.pointer["hw_omega0"], out=self._rho)
+        self._rho.update_ghost_regions()
+        return self._rho
+
+    def initialize_from_params(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+        # initialize fields and particles
+        super().initialize_from_params()
+
+        if self.rank_world == 0:
+            print("\nINITIAL POISSON SOLVE:")
+
+        # Instantiate Poisson solver
+        poisson_solver = propagators_fields.Poisson(
+            self.pointer["phi0"],
+            stab_eps=self._stab_eps,
+            stab_mat=self._stab_mat,
+            rho=self._rho,
+            solver=self._solver,
+        )
+
+        # Solve with dt=1. and compute electric field
+        if self.rank_world == 0:
+            print("\nSolving initial Poisson problem...")
+
+        self.update_rho()
+        poisson_solver(1.0)
+
+        if self.rank_world == 0:
+            print("Done.")
+
+    def update_scalar_quantities(self):
+        pass
