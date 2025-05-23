@@ -59,8 +59,8 @@ def main(
     num_clones: int, optional
         Number of domain clones (default=1)
     """
-    if gpu:
-        compare_gpu_cpu()
+    # if gpu:
+    #     compare_gpu_cpu()
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
     import copy
