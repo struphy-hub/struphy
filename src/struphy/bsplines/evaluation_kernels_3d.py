@@ -25,6 +25,7 @@ from pyccel.decorators import stack_array
 
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
+from struphy.bsplines.bsplines_kernels import basis_funs, scaling, basis_funs_1st_der, basis_funs_all_ders, find_span, b_d_splines_slim
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments#, DomainArguments
 
@@ -140,9 +141,9 @@ def evaluate_3d(
     """
 
     # find knot span indices
-    span1 = bsplines_kernels.find_span(t1, p1, eta1)
-    span2 = bsplines_kernels.find_span(t2, p2, eta2)
-    span3 = bsplines_kernels.find_span(t3, p3, eta3)
+    span1 = find_span(t1, p1, eta1)
+    span2 = find_span(t2, p2, eta2)
+    span3 = find_span(t3, p3, eta3)
 
     # evaluate non-vanishing basis functions
     b1 = empty(p1 + 1, dtype=float)
@@ -163,30 +164,30 @@ def evaluate_3d(
 
     # 1st direction
     if kind1 == 1:
-        bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+        basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
     elif kind1 == 2:
-        bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
-        bsplines_kernels.scaling(t1, p1, span1, b1)
+        basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+        scaling(t1, p1, span1, b1)
     elif kind1 == 3:
-        bsplines_kernels.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
+        basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
 
     # 2nd direction
     if kind2 == 1:
-        bsplines_kernels.basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
+        basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
     elif kind2 == 2:
-        bsplines_kernels.basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
-        bsplines_kernels.scaling(t2, p2, span2, b2)
+        basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
+        scaling(t2, p2, span2, b2)
     elif kind2 == 3:
-        bsplines_kernels.basis_funs_1st_der(t2, p2, eta2, span2, bl2, br2, b2)
+        basis_funs_1st_der(t2, p2, eta2, span2, bl2, br2, b2)
 
     # 3rd direction
     if kind3 == 1:
-        bsplines_kernels.basis_funs(t3, p3, eta3, span3, bl3, br3, b3)
+        basis_funs(t3, p3, eta3, span3, bl3, br3, b3)
     elif kind3 == 2:
-        bsplines_kernels.basis_funs(t3, p3, eta3, span3, bl3, br3, b3)
-        bsplines_kernels.scaling(t3, p3, span3, b3)
+        basis_funs(t3, p3, eta3, span3, bl3, br3, b3)
+        scaling(t3, p3, span3, b3)
     elif kind3 == 3:
-        bsplines_kernels.basis_funs_1st_der(t3, p3, eta3, span3, bl3, br3, b3)
+        basis_funs_1st_der(t3, p3, eta3, span3, bl3, br3, b3)
 
     # sum up non-vanishing contributions
     tmp1[:] = ind1[span1 - p1, :]
@@ -1038,13 +1039,13 @@ def eval_spline_mpi(
     bd3 = empty(pn[2], dtype=float)
 
     # get spline values at eta
-    span1 = bsplines_kernels.find_span(tn1, pn[0], eta1)
-    span2 = bsplines_kernels.find_span(tn2, pn[1], eta2)
-    span3 = bsplines_kernels.find_span(tn3, pn[2], eta3)
+    span1 = find_span(tn1, pn[0], eta1)
+    span2 = find_span(tn2, pn[1], eta2)
+    span3 = find_span(tn3, pn[2], eta3)
 
-    bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-    bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-    bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+    b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+    b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+    b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
     if kind[0] == 0:
         b1 = bn1
@@ -1177,8 +1178,8 @@ def eval_spline_mpi_tensor_product_fast(
         if eta1[i] == -1.0:
             continue  # point not in process domain
 
-        span1 = bsplines_kernels.find_span(tn1, pn[0], eta1[i])
-        bsplines_kernels.b_d_splines_slim(tn1, pn[0], eta1[i], span1, bn1, bd1)
+        span1 = find_span(tn1, pn[0], eta1[i])
+        b_d_splines_slim(tn1, pn[0], eta1[i], span1, bn1, bd1)
         if kind[0] == 0:
             b1 = bn1
         else:
@@ -1188,8 +1189,8 @@ def eval_spline_mpi_tensor_product_fast(
             if eta2[j] == -1.0:
                 continue  # point not in process domain
 
-            span2 = bsplines_kernels.find_span(tn2, pn[1], eta2[j])
-            bsplines_kernels.b_d_splines_slim(tn2, pn[1], eta2[j], span2, bn2, bd2)
+            span2 = find_span(tn2, pn[1], eta2[j])
+            b_d_splines_slim(tn2, pn[1], eta2[j], span2, bn2, bd2)
             if kind[1] == 0:
                 b2 = bn2
             else:
@@ -1199,8 +1200,8 @@ def eval_spline_mpi_tensor_product_fast(
                 if eta3[k] == -1.0:
                     continue  # point not in process domain
 
-                span3 = bsplines_kernels.find_span(tn3, pn[2], eta3[k])
-                bsplines_kernels.b_d_splines_slim(tn3, pn[2], eta3[k], span3, bn3, bd3)
+                span3 = find_span(tn3, pn[2], eta3[k])
+                b_d_splines_slim(tn3, pn[2], eta3[k], span3, bn3, bd3)
                 if kind[2] == 0:
                     b3 = bn3
                 else:
@@ -1458,18 +1459,18 @@ def get_spans(eta1: float, eta2: float, eta3: float, args_derham: "DerhamArgumen
     at (eta1, eta2, eta3)."""
 
     # find spans
-    span1 = bsplines_kernels.find_span(args_derham.tn1, args_derham.pn[0], eta1)
-    span2 = bsplines_kernels.find_span(args_derham.tn2, args_derham.pn[1], eta2)
-    span3 = bsplines_kernels.find_span(args_derham.tn3, args_derham.pn[2], eta3)
+    span1 = find_span(args_derham.tn1, args_derham.pn[0], eta1)
+    span2 = find_span(args_derham.tn2, args_derham.pn[1], eta2)
+    span3 = find_span(args_derham.tn3, args_derham.pn[2], eta3)
 
     # get spline values at eta
-    bsplines_kernels.b_d_splines_slim(
+    b_d_splines_slim(
         args_derham.tn1, args_derham.pn[0], eta1, int(span1), args_derham.bn1, args_derham.bd1
     )
-    bsplines_kernels.b_d_splines_slim(
+    b_d_splines_slim(
         args_derham.tn2, args_derham.pn[1], eta2, int(span2), args_derham.bn2, args_derham.bd2
     )
-    bsplines_kernels.b_d_splines_slim(
+    b_d_splines_slim(
         args_derham.tn3, args_derham.pn[2], eta3, int(span3), args_derham.bn3, args_derham.bd3
     )
 
