@@ -83,6 +83,8 @@ logs
 .hostfile*
 .likwidscript*
 code_analysis_report.html
+core.raven*
+*.lprof
 
 # I/O
 src/struphy/io/out/
