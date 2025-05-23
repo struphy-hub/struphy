@@ -119,7 +119,6 @@ def scalar_dot(a: 'float[:]', b: 'float[:]') -> float:
 
 
 @pure
-@inline
 def det(a: 'float[:,:]') -> float:
     """
     Computes the determinant of a 3x3 matrix.
