@@ -2,11 +2,17 @@ from copy import deepcopy
 
 import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
+from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
 
 from struphy.feec import preconditioner
-from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
+from struphy.feec.basis_projection_ops import (
+    BasisProjectionOperator,
+    BasisProjectionOperatorLocal,
+    CoordinateProjector,
+)
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.feec.psydac_derham import Derham
 
 
 class BracketOperator(LinOpWithTransp):
@@ -56,7 +62,11 @@ class BracketOperator(LinOpWithTransp):
 
     """
 
-    def __init__(self, derham, u):
+    def __init__(
+        self,
+        derham: Derham,
+        u: BlockVector,
+    ):
         Xh = derham.Vh_fem["v"]
         V1h = derham.Vh_fem["1"]
         self._domain = derham.Vh_pol["v"]
@@ -65,10 +75,10 @@ class BracketOperator(LinOpWithTransp):
         self._u = u
 
         # tmp for evaluating u
-        self.vf = derham.create_field("uf", "H1vec")
-        self.gv1f = derham.create_field("gu1f", "Hcurl")  # grad(u[0])
-        self.gv2f = derham.create_field("gu2f", "Hcurl")  # grad(u[1])
-        self.gv3f = derham.create_field("gu3f", "Hcurl")  # grad(u[2])
+        self.vf = derham.create_spline_function("uf", "H1vec")
+        self.gv1f = derham.create_spline_function("gu1f", "Hcurl")  # grad(u[0])
+        self.gv2f = derham.create_spline_function("gu2f", "Hcurl")  # grad(u[1])
+        self.gv3f = derham.create_spline_function("gu3f", "Hcurl")  # grad(u[2])
 
         self.gp1v = derham.Vh_pol["1"].zeros()
         self.gp2v = derham.Vh_pol["1"].zeros()
@@ -316,7 +326,7 @@ class L2_transport_operator(LinOpWithTransp):
         P2 = self._derham.P["2"]
         Xh = self._derham.Vh_fem["v"]
         self._dtype = Xh.coeff_space.dtype
-        self.field = self._derham.create_field("rhof", "L2")
+        self.field = self._derham.create_spline_function("rhof", "L2")
 
         # Initialize the BasisProjectionOperator
         if self._derham._with_local_projectors:
@@ -471,7 +481,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         P1 = self._derham.P["1"]
         Xh = self._derham.Vh_fem["v"]
         self._dtype = Xh.coeff_space.dtype
-        self.field = self._derham.create_field("Bf", "Hdiv")
+        self.field = self._derham.create_spline_function("Bf", "Hdiv")
 
         # Initialize the BasisProjectionOperators
         if self._derham._with_local_projectors:
@@ -670,7 +680,7 @@ class Pressure_transport_operator(LinOpWithTransp):
         Xh = self._derham.Vh_fem["v"]
         V3h = self._derham.Vh_fem["3"]
         self._dtype = Xh.coeff_space.dtype
-        self.field = self._derham.create_field("pf", "L2")
+        self.field = self._derham.create_spline_function("pf", "L2")
 
         self.Pip = BasisProjectionOperator(
             P2,
@@ -860,11 +870,11 @@ class InternalEnergyEvaluator:
             )
         )
 
-        self._density_field = self._derham.create_field("f3", "L2")
-        self.sf = self._derham.create_field("sf", "L2")
-        self.sf1 = self._derham.create_field("sf", "L2")
-        self.rhof = self._derham.create_field("rhof", "L2")
-        self.rhof1 = self._derham.create_field("rhof1", "L2")
+        self._density_field = self._derham.create_spline_function("f3", "L2")
+        self.sf = self._derham.create_spline_function("sf", "L2")
+        self.sf1 = self._derham.create_spline_function("sf", "L2")
+        self.rhof = self._derham.create_spline_function("rhof", "L2")
+        self.rhof1 = self._derham.create_spline_function("rhof1", "L2")
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
         self._rhof_values = np.zeros(grid_shape, dtype=float)
@@ -1309,7 +1319,7 @@ class H1vecMassMatrix_density:
 
     def __init__(self, derham, mass_ops, domain):
         self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
-        self.field = derham.create_field("field", "L2")
+        self.field = derham.create_spline_function("field", "L2")
 
         integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
 
@@ -1424,8 +1434,8 @@ class KineticEnergyEvaluator:
         # tmps
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self.uf = derham.create_field("uf", "H1vec")
-        self.uf1 = derham.create_field("uf1", "H1vec")
+        self.uf = derham.create_spline_function("uf", "H1vec")
+        self.uf1 = derham.create_spline_function("uf1", "H1vec")
 
         self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
         self._uf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
