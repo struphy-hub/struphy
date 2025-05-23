@@ -172,13 +172,23 @@ class PushVxB(Propagator):
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
 
-        # define pusher kernel
-        if algo == "analytic":
-            kernel = pusher_kernels.push_vxb_analytic
-        elif algo == "implicit":
-            kernel = pusher_kernels.push_vxb_implicit
+        # get kernel
+        if particles.amrex:
+            if algo == "analytic":
+                kernel = pusher_kers_vectorized.push_vxb_analytic
+            elif algo == "implicit":
+                kernel = pusher_kers_vectorized.push_vxb_implicit
+            else:
+                raise ValueError(f"{algo = } not supported.")
+            self.amrex = True
         else:
-            raise ValueError(f"{algo = } not supported.")
+            if algo == "analytic":
+                kernel = pusher_kernels.push_vxb_analytic
+            elif algo == "implicit":
+                kernel = pusher_kernels.push_vxb_implicit
+            else:
+                raise ValueError(f"{algo = } not supported.")
+            self.amrex = False
 
         # instantiate Pusher
         args_kernel = (

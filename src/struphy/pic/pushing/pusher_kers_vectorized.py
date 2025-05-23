@@ -1,10 +1,217 @@
 "Pusher kernels for full orbit (6D) particles and AMReX data structures."
 
-from numpy import array, matmul, newaxis, shape, transpose, zeros
-from numpy.linalg import inv
+from numpy import array, matmul, newaxis, shape, transpose, empty, sqrt, cos, sin
+from numpy.linalg import inv, det
 
-from struphy.bsplines.evaluation_kernels_3d import get_spans_and_eval_1form_spline_vectorized
+from struphy.bsplines.evaluation_kernels_3d import get_spans_and_eval_1form_spline_vectorized, get_spans_and_eval_2form_spline_vectorized
 from struphy.geometry.base import Domain
+from struphy.linear_algebra.linalg_kernels import scalar_dot_vectorized_flat, cross_vectorized, cross_vectorized_flat
+
+
+def push_vxb_analytic(
+    dt: float,
+    stage: int,
+    particles: "Particles",
+    args_derham: "DerhamArguments",
+    b2_1: "float[:,:,:]",
+    b2_2: "float[:,:,:]",
+    b2_3: "float[:,:,:]",
+):
+    r"""Solves exactly the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    for each marker :math:`p` in markers array, with fixed rotation vector.
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3: array[float]
+            3d array of FE coeffs of B-field as 2-form.
+    """
+
+    b_form = empty((particles.Np, 3, 1), dtype=float)
+    b_abs = empty(particles.Np)
+    b_norm = empty(particles.Np)
+
+    for pti in particles.markers.iterator(particles.markers, 0):
+        markers_array = pti.soa().to_numpy()[0]
+        e1 = markers_array["x"]
+        e2 = markers_array["y"]
+        e3 = markers_array["z"]
+        v1 = markers_array["v1"]
+        v2 = markers_array["v2"]
+        v3 = markers_array["v3"]
+
+        # evaluate Jacobian
+        jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
+
+        # metric coeffs
+        det_df = det(jacobian)
+        
+        # spline evaluation and magnetic field 2-form
+        get_spans_and_eval_2form_spline_vectorized(
+            e1,
+            e2,
+            e3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
+
+        # magnetic field: Cartesian components
+        b_cart = matmul(jacobian, b_form) # Npx3x1
+        b_cart[:] = b_cart / det_df # TODO (Mati) look this up
+
+        # magnetic field: magnitude
+        b_abs[:] = sqrt(b_cart[:,0,1] ** 2 + b_cart[:,1,1] ** 2 + b_cart[:,2,1] ** 2)
+        
+        # only push vxb if magnetic field is non-zero
+        non_zero_idx = [b_abs!=0]
+
+        # normalized magnetic field direction
+        b_norm[non_zero_idx] = b_cart[non_zero_idx] / b_abs[non_zero_idx]
+
+        # parallel velocity v.b_norm
+        vpar = scalar_dot_vectorized_flat((v1, v2, v3), b_norm)
+
+        # first component of perpendicular velocity
+        vxb_norm = cross_vectorized_flat((v1, v2, v3), b_norm)
+        vperp = cross_vectorized(b_norm, vxb_norm)
+
+        # second component of perpendicular velocity
+        b_normxvperp = cross_vectorized(b_norm, vperp)
+
+        # analytic rotation
+        temp = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+        v1[:] = temp[:,0]
+        v2[:] = temp[:,1]
+        v3[:] = temp[:,2]
+
+
+def push_vxb_implicit( # TODO (Mati)
+    dt: float,
+    stage: int,
+    particles: "Particles",
+    args_derham: "DerhamArguments",
+    b2_1: "float[:,:,:]",
+    b2_2: "float[:,:,:]",
+    b2_3: "float[:,:,:]",
+):
+    r"""Solves the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    with the Crank-Nicolson method for each marker :math:`p` in markers array, with fixed rotation vector.
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3: array[float]
+            3d array of FE coeffs of B-field as 2-form.
+    """
+
+    # allocate metric coeffs
+    dfm = empty((3, 3), dtype=float)
+
+    # allocate for field evaluations (2-form components, Cartesian components and rotation matrix such that vxB = B_prod.v)
+    b_form = empty(3, dtype=float)
+    b_cart = empty(3, dtype=float)
+    b_prod = empty((3, 3), dtype=float)
+
+    # particle position and velocity
+    v = empty(3, dtype=float)
+
+    # identity matrix
+    identity = empty((3, 3), dtype=float)
+
+    identity[0, 0] = 1.0
+    identity[1, 1] = 1.0
+    identity[2, 2] = 1.0
+
+    # right-hand side and left-hand side of Crank-Nicolson scheme
+    rhs = empty((3, 3), dtype=float)
+    lhs = empty((3, 3), dtype=float)
+
+    lhs_inv = empty((3, 3), dtype=float)
+
+    vec = empty(3, dtype=float)
+    res = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    first_init_idx = args_markers.first_init_idx
+
+    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp for
+    for ip in range(n_markers):
+        # check if marker is a hole
+        if markers[ip, first_init_idx] == -1.0:
+            continue
+
+        e1 = markers[ip, 0]
+        e2 = markers[ip, 1]
+        e3 = markers[ip, 2]
+        v[:] = markers[ip, 3:6]
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            e1,
+            e2,
+            e3,
+            args_domain,
+            dfm,
+        )
+
+        # metric coeffs
+        det_df = linalg_kernels.det(dfm)
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
+
+        # magnetic field 2-form
+        eval_2form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_form,
+        )
+
+        # magnetic field: Cartesian components
+        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        b_cart[:] = b_cart / det_df
+
+        # magnetic field: rotation matrix
+        b_prod[0, 1] = b_cart[2]
+        b_prod[0, 2] = -b_cart[1]
+
+        b_prod[1, 0] = -b_cart[2]
+        b_prod[1, 2] = b_cart[0]
+
+        b_prod[2, 0] = b_cart[1]
+        b_prod[2, 1] = -b_cart[0]
+
+        # solve 3x3 system
+        rhs[:, :] = identity + dt / 2 * b_prod
+        lhs[:, :] = identity - dt / 2 * b_prod
+
+        linalg_kernels.matrix_inv(lhs, lhs_inv)
+
+        linalg_kernels.matrix_vector(rhs, v, vec)
+        linalg_kernels.matrix_vector(lhs_inv, vec, res)
+
+        markers[ip, 3:6] = res
+
+    #$ omp end parallel
 
 
 def push_v_with_efield(
@@ -35,10 +242,7 @@ def push_v_with_efield(
             A constant (usually related to the charge-to-mass ratio).
     """
 
-    span1 = zeros(particles.Np, dtype=int)
-    span2 = zeros(particles.Np, dtype=int)
-    span3 = zeros(particles.Np, dtype=int)
-    e_form = zeros((particles.Np, 3, 1), dtype=float)
+    e_form = empty((particles.Np, 3, 1), dtype=float)
 
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = pti.soa().to_numpy()[0]
