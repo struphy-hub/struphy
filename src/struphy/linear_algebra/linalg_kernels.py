@@ -1,9 +1,9 @@
-from pyccel.decorators import pure, stack_array
 from numpy import zeros
+from pyccel.decorators import pure, stack_array
 
 
 @pure
-def matrix_vector(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
+def matrix_vector(a: "float[:,:]", b: "float[:]", c: "float[:]"):
     """
     Performs the matrix-vector product of a 3x3 matrix with a vector.
 
@@ -19,7 +19,7 @@ def matrix_vector(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
             The output array (vector) of shape (3,) which is the result of the matrix-vector product a.dot(b).
     """
 
-    c[:] = 0.
+    c[:] = 0.0
 
     for i in range(3):
         for j in range(3):
@@ -27,7 +27,7 @@ def matrix_vector(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
 
 
 @pure
-def matrix_matrix(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
+def matrix_matrix(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
     """
     Performs the matrix-matrix product of a 3x3 matrix with another 3x3 matrix.
 
@@ -43,7 +43,7 @@ def matrix_matrix(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
             The output array (matrix) of shape (3,3) which is the result of the matrix-matrix product a.dot(b).
     """
 
-    c[:, :] = 0.
+    c[:, :] = 0.0
 
     for i in range(3):
         for j in range(3):
@@ -52,7 +52,7 @@ def matrix_matrix(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
 
 
 @pure
-def transpose(a: 'float[:,:]', b: 'float[:,:]'):
+def transpose(a: "float[:,:]", b: "float[:,:]"):
     """
     Assembles the transposed of a 3x3 matrix.
 
@@ -71,7 +71,7 @@ def transpose(a: 'float[:,:]', b: 'float[:,:]'):
 
 
 @pure
-def scalar_dot(a: 'float[:]', b: 'float[:]') -> float:
+def scalar_dot(a: "float[:]", b: "float[:]") -> float:
     """
     Computes scalar (dot) product of two vectors of length 3.
 
@@ -89,13 +89,13 @@ def scalar_dot(a: 'float[:]', b: 'float[:]') -> float:
             The scalar poduct of the two input vectors a and b.
     """
 
-    value = a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+    value = a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
     return value
 
 
 @pure
-def det(a: 'float[:,:]') -> float:
+def det(a: "float[:,:]") -> float:
     """
     Computes the determinant of a 3x3 matrix.
 
@@ -110,10 +110,8 @@ def det(a: 'float[:,:]') -> float:
             The determinant of the 3x3 matrix a.
     """
 
-    plus = a[0, 0]*a[1, 1]*a[2, 2] + a[0, 1] * \
-        a[1, 2]*a[2, 0] + a[0, 2]*a[1, 0]*a[2, 1]
-    minus = a[2, 0]*a[1, 1]*a[0, 2] + a[2, 1] * \
-        a[1, 2]*a[0, 0] + a[2, 2]*a[1, 0]*a[0, 1]
+    plus = a[0, 0] * a[1, 1] * a[2, 2] + a[0, 1] * a[1, 2] * a[2, 0] + a[0, 2] * a[1, 0] * a[2, 1]
+    minus = a[2, 0] * a[1, 1] * a[0, 2] + a[2, 1] * a[1, 2] * a[0, 0] + a[2, 2] * a[1, 0] * a[0, 1]
 
     det_a = plus - minus
 
@@ -121,9 +119,9 @@ def det(a: 'float[:,:]') -> float:
 
 
 @pure
-def cross(a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+def cross(a: "float[:]", b: "float[:]", c: "float[:]"):
     """
-    Computes the vector (cross) product of two vectors of length 3. 
+    Computes the vector (cross) product of two vectors of length 3.
 
     Parameters
     ----------
@@ -137,15 +135,15 @@ def cross(a: 'float[:]', b: 'float[:]', c: 'float[:]'):
             The output array (vector) of shape (3,) which is the vector product a x b.
     """
 
-    c[0] = a[1]*b[2] - a[2]*b[1]
-    c[1] = a[2]*b[0] - a[0]*b[2]
-    c[2] = a[0]*b[1] - a[1]*b[0]
+    c[0] = a[1] * b[2] - a[2] * b[1]
+    c[1] = a[2] * b[0] - a[0] * b[2]
+    c[2] = a[0] * b[1] - a[1] * b[0]
 
 
 @pure
-def outer(a: 'float[:]', b: 'float[:]', c: 'float[:,:]'):
+def outer(a: "float[:]", b: "float[:]", c: "float[:,:]"):
     """
-    Computes the outer product of two vectors of length 3. 
+    Computes the outer product of two vectors of length 3.
 
     Parameters
     ----------
@@ -159,15 +157,15 @@ def outer(a: 'float[:]', b: 'float[:]', c: 'float[:,:]'):
             The output array (matrix) of shape (3, 3) which is the outer product c_ij = a_i*b_j.
     """
 
-    c[:, :] = 0.
+    c[:, :] = 0.0
 
     for i in range(3):
         for j in range(3):
             c[i, j] = a[i] * b[j]
 
 
-@stack_array('det_a')
-def matrix_inv(a: 'float[:,:]', b: 'float[:,:]'):
+@stack_array("det_a")
+def matrix_inv(a: "float[:,:]", b: "float[:,:]"):
     """
     Computes the inverse of a 3x3 matrix.
 
@@ -182,21 +180,21 @@ def matrix_inv(a: 'float[:,:]', b: 'float[:,:]'):
 
     det_a = det(a)
 
-    b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) / det_a
-    b[0, 1] = (a[2, 1]*a[0, 2] - a[0, 1]*a[2, 2]) / det_a
-    b[0, 2] = (a[0, 1]*a[1, 2] - a[1, 1]*a[0, 2]) / det_a
+    b[0, 0] = (a[1, 1] * a[2, 2] - a[2, 1] * a[1, 2]) / det_a
+    b[0, 1] = (a[2, 1] * a[0, 2] - a[0, 1] * a[2, 2]) / det_a
+    b[0, 2] = (a[0, 1] * a[1, 2] - a[1, 1] * a[0, 2]) / det_a
 
-    b[1, 0] = (a[1, 2]*a[2, 0] - a[2, 2]*a[1, 0]) / det_a
-    b[1, 1] = (a[2, 2]*a[0, 0] - a[0, 2]*a[2, 0]) / det_a
-    b[1, 2] = (a[0, 2]*a[1, 0] - a[1, 2]*a[0, 0]) / det_a
+    b[1, 0] = (a[1, 2] * a[2, 0] - a[2, 2] * a[1, 0]) / det_a
+    b[1, 1] = (a[2, 2] * a[0, 0] - a[0, 2] * a[2, 0]) / det_a
+    b[1, 2] = (a[0, 2] * a[1, 0] - a[1, 2] * a[0, 0]) / det_a
 
-    b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) / det_a
-    b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
-    b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a
+    b[2, 0] = (a[1, 0] * a[2, 1] - a[2, 0] * a[1, 1]) / det_a
+    b[2, 1] = (a[2, 0] * a[0, 1] - a[0, 0] * a[2, 1]) / det_a
+    b[2, 2] = (a[0, 0] * a[1, 1] - a[1, 0] * a[0, 1]) / det_a
 
 
 @pure
-def matrix_inv_with_det(a: 'float[:,:]', det_a: float, b: 'float[:,:]'):
+def matrix_inv_with_det(a: "float[:,:]", det_a: float, b: "float[:,:]"):
     """
     Computes the inverse of a 3x3 matrix for the case that the determinant is already known such that its extra compuation can be avoided.
 
@@ -212,21 +210,21 @@ def matrix_inv_with_det(a: 'float[:,:]', det_a: float, b: 'float[:,:]'):
             The output array (matrix) of shape (3,3).
     """
 
-    b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) / det_a
-    b[0, 1] = (a[2, 1]*a[0, 2] - a[0, 1]*a[2, 2]) / det_a
-    b[0, 2] = (a[0, 1]*a[1, 2] - a[1, 1]*a[0, 2]) / det_a
+    b[0, 0] = (a[1, 1] * a[2, 2] - a[2, 1] * a[1, 2]) / det_a
+    b[0, 1] = (a[2, 1] * a[0, 2] - a[0, 1] * a[2, 2]) / det_a
+    b[0, 2] = (a[0, 1] * a[1, 2] - a[1, 1] * a[0, 2]) / det_a
 
-    b[1, 0] = (a[1, 2]*a[2, 0] - a[2, 2]*a[1, 0]) / det_a
-    b[1, 1] = (a[2, 2]*a[0, 0] - a[0, 2]*a[2, 0]) / det_a
-    b[1, 2] = (a[0, 2]*a[1, 0] - a[1, 2]*a[0, 0]) / det_a
+    b[1, 0] = (a[1, 2] * a[2, 0] - a[2, 2] * a[1, 0]) / det_a
+    b[1, 1] = (a[2, 2] * a[0, 0] - a[0, 2] * a[2, 0]) / det_a
+    b[1, 2] = (a[0, 2] * a[1, 0] - a[1, 2] * a[0, 0]) / det_a
 
-    b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) / det_a
-    b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
-    b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a
+    b[2, 0] = (a[1, 0] * a[2, 1] - a[2, 0] * a[1, 1]) / det_a
+    b[2, 1] = (a[2, 0] * a[0, 1] - a[0, 0] * a[2, 1]) / det_a
+    b[2, 2] = (a[0, 0] * a[1, 1] - a[1, 0] * a[0, 1]) / det_a
 
 
 @pure
-def matrix_vector4(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
+def matrix_vector4(a: "float[:,:]", b: "float[:]", c: "float[:]"):
     """
     Performs the matrix-vector product of a 4x4 matrix with a vector.
 
@@ -242,7 +240,7 @@ def matrix_vector4(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
             The output array (vector) of shape (4,) which is the result of the matrix-vector product a.dot(b).
     """
 
-    c[:] = 0.
+    c[:] = 0.0
 
     for i in range(4):
         for j in range(4):
@@ -250,7 +248,7 @@ def matrix_vector4(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
 
 
 @pure
-def matrix_matrix4(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
+def matrix_matrix4(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
     """
     Performs the matrix-matrix product of a 4x4 matrix with another 4x4 matrix.
 
@@ -266,7 +264,7 @@ def matrix_matrix4(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
             The output array (matrix) of shape (4,4) which is the result of the matrix-matrix product a.dot(b).
     """
 
-    c[:, :] = 0.
+    c[:, :] = 0.0
 
     for i in range(4):
         for j in range(4):
@@ -274,8 +272,8 @@ def matrix_matrix4(a: 'float[:,:]', b: 'float[:,:]', c: 'float[:,:]'):
                 c[i, j] += a[i, k] * b[k, j]
 
 
-@stack_array('tmp1', 'tmp2')
-def det4(a: 'float[:,:]') -> float:
+@stack_array("tmp1", "tmp2")
+def det4(a: "float[:,:]") -> float:
     """
     Computes the determinant of a 4x4 matrix.
 
@@ -299,13 +297,13 @@ def det4(a: 'float[:,:]') -> float:
 
     tmp2[:] = a[1:, 1:]
 
-    plus = a[0, 0]*det(tmp2) + a[2, 0]*det(tmp1)
+    plus = a[0, 0] * det(tmp2) + a[2, 0] * det(tmp1)
 
     tmp1[2] = a[2, 1:]
 
     tmp2[:] = a[:3, 1:]
 
-    minus = a[1, 0]*det(tmp1) + a[3, 0]*det(tmp2)
+    minus = a[1, 0] * det(tmp1) + a[3, 0] * det(tmp2)
 
     det_a = plus - minus
 
@@ -316,35 +314,38 @@ def det4(a: 'float[:,:]') -> float:
 ######## Vectorized linalg kernels ########
 ###########################################
 
-def scalar_dot_vectorized_flat(a1: 'float[:]', a2: 'float[:]',a3: 'float[:]', b: 'float[:,:]') -> 'float[:]':
+
+def scalar_dot_vectorized_flat(a1: "float[:]", a2: "float[:]", a3: "float[:]", b: "float[:,:]") -> "float[:]":
     np = len(a1)
-    a = zeros((3,3),dtype=float)
+    a = zeros((3, 3), dtype=float)
     out = zeros(np, dtype=float)
     for i in range(np):
         a[0] = a1[i]
         a[1] = a2[i]
         a[2] = a3[i]
-        out[i] = scalar_dot(a, b[i,:])
+        out[i] = scalar_dot(a, b[i, :])
     return out
 
-def cross_vectorized_flat(a1: 'float[:]', a2: 'float[:]',a3: 'float[:]', b: 'float[:,:]') -> 'float[:,:]':
+
+def cross_vectorized_flat(a1: "float[:]", a2: "float[:]", a3: "float[:]", b: "float[:,:]") -> "float[:,:]":
     np = len(a1)
-    a = zeros((3,3),dtype=float)
+    a = zeros((3, 3), dtype=float)
     out = zeros((np, 3), dtype=float)
     c = zeros(3, dtype=float)
     for i in range(np):
         a[0] = a1[i]
         a[1] = a2[i]
         a[2] = a3[i]
-        cross(a, b[i,:], c)
-        out[i,:] = c[:]
+        cross(a, b[i, :], c)
+        out[i, :] = c[:]
     return out
 
-def cross_vectorized(a: 'float[:,:]', b: 'float[:,:]') -> 'float[:,:]':
-    np = len(a[0,:])
+
+def cross_vectorized(a: "float[:,:]", b: "float[:,:]") -> "float[:,:]":
+    np = len(a[0, :])
     out = zeros((np, 3), dtype=float)
     c = zeros(3, dtype=float)
     for i in range(np):
-        cross(a[i,:], b[i,:], c)
-        out[i,:] = c[:]
+        cross(a[i, :], b[i, :], c)
+        out[i, :] = c[:]
     return out

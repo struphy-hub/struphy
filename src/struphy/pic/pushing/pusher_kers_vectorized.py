@@ -1,11 +1,14 @@
 "Pusher kernels for full orbit (6D) particles and AMReX data structures."
 
-from numpy import array, matmul, newaxis, shape, transpose, empty, sqrt, cos, sin
-from numpy.linalg import inv, det
+from numpy import array, cos, empty, matmul, newaxis, shape, sin, sqrt, transpose
+from numpy.linalg import det, inv
 
-from struphy.bsplines.evaluation_kernels_3d import get_spans_and_eval_1form_spline_vectorized, get_spans_and_eval_2form_spline_vectorized
+from struphy.bsplines.evaluation_kernels_3d import (
+    get_spans_and_eval_1form_spline_vectorized,
+    get_spans_and_eval_2form_spline_vectorized,
+)
 from struphy.geometry.base import Domain
-from struphy.linear_algebra.linalg_kernels import scalar_dot_vectorized_flat, cross_vectorized, cross_vectorized_flat
+from struphy.linear_algebra.linalg_kernels import cross_vectorized, cross_vectorized_flat, scalar_dot_vectorized_flat
 
 
 def push_vxb_analytic(
@@ -49,7 +52,7 @@ def push_vxb_analytic(
 
         # metric coeffs
         det_df = det(jacobian)
-        
+
         # spline evaluation and magnetic field 2-form
         get_spans_and_eval_2form_spline_vectorized(
             e1,
@@ -63,14 +66,14 @@ def push_vxb_analytic(
         )
 
         # magnetic field: Cartesian components
-        b_cart = matmul(jacobian, b_form) # Npx3x1
-        b_cart[:] = b_cart / det_df # TODO (Mati) look this up
+        b_cart = matmul(jacobian, b_form)  # Npx3x1
+        b_cart[:] = b_cart / det_df  # TODO (Mati) look this up
 
         # magnetic field: magnitude
-        b_abs[:] = sqrt(b_cart[:,0,1] ** 2 + b_cart[:,1,1] ** 2 + b_cart[:,2,1] ** 2)
-        
+        b_abs[:] = sqrt(b_cart[:, 0, 1] ** 2 + b_cart[:, 1, 1] ** 2 + b_cart[:, 2, 1] ** 2)
+
         # only push vxb if magnetic field is non-zero
-        non_zero_idx = [b_abs!=0]
+        non_zero_idx = [b_abs != 0]
 
         # normalized magnetic field direction
         b_norm[non_zero_idx] = b_cart[non_zero_idx] / b_abs[non_zero_idx]
@@ -87,12 +90,12 @@ def push_vxb_analytic(
 
         # analytic rotation
         temp = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
-        v1[:] = temp[:,0]
-        v2[:] = temp[:,1]
-        v3[:] = temp[:,2]
+        v1[:] = temp[:, 0]
+        v2[:] = temp[:, 1]
+        v3[:] = temp[:, 2]
 
 
-def push_vxb_implicit( # TODO (Mati)
+def push_vxb_implicit(  # TODO (Mati)
     dt: float,
     stage: int,
     particles: "Particles",
