@@ -17,7 +17,46 @@ except ImportError:
     amr = None
 
 Np = 4
-seed = 12345
+seed = None
+
+import linecache
+import tracemalloc
+import datetime
+
+def display_top(snapshot,file, key_type='lineno', limit=10):
+    snapshot = snapshot.filter_traces((
+        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+        tracemalloc.Filter(False, "<unknown>"),
+    ))
+    top_stats = snapshot.statistics(key_type)
+    top_stats = sorted(top_stats, key=lambda a: -a.count) # ordered most count first
+    
+    print(datetime.datetime.now(), file=file)
+
+    print("Top %s lines, ordered by count" % limit, file=file)
+    for index, stat in enumerate(top_stats[:limit], 1):
+        frame = stat.traceback[0]
+        print(f"#{index}: {frame.filename}:{frame.lineno}: {stat.size/1024} KiB, count = {stat.count}", file=file)
+        line = linecache.getline(frame.filename, frame.lineno).strip()
+        if line:
+            print('    %s' % line, file=file)
+
+    other = top_stats[limit:]
+    if other:
+        size = sum(stat.size for stat in other)
+        print("%s other: %.1f KiB" % (len(other), size / 1024), file=file)
+    total = sum(stat.size for stat in top_stats)
+    print("Total allocated size: %.1f KiB" % (total / 1024), file=file)
+    
+    top_stats = snapshot.statistics('traceback')
+    top_stats = sorted(top_stats, key=lambda a: -a.count) # ordered most count first
+
+    # pick the 10 biggest memory blocks
+    for i in range(10):
+        stat = top_stats[i]
+        print(f"#### big bloc {i+1} ####\n{stat.count} calls: {stat.size/1024} KiB", file=file)
+        for line in stat.traceback.format():
+            print(line, file=file)
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
@@ -786,8 +825,16 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     bc = ["reflect", "periodic", "periodic"]
 
     struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
-
+    
+    tracemalloc.start(25)
+    
     struphy_pos, amrex_pos, alpha = push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt, plot, verbose)
+
+    snapshot = tracemalloc.take_snapshot()
+    
+    with open("./tracemalloc.result", "w") as file:
+        display_top(snapshot, file)
+    
 
     if plot:
         colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
@@ -1005,7 +1052,7 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
 
 
 if __name__ == "__main__":
-    test_amrex_push_v_in_e_field(plot=True, verbose=False, same_phasespace_coords=False)
+    test_amrex_boundary_conditions_box()
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
@@ -1014,5 +1061,6 @@ if __name__ == "__main__":
 # profiling with more cores
 # work on GPU with cupy
 # transform push_v_with_efield DONE
+# profile with tracemalloc
 
 # git push -o ci.skip
