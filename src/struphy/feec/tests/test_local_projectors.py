@@ -95,10 +95,10 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
         out = derham.Vh[sp_key].zeros()
 
         # field for local projection output
-        field = derham.create_field("fh", sp_id)
+        field = derham.create_spline_function("fh", sp_id)
 
         # field for global projection output
-        fieldg = derham.create_field("fhg", sp_id)
+        fieldg = derham.create_spline_function("fhg", sp_id)
 
         # project test function
         if sp_id in ("H1", "L2"):
@@ -217,7 +217,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             P_Loc = derham.P[sp_key]
             out = derham.Vh[sp_key].zeros()
 
-            field = derham.create_field("fh", sp_id)
+            field = derham.create_spline_function("fh", sp_id)
 
             # project test function
             if sp_id in ("H1", "L2"):
@@ -370,7 +370,7 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
     spaces = derham.Vh_fem[sp_key].spaces
     input = derham.Vh[sp_key].zeros()
     npts = derham.Vh[sp_key].npts
-    field = derham.create_field("fh", sp_id)
+    field = derham.create_spline_function("fh", sp_id)
 
     counter = 0
     for col0 in range(npts[0]):
@@ -1324,10 +1324,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     elif out_sp_key == "v":
         out_sp_id = "H1vec"
 
-    fieldloc = derham.create_field("fh", out_sp_id)
+    fieldloc = derham.create_spline_function("fh", out_sp_id)
     fieldloc.vector = FE_loc
 
-    fieldglo = derham.create_field("fh", out_sp_id)
+    fieldglo = derham.create_spline_function("fh", out_sp_id)
     fieldglo.vector = FE_glo
 
     errorloc = np.abs(fieldloc(*meshgrid) - analytic_vals)
@@ -1447,12 +1447,12 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
 
     # FE coefficeints to get B-splines from field
     inputB = derham.Vh["0"].zeros()
-    fieldB = derham.create_field("fh", "H1")
+    fieldB = derham.create_spline_function("fh", "H1")
     npts_in_B = derham.Vh["0"].npts
 
     # FE coefficeints to get D-splines from field
     inputD = derham.Vh["3"].zeros()
-    fieldD = derham.create_field("fh", "L2")
+    fieldD = derham.create_spline_function("fh", "L2")
     npts_in_D = derham.Vh["3"].npts
 
     etas1 = np.linspace(0.0, 1.0, 20)
