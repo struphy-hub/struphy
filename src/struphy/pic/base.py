@@ -1487,7 +1487,7 @@ class Particles(metaclass=ABCMeta):
         if self.type == "sph":
             self._set_initial_condition()
             for pti in self._markers.iterator(self._markers, 0):
-                markers_array = pti.soa().to_numpy()[0]
+                markers_array=self.get_amrex_markers_array(pti.soa(), self.index["coords"])
                 positions = np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float)
                 velocities = self.u_init(positions)[0]
                 markers_array["v1"][:] = velocities[0][:]
@@ -1503,7 +1503,7 @@ class Particles(metaclass=ABCMeta):
             )
 
             for pti in self._markers.iterator(self._markers, 0):
-                markers_array = pti.soa().to_numpy()[0]
+                markers_array=self.get_amrex_markers_array(pti.soa(), self.index["vel"])
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
@@ -1935,7 +1935,7 @@ class Particles(metaclass=ABCMeta):
         from_tesselation: bool = False,
     ):
         for pti in self._markers.iterator(self._markers, 0):
-            markers_array = pti.soa().to_numpy()[0]
+            markers_array=self.get_amrex_markers_array(pti.soa())
 
             if from_tesselation:  # TODO (Mati)
                 if self.pforms[0] is None:
@@ -2317,6 +2317,32 @@ class Particles(metaclass=ABCMeta):
 
         return is_outside_left, is_outside_right, outside_inds
 
+    def get_amrex_markers_array(self, soa, needed_idx_names=None):
+        """
+        Create a zero-copy view of the real components of a amrex particle container. Minimizes memory allocations.
+        """
+        try:
+            self._markers_array
+        except AttributeError:
+            self._markers_array = {}
+            
+        real_comp_names = soa.real_names 
+        
+        if needed_idx_names is not None:
+            for idx_name in needed_idx_names:
+                self._markers_array[idx_name] = soa.get_real_data(
+                real_comp_names.index(idx_name)
+            ).to_numpy(copy=False)
+        else:
+            if len(real_comp_names) != soa.num_real_comps:
+                raise ValueError("Missing names for SoA Real components.")
+            for idx_real in range(soa.num_real_comps):
+                self._markers_array[real_comp_names[idx_real]] = soa.get_real_data(
+                    idx_real
+                ).to_numpy(copy=False)
+        
+        return self._markers_array
+
     def apply_amrex_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2329,7 +2355,9 @@ class Particles(metaclass=ABCMeta):
         """
 
         for pti in self._markers.iterator(self._markers, 0):
-            markers_array = pti.soa().to_numpy()[0]
+            # markers_array=self.get_amrex_markers_array(pti.soa())
+            soa = pti.soa()
+            markers_array=self.get_amrex_markers_array(soa, self.index["coords"])
 
             # remove feature not yet implemented
             for axis in self._remove_axes:

@@ -16,30 +16,34 @@ try:
 except ImportError:
     amr = None
 
-Np = 4
+Np = 4000
 seed = None
 
+import datetime
 import linecache
 import tracemalloc
-import datetime
+import cProfile, pstats
 
-def display_top(snapshot,file, key_type='lineno', limit=10):
-    snapshot = snapshot.filter_traces((
-        tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
-        tracemalloc.Filter(False, "<unknown>"),
-    ))
+
+def display_top(snapshot, file, key_type="lineno", limit=10):
+    snapshot = snapshot.filter_traces(
+        (
+            tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+            tracemalloc.Filter(False, "<unknown>"),
+        )
+    )
     top_stats = snapshot.statistics(key_type)
-    top_stats = sorted(top_stats, key=lambda a: -a.count) # ordered most count first
-    
+    top_stats = sorted(top_stats, key=lambda a: -a.count)  # ordered most count first
+
     print(datetime.datetime.now(), file=file)
 
     print("Top %s lines, ordered by count" % limit, file=file)
     for index, stat in enumerate(top_stats[:limit], 1):
         frame = stat.traceback[0]
-        print(f"#{index}: {frame.filename}:{frame.lineno}: {stat.size/1024} KiB, count = {stat.count}", file=file)
+        print(f"#{index}: {frame.filename}:{frame.lineno}: {stat.size / 1024} KiB, count = {stat.count}", file=file)
         line = linecache.getline(frame.filename, frame.lineno).strip()
         if line:
-            print('    %s' % line, file=file)
+            print("    %s" % line, file=file)
 
     other = top_stats[limit:]
     if other:
@@ -47,14 +51,14 @@ def display_top(snapshot,file, key_type='lineno', limit=10):
         print("%s other: %.1f KiB" % (len(other), size / 1024), file=file)
     total = sum(stat.size for stat in top_stats)
     print("Total allocated size: %.1f KiB" % (total / 1024), file=file)
-    
-    top_stats = snapshot.statistics('traceback')
-    top_stats = sorted(top_stats, key=lambda a: -a.count) # ordered most count first
+
+    top_stats = snapshot.statistics("traceback")
+    top_stats = sorted(top_stats, key=lambda a: -a.count)  # ordered most count first
 
     # pick the 10 biggest memory blocks
     for i in range(10):
         stat = top_stats[i]
-        print(f"#### big bloc {i+1} ####\n{stat.count} calls: {stat.size/1024} KiB", file=file)
+        print(f"#### big bloc {i + 1} ####\n{stat.count} calls: {stat.size / 1024} KiB", file=file)
         for line in stat.traceback.format():
             print(line, file=file)
 
@@ -825,16 +829,15 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     bc = ["reflect", "periodic", "periodic"]
 
     struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
-    
+
     tracemalloc.start(25)
-    
+
     struphy_pos, amrex_pos, alpha = push_eta(struphy_particles, amrex_particles, domain, Np, Tend, dt, plot, verbose)
 
     snapshot = tracemalloc.take_snapshot()
-    
+
     with open("./tracemalloc.result", "w") as file:
         display_top(snapshot, file)
-    
 
     if plot:
         colors = ["tab:blue", "tab:orange", "tab:green", "tab:red"]
@@ -860,7 +863,6 @@ def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
     # simulation parameters
     Tend = 20.0
     dt = 0.5
-    000
 
     # initialize amrex
     amrex = Amrex()
@@ -1051,8 +1053,49 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
     plt.savefig(path)
 
 
+def profile_push_v_in_efield(sort='calls'):
+    l1 = -5
+    r1 = 5.0
+    l2 = -7
+    r2 = 7.0
+    l3 = -1.0
+    r3 = 1.0
+    domain = Cuboid(l1=l1, r1=r1, l2=l2, r2=r2, l3=l3, r3=r3)
+
+    # initialize amrex
+    amrex = Amrex()
+
+    bc = ["reflect", "periodic", "periodic"]
+
+    struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
+    
+    # pass simulation parameters to Propagator class
+    PushEta.domain = domain
+
+    # instantiate Propagator object
+    struphy_prop_eta = PushEta(struphy_particles)
+    amrex_prop_eta = PushEta(amrex_particles)
+
+    with cProfile.Profile() as pr:
+        print("#### AMREX ####")
+        for _ in range(1000):
+            amrex_prop_eta(0.2)
+        ps = pstats.Stats(pr).sort_stats(sort)
+        ps.print_stats(0.1)
+        
+    with cProfile.Profile() as pr:
+        print("#### STRUPHY ####")
+        for _ in range(1000):
+            struphy_prop_eta(0.2)
+        ps = pstats.Stats(pr).sort_stats(sort)
+        ps.print_stats(0.1)
+        
+    amrex.finalize()
+
+
 if __name__ == "__main__":
-    test_amrex_boundary_conditions_box()
+    test_amrex_push_v_in_e_field()
+    profile_push_v_in_efield('tottime') # sort = 'cumtime'
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
