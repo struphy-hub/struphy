@@ -35,7 +35,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
 
     # test
     for i, space in enumerate(spaces):
-        field = derham.create_field("name_" + str(i), space)
+        field = derham.create_spline_function("name_" + str(i), space)
         if space in ("H1", "L2"):
             bckgr_params = {"LogicalConst": {"values": val}}
             field.initialize_coeffs(bckgr_params=bckgr_params)
@@ -143,27 +143,27 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 except:
                     print(f"Not setting domain for {key}.")
 
-            field_0 = derham.create_field(
+            field_0 = derham.create_spline_function(
                 "name_0",
                 "H1",
                 bckgr_params=bckgr_params_0,
             )
-            field_1 = derham.create_field(
+            field_1 = derham.create_spline_function(
                 "name_1",
                 "Hcurl",
                 bckgr_params=bckgr_params_1,
             )
-            field_2 = derham.create_field(
+            field_2 = derham.create_spline_function(
                 "name_2",
                 "Hdiv",
                 bckgr_params=bckgr_params_2,
             )
-            field_3 = derham.create_field(
+            field_3 = derham.create_spline_function(
                 "name_3",
                 "L2",
                 bckgr_params=bckgr_params_3,
             )
-            field_4 = derham.create_field(
+            field_4 = derham.create_spline_function(
                 "name_4",
                 "H1vec",
                 bckgr_params=bckgr_params_4,
@@ -1151,9 +1151,9 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     # Psydac discrete Derham sequence and fields
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
-    field_0 = derham.create_field("name_0", "H1")
-    field_1 = derham.create_field("name_1", "Hcurl")
-    field_2 = derham.create_field("name_2", "Hdiv")
+    field_0 = derham.create_spline_function("name_0", "H1")
+    field_1 = derham.create_spline_function("name_1", "Hcurl")
+    field_2 = derham.create_spline_function("name_2", "Hdiv")
 
     field_0.initialize_coeffs(bckgr_params=bckgr_params_0, pert_params=pert_params_0)
     field_1.initialize_coeffs(bckgr_params=bckgr_params_1, pert_params=pert_params_1)
@@ -1325,10 +1325,10 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 
     # Psydac discrete Derham sequence and field of space
     derham = Derham(Nel, p, spl_kind, comm=comm)
-    field = derham.create_field("field", space)
+    field = derham.create_spline_function("field", space)
 
     derham_np = Derham(Nel, p, spl_kind, comm=None)
-    field_np = derham_np.create_field("field", space)
+    field_np = derham_np.create_spline_function("field", space)
 
     # initial conditions
     pert_params = {

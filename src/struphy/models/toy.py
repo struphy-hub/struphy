@@ -536,12 +536,13 @@ class VariationalPressurelessFluid(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -576,8 +577,7 @@ class VariationalPressurelessFluid(StruphyModel):
         self._tmp_u1 = self.derham.Vh["v"].zeros()
 
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_u1)
+        m1 = self.WMM.massop.dot(self.pointer["fluid_uv"], out=self._tmp_u1)
 
         en_U = self.pointer["fluid_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
@@ -639,13 +639,13 @@ class VariationalBarotropicFluid(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
-        from struphy.feec.mass import WeightedMassOperator
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -683,8 +683,7 @@ class VariationalBarotropicFluid(StruphyModel):
         self._tmp_rho1 = self.derham.Vh["3"].zeros()
 
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
+        m1 = self.WMM.massop.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
 
         en_U = self.pointer["fluid_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
@@ -760,14 +759,14 @@ class VariationalCompressibleFluid(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
-        from struphy.feec.mass import WeightedMassOperator
         from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -780,6 +779,10 @@ class VariationalCompressibleFluid(StruphyModel):
         self._gamma = params["fluid"]["fluid"]["options"]["VariationalDensityEvolve"]["physics"]["gamma"]
         model = "full"
 
+        from struphy.feec.variational_utilities import InternalEnergyEvaluator
+
+        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
+
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.VariationalDensityEvolve] = {
             "model": model,
@@ -788,6 +791,7 @@ class VariationalCompressibleFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_density,
             "nonlin_solver": nonlin_solver_density,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
@@ -803,6 +807,7 @@ class VariationalCompressibleFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_entropy,
             "nonlin_solver": nonlin_solver_entropy,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         # Initialize propagators used in splitting substeps
@@ -824,8 +829,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self._integrator = projV3(f)
 
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
+        m1 = self.WMM.massop.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
 
         en_U = self.pointer["fluid_uv"].dot(m1) / 2
         self.update_scalar("en_U", en_U)
@@ -841,17 +845,18 @@ class VariationalCompressibleFluid(StruphyModel):
         :meta private:
         """
         en_prop = self._propagators[2]
-        en_prop.sf.vector = self.pointer["fluid_s3"]
-        en_prop.rhof.vector = self.pointer["fluid_rho3"]
-        sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._sf_values,
+
+        self._energy_evaluator.sf.vector = self.pointer["fluid_s3"]
+        self._energy_evaluator.rhof.vector = self.pointer["fluid_rho3"]
+        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._sf_values,
         )
-        rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._rhof_values,
+        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._rhof_values,
         )
         e = self.__ener
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)

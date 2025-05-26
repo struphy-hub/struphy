@@ -10,10 +10,10 @@ __all__ = [ 'fill_mat',
             'fill_mat_vec_pressure'
             ]
 """
-from numpy import copy, zeros
+from numpy import zeros, copy
 from pyccel.decorators import pure
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
-from struphy.bsplines.bsplines_kernels import convolution, piecewise
+
 def _tmp_floor_division_filler_kernels(x: int):
     y = zeros(10)
     z = copy(y)
@@ -488,11 +488,11 @@ def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'i
                                 compact[2]/2.0  # if > 0, result is 0
 
                             if temp4[0] < 0.0 and temp4[1] < 0.0 and temp4[2] < 0.0:
-                                value_x = convolution(
+                                value_x = bsplines_kernels.convolution(
                                     p_shape[0], grids_shapex, temp1[0])
-                                value_y = piecewise(
+                                value_y = bsplines_kernels.piecewise(
                                     p_shape[1], p_size[1], temp1[1] - eta2)
-                                value_z = piecewise(
+                                value_z = bsplines_kernels.piecewise(
                                     p_shape[2], p_size[2], temp1[2] - eta3)
 
                                 mat[i1, i2, i3, jl1, jl2, jl3] += weight * \

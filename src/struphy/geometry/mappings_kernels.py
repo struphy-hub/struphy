@@ -2,10 +2,8 @@ from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan, zeros, copy
 from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
-from struphy.bsplines.bsplines_kernels import find_span, b_splines_slim, b_der_splines_slim
 import struphy.bsplines.evaluation_kernels_2d as evaluation_kernels_2d
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-from struphy.bsplines.evaluation_kernels_3d import evaluation_kernel_3d
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
@@ -16,6 +14,7 @@ def _tmp_floor_division_mapping_kernels(x: int):
 
 def _do_things_mapping_kernels(x: 'float[:]'):
     y = copy(x)
+
 
 @stack_array("b1", "b2", "b3", "tmp1", "tmp2", "tmp3")
 def spline_3d(
@@ -39,31 +38,31 @@ def spline_3d(
     """
 
     # mapping spans
-    span1 = find_span(args.t1, int(p[0]), eta1)
-    span2 = find_span(args.t2, int(p[1]), eta2)
-    span3 = find_span(args.t3, int(p[2]), eta3)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span3 = bsplines_kernels.find_span(args.t3, int(p[2]), eta3)
 
     # p + 1 non-zero mapping splines
     b1 = zeros(int(p[0]) + 1, dtype=float)
     b2 = zeros(int(p[1]) + 1, dtype=float)
     b3 = zeros(int(p[2]) + 1, dtype=float)
 
-    b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
-    b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
-    b_splines_slim(args.t3, int(p[2]), eta3, span3, b3)
+    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t3, int(p[2]), eta3, span3, b3)
 
     # Evaluate spline mapping
     tmp1 = ind1[span1 - int(p[0]), :]
     tmp2 = ind2[span2 - int(p[1]), :]
     tmp3 = ind3[span3 - int(p[2]), :]
 
-    f_out[0] = evaluation_kernel_3d(
+    f_out[0] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cx
     )
-    f_out[1] = evaluation_kernel_3d(
+    f_out[1] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cy
     )
-    f_out[2] = evaluation_kernel_3d(
+    f_out[2] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cz
     )
 
@@ -83,9 +82,9 @@ def spline_3d_df(
     """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.spline_3d`."""
 
     # mapping spans
-    span1 = find_span(args.t1, int(p[0]), eta1)
-    span2 = find_span(args.t2, int(p[1]), eta2)
-    span3 = find_span(args.t3, int(p[2]), eta3)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
+    span3 = bsplines_kernels.find_span(args.t3, int(p[2]), eta3)
 
     # non-zero splines of mapping, and derivatives
     b1 = zeros(int(p[0]) + 1, dtype=float)
@@ -96,40 +95,40 @@ def spline_3d_df(
     der2 = zeros(int(p[1]) + 1, dtype=float)
     der3 = zeros(int(p[2]) + 1, dtype=float)
 
-    b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
-    b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
-    b_der_splines_slim(args.t3, int(p[2]), eta3, span3, b3, der3)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t3, int(p[2]), eta3, span3, b3, der3)
 
     # Evaluation of Jacobian
     tmp1 = ind1[span1 - int(p[0]), :]
     tmp2 = ind2[span2 - int(p[1]), :]
     tmp3 = ind3[span3 - int(p[2]), :]
 
-    df_out[0, 0] = evaluation_kernel_3d(
+    df_out[0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cx
     )
-    df_out[0, 1] = evaluation_kernel_3d(
+    df_out[0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cx
     )
-    df_out[0, 2] = evaluation_kernel_3d(
+    df_out[0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cx
     )
-    df_out[1, 0] = evaluation_kernel_3d(
+    df_out[1, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cy
     )
-    df_out[1, 1] = evaluation_kernel_3d(
+    df_out[1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cy
     )
-    df_out[1, 2] = evaluation_kernel_3d(
+    df_out[1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cy
     )
-    df_out[2, 0] = evaluation_kernel_3d(
+    df_out[2, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cz
     )
-    df_out[2, 1] = evaluation_kernel_3d(
+    df_out[2, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cz
     )
-    df_out[2, 2] = evaluation_kernel_3d(
+    df_out[2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
         int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cz
     )
 
@@ -161,15 +160,15 @@ def spline_2d_straight(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = find_span(args.t1, int(p[0]), eta1)
-    span2 = find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # p + 1 non-zero mapping splines
     b1 = zeros(int(p[0]) + 1, dtype=float)
     b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
-    b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
 
     # Evaluate mapping
     tmp1 = ind1[span1 - int(p[0]), :]
@@ -204,8 +203,8 @@ def spline_2d_straight_df(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = find_span(args.t1, int(p[0]), eta1)
-    span2 = find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
     b1 = zeros(int(p[0]) + 1, dtype=float)
@@ -214,8 +213,8 @@ def spline_2d_straight_df(
     der1 = zeros(int(p[0]) + 1, dtype=float)
     der2 = zeros(int(p[1]) + 1, dtype=float)
 
-    b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
-    b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
 
     # Evaluation of Jacobian
     tmp1 = ind1[span1 - int(p[0]), :]
@@ -270,15 +269,15 @@ def spline_2d_torus(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = find_span(args.t1, int(p[0]), eta1)
-    span2 = find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # p + 1 non-zero mapping splines
     b1 = zeros(int(p[0]) + 1, dtype=float)
     b2 = zeros(int(p[1]) + 1, dtype=float)
 
-    b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
-    b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
+    bsplines_kernels.b_splines_slim(args.t1, int(p[0]), eta1, span1, b1)
+    bsplines_kernels.b_splines_slim(args.t2, int(p[1]), eta2, span2, b2)
 
     # Evaluate mapping
     tmp1 = ind1[span1 - int(p[0]), :]
@@ -321,8 +320,8 @@ def spline_2d_torus_df(
     cy = args.cy[:, :, 0]
 
     # mapping spans
-    span1 = find_span(args.t1, int(p[0]), eta1)
-    span2 = find_span(args.t2, int(p[1]), eta2)
+    span1 = bsplines_kernels.find_span(args.t1, int(p[0]), eta1)
+    span2 = bsplines_kernels.find_span(args.t2, int(p[1]), eta2)
 
     # non-zero splines of mapping, and derivatives
     b1 = zeros(int(p[0]) + 1, dtype=float)
@@ -331,8 +330,8 @@ def spline_2d_torus_df(
     der1 = zeros(int(p[0]) + 1, dtype=float)
     der2 = zeros(int(p[1]) + 1, dtype=float)
 
-    b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
-    b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
+    bsplines_kernels.b_der_splines_slim(args.t1, int(p[0]), eta1, span1, b1, der1)
+    bsplines_kernels.b_der_splines_slim(args.t2, int(p[1]), eta2, span2, b2, der2)
 
     tmp1 = ind1[span1 - int(p[0]), :]
     tmp2 = ind2[span2 - int(p[1]), :]
