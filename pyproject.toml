@@ -33,6 +33,7 @@ dependencies = [
     'argcomplete',
     'pytest',
     'pytest-mpi',
+    'line_profiler',
 ]
 [project.optional-dependencies]
 phys = [
