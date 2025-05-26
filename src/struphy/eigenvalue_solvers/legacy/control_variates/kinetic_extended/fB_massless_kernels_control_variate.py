@@ -17,8 +17,8 @@ import struphy.geometry.mappings_3d_fast as mapping_fast
 def grid_density(Nel, gather, kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
 
     # =======================================================================
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, x1, x2, x3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, x1, x2, x3)
     for ie1 in range(Nel[0]):
         for ie2 in range(Nel[1]):
             for ie3 in range(Nel[2]):
@@ -29,8 +29,8 @@ def grid_density(Nel, gather, kind_map, params_map, tf1, tf2, tf3, pf, nbasef, c
 
                 gather[ie1, ie2, ie3] += equ_PIC.nh_eq_phys(x1, x2, x3)
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 
 
@@ -40,8 +40,8 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
 
     # ======================================================================================
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -59,11 +59,11 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
 
                             b1value[ie1, ie2, ie3, q1, q2, q3] = value  
     
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -80,11 +80,11 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
                                         value += bn1[ie1, il1, 0, q1] * bd2[ie2, il2, 0, q2] * bn3[ie3, il3, 0, q3] * b2[idnx[ie1, il1],iddy[ie2, il2], idnz[ie3, il3]]
 
                             b2value[ie1, ie2, ie3, q1, q2, q3] = value  
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -101,11 +101,11 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
                                         value += bn1[ie1, il1, 0, q1] * bn2[ie2, il2, 0, q2] * bd3[ie3, il3, 0, q3] * b3[idnx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]]
 
                             b3value[ie1, ie2, ie3, q1, q2, q3] = value  
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, generate_weight1, generate_weight3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, generate_weight1, generate_weight3)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -129,8 +129,8 @@ def bvright1(G_inv_11, G_inv_12, G_inv_13, G_inv_22, G_inv_23, G_inv_33, idnx, i
                             b2value[ie1,ie2,ie3,q1,q2,q3] = generate_weight1[1]
                             b3value[ie1,ie2,ie3,q1,q2,q3] = generate_weight1[2]
 
-    #$ omp end do
-    #$ omp end parallel 
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel 
 
     
     ierr = 0 
@@ -143,8 +143,8 @@ def bvright2(DFI_11, DFI_12, DFI_13, DFI_21, DFI_22, DFI_23, DFI_31, DFI_32, DFI
     # ======================================================================================
 
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, detdet, generate_weight1, generate_weight3, Jeq)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, dft, detdet, generate_weight1, generate_weight3, Jeq)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -175,8 +175,8 @@ def bvright2(DFI_11, DFI_12, DFI_13, DFI_21, DFI_22, DFI_23, DFI_31, DFI_32, DFI
                             b2value[ie1,ie2,ie3,q1,q2,q3] = detdet * uvalue[ie1,ie2,ie3,q1,q2,q3] * (generate_weight3[2]*generate_weight1[0] - generate_weight3[0]*generate_weight1[2])
                             b3value[ie1,ie2,ie3,q1,q2,q3] = detdet * uvalue[ie1,ie2,ie3,q1,q2,q3] * (generate_weight3[0]*generate_weight1[1] - generate_weight3[1]*generate_weight1[0])
 
-    #$ omp end do
-    #$ omp end parallel 
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel 
 
     
     ierr = 0 
@@ -192,8 +192,8 @@ def bvfinal(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3,
     temp_final_2[:,:,:]  = 0.0
     temp_final_3[:,:,:]  = 0.0
     # ======================================================================================
-    #$ omp parallel
-    #$ omp do reduction ( + : temp_final_1) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : temp_final_1) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -210,11 +210,11 @@ def bvfinal(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3,
 
                             temp_final_1[idnx[ie1, il1], iddy[ie2, il2], iddz[ie3, il3]] += value 
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do reduction ( + : temp_final_2) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : temp_final_2) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -232,11 +232,11 @@ def bvfinal(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3,
                             
                             temp_final_2[iddx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]] += value
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do reduction ( + : temp_final_3) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : temp_final_3) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -253,8 +253,8 @@ def bvfinal(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3,
                             
                             temp_final_3[iddx[ie1, il1], iddy[ie2, il2], idnz[ie3, il3]] += value
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0 
 
@@ -343,8 +343,8 @@ def vv(tol, out_vector, Jeq, bb1, bb2, bb3, gather_grid, Np_loc, NbaseN, NbaseD,
     df      = empty((3, 3), dtype=float) 
     fx      = empty( 3    , dtype=float)
 
-    #$ omp parallel
-    #$ omp do private (den_inv, ie1, ie2, ie3, disx, disy, disz, eta1, eta2, eta3, span1, span2, span3, ip, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, vel, vel2, dfinv, U_value, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, x1, x2, x3, Jeq)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (den_inv, ie1, ie2, ie3, disx, disy, disz, eta1, eta2, eta3, span1, span2, span3, ip, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, vel, vel2, dfinv, U_value, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, x1, x2, x3, Jeq)
     for ip in range(Np_loc):
 
         vel[:]   = 0.0
@@ -419,8 +419,8 @@ def vv(tol, out_vector, Jeq, bb1, bb2, bb3, gather_grid, Np_loc, NbaseN, NbaseD,
         out_vector[0, ip] -= den_inv * vel[0]
         out_vector[1, ip] -= den_inv * vel[1]
         out_vector[2, ip] -= den_inv * vel[2]
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
 
     ierr = 0

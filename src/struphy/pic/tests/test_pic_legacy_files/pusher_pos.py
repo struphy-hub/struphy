@@ -72,8 +72,8 @@ def pusher_step4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nel
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, e, v, e_new, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, k1, k2, k3, k4)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ip, e, v, e_new, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, k1, k2, k3, k4)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (0 < s < 1)
@@ -262,8 +262,8 @@ def pusher_step4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nel
         particles[2, ip] = e_new[2]
         # ------------------------------------------------------------------
     
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
     
@@ -377,8 +377,8 @@ def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, p
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta, v, fx_pseudo, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df_old, fx, dfinv_old, df_pseudo_old, df, dfinv, df_pseudo, v_temp, k1, k2, k3, k4)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ip, eta, v, fx_pseudo, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df_old, fx, dfinv_old, df_pseudo_old, df, dfinv, df_pseudo, v_temp, k1, k2, k3, k4)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -598,8 +598,8 @@ def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, p
             
             break
     
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
     
@@ -659,8 +659,8 @@ def pusher_step4_cart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, e, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, x_old, x_new, dfinv, temp)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ip, e, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, x_old, x_new, dfinv, temp)
     for ip in range(np):
         
         e[:] = particles[0:3, ip]
@@ -706,8 +706,8 @@ def pusher_step4_cart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf
             # evaluate inverse Jacobian matrix
             mapping_fast.df_inv_all(df, dfinv)
     
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
 

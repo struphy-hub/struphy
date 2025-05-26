@@ -11,8 +11,8 @@ def quadrature_density(Nel, pts1, pts2, pts3, n_quad, gather, kind_map, params_m
 
     # =======================================================================
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, il1, il2, il3, x1, x2, x3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, il1, il2, il3, x1, x2, x3)
     for ie1 in range(Nel[0]):
         for ie2 in range(Nel[1]):
             for ie3 in range(Nel[2]):
@@ -25,6 +25,6 @@ def quadrature_density(Nel, pts1, pts2, pts3, n_quad, gather, kind_map, params_m
                             x3 = map3d.f(pts1[ie1, il1], pts2[ie2, il2], pts3[ie3, il3], 3, kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
 
                             gather[ie1, ie2, ie3, il1, il2, il3] += equ_PIC.nh_eq_phys(x1, x2, x3)
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0

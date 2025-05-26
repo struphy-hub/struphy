@@ -53,8 +53,8 @@ def kernel_0_form(Np, p, Nel, p_shape, p_size, particle, lambdas, kernel_0, num_
     df      = empty((3, 3), dtype=float)
 
     lambdas[:,:,:] = 0.0
-    #$ omp parallel
-    #$ omp do reduction ( + : kernel_0, lambdas) private (ip, w, width2, cell_left, point_left, point_right, cell_number, compact, width, mat_f, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, final_1, final_2, final_3, lambda_index1, lambda_index2, lambda_index3, global_i1, global_i2, global_i3, global_il1, global_il2, global_il3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, eta1, eta2, eta3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : kernel_0, lambdas) private (ip, w, width2, cell_left, point_left, point_right, cell_number, compact, width, mat_f, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, final_1, final_2, final_3, lambda_index1, lambda_index2, lambda_index3, global_i1, global_i2, global_i3, global_il1, global_il2, global_il3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, eta1, eta2, eta3)
     for ip in range(Np_loc):
 
         #lambdas[:,:,:] = 0.0
@@ -156,8 +156,8 @@ def kernel_0_form(Np, p, Nel, p_shape, p_size, particle, lambdas, kernel_0, num_
                                 kernel_0[global_i1, global_i2, global_i3, il1, il2, il3] += w * (lambdas[global_i1, global_i2, global_i3] * lambdas[global_il1, global_il2, global_il3])
         
         del mat_f
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
 
 
@@ -216,8 +216,8 @@ def potential_kernel_0_form(Np, p, Nel, p_shape, p_size, particle, lambdas, kern
 
     lambdas[:,:,:] = 0.0
     det_df = params_map[0]*params_map[1]*params_map[2]
-    #$ omp parallel
-    #$ omp do reduction ( + : lambdas) private (ip, w, width, cell_left, point_left, point_right, cell_number, compact, mat_f, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, final_1, final_2, final_3, eta1, eta2, eta3, lambda_index1, lambda_index2, lambda_index3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : lambdas) private (ip, w, width, cell_left, point_left, point_right, cell_number, compact, mat_f, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, final_1, final_2, final_3, eta1, eta2, eta3, lambda_index1, lambda_index2, lambda_index3)
     for ip in range(Np_loc):
 
         #lambdas[:,:,:] = 0.0
@@ -289,8 +289,8 @@ def potential_kernel_0_form(Np, p, Nel, p_shape, p_size, particle, lambdas, kern
             
         
         del mat_f
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
 
 
@@ -354,8 +354,8 @@ def kernel_1_form(right1, right2, right3, pts1, pts2, pts3, wts1, wts2, wts3, Np
     df      = zeros((3, 3), dtype=float)
     dft   = zeros((3, 3), dtype=float)
     # ====================================
-    #$ omp parallel
-    #$ omp do reduction ( + : kernel_11, kernel_12, kernel_13, kernel_22, kernel_23, kernel_33, right1, right2, right3) private (mid1, mid2, mid3, ip, w, det_df, vol, width2, lambdas_11, lambdas_22, lambdas_33, lambdas_12, lambdas_13, lambdas_21, lambdas_23, lambdas_31, lambdas_32, cell_left, point_left, point_right, cell_number, compact, width, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, global_i1, global_i2, global_i3, global_il1, global_il2, global_il3, f_int, jl1, eta1, eta2, eta3, final_index1, final_index2, final_index3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : kernel_11, kernel_12, kernel_13, kernel_22, kernel_23, kernel_33, right1, right2, right3) private (mid1, mid2, mid3, ip, w, det_df, vol, width2, lambdas_11, lambdas_22, lambdas_33, lambdas_12, lambdas_13, lambdas_21, lambdas_23, lambdas_31, lambdas_32, cell_left, point_left, point_right, cell_number, compact, width, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, global_i1, global_i2, global_i3, global_il1, global_il2, global_il3, f_int, jl1, eta1, eta2, eta3, final_index1, final_index2, final_index3)
     for ip in range(Np_loc):
 
         w = particle[6, ip] / Np
@@ -724,8 +724,8 @@ def kernel_1_form(right1, right2, right3, pts1, pts2, pts3, wts1, wts2, wts3, Np
         del mat_31
         del mat_32
         del mat_33
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 
 
@@ -783,8 +783,8 @@ def bv_localproj_push(dt, bb1, bb2, bb3, pts1, pts2, pts3, wts1, wts2, wts3, Np,
     grids_shapey = zeros(p_shape[1] + 2, dtype=float)
     grids_shapez = zeros(p_shape[2] + 2, dtype=float)
     # ====================================
-    #$ omp parallel
-    #$ omp do private (i, grids_shapex, grids_shapey, grids_shapez, vel, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, f_int, jl1, eta1, eta2, eta3, final_index1, final_index2, final_index3, lambda_index1, lambda_index2, lambda_index3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (i, grids_shapex, grids_shapey, grids_shapez, vel, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, f_int, jl1, eta1, eta2, eta3, final_index1, final_index2, final_index3, lambda_index1, lambda_index2, lambda_index3)
     for ip in range(Np_loc):
 
         vel[:] = 0.0
@@ -1038,8 +1038,8 @@ def bv_localproj_push(dt, bb1, bb2, bb3, pts1, pts2, pts3, wts1, wts2, wts3, Np,
         del mat_31
         del mat_32
         del mat_33
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 
 
@@ -1104,8 +1104,8 @@ def kernel_1_heavy(pts1, pts2, pts3, wts1, wts2, wts3, out1, out2, out3, in1, in
     out2[:,:,:] = 0.0
     out3[:,:,:] = 0.0
 
-    #$ omp parallel
-    #$ omp do reduction ( + : out1, out2, out3) private (value1, value2, value3, i, grids_shapex, grids_shapey, grids_shapez, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, eta1, eta2, eta3, final_index1, final_index2, final_index3, f_int)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : out1, out2, out3) private (value1, value2, value3, i, grids_shapex, grids_shapey, grids_shapez, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, eta1, eta2, eta3, final_index1, final_index2, final_index3, f_int)
     for ip in range(Np_loc):
 
         w = particle[6, ip] / Np
@@ -1378,8 +1378,8 @@ def kernel_1_heavy(pts1, pts2, pts3, wts1, wts2, wts3, out1, out2, out3, in1, in
         del mat_31
         del mat_32
         del mat_33
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 
 
@@ -1452,8 +1452,8 @@ def vv_1_form(wts1, wts2, wts3, pts1, pts2, pts3, ddt, right1, right2, right3, N
     right2[:,:,:] = 0.0
     right3[:,:,:] = 0.0
     # ====================================
-    #$ omp parallel
-    #$ omp do reduction ( + : right1, right2, right3) private (i, grids_shapex, grids_shapey, grids_shapez, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_22, lambdas_33, lambdas_12, lambdas_13, lambdas_21, lambdas_23, lambdas_31, lambdas_32, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, jl1, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, eta1, eta2, eta3, final_index1, final_index2, final_index3, f_int)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : right1, right2, right3) private (i, grids_shapex, grids_shapey, grids_shapez, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_22, lambdas_33, lambdas_12, lambdas_13, lambdas_21, lambdas_23, lambdas_31, lambdas_32, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, jl1, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, eta1, eta2, eta3, final_index1, final_index2, final_index3, f_int)
     for ip in range(Np_loc):
 
         w = particle[6, ip] / Np
@@ -1682,8 +1682,8 @@ def vv_1_form(wts1, wts2, wts3, pts1, pts2, pts3, ddt, right1, right2, right3, N
         del mat_32
         del mat_33
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 
 
@@ -1743,8 +1743,8 @@ def vv_push(out, dt, bb1, bb2, bb3, pts1, pts2, pts3, wts1, wts2, wts3, Np, quad
     grids_shapey = zeros(p_shape[1] + 2, dtype=float)
     grids_shapez = zeros(p_shape[2] + 2, dtype=float)
     # ====================================
-    #$ omp parallel
-    #$ omp do private (i, grids_shapex, grids_shapey, grids_shapez, vel, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, jl1, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, eta1, eta2, eta3, final_index1, final_index2, final_index3, lambda_index1, lambda_index2, lambda_index3, f_int)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (i, grids_shapex, grids_shapey, grids_shapez, vel, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, jl1, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, eta1, eta2, eta3, final_index1, final_index2, final_index3, lambda_index1, lambda_index2, lambda_index3, f_int)
     for ip in range(Np_loc):
 
         vel[:] = 0.0
@@ -1985,6 +1985,6 @@ def vv_push(out, dt, bb1, bb2, bb3, pts1, pts2, pts3, wts1, wts2, wts3, Np, quad
         del mat_31
         del mat_32
         del mat_33
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0

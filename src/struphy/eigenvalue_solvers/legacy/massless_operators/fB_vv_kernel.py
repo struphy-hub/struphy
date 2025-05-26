@@ -13,8 +13,8 @@ from numpy import  exp, empty, zeros, floor
 def right_hand(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3, p1, p2, p3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, right_1, right_2, right_3, temp_vector_1, temp_vector_2, temp_vector_3):
     
 
-    #$ omp parallel 
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel 
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -31,12 +31,12 @@ def right_hand(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, n
 
                             right_1[ie1, ie2, ie3, q1, q2, q3] = value  
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -52,11 +52,11 @@ def right_hand(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, n
                                         value += bn1[ie1, il1, 0, q1] * bd2[ie2, il2, 0, q2] * bn3[ie3, il3, 0, q3] * temp_vector_2[idnx[ie1, il1], iddy[ie2, il2], idnz[ie3, il3]]
 
                             right_2[ie1, ie2, ie3, q1, q2, q3] = value  
-    #$ omp end do 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do 
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -73,8 +73,8 @@ def right_hand(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, n
                                         value += bn1[ie1, il1, 0, q1] * bn2[ie2, il2, 0, q2] * bd3[ie3, il3, 0, q3] * temp_vector_3[idnx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]]
 
                             right_3[ie1, ie2, ie3, q1, q2, q3] = value   
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 
 
@@ -84,8 +84,8 @@ def right_hand(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, n
 @types('int','int','int','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
 def weight(nel1, nel2, nel3, nq1, nq2, nq3, b1value, b2value, b3value, right_1, right_2, right_3, weight1, weight2, weight3):
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -95,8 +95,8 @@ def weight(nel1, nel2, nel3, nq1, nq2, nq3, b1value, b2value, b3value, right_1, 
                             weight1[ie1,ie2,ie3,q1,q2,q3] = b2value[ie1,ie2,ie3,q1,q2,q3] * right_3[ie1,ie2,ie3,q1,q2,q3] - b3value[ie1,ie2,ie3,q1,q2,q3] * right_2[ie1,ie2,ie3,q1,q2,q3]
                             weight2[ie1,ie2,ie3,q1,q2,q3] = b3value[ie1,ie2,ie3,q1,q2,q3] * right_1[ie1,ie2,ie3,q1,q2,q3] - b1value[ie1,ie2,ie3,q1,q2,q3] * right_3[ie1,ie2,ie3,q1,q2,q3]
                             weight3[ie1,ie2,ie3,q1,q2,q3] = b1value[ie1,ie2,ie3,q1,q2,q3] * right_2[ie1,ie2,ie3,q1,q2,q3] - b2value[ie1,ie2,ie3,q1,q2,q3] * right_1[ie1,ie2,ie3,q1,q2,q3]
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
 
@@ -110,8 +110,8 @@ def final(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3, p
     temp_final_1[:,:,:] = 0.0
     temp_final_2[:,:,:] = 0.0
     temp_final_3[:,:,:] = 0.0
-    #$ omp parallel
-    #$ omp do reduction ( + : temp_final_1) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : temp_final_1) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -128,11 +128,11 @@ def final(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3, p
 
                             temp_final_1[iddx[ie1, il1], idny[ie2, il2], idnz[ie3, il3]] += value 
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do reduction ( + : temp_final_2) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : temp_final_2) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -150,11 +150,11 @@ def final(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3, p
                             
                             temp_final_2[idnx[ie1, il1], iddy[ie2, il2], idnz[ie3, il3]] += value
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do reduction ( + : temp_final_3) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : temp_final_3) private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -171,8 +171,8 @@ def final(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3, p
                             
                             temp_final_3[idnx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]] += value
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
     ierr = 0 
 
@@ -187,8 +187,8 @@ def final(idnx, idny, idnz, iddx, iddy, iddz, nel1, nel2, nel3, nq1, nq2, nq3, p
 @types('int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:]','double[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]')
 def prepre(idnx, idny, idnz, iddx, iddy, iddz, det_df, DFIT_11, DFIT_12, DFIT_13, DFIT_21, DFIT_22, DFIT_23, DFIT_31, DFIT_32, DFIT_33, nel1, nel2, nel3, nq1, nq2, nq3, p1, p2, p3, d1, d2, d3, b1value, b2value, b3value, uvalue, b1, b2, b3, dft, generate_weight1, generate_weight3, bn1, bn2, bn3, bd1, bd2, bd3, pts1, pts2, pts3, wts1, wts2, wts3):
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
     
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -206,11 +206,11 @@ def prepre(idnx, idny, idnz, iddx, iddy, iddz, det_df, DFIT_11, DFIT_12, DFIT_13
 
                             b1value[ie1, ie2, ie3, q1, q2, q3] = value  
     
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -227,11 +227,11 @@ def prepre(idnx, idny, idnz, iddx, iddy, iddz, det_df, DFIT_11, DFIT_12, DFIT_13
                                         value += bn1[ie1, il1, 0, q1] * bd2[ie2, il2, 0, q2] * bn3[ie3, il3, 0, q3] * b2[idnx[ie1, il1], iddy[ie2, il2], idnz[ie3, il3]]
 
                             b2value[ie1, ie2, ie3, q1, q2, q3] = value  
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 
     for ie1 in range(nel1):
         for ie2 in range(nel2):
@@ -248,12 +248,12 @@ def prepre(idnx, idny, idnz, iddx, iddy, iddz, det_df, DFIT_11, DFIT_12, DFIT_13
                                         value += bn1[ie1, il1, 0, q1] * bn2[ie2, il2, 0, q2] * bd3[ie3, il3, 0, q3] * b3[idnx[ie1, il1], idny[ie2, il2], iddz[ie3, il3]]
 
                             b3value[ie1, ie2, ie3, q1, q2, q3] = value  
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
 
     
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3, detdet)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, detdet)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -267,8 +267,8 @@ def prepre(idnx, idny, idnz, iddx, iddy, iddz, det_df, DFIT_11, DFIT_12, DFIT_13
                             b2value[ie1,ie2,ie3,q1,q2,q3] = b2value[ie1,ie2,ie3,q1,q2,q3] * detdet
                             b3value[ie1,ie2,ie3,q1,q2,q3] = b3value[ie1,ie2,ie3,q1,q2,q3] * detdet
                             
-    #$ omp end do
-    #$ omp end parallel 
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel 
     
     ierr = 0 
 
@@ -338,8 +338,8 @@ def piecewise_gather(ddt, index_shapex, index_shapey, index_shapez, index_diffx,
     # ==========================================================
 
 
-    #$ omp parallel
-    #$ omp do reduction ( + : gather_1, gather_2, gather_3) private (ip, eta1, eta2, eta3, ie1, ie2, ie3, vel, weight_p, point_left, point_right, cell_left, cell_number1, cell_number2, cell_number3, il1, il2 ,il3, q1, q2, q3, temp1, temp4, value_x, value_y, value_z, ww, index1, index2, index3, preindex1, preindex2, preindex3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : gather_1, gather_2, gather_3) private (ip, eta1, eta2, eta3, ie1, ie2, ie3, vel, weight_p, point_left, point_right, cell_left, cell_number1, cell_number2, cell_number3, il1, il2 ,il3, q1, q2, q3, temp1, temp4, value_x, value_y, value_z, ww, index1, index2, index3, preindex1, preindex2, preindex3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df)
     
     for ip in range(Np_loc):
 
@@ -419,8 +419,8 @@ def piecewise_gather(ddt, index_shapex, index_shapey, index_shapez, index_diffx,
                                     gather_3[index1, index2, index3, q1, q2, q3] += vel[2] * ww 
 
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 
 
@@ -486,8 +486,8 @@ def piecewise_scatter(index_shapex, index_shapey, index_shapez, index_diffx, ind
     # ==========================================================
 
 
-    #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, weight_p, point_left, point_right, cell_left, cell_number1, cell_number2, cell_number3, il1, il2, il3, q1, q2, q3, temp1, temp4, value_x, value_y, value_z, ww, index1, index2, index3, preindex1, preindex2, preindex3, vel, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ip, eta1, eta2, eta3, weight_p, point_left, point_right, cell_left, cell_number1, cell_number2, cell_number3, il1, il2, il3, q1, q2, q3, temp1, temp4, value_x, value_y, value_z, ww, index1, index2, index3, preindex1, preindex2, preindex3, vel, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df)
 
     for ip in range(Np_loc):
 
@@ -563,7 +563,7 @@ def piecewise_scatter(index_shapex, index_shapey, index_shapez, index_diffx, ind
         RK_vector[2, ip] = vel[2]
 
 
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     ierr = 0
 

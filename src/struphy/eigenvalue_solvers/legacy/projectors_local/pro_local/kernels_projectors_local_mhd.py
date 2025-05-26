@@ -7,8 +7,8 @@ def kernel_pi0(n, n_int, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3,
     tau[:, :, :, :, :, :] = 0.
     
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, basis)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, basis)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -37,8 +37,8 @@ def kernel_pi0(n, n_int, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3,
                                         basis = bs1[x_int_ind1[i1, j1], k1] * bs2[x_int_ind2[i2, j2], k2] * bs3[x_int_ind3[i3, j3], k3]
                                         
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * basis * mat_eq[x_int_ind1[i1, j1], x_int_ind2[i2, j2], x_int_ind3[i3, j3]]
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
                                         
@@ -50,8 +50,8 @@ def kernel_pi1_1(n, n_quad1, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
     tau[:, :, :, :, :, :] = 0.
     
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -83,8 +83,8 @@ def kernel_pi1_1(n, n_quad1, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
                                             f_int += wts1[x_his_ind1[i1, j1], q1] * bs1[x_his_ind1[i1, j1], q1, k1] * bs2[x_int_ind2[i2, j2], k2] * bs3[x_int_ind3[i3, j3], k3] * mat_eq[x_his_ind1[i1, j1], q1, x_int_ind2[i2, j2], x_int_ind3[i3, j3]]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
                                         
@@ -97,8 +97,8 @@ def kernel_pi1_2(n, n_quad2, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
     
     tau[:, :, :, :, :, :] = 0.
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q2)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q2)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -130,8 +130,8 @@ def kernel_pi1_2(n, n_quad2, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
                                             f_int += wts2[x_his_ind2[i2, j2], q2] * bs1[x_int_ind1[i1, j1], k1] * bs2[x_his_ind2[i2, j2], q2, k2] * bs3[x_int_ind3[i3, j3], k3] * mat_eq[x_int_ind1[i1, j1], x_his_ind2[i2, j2], q2, x_int_ind3[i3, j3]]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
                                         
@@ -142,8 +142,8 @@ def kernel_pi1_3(n, n_quad3, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
     
     tau[:, :, :, :, :, :] = 0.
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q3)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q3)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -175,8 +175,8 @@ def kernel_pi1_3(n, n_quad3, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
                                             f_int += wts3[x_his_ind3[i3, j3], q3] * bs1[x_int_ind1[i1, j1], k1] * bs2[x_int_ind2[i2, j2], k2] * bs3[x_his_ind3[i3, j3], q3, k3] * mat_eq[x_int_ind1[i1, j1], x_int_ind2[i2, j2], x_his_ind3[i3, j3], q3]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
                                         
@@ -187,8 +187,8 @@ def kernel_pi2_1(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
     
     tau[:, :, :, :, :, :] = 0.
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q2, q3, wvol)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q2, q3, wvol)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -222,8 +222,8 @@ def kernel_pi2_1(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
                                                 f_int += wvol * bs1[x_int_ind1[i1, j1], k1] * bs2[x_his_ind2[i2, j2], q2, k2] * bs3[x_his_ind3[i3, j3], q3, k3] * mat_eq[x_int_ind1[i1, j1], x_his_ind2[i2, j2], q2, x_his_ind3[i3, j3], q3]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
                                         
@@ -235,8 +235,8 @@ def kernel_pi2_2(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
     
     tau[:, :, :, :, :, :] = 0.
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1, q3, wvol)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1, q3, wvol)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -270,8 +270,8 @@ def kernel_pi2_2(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
                                                 f_int += wvol * bs1[x_his_ind1[i1, j1], q1, k1] * bs2[x_int_ind2[i2, j2], k2] * bs3[x_his_ind3[i3, j3], q3, k3] * mat_eq[x_his_ind1[i1, j1], q1, x_int_ind2[i2, j2], x_his_ind3[i3, j3], q3]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
                                         
@@ -283,8 +283,8 @@ def kernel_pi2_3(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
     
     tau[:, :, :, :, :, :] = 0.
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1, q2, wvol)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1, q2, wvol)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -318,8 +318,8 @@ def kernel_pi2_3(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
                                                 f_int += wvol * bs1[x_his_ind1[i1, j1], q1, k1] * bs2[x_his_ind2[i2, j2], q2, k2] * bs3[x_int_ind3[i3, j3], k3] * mat_eq[x_his_ind1[i1, j1], q1, x_his_ind2[i2, j2], q2, x_int_ind3[i3, j3]]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
                                         
@@ -330,8 +330,8 @@ def kernel_pi3(n, n_quad, n_his, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2,
     
     tau[:, :, :, :, :, :] = 0.
     
-    #$ omp parallel
-    #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1, q2, q3, wvol)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do reduction ( + : tau) private (i1, i2, i3, j1, j2, j3, coeff, kl1, k1, c1, kl2, k2, c2, kl3, k3, c3, f_int, q1, q2, q3, wvol)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
@@ -366,7 +366,7 @@ def kernel_pi3(n, n_quad, n_his, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2,
                                                     f_int += wvol * bs1[x_his_ind1[i1, j1], q1, k1] * bs2[x_his_ind2[i2, j2], q2, k2] * bs3[x_his_ind3[i3, j3], q3, k3] * mat_eq[x_his_ind1[i1, j1], q1, x_his_ind2[i2, j2], q2, x_his_ind3[i3, j3], q3]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0

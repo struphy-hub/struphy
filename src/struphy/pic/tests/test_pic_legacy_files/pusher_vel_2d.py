@@ -107,8 +107,8 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
     # ==========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, der1, der2, bn1, bn2, bd1, bd2, cs, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, der1, der2, bn1, bn2, bd1, bd2, cs, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (0 < s < 1)
@@ -249,8 +249,8 @@ def pusher_step3(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
         particles[5, ip] += dt*e_cart[2]
         # ==========================================
         
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
     
@@ -346,8 +346,8 @@ def pusher_step5(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
     # ==========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, cs, b, b_cart, b_norm, b0, v, vpar, vxb0, vperp, b0xvperp)
+    # -- removed omp: #$ omp parallel
+    # -- removed omp: #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, cs, b, b_cart, b_norm, b0, v, vpar, vxb0, vperp, b0xvperp)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (0 < s < 1)
@@ -437,7 +437,7 @@ def pusher_step5(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_
         particles[3:6, ip] = vpar*b0 + cos(b_norm*dt)*vperp - sin(b_norm*dt)*b0xvperp
         # ==========================================
     
-    #$ omp end do
-    #$ omp end parallel
+    # -- removed omp: #$ omp end do
+    # -- removed omp: #$ omp end parallel
     
     ierr = 0
