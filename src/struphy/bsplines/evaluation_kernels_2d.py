@@ -20,7 +20,7 @@ from pyccel.decorators import pure, stack_array
 from numpy import empty, zeros, copy
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
-from struphy.bsplines.bsplines_kernels import basis_funs, scaling, basis_funs_1st_der, basis_funs_all_ders, find_span
+
 def _tmp_floor_division_evaluation_kernels_2d(x: int):
     y = zeros(10)
     z = copy(y)
@@ -96,8 +96,8 @@ def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int,
     """
 
     # find knot span indices
-    span1 = find_span(t1, p1, eta1)
-    span2 = find_span(t2, p2, eta2)
+    span1 = bsplines_kernels.find_span(t1, p1, eta1)
+    span2 = bsplines_kernels.find_span(t2, p2, eta2)
 
     # evaluate non-vanishing basis functions
     b1 = empty(p1 + 1, dtype=float)
@@ -114,29 +114,29 @@ def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int,
 
     # 1st direction
     if kind1 == 1:
-        basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+        bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
     elif kind1 == 2:
-        basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
-        scaling(t1, p1, span1, b1)
+        bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+        bsplines_kernels.scaling(t1, p1, span1, b1)
     elif kind1 == 3:
-        basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
+        bsplines_kernels.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
     elif kind1 == 4:
         tmp3 = zeros((3, p1 + 1), dtype=float)
-        basis_funs_all_ders(
+        bsplines_kernels.basis_funs_all_ders(
             t1, p1, eta1, span1, bl1, br1, 2, tmp3)
         b1[:] = tmp3[2, :]
 
     # 2nd direction
     if kind2 == 1:
-        basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
+        bsplines_kernels.basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
     elif kind2 == 2:
-        basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
-        scaling(t2, p2, span2, b2)
+        bsplines_kernels.basis_funs(t2, p2, eta2, span2, bl2, br2, b2)
+        bsplines_kernels.scaling(t2, p2, span2, b2)
     elif kind2 == 3:
-        basis_funs_1st_der(t2, p2, eta2, span2, bl2, br2, b2)
+        bsplines_kernels.basis_funs_1st_der(t2, p2, eta2, span2, bl2, br2, b2)
     elif kind2 == 4:
         tmp4 = zeros((3, p2 + 1), dtype=float)
-        basis_funs_all_ders(
+        bsplines_kernels.basis_funs_all_ders(
             t2, p2, eta2, span2, bl2, br2, 2, tmp4)
         b2[:] = tmp4[2, :]
 
