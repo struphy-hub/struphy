@@ -199,9 +199,8 @@ class Pusher:
             markers[:, residual_idx:-2] = 0.0
 
         else:
-
             for pti in self.particles.markers.iterator(self.particles.markers, 0):
-                markers_array=self.particles.get_amrex_markers_array(pti.soa())
+                markers_array = self.particles.get_amrex_markers_array(pti.soa())
                 # save initial phase space coordinates
                 markers_array["init_x"][:] = markers_array["x"][:]
                 markers_array["init_y"][:] = markers_array["y"][:]

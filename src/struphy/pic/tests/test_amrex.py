@@ -19,10 +19,11 @@ except ImportError:
 Np = 4000
 seed = None
 
+import cProfile
 import datetime
 import linecache
+import pstats
 import tracemalloc
-import cProfile, pstats
 
 
 def display_top(snapshot, file, key_type="lineno", limit=10):
@@ -1053,7 +1054,7 @@ def plot_cylinder(positions, velocities, colors, a2, title, path):
     plt.savefig(path)
 
 
-def profile_push_v_in_efield(sort='calls'):
+def profile_push_v_in_efield(sort="calls"):
     l1 = -5
     r1 = 5.0
     l2 = -7
@@ -1068,7 +1069,7 @@ def profile_push_v_in_efield(sort='calls'):
     bc = ["reflect", "periodic", "periodic"]
 
     struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
-    
+
     # pass simulation parameters to Propagator class
     PushEta.domain = domain
 
@@ -1082,20 +1083,20 @@ def profile_push_v_in_efield(sort='calls'):
             amrex_prop_eta(0.2)
         ps = pstats.Stats(pr).sort_stats(sort)
         ps.print_stats(0.1)
-        
+
     with cProfile.Profile() as pr:
         print("#### STRUPHY ####")
         for _ in range(1000):
             struphy_prop_eta(0.2)
         ps = pstats.Stats(pr).sort_stats(sort)
         ps.print_stats(0.1)
-        
+
     amrex.finalize()
 
 
 if __name__ == "__main__":
     test_amrex_push_v_in_e_field()
-    profile_push_v_in_efield('tottime') # sort = 'cumtime'
+    profile_push_v_in_efield("tottime")  # sort = 'cumtime'
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
