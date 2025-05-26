@@ -8,7 +8,10 @@ salloc --partition=gpudev --ntasks=1 --time=00:15:00 --mem=12500 --gres=gpu:a100
 
 ```
 module purge
-module load nvhpcsdk/25 cuda/12.6-nvhpcsdk_25 openmpi/5.0 openmpi_gpu/5.0
+module load nvhpcsdk/25 cuda/12.6-nvhpcsdk_25 openmpi/5.0 openmpi_gpu/5.0 gcc/13 likwid/5.3
+
+LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
+export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib:$LD_LIBRARY_PATH
 
 source ~/virtual_envs/env_struphy/bin/activate
 ```
@@ -39,13 +42,8 @@ python src/struphy/gpu/test_pyccel_timings.py
 Run with CPU
 
 ```
-struphy run Vlasov --time-trace -o sim_cpu
-```
-
-Run with GPU
-
-```
-struphy run Vlasov --gpu --time-trace -o sim_gpu
+struphy run Vlasov       --time-trace -o sim_cpu # CPU
+struphy run Vlasov --gpu --time-trace -o sim_gpu # GPU
 ```
 
 post processing
