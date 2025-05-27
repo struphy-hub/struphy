@@ -582,7 +582,7 @@ def push_v_sph_pressure_gpu(
         # linalg_kernels.transpose(dfinv, dfinvT)
         transpose_inline(dfinv, dfinvT)
         # linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
-        # matrix_vector_inline(dfinvT, grad_u, grad_u_cart)
+        matrix_vector_inline(dfinvT, grad_u, grad_u_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt * grad_u_cart
