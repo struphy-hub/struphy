@@ -65,6 +65,49 @@ def plot_time_vs_duration(
     plt.savefig(figure_path)
     print(f"Saved time trace to:{figure_path}")
 
+def plot_avg_duration_bar_chart(
+    path,
+    output_path,
+    groups_include=["*"],
+    groups_skip=[],
+):
+    with open(path, "rb") as file:
+        profiling_data = pickle.load(file)
+
+    region_durations = {}
+
+    # Gather all durations per region across all ranks
+    for rank_data in profiling_data["rank_data"].values():
+        for region_name, info in rank_data.items():
+            if any(skip in region_name for skip in groups_skip):
+                continue
+            if groups_include != ["*"] and not any(inc in region_name for inc in groups_include):
+                continue
+            durations = info["durations"]
+            region_durations.setdefault(region_name, []).extend(durations)
+
+    # Compute statistics per region
+    regions = sorted(region_durations.keys())
+    avg_durations = [np.mean(region_durations[r]) for r in regions]
+    min_durations = [np.min(region_durations[r]) for r in regions]
+    max_durations = [np.max(region_durations[r]) for r in regions]
+    yerr = [[avg - min_ for avg, min_ in zip(avg_durations, min_durations)],
+            [max_ - avg for avg, max_ in zip(avg_durations, max_durations)]]
+
+    # Plot bar chart with error bars (min-max spans)
+    plt.figure(figsize=(12, 6))
+    x = np.arange(len(regions))
+    plt.bar(x, avg_durations, yerr=yerr, capsize=5, color="skyblue", edgecolor="k")
+    plt.xticks(x, regions, rotation=45, ha="right")
+    plt.ylabel("Duration (s)")
+    plt.title("Average Duration per Profiling Region (with Min-Max Span)")
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.tight_layout()
+
+    # Save the figure
+    figure_path = os.path.join(output_path, "avg_duration_per_region.pdf")
+    plt.savefig(figure_path)
+    print(f"Saved average duration bar chart to: {figure_path}")
 
 def plot_gantt_chart(
     path,
@@ -187,3 +230,4 @@ if __name__ == "__main__":
     # Plot the time trace
     plot_time_vs_duration(path, output_path=o_path)
     plot_gantt_chart(path, output_path=o_path)
+    plot_avg_duration_bar_chart(path, output_path=o_path,groups_skip=['main'])

@@ -62,11 +62,12 @@ def main(
         os.mkdir(path_pproc)
 
     if time_trace:
-        from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart, plot_time_vs_duration
+        from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart, plot_time_vs_duration, plot_avg_duration_bar_chart
 
         path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
         plot_time_vs_duration(path_time_trace, output_path=path_pproc)
         plot_gantt_chart(path_time_trace, output_path=path_pproc)
+        plot_avg_duration_bar_chart(path, output_path=path_pproc, groups_skip=['main'])
         return
 
     # check for fields and kinetic data in hdf5 file that need post processing
