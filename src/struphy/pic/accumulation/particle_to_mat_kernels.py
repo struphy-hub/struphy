@@ -27,9 +27,9 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.pic.accumulation.filler_kernels as filler_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+# import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.bsplines.evaluation_kernels_3d import get_spans
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
+from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments
 
 
 def _tmp_floor_division_p2mat_kernels(x: int):

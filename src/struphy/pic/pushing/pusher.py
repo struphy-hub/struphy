@@ -7,7 +7,7 @@ import numpy as np
 from mpi4py.MPI import IN_PLACE, SUM
 
 from struphy.pic.base import Particles
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
 from struphy.profiling.profiling import ProfileManager
 
 

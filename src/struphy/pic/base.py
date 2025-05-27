@@ -27,7 +27,7 @@ from struphy.initial import perturbations
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
+from struphy.pic.pushing.pusher_kernels_gpu import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,
@@ -1022,9 +1022,9 @@ class Particles(metaclass=ABCMeta):
             n_mks_load_loc * (1 + 1 / np.sqrt(n_mks_load_loc) + self.eps),
         )
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
-        # if self._gpu:
-        #     self._markers_gpu = cp.asarray(self._markers)
-        self._markers_gpu = cp.asarray(self._markers)
+
+        if self._gpu:
+            self._markers_gpu = cp.asarray(self._markers)
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)

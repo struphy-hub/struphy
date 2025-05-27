@@ -1,16 +1,8 @@
 # "Pusher kernels for full orbit (6D) particles."
 # from pyccel.stdlib.internal.openmp import omp_set_num_threads, omp_get_num_threads, omp_get_thread_num
-
-from numpy import copy, cos, empty, floor, log, shape, sin, sqrt, zeros
+from numpy import abs, cos, exp, pi, sin, sqrt
+from numpy import copy, empty, floor, log, shape, zeros
 from pyccel.decorators import inline, pure, stack_array
-
-
-def _tmp_floor_division_pusher_kernels(x: int):
-    y = zeros(10)
-    z = copy(y)
-
-    return floor(x // 2)
-
 
 # import struphy.bsplines.bsplines_kernels as bsplines_kernels
 # import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
@@ -18,7 +10,7 @@ def _tmp_floor_division_pusher_kernels(x: int):
 # import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
-# import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 # import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
 # from struphy.bsplines.evaluation_kernels_3d import (
 #     # eval_0form_spline_mpi,
@@ -34,12 +26,178 @@ def _tmp_floor_division_pusher_kernels(x: int):
 # import struphy.linear_algebra.linalg_kernels as linalg_kernels
 # from linalg_kernels import det, scalar_dot
 # # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-import struphy.pic.sph_eval_kernels as sph_eval_kernels
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+# import struphy.pic.sph_eval_kernels as sph_eval_kernels
+# from struphy.pic.sph_eval_kernels import boxed_based_kernel
+# from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
 
 # # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
 # # from struphy.geometry.evaluation_kernels import df
+
+
+class MarkerArguments:
+    """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
+    passed to particle kernels.
+
+    Paramaters
+    ----------
+    markers : array[float]
+        Markers array.
+
+    Np : int
+        Total number of particles.
+
+    vdim : int
+        Dimension of velocity space.
+
+    weight_idx : int
+        Column index of particle weight.
+
+    first_diagnostics_idx : int
+        Starting index for diagnostics columns:
+        after 3 positions, vdim velocities, weight, s0 and w0.
+
+    first_pusher_idx : int
+        Starting buffer marker index number for pusher.
+
+    first_shift_idx : int
+        First index for storing shifts due to boundary conditions in eta-space.
+
+    residual_idx: int
+        Column for storing the residual in iterative pushers.
+
+    first_free_idx : int
+        First index for storing auxiliary quantities for each particle.
+    """
+
+    def __init__(
+        self,
+        markers: "float[:, :]",
+        valid_mks: "bool[:]",
+        Np: int,
+        vdim: int,
+        weight_idx: int,
+        first_diagnostics_idx: int,
+        first_pusher_idx: int,
+        first_shift_idx: int,
+        residual_idx: int,
+        first_free_idx: int,
+    ):
+        self.markers = markers
+        self.valid_mks = valid_mks
+        self.Np = Np
+        self.vdim = vdim
+        self.weight_idx = weight_idx
+        self.n_markers = markers.shape[0]
+
+        # useful indices
+        self.first_diagnostics_idx = first_diagnostics_idx
+        self.first_init_idx = first_pusher_idx
+        self.first_shift_idx = first_shift_idx  # starting idx for eta-shifts due to boundary conditions
+        self.residual_idx = residual_idx  # residual in iterative solvers
+        self.first_free_idx = first_free_idx  # index after which auxiliary saving is possible
+
+        # only used for Particles5D
+        self.energy_idx = 8  # particle energy
+        self.mu_idx = 9  # particle magnetic moment
+        self.toroidalmom_idx = 10  # particle toroidal momentum
+
+
+class DerhamArguments:
+    """Holds the mandatory arguments pertaining to :class:`~struphy.feec.psydac_derham.Derham` passed to particle pusher kernels.
+
+    Paramaters
+    ----------
+    pn : array[int]
+        Spline degrees of :class:`~struphy.feec.psydac_derham.Derham`.
+
+    tn1, tn2, tn3 : array[float]
+        Knot sequences of :class:`~struphy.feec.psydac_derham.Derham`.
+
+    starts : array[int]
+        Start indices (current MPI process) of :class:`~struphy.feec.psydac_derham.Derham`.
+    """
+
+    def __init__(
+        self,
+        pn: "int[:]",
+        tn1: "float[:]",
+        tn2: "float[:]",
+        tn3: "float[:]",
+        starts: "int[:]",
+    ):
+        self.pn = pn
+        self.tn1 = tn1
+        self.tn2 = tn2
+        self.tn3 = tn3
+        self.starts = starts
+
+        self.bn1 = empty(pn[0] + 1, dtype=float)
+        self.bn2 = empty(pn[1] + 1, dtype=float)
+        self.bn3 = empty(pn[2] + 1, dtype=float)
+        self.bd1 = empty(pn[0], dtype=float)
+        self.bd2 = empty(pn[1], dtype=float)
+        self.bd3 = empty(pn[2], dtype=float)
+
+
+class DomainArguments:
+    """Holds the mandatory arguments pertaining to :class:`~struphy.geometry.base.Domain` passed to particle pusher kernels.
+
+    Paramaters
+    ----------
+    kind : int
+        Mapping identifier of :class:`~struphy.geometry.base.Domain`.
+
+    params : array[float]
+        Mapping parameters of :class:`~struphy.geometry.base.Domain`.
+
+    p : array[int]
+        Spline degrees of :class:`~struphy.geometry.base.Domain`.
+
+    t1, t2, t3 : array[float]
+        Knot sequences of :class:`~struphy.geometry.base.Domain`.
+
+    ind1, ind2, ind3 : array[float]
+        Indices of non-vanishing splines in format (number of mapping grid cells, p + 1) of :class:`~struphy.geometry.base.Domain`.
+
+    cx, cy, cz : array[float]
+        Spline coefficients (control points) of :class:`~struphy.geometry.base.Domain`.
+    """
+
+    def __init__(
+        self,
+        kind_map: int,
+        params: "float[:]",
+        p: "int[:]",
+        t1: "float[:]",
+        t2: "float[:]",
+        t3: "float[:]",
+        ind1: "int[:,:]",
+        ind2: "int[:,:]",
+        ind3: "int[:,:]",
+        cx: "float[:,:,:]",
+        cy: "float[:,:,:]",
+        cz: "float[:,:,:]",
+    ):
+        self.kind_map = kind_map
+        self.params = copy(params)
+        self.p = copy(p)
+        self.t1 = copy(t1)
+        self.t2 = copy(t2)
+        self.t3 = copy(t3)
+        self.ind1 = copy(ind1)
+        self.ind2 = copy(ind2)
+        self.ind3 = copy(ind3)
+        self.cx = copy(cx)
+        self.cy = copy(cy)
+        self.cz = copy(cz)
+
+
+def _tmp_floor_division_pusher_kernels(x: int):
+    y = zeros(10)
+    z = copy(y)
+
+    return floor(x // 2)
 
 
 def matmul_cpu(A: "float[:,:]", B: "float[:,:]", C: "float[:,:]"):
@@ -349,7 +507,7 @@ def push_vxb_analytic_gpu(
             markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
 
 
-@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
+# @stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
 def push_v_sph_pressure_gpu(
     dt: float,
     stage: int,
@@ -417,6 +575,7 @@ def push_v_sph_pressure_gpu(
 
     # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     # -- removed omp: #$ omp for
+    #$ omp target teams distribute parallel for
     for ip in range(n_markers):
         if not valid_mks[ip]:
             continue
@@ -430,7 +589,7 @@ def push_v_sph_pressure_gpu(
         loc_box = int(markers[ip, -2])
 
         # first component
-        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+        grad_u[0] = boxed_based_kernel_inline(
             eta1,
             eta2,
             eta3,
@@ -451,7 +610,7 @@ def push_v_sph_pressure_gpu(
         )
         grad_u[0] *= kappa / n_at_eta
 
-        sum2 = sph_eval_kernels.boxed_based_kernel(
+        sum2 = boxed_based_kernel_inline(
             eta1,
             eta2,
             eta3,
@@ -475,7 +634,7 @@ def push_v_sph_pressure_gpu(
 
         if kernel_type >= 340:
             # second component
-            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[1] = boxed_based_kernel_inline(
                 eta1,
                 eta2,
                 eta3,
@@ -496,7 +655,7 @@ def push_v_sph_pressure_gpu(
             )
             grad_u[1] *= kappa / n_at_eta
 
-            sum4 = sph_eval_kernels.boxed_based_kernel(
+            sum4 = boxed_based_kernel_inline(
                 eta1,
                 eta2,
                 eta3,
@@ -520,7 +679,7 @@ def push_v_sph_pressure_gpu(
 
         if kernel_type >= 670:
             # third component
-            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[2] = boxed_based_kernel_inline(
                 eta1,
                 eta2,
                 eta3,
@@ -541,7 +700,7 @@ def push_v_sph_pressure_gpu(
             )
             grad_u[2] *= kappa / n_at_eta
 
-            sum6 = sph_eval_kernels.boxed_based_kernel(
+            sum6 = boxed_based_kernel_inline(
                 eta1,
                 eta2,
                 eta3,
@@ -583,15 +742,119 @@ def push_v_sph_pressure_gpu(
         #     dfinv,
         # )
         # linalg_kernels.transpose(dfinv, dfinvT)
-        transpose_inline(dfinv, dfinvT)
+        # transpose_inline(dfinv, dfinvT)
+        for _i in range(3):
+            for _j in range(3):
+                dfinvT[_i, _j] = dfinv[_j, _i]
         # linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
-        matrix_vector_inline(dfinvT, grad_u, grad_u_cart)
+        # matrix_vector_inline(dfinvT, grad_u, grad_u_cart)
+
+        grad_u_cart[:] = 0.0
+
+        for _i in range(3):
+            for _j in range(3):
+                grad_u_cart[_i] += dfinvT[_i, _j] * grad_u[_j]
 
         # update velocities
         markers[ip, 3:6] -= dt * grad_u_cart
 
     # -- removed omp: #$ omp end parallel
 
+
+@inline
+def boxed_based_kernel_inline(
+    eta1: "float",
+    eta2: "float",
+    eta3: "float",
+    loc_box: "int",
+    boxes: "int[:,:]",
+    neighbours: "int[:,:]",
+    markers: "float[:,:]",
+    Np: "int",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    index: "int",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Box-based single-point sph evaluation.
+    The sum is done over the particles that are in the 26 + 1 neighboring boxes
+    of the ``loc_box`` the evaluation point is in.
+
+    Parameters
+    ----------
+    eta1, eta2, eta3 : float
+        Evaluation point in logical space.
+
+    loc_box : int
+        Box of the evaluation point.
+
+    boxes : 2d array
+        Box array of the sorting boxes structure.
+
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
+
+    markers : array[float]
+        Markers array.
+
+    Np : int
+        Total number of particles.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    index : int
+        Column index in markers array where the value multiplying the kernel in the evaluation is stored.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+    """
+    r1 = 0.0
+    r2 = 0.0
+    r3 = 0.0
+    out = 0.0
+    _tmp = 0.0
+    for neigh in range(27):
+        box_to_search = neighbours[loc_box, neigh]
+        c = 0
+        # # loop over all particles in a box
+        while boxes[box_to_search, c] != -1:
+            p = boxes[box_to_search, c]
+            c = c + 1
+            if not holes[p]:
+                marker_p = 0.0 #markers[p, 0]
+                r1 = distance_inline(eta1, marker_p, periodic1)
+                r2 = distance_inline(eta2, markers[p, 1], periodic2)
+                r3 = distance_inline(eta3, markers[p, 2], periodic3)
+                smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _tmp)
+                out = out + markers[p, index] * _tmp
+    return out / Np
+
+@inline
+def distance_inline(
+        x: "float", y: "float", periodic: "bool",
+        ) -> float:
+    """Return the one dimensional distance of x and y taking in account the periodicity on [0,1]."""
+    d = x - y
+    if periodic:
+        if d > 0.5:
+            while d > 0.5:
+                d = d - 1.0
+        elif d < -0.5:
+            while d < -0.5:
+                d = d + 1.0
+    return d
 
 @inline
 def transpose_inline(a: "float[:,:]", b: "float[:,:]"):
@@ -1089,3 +1352,678 @@ def eval_spline_mpi_kernel_inline(
                 # spline_value +=               _data[i1, i2, i3] * basis1[il1] * basis2[il2] * basis3[il3]
                 spline_value = spline_value + _data[i1, i2, i3] * _basis1[il1] * _basis2[il2] * _basis3[il3]
     return spline_value
+
+
+
+
+###########################################
+# Uni-variate kernels for tensor products #
+###########################################
+@inline
+def trigonometric_uni(
+    x: "float",
+    h: "float",
+) -> float:
+    """Uni-variate kernel S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    
+    if abs(x / h) <= 1.0:
+        out = 0.785398163397448 / h * cos(x / h * pi / 2.0)
+    else:
+        out = 0.0
+    return out
+
+@inline
+def grad_trigonometric_uni(
+    x: "float",
+    h: "float",
+) -> float:
+    """Derivative of S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+
+    if abs(x / h) <= 1.0:
+        out = -(1.2337005501361697 / h**2) * sin(x / h * pi / 2.0)
+    else:
+        out = 0.0
+    return out
+
+@inline
+def gaussian_uni(
+    x: "float",
+    h: "float",
+) -> float:
+    """Uni-variate S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    if abs(x / h) <= 1.0:
+        out =  1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
+    else:
+        out = 0.0
+    return out
+
+@inline
+def grad_gaussian_uni(
+    x: "float",
+    h: "float",
+) -> float:
+    """Derivative of S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    if abs(x / h) <= 1.0:
+        out = -54 * x / (h**3 * sqrt(pi)) * exp(-(x**2) / (h / 3) ** 2)
+    else:
+        out = 0.0
+    return out
+
+@inline
+def linear_uni(
+    x: "float",
+    h: "float",
+) -> float:
+    """Uni-variate S(x, h) = (1 - x)/h if |x|<1, 0 else."""
+    if abs(x / h) <= 1.0:
+        out = (1.0 - abs(x / h)) / h
+    else:
+        out = 0.0
+    return out
+
+@inline
+def grad_linear_uni(
+    x: "float",
+    h: "float",
+) -> float:
+    """Derivative of S(x, h) = (1 - x)/h if |x|<1, 0 else."""
+    
+    if abs(x / h) <= 1.0:
+        if x > 0.0:
+            out = -(1 / h**2)
+        else:
+            out = 1 / h**2
+    else:
+        out = 0.0
+    return out
+
+##############
+# 1d kernels #
+##############
+@inline
+def trigonometric_1d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1d kernel S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = trigonometric_uni(r1, h1)
+    return s1
+
+@inline
+def grad_trigonometric_1d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Derivative of S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    ds1 = grad_trigonometric_uni(r1, h1)
+    return ds1
+
+@inline
+def gaussian_1d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1d kernel S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    s1 = gaussian_uni(r1, h1)
+    return s1
+
+@inline
+def grad_gaussian_1d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Derivative of S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    ds1 = grad_gaussian_uni(r1, h1)
+    return ds1
+
+@inline
+def linear_1d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1d kernel S(x, h) = (1 - x)/h if |x|<1, 0 else."""
+    s1 = linear_uni(r1, h1)
+    return s1
+
+@inline
+def grad_linear_1d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Derivative of S(x, h) = (1 - x)/h if |x|<1, 0 else."""
+    ds1 = grad_linear_uni(r1, h1)
+    return ds1
+
+
+##############
+# 2d kernels #
+##############
+
+@inline
+def trigonometric_2d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    _temporary =  testfunc()
+    # s1 = trigonometric_uni(r1, h1)
+    # s2 = trigonometric_uni(r2, h2)
+    return 1.0 * 2.0 #s1 * s2
+
+def testfunc() -> "float":
+    return 2.0
+
+@inline
+def grad_trigonometric_2d_1(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    ds1 = grad_trigonometric_uni(r1, h1)
+    s2 = trigonometric_uni(r2, h2)
+    return ds1 * s2
+
+@inline
+def grad_trigonometric_2d_2(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = trigonometric_uni(r1, h1)
+    ds2 = grad_trigonometric_uni(r2, h2)
+    return s1 * ds2
+
+@inline
+def gaussian_2d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    s1 = gaussian_uni(r1, h1)
+    s2 = gaussian_uni(r2, h2)
+    return s1 * s2
+
+@inline
+def grad_gaussian_2d_1(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1st component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    ds1 = grad_gaussian_uni(r1, h1)
+    s2 = gaussian_uni(r2, h2)
+    return ds1 * s2
+
+@inline
+def grad_gaussian_2d_2(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """2nd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    s1 = gaussian_uni(r1, h1)
+    ds2 = grad_gaussian_uni(r2, h2)
+    return s1 * ds2
+
+@inline
+def linear_2d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = linear_uni(r1, h1)
+    s2 = linear_uni(r2, h2)
+    return s1 * s2
+
+@inline
+def grad_linear_2d_1(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    ds1 = grad_linear_uni(r1, h1)
+    s2 = linear_uni(r2, h2)
+    return ds1 * s2
+
+@inline
+def grad_linear_2d_2(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = linear_uni(r1, h1)
+    ds2 = grad_linear_uni(r2, h2)
+    return s1 * ds2
+
+
+##############
+# 3d kernels #
+##############
+@inline
+def trigonometric_3d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = trigonometric_uni(r1, h1)
+    s2 = trigonometric_uni(r2, h2)
+    s3 = trigonometric_uni(r3, h3)
+    return s1 * s2 * s3
+
+@inline
+def grad_trigonometric_3d_1(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    ds1 = grad_trigonometric_uni(r1, h1)
+    s2 = trigonometric_uni(r2, h2)
+    s3 = trigonometric_uni(r3, h3)
+    return ds1 * s2 * s3
+
+@inline
+def grad_trigonometric_3d_2(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = trigonometric_uni(r1, h1)
+    ds2 = grad_trigonometric_uni(r2, h2)
+    s3 = trigonometric_uni(r3, h3)
+    return s1 * ds2 * s3
+
+@inline
+def grad_trigonometric_3d_3(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """3rd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = trigonometric_uni(r1, h1)
+    s2 = trigonometric_uni(r2, h2)
+    ds3 = grad_trigonometric_uni(r3, h3)
+    return s1 * s2 * ds3
+
+@inline
+def gaussian_3d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    s1 = gaussian_uni(r1, h1)
+    s2 = gaussian_uni(r2, h2)
+    s3 = gaussian_uni(r3, h3)
+    return s1 * s2 * s3
+
+@inline
+def grad_gaussian_3d_1(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1st component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    ds1 = grad_gaussian_uni(r1, h1)
+    s2 = gaussian_uni(r2, h2)
+    s3 = gaussian_uni(r3, h3)
+    return ds1 * s2 * s3
+
+@inline
+def grad_gaussian_3d_2(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """2nd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    s1 = gaussian_uni(r1, h1)
+    ds2 = grad_gaussian_uni(r2, h2)
+    s3 = gaussian_uni(r3, h3)
+    return s1 * ds2 * s3
+
+@inline
+def grad_gaussian_3d_3(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """3rd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    s1 = gaussian_uni(r1, h1)
+    s2 = gaussian_uni(r2, h2)
+    ds3 = grad_gaussian_uni(r3, h3)
+    return s1 * s2 * ds3
+
+@inline
+def linear_isotropic_3d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """
+    Smoothing kernel S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
+    and C(h)=3/(pi*h^3) is a normalization coefficient so the the kernel has unit integral.
+    """
+    r = sqrt(r1**2 + r2**2 + r3**2)
+    h = h1
+    if r / h > 1.0:
+        return 0.0
+    else:
+        return (1.0 - r / h) / (1.0471975512 * h**3)
+
+@inline
+def grad_linear_isotropic_3d_1(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """
+    1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
+    and C(h)=3/(pi*h^3) is a normalization coefficient so the the kernel has unit integral.
+    """
+    r = sqrt(r1**2 + r2**2 + r3**2)
+    h = h1
+    if r / h > 1.0:
+        return 0.0
+    elif r == 0.0:
+        return -1 / h / (1.0471975512 * h**3)
+    else:
+        return -r1 / (r * h) / (1.0471975512 * h**3)
+
+@inline
+def grad_linear_isotropic_3d_2(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """
+    1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
+    and C(h)=3/(pi*h^3) is a normalization coefficient so the the kernel has unit integral.
+    """
+    r = sqrt(r1**2 + r2**2 + r3**2)
+    h = h1
+    if r / h > 1.0:
+        return 0.0
+    elif r == 0.0:
+        return -1 / h / (1.0471975512 * h**3)
+    else:
+        return -r2 / (r * h) / (1.0471975512 * h**3)
+
+@inline
+def grad_linear_isotropic_3d_3(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """
+    1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
+    and C(h)=3/(pi*h^3) is a normalization coefficient so the the kernel has unit integral.
+    """
+    r = sqrt(r1**2 + r2**2 + r3**2)
+    h = h1
+    if r / h > 1.0:
+        return 0.0
+    elif r == 0.0:
+        return -1 / h / (1.0471975512 * h**3)
+    else:
+        return -r3 / (r * h) / (1.0471975512 * h**3)
+
+@inline
+def linear_3d(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = linear_uni(r1, h1)
+    s2 = linear_uni(r2, h2)
+    s3 = linear_uni(r3, h3)
+    return s1 * s2 * s3
+
+@inline
+def grad_linear_3d_1(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    ds1 = grad_linear_uni(r1, h1)
+    s2 = linear_uni(r2, h2)
+    s3 = linear_uni(r3, h3)
+    return ds1 * s2 * s3
+
+@inline
+def grad_linear_3d_2(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = linear_uni(r1, h1)
+    ds2 = grad_linear_uni(r2, h2)
+    s3 = linear_uni(r3, h3)
+    return s1 * ds2 * s3
+
+@inline
+def grad_linear_3d_3(
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+) -> float:
+    """3rd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
+    s1 = linear_uni(r1, h1)
+    s2 = linear_uni(r2, h2)
+    ds3 = grad_linear_uni(r3, h3)
+    return s1 * s2 * ds3
+
+
+############
+# selector #
+############
+@inline
+def smoothing_kernel_inline(
+    kernel_type: "int",
+    r1: "float",
+    r2: "float",
+    r3: "float",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+    out: "float",
+):
+    """Each smoothing kernel is normalized to 1.
+
+    The kernel type numbers must have 3 digits, where the last digit is reserved for the gradient;
+    if a kernel has the type number n, the i-th components of its gradient has the number n + i.
+    This means we have space for 99 kernels (and its gradient components) in principle.
+
+    - 1d kernels <= 330
+    - 2d kernels <= 660
+    - 3d kernels >= 670
+
+    If you add a kernel, make sure it is also added to :meth:`~struphy.pic.base.Particles.ker_dct`."""
+    out = 0.0
+    out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
+    # return 0.0
+    # 1d kernels
+    if kernel_type == 100:
+        out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 101:
+        out = grad_trigonometric_1d(r1, r2, r3, h1, h2, h3)
+
+    elif kernel_type == 110:
+        out = gaussian_1d(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 111:
+        out = grad_gaussian_1d(r1, r2, r3, h1, h2, h3)
+
+    elif kernel_type == 120:
+        out = linear_1d(r1, r2, r3, h1, h2, h3)
+    elif kernel_type == 121:
+        out = grad_linear_1d(r1, r2, r3, h1, h2, h3)
+
+    # 2d kernels
+    # elif kernel_type == 340:
+    #     out = trigonometric_2d(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 341:
+    #     out = grad_trigonometric_2d_1(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 342:
+    #     out = grad_trigonometric_2d_2(r1, r2, r3, h1, h2, h3)
+
+    # elif kernel_type == 350:
+    #     out = gaussian_2d(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 351:
+    #     out = grad_gaussian_2d_1(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 352:
+    #     out = grad_gaussian_2d_2(r1, r2, r3, h1, h2, h3)
+
+    # elif kernel_type == 360:
+    #     out = linear_2d(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 361:
+    #     out = grad_linear_2d_1(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 362:
+    #     out = grad_linear_2d_2(r1, r2, r3, h1, h2, h3)
+
+    # # 3d kernels
+    # elif kernel_type == 670:
+    #     out = trigonometric_3d(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 671:
+    #     out = grad_trigonometric_3d_1(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 672:
+    #     out = grad_trigonometric_3d_2(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 673:
+    #     out = grad_trigonometric_3d_3(r1, r2, r3, h1, h2, h3)
+
+    # elif kernel_type == 680:
+    #     out = gaussian_3d(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 681:
+    #     out = grad_gaussian_3d_1(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 682:
+    #     out = grad_gaussian_3d_2(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 683:
+    #     out = grad_gaussian_3d_3(r1, r2, r3, h1, h2, h3)
+
+    # elif kernel_type == 690:
+    #     out = linear_isotropic_3d(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 691:
+    #     out = grad_linear_isotropic_3d_1(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 692:
+    #     out = grad_linear_isotropic_3d_2(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 693:
+    #     out = grad_linear_isotropic_3d_3(r1, r2, r3, h1, h2, h3)
+
+    # elif kernel_type == 700:
+    #     out = linear_3d(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 701:
+    #     out = grad_linear_3d_1(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 702:
+    #     out = grad_linear_3d_2(r1, r2, r3, h1, h2, h3)
+    # elif kernel_type == 703:
+    #     out = grad_linear_3d_3(r1, r2, r3, h1, h2, h3)
+    return out

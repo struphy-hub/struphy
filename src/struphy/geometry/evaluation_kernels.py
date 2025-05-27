@@ -10,8 +10,8 @@ import struphy.geometry.mappings_kernels as mappings_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-from struphy.pic.pushing.pusher_args_kernels import DomainArguments
+# import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+from struphy.pic.pushing.pusher_kernels_gpu import DomainArguments
 
 
 def _tmp_floor_division_evaluation_kernels(x: int):

@@ -1590,6 +1590,7 @@ class PushVinSPHpressure(Propagator):
         holes = particles.holes
         periodic = [bci == "periodic" for bci in particles.bc]
         kernel_nr = particles.ker_dct()[kernel_type]
+        # print(f"{kernel_nr = }"); exit()
 
         if kernel_width is None:
             kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
@@ -1627,9 +1628,11 @@ class PushVinSPHpressure(Propagator):
         #     )
         if gpu:
             kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
+            print("Using GPU kernel: ", kernel)
         else:
+            
             kernel = pusher_kernels.push_v_sph_pressure
-
+            print("Using CPU kernel: ", kernel)
         # same arguments as init kernel
         args_kernel = args_init
 

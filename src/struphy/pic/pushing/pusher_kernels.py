@@ -9,7 +9,7 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+# import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
@@ -20,7 +20,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
 
 
 def _tmp_floor_division_pusher_kernels(x: int):

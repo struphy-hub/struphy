@@ -11,7 +11,7 @@ from scipy.sparse.linalg import splu, spsolve
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.linear_algebra import linalg_kron
-from struphy.pic.pushing.pusher_args_kernels import DomainArguments
+from struphy.pic.pushing.pusher_kernels_gpu import DomainArguments
 
 
 class Domain(metaclass=ABCMeta):
