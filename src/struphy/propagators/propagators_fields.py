@@ -43,6 +43,7 @@ from struphy.feec.psydac_derham import Derham
 
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.examples.restelli2018 import callables
+from struphy.geometry.utilities import TransformedPformComponent
 
 
 class Maxwell(Propagator):

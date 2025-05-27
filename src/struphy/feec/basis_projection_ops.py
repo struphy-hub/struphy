@@ -42,13 +42,7 @@ class BasisProjectionOperators:
     - eq_mhd: :class:`struphy.fields_background.base.MHDequilibrium`
     """
 
-    def __init__(
-        self,
-        derham: Derham,
-        domain: Domain,
-        verbose: bool = True,
-        **weights,
-    ):
+    def __init__(self, derham, domain, verbose=True, **weights):
         self._derham = derham
         self._domain = domain
         self._weights = weights
