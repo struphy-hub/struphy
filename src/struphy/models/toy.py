@@ -1336,4 +1336,5 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def update_scalar_quantities(self):
         # # perturbed fields
         x = 1
+        y = 2
 
