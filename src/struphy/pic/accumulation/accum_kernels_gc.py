@@ -1037,9 +1037,9 @@ def cc_lin_mhd_5d_gradB_dg_init(
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
-    #vec1 /= n_markers_tot
-    #vec2 /= n_markers_tot
-    #vec3 /= n_markers_tot
+    vec1 /= n_markers_tot
+    vec2 /= n_markers_tot
+    vec3 /= n_markers_tot
 
 
 @stack_array(
@@ -1274,9 +1274,9 @@ def cc_lin_mhd_5d_gradB_dg(
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
-    #vec1 /= n_markers_tot
-    #vec2 /= n_markers_tot
-    #vec3 /= n_markers_tot
+    vec1 /= n_markers_tot
+    vec2 /= n_markers_tot
+    vec3 /= n_markers_tot
 
 
 def cc_lin_mhd_5d_M_scalar(

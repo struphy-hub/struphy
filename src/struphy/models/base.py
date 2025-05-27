@@ -575,7 +575,7 @@ class StruphyModel(metaclass=ABCMeta):
                         n_mks_tot,
                         op=MPI.SUM,
                     )
-                #value_array /= n_mks_tot
+                value_array /= n_mks_tot
 
             # Update the scalar value
             self._scalar_quantities[name]["value"][0] = value_array[0]
