@@ -3,4 +3,14 @@
 Time discretization
 -------------------
 
-Coming soon!
+.. automodule:: struphy.ode.solvers
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: struphy.ode.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: available_methods
+    :special-members: __available_methods__

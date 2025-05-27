@@ -48,6 +48,7 @@ dev = [
     'add-trailing-comma',
     'ruff>=0.9.1',
     'pre-commit',
+    'nbstripout',
     'tabulate',
 ]
 doc = [

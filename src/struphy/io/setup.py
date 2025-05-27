@@ -536,6 +536,15 @@ def descend_options_dict(
         print(f"{depth = }")
         print(f"{pop_again = }")
 
+    if verbose:
+        print(f"{d = }")
+        print(f"{out = }")
+        print(f"{d_default = }")
+        print(f"{d_opts = }")
+        print(f"{keys = }")
+        print(f"{depth = }")
+        print(f"{pop_again = }")
+
     count = 0
     for key, val in d.items():
         count += 1
@@ -583,6 +592,9 @@ def descend_options_dict(
                         )
                     out_sublist += [d_copy]
                 out += [out_sublist]
+
+            if verbose:
+                print(f"{out = }")
 
             if verbose:
                 print(f"{out = }")
