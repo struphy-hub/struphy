@@ -5,7 +5,11 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import numpy as np
-import cupy as cp
+try:
+    import cupy as cp
+except:
+    print(f"cupy not installed, falling back to numpy")
+    import numpy as cp
 import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm

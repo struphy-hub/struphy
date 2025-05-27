@@ -1,7 +1,10 @@
 # https://docs.cupy.dev/en/stable/user_guide/basic.html
 import time
-
-import cupy as cp
+try:
+    import cupy as cp
+except:
+    print(f"cupy not installed, falling back to numpy")
+    import numpy as cp
 import numpy as np
 
 def test_xp(xp, N = 100_000_000, num_iterations = 1):
