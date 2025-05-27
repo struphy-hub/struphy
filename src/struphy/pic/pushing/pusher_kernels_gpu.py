@@ -14,7 +14,7 @@ def _tmp_floor_division_pusher_kernels(x: int):
 # import struphy.bsplines.bsplines_kernels as bsplines_kernels
 # import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 # import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+# import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
 # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
@@ -220,8 +220,6 @@ def push_vxb_analytic_gpu(
     bd1 = args_derham.bd1
     bd2 = args_derham.bd2
     bd3 = args_derham.bd3
-    # -- removed omp: #$ omp parallel private (ip, e1, e2, e3, v, dfm, det_df, span1, span2, span3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
-    # -- removed omp: #$ omp for
 
     args_derham_pn = args_derham.pn
     args_derham_bn1 = args_derham.bn1
@@ -579,6 +577,15 @@ def push_v_sph_pressure_gpu(
         #     False,
         #     dfinv,
         # )
+        # df_in_inline(
+        #     eta1,
+        #     eta2,
+        #     eta3,
+        #     args_domain,
+        #     tmp1,
+        #     False,
+        #     dfinv,
+        # )
         # linalg_kernels.transpose(dfinv, dfinvT)
         transpose_inline(dfinv, dfinvT)
         # linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
@@ -751,7 +758,6 @@ def cuboid_df_inline(l1: float, r1: float, l2: float, r2: float, l3: float, r3: 
     df_out[2, 0] = 0.0
     df_out[2, 1] = 0.0
     df_out[2, 2] = r3 - l3
-
 
 @inline
 def df_pusher_inline_nodomainargs(
