@@ -18,7 +18,7 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
-
+import struphy.pic.pushing.pusher_kernels_gpu as pusher_kernels_gpu
 from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
 # from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
 
@@ -1626,7 +1626,7 @@ class PushVinSPHpressure(Propagator):
         #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
         #     )
         if gpu:
-            kernel = pusher_kernels.push_v_sph_pressure # TODO: port2gpu
+            kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu # TODO: port2gpu
         else:
             kernel = pusher_kernels.push_v_sph_pressure
 
