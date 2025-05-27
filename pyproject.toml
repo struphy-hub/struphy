@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     'numpy',
     #'pyccel>=1.11.1',
-    'pyccel @ git+https://github.com/pyccel/pyccel.git@devel',
+    #'pyccel @ git+https://github.com/pyccel/pyccel.git@devel',
     'mpi4py',
     'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
