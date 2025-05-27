@@ -163,8 +163,9 @@ Setup magic commands
 
 ```
 module purge
-module load gcc/14 rocm/6.3 openmpi/5.0 python-waterboa/2024.06
+module load gcc/14 rocm/6.4 openmpi/5.0 python-waterboa/2024.06
 module load amd-llvm/6.1
+module load cupy_rocm/13.4
 source ~/virtual_envs/env_struphy/bin/activate
 # export PYTHONPATH=/viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
 export HSA_XNACK=1
