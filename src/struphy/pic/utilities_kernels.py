@@ -1,4 +1,4 @@
-from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros, copy
+from numpy import abs, copy, empty, log, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -15,6 +15,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     get_spans,
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+
 
 def _tmp_floor_division_pic_utilities_kernels(x: int):
     y = zeros(10)

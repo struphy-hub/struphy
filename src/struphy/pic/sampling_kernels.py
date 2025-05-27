@@ -1,4 +1,4 @@
-from numpy import shape, zeros, copy
+from numpy import copy, shape, zeros
 from pyccel.decorators import stack_array
 
 # import modules for B-spline evaluation
@@ -12,10 +12,12 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
+
 def _tmp_floor_division_sampling_kernels(x: int):
     y = zeros(10)
     z = copy(y)
     return x // 2
+
 
 @stack_array("e", "v")
 def set_particles_symmetric_3d_3v(numbers: "float[:,:]", markers: "float[:,:]"):

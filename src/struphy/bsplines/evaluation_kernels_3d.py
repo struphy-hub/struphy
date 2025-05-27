@@ -19,7 +19,7 @@ Possible combinations for tensor product (BBB):
 * (N N dN/deta)
 """
 
-from numpy import empty, shape, zeros, copy
+from numpy import copy, empty, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -30,13 +30,16 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 ### Single process evaluation ###
 #################################
 
-def do_things(x: 'float[:]'):
+
+def do_things(x: "float[:]"):
     y = copy(x)
+
 
 def _tmp_floor_division_evaluation_kernels_3d(x: int):
     y = zeros(10)
     z = copy(y)
     return x // 2
+
 
 def evaluation_kernel_3d(
     p1: int,

@@ -8,7 +8,7 @@ Function naming conventions:
 These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
 """
 
-from numpy import empty, floor, log, shape, sqrt, zeros, copy
+from numpy import copy, empty, floor, log, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
@@ -27,10 +27,12 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+
 def _tmp_floor_division_accum_kernels(x: int):
     y = zeros(10)
     z = copy(y)
     return x // 2
+
 
 def charge_density_0form(
     markers: "float[:,:]",

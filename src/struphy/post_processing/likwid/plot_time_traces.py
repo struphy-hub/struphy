@@ -65,6 +65,7 @@ def plot_time_vs_duration(
     plt.savefig(figure_path)
     print(f"Saved time trace to:{figure_path}")
 
+
 def plot_avg_duration_bar_chart(
     path,
     output_path,
@@ -91,8 +92,10 @@ def plot_avg_duration_bar_chart(
     avg_durations = [np.mean(region_durations[r]) for r in regions]
     min_durations = [np.min(region_durations[r]) for r in regions]
     max_durations = [np.max(region_durations[r]) for r in regions]
-    yerr = [[avg - min_ for avg, min_ in zip(avg_durations, min_durations)],
-            [max_ - avg for avg, max_ in zip(avg_durations, max_durations)]]
+    yerr = [
+        [avg - min_ for avg, min_ in zip(avg_durations, min_durations)],
+        [max_ - avg for avg, max_ in zip(avg_durations, max_durations)],
+    ]
 
     # Plot bar chart with error bars (min-max spans)
     plt.figure(figsize=(12, 6))
@@ -108,6 +111,7 @@ def plot_avg_duration_bar_chart(
     figure_path = os.path.join(output_path, "avg_duration_per_region.pdf")
     plt.savefig(figure_path)
     print(f"Saved average duration bar chart to: {figure_path}")
+
 
 def plot_gantt_chart(
     path,
@@ -230,4 +234,4 @@ if __name__ == "__main__":
     # Plot the time trace
     plot_time_vs_duration(path, output_path=o_path)
     plot_gantt_chart(path, output_path=o_path)
-    plot_avg_duration_bar_chart(path, output_path=o_path,groups_skip=['main'])
+    plot_avg_duration_bar_chart(path, output_path=o_path, groups_skip=["main"])

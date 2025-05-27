@@ -1,14 +1,17 @@
-from struphy.pic.pushing.pusher_kernels_gpu import matmul_gpu, matmul_cpu
+import time
+
+import numpy as np
+
 # from pusher_kernels_gpu import matmul_gpu, matmul_cpu
 from struphy.gpu.test_cupy_timings import compare_np_cp
 from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
-import numpy as np
-import time
+from struphy.pic.pushing.pusher_kernels_gpu import matmul_cpu, matmul_gpu
 
-def compare_gpu_cpu(N = 2000):
 
-    compare_pyccel_cpu_gpu(N = 2000)
+def compare_gpu_cpu(N=2000):
+    compare_pyccel_cpu_gpu(N=2000)
     compare_np_cp()
+
 
 def main(
     model_name: str,
@@ -22,7 +25,7 @@ def main(
     supress_out: bool = False,
     sort_step: int = 0,
     num_clones: int = 1,
-    gpu = False,
+    gpu=False,
 ):
     """
     Run a Struphy model.
@@ -330,7 +333,6 @@ def main(
 
 
 if __name__ == "__main__":
-
     import argparse
     import os
 
@@ -460,7 +462,6 @@ if __name__ == "__main__":
         help="run with GPU",
         action="store_true",
     )
-
 
     args = parser.parse_args()
     config = ProfilingConfig()

@@ -1,4 +1,4 @@
-from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan, zeros, copy
+from numpy import arcsin, arctan, copy, cos, pi, sin, sqrt, tan, zeros
 from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -7,12 +7,14 @@ import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
+
 def _tmp_floor_division_mapping_kernels(x: int):
     y = zeros(10)
     z = copy(y)
     return x // 2
 
-def _do_things_mapping_kernels(x: 'float[:]'):
+
+def _do_things_mapping_kernels(x: "float[:]"):
     y = copy(x)
 
 

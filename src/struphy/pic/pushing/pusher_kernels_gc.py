@@ -1,6 +1,6 @@
 "Pusher kernels for gyro-center (5D) dynamics."
 
-from numpy import empty, mod, shape, sqrt, zeros, copy
+from numpy import copy, empty, mod, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -20,10 +20,12 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
+
 def _tmp_floor_division_pusher_kernels_gc(x: int):
     y = zeros(10)
     z = copy(y)
     return x // 2
+
 
 @stack_array("dfm", "unit_b1", "e_star", "e_field", "Exb", "k")
 def push_gc_bxEstar_explicit_multistage(

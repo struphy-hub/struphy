@@ -1,6 +1,6 @@
 "Pusher kernels for full orbit (6D) particles."
 
-from numpy import cos, empty, floor, log, shape, sin, sqrt, zeros, copy
+from numpy import copy, cos, empty, floor, log, shape, sin, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -21,6 +21,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     get_spans,
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+
 
 def _tmp_floor_division_pusher_kernels(x: int):
     y = zeros(10)
@@ -1906,7 +1907,6 @@ def push_eta_stage(
     # --- #$ omp parallel private(ip, v, dfm, dfinv, k)
     # --- #$ omp for
     for ip in range(n_markers):
-
         for _ in range(10):
             # check if marker is a hole or a boundary particle
             if markers[ip, first_init_idx] == -1.0 or markers[ip, -1] == -2.0:
@@ -1943,6 +1943,7 @@ def push_eta_stage(
             )
 
     # --- #$ omp end parallel
+
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
 def push_pc_eta_rk4_Hcurl_full(

@@ -139,9 +139,9 @@ class Domain(metaclass=ABCMeta):
             self.indN[0],
             self.indN[1],
             self.indN[2],
-            self.cx.copy(), # make sure we don't have stride = 0
-            self.cy.copy(), # make sure we don't have stride = 0
-            self.cz.copy(), # make sure we don't have stride = 0
+            self.cx.copy(),  # make sure we don't have stride = 0
+            self.cy.copy(),  # make sure we don't have stride = 0
+            self.cz.copy(),  # make sure we don't have stride = 0
         )
 
     @property
@@ -1321,7 +1321,7 @@ class Domain(metaclass=ABCMeta):
         if flat_eval:
             assert a_out.ndim == 2
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
-            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 0))).copy() # Make sure we don't have stride 0
+            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 0))).copy()  # Make sure we don't have stride 0
 
         # make sure that output array is 4d and of shape (:,:,:, 1) or (:,:,:, 3) for tensor-product/slice evaluation
         else:
@@ -1329,7 +1329,7 @@ class Domain(metaclass=ABCMeta):
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
             a_out = np.ascontiguousarray(
                 np.transpose(a_out, axes=(1, 2, 3, 0)),
-            ).copy() # Make sure we don't have stride 0
+            ).copy()  # Make sure we don't have stride 0
 
         return a_out
 

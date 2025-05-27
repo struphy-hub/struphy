@@ -3,7 +3,7 @@ Module containing accelerated (pyccelized) functions for evaluating metric coeff
 corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 """
 
-from numpy import empty, shape, zeros, copy
+from numpy import copy, empty, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.mappings_kernels as mappings_kernels
@@ -13,10 +13,12 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
+
 def _tmp_floor_division_evaluation_kernels(x: int):
     y = zeros(10)
     z = copy(y)
     return x // 2
+
 
 def f(
     eta1: float,

@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import numpy as np
+
 try:
     import cupy as cp
 except:
@@ -1851,8 +1852,7 @@ class Particles(metaclass=ABCMeta):
 
         plt.show()
 
-    def _find_outside_particles(self, axis, gpu = False):
-        
+    def _find_outside_particles(self, axis, gpu=False):
         # determine particles outside of the logical unit cube
         self._is_outside_right[:] = self.markers[:, axis] > 1.0
         self._is_outside_left[:] = self.markers[:, axis] < 0.0
@@ -1896,7 +1896,7 @@ class Particles(metaclass=ABCMeta):
 
         # Combine into full outside mask
         is_outside = cp.logical_or(is_outside_right, is_outside_left)
-        
+
         # Update attributes
         self._is_outside_right[:] = cp.asnumpy(is_outside_right)
         self._is_outside_left[:] = cp.asnumpy(is_outside_left)
@@ -3440,8 +3440,9 @@ class Particles(metaclass=ABCMeta):
 
         # Compute sorting etas
         sorting_etas = cp.mod(
-            alpha_gpu * (self._markers_gpu[:, :3] + self._markers_gpu[:, bi + 3 + vdim : bi + 3 + vdim + 3]) + (1.0 - alpha_gpu) * self._markers_gpu[:, bi : bi + 3],
-            1.0
+            alpha_gpu * (self._markers_gpu[:, :3] + self._markers_gpu[:, bi + 3 + vdim : bi + 3 + vdim + 3])
+            + (1.0 - alpha_gpu) * self._markers_gpu[:, bi : bi + 3],
+            1.0,
         )
         self._sorting_etas = cp.asnumpy(sorting_etas)
 

@@ -638,7 +638,7 @@ class StruphyModel(metaclass=ABCMeta):
                             print(f"{k}: {repr(v)}")
                         else:
                             print(f"{k}: {v}")
-                print(f'{kwargs_i = } {prop = }')
+                print(f"{kwargs_i = } {prop = }")
                 prop_instance = prop(
                     *[self.pointer[var] for var in variables],
                     **kwargs_i,
@@ -931,8 +931,8 @@ class StruphyModel(metaclass=ABCMeta):
                         else:
                             print("No perturbation.")
 
-                    obj.draw_markers(sort=True, verbose=self.verbose,gpu=gpu)
-                    obj.mpi_sort_markers(do_test=True,gpu=gpu)
+                    obj.draw_markers(sort=True, verbose=self.verbose, gpu=gpu)
+                    obj.mpi_sort_markers(do_test=True, gpu=gpu)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":

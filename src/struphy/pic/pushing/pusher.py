@@ -1,4 +1,5 @@
 "Accelerated particle pushing."
+
 # import line_profiler
 import time
 
@@ -8,6 +9,7 @@ from mpi4py.MPI import IN_PLACE, SUM
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.profiling.profiling import ProfileManager
+
 
 class Pusher:
     r"""
@@ -164,7 +166,7 @@ class Pusher:
             self._box_comm = self.particles.sorting_boxes.communicate
         else:
             self._box_comm = False
-        
+
         self._gpu = gpu
 
     # @line_profiler.profile
@@ -259,9 +261,9 @@ class Pusher:
                             apply_bc=False,
                             alpha=alpha[:3],
                             remove_ghost=False,
-                            gpu = self._gpu,
+                            gpu=self._gpu,
                         )
-                    
+
                     # evaluate
                     # with ProfileManager.profile_region(ker.__name__):
                     with ProfileManager.profile_region(ker.__name__):
@@ -285,11 +287,11 @@ class Pusher:
                             apply_bc=False,
                             alpha=self._alpha_in_kernel,
                             remove_ghost=False,
-                            gpu = self._gpu,
+                            gpu=self._gpu,
                         )
 
                 # print(f'call kernel {self.kernel.__name__ = } with n_markers = {self.particles.args_markers.n_markers}')
-                
+
                 # push markers
                 with ProfileManager.profile_region(self.kernel.__name__):
                     # t0 = time.time()
@@ -303,9 +305,9 @@ class Pusher:
                     # t1 = time.time()
                     # print(f'return kernel {self.kernel = }')
                     # print(f"Timing: {t1 - t0}")
-                
+
                 with ProfileManager.profile_region("apply_kinetic_bc"):
-                    self.particles.apply_kinetic_bc(newton=self._newton,gpu = self._gpu)
+                    self.particles.apply_kinetic_bc(newton=self._newton, gpu=self._gpu)
                 self.particles.update_holes()
 
                 # update boxes
@@ -352,9 +354,9 @@ class Pusher:
                     if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
                             with ProfileManager.profile_region("mpi_sort_markers"):
-                                self.particles.mpi_sort_markers(gpu = self._gpu)
+                                self.particles.mpi_sort_markers(gpu=self._gpu)
                         else:
-                            self.particles.apply_kinetic_bc(gpu = self._gpu)
+                            self.particles.apply_kinetic_bc(gpu=self._gpu)
                     break
 
                 # check for convergence
@@ -363,9 +365,9 @@ class Pusher:
                     if self.mpi_sort == "each":
                         if self.particles.mpi_comm is not None:
                             with ProfileManager.profile_region("mpi_sort_markers"):
-                                self.particles.mpi_sort_markers(gpu = self._gpu)
+                                self.particles.mpi_sort_markers(gpu=self._gpu)
                         else:
-                            self.particles.apply_kinetic_bc(gpu = self._gpu)
+                            self.particles.apply_kinetic_bc(gpu=self._gpu)
 
                     break
 
@@ -383,7 +385,7 @@ class Pusher:
                 with ProfileManager.profile_region("mpi_sort_markers"):
                     self.particles.mpi_sort_markers(do_test=True)
             else:
-                self.particles.apply_kinetic_bc(gpu = self._gpu)
+                self.particles.apply_kinetic_bc(gpu=self._gpu)
 
     @property
     def particles(self):

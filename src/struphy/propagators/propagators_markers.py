@@ -4,7 +4,7 @@ from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
-from struphy.profiling.profiling import ProfileManager
+import struphy.pic.pushing.pusher_kernels_gpu as pusher_kernels_gpu
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
@@ -13,14 +13,15 @@ from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
-from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gpu, pusher_kernels_gc
+from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc, pusher_kernels_gpu
 from struphy.pic.pushing.pusher import Pusher
+from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
 from struphy.polar.basic import PolarVector
+from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 
-import struphy.pic.pushing.pusher_kernels_gpu as pusher_kernels_gpu
-from struphy.pic.pushing.pusher_kernels_gpu import push_eta_stage_gpu
 # from pusher_kernels_gpu import push_eta_stage_gpu#, push_vxb_analytic_gpu, push_vxb_implicit_gpu
+
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
@@ -67,7 +68,6 @@ class PushEta(Propagator):
         density_field: StencilVector | None = None,
         gpu=True,
     ):
-        
         print(f"Initializing PushEta with {gpu = }")
         # base class constructor call
         super().__init__(particles)
@@ -111,13 +111,14 @@ class PushEta(Propagator):
 
     def __call__(self, dt):
         import time
+
         # t0 = time.time()
         self._pusher(dt)
         # t1 = time.time()
         # print(f'timing of {self._pusher = }: {t1 - t0}')
         # update_weights
         if self.particles[0].control_variate:
-            print('self.particles[0].control_variate')
+            print("self.particles[0].control_variate")
             self.particles[0].update_weights()
 
         if self._eval_density:
@@ -183,7 +184,7 @@ class PushVxB(Propagator):
         self._b_full = self.derham.Vh["2"].zeros()
         # define pusher kernel
         if gpu:
-            print(f'{algo = }')
+            print(f"{algo = }")
             if algo == "analytic":
                 # kernel = pusher_kernels.push_vxb_analytic
                 # kernel = push_vxb_analytic_gpu
@@ -1563,7 +1564,6 @@ class PushVinSPHpressure(Propagator):
             dct = descend_options_dict(dct, [])
         return dct
 
-
     def __init__(
         self,
         particles: ParticlesSPH,
@@ -1578,10 +1578,10 @@ class PushVinSPHpressure(Propagator):
 
         # init kernel for evaluating density etc. before each time step.
         if gpu:
-            init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs # TODO: port2gpu
+            init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs  # TODO: port2gpu
         else:
             init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
-        
+
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1)
 
@@ -1626,7 +1626,7 @@ class PushVinSPHpressure(Propagator):
         #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
         #     )
         if gpu:
-            kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu # TODO: port2gpu
+            kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
         else:
             kernel = pusher_kernels.push_v_sph_pressure
 

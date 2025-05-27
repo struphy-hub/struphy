@@ -146,7 +146,6 @@ class Vlasov(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None, gpu=False):
-
         print(f"Init Vlasov with {gpu = }")
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
