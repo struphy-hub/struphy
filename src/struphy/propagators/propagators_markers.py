@@ -1563,6 +1563,7 @@ class PushVinSPHpressure(Propagator):
             dct = descend_options_dict(dct, [])
         return dct
 
+
     def __init__(
         self,
         particles: ParticlesSPH,
@@ -1570,13 +1571,17 @@ class PushVinSPHpressure(Propagator):
         kernel_type: str = "gaussian_2d",
         kernel_width: tuple = None,
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+        gpu=True,
     ):
         # base class constructor call
         super().__init__(particles)
 
         # init kernel for evaluating density etc. before each time step.
-        init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
-
+        if gpu:
+            init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs # TODO: port2gpu
+        else:
+            init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
+        
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1)
 
@@ -1620,8 +1625,10 @@ class PushVinSPHpressure(Propagator):
         #     assert particles.sorting_boxes.nz == 1, (
         #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
         #     )
-
-        kernel = pusher_kernels.push_v_sph_pressure
+        if gpu:
+            kernel = pusher_kernels.push_v_sph_pressure # TODO: port2gpu
+        else:
+            kernel = pusher_kernels.push_v_sph_pressure
 
         # same arguments as init kernel
         args_kernel = args_init

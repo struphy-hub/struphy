@@ -1658,7 +1658,7 @@ class IsothermalEulerSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, gpu=False):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # prelim
@@ -1671,11 +1671,13 @@ class IsothermalEulerSPH(StruphyModel):
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
             # "density_field": self.pointer["projected_density"],
+            "gpu": gpu,
         }
 
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
             "kernel_type": kernel_type,
             "algo": algo_sph,
+            "gpu": gpu,
         }
 
         # Initialize propagators used in splitting substeps
