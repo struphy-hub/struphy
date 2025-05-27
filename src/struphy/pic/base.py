@@ -1023,8 +1023,9 @@ class Particles(metaclass=ABCMeta):
         )
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
 
-        if self._gpu:
-            self._markers_gpu = cp.asarray(self._markers)
+        # if self._gpu:
+        
+        self._markers_gpu = cp.asarray(self._markers)
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)
