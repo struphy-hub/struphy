@@ -2339,7 +2339,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
     @property
     def tosparse(self):
-        if all(op is None or isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
+        if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
                     assert bc == False, print(".tosparse() only works without boundary conditions at the moment")
@@ -2348,12 +2348,14 @@ class WeightedMassOperator(LinOpWithTransp):
                     assert bc == False, print(".tosparse() only works without boundary conditions at the moment")
 
             return self._mat.tosparse()
+        elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
+            return self._mat.tosparse()
         else:
             raise NotImplementedError()
 
     @property
     def toarray(self):
-        if all(op is None or isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
+        if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
                     assert bc == False, print(".toarray() only works without boundary conditions at the moment")
@@ -2361,6 +2363,8 @@ class WeightedMassOperator(LinOpWithTransp):
                 for bc in bl:
                     assert bc == False, print(".toarray() only works without boundary conditions at the moment")
 
+            return self._mat.toarray()
+        elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
             return self._mat.toarray()
         else:
             raise NotImplementedError()
