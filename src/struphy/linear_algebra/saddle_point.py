@@ -129,6 +129,7 @@ class SaddlePointSolver:
         self._F = F
         self._tol = tol
         self._max_iter = max_iter
+        self._spectralanalysis = spectralanalysis
 
         if self._variant == "Inverse_Solver":
             self._BT = B.transpose()
@@ -144,6 +145,8 @@ class SaddlePointSolver:
             self._P = B.codomain.zeros()
             self._U = A.codomain.zeros()
             self._Utmp = F.copy() * 0
+            # Allocate memory for call
+            self._rhstemp = BlockVector(self._block_domainM, blocks=[A.codomain.zeros(), self._B.codomain.zeros()])
 
         elif self._variant == "Uzawa":
             if self._method_to_solve in ("InexactNPInverse", "SparseSolver"):
@@ -157,12 +160,6 @@ class SaddlePointSolver:
             # Instanciate inverses
             self._setup_inverses()
 
-            print(f"Arrays initialized")
-
-            if spectralanalysis == True:
-                self._spectral_analysis()
-
-            print(f"Inverses initialized as linear operators")
 
             # Solution vectors numpy
             self._Pnp = np.zeros(self._B1np.shape[0])
@@ -171,7 +168,6 @@ class SaddlePointSolver:
             # Allocate memory for matrices used in solving the system
             self._rhs0np = self._F[0].copy()
             self._rhs1np = self._F[1].copy()
-            self._Rnp = np.zeros(self._B[0].shape[1] + self._B[1].shape[1])
 
             # List to store residual norms
             self._residual_norms = []
@@ -291,7 +287,7 @@ class SaddlePointSolver:
             self._solverMinv.linop = _M
 
             # Initialize P to zero or given initial guess
-            self._sol = self._solverMinv.dot(_RHS)
+            self._sol = self._solverMinv.dot(_RHS, out=self._rhstemp)
             self._U = self._sol[0]
             self._P = self._sol[1]
 
@@ -299,6 +295,9 @@ class SaddlePointSolver:
 
         elif self._variant == "Uzawa":
             info = {}
+            
+            if self._spectralanalysis == True:
+                self._spectral_analysis()
 
             # Initialize P to zero or given initial guess
             if isinstance(U_init, np.ndarray) or isinstance(U_init, sc.sparse.csr.csr_matrix):
@@ -323,7 +322,6 @@ class SaddlePointSolver:
                     self._Unp += self._Anpinv.dot(self._A11npinv @ self._rhs0np)
 
                 R1 = self._B1np.dot(self._Unp)
-                # print(f'{np.linalg.norm(R1) = }')
 
                 self._rhs1np *= 0
                 self._rhs1np -= self._B2np.transpose().dot(self._Pnp)
@@ -335,13 +333,11 @@ class SaddlePointSolver:
                     self._Uenp += self._Aenpinv.dot(self._A22npinv @ self._rhs1np)
 
                 R2 = self._B2np.dot(self._Uenp)
-                # print(f'{np.linalg.norm(R2) = }')
 
                 # Step 2: Compute residual R = BU (divergence of U)
                 R = R1 + R2  # self._B1np.dot(self._Unp) + self._B2np.dot(self._Uenp)
                 residual_norm = np.linalg.norm(R)
                 residual_normR1 = np.linalg.norm(R)
-                # print(f"{residual_norm =}")
                 self._residual_norms.append(residual_normR1)  # Store residual norm
                 # Check for convergence based on residual norm
                 if residual_norm < self._tol:
@@ -350,9 +346,6 @@ class SaddlePointSolver:
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms
 
                 alpha = (R.dot(R)) / (R.dot(self._Precnp.dot(R)))
-                # alpha = (R.dot(R))/(R.dot(self._Precsparsenp.dot(R)))
-                self._stepsize = 0.5 * self._stepsize + 0.5 * alpha
-                # self._P += alpha * R
                 self._Pnp += alpha.real * R.real
 
             # Return with info if maximum iterations reached
@@ -455,7 +448,7 @@ class SaddlePointSolver:
         # Spectral analysis
         # A11 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])  # self._PA11diag)#@
+            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])  
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
             eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
         maxbeforeA11 = max(eigvalsA11_before)
@@ -473,7 +466,7 @@ class SaddlePointSolver:
 
         # A22 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])  # self._PA22diag)#@
+            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])  
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
             eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1].toarray())
         maxbeforeA22 = max(eigvalsA22_before)
