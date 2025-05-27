@@ -1904,8 +1904,8 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    # --- #$ omp parallel private(ip, v, dfm, dfinv, k)
-    # --- #$ omp for
+    # -- removed omp: #$ omp parallel private(ip, v, dfm, dfinv, k)
+    # -- removed omp: #$ omp for
     for ip in range(n_markers):
         for _ in range(10):
             # check if marker is a hole or a boundary particle
@@ -1942,7 +1942,7 @@ def push_eta_stage(
                 + last * markers[ip, first_free_idx : first_free_idx + 3]
             )
 
-    # --- #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
