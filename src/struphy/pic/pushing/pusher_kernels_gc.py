@@ -2319,7 +2319,7 @@ def push_gc_cc_J2_stage_Hdiv(
             dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
 
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'b_prod', 'norm_b_prod')
+@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'b_prod', 'norm_b_prod', 'eta_old')
 def push_gc_cc_J2_dg_init_Hdiv(
     dt: float,
     args_markers: 'MarkerArguments',
@@ -2330,6 +2330,7 @@ def push_gc_cc_J2_dg_init_Hdiv(
     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
+    relaxed_alpha: float,
 ):
     r'''TODO'''
 
@@ -2349,6 +2350,7 @@ def push_gc_cc_J2_dg_init_Hdiv(
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
+    eta_old = empty(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -2362,7 +2364,8 @@ def push_gc_cc_J2_dg_init_Hdiv(
         # check if marker is a hole
         if markers[ip, first_init_idx] == -1.:
             continue
-
+        
+        eta_old[:] = markers[ip, 0:3]
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
@@ -2452,9 +2455,11 @@ def push_gc_cc_J2_dg_init_Hdiv(
         e /= det_df
 
         markers[ip, 0:3] -= dt*e
+        markers[ip, 0:3] *= relaxed_alpha
+        markers[ip, 0:3] += eta_old * (1. - relaxed_alpha)
 
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'ud', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b_prod', 'eta_mid')
+@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'ud', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b_prod', 'eta_old', 'eta_mid')
 def push_gc_cc_J2_dg_Hdiv(
     dt: float,
     args_markers: 'MarkerArguments',
@@ -2467,6 +2472,7 @@ def push_gc_cc_J2_dg_Hdiv(
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
     ud1: 'float[:,:,:]', ud2: 'float[:,:,:]', ud3: 'float[:,:,:]',
     const: float,
+    relaxed_alpha: float,
 ):
     r'''TODO'''
 
@@ -2488,6 +2494,7 @@ def push_gc_cc_J2_dg_Hdiv(
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
+    eta_old = empty(3, dtype=float)
     eta_mid = empty(3, dtype=float)
 
     # get marker arguments
@@ -2504,6 +2511,7 @@ def push_gc_cc_J2_dg_Hdiv(
             continue
 
         # marker positions, mid point
+        eta_old[:] = markers[ip, 0:3]
         eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
         eta_mid[:] = mod(eta_mid[:], 1.)
 
@@ -2607,3 +2615,5 @@ def push_gc_cc_J2_dg_Hdiv(
         e /= det_df
 
         markers[ip, 0:3] = markers[ip, 11:14] - dt*e
+        markers[ip, 0:3] *= relaxed_alpha
+        markers[ip, 0:3] += eta_old * (1. - relaxed_alpha)

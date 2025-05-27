@@ -575,7 +575,7 @@ class StruphyModel(metaclass=ABCMeta):
                         n_mks_tot,
                         op=MPI.SUM,
                     )
-                value_array /= n_mks_tot
+                #value_array /= n_mks_tot
 
             # Update the scalar value
             self._scalar_quantities[name]["value"][0] = value_array[0]
@@ -749,7 +749,7 @@ class StruphyModel(metaclass=ABCMeta):
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
             assert not np.isnan(val[0]), f"Scalar {key} is {val[0]}."
-            sq_str += key + ": {:14.11f}".format(val[0]) + "   "
+            sq_str += key + ": {:.15f}".format(val[0]) + "   "
         print(sq_str)
 
     def initialize_from_params(self):

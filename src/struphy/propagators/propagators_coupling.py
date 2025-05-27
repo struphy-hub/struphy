@@ -2546,8 +2546,9 @@ class CurrentCoupling5DGradB_dg(Propagator):
             "recycle": True,
         }
         dct["dg_solver"] = {
-            "tol": 1.0e-5,
-            "maxiter": 100,
+            "relaxed_alpha": 1.,
+            "tol": 1.0e-12,
+            "maxiter": 20,
             "verbose": False,
         }
         dct["filter"] = {
@@ -2688,6 +2689,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             accum_kernel_init,
             self.mass_ops,
             self.domain.args_domain,
+            filter_params=filter,
         )
 
         self._ACC = AccumulatorVector(
@@ -2696,6 +2698,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             accum_kernel,
             self.mass_ops,
             self.domain.args_domain,
+            filter_params=filter,
         )
 
         self._pusher_kernel_init = pusher_kernels_gc.push_gc_cc_J2_dg_init_Hdiv
@@ -2735,7 +2738,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
         # calculate en_fB_old
         self.particles[0].save_magnetic_energy(PB_b, df=self._reduced_coupling, use_PB=True)
         en_fB_old = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
-        en_fB_old /= self.particles[0].n_mks
+        #en_fB_old /= self.particles[0].n_mks
+        #en_fB_old /= 2.
 
         buffer_array = np.array([en_fB_old])
         self.derham.comm.Allreduce(
@@ -2753,9 +2757,10 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
         _ku = self._solver.dot(self._ACC_init.vectors[0], out=self._ku)
         _u_new += _ku * dt
+        _u_new *= self._dg_solver["relaxed_alpha"]
+        _u_new += _u_old * (1. - self._dg_solver["relaxed_alpha"])
 
         _u_new.update_ghost_regions()
-
 
         # save en_U_new
         self._A.dot(_u_new, out=self._M2n_dot_u)
@@ -2779,6 +2784,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             un[0]._data,
             un[1]._data,
             un[2]._data,
+            self._dg_solver["relaxed_alpha"],
         )
 
         # sorting markers
@@ -2787,7 +2793,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
         # calculate en_fB_new
         self.particles[0].save_magnetic_energy(PB_b, df=self._reduced_coupling, use_PB=True)
         en_fB_new = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
-        en_fB_new /= self.particles[0].n_mks
+        #en_fB_new /= self.particles[0].n_mks
+        #en_fB_new /= 2.
 
         buffer_array = np.array([en_fB_new])
         self.derham.comm.Allreduce(
@@ -2846,7 +2853,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
                                                           self._grad_PB_b[2]._data,
                                                           self._coupling_vec,
                                                           self._reduced_coupling)
-            en_fB_mid /= self.particles[0].n_mks
+            #en_fB_mid /= self.particles[0].n_mks
+            #en_fB_mid /= 2.
 
             buffer_array = np.array([en_fB_mid])
             self.derham.comm.Allreduce(
@@ -2870,6 +2878,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
 
             _u_new = un.copy(out=self._u_new)
             _u_new += _ku * dt
+            _u_new *= self._dg_solver["relaxed_alpha"]
+            _u_new += _u_old * (1. - self._dg_solver["relaxed_alpha"])
 
             _u_new.update_ghost_regions()
 
@@ -2904,6 +2914,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 self._u_tmp1[1]._data,
                 self._u_tmp1[2]._data,
                 const,
+                self._dg_solver["relaxed_alpha"],
             )
 
             sum_H_diff_loc = np.sum(np.abs(self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 20:23]))
@@ -2915,7 +2926,8 @@ class CurrentCoupling5DGradB_dg(Propagator):
             self.particles[0].save_magnetic_energy(PB_b, df=self._reduced_coupling, use_PB=True)
             
             en_fB_new = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
-            en_fB_new /= self.particles[0].n_mks
+            #en_fB_new /= self.particles[0].n_mks
+            #en_fB_new /= 2.
 
             buffer_array = np.array([en_fB_new])
             self.derham.comm.Allreduce(
@@ -2937,19 +2949,33 @@ class CurrentCoupling5DGradB_dg(Propagator):
             diff = buffer_array[0]
             e_diff = np.abs(en_U_new + en_fB_new- en_tot_old)
             
+            converged = False
+            #print(f"{self.particles[0].markers[~self.particles[0].holes, 0][0]:.16f}")
+            #print(f"{self.particles[0].markers[~self.particles[0].holes, 0][1]:.16f}")
+
             if diff < self._dg_solver['tol']:
                 if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0: 
                     print("converged diff:", diff)
+                    print("udiff", sum_u_diff_loc)
+                    print("Hdiff", sum_H_diff_loc)
                     print("converged ediff:", e_diff)
                 
+                converged = True
                 self.derham.comm.Barrier()
                 break
             else:
                 if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0: 
                     print("not converged diff:", diff)
+                    print("udiff", sum_u_diff_loc)
+                    print("Hdiff", sum_H_diff_loc)
                     print("not converged ediff:", e_diff)
 
                 self.derham.comm.Barrier()
+
+        print("is it converged?", converged, stage)
+        print("total diff:", diff)
+        print("ediff:", e_diff)
+        print()
 
         # clear the buffer
         self.particles[0].markers[
