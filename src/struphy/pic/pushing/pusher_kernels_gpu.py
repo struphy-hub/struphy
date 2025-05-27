@@ -1,5 +1,4 @@
 # "Pusher kernels for full orbit (6D) particles."
-
 # from pyccel.stdlib.internal.openmp import omp_set_num_threads, omp_get_num_threads, omp_get_thread_num
 
 from numpy import cos, empty, floor, log, shape, sin, sqrt, zeros, copy
@@ -196,9 +195,9 @@ def push_vxb_analytic_gpu(
     v = empty(3, dtype=float)
 
     # perpendicular velocity, v x b_norm and b_norm x vperp
-    # vperp = empty(3, dtype=float)
-    # vxb_norm = empty(3, dtype=float)
-    # b_normxvperp = empty(3, dtype=float)
+    vperp = empty(3, dtype=float)
+    vxb_norm = empty(3, dtype=float)
+    b_normxvperp = empty(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -233,7 +232,7 @@ def push_vxb_analytic_gpu(
     args_derham_bd3 = args_derham.bd3
     args_derham_starts = args_derham.starts
 
-    #$ omp target teams distribute parallel for private(bn1, bd1, v)
+    #$ omp target teams distribute parallel for
     for ip in range(n_markers):
 
         # check if marker is a hole
@@ -320,40 +319,40 @@ def push_vxb_analytic_gpu(
         # linalg_kernels.matrix_vector(dfm, b_form, b_cart)
         # matrix_vector_inline(dfm, b_form, b_cart)
         # Temporary start (replacement of linalg_kernels.matrix_vector)
-        # b_cart[:] = 0.
-        # for i in range(3):
-        #     for j in range(3):
-        #         b_cart[i] += dfm[i, j] * b_form[j]
-        # # Temporary end
+        b_cart[:] = 0.
+        for i in range(3):
+            for j in range(3):
+                b_cart[i] += dfm[i, j] * b_form[j]
+        # Temporary end
 
-        # b_cart[:] = b_cart / det_df
+        b_cart[:] = b_cart / det_df
 
-        # # magnetic field: magnitude
-        # b_abs = sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
+        # magnetic field: magnitude
+        b_abs = sqrt(b_cart[0] ** 2 + b_cart[1] ** 2 + b_cart[2] ** 2)
 
         # # only push vxb if magnetic field is non-zero
-        # if b_abs != 0.0:
-        #     # normalized magnetic field direction
-        #     b_norm[:] = b_cart / b_abs
+        if b_abs != 0.0:
+            # normalized magnetic field direction
+            b_norm[:] = b_cart / b_abs
 
-        #     # parallel velocity v.b_norm
-        #     # vpar = linalg_kernels.scalar_dot(v, b_norm)
+            # parallel velocity v.b_norm
+            # vpar = linalg_kernels.scalar_dot(v, b_norm)
             
-        #     # vpar = scalar_dot_inline(v, b_norm)
-        #     vpar = v[0]*b_norm[0] + v[1]*b_norm[1] + v[2]*b_norm[2]
-        #     # # first component of perpendicular velocity
-        #     # linalg_kernels.cross(v, b_norm, vxb_norm)
-        #     cross_inline(v, b_norm, vxb_norm)
+            # vpar = scalar_dot_inline(v, b_norm)
+            vpar = v[0]*b_norm[0] + v[1]*b_norm[1] + v[2]*b_norm[2]
+            # # first component of perpendicular velocity
+            # linalg_kernels.cross(v, b_norm, vxb_norm)
+            cross_inline(v, b_norm, vxb_norm)
             
-        #     # linalg_kernels.cross(b_norm, vxb_norm, vperp)
-        #     cross_inline(b_norm, vxb_norm, vperp)
+            # linalg_kernels.cross(b_norm, vxb_norm, vperp)
+            cross_inline(b_norm, vxb_norm, vperp)
 
-        #     # # second component of perpendicular velocity
-        #     # linalg_kernels.cross(b_norm, vperp, b_normxvperp)
-        #     cross_inline(b_norm, vperp, b_normxvperp)
+            # # second component of perpendicular velocity
+            # linalg_kernels.cross(b_norm, vperp, b_normxvperp)
+            cross_inline(b_norm, vperp, b_normxvperp)
 
-        #     # # analytic rotation
-        #     markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+            # # analytic rotation
+            markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
 
 
 @pure
