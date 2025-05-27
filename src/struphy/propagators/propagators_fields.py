@@ -8511,6 +8511,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
         u: BlockVector,
         ue: BlockVector,
         phi: BlockVector,
+        Forcetermtest1: BlockVector,
+        Forcetermtest2: BlockVector,
         *,
         nu: float = options(default=True)["nu"],
         nu_e: float = options(default=True)["nu_e"],
@@ -8530,7 +8532,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         preconditioner: str = options(default=True)["preconditioner"],
         spectralanalysis: str = options(default=True)["spectralanalysis"],
     ):
-        super().__init__(u, ue, phi)
+        super().__init__(u, ue, phi, Forcetermtest1, Forcetermtest2)
 
         self._info = solver["info"]
         if self.derham.comm is not None:
@@ -8728,6 +8730,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 verbose=solver["verbose"],
                 pc=None,
             )
+            # Allocate memory for call
+            self._untemp = u.space.zeros()
 
         elif self._variant == "Uzawa":
             self._solver_UzawaNumpy = SaddlePointSolver(
@@ -8747,6 +8751,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
         unfeec = self.feec_vars[0]
         uenfeec = self.feec_vars[1]
         phinfeec = self.feec_vars[2]
+        unfeeccopy = self.feec_vars[0].copy()
+        uenfeeccopy = self.feec_vars[1].copy()
+        phinfeeccopy = self.feec_vars[2].copy()
 
         if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]]
@@ -8797,7 +8804,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
             _blocksB = [[_B1, _B2]]
             _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-            _blocksF = [self._F1 + self.mass_ops.M2.dot(unfeec) / dt, self._F2]  #
+            _blocksF = [self._F1 + self.mass_ops.M2.dot(unfeec, out=self._untemp) / dt, self._F2]  #
             _F = BlockVector(self._block_domainA, blocks=_blocksF)
 
             # Imported solver
@@ -8813,9 +8820,17 @@ class TwoFluidQuasiNeutralFull(Propagator):
             un = _sol1[0]
             uen = _sol1[1]
             phin = _sol2
+            
+            M2toarray = self.mass_ops.M2.toarray
+            M3toarray = self.mass_ops.M2.toarray
+            unfeectoarray=unfeeccopy.toarray()
+            M2sum = np.sum(_A11.dot(unfeeccopy).toarray())
+            print(f'{np.sum(unfeeccopy.toarray()) = }')
+            print(f'{np.sum(M2toarray.dot(unfeectoarray)) = }') #should be 0 as periodic fct
+            print(f'{M2sum = }')    #should be 0 as periodic fct
 
             # write new coeffs into self.feec_vars
-            max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
+            max_du, max_due, max_dphi, max_dftest1, maxdftest2 = self.feec_vars_update(un, uen, phin, _A11.dot(unfeeccopy, out = self._untemp), unfeeccopy)
 
         elif self._variant == "Uzawa":
             # Numpy
@@ -8889,9 +8904,15 @@ class TwoFluidQuasiNeutralFull(Propagator):
             print(f'Is outcoming a solution?')
             diffAout = A11np.dot(un) + self._B1np.T.dot(phin) - self._F1np
             print(f'{max(diffAout)=}')
+            _A11 = (self.mass_ops.M2 / dt)
+            _B1 = self.mass_ops.M3@self.derham.div
+            
+            print(self.mass_ops.M3.shape)
+            print(self.mass_ops.M3[:10, :10])  # peek into structure
+
 
             # write new coeffs into self.feec_vars
-            max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
+            max_du, max_due, max_dphi, max_dftest1, maxdftest2 = self.feec_vars_update(u_temp, ue_temp, phi_temp, (self.derham.div.T@self.mass_ops.M3).dot(phinfeeccopy), _B1.T.dot(phinfeeccopy))
 
         if self._info and self._rank == 0:
             print("Status     for Stokes:", info["success"])

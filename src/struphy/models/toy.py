@@ -1245,7 +1245,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
         # dct['em_fields']['b_field'] = 'Hdiv'
         # dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
-        dct["fluid"]["mhd"] = {"u": "Hdiv", "ue": "Hdiv", "potential": "L2"}
+        dct["fluid"]["mhd"] = {"u": "Hdiv", "ue": "Hdiv", "potential": "L2", "forceterm1": "Hdiv", "forceterm2": "Hdiv",}
         return dct
 
     @staticmethod
@@ -1258,7 +1258,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.TwoFluidQuasiNeutralFull: ["mhd_u", "mhd_ue", "mhd_potential"]}
+        return {propagators_fields.TwoFluidQuasiNeutralFull: ["mhd_u", "mhd_ue", "mhd_potential", "mhd_forceterm1", "mhd_forceterm2"]}
 
     __em_fields__ = species()["em_fields"]
     __fluid_species__ = species()["fluid"]
@@ -1268,7 +1268,6 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
-        from struphy.polar.basic import PolarVector
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
@@ -1277,7 +1276,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         size = comm.Get_size()
         if size != 1:
             if comm.Get_rank() == 0:
-                print(f"Error: Stokes only runs with one MPI process.")
+                print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
             return  # Early return to stop execution for multiple MPI processes
 
         # extract necessary parameters
@@ -1298,22 +1297,6 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_method_to_solve = params["fluid"]["mhd"]["options"]["Stokes"]["method_to_solve"]
         stokes_preconditioner = params["fluid"]["mhd"]["options"]["Stokes"]["preconditioner"]
         stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["Stokes"]["spectralanalysis"]
-
-        # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
-        self._p_eq = self.derham.P["3"](self.equil.p3)
-        self._ones = self._p_eq.space.zeros()
-
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
 
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
@@ -1341,48 +1324,11 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
         # # Scalar variables to be saved during simulation
         self.add_scalar("en_U")
-        # self.add_scalar('en_p')
-        # self.add_scalar('en_B')
-        # self.add_scalar('en_p_eq')
-        # self.add_scalar('en_B_eq')
-        # self.add_scalar('en_B_tot')
-        # self.add_scalar('en_tot')
 
         # # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh["2"].zeros()
-        # self._tmp_b1 = self.derham.Vh['2'].zeros()
-        # self._tmp_b2 = self.derham.Vh['2'].zeros()
 
     def update_scalar_quantities(self):
         # # perturbed fields
         x = 1
-        # self._mass_ops.M2.dot(self.pointer["mhd_u"], out=self._tmp_u1)
-        # self._mass_ops.M2.dot(self.pointer['b_field'], out=self._tmp_b1)
 
-        # en_U = self.pointer["mhd_u"].dot(self._tmp_u1) / 2
-        # en_B = self.pointer['b_field'] .dot(self._tmp_b1)/2
-        # en_p = self.pointer['mhd_pressure'] .dot(self._ones)/(5/3 - 1)
-
-        # self.update_scalar("en_U", en_U)
-        # self.update_scalar('en_B', en_B)
-        # self.update_scalar('en_p', en_p)
-        # self.update_scalar('en_tot', en_U + en_B + en_p)
-
-        # # background fields
-        # self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-
-        # en_B0 = self._b_eq.dot(self._tmp_b1)/2
-        # en_p0 = self._p_eq.dot(self._ones)/(5/3 - 1)
-
-        # self.update_scalar('en_B_eq', en_B0)
-        # self.update_scalar('en_p_eq', en_p0)
-
-        # # total magnetic field
-        # self._b_eq.copy(out=self._tmp_b1)
-        # self._tmp_b1 += self.pointer['b_field']
-
-        # self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-
-        # en_Btot = self._tmp_b1.dot(self._tmp_b2)/2
-
-        # self.update_scalar('en_B_tot', en_Btot)
