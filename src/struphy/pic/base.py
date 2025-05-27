@@ -1,4 +1,4 @@
-import line_profiler
+# import line_profiler
 import copy
 import os
 from abc import ABCMeta, abstractmethod
@@ -1540,7 +1540,7 @@ class Particles(metaclass=ABCMeta):
             self.mpi_sort_markers(gpu=gpu)
             self.do_sort()
 
-    @line_profiler.profile
+    # @line_profiler.profile
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
@@ -1868,7 +1868,7 @@ class Particles(metaclass=ABCMeta):
 
         return outside_inds
 
-    @line_profiler.profile
+    # @line_profiler.profile
     def _find_outside_particles_gpu(self, axis):
         """
         GPU-accelerated version of _find_outside_particles.
@@ -1903,7 +1903,7 @@ class Particles(metaclass=ABCMeta):
 
         return cp.asnumpy(outside_inds)
 
-    @line_profiler.profile
+    # @line_profiler.profile
     def apply_kinetic_bc(self, newton=False, gpu=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -3391,7 +3391,7 @@ class Particles(metaclass=ABCMeta):
 
         return hole_inds_after_send, send_inds
 
-    @line_profiler.profile
+    # @line_profiler.profile
     def sendrecv_determine_mtbs_gpu(
         self,
         alpha: list | tuple | np.ndarray = (1.0, 1.0, 1.0),

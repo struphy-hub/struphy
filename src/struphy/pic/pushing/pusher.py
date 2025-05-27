@@ -1,5 +1,5 @@
 "Accelerated particle pushing."
-import line_profiler
+# import line_profiler
 import time
 
 import numpy as np
@@ -167,7 +167,7 @@ class Pusher:
         
         self._gpu = gpu
 
-    @line_profiler.profile
+    # @line_profiler.profile
     def __call__(self, dt: float):
         """
         Applies the chosen pusher kernel by a time step dt,
