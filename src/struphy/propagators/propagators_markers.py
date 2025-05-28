@@ -1529,6 +1529,7 @@ class PushVinSPHpressure(Propagator):
         dct["algo"] = [
             "forward_euler",
         ]  # "heun2", "rk2", "heun3", "rk4"]
+        dct["gravity"] = 0.0,
         if default:
             dct = descend_options_dict(dct, [])
         return dct
@@ -1539,8 +1540,8 @@ class PushVinSPHpressure(Propagator):
         *,
         kernel_type: str = "gaussian_2d",
         kernel_width: tuple = None,
-        g = np.zeros(3, dtype=float),
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+        gravity: float = 0.0,
     ):
         # base class constructor call
         super().__init__(particles)
@@ -1594,7 +1595,9 @@ class PushVinSPHpressure(Propagator):
 
         kernel = pusher_kernels.push_v_sph_pressure
 
-        # same arguments as init kernel plus g
+        # same arguments as init kernel plus gravity
+        g = np.array([0.0, gravity, 0.0], dtype=float)
+        
         args_kernel = (
             boxes,
             neighbours,
