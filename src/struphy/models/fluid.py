@@ -1453,7 +1453,7 @@ class IsothermalEulerSPH(StruphyModel):
         algo_eta = _p["options"]["PushEta"]["algo"]
         kernel_type = _p["options"]["PushVinSPHpressure"]["kernel_type"]
         algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
-
+        g = _p
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
@@ -1463,6 +1463,7 @@ class IsothermalEulerSPH(StruphyModel):
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
             "kernel_type": kernel_type,
             "algo": algo_sph,
+            "g": g,
         }
 
         # Initialize propagators used in splitting substeps

@@ -15,7 +15,7 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import ButcherTableau, Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-
+import numpy as np
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
@@ -1512,6 +1512,7 @@ class PushVinSPHpressure(Propagator):
         *,
         kernel_type: str = "gaussian_2d",
         kernel_width: tuple = None,
+        g = np.zeros(3, dtype=float),
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
     ):
         # base class constructor call
@@ -1566,9 +1567,17 @@ class PushVinSPHpressure(Propagator):
 
         kernel = pusher_kernels.push_v_sph_pressure
 
-        # same arguments as init kernel
-        args_kernel = args_init
-
+        # same arguments as init kernel plus g
+        args_kernel = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+            g,
+        )
+        
         # the Pusher class wraps around all kernels
         self._pusher = Pusher(
             particles,

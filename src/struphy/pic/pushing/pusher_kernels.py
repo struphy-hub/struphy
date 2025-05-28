@@ -2999,6 +2999,7 @@ def push_v_sph_pressure(
     h1: "float",
     h2: "float",
     h3: "float",
+    g: "float[:]"
 ):
     r"""Updates particle velocities as
 
@@ -3033,6 +3034,9 @@ def push_v_sph_pressure(
 
     h1, h2, h3 : float
         Kernel width in respective dimension.
+        
+    g: array
+        constant gravitational force
     """
     # allocate arrays
     grad_u = zeros(3, dtype=float)
@@ -3054,7 +3058,7 @@ def push_v_sph_pressure(
     for ip in range(n_markers):
         if not valid_mks[ip]:
             continue
-
+        
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
@@ -3150,7 +3154,7 @@ def push_v_sph_pressure(
                 h3,
             )
             sum4 *= kappa
-            grad_u[1] += sum4
+            grad_u[1] += sum4  
 
         if kernel_type >= 670:
             # third component
@@ -3209,8 +3213,8 @@ def push_v_sph_pressure(
         )
         linalg_kernels.transpose(dfinv, dfinvT)
         linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
-
+        
         # update velocities
-        markers[ip, 3:6] -= dt * grad_u_cart
+        markers[ip, 3:6] -= dt * (grad_u_cart - g)
 
     #$ omp end parallel
