@@ -51,14 +51,17 @@ struphy run IsothermalEulerSPH --gpu --time-trace -i verification/IsothermalEule
 
 struphy run IsothermalEulerSPH       --time-trace -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_cpu # CPU
 struphy run IsothermalEulerSPH --gpu --time-trace -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_gpu # GPU
-
-
-
 ```
 
+## Submit jobs
 
-post processing
+```
+struphy run IsothermalEulerSPH       --time-trace -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_cpu -b slurm_raven_gpu.sh # CPU
+struphy run IsothermalEulerSPH --gpu --time-trace -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_gpu -b slurm_raven_gpu.sh # GPU
+```
 
+## post processing
+****
 ```
 struphy pproc -d sim_Vlasov_cpu --time-trace
 struphy pproc -d sim_Vlasov_gpu --time-trace
