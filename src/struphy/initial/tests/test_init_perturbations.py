@@ -40,7 +40,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     fields = {}
     for space, form in derham.space_to_form.items():
-        fields[form] = derham.create_field(form, space)
+        fields[form] = derham.create_spline_function(form, space)
 
     form_scalar = ["0", "3", "physical_at_eta"]
     form_vector = ["1", "2", "v", "norm", "physical_at_eta"]
@@ -123,7 +123,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 continue
                             params[key]["pfuns"] = pfuns
 
-                        field = derham.create_field(name, space, pert_params=params)
+                        field = derham.create_spline_function(name, space, pert_params=params)
                         field.initialize_coeffs(domain=domain)
 
                         field_vals_xyz = domain.push(field, e1, e2, e3, kind=name)
@@ -230,7 +230,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             if isinstance(domain, domains.HollowTorus):
                                 continue
 
-                        field = derham.create_field(name, space, pert_params=params)
+                        field = derham.create_spline_function(name, space, pert_params=params)
                         field.initialize_coeffs(domain=domain)
 
                         f1_xyz, f2_xyz, f3_xyz = domain.push(field, e1, e2, e3, kind=name)

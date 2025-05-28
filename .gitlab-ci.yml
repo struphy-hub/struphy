@@ -1,34 +1,7 @@
 # Keyword reference for the .gitlab-ci.yml file: 
 # https://gitlab.mpcdf.mpg.de/help/ci/yaml/index.md 
 
-# Struphy test strategy:
-# 
-# The startup stage with "ci_vars" and "default_venv" is always executed.
-#
-# At each "push": 
-# 1) build .whl
-# 2) install from .whl in default and ubuntu:latest 
-# 3) compile only in C
-# 4) perform all tests (including models --fast) in default and ubuntu:latest
-# 
-# At each merge into "devel": 
-# 1) do nothing
-#
-# At each merge into "master":
-# 1) build .whl
-# 2) install from .whl in default 
-# 3) update pages 
-# 4) deploy to PyPI
-# 5) release on GitLab
-#
-# At "scheduled" pipeline:
-# 1) install from PyPI in all available docker images and in default
-# 2) compile in C and Fortran
-# 3) run all tests (including models --fast) in all available images and in default
-#
-
 # A "scheduled" pipeline can be tested by clicking "Run pipeline" on Gitlab and setting the TEST_SCHEDULED = true.
-
 # The doc can be built by clicking "Run pipeline" on Gitlab and setting the MAKE_PAGES = true.
 
 variables:
@@ -44,7 +17,10 @@ variables:
     value: "."
     options: [".", "-U struphy"]
     description: "Source to install struphy from."
-  AFTER_SCRIPT_IGNORE_ERRORS: 'false'
+  CLEANUP_MACOS_NMPP:
+    value: "false"
+    options: ["true", "false"]
+    description: "Cleanup the struphy directory on the MacOS server."
 
 stages:
   - startup
@@ -54,16 +30,28 @@ stages:
   - pages
   - release 
 
+# --- images ---
 
-#####################
-###   TEMPLATES   ###
-#####################
+.image_gitlab_mpcdf_struphy:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy
+
+.image_ubuntu_struphy:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy
 
 .image_gitlab_mpcdf_gcc_openmp:
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_14-openmpi_5_0:2025
 
-.image_struphy_ubuntu_latest:
-  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_latest
+.image_ubuntu_latest:
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest
+
+# --- job variables ---
+
+.variables_push:
+  variables:
+    LANGUAGE: 'c'
+    OMP: ''
+
+# --- rules ---
 
 .rules_push:
   rules:
@@ -102,13 +90,20 @@ stages:
       when: never
     - if: $CI_COMMIT_REF_NAME == "master"
     - if: $MAKE_PAGES == "true"
-.parallel_matrix_push:
+
+.rules_cleanup_macos:
+  rules:
+    - if: $CLEANUP_MACOS_NMPP == "true"
+
+# --- parallel matrices ---
+
+.parallel_matrix_install:
   parallel:
     matrix:
-      # - LANGUAGE: "fortran"
-      #   OMP: ["", "--omp-pic"]
-      - LANGUAGE: "c"
-        OMP: [""]
+      - LANGUAGE: "fortran"
+        OMP: ["", "--omp-pic"]
+      # - LANGUAGE: "c"
+      #   OMP: [""]
 
 .parallel_matrix_scheduled:
   parallel:
@@ -117,6 +112,8 @@ stages:
         OMP: [""] #, "--omp-pic"] # TODO: Enable when unit tests are working with --omp-pic!
       - LANGUAGE: "c"
         OMP: [""]
+
+# --- before scripts ---
 
 .before_script_load_modules:
   before_script:
@@ -130,10 +127,11 @@ stages:
     - module list
     - make -v
     - python3 --version
-    - pip list
+
+# --- scripts ---
 
 .scripts:
-  checkout_directory:
+  inspect_directory:
     - date
     - pwd
     - ls -1a
@@ -146,19 +144,36 @@ stages:
     - pip install -U pip
     - python3 -m pip list
   source_env_matrix:
+    - echo env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - python3 -m pip list
+    - python3 --version
+  source_env_matrix_push:
+    - ls /
+    - echo struphy_${LANGUAGE}_${OMP}
+    - cd /struphy_${LANGUAGE}_${OMP}
+    - source env_${LANGUAGE}_${OMP}/bin/activate
     - python3 -m pip list
     - python3 --version
   create_venv_matrix:
     - python3 -m ensurepip --upgrade
     - python3 -m pip install --upgrade pip
+    - echo env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
     - pip install -U pip
     - python3 -m pip list
     - python3 --version
+  install_on_push:
+    - !reference [.scripts, source_env_matrix_push]
+    - git status
+    - git fetch origin
+    - git checkout $CI_COMMIT_BRANCH
+    - git pull
+    - pip install -e $(echo $STRUPHY_SOURCE)
+    - !reference [.scripts, compile_matrix]
   install:
-    - pip install $(echo $STRUPHY_SOURCE)[test]
+    - pip install $(echo $STRUPHY_SOURCE)[phys]
     - pip show struphy
     - pip list
     - struphy -h
@@ -166,19 +181,22 @@ stages:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y
-    - struphy --refresh-models
   compile_matrix:
     - pyccel --version
     - struphy compile --status
+    - echo ${LANGUAGE} && echo ${OMP}
     - struphy compile --language ${LANGUAGE} ${OMP} -y
-    - struphy --refresh-models
   build:
     - pip install -U build
     - python3 -m build
-  checkout_struphy:
+  inspect_struphy:
     - struphy -p
     - struphy -h
     - struphy run -h
+  unit_tests:
+    - struphy compile --status
+    - struphy --refresh-models
+    - struphy test unit
   model_tests:
     - struphy compile --status
     - struphy test models --fast
@@ -186,10 +204,6 @@ stages:
     - struphy test models --fast --verification --mpi 4
     - struphy test models --fast --verification --mpi 4 --nclones 2
     - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
-  unit_tests:
-    - struphy compile --status
-    - struphy --refresh-models
-    - struphy test unit
   quickstart_tests:
     - struphy --set-i .
     - struphy --set-o .
@@ -209,7 +223,9 @@ stages:
     - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
     - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
 
-.artifact_install:
+# --- artifacts ---
+
+.artifacts_scheduled:
   artifacts:
     name: 'python-env-installed-${LANGUAGE}-${OMP}'
     paths:
@@ -220,7 +236,7 @@ stages:
 ### STARTUP STAGE ###
 #####################
 
-# Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
+# Print predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
@@ -230,7 +246,7 @@ ci_vars:
     - echo "All environment variables:"
     - env
 
-checkout_repo:
+inspect_repo:
   stage: startup
   script:
     - curl https://raw.githubusercontent.com/AlDanial/cloc/master/cloc > cloc
@@ -238,58 +254,150 @@ checkout_repo:
     - ./cloc --version
     - ./cloc $(git ls-files)
 
-
 #####################
-### INSTALL STAGE ###
+### PUSH PIPELINE ###
 #####################
 
-install_push:
-  stage: install
+install_tests:
+  stage: test
   extends:
-    - .image_gitlab_mpcdf_gcc_openmp
     - .rules_push
-    - .parallel_matrix_push
+    - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
-    - .artifact_install
+    - .parallel_matrix_install
   script:
-    - !reference [.scripts, create_venv_matrix]
+    - !reference [.scripts, install_on_push]
+
+unit_tests:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, unit_tests]
+
+model_tests:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, model_tests]
+
+quickstart_tests:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, quickstart_tests]
+
+pages_tests:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, inspect_struphy]
+    - module load pandoc
+    - module list
+    - pip install .[doc]
+    - struphy compile -y
+    - cd doc ; make html; cd ..
+
+ubuntu_latest:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_ubuntu_struphy
+    - .variables_push
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, quickstart_tests]
+    - !reference [.scripts, model_tests]
+
+macos_nmpp:
+  stage: test
+  tags: [macos, nmpp, private]
+  needs: []
+  variables:
+    # Job ID changes for each job, so reusing the directory becomes impossible,
+    # therefore, the fetch strategy also becomes unusable
+    GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID/$CI_CONCURRENT_PROJECT_ID
+    _JOB_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID
+  extends:
+    - .rules_push
+    - .variables_push
+  before_script:
+    - make -v
+    - printenv
+    - system_profiler SPHardwareDataType
+  script:
+    - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
-    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, compile]
+    - !reference [.scripts, quickstart_tests]
+    - !reference [.scripts, model_tests]
+  after_script:
+    - pwd
+    - ls -a
+    - echo $_JOB_PATH
+    - ls -a $_JOB_PATH 
+    - rm -rf $_JOB_PATH
+
+cleanup_macos:
+  stage: test
+  tags: [macos, nmpp, private]
+  needs: []
+  extends:
+    - .rules_cleanup_macos
+  before_script:
+    - make -v
+    - printenv
+    - system_profiler SPHardwareDataType
+  script:
+    - _STRUPHY_PATH=$CI_BUILDS_DIR/$CI_PROJECT_NAME
+    - pwd
+    - ls -a
+    - echo $_STRUPHY_PATH
+    - ls -a $_STRUPHY_PATH
+    - rm -rf $_STRUPHY_PATH/*
+    - ls -a $_STRUPHY_PATH
+
+##########################
+### SCHEDULED PIPELINE ###
+##########################
 
 install_scheduled:
   stage: install
+  needs: []
   extends:
-    - .image_gitlab_mpcdf_gcc_openmp
     - .rules_scheduled
-    - .parallel_matrix_scheduled
+    - .image_gitlab_mpcdf_gcc_openmp
     - .before_script_load_modules
-    - .artifact_install
+    - .parallel_matrix_scheduled
+    - .artifacts_scheduled
   script:
     - !reference [.scripts, create_venv_matrix]
-    - !reference [.scripts, install]
-    - !reference [.scripts, compile_matrix]
-
-
-# Temporary, since the scheduled CI fails the tests with --omp-pic
-compile_openmp:
-  stage: install
-  extends:
-    - .image_gitlab_mpcdf_gcc_openmp
-    - .rules_push
-    - .before_script_load_modules
-  parallel:
-    matrix:
-      - LANGUAGE: "fortran"
-        OMP: ["--omp-pic"]
-      #- LANGUAGE: "c"
-      #  OMP: ["--omp-pic"]
-  script:
-    - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
 
 compile_timing:
   stage: install
+  needs: []
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
     - .before_script_load_modules
@@ -320,107 +428,17 @@ compile_timing:
     - chmod +x check_pyccel.sh
     - ./check_pyccel.sh
 
-##################
-### TEST STAGE ###
-##################
-
-# ----- Push pipeline ----- #
-
 test_build:
   stage: test
   extends:
     - .image_gitlab_mpcdf_gcc_openmp
-    - .rules_push
+    - .rules_scheduled
     - .before_script_load_modules
   needs: []
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, build]
-    - pip install $(echo dist/struphy*.whl)[test] --no-cache-dir
-
-unit_tests:
-  stage: test
-  extends:
-    - .image_gitlab_mpcdf_gcc_openmp
-    - .rules_push
-    - .parallel_matrix_push
-    - .before_script_load_modules
-  script:
-    - !reference [.scripts, source_env_matrix]
-    - !reference [.scripts, unit_tests]
-
-model_tests:
-  stage: test
-  extends:
-    - .image_gitlab_mpcdf_gcc_openmp
-    - .rules_push
-    - .parallel_matrix_push
-    - .before_script_load_modules
-  script:
-    - !reference [.scripts, source_env_matrix]
-    - !reference [.scripts, model_tests]
-
-quickstart_tests:
-  stage: test
-  extends:
-    - .image_gitlab_mpcdf_gcc_openmp
-    - .rules_push
-    - .parallel_matrix_push
-    - .before_script_load_modules
-  script:
-    - !reference [.scripts, source_env_matrix]
-    - !reference [.scripts, quickstart_tests]
-
-model_tests_psydac_whl:
-  stage: test
-  extends:
-    - .image_gitlab_mpcdf_gcc_openmp
-    - .rules_push
-    - .parallel_matrix_push
-    - .before_script_load_modules
-  script:
-    - !reference [.scripts, source_env_matrix]
-    - pip uninstall -y psydac
-    - pip install src/struphy/psydac*.whl
-    - struphy compile --language ${LANGUAGE} ${OMP} -y
-    - struphy --refresh-models
-    - !reference [.scripts, model_tests]
-
-macos_nmpp:
-  stage: test
-  tags: [macos, nmpp, private]
-  needs: []
-  extends:
-    - .rules_push
-    - .parallel_matrix_push
-  before_script:
-    - make -v
-    - printenv
-    - system_profiler SPHardwareDataType
-  script:
-    - !reference [.scripts, create_venv]
-    - !reference [.scripts, install]
-    - !reference [.scripts, compile]
-    - !reference [.scripts, quickstart_tests]
-    - !reference [.scripts, model_tests]
-
-test_pages:
-  stage: test
-  extends:
-    - .image_gitlab_mpcdf_gcc_openmp
-    - .rules_push
-    - .parallel_matrix_push
-    - .before_script_load_modules
-  script:
-    - !reference [.scripts, source_env_matrix]
-    - !reference [.scripts, checkout_struphy]
-    - module load pandoc
-    - module list
-    - pip install .[doc]
-    - struphy compile -y
-    - cd doc ; make html; cd ..
-
-# ----- Scheduled pipeline ----- #
+    - pip install $(echo dist/struphy*.whl) --no-cache-dir
 
 unit_tests_scheduled:
   stage: test
@@ -444,40 +462,6 @@ model_tests_scheduled:
     - !reference [.scripts, source_env_matrix]
     - !reference [.scripts, model_tests]
 
-# docker image testing (scheduled: struphy from PyPI OR test-schedule: struphy from devel)
-Ubuntu_latest:
-  stage: test
-  extends:
-    - .rules_push
-    - .parallel_matrix_push
-  image: ubuntu:latest
-  needs: []
-  before_script:
-    - !reference [.scripts, checkout_directory]
-    - apt update -y && apt clean 
-    - export DEBIAN_FRONTEND=noninteractive
-    - apt install -y software-properties-common
-    - add-apt-repository -y ppa:deadsnakes/ppa
-    - apt update -y
-    # - apt install -y python3.11
-    # - apt install -y python3.11-dev
-    - apt install -y python3-pip 
-    - apt install -y python3-venv 
-    - apt install -y gfortran gcc 
-    - apt install -y liblapack-dev libopenmpi-dev 
-    - apt install -y libblas-dev openmpi-bin 
-    - apt install -y libomp-dev libomp5 
-    - apt install -y git
-    - apt install -y pandoc
-    - export OMPI_ALLOW_RUN_AS_ROOT=1
-    - export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-  script:
-    - !reference [.scripts, create_venv]
-    - !reference [.scripts, install]
-    - !reference [.scripts, compile]
-    - !reference [.scripts, quickstart_tests]
-    - !reference [.scripts, model_tests]
-
 Ubuntu_22_04:
   stage: test
   extends:
@@ -485,7 +469,7 @@ Ubuntu_22_04:
     - .parallel_matrix_scheduled
   image: ubuntu:22.04
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - apt update -y && apt clean 
     - apt install -y python3-pip 
     - apt install -y python3-venv
@@ -510,7 +494,7 @@ struphy_ubuntu_python_3_11:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - python3 -V
     - python3.11 -V
     - python3.11 -m venv env
@@ -521,15 +505,14 @@ struphy_ubuntu_python_3_11:
     - !reference [.scripts, compile_matrix]
     - !reference [.scripts, model_tests]
 
-
 struphy_ubuntu_latest:
   stage: test
   extends:
-    - .image_struphy_ubuntu_latest
+    - .image_ubuntu_latest
     - .rules_scheduled
     - .parallel_matrix_scheduled
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
   script:
     - !reference [.scripts, install]
@@ -543,7 +526,7 @@ Fedora:
     - .parallel_matrix_scheduled
   image: fedora:latest
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - dnf install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - dnf update -y  
     - dnf install -y gcc
@@ -585,7 +568,7 @@ struphy_fedora_latest:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_fedora_latest
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
     - . /etc/profile.d/modules.sh
     - module load mpi/openmpi-$(arch)
@@ -602,7 +585,7 @@ OpenSuse:
     - .parallel_matrix_scheduled
   image: opensuse/tumbleweed:latest
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - zypper refresh
     - zypper install -y python3 python3-devel
     - zypper install -y python3-pip python3-virtualenv python3-pkgconfig
@@ -633,7 +616,7 @@ struphy_opensuse_latest:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_opensuse_latest
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - set -x
     - !reference [.scripts, create_venv]
   script:
@@ -648,7 +631,7 @@ AlmaLinux:
     - .parallel_matrix_scheduled
   image: almalinux:latest
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - yum install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
     - yum update -y 
     - yum clean all 
@@ -688,7 +671,7 @@ struphy_almalinux_latest:
     - .parallel_matrix_scheduled
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_almalinux_latest
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - python3 -m ensurepip --upgrade
     - python3 -m pip install --upgrade pip
     - !reference [.scripts, create_venv]
@@ -706,12 +689,12 @@ lint_full_repo_report:
   stage: lint
   extends:
     - .rules_scheduled
-    - .image_struphy_ubuntu_latest
+    - .image_ubuntu_latest
   script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-    - !reference [.scripts, checkout_struphy]
+    - !reference [.scripts, inspect_struphy]
     - struphy lint all --output-format report
     - mkdir -p lint_reports
     - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
@@ -726,12 +709,12 @@ lint_branch:
   stage: lint
   extends:
     - .rules_push
-    - .image_struphy_ubuntu_latest
+    - .image_ubuntu_latest
   script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-    - !reference [.scripts, checkout_struphy]
+    - !reference [.scripts, inspect_struphy]
     # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint branch --output-format plain --verbose
   allow_failure: true
@@ -741,12 +724,12 @@ lint_branch_report:
   stage: lint
   extends:
     - .rules_push
-    - .image_struphy_ubuntu_latest
+    - .image_ubuntu_latest
   script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-    - !reference [.scripts, checkout_struphy]
+    - !reference [.scripts, inspect_struphy]
     - struphy lint branch --output-format report
     - mkdir -p lint_reports
     - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
@@ -762,17 +745,17 @@ lint_branch_report:
 pages:
   stage: pages
   extends:
-    - .image_struphy_ubuntu_latest
+    - .image_ubuntu_latest
     - .rules_make_pages
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
     - apt show pandoc
     - apt show graphviz
     - echo $CI_COMMIT_MESSAGE
     - pip install .[doc]
   script:
-    - !reference [.scripts, checkout_struphy]
+    - !reference [.scripts, inspect_struphy]
     - !reference [.scripts, compile]
     - cd doc ; make html
     - mv _build/html/ ../public/
@@ -802,7 +785,7 @@ vars:
   extends:
     - .rules_release
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
   script:
     - echo "VERSION=$(var=$(<pyproject.toml); set -- $var; echo ${14} | sed 's/^.//' | sed 's/.$//')" >> vars.env
   artifacts:
@@ -818,7 +801,7 @@ release_job:
     - .rules_release
   needs: ['vars']
   before_script:
-    - !reference [.scripts, checkout_directory]
+    - !reference [.scripts, inspect_directory]
   script:
     - cat /etc/*-release
     - echo $VERSION

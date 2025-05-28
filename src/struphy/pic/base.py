@@ -249,6 +249,9 @@ class Particles(metaclass=ABCMeta):
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
         self._bc = bc
+        self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
+        self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
+        self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
         self._bc_refill = bc_refill
 
         # particle type
@@ -695,7 +698,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def phasespace_coords(self):
-        """Array holding the marker velocities in logical space. The i-th row holds the i-th marker info."""
+        """Array holding the marker positions and velocities in logical space. The i-th row holds the i-th marker info."""
         return self.markers[self.valid_mks, self.index["coords"]]
 
     @phasespace_coords.setter
@@ -1829,6 +1832,26 @@ class Particles(metaclass=ABCMeta):
 
         plt.show()
 
+    def _find_outside_particles(self, axis):
+        # determine particles outside of the logical unit cube
+        self._is_outside_right[:] = self.markers[:, axis] > 1.0
+        self._is_outside_left[:] = self.markers[:, axis] < 0.0
+
+        self._is_outside_right[self.holes] = False
+        self._is_outside_right[self.ghost_particles] = False
+        self._is_outside_left[self.holes] = False
+        self._is_outside_left[self.ghost_particles] = False
+
+        self._is_outside[:] = np.logical_or(
+            self._is_outside_right,
+            self._is_outside_left,
+        )
+
+        # indices or particles that are outside of the logical unit cube
+        outside_inds = np.nonzero(self._is_outside)[0]
+
+        return outside_inds
+
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -1840,79 +1863,75 @@ class Particles(metaclass=ABCMeta):
             for a Newton step or for a strandard (explicit or Picard) step.
         """
 
-        for axis, bc in enumerate(self.bc):
-            # determine particles outside of the logical unit cube
-            self._is_outside_right[:] = self.markers[:, axis] > 1.0
-            self._is_outside_left[:] = self.markers[:, axis] < 0.0
-
-            self._is_outside_right[self.holes] = False
-            self._is_outside_right[self.ghost_particles] = False
-            self._is_outside_left[self.holes] = False
-            self._is_outside_left[self.ghost_particles] = False
-
-            self._is_outside[:] = np.logical_or(
-                self._is_outside_right,
-                self._is_outside_left,
-            )
-
-            # indices or particles that are outside of the logical unit cube
-            outside_inds = np.nonzero(self._is_outside)[0]
+        # apply boundary conditions
+        for axis in self._remove_axes:
+            outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
 
-            # apply boundary conditions
-            if bc == "remove":
-                if self.bc_refill is not None:
-                    self.particle_refilling()
+            if self.bc_refill is not None:
+                self.particle_refilling()
 
-                self._markers[self._is_outside, :-1] = -1.0
-                self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
+            self._markers[self._is_outside, :-1] = -1.0
+            self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
-            elif bc == "periodic":
-                self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
+        for axis in self._periodic_axes:
+            outside_inds = self._find_outside_particles(axis)
 
-                # set shift for alpha-weighted mid-point computation
-                outside_right_inds = np.nonzero(self._is_outside_right)[0]
-                outside_left_inds = np.nonzero(self._is_outside_left)[0]
-                if newton:
-                    self.markers[
-                        outside_right_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] += 1.0
-                    self.markers[
-                        outside_left_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] += -1.0
-                else:
-                    self.markers[
-                        :,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] = 0.0
-                    self.markers[
-                        outside_right_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] = 1.0
-                    self.markers[
-                        outside_left_inds,
-                        self.first_pusher_idx + 3 + self.vdim + axis,
-                    ] = -1.0
+            if len(outside_inds) == 0:
+                continue
 
-            elif bc == "reflect":
-                self.markers[self._is_outside_left, axis] = 1e-4
-                self.markers[self._is_outside_right, axis] = 1 - 1e-4
+            self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
 
-                reflect(
-                    self.markers,
-                    self.domain.args_domain,
-                    outside_inds,
-                    axis,
-                )
-
-                self.markers[self._is_outside, self.first_pusher_idx] = -1.0
-
+            # set shift for alpha-weighted mid-point computation
+            outside_right_inds = np.nonzero(self._is_outside_right)[0]
+            outside_left_inds = np.nonzero(self._is_outside_left)[0]
+            if newton:
+                self.markers[
+                    outside_right_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] += 1.0
+                self.markers[
+                    outside_left_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] += -1.0
             else:
-                raise NotImplementedError("Given bc_type is not implemented!")
+                self.markers[
+                    :,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = 0.0
+                self.markers[
+                    outside_right_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = 1.0
+                self.markers[
+                    outside_left_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = -1.0
+
+        # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
+        outside_inds_per_axis = {}
+        for axis in self._reflect_axes:
+            outside_inds = self._find_outside_particles(axis)
+
+            self.markers[self._is_outside_left, axis] = 1e-4
+            self.markers[self._is_outside_right, axis] = 1 - 1e-4
+
+            self.markers[self._is_outside, self.first_pusher_idx] = -1.0
+
+            outside_inds_per_axis[axis] = outside_inds
+
+        for axis in self._reflect_axes:
+            if len(outside_inds_per_axis[axis]) == 0:
+                continue
+
+            reflect(
+                self.markers,
+                self.domain.args_domain,
+                outside_inds_per_axis[axis],
+                axis,
+            )
 
     def particle_refilling(self):
         r"""
