@@ -46,8 +46,8 @@ struphy run Vlasov       --time-trace -o sim_Vlasov_cpu # CPU
 struphy run Vlasov --gpu --time-trace -o sim_Vlasov_gpu # GPU
 
 
-struphy run IsothermalEulerSPH       --time-trace -o sim_IsothermalEulerSPH_cpu # CPU
-struphy run IsothermalEulerSPH --gpu --time-trace -o sim_IsothermalEulerSPH_gpu # GPU
+struphy run IsothermalEulerSPH       --time-trace --likwid --stats --marker -i verification/IsothermalEulerSPH_soundwave.yml -o sim_IsothermalEulerSPH_cpu # CPU
+struphy run IsothermalEulerSPH --gpu --time-trace --likwid --stats --marker -i verification/IsothermalEulerSPH_soundwave.yml -o sim_IsothermalEulerSPH_gpu # GPU
 ```
 
 
