@@ -1578,7 +1578,7 @@ class PushVinSPHpressure(Propagator):
 
         # init kernel for evaluating density etc. before each time step.
         if gpu:
-            init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs  # TODO: port2gpu
+            init_kernel = pusher_kernels_gpu.sph_isotherm_pressure_coeffs_gpu  # TODO: port2gpu
         else:
             init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
 

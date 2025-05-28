@@ -175,217 +175,220 @@ class Pusher:
         Applies the chosen pusher kernel by a time step dt,
         applies kinetic boundary conditions and performs MPI sorting.
         """
+        with ProfileManager.profile_region("Pusher.__call__.initialization"):
+            # some idx and slice
+            markers = self.particles.markers
+            vdim = self.particles.vdim
+            first_pusher_idx = self.particles.first_pusher_idx
+            first_shift_idx = self.particles.first_shift_idx
+            residual_idx = self.particles.residual_idx
 
-        # some idx and slice
-        markers = self.particles.markers
-        vdim = self.particles.vdim
-        first_pusher_idx = self.particles.first_pusher_idx
-        first_shift_idx = self.particles.first_shift_idx
-        residual_idx = self.particles.residual_idx
+            if self.verbose:
+                print(f"{first_pusher_idx = }")
+                print(f"{first_shift_idx = }")
+                print(f"{residual_idx = }")
+                print(f"{self.particles.n_cols = }")
 
-        if self.verbose:
-            print(f"{first_pusher_idx = }")
-            print(f"{first_shift_idx = }")
-            print(f"{residual_idx = }")
-            print(f"{self.particles.n_cols = }")
+            init_slice = slice(first_pusher_idx, first_shift_idx)
+            shift_slice = slice(first_shift_idx, residual_idx)
 
-        init_slice = slice(first_pusher_idx, first_shift_idx)
-        shift_slice = slice(first_shift_idx, residual_idx)
+            # save initial phase space coordinates
+            markers[:, init_slice] = markers[:, : 3 + vdim]
 
-        # save initial phase space coordinates
-        markers[:, init_slice] = markers[:, : 3 + vdim]
+            # set boundary shifts to zero
+            markers[:, shift_slice] = 0.0
 
-        # set boundary shifts to zero
-        markers[:, shift_slice] = 0.0
+            # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
+            markers[:, residual_idx:-2] = 0.0
 
-        # clear buffer columns starting from residual index, dont clear ID (last column) and loc_box
-        markers[:, residual_idx:-2] = 0.0
-
-        if self.verbose:
-            rank = self.particles.mpi_rank
-            print(f"rank {rank}: starting {self.kernel} ...")
-            if self.particles.mpi_comm is not None:
-                self.particles.mpi_comm.Barrier()
-
-        # if init_kernels is not empty, do evaluations at initial positions 0:3
-        for ker_args in self.init_kernels:
-            ker = ker_args[0]
-            column_nr = ker_args[1]
-            comps = ker_args[2]
-            add_args = ker_args[3]
-
-            ker(
-                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                column_nr,
-                comps,
-                self.particles.args_markers,
-                self._args_domain,
-                *add_args,
-            )
-
-            # update boxes
-            if self._box_comm:
-                self.particles.put_particles_in_boxes()
-
-        # print(f"Runnign stages with {self._gpu = }")
-        # start stages (e.g. n_stages=4 for RK4)
-        for stage in range(self.n_stages):
-            # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = np.empty(1, dtype=int)
-            n_not_converged[0] = self.particles.n_mks_loc
-            k = 0
-
-            if self.verbose and self.maxiter > 1:
-                max_res = 1.0
-                print(
-                    f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
-                )
+            if self.verbose:
+                rank = self.particles.mpi_rank
+                print(f"rank {rank}: starting {self.kernel} ...")
                 if self.particles.mpi_comm is not None:
                     self.particles.mpi_comm.Barrier()
 
-            n_not_converged[0] = self.particles.Np
-            while True:
-                k += 1
+        with ProfileManager.profile_region("Pusher.__call__.init_kernels"):
+            # if init_kernels is not empty, do evaluations at initial positions 0:3
+            for ker_args in self.init_kernels:
+                ker = ker_args[0]
+                column_nr = ker_args[1]
+                comps = ker_args[2]
+                add_args = ker_args[3]
 
-                # if eval_kernels is not empty, do spline evaluations
-                for ker_args in self.eval_kernels:
-                    ker = ker_args[0]
-                    alpha = ker_args[1]
-                    column_nr = ker_args[2]
-                    comps = ker_args[3]
-                    add_args = ker_args[4]
-
-                    # sort according to alpha-weighted average
-                    if self.particles.mpi_comm is not None:
-                        self.particles.mpi_sort_markers(
-                            apply_bc=False,
-                            alpha=alpha[:3],
-                            remove_ghost=False,
-                            gpu=self._gpu,
-                        )
-
-                    # evaluate
-                    # with ProfileManager.profile_region(ker.__name__):
-                    with ProfileManager.profile_region(ker.__name__):
-                        ker(
-                            alpha,
-                            column_nr,
-                            comps,
-                            self.particles.args_markers,
-                            self._args_domain,
-                            *add_args,
-                        )
-
-                    # update boxes
-                    if self._box_comm:
-                        self.particles.put_particles_in_boxes()
-
-                # sort according to alpha-weighted average
-                if self.particles.mpi_comm is not None:
-                    with ProfileManager.profile_region("mpi_sort_markers"):
-                        self.particles.mpi_sort_markers(
-                            apply_bc=False,
-                            alpha=self._alpha_in_kernel,
-                            remove_ghost=False,
-                            gpu=self._gpu,
-                        )
-
-                # print(f'call kernel {self.kernel.__name__ = } with n_markers = {self.particles.args_markers.n_markers}')
-
-                # push markers
-                with ProfileManager.profile_region(self.kernel.__name__):
-                    # t0 = time.time()
-                    self.kernel(
-                        dt,
-                        stage,
+                with ProfileManager.profile_region(ker.__name__):
+                    ker(
+                        np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                        column_nr,
+                        comps,
                         self.particles.args_markers,
                         self._args_domain,
-                        *self._args_kernel,
+                        *add_args,
                     )
-                    # t1 = time.time()
-                    # print(f'return kernel {self.kernel = }')
-                    # print(f"Timing: {t1 - t0}")
-
-                with ProfileManager.profile_region("apply_kinetic_bc"):
-                    self.particles.apply_kinetic_bc(newton=self._newton, gpu=self._gpu)
-                self.particles.update_holes()
 
                 # update boxes
                 if self._box_comm:
                     self.particles.put_particles_in_boxes()
 
-                # compute number of non-converged particles (maxiter=1 for explicit schemes)
-                if self.maxiter > 1:
-                    self._residuals[:] = markers[:, residual_idx]
-                    max_res = np.max(self._residuals)
-                    if max_res < 0.0:
-                        max_res = None
-                    self._converged_loc[:] = self._residuals < self._tol
-                    self._not_converged_loc[:] = ~self._converged_loc
-                    n_not_converged[0] = np.count_nonzero(
-                        self._not_converged_loc,
+        with ProfileManager.profile_region("Pusher.__call__.stages_kernels"):
+            # print(f"Runnign stages with {self._gpu = }")
+            # start stages (e.g. n_stages=4 for RK4)
+            for stage in range(self.n_stages):
+                # start iteration (maxiter=1 for explicit schemes)
+                n_not_converged = np.empty(1, dtype=int)
+                n_not_converged[0] = self.particles.n_mks_loc
+                k = 0
+
+                if self.verbose and self.maxiter > 1:
+                    max_res = 1.0
+                    print(
+                        f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
                     )
-
-                    if self.verbose:
-                        print(
-                            f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
-                        )
-                        if self.particles.mpi_comm is not None:
-                            self.particles.mpi_comm.Barrier()
-
                     if self.particles.mpi_comm is not None:
-                        self.particles.mpi_comm.Allreduce(
-                            self._mpi_in_place,
-                            n_not_converged,
-                            op=self._mpi_sum,
+                        self.particles.mpi_comm.Barrier()
+
+                n_not_converged[0] = self.particles.Np
+                while True:
+                    k += 1
+
+                    # if eval_kernels is not empty, do spline evaluations
+                    for ker_args in self.eval_kernels:
+                        ker = ker_args[0]
+                        alpha = ker_args[1]
+                        column_nr = ker_args[2]
+                        comps = ker_args[3]
+                        add_args = ker_args[4]
+
+                        # sort according to alpha-weighted average
+                        if self.particles.mpi_comm is not None:
+                            self.particles.mpi_sort_markers(
+                                apply_bc=False,
+                                alpha=alpha[:3],
+                                remove_ghost=False,
+                                gpu=self._gpu,
+                            )
+
+                        # evaluate
+                        # with ProfileManager.profile_region(ker.__name__):
+                        with ProfileManager.profile_region(ker.__name__):
+                            ker(
+                                alpha,
+                                column_nr,
+                                comps,
+                                self.particles.args_markers,
+                                self._args_domain,
+                                *add_args,
+                            )
+
+                        # update boxes
+                        if self._box_comm:
+                            self.particles.put_particles_in_boxes()
+
+                    # sort according to alpha-weighted average
+                    if self.particles.mpi_comm is not None:
+                        with ProfileManager.profile_region("mpi_sort_markers"):
+                            self.particles.mpi_sort_markers(
+                                apply_bc=False,
+                                alpha=self._alpha_in_kernel,
+                                remove_ghost=False,
+                                gpu=self._gpu,
+                            )
+
+                    # print(f'call kernel {self.kernel.__name__ = } with n_markers = {self.particles.args_markers.n_markers}')
+
+                    # push markers
+                    with ProfileManager.profile_region(self.kernel.__name__):
+                        # t0 = time.time()
+                        self.kernel(
+                            dt,
+                            stage,
+                            self.particles.args_markers,
+                            self._args_domain,
+                            *self._args_kernel,
                         )
+                        # t1 = time.time()
+                        # print(f'return kernel {self.kernel = }')
+                        # print(f"Timing: {t1 - t0}")
 
-                    # take converged markers out of the loop
-                    markers[self._converged_loc, first_pusher_idx] = -1.0
+                    with ProfileManager.profile_region("apply_kinetic_bc"):
+                        self.particles.apply_kinetic_bc(newton=self._newton, gpu=self._gpu)
+                    self.particles.update_holes()
 
-                # maxiter=1 for explicit schemes
-                if k == self.maxiter:
+                    # update boxes
+                    if self._box_comm:
+                        self.particles.put_particles_in_boxes()
+
+                    # compute number of non-converged particles (maxiter=1 for explicit schemes)
                     if self.maxiter > 1:
-                        rank = self.particles.mpi_rank
-                        print(
-                            f"rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
+                        self._residuals[:] = markers[:, residual_idx]
+                        max_res = np.max(self._residuals)
+                        if max_res < 0.0:
+                            max_res = None
+                        self._converged_loc[:] = self._residuals < self._tol
+                        self._not_converged_loc[:] = ~self._converged_loc
+                        n_not_converged[0] = np.count_nonzero(
+                            self._not_converged_loc,
                         )
-                    # sort markers according to domain decomposition
-                    if self.mpi_sort == "each":
+
+                        if self.verbose:
+                            print(
+                                f"rank {rank}: {k = }, tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
+                            )
+                            if self.particles.mpi_comm is not None:
+                                self.particles.mpi_comm.Barrier()
+
                         if self.particles.mpi_comm is not None:
-                            with ProfileManager.profile_region("mpi_sort_markers"):
-                                self.particles.mpi_sort_markers(gpu=self._gpu)
-                        else:
-                            self.particles.apply_kinetic_bc(gpu=self._gpu)
-                    break
+                            self.particles.mpi_comm.Allreduce(
+                                self._mpi_in_place,
+                                n_not_converged,
+                                op=self._mpi_sum,
+                            )
 
-                # check for convergence
-                if n_not_converged[0] == 0:
-                    # sort markers according to domain decomposition
-                    if self.mpi_sort == "each":
-                        if self.particles.mpi_comm is not None:
-                            with ProfileManager.profile_region("mpi_sort_markers"):
-                                self.particles.mpi_sort_markers(gpu=self._gpu)
-                        else:
-                            self.particles.apply_kinetic_bc(gpu=self._gpu)
+                        # take converged markers out of the loop
+                        markers[self._converged_loc, first_pusher_idx] = -1.0
 
-                    break
+                    # maxiter=1 for explicit schemes
+                    if k == self.maxiter:
+                        if self.maxiter > 1:
+                            rank = self.particles.mpi_rank
+                            print(
+                                f"rank {rank}: {k = }, maxiter={self.maxiter} reached! tol: {self._tol}, {n_not_converged[0] = }, {max_res = }",
+                            )
+                        # sort markers according to domain decomposition
+                        if self.mpi_sort == "each":
+                            if self.particles.mpi_comm is not None:
+                                with ProfileManager.profile_region("mpi_sort_markers"):
+                                    self.particles.mpi_sort_markers(gpu=self._gpu)
+                            else:
+                                self.particles.apply_kinetic_bc(gpu=self._gpu)
+                        break
 
-            # print stage info
-            if self.verbose:
-                print(
-                    f"rank {rank}: stage {stage + 1} of {self.n_stages} done.",
-                )
+                    # check for convergence
+                    if n_not_converged[0] == 0:
+                        # sort markers according to domain decomposition
+                        if self.mpi_sort == "each":
+                            if self.particles.mpi_comm is not None:
+                                with ProfileManager.profile_region("mpi_sort_markers"):
+                                    self.particles.mpi_sort_markers(gpu=self._gpu)
+                            else:
+                                self.particles.apply_kinetic_bc(gpu=self._gpu)
+
+                        break
+
+                # print stage info
+                if self.verbose:
+                    print(
+                        f"rank {rank}: stage {stage + 1} of {self.n_stages} done.",
+                    )
+                    if self.particles.mpi_comm is not None:
+                        self.particles.mpi_comm.Barrier()
+
+            # sort markers according to domain decomposition
+            if self.mpi_sort == "last":
                 if self.particles.mpi_comm is not None:
-                    self.particles.mpi_comm.Barrier()
-
-        # sort markers according to domain decomposition
-        if self.mpi_sort == "last":
-            if self.particles.mpi_comm is not None:
-                with ProfileManager.profile_region("mpi_sort_markers"):
-                    self.particles.mpi_sort_markers(do_test=True)
-            else:
-                self.particles.apply_kinetic_bc(gpu=self._gpu)
+                    with ProfileManager.profile_region("mpi_sort_markers"):
+                        self.particles.mpi_sort_markers(do_test=True)
+                else:
+                    self.particles.apply_kinetic_bc(gpu=self._gpu)
 
     @property
     def particles(self):

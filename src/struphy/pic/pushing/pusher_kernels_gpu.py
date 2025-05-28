@@ -794,6 +794,111 @@ def push_v_sph_pressure_gpu(
 
     # -- removed omp: #$ omp end parallel
 
+# @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
+def sph_isotherm_pressure_coeffs_gpu(
+    alpha: "float[:]",
+    column_nr: int,
+    comps: "int[:]",
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    boxes: "int[:, :]",
+    neighbours: "int[:, :]",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+):
+    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+
+    .. math::
+
+        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
+        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+
+    that is
+
+    .. math::
+
+        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
+        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
+
+    where the evaluation point is the weighted average
+    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+    :math:`\boldsymbol \eta_p` beforehand.
+
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
+    in markers array for each particle.
+    """
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    n_cols = shape(markers)[1]
+    Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
+    valid_mks = args_markers.valid_mks
+
+    #$ omp target teams distribute parallel for
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle
+        if not valid_mks[ip]:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        loc_box = int(markers[ip, n_cols - 2])
+        # n_at_eta = sph_eval_kernels.boxed_based_kernel(
+        n_at_eta = boxed_based_kernel_inline(
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            markers,
+            Np,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            weight_idx,
+            kernel_type,
+            h1,
+            h2,
+            h3,
+        )
+        weight = markers[ip, weight_idx]
+        # save
+        markers[ip, column_nr] = n_at_eta
+        markers[ip, column_nr + 1] = weight / n_at_eta
+
+
+def compute_sorting_etas(
+        markers: "float[:,:]",
+        bi: int,
+        vdim : int,
+        alpha: "float[:]",
+        sorting_etas: "float[:,:]"
+        ):
+    n_markers = markers.shape[0]
+
+    #$ omp target teams distribute parallel for
+    for i in range(n_markers):
+        for d in range(3):
+            pos   = markers[i, d]
+            shift = markers[i, bi + 3 + vdim + d]
+            ppos  = markers[i, bi + d]
+
+            val = alpha[d] * (pos + shift) + (1.0 - alpha[d]) * ppos
+            sorting_etas[i, d] = val - floor(val)  # mod(val, 1.0)
+
+
 @inline
 def df_inv_inline(
     eta1: float,
@@ -1041,7 +1146,7 @@ def boxed_based_kernel_inline(
                 r1 = distance_inline(eta1, marker_p, periodic1)
                 r2 = distance_inline(eta2, markers[p, 1], periodic2)
                 r3 = distance_inline(eta3, markers[p, 2], periodic3)
-                
+
                 # smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _tmp)
                 _s1 = gaussian_uni(r3, h3)
                 _s2 = gaussian_uni(r2, h2)

@@ -1024,8 +1024,8 @@ class Particles(metaclass=ABCMeta):
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
 
         # if self._gpu:
-        
-        self._markers_gpu = cp.asarray(self._markers)
+        #     print("Allocating markers array on GPU")
+        #     self._markers_gpu = cp.asarray(self._markers)
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
         self._lost_markers = np.zeros((int(self.n_rows * 0.5), 10), dtype=float)
@@ -1594,6 +1594,8 @@ class Particles(metaclass=ABCMeta):
         # create new markers_to_be_sent array and make corresponding holes in markers array
         if gpu:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
+            # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu_pyccel(alpha=alpha)
+            
         else:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
 
@@ -3434,7 +3436,7 @@ class Particles(metaclass=ABCMeta):
 
         # Copy required marker slices to GPU
         m_cpu = self.markers
-        self._markers_gpu[:] = cp.asarray(m_cpu)
+        self._markers_gpu = cp.asarray(m_cpu)
         # m_part1 = cp.asarray(m_cpu[:, :3])  # positions
         # m_part2 = cp.asarray(m_cpu[:, bi + 3 + vdim : bi + 3 + vdim + 3])  # periodic shifts
         # m_part3 = cp.asarray(m_cpu[:, bi : bi + 3])  # physical positions
@@ -3466,6 +3468,67 @@ class Particles(metaclass=ABCMeta):
         hole_inds_after_send = cp.nonzero(cp.logical_or(~can_stay, cp.asarray(self.holes)))[0]
 
         return cp.asnumpy(hole_inds_after_send), cp.asnumpy(send_inds)
+
+
+    def sendrecv_determine_mtbs_gpu_pyccel(
+        self,
+        alpha: list | tuple | np.ndarray = (1.0, 1.0, 1.0),
+    ):
+        """
+        Determine which markers have to be sent from current process and put them in a new array.
+        Corresponding rows in markers array become holes and are therefore set to -1.
+        This can be done purely with numpy functions (fast, vectorized).
+
+        Parameters
+        ----------
+            alpha : list | tuple
+                For i=1,2,3 the sorting is according to alpha[i]*markers[:, i] + (1 - alpha[i])*markers[:, first_pusher_idx + i].
+                alpha[i] must be between 0 and 1.
+
+        Returns
+        -------
+            hole_inds_after_send : array[int]
+                Indices of empty columns in markers after send.
+
+            sorting_etas : array[float]
+                Eta-values of shape (n_send, :) according to which the sorting is performed.
+        """
+        from struphy.pic.pushing.pusher_kernels_gpu import compute_sorting_etas
+        # position that determines the sorting (including periodic shift of boundary conditions)
+        if not isinstance(alpha, np.ndarray):
+            alpha = np.array(alpha, dtype=float)
+        assert alpha.size == 3
+        assert np.all(alpha >= 0.0) and np.all(alpha <= 1.0)
+        bi = self.first_pusher_idx
+        # self._sorting_etas = np.mod(
+        #     alpha * (self.markers[:, :3] + self.markers[:, bi + 3 + self.vdim : bi + 3 + self.vdim + 3])
+        #     + (1.0 - alpha) * self.markers[:, bi : bi + 3],
+        #     1.0,
+        # )
+        N = self.markers.shape[0]
+        sorting_etas = np.zeros((N, 3), dtype=np.float64)
+        compute_sorting_etas(self.markers, bi, self.vdim, alpha, sorting_etas)
+        self._sorting_etas = sorting_etas
+
+        # check which particles are on the current process domain
+        self._is_on_proc_domain = np.logical_and(
+            self._sorting_etas > self.domain_array[self.mpi_rank, 0::3],
+            self._sorting_etas < self.domain_array[self.mpi_rank, 1::3],
+        )
+
+        # to stay on the current process, all three columns must be True
+        self._can_stay = np.all(self._is_on_proc_domain, axis=1)
+
+        # holes and ghosts can stay, too
+        self._can_stay[self.holes] = True
+        self._can_stay[self.ghost_particles] = True
+
+        # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
+        send_inds = np.nonzero(~self._can_stay)[0]
+
+        hole_inds_after_send = np.nonzero(np.logical_or(~self._can_stay, self.holes))[0]
+
+        return hole_inds_after_send, send_inds
 
     def sendrecv_get_destinations(self, send_inds):
         """

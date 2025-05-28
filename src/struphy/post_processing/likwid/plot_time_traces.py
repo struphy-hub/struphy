@@ -101,6 +101,7 @@ def plot_avg_duration_bar_chart(
     plt.figure(figsize=(12, 6))
     x = np.arange(len(regions))
     plt.bar(x, avg_durations, yerr=yerr, capsize=5, color="skyblue", edgecolor="k")
+    plt.yscale("log")
     plt.xticks(x, regions, rotation=45, ha="right")
     plt.ylabel("Duration (s)")
     plt.title("Average Duration per Profiling Region (with Min-Max Span)")
