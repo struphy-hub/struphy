@@ -193,7 +193,6 @@ class DomainArguments:
         self.cy = copy(cy)
         self.cz = copy(cz)
 
-
 def _tmp_floor_division_pusher_kernels(x: int):
     y = zeros(10)
     z = copy(y)
@@ -559,6 +558,12 @@ def push_v_sph_pressure_gpu(
     h1, h2, h3 : float
         Kernel width in respective dimension.
     """
+
+    # Variables
+    # _s1 = 0.0
+    # _s2 = 0.0
+    # _s3 = 0.0
+
     # allocate arrays
     grad_u = zeros(3, dtype=float)
     grad_u_cart = zeros(3, dtype=float)
@@ -573,6 +578,20 @@ def push_v_sph_pressure_gpu(
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
+
+    # Get domain args
+    args_domain_kind_map    = args_domain.kind_map
+    args_domain_params      = args_domain.params
+    args_domain_p           = args_domain.p
+    args_domain_t1          = args_domain.t1
+    args_domain_t2          = args_domain.t2
+    args_domain_t3          = args_domain.t3
+    args_domain_ind1        = args_domain.ind1
+    args_domain_ind2        = args_domain.ind2
+    args_domain_ind3        = args_domain.ind3
+    args_domain_cx          = args_domain.cx
+    args_domain_cy          = args_domain.cy
+    args_domain_cz          = args_domain.cz
 
     # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     # -- removed omp: #$ omp for
@@ -737,7 +756,21 @@ def push_v_sph_pressure_gpu(
             eta1,
             eta2,
             eta3,
-            args_domain,
+            # args_domain,
+            # args domain start
+            args_domain_kind_map,
+            args_domain_params,
+            args_domain_p, 
+            args_domain_t1,
+            args_domain_t2,
+            args_domain_t3,
+            args_domain_ind1,
+            args_domain_ind2,
+            args_domain_ind3,
+            args_domain_cx,      
+            args_domain_cy,
+            args_domain_cz,
+            # args domain end
             tmp1,
             False,
             dfinv,
@@ -761,13 +794,24 @@ def push_v_sph_pressure_gpu(
 
     # -- removed omp: #$ omp end parallel
 
-
 @inline
 def df_inv_inline(
     eta1: float,
     eta2: float,
     eta3: float,
-    args: "DomainArguments",
+    # args: "DomainArguments",
+    args_domain_kind_map: int,
+    args_domain_params: "float[:]",
+    args_domain_p: "int[:]", 
+    args_domain_t1: "float[:]",
+    args_domain_t2: "float[:]",
+    args_domain_t3: "float[:]",
+    args_domain_ind1: "int[:,:]",
+    args_domain_ind2: "int[:,:]",
+    args_domain_ind3: "int[:,:]",
+    args_domain_cx: "float[:,:,:]",
+    args_domain_cy: "float[:,:,:]",
+    args_domain_cz: "float[:,:,:]",
     tmp1: "float[:,:]",
     avoid_round_off: bool,
     dfinv_out: "float[:,:]",
@@ -793,13 +837,27 @@ def df_inv_inline(
     """
 
     # TODO: This should be called with args_xyz
-    # df_inline(
-    #     eta1,
-    #     eta2,
-    #     eta3,
-    #     args,
-    #     tmp1,
-    # )
+    df_inline(
+        eta1,
+        eta2,
+        eta3,
+        # args,
+        # args domain start
+        args_domain_kind_map,
+        args_domain_params,
+        args_domain_p, 
+        args_domain_t1,
+        args_domain_t2,
+        args_domain_t3,
+        args_domain_ind1,
+        args_domain_ind2,
+        args_domain_ind3,
+        args_domain_cx,      
+        args_domain_cy,
+        args_domain_cz,
+        # args domain end
+        tmp1,
+    )
     # matrix_inv_inline(tmp1, dfinv_out)
     
     # TODO: Use args_kind_map here
@@ -864,7 +922,19 @@ def df_inline(
     eta1: float,
     eta2: float,
     eta3: float,
-    args: "DomainArguments",
+    # args: "DomainArguments",
+    args_domain_kind_map: int,
+    args_domain_params: "float[:]",
+    args_domain_p: "int[:]", 
+    args_domain_t1: "float[:]",
+    args_domain_t2: "float[:]",
+    args_domain_t3: "float[:]",
+    args_domain_ind1: "int[:,:]",
+    args_domain_ind2: "int[:,:]",
+    args_domain_ind3: "int[:,:]",
+    args_domain_cx: "float[:,:,:]",
+    args_domain_cy: "float[:,:,:]",
+    args_domain_cz: "float[:,:,:]",
     df_out: "float[:,:]",
 ):
     """Point-wise evaluation of the Jacobian matrix DF = (dF_i/deta_j)_(i,j=1,2,3).
@@ -880,142 +950,19 @@ def df_inline(
     df_out : np.array
         Output array of shape (3, 3).
     """
-
-    if args.kind_map == 0:
-        spline_3d_df(
-            eta1,
-            eta2,
-            eta3,
-            args.p,
-            args.ind1,
-            args.ind2,
-            args.ind3,
-            args,
-            df_out,
-        )
-    elif args.kind_map == 1:
-        spline_2d_straight_df(
-            eta1,
-            eta2,
-            args.p,
-            args.ind1,
-            args.ind2,
-            args,
-            args.params[0],
-            df_out,
-        )
-    elif args.kind_map == 2:
-        spline_2d_torus_df(
-            eta1,
-            eta2,
-            eta3,
-            args.p,
-            args.ind1,
-            args.ind2,
-            args,
-            args.params[0],
-            df_out,
-        )
-    elif args.kind_map == 10:
+    # Let's assume it's 10
+    
+    if args_domain_kind_map == 10:
         cuboid_df(
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            args.params[4],
-            args.params[5],
+            args_domain_params[0],
+            args_domain_params[1],
+            args_domain_params[2],
+            args_domain_params[3],
+            args_domain_params[4],
+            args_domain_params[5],
             df_out,
         )
-    elif args.kind_map == 11:
-        orthogonal_df(
-            eta1,
-            eta2,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            df_out,
-        )
-    elif args.kind_map == 12:
-        colella_df(
-            eta1,
-            eta2,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            df_out,
-        )
-    elif args.kind_map == 20:
-        hollow_cyl_df(
-            eta1,
-            eta2,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            df_out,
-        )
-    elif args.kind_map == 21:
-        powered_ellipse_df(
-            eta1,
-            eta2,
-            eta3,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            df_out,
-        )
-    elif args.kind_map == 22:
-        hollow_torus_df(
-            eta1,
-            eta2,
-            eta3,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            args.params[4],
-            args.params[5],
-            df_out,
-        )
-    elif args.kind_map == 30:
-        shafranov_shift_df(
-            eta1,
-            eta2,
-            eta3,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            df_out,
-        )
-    elif args.kind_map == 31:
-        shafranov_sqrt_df(
-            eta1,
-            eta2,
-            eta3,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            df_out,
-        )
-    elif args.kind_map == 32:
-        shafranov_dshaped_df(
-            eta1,
-            eta2,
-            eta3,
-            args.params[0],
-            args.params[1],
-            args.params[2],
-            args.params[3],
-            args.params[4],
-            args.params[5],
-            args.params[6],
-            df_out,
-        )
+    
 
 
 @inline
@@ -1094,8 +1041,12 @@ def boxed_based_kernel_inline(
                 r1 = distance_inline(eta1, marker_p, periodic1)
                 r2 = distance_inline(eta2, markers[p, 1], periodic2)
                 r3 = distance_inline(eta3, markers[p, 2], periodic3)
-                smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _tmp)
-                out = out + markers[p, index] * _tmp
+                
+                # smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _tmp)
+                _s1 = gaussian_uni(r3, h3)
+                _s2 = gaussian_uni(r2, h2)
+                _s3 = gaussian_uni(r3, h3)
+                out = out + markers[p, index] * _s1 * _s2 * _s3
     return out / Np
 
 @inline
@@ -1583,6 +1534,20 @@ def gaussian_uni(
     return out
 
 @inline
+def gaussian_uni_noreturn(
+    x: "float",
+    h: "float",
+    out: "float",
+) -> float:
+    """Uni-variate S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
+    if abs(x / h) <= 1.0:
+        out =  1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
+    else:
+        out = 0.0
+
+
+
+@inline
 def grad_gaussian_uni(
     x: "float",
     h: "float",
@@ -1910,12 +1875,20 @@ def gaussian_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    # out: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
-    s1 = gaussian_uni(r1, h1)
-    s2 = gaussian_uni(r2, h2)
-    s3 = gaussian_uni(r3, h3)
-    return s1 * s2 * s3
+    # _s1 = 1.0
+    # _s2 = 2.0
+    _asdasdasd2 = 2.0
+    _asdasdasd2 = 2.0 * 2.0
+    # _s1 = gaussian_uni(r1, h1)
+    # _s2 = _s1 * 2.0 # gaussian_uni(r2, h2)
+    # _s1 = gaussian_uni(r3, h3)
+    # _s2 = gaussian_uni(r2, h2)
+    # _s3 = gaussian_uni(r3, h3)
+    out = 1.0
+    return 1.0#_s1 * _s2 #s1 * s2 * s3
 
 @inline
 def grad_gaussian_3d_1(
@@ -2134,9 +2107,8 @@ def smoothing_kernel_inline(
     - 3d kernels >= 670
 
     If you add a kernel, make sure it is also added to :meth:`~struphy.pic.base.Particles.ker_dct`."""
-    out = 0.0
-    out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
-    # return 0.0
+    out = 1.0
+
     # 1d kernels
     if kernel_type == 100:
         out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
@@ -2185,8 +2157,14 @@ def smoothing_kernel_inline(
     # elif kernel_type == 673:
     #     out = grad_trigonometric_3d_3(r1, r2, r3, h1, h2, h3)
 
-    # elif kernel_type == 680:
-    #     out = gaussian_3d(r1, r2, r3, h1, h2, h3)
+    # TODO: Make this work
+    elif kernel_type == 680:
+        # out = out * gaussian_3d(r1, r2, r3, h1, h2, h3)
+        gaussian_uni_noreturn(r1, h1, out)
+        # out2 = 0.0
+        # gaussian_uni_noreturn(r2, h2,out2)
+        # out = out * gaussian_uni(r2, h2)
+        # out = out * gaussian_uni(r3, h3)
     # elif kernel_type == 681:
     #     out = grad_gaussian_3d_1(r1, r2, r3, h1, h2, h3)
     # elif kernel_type == 682:
