@@ -338,7 +338,6 @@ def eval_magnetic_energy_PBb(
     first_diagnostics_idx: int,
     abs_B0: "float[:,:,:]",
     PBb: "float[:,:,:]",
-    deltaf: "bool",
 ):
     r"""
     Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
@@ -358,10 +357,8 @@ def eval_magnetic_energy_PBb(
 
         eta[:] = mod(markers[ip, 0:3], 1.)
 
-        if deltaf:
-            weight = markers[ip, 5]
-        else:
-            weight = markers[ip, 7]
+        weight = markers[ip, 7]
+        dweight = markers[ip, 5]
 
         mu = markers[ip, first_diagnostics_idx + 1]
 
@@ -397,7 +394,7 @@ def eval_magnetic_energy_PBb(
             PBb,
         )
 
-        markers[ip, first_diagnostics_idx] = mu * weight * (abs_B + PB_b)
+        markers[ip, first_diagnostics_idx] = mu * (dweight * abs_B + weight * PB_b)
 
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
@@ -522,7 +519,6 @@ def accum_en_fB_mid(
     grad_PB_b2: "float[:,:,:]",
     grad_PB_b3: "float[:,:,:]",
     scale: "float",
-    reduced_coupling: "bool",
 ):
     r"""TODO"""
 
@@ -557,10 +553,7 @@ def accum_en_fB_mid(
         eta_diff = markers[ip, 0:3] - markers[ip, 11:14]
 
         # marker weight and velocity
-        if reduced_coupling:
-            weight = markers[ip, 5]
-        else:
-            weight = markers[ip, 7]
+        weight = markers[ip, 5]
         mu = markers[ip, 9]
 
         # b-field evaluation

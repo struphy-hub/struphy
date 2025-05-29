@@ -1592,7 +1592,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        use_PB: str,
     ):
         super().__init__(u, b)
 
@@ -1609,39 +1608,19 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._boundary_cut_e1 = boundary_cut["e1"]
 
-        if use_PB:
-            self._ACC = AccumulatorVector(
-                particles,
-                'H1',
-                accum_kernels_gc.cc_lin_mhd_5d_M_scalar,
-                self.mass_ops,
-                self.domain.args_domain,
-                filter_params=filter,
-            )
+        self._ACC = AccumulatorVector(
+            particles,
+            'H1',
+            accum_kernels_gc.cc_lin_mhd_5d_M_scalar,
+            self.mass_ops,
+            self.domain.args_domain,
+            filter_params=filter,
+        )
 
-            self._args_accum_kernel= (
-                self._scale_vec,
-            )
-
-        else:
-            self._ACC = Accumulator(
-                particles,
-                'Hdiv',
-                accum_kernels_gc.cc_lin_mhd_5d_M,
-                self.mass_ops,
-                self.domain.args_domain,
-                add_vector=True,
-                symmetry="symm",
-                filter_params=filter,
-            )
-
-            self._args_accum_kernel= (
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._scale_vec,
-                self._boundary_cut_e1,
-            )
+        self._args_accum_kernel= (
+            self._scale_vec,
+            False,
+        )
 
         # if self._particles.control_variate:
 
@@ -1678,12 +1657,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
         self._C = 1 / 2 * self.derham.curl @ _T
-
-        if use_PB:
-            self._B2 = -1 / 2 * _T.T @ self.derham.curl.T @ _PB.T
-        
-        else:
-            self._B2 = -1 / 2 * _T.T @ self.derham.curl.T
+        self._B2 = -1 / 2 * _T.T @ self.derham.curl.T @ _PB.T
 
         # Preconditioner
         if solver["type"][1] is None:
@@ -1858,6 +1832,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
         MJb_on: bool = options(default=True)["MJb_on"],
+        include_feq_b: bool,
     ):
         super().__init__(n, u, p)
 
@@ -1882,23 +1857,18 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._boundary_cut_e1 = boundary_cut["e1"]
         self._MJb_on = MJb_on
 
-        self._ACC = Accumulator(
+        self._ACC = AccumulatorVector(
             particles,
-            'Hdiv',
-            accum_kernels_gc.cc_lin_mhd_5d_M,
+            'H1',
+            accum_kernels_gc.cc_lin_mhd_5d_M_scalar,
             self.mass_ops,
             self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
             filter_params=filter,
         )
 
-        self._args_accum_kernel =(
-                self._unit_b1[0]._data,
-                self._unit_b1[1]._data,
-                self._unit_b1[2]._data,
-                self._scale_vec,
-                self._boundary_cut_e1,
+        self._args_accum_kernel= (
+            self._scale_vec,
+            include_feq_b,
         )
         # if self._particles.control_variate:
 
@@ -1951,13 +1921,15 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             _U = getattr(self.basis_ops, id_U)
             _UT = _U.T
 
+        _PB = getattr(self.basis_ops, "PB")
+
         self._B = -1 / 2.0 * _UT @ self.derham.div.T @ self.mass_ops.M3
         self._C = 1 / 2.0 * (self.derham.div @ _S + 2 / 3.0 * _K @ self.derham.div @ _U)
 
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
-        self._TC = self._TBT @ self.derham.curl.T
+        self._TC = self._TBT @ self.derham.curl.T @ _PB.T
 
         # preconditioner
         if solver["type"][1] is None:
@@ -2197,8 +2169,6 @@ class CurrentCoupling5DDensity(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
-        dct["full_f"] = True
-        dct["nonlinear"] = False
         dct["turn_off"] = False
 
         if default:
@@ -2221,8 +2191,6 @@ class CurrentCoupling5DDensity(Propagator):
         epsilon: float = 1.0,
         filter: dict = options(default=True)["filter"],
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        full_f: bool = options(default=True)["full_f"],
-        nonlinear: bool = options(default=True)["nonlinear"]
     ):
         super().__init__(u)
 
@@ -2250,9 +2218,6 @@ class CurrentCoupling5DDensity(Propagator):
         self._scale_mat = coupling_params["Ah"] / coupling_params["Ab"] / self._epsilon
 
         self._boundary_cut_e1 = boundary_cut["e1"]
-
-        self._full_f = full_f
-        self._nonlinear = nonlinear
 
         self._accumulator = Accumulator(
             particles,
@@ -2409,9 +2374,6 @@ class CurrentCoupling5DDensity(Propagator):
 
         self._accumulator(
             self._epsilon,
-            self._b_eq[0]._data,
-            self._b_eq[1]._data,
-            self._b_eq[2]._data,
             Eb_full[0]._data,
             Eb_full[1]._data,
             Eb_full[2]._data,
@@ -2424,8 +2386,6 @@ class CurrentCoupling5DDensity(Propagator):
             self._space_key_int,
             self._scale_mat,
             self._boundary_cut_e1,
-            self._full_f,
-            self._nonlinear,
         )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n

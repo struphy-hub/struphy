@@ -75,9 +75,6 @@ def cc_lin_mhd_5d_D(
     mat13: "float[:,:,:,:,:,:]",
     mat23: "float[:,:,:,:,:,:]",
     epsilon: float,  # model specific argument
-    beq2_1: "float[:,:,:]",  # model specific argument
-    beq2_2: "float[:,:,:]",  # model specific argument
-    beq2_3: "float[:,:,:]",  # model specific argument
     b2_1: "float[:,:,:]",  # model specific argument
     b2_2: "float[:,:,:]",  # model specific argument
     b2_3: "float[:,:,:]",  # model specific argument
@@ -90,8 +87,6 @@ def cc_lin_mhd_5d_D(
     basis_u: "int",  # model specific argument
     scale_mat: "float",  # model specific argument
     boundary_cut: float,  # model specific argument
-    full_f: bool,  # model specific argument
-    nonlinear:bool, # model specific argument
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`.
 
@@ -160,8 +155,6 @@ def cc_lin_mhd_5d_D(
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        eval_2form_spline_mpi(span1, span2, span3, args_derham, beq2_1, beq2_2, beq2_3, beq)
         eval_2form_spline_mpi(span1, span2, span3, args_derham, b2_1, b2_2, b2_3, b)
 
         # norm_b1; 1form
@@ -171,21 +164,12 @@ def cc_lin_mhd_5d_D(
         eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
 
         # operator bx() as matrix
-        if nonlinear:
-            b_prod[0, 1] = -b[2]
-            b_prod[0, 2] = +b[1]
-            b_prod[1, 0] = +b[2]
-            b_prod[1, 2] = -b[0]
-            b_prod[2, 0] = -b[1]
-            b_prod[2, 1] = +b[0]
-
-        else:
-            b_prod[0, 1] = -beq[2]
-            b_prod[0, 2] = +beq[1]
-            b_prod[1, 0] = +beq[2]
-            b_prod[1, 2] = -beq[0]
-            b_prod[2, 0] = -beq[1]
-            b_prod[2, 1] = +beq[0]
+        b_prod[0, 1] = -b[2]
+        b_prod[0, 2] = +b[1]
+        b_prod[1, 0] = +b[2]
+        b_prod[1, 2] = -b[0]
+        b_prod[2, 0] = -b[1]
+        b_prod[2, 1] = +b[0]
 
         # evaluate Jacobian matrix and Jacobian determinant
         evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfm)
@@ -206,10 +190,7 @@ def cc_lin_mhd_5d_D(
         density_const = 1 - b_para / b_star_para
 
         # marker weight
-        if full_f:
-            weight = markers[ip, 7]
-        else:
-            weight = markers[ip, 5]
+        weight = markers[ip, 7]
 
         if basis_u == 0:
             # filling functions
@@ -399,7 +380,7 @@ def cc_lin_mhd_5d_curlb(
     scale_mat: "float",  # model specific argument
     scale_vec: "float",  # model specific argument
     boundary_cut: "float",  # model specific argument
-    reduced_coupling: "bool",  # model specific argument
+    include_feq_b: "bool",  # model specific argument
 ):
     r"""TODO"""
 
@@ -445,6 +426,7 @@ def cc_lin_mhd_5d_curlb(
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
+        weight = markers[ip, 7]
         dweight = markers[ip, 5]
         v = markers[ip, 3]
 
@@ -513,9 +495,12 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
-
-            filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
-            filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para * scale_vec
+            if include_feq_b:
+                filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+                filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para * scale_vec
+            else:
+                filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 * scale_mat
+                filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v0vec_symm(
@@ -558,8 +543,12 @@ def cc_lin_mhd_5d_curlb(
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
-            filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            if include_feq_b:
+                filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+                filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
+            else:
+                filling_m[:, :] += dweight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * scale_mat
+                filling_v[:] += dweight * tmp_v * v**2 / abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v2_symm(
@@ -655,7 +644,7 @@ def cc_lin_mhd_5d_gradB(
     scale_mat: "float",  # model specific argument
     scale_vec: "float",  # model specific argument
     boundary_cut: "float",  # model specific argument
-    reduced_coupling: "bool",  # model specific argument
+    include_feq_b: "bool",  # model specific argument
 ):
     r"""TODO"""
 
@@ -701,10 +690,8 @@ def cc_lin_mhd_5d_gradB(
 
         # marker weight and velocity
         dweight = markers[ip, 5]
-        if reduced_coupling:
-            weight = dweight
-        else:
-            weight = markers[ip, 7]
+        weight = markers[ip, 7]
+
         v = markers[ip, 3]
         mu = markers[ip, 9]
 
@@ -784,7 +771,10 @@ def cc_lin_mhd_5d_gradB(
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            if include_feq_b:
+                filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            else:
+                filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # b x grad b para
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
@@ -813,11 +803,14 @@ def cc_lin_mhd_5d_gradB(
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-            filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            if include_feq_b:
+                filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            else:
+                filling_v[:] += dweight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # b x grad b para
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
-
+            
             filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
 
             # call the appropriate matvec filler
@@ -1286,6 +1279,7 @@ def cc_lin_mhd_5d_M_scalar(
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
     scale_vec: "float",  # model specific argument
+    include_feq_b: "bool",  # model specific argument
 ):
     r"""TODO"""
 
@@ -1303,10 +1297,14 @@ def cc_lin_mhd_5d_M_scalar(
         eta3 = markers[ip, 2]
 
         # marker weight and velocity
-        weight = markers[ip, 5]
+        dweight = markers[ip, 5]
+        weight = markers[ip, 7]
         mu = markers[ip, 9]
 
-        filling = weight * mu * scale_vec
+        if include_feq_b:
+            filling = weight * mu * scale_vec
+        else:
+            filling = dweight * mu * scale_vec
 
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham, eta1, eta2, eta3, vec, filling)

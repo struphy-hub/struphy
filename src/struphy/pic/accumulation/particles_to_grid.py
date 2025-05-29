@@ -245,25 +245,6 @@ class Accumulator:
                         vec.update_ghost_regions()
 
                 elif self.filter_params["use_filter"] == "hybrid":
-                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
-
-                    for _ in range(self.filter_params["repeat"]):
-                        for i in range(3):
-                            filters.apply_three_point_filter_2d(
-                                vec[i]._data,
-                                i,
-                                form,
-                                np.array(self.derham.Nel),
-                                np.array(self.derham.spl_kind),
-                                np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
-                                alpha=self.filter_params["alpha"],
-                            )
-
-                        vec.update_ghost_regions()
-
-                elif self.filter_params["use_filter"] == "hybrid2":
                     for _ in range(self.filter_params["repeat"]):
                         for i in range(3):
                             filters.apply_three_point_filter_3d(
@@ -694,7 +675,7 @@ class AccumulatorVector:
 
                             vec.update_ghost_regions()
 
-                elif self.filter_params["use_filter"] == "hybrid2":
+                elif self.filter_params["use_filter"] == "hybrid":
                     for _ in range(self.filter_params["repeat"]):
                         if self.space_id in ("H1", "L2"):
                             filters.apply_three_point_filter_3d(

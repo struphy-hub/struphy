@@ -2330,7 +2330,6 @@ def push_gc_cc_J2_dg_init_Hdiv(
     norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
     curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
     u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-    relaxed_alpha: float,
 ):
     r'''TODO'''
 
@@ -2455,8 +2454,6 @@ def push_gc_cc_J2_dg_init_Hdiv(
         e /= det_df
 
         markers[ip, 0:3] -= dt*e
-        markers[ip, 0:3] *= relaxed_alpha
-        markers[ip, 0:3] += eta_old * (1. - relaxed_alpha)
 
 
 @stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'ud', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b_prod', 'eta_old', 'eta_mid')

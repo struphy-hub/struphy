@@ -693,16 +693,11 @@ class LinearMHDDriftkineticCC(StruphyModel):
         )
         cls.add_option(
             species=["kinetic", "energetic_ions"],
-            key="reduced_coupling",
+            key="include_feq_b",
             option=[False],
             dct=dct,
         )
-        cls.add_option(
-            species=["kinetic", "energetic_ions"],
-            key="use_PB",
-            option=[False],
-            dct=dct,
-        )
+
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -715,8 +710,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["spaces"]["velocity"]
-        self._reduced_coupling = params["kinetic"]["energetic_ions"]["options"]["reduced_coupling"]
-        self._use_PB = params["kinetic"]["energetic_ions"]["options"]["use_PB"]
+        self._include_feq_b = params["kinetic"]["energetic_ions"]["options"]["include_feq_b"]
         params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfvenCurrentCoupling5D"]
         params_sonic = params["fluid"]["mhd"]["options"]["MagnetosonicCurrentCoupling5D"]
         params_density = params["fluid"]["mhd"]["options"]["CurrentCoupling5DDensity"]
@@ -822,7 +816,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
-                "reduced_coupling": self._reduced_coupling,
+                "include_feq_b": self._include_feq_b,
             }
 
         if params_cc_gradB_dg["turn_off"]:
@@ -842,7 +836,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_cc_gradB_dg["filter"],
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
-                "reduced_coupling": self._reduced_coupling,
             }
 
         if params_cc_curlb["turn_off"]:
@@ -861,7 +854,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_curlb["boundary_cut"],
-                "reduced_coupling": self._reduced_coupling,
+                "include_feq_b": self._include_feq_b,
             }
 
         if params_density["turn_off"]:
@@ -878,8 +871,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "epsilon": epsilon,
                 "boundary_cut": params_density["boundary_cut"],
-                "full_f": params_density["full_f"],
-                "nonlinear": params_density["nonlinear"],
             }
 
         if params_alfven["turn_off"]:
@@ -894,7 +885,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_alfven["filter"],
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_alfven["boundary_cut"],
-                "use_PB": self._use_PB,
             }
 
         if params_sonic["turn_off"]:
@@ -911,6 +901,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_sonic["boundary_cut"],
                 "MJb_on": params_sonic["MJb_on"],
+                "include_feq_b": self._include_feq_b,
             }
 
         # Initialize propagators used in splitting substeps
@@ -982,7 +973,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self._en_fv[0] = (
             self.pointer["energetic_ions"]
-            .markers[~self.pointer["energetic_ions"].holes, 7]
+            .markers[~self.pointer["energetic_ions"].holes, 5]
             .dot(
                 self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 3] ** 2,
             )
@@ -994,17 +985,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar("en_fv", self._en_fv[0])
 
         # calculate particle magnetic energy
-        if self._use_PB:
-            self._PBb = self._PB.dot(self.pointer["b_field"])
-            
-            self.pointer["energetic_ions"].save_magnetic_energy(
-                self._PBb, df= self._reduced_coupling, use_PB=self._use_PB,
-            )
-
-        else:
-            self.pointer["energetic_ions"].save_magnetic_energy(
-                self.pointer["b_field"], df= self._reduced_coupling, use_PB=self._use_PB,
-            )
+        self._PBb = self._PB.dot(self.pointer["b_field"])
+        self.pointer["energetic_ions"].save_magnetic_energy(self._PBb)
 
         self._en_fB[0] = np.sum(
             self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 8]) * self._coupling_params["Ah"] / self._coupling_params["Ab"]
