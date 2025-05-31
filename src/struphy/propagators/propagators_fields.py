@@ -1572,6 +1572,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             "e2": 0.0,
             "e3": 0.0,
         }
+        dct["higher_order"] = False
         dct["turn_off"] = False
 
         if default:
@@ -1592,6 +1593,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
+        higher_order: dict = options(default=True)["higher_order"]
     ):
         super().__init__(u, b)
 
@@ -1605,6 +1607,12 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         self._E1T = self.derham.extraction_ops["1"].transpose()
         self._unit_b1 = self._E1T.dot(self._unit_b1)
+
+        self._u_id = self.derham.space_to_form[u_space]
+        if self._u_id == "v":
+            self._space_key_int = 0
+        else:
+            self._space_key_int = int(self._u_id)
 
         self._boundary_cut_e1 = boundary_cut["e1"]
 
@@ -1655,9 +1663,17 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         _T = getattr(self.basis_ops, id_T)
         _PB = getattr(self.basis_ops, "PB")
 
-        self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
-        self._C = 1 / 2 * self.derham.curl @ _T
-        self._B2 = -1 / 2 * _T.T @ self.derham.curl.T @ _PB.T
+        # initialize projection operator TB
+        self._initialize_projection_operator_TBT()
+
+        if higher_order:
+            self._B = -1 / 2 * (_T.T + self._TBT) @ self.derham.curl.T @ self.mass_ops.M2
+            self._C = 1 / 2 * self.derham.curl @ _T
+            self._B2 = -1 / 2 * (_T.T + self._TBT) @ self.derham.curl.T @ _PB.T
+        else:
+            self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
+            self._C = 1 / 2 * self.derham.curl @ _T
+            self._B2 = -1 / 2 * _T.T @ self.derham.curl.T @ _PB.T
 
         # Preconditioner
         if solver["type"][1] is None:
@@ -1730,6 +1746,107 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             print("Maxdiff up for ShearAlfven:", max_du)
             print("Maxdiff b2 for ShearAlfven:", max_db)
             print()
+
+
+    def _initialize_projection_operator_TBT(self):
+        r"""Initialize BasisProjectionOperator TB with the time-varying weight.
+
+        .. math::
+
+            \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}²_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
+
+        """
+
+        # Call the projector and the space
+        P1 = self.derham.P["1"]
+        Vh = self.derham.Vh_fem[self._u_id]
+
+        # Femfield for the field evaluation
+        self._bf = self.derham.create_field("bf", "Hdiv")
+
+        # Initialize BasisProjectionOperator
+        if self.derham._with_local_projectors == True:
+            self._TBT = BasisProjectionOperatorLocal(P1, 
+                                                     Vh, 
+                                                     [[None, None, None],
+                                                      [None, None, None],
+                                                      [None, None, None],], 
+                                                     transposed=True,
+                                                     use_cache=True,
+                                                     polar_shift=True,
+                                                     V_extraction_op=self.derham.extraction_ops[self._u_id],
+                                                     V_boundary_op=self.derham.boundary_ops[self._u_id],
+                                                     P_boundary_op=self.derham.boundary_ops["1"],)
+        else:
+            self._TBT = BasisProjectionOperator(P1, 
+                                                Vh, 
+                                                [[None, None, None],
+                                                 [None, None, None],
+                                                 [None, None, None],], 
+                                                transposed=True,
+                                                use_cache=True,
+                                                polar_shift=True,
+                                                V_extraction_op=self.derham.extraction_ops[self._u_id],
+                                                V_boundary_op=self.derham.boundary_ops[self._u_id],
+                                                P_boundary_op=self.derham.boundary_ops["1"],)
+    def _update_weights_TBT(self):
+        """Updats time-dependent weights of the BasisProjectionOperator TB"""
+
+        # Update Femfield
+        self._bf.vector = self._b
+
+        # define callable weights
+        def bf1(x, y, z):
+            return self._bf(x, y, z, local=True)[0]
+
+        def bf2(x, y, z):
+            return self._bf(x, y, z, local=True)[1]
+
+        def bf3(x, y, z):
+            return self._bf(x, y, z, local=True)[2]
+
+        from struphy.feec.utilities import RotationMatrix
+
+        rot_B =RotationMatrix(bf1, bf2, bf3)
+
+        fun = []
+
+        if self._u_id == "v":
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n],
+                    ]
+
+        elif self._u_id == "1":
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: (
+                            rot_B(e1, e2, e3)
+                            @ self.domain.metric_inv(
+                                e1,
+                                e2,
+                                e3,
+                                change_out_order=True,
+                                squeeze_out=False,
+                            )
+                        )[:, :, :, m, n],
+                    ]
+
+        else:
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n]
+                        / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False)),
+                    ]
+
+        # Initialize BasisProjectionOperator
+        self._TBT.update_weights(fun)
 
 
 class MagnetosonicCurrentCoupling5D(Propagator):
@@ -1992,8 +2109,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._b.update_ghost_regions()
         self._update_weights_TBT()
 
-        b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
-        byn2 += b2acc
+        #b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
+        #byn2 += b2acc
 
         byn2 *= 1 / 2
         byn1 -= byn2

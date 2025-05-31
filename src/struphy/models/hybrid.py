@@ -885,6 +885,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "filter": params_alfven["filter"],
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_alfven["boundary_cut"],
+                "higher_order": params_alfven["higher_order"],
             }
 
         if params_sonic["turn_off"]:
