@@ -1,15 +1,17 @@
 import os
 import pickle
+import re
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import re
+
 
 def glob_to_regex(pat: str) -> str:
     # Escape all regex metachars, then convert \* → .* and \? → .
     esc = re.escape(pat)
     return "^" + esc.replace(r"\*", ".*").replace(r"\?", ".") + "$"
+
 
 def plot_region(region_name, groups_include=["*"], groups_skip=[]):
     # skips first
@@ -25,6 +27,7 @@ def plot_region(region_name, groups_include=["*"], groups_skip=[]):
             return True
 
     return False
+
 
 def plot_time_vs_duration(
     paths,
@@ -49,15 +52,15 @@ def plot_time_vs_duration(
             profiling_data = pickle.load(file)
 
         # Create a color map for each unique region
-        unique_regions = set(region_name for rank_data in profiling_data["rank_data"].values() for region_name in rank_data)
+        unique_regions = set(
+            region_name for rank_data in profiling_data["rank_data"].values() for region_name in rank_data
+        )
         color_map = {region_name: plt.cm.tab10(i % 10) for i, region_name in enumerate(unique_regions)}
-        
 
         # Iterate through each rank's data
         for rank_name, rank_data in profiling_data["rank_data"].items():
             for region_name, info in rank_data.items():
-                
-                if plot_region(region_name = region_name, groups_include=groups_include, groups_skip=groups_skip):
+                if plot_region(region_name=region_name, groups_include=groups_include, groups_skip=groups_skip):
                     start_times = info["start_times"]
                     durations = info["durations"]
 
@@ -65,10 +68,8 @@ def plot_time_vs_duration(
                     color = color_map[region_name]
                     label = f"{region_name}" if rank_name == "rank_0" else None
                     if len(paths) > 1:
-                        label += f' ({path.split('/')[-2]})'
-                    plt.plot(
-                        start_times, durations, "x-", color=color, label=label
-                    )
+                        label += f" ({path.split('/')[-2]})"
+                    plt.plot(start_times, durations, "x-", color=color, label=label)
         xmax = max(start_times)
         x = 0
         if show_spans:
@@ -187,7 +188,7 @@ def plot_gantt_chart(
 
         # Iterate through each region in the sorted order
         for region_idx, region_name in enumerate(region_names):
-            if not plot_region(region_name = region_name, groups_include=groups_include, groups_skip=groups_skip):
+            if not plot_region(region_name=region_name, groups_include=groups_include, groups_skip=groups_skip):
                 continue
             start_y = current_y  # Starting y position for the first rank in this region
 
@@ -260,31 +261,28 @@ if __name__ == "__main__":
         "--simulations",
         nargs="+",
         default=["sim_1"],
-        help="One or more simulations to compare (e.g. --simulations sim_1 sim_2)"
+        help="One or more simulations to compare (e.g. --simulations sim_1 sim_2)",
     )
 
     parser.add_argument(
         "--groups",
         nargs="+",
         default=["*"],
-        help="One or more groups to include (e.g. --groups model.integrate PushEta PushVxB)"
+        help="One or more groups to include (e.g. --groups model.integrate PushEta PushVxB)",
     )
 
     parser.add_argument(
         "--groups-skip",
         nargs="+",
         default=[],
-        help="One or more groups to skip (e.g. --groups-skip model.integrate PushEta PushVxB)"
+        help="One or more groups to skip (e.g. --groups-skip model.integrate PushEta PushVxB)",
     )
-
-
 
     args = parser.parse_args()
     # path = os.path.abspath(args.path)  # Convert to absolute path
     # simulations = parser.simulations
 
     paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
-        
 
     # Plot the time trace
     plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
