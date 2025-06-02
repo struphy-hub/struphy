@@ -11,6 +11,7 @@ def plot_time_vs_duration(
     output_path,
     groups_include=["*"],
     groups_skip=[],
+    show_spans=False,
 ):
     """
     Plot start times versus durations for all profiling regions from all MPI ranks,
@@ -48,11 +49,12 @@ def plot_time_vs_duration(
             )
     xmax = max(start_times)
     x = 0
-    while x < xmax:
-        xa = x + info["config"]["sample_duration"]
-        xb = xa + (info["config"]["sample_interval"] - info["config"]["sample_duration"])
-        plt.axvspan(xa, xb, alpha=0.5, color="red", zorder=1)
-        x += info["config"]["sample_interval"]
+    if show_spans:
+        while x < xmax:
+            xa = x + info["config"]["sample_duration"]
+            xb = xa + (info["config"]["sample_interval"] - info["config"]["sample_duration"])
+            plt.axvspan(xa, xb, alpha=0.5, color="red", zorder=1)
+            x += info["config"]["sample_interval"]
 
     plt.title("Time vs. Duration for Profiling Regions")
     plt.xlabel("Start Time (s)")
