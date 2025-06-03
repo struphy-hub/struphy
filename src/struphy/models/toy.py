@@ -145,9 +145,9 @@ class Vlasov(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=amrex)
 
         from mpi4py.MPI import IN_PLACE, SUM
 

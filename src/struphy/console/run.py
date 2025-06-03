@@ -30,6 +30,7 @@ def struphy_run(
     time_trace=False,
     sample_duration=1.0,
     sample_interval=1.0,
+    amrex=False,
 ):
     """Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -180,6 +181,10 @@ def struphy_run(
         "--nclones",
         str(nclones),
     ]
+    if amrex:
+        cmd_main += [
+            "--amrex",
+        ]
     if time_trace:
         cmd_main += [
             "--time-trace",

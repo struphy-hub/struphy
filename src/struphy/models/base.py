@@ -40,6 +40,7 @@ class StruphyModel(metaclass=ABCMeta):
         params: dict,
         comm: MPI.Intracomm = None,
         clone_config: CloneConfig = None,
+        amrex: bool = False,
     ):
         from struphy.feec.basis_projection_ops import BasisProjectionOperators
         from struphy.feec.mass import WeightedMassOperators
@@ -58,6 +59,8 @@ class StruphyModel(metaclass=ABCMeta):
         assert "em_fields" in self.options()
         assert "fluid" in self.options()
         assert "kinetic" in self.options()
+
+        self.amrex = amrex
 
         if params is None:
             params = self.generate_default_parameter_file(
@@ -932,7 +935,8 @@ class StruphyModel(metaclass=ABCMeta):
                             print("No perturbation.")
 
                     obj.draw_markers(sort=True, verbose=self.verbose)
-                    obj.mpi_sort_markers(do_test=True)
+                    if not self.amrex:
+                        obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":
@@ -1832,6 +1836,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     projected_equil=self.projected_equil,
                     bckgr_params=bckgr_params,
                     pert_params=pert_params,
+                    amrex=self.amrex,
                 )
 
                 obj = val["obj"]

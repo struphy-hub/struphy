@@ -10,6 +10,7 @@ def main(
     supress_out: bool = False,
     sort_step: int = 0,
     num_clones: int = 1,
+    amrex: bool = False,
 ):
     """
     Run a Struphy model.
@@ -112,6 +113,9 @@ def main(
             clone_config.print_particle_config()
 
     # instantiate Struphy model (will allocate model objects and associated memory)
+    if amrex:
+        from struphy.pic.amrex import Amrex
+        amrex_obj = Amrex()
     StruphyModel.verbose = verbose
 
     objs = [fluid, kinetic, hybrid, toy]
@@ -122,7 +126,7 @@ def main(
             pass
 
     with ProfileManager.profile_region("model_class_setup"):
-        model = model_class(params=params, comm=comm, clone_config=clone_config)
+        model = model_class(params=params, comm=comm, clone_config=clone_config, amrex=amrex)
 
     assert isinstance(model, StruphyModel)
 
@@ -299,6 +303,9 @@ def main(
                 print(message, end="\n")
                 model.print_scalar_quantities()
                 print()
+    
+    if amrex:
+        amrex_obj.finalize()
 
     # ===================================================================
 
@@ -360,6 +367,13 @@ if __name__ == "__main__":
         "-r",
         "--restart",
         help="restart the simulation in the output folder specified under -o",
+        action="store_true",
+    )
+    
+    # amrex
+    parser.add_argument(
+        "--amrex",
+        help="use pyAMReX for particles",
         action="store_true",
     )
 
@@ -459,6 +473,7 @@ if __name__ == "__main__":
             supress_out=args.supress_out,
             sort_step=args.sort_step,
             num_clones=args.nclones,
+            amrex = args.amrex,
         )
     pylikwid_markerclose()
     if config.time_trace:
