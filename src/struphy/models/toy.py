@@ -1250,7 +1250,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
         # dct['em_fields']['b_field'] = 'Hdiv'
         # dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
-        dct["fluid"]["mhd"] = {"u": "Hdiv", "ue": "Hdiv", "potential": "L2", "forceterm1": "Hdiv", "forceterm2": "Hdiv",}
+        dct["fluid"]["mhd"] = {"u": "Hdiv", "ue": "Hdiv", "potential": "L2", }
         return dct
 
     @staticmethod
@@ -1263,7 +1263,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.TwoFluidQuasiNeutralFull: ["mhd_u", "mhd_ue", "mhd_potential", "mhd_forceterm1", "mhd_forceterm2"]}
+        return {propagators_fields.TwoFluidQuasiNeutralFull: ["mhd_u", "mhd_ue", "mhd_potential"]}
 
     __em_fields__ = species()["em_fields"]
     __fluid_species__ = species()["fluid"]
@@ -1273,9 +1273,9 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
-
-        # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
+
+        from mpi4py.MPI import IN_PLACE, SUM
 
         # Check MPI size to ensure only one MPI process
         size = comm.Get_size()
@@ -1285,23 +1285,20 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             return  # Early return to stop execution for multiple MPI processes
 
         # extract necessary parameters
-        stokes_solver = params["fluid"]["mhd"]["options"]["Stokes"]["solver"]
-        stokes_nu = params["fluid"]["mhd"]["options"]["Stokes"]["nu"]
-        stokes_nu_e = params["fluid"]["mhd"]["options"]["Stokes"]["nu_e"]
-        stokes_a = params["fluid"]["mhd"]["options"]["Stokes"]["a"]
-        stokes_R0 = params["fluid"]["mhd"]["options"]["Stokes"]["R0"]
-        stokes_B0 = params["fluid"]["mhd"]["options"]["Stokes"]["B0"]
-        stokes_Bp = params["fluid"]["mhd"]["options"]["Stokes"]["Bp"]
-        stokes_alpha = params["fluid"]["mhd"]["options"]["Stokes"]["alpha"]
-        stokes_beta = params["fluid"]["mhd"]["options"]["Stokes"]["beta"]
-        stokes_eps = params["fluid"]["mhd"]["options"]["Stokes"]["eps"]
-        stokes_Nel = params["grid"]["Nel"]
-        stokes_p = params["grid"]["p"]
-        stokes_spl_kind = params["grid"]["spl_kind"]
-        stokes_variant = params["fluid"]["mhd"]["options"]["Stokes"]["variant"]
-        stokes_method_to_solve = params["fluid"]["mhd"]["options"]["Stokes"]["method_to_solve"]
-        stokes_preconditioner = params["fluid"]["mhd"]["options"]["Stokes"]["preconditioner"]
-        stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["Stokes"]["spectralanalysis"]
+        stokes_solver = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["solver"]
+        stokes_nu = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["nu"]
+        stokes_nu_e = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["nu_e"]
+        stokes_a = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["a"]
+        stokes_R0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["R0"]
+        stokes_B0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["B0"]
+        stokes_Bp = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["Bp"]
+        stokes_alpha = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["alpha"]
+        stokes_beta = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["beta"]
+        stokes_eps = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["eps"]
+        stokes_variant = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["variant"]
+        stokes_method_to_solve = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["method_to_solve"]
+        stokes_preconditioner = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["preconditioner"]
+        stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["spectralanalysis"]
 
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
@@ -1315,9 +1312,6 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             "alpha": stokes_alpha,
             "beta": stokes_beta,
             "eps": stokes_eps,
-            "Nel": stokes_Nel,
-            "p": stokes_p,
-            "spl_kind": stokes_spl_kind,
             "variant": stokes_variant,
             "method_to_solve": stokes_method_to_solve,
             "preconditioner": stokes_preconditioner,
@@ -1330,6 +1324,11 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         # # Scalar variables to be saved during simulation
         self.add_scalar("en_U")
 
+        # MPI operations needed for scalar variables
+        self._mpi_sum = SUM
+        self._mpi_in_place = IN_PLACE
+        self._tmp = np.empty(1, dtype=float)
+
         # # temporary vectors for scalar quantities
         self._tmp_u1 = self.derham.Vh["2"].zeros()
 
@@ -1337,4 +1336,3 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         # # perturbed fields
         x = 1
         y = 2
-
