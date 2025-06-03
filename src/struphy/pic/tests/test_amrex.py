@@ -67,7 +67,8 @@ def display_top(snapshot, file, key_type="lineno", limit=10):
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coords=True):
     # initialize Amrex
-    amrex = Amrex()
+    amrex_obj = Amrex()
+    amrex = True
 
     # define domain
     l1 = -0.5
@@ -132,7 +133,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
         particle_container = particles_1_amrex.markers
 
         for pti in particle_container.iterator(particle_container, 0):
-            markers_array = particles_1_amrex.get_amrex_markers_array(pti.soa(), particles_1_amrex.index["coords"])
+            markers_array = particles_1_amrex.get_amrex_markers_array(pti.soa())
             markers_array["x"][:] = pos[:, 0]
             markers_array["y"][:] = pos[:, 1]
             markers_array["z"][:] = pos[:, 2]
@@ -428,7 +429,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
 
         plt.savefig("./position_struphy.jpg")
 
-    amrex.finalize()
+    amrex_obj.finalize()
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
@@ -442,7 +443,8 @@ def test_amrex_box(plot=False, verbose=False):
     domain = Cuboid(l1=l1, r1=r1, l2=l2, r2=r2, l3=l3, r3=r3)
 
     # initialize amrex
-    amrex = Amrex()
+    amrex_obj = Amrex()
+    amrex = True
 
     # mandatory parameters
     name = "test"
@@ -582,7 +584,7 @@ def test_amrex_box(plot=False, verbose=False):
         )
 
     # finalize amrex
-    amrex.finalize()
+    amrex_obj.finalize()
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
@@ -593,7 +595,8 @@ def test_amrex_cylinder(plot=False, verbose=False):
     domain = HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 
     # initialize amrex
-    amrex = Amrex()
+    amrex_obj = Amrex()
+    amrex = True
 
     # instantiate Particle object
     name = "test"
@@ -699,7 +702,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
         )
 
     # finalize amrex
-    amrex.finalize()
+    amrex_obj.finalize()
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
@@ -756,7 +759,8 @@ def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
         plt.savefig("./uniform_draw_cylinder_struphy.jpg")
 
     # instantiate Amrex object
-    amrex = Amrex()
+    amrex_obj = Amrex()
+    amrex = True
 
     # instantiate Particle object
     name = "test"
@@ -807,7 +811,7 @@ def test_amrex_draw_uniform_cylinder(plot=False, verbose=False):
         plt.savefig("./uniform_draw_cylinder_amrex.jpg")
 
     # finalize Amrex
-    amrex.finalize()
+    amrex_obj.finalize()
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
@@ -825,7 +829,8 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
     dt = 0.5
 
     # initialize amrex
-    amrex = Amrex()
+    amrex_obj = Amrex()
+    amrex = True
 
     bc = ["reflect", "periodic", "periodic"]
 
@@ -851,7 +856,7 @@ def test_amrex_boundary_conditions_box(plot=False, verbose=False):
             amrex_pos, Np, colors, alpha, l1, l2, r1, r2, "Amrex boundary behaviour", "./bc_box_amrex.jpg"
         )
 
-    amrex.finalize()
+    amrex_obj.finalize()
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
@@ -866,7 +871,8 @@ def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
     dt = 0.5
 
     # initialize amrex
-    amrex = Amrex()
+    amrex_obj = Amrex()
+    amrex = True
 
     bc = ["reflect", "periodic", "periodic"]
 
@@ -883,7 +889,7 @@ def test_amrex_boundary_conditions_cylinder(plot=False, verbose=False):
 
         plot_cylinder_over_time(amrex_pos, Np, colors, alpha, a2, "Amrex boundary behaviour", "./bc_cylinder_amrex.jpg")
 
-    amrex.finalize()
+    amrex_obj.finalize()
 
 
 def initialize_and_draw_struphy_amrex(domain, Np, bc, amrex):
@@ -1064,7 +1070,8 @@ def profile_push_v_in_efield(sort="calls"):
     domain = Cuboid(l1=l1, r1=r1, l2=l2, r2=r2, l3=l3, r3=r3)
 
     # initialize amrex
-    amrex = Amrex()
+    amrex_obj = Amrex()
+    amrex = True
 
     bc = ["reflect", "periodic", "periodic"]
 
@@ -1076,7 +1083,7 @@ def profile_push_v_in_efield(sort="calls"):
     particle_container = amrex_particles.markers
 
     for pti in particle_container.iterator(particle_container, 0):
-        markers_array = amrex_particles.get_amrex_markers_array(pti.soa(), amrex_particles.index["coords"])
+        markers_array = amrex_particles.get_amrex_markers_array(pti.soa())
         markers_array["x"][:] = pos[:, 0]
         markers_array["y"][:] = pos[:, 1]
         markers_array["z"][:] = pos[:, 2]
@@ -1108,12 +1115,20 @@ def profile_push_v_in_efield(sort="calls"):
     np.testing.assert_allclose(amrex_particles.positions, struphy_particles.positions)
     np.testing.assert_allclose(amrex_particles.velocities, struphy_particles.velocities)
 
-    amrex.finalize()
+    amrex_obj.finalize()
+    
+def test_all():
+    test_amrex_box()
+    test_amrex_cylinder()
+    test_amrex_draw_uniform_cylinder()
+    test_amrex_push_v_in_e_field()
+    test_amrex_boundary_conditions_box()
+    test_amrex_boundary_conditions_cylinder()
 
 
 if __name__ == "__main__":
-    profile_push_v_in_efield("cumtime")  # sort = 'cumtime'
-    # test_amrex_push_v_in_e_field()
+    # profile_push_v_in_efield("cumtime")  # sort = 'cumtime'
+    test_all()
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
@@ -1122,8 +1137,8 @@ if __name__ == "__main__":
 # profiling with more cores
 # work on GPU with cupy
 # transform push_v_with_efield DONE
-# profile with tracemalloc
+# profile with tracemalloc DONE
 
 # git push -o ci.skip
 
-# !!!! La cache sarà invalida dopo redistribute !!!!
+ # profile regions

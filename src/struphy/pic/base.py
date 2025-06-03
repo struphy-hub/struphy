@@ -170,12 +170,9 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         equation_params: dict = None,
         verbose: bool = False,
-        amrex: Amrex = None,
+        amrex: bool = False,
     ):
-        if amrex is not None:
-            self.amrex = True
-        else:
-            self.amrex = False
+        self.amrex = amrex
 
         self._clone_config = clone_config
         if self.clone_config is None:
@@ -1021,7 +1018,7 @@ class Particles(metaclass=ABCMeta):
                             equil=self.equil,
                         )
 
-    def _set_background_coordinates(self):
+    def _set_background_coordinates(self): # TODO (Mati) look this up!!!
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
             # Particles6D
             if self.vdim == 3:
@@ -1487,7 +1484,7 @@ class Particles(metaclass=ABCMeta):
         if self.type == "sph":
             self._set_initial_condition()
             for pti in self._markers.iterator(self._markers, 0):
-                markers_array = self.get_amrex_markers_array(pti.soa(), self.index["coords"])
+                markers_array = self.get_amrex_markers_array(pti.soa())
                 positions = np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float)
                 velocities = self.u_init(positions)[0]
                 markers_array["v1"][:] = velocities[0][:]
@@ -1503,7 +1500,7 @@ class Particles(metaclass=ABCMeta):
             )
 
             for pti in self._markers.iterator(self._markers, 0):
-                markers_array = self.get_amrex_markers_array(pti.soa(), self.index["vel"])
+                markers_array = self.get_amrex_markers_array(pti.soa())
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
@@ -1957,11 +1954,11 @@ class Particles(metaclass=ABCMeta):
                 if self.type != "sph":
                     self._set_initial_condition()
 
-                # # evaluate initial distribution function
-                # if self.type == "sph":
-                #     f_init = self.f_init(self.positions)
-                # else:
-                #     f_init = self.f_init(*self.f_coords.T)
+                # evaluate initial distribution function
+                if self.type == "sph":
+                    f_init = self.f_init(np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float))
+                else:
+                    f_init = self.f_init(*self.f_coords.T) # TODO (Mati) look this up
 
                 # if f_init is vol-form, transform to 0-form
                 if self.pforms[0] == "vol":
@@ -1984,9 +1981,7 @@ class Particles(metaclass=ABCMeta):
                 )[:]
                 # compute w0
                 markers_array["w0"][:] = (
-                    self.f_init(
-                        np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float)
-                    )
+                    f_init
                     / markers_array["s0"]
                 )[:]
 
@@ -2317,7 +2312,7 @@ class Particles(metaclass=ABCMeta):
 
         return is_outside_left, is_outside_right, outside_inds
 
-    def get_amrex_markers_array(self, soa, needed_idx_names=None):
+    def get_amrex_markers_array(self, soa):
         """
         Create a zero-copy view of the real components of a amrex particle container. Minimizes memory allocations.
         """
@@ -2328,14 +2323,10 @@ class Particles(metaclass=ABCMeta):
 
         real_comp_names = soa.real_names
 
-        if needed_idx_names is not None:
-            for idx_name in needed_idx_names:
-                self._markers_array[idx_name] = soa.get_real_data(real_comp_names.index(idx_name)).to_numpy(copy=False)
-        else:
-            if len(real_comp_names) != soa.num_real_comps:
-                raise ValueError("Missing names for SoA Real components.")
-            for idx_real in range(soa.num_real_comps):
-                self._markers_array[real_comp_names[idx_real]] = soa.get_real_data(idx_real).to_numpy(copy=False)
+        if len(real_comp_names) != soa.num_real_comps:
+            raise ValueError("Missing names for SoA Real components.")
+        for idx_real in range(soa.num_real_comps):
+            self._markers_array[real_comp_names[idx_real]] = soa.get_real_data(idx_real).to_numpy(copy=False)
 
         return self._markers_array
 
@@ -2351,9 +2342,7 @@ class Particles(metaclass=ABCMeta):
         """
 
         for pti in self._markers.iterator(self._markers, 0):
-            # markers_array=self.get_amrex_markers_array(pti.soa())
-            soa = pti.soa()
-            markers_array = self.get_amrex_markers_array(soa, self.index["coords"])
+            markers_array=self.get_amrex_markers_array(pti.soa())
 
             # remove feature not yet implemented
             for axis in self._remove_axes:

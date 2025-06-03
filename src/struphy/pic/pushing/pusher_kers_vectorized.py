@@ -39,7 +39,7 @@ def push_vxb_analytic(
     b_norm = empty(particles.Np)
 
     for pti in particles.markers.iterator(particles.markers, 0):
-        markers_array = particles.get_amrex_markers_array(pti.soa(), particles.index["coords"])
+        markers_array = particles.get_amrex_markers_array(pti.soa())
         e1 = markers_array["x"]
         e2 = markers_array["y"]
         e3 = markers_array["z"]
@@ -248,7 +248,7 @@ def push_v_with_efield(
     e_form = empty((particles.Np, 3, 1), dtype=float)
 
     for pti in particles.markers.iterator(particles.markers, 0):
-        markers_array = particles.get_amrex_markers_array(pti.soa(), particles.index["coords"])
+        markers_array = particles.get_amrex_markers_array(pti.soa())
         e1 = markers_array["x"]
         e2 = markers_array["y"]
         e3 = markers_array["z"]
