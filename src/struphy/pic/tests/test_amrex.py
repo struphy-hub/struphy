@@ -1090,7 +1090,7 @@ def profile_push_v_in_efield(sort="calls"):
     # instantiate Propagator object
     struphy_prop_eta = PushEta(struphy_particles, algo="forward_euler")
     amrex_prop_eta = PushEta(amrex_particles, algo="forward_euler")
-    
+
     with cProfile.Profile() as pr:
         print("#### AMREX ####")
         for _ in range(1000):
@@ -1104,7 +1104,7 @@ def profile_push_v_in_efield(sort="calls"):
             struphy_prop_eta(0.2)
         ps = pstats.Stats(pr).sort_stats(sort)
         ps.print_stats(10)
-        
+
     np.testing.assert_allclose(amrex_particles.positions, struphy_particles.positions)
     np.testing.assert_allclose(amrex_particles.velocities, struphy_particles.velocities)
 
@@ -1112,7 +1112,7 @@ def profile_push_v_in_efield(sort="calls"):
 
 
 if __name__ == "__main__":
-    profile_push_v_in_efield('cumtime')  # sort = 'cumtime'
+    profile_push_v_in_efield("cumtime")  # sort = 'cumtime'
     # test_amrex_push_v_in_e_field()
 
 
