@@ -16,7 +16,7 @@ try:
 except ImportError:
     amr = None
 
-Np = 4000
+Np = 40
 seed = None
 
 import cProfile
@@ -132,7 +132,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
         particle_container = particles_1_amrex.markers
 
         for pti in particle_container.iterator(particle_container, 0):
-            markers_array = pti.soa().to_numpy()[0]
+            markers_array = particles_1_amrex.get_amrex_markers_array(pti.soa(), particles_1_amrex.index["coords"])
             markers_array["x"][:] = pos[:, 0]
             markers_array["y"][:] = pos[:, 1]
             markers_array["z"][:] = pos[:, 2]
@@ -247,22 +247,22 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
         prop_eta_1_struphy(dt / 2)
 
         if same_phasespace_coords:
-            assert np.all(particles_1_amrex.positions == particles_1_struphy.positions)
-            assert np.all(particles_1_amrex.velocities == particles_1_struphy.velocities)
+            np.testing.assert_allclose(particles_1_amrex.positions, particles_1_struphy.positions)
+            np.testing.assert_allclose(particles_1_amrex.velocities, particles_1_struphy.velocities)
 
         prop_v_1_amrex(dt)
         prop_v_1_struphy(dt)
 
         if same_phasespace_coords:
-            assert np.all(particles_1_amrex.positions == particles_1_struphy.positions)
-            assert np.all(particles_1_amrex.velocities == particles_1_struphy.velocities)
+            np.testing.assert_allclose(particles_1_amrex.positions, particles_1_struphy.positions)
+            np.testing.assert_allclose(particles_1_amrex.velocities, particles_1_struphy.velocities)
 
         prop_eta_1_amrex(dt / 2)
         prop_eta_1_struphy(dt / 2)
 
         if same_phasespace_coords:
-            assert np.all(particles_1_amrex.positions == particles_1_struphy.positions)
-            assert np.all(particles_1_amrex.velocities == particles_1_struphy.velocities)
+            np.testing.assert_allclose(particles_1_amrex.positions, particles_1_struphy.positions)
+            np.testing.assert_allclose(particles_1_amrex.velocities, particles_1_struphy.velocities)
 
         if verbose:
             print("*************** AFTER TIMESTEP ***************")
@@ -1070,33 +1070,50 @@ def profile_push_v_in_efield(sort="calls"):
 
     struphy_particles, amrex_particles = initialize_and_draw_struphy_amrex(domain, Np, bc, amrex)
 
+    pos = struphy_particles.positions
+    vel = struphy_particles.velocities
+
+    particle_container = amrex_particles.markers
+
+    for pti in particle_container.iterator(particle_container, 0):
+        markers_array = amrex_particles.get_amrex_markers_array(pti.soa(), amrex_particles.index["coords"])
+        markers_array["x"][:] = pos[:, 0]
+        markers_array["y"][:] = pos[:, 1]
+        markers_array["z"][:] = pos[:, 2]
+        markers_array["v1"][:] = vel[:, 0]
+        markers_array["v2"][:] = vel[:, 1]
+        markers_array["v3"][:] = vel[:, 2]
+
     # pass simulation parameters to Propagator class
     PushEta.domain = domain
 
     # instantiate Propagator object
-    struphy_prop_eta = PushEta(struphy_particles)
-    amrex_prop_eta = PushEta(amrex_particles)
-
+    struphy_prop_eta = PushEta(struphy_particles, algo="forward_euler")
+    amrex_prop_eta = PushEta(amrex_particles, algo="forward_euler")
+    
     with cProfile.Profile() as pr:
         print("#### AMREX ####")
         for _ in range(1000):
             amrex_prop_eta(0.2)
         ps = pstats.Stats(pr).sort_stats(sort)
-        ps.print_stats(0.1)
+        ps.print_stats(10)
 
     with cProfile.Profile() as pr:
         print("#### STRUPHY ####")
         for _ in range(1000):
             struphy_prop_eta(0.2)
         ps = pstats.Stats(pr).sort_stats(sort)
-        ps.print_stats(0.1)
+        ps.print_stats(10)
+        
+    np.testing.assert_allclose(amrex_particles.positions, struphy_particles.positions)
+    np.testing.assert_allclose(amrex_particles.velocities, struphy_particles.velocities)
 
     amrex.finalize()
 
 
 if __name__ == "__main__":
-    test_amrex_push_v_in_e_field()
-    profile_push_v_in_efield("tottime")  # sort = 'cumtime'
+    profile_push_v_in_efield('cumtime')  # sort = 'cumtime'
+    # test_amrex_push_v_in_e_field()
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
@@ -1108,3 +1125,5 @@ if __name__ == "__main__":
 # profile with tracemalloc
 
 # git push -o ci.skip
+
+# !!!! La cache sarà invalida dopo redistribute !!!!
