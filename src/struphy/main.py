@@ -56,7 +56,7 @@ def main(
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
-    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.psydac_derham import SplineFunction
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
     from struphy.io.setup import pre_processing
@@ -266,7 +266,7 @@ def main(
             for key, val in model.em_fields.items():
                 if "params" not in key:
                     field = val["obj"]
-                    assert isinstance(field, Derham.Field)
+                    assert isinstance(field, SplineFunction)
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     field.extract_coeffs(update_ghost_regions=False)
 
@@ -274,14 +274,14 @@ def main(
                 for variable, subval in val.items():
                     if "params" not in variable:
                         field = subval["obj"]
-                        assert isinstance(field, Derham.Field)
+                        assert isinstance(field, SplineFunction)
                         # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                         field.extract_coeffs(update_ghost_regions=False)
 
             for key, val in model.diagnostics.items():
                 if "params" not in key:
                     field = val["obj"]
-                    assert isinstance(field, Derham.Field)
+                    assert isinstance(field, SplineFunction)
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     field.extract_coeffs(update_ghost_regions=False)
 
