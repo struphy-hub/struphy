@@ -389,7 +389,7 @@ def struphy():
         help="run with Cprofile",
         action="store_true",
     )
-    
+
     parser_run.add_argument(
         "--amrex",
         help="use pyAMReX for particles",

@@ -115,6 +115,7 @@ def main(
     # instantiate Struphy model (will allocate model objects and associated memory)
     if amrex:
         from struphy.pic.amrex import Amrex
+
         amrex_obj = Amrex()
     StruphyModel.verbose = verbose
 
@@ -303,7 +304,7 @@ def main(
                 print(message, end="\n")
                 model.print_scalar_quantities()
                 print()
-    
+
     if amrex:
         amrex_obj.finalize()
 
@@ -369,7 +370,7 @@ if __name__ == "__main__":
         help="restart the simulation in the output folder specified under -o",
         action="store_true",
     )
-    
+
     # amrex
     parser.add_argument(
         "--amrex",
@@ -473,7 +474,7 @@ if __name__ == "__main__":
             supress_out=args.supress_out,
             sort_step=args.sort_step,
             num_clones=args.nclones,
-            amrex = args.amrex,
+            amrex=args.amrex,
         )
     pylikwid_markerclose()
     if config.time_trace:

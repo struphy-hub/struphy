@@ -795,7 +795,7 @@ class Domain(metaclass=ABCMeta):
             # to keep C-ordering the (3, 3)-part is in the last indices
             out = np.empty((len(E1), 3, 3), dtype=float)
 
-            n_inside = evaluation_kernels.kernel_evaluate_pic_flat(
+            n_inside = evaluation_kernels.kernel_evaluate_flat(
                 E1,
                 E2,
                 E3,

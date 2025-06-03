@@ -956,7 +956,7 @@ def kernel_evaluate_pic(
 
 
 @stack_array("tmp0", "tmp1", "tmp2", "tmp3", "out")
-def kernel_evaluate_pic_flat(
+def kernel_evaluate_flat(
     E1: "float[:]",
     E2: "float[:]",
     E3: "float[:]",
