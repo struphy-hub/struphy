@@ -134,17 +134,17 @@ class ManufacturedSolutionForceterm:
             #     + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._b
             #     - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
             # )
-            # fx = (
-            #     2.0 * np.pi * np.cos(2 * np.pi * x)
-            #     + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
-            # )
+            fx = (
+                2.0 * np.pi * np.cos(2 * np.pi * x)
+                + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)  # + (np.sin(2 * np.pi * x)) / 0.1
+            )
             # fx = (
             #     2.0 * np.pi * np.cos(2 * np.pi * x)
             #     - self._b * np.cos(2 * np.pi * x)
             #     + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
             # )
 
-            fx = 2.0 * np.pi * np.cos(2 * np.pi * x) + (np.sin(2 * np.pi * x) + 1.0) / 0.1
+            # fx = 2.0 * np.pi * np.cos(2 * np.pi * x) + (np.sin(2 * np.pi * x) + 1.0) / 0.1
 
             """y component"""
             # fy = (
@@ -152,15 +152,15 @@ class ManufacturedSolutionForceterm:
             #     - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._b
             #     - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
             # )
-            # fy = (
-            #     + (np.sin(2 * np.pi * x) + 1.0)  * self._b
-            # )
+            fy = (
+                 (np.sin(2 * np.pi * x) + 1.0)  * self._b
+            )
             # fy = (
             #     + np.sin(2 * np.pi * x)  * self._b
             #     + self._nu * 4.0 * np.pi**2 * np.cos(2 * np.pi * x)
             # )
 
-            fy = 0.0 * x
+            # fy = 0.0 * x
 
             """z component"""
             fz = 0.0 * x
@@ -182,17 +182,17 @@ class ManufacturedSolutionForceterm:
             #     - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._b
             #     - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
             # )
-            # fx = (
-            #     -2.0 * np.pi * np.cos(2 * np.pi * x)
-            #     + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
-            # )
+            fx = (
+                -2.0 * np.pi * np.cos(2 * np.pi * x)
+                + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) - 0.001*np.sin(2 * np.pi * x)
+            )
             # fx = (
             #     -2.0 * np.pi * np.cos(2 * np.pi * x)
             #     + np.cos(2 * np.pi * x) * self._b
             #     + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
             # )
 
-            fx = -2.0 * np.pi * np.cos(2 * np.pi * x) - 1e-3 * np.sin(2 * np.pi * x)
+            # fx = -2.0 * np.pi * np.cos(2 * np.pi * x) - 1e-3 * np.sin(2 * np.pi * x)
 
             """y component"""
             # fy = (
@@ -200,15 +200,15 @@ class ManufacturedSolutionForceterm:
             #     + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._b
             #     - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
             # )
-            # fy = (
-            #     - np.sin(2 * np.pi * x) * self._b
-            # )
+            fy = (
+                - np.sin(2 * np.pi * x) * self._b
+            )
             # fy = (
             #     - np.sin(2 * np.pi * x) * self._b
             #     + 4.0 * np.pi**2 * np.cos(2 * np.pi * x) * self._nu_e
             # )
 
-            fy = 0.0 * x
+            # fy = 0.0 * x
 
             """z component"""
             fz = 0.0 * x

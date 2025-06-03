@@ -976,7 +976,7 @@ class ManufacturedSolutionVelocity:
             """Velocity of electrons."""
             """x component"""
             # ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-            ux = np.sin(2 * np.pi * x)
+            ux = np.sin(2.0 * np.pi * x)
 
             """y component"""
             # uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
@@ -1037,6 +1037,6 @@ class ManufacturedSolutionPotential:
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
         # phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
-        phi = np.sin(2 * np.pi * x)
+        phi = np.sin(2.0 * np.pi * x)
 
         return phi
